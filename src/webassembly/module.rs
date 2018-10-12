@@ -39,7 +39,7 @@ pub enum Export {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Module {
     /// Unprocessed signatures exactly as provided by `declare_signature()`.
     pub signatures: Vec<ir::Signature>,

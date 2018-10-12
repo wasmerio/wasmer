@@ -1,4 +1,4 @@
-// Shamelessly copied from greenwasm-spectest:
+// Code adapted from greenwasm-spectest
 // https://github.com/Kimundi/greenwasm/blob/master/greenwasm-spectest/src/lib.rs
 
 #![deny(missing_docs)]

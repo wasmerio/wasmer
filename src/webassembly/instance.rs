@@ -10,6 +10,10 @@ use super::compilation::Compilation;
 /// An Instance of a WebAssemby module.
 #[derive(Debug)]
 pub struct Instance {
+    // pub module: Box<Module>,
+
+    // pub compilation: Box<Compilation>,
+
     /// WebAssembly table data.
     pub tables: Vec<Vec<usize>>,
 
@@ -28,12 +32,17 @@ impl Instance {
         data_initializers: &[DataInitializer],
     ) -> Self {
         let mut result = Self {
+            // module: Box::new(module),
+            // compilation: Box::new(compilation),
             tables: Vec::new(),
             memories: Vec::new(),
             globals: Vec::new(),
         };
+        // println!("Instance::instantiate tables");
         result.instantiate_tables(module, compilation, &module.table_elements);
+        // println!("Instance::instantiate memories");
         result.instantiate_memories(module, data_initializers);
+        // println!("Instance::instantiate globals");
         result.instantiate_globals(module);
         result
     }
@@ -70,12 +79,23 @@ impl Instance {
     fn instantiate_memories(&mut self, module: &Module, data_initializers: &[DataInitializer]) {
         debug_assert!(self.memories.is_empty());
         // Allocate the underlying memory and initialize it to all zeros.
+        // println!("instantiate_memories::reserve exact");
         self.memories.reserve_exact(module.memories.len());
+        // println!("instantiate_memories::loop");
         for memory in &module.memories {
-            let v = LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32));
+            // println!("instantiate_memories::new linear memory: {}", memory.pages_count);
+            // We do this so at least there is one page
+            let pages_count = if (memory.pages_count as u32) > 0 {
+                memory.pages_count as u32
+            }
+            else  {
+                1
+            };
+            let v = LinearMemory::new(pages_count, memory.maximum.map(|m| m as u32));
             self.memories.push(v);
         }
         for init in data_initializers {
+            // println!("instantiate_memories::initialize data");
             debug_assert!(init.base.is_none(), "globalvar base not supported yet");
             let mem_mut = self.memories[init.memory_index].as_mut();
             let to_init = &mut mem_mut[init.offset..init.offset + init.data.len()];

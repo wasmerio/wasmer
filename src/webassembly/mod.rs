@@ -4,6 +4,7 @@ pub mod memory;
 pub mod environ;
 pub mod instance;
 pub mod errors;
+pub mod execute;
 pub mod utils;
 
 use cranelift_native;
@@ -16,15 +17,16 @@ pub use self::environ::ModuleEnvironment;
 pub use self::module::Module;
 pub use self::instance::Instance;
 pub use self::errors::{Error, ErrorKind};
+pub use self::execute::{compile_and_link_module,execute};
 use wasmparser;
 
 pub struct ResultObject {
     /// A WebAssembly.Module object representing the compiled WebAssembly module.
     /// This Module can be instantiated again
-    module: Module,
+    pub module: Module,
     /// A WebAssembly.Instance object that contains all the Exported WebAssembly
     /// functions.
-    instance: Instance
+    pub instance: Instance
 }
 
 pub struct ImportObject {
@@ -47,13 +49,31 @@ pub struct ImportObject {
 /// If the operation fails, the Result rejects with a 
 /// WebAssembly.CompileError, WebAssembly.LinkError, or
 ///  WebAssembly.RuntimeError, depending on the cause of the failure.
-pub fn instantiate(buffer_source: Vec<u8>, import_object: ImportObject) -> Result<ResultObject, Error> {
-    let module = compile(buffer_source)?;
-    let instance = Instance {
-        tables: Vec::new(),
-        memories: Vec::new(),
-        globals: Vec::new(),
-    };
+pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ResultObject, Error> {
+    let isa = construct_isa();
+    println!("instantiate::init");
+    let mut module = Module::new();
+    let environ = ModuleEnvironment::new(&*isa, &mut module);
+    let translation = environ.translate(&buffer_source).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+    println!("instantiate::compile and link");
+    let compilation = compile_and_link_module(&*isa, &translation)?;
+    // let (compilation, relocations) = compile_module(&translation, &*isa)?;
+    println!("instantiate::instantiate");
+
+    let mut instance = Instance::new(
+        translation.module,
+        &compilation,
+        &translation.lazy.data_initializers,
+    );
+    println!("instantiate::execute");
+
+    let x = execute(&module, &compilation, &mut instance)?;
+
+    // let instance = Instance {
+    //     tables: Vec::new(),
+    //     memories: Vec::new(),
+    //     globals: Vec::new(),
+    // };
 
     Ok(ResultObject {
         module,
@@ -79,7 +99,8 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, Error> {
     let mut module = Module::new();
     let environ = ModuleEnvironment::new(&*isa, &mut module);
     let translation = environ.translate(&buffer_source).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-    compile_module(&translation, &*isa)?;
+    // compile_module(&translation, &*isa)?;
+    compile_and_link_module(&*isa, &translation)?;
 
     Ok(module)
 }

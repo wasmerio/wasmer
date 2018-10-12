@@ -1,10 +1,14 @@
 use std::path::Path;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 use wabt::script::{Value, Action};
 use super::{InvokationResult, ScriptHandler, run_single_file};
-use crate::webassembly::{compile, Error, ErrorKind};
+use crate::webassembly::{compile, instantiate, Error, ErrorKind, Module, Instance};
 
 struct StoreCtrl {
+    last_module: Option<Rc<Instance>>,
+    modules: HashMap<String, Rc<Instance>>
 }
 
 impl StoreCtrl {
@@ -19,30 +23,35 @@ impl StoreCtrl {
         StoreCtrl {
             // tx,
             // _handle,
-            // modules: HashMap::new(),
-            // last_module: None,
+            modules: HashMap::new(),
+            last_module: None,
         }
     }
 
-    // fn add_module(&mut self, name: Option<String>, module: DummyEnvironment) {
-    //     // if let Some(name) = name {
-    //     // println!("ADD MODULE {:?}", name);
-    //     // self.modules
-    //     //     .insert(name.unwrap_or("__last_module".to_string()), module);
-    //     // }
-    //     // self.modules.insert("__last_module".to_string(), module);
-    //     // self.last_module = Some(module);
-    // }
+    fn add_module(&mut self, name: Option<String>, module: Rc<Instance>) {
+        if let Some(name) = name {
+            // self.modules[&name] = module;
+            self.modules.insert(name, Rc::clone(&module));
+        }
+        self.last_module = Some(Rc::clone(&module));
+        // println!("ADD MODULE {:?}", name);
+        // self.modules
+        //     .insert(name.unwrap_or("__last_module".to_string()), module);
+        // }
+        // self.modules.insert("__last_module".to_string(), module);
+        // self.last_module = Some(module);
+    }
 
-    // fn get_module(&self, name: String) -> Option<&DummyEnvironment> {
-    //     // return self
-    //     //     .modules
-    //     //     .get(&name)
-    //     //     .or(self.modules.get("__last_module"));
-    //     return None;
-    //     // return self.modules[&name];
-    //     // name.map(|name| self.modules[&name]).or(self.last_module).unwrap()
-    // }
+    fn get_module(self, name: Option<String>) -> Rc<Instance> {
+        self.last_module.unwrap()
+        // return self
+        //     .modules
+        //     .get(&name)
+        //     .or(self.modules.get("__last_module"));
+        // return None;
+        // return self.modules[&name];
+        // name.map(|name| self.modules[&name]).or(self.last_module).unwrap()
+    }
 }
 
 impl ScriptHandler for StoreCtrl {
@@ -53,14 +62,33 @@ impl ScriptHandler for StoreCtrl {
         field: String,
         args: Vec<Value>,
     ) -> InvokationResult {
+        if let Some(module) = &self.last_module {
+            // let function = module.exports.get(field).expect("field not found");
+            println!("HEEY {:?}", module);
+        }
+        // match module {
+        //     Some(m) => {
+        //         println!("HEEY {:?}", m);
+        //     },
+        //     _ => unimplemented!()
+        // }
+        // println!("action invoke {}", module.unwrap_or("as".to_string()));
+        // let modul = &self.last_module;
+        // modul.expect("a");
+        // 
         unimplemented!()
     }
     fn action_get(&mut self, module: Option<String>, field: String) -> Value {
+        // println!("action get");
         unimplemented!()
     }
     fn module(&mut self, bytes: Vec<u8>, name: Option<String>) {
-        let module_wrapped = compile(bytes);
-        module_wrapped.expect("Module is invalid");
+        let module_wrapped = instantiate(bytes, None);
+        let result = module_wrapped.expect("Module is invalid");
+        // let module: &'module Module = result.module;
+        // self.last_module = Some(result.module);
+        self.add_module(name, Rc::new(result.instance));
+        // println!("ADD MODULE {}", name.unwrap_or("no name".to_string()))
     }
     fn assert_malformed(&mut self, bytes: Vec<u8>) {
         let module_wrapped = compile(bytes);
@@ -111,4 +139,5 @@ macro_rules! wasm_tests {
 
 wasm_tests!{
     _type,
+    br_if,
 }
