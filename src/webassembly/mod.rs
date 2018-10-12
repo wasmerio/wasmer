@@ -12,8 +12,8 @@ use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::settings;
 use cranelift_codegen::settings::Configurable;
 
-pub use self::compilation::compile_module;
-pub use self::environ::ModuleEnvironment;
+pub use self::compilation::{compile_module, Compilation};
+pub use self::environ::{ModuleEnvironment};
 pub use self::module::Module;
 pub use self::instance::Instance;
 pub use self::errors::{Error, ErrorKind};
@@ -26,7 +26,9 @@ pub struct ResultObject {
     pub module: Module,
     /// A WebAssembly.Instance object that contains all the Exported WebAssembly
     /// functions.
-    pub instance: Instance
+    pub instance: Instance,
+
+    pub compilation: Compilation,
 }
 
 pub struct ImportObject {
@@ -77,7 +79,8 @@ pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) 
 
     Ok(ResultObject {
         module,
-        instance
+        instance,
+        compilation,
     })
 }
 

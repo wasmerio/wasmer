@@ -191,6 +191,42 @@ pub fn execute(
 }
 
 
+pub fn execute_fn(
+    module: &Module,
+    compilation: &Compilation,
+    instance: &mut Instance,
+    func_name: String,
+) -> Result<(), String> {
+    println!("execute");
+
+    let start_index = match module.exports.get(&func_name) {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("No func name")
+    };
+
+    let code_buf = &compilation.functions[module
+                                   .defined_func_index(start_index)
+                                   .expect("imported start functions not supported yet")];
+
+    // Collect all memory base addresses and Vec.
+    let mut mem_base_addrs = instance
+        .memories
+        .iter_mut()
+        .map(LinearMemory::base_addr)
+        .collect::<Vec<_>>();
+    let vmctx = make_vmctx(instance, &mut mem_base_addrs);
+
+    unsafe {
+        let start_func = transmute::<_, fn(*const *mut u8)>(code_buf.as_ptr());
+        start_func(vmctx.as_ptr())
+    }
+    println!("{:?}", module.exports);
+    println!("execute end");
+
+
+    Ok(())
+}
+
 // pub fn execute_fn(
 //     instance: &mut Instance,
 //     func_name: String
