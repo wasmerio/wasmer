@@ -10,7 +10,7 @@ use cranelift_codegen::settings;
 use cranelift_entity::{EntityRef, PrimaryMap};
 use std::string::String;
 use std::vec::Vec;
-use target_lexicon::Triple;
+use target_lexicon::{Triple, PointerWidth};
 use cranelift_wasm::{
     FuncTranslator,
     FuncEnvironment as FuncEnvironmentTrait, GlobalVariable, ModuleEnvironment, ReturnMode, WasmResult,
@@ -55,6 +55,11 @@ pub struct ModuleInfo {
     /// Compilation setting flags.
     pub flags: settings::Flags,
 
+    pub main_memory_base: Option<ir::GlobalValue>,
+
+    /// The Cranelift global holding the base address of the memories vector.
+    pub memory_base: Option<ir::GlobalValue>,
+
     /// Signatures as provided by `declare_signature`.
     pub signatures: Vec<ir::Signature>,
 
@@ -74,9 +79,14 @@ pub struct ModuleInfo {
     // Should be Vec<TableElements>
     // instead of Vec<Exportable<TableElements>> ??
     pub table_elements: Vec<Exportable<TableElements>>,
+    /// The base of tables.
+    pub tables_base: Option<ir::GlobalValue>,
 
     /// Memories as provided by `declare_memory`.
     pub memories: Vec<Exportable<Memory>>,
+
+    /// The Cranelift global holding the base address of the globals vector.
+    pub globals_base: Option<ir::GlobalValue>,
 
     /// Globals as provided by `declare_global`.
     pub globals: Vec<Exportable<Global>>,
@@ -100,9 +110,13 @@ impl ModuleInfo {
             tables: Vec::new(),
             memories: Vec::new(),
             globals: Vec::new(),
+            globals_base: None,
             table_elements: Vec::new(),
+            tables_base: None,
             start_func: None,
             data_initializers: Vec::new(),
+            main_memory_base: None,
+            memory_base: None,
         }
     }
 }
@@ -231,6 +245,14 @@ impl<'dummy_environment> FuncEnvironment<'dummy_environment> {
         ));
         sig
     }
+
+    fn ptr_size(&self) -> usize {
+        if self.triple().pointer_width().unwrap() == PointerWidth::U64 {
+            8
+        } else {
+            4
+        }
+    }
 }
 
 impl<'dummy_environment> FuncEnvironmentTrait for FuncEnvironment<'dummy_environment> {
@@ -280,69 +302,72 @@ impl<'dummy_environment> FuncEnvironmentTrait for FuncEnvironment<'dummy_environ
     fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
         // OLD
         // Create a table whose base address is stored at `vmctx+0`.
-        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
-        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: vmctx,
-            offset: Offset32::new(0),
-            global_type: self.pointer_type(),
-        });
-        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: vmctx,
-            offset: Offset32::new(0),
-            global_type: I32,
-        });
+        // let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        // let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+        //     base: vmctx,
+        //     offset: Offset32::new(0),
+        //     global_type: self.pointer_type(),
+        // });
+        // let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
+        //     base: vmctx,
+        //     offset: Offset32::new(0),
+        //     global_type: I32,
+        // });
 
-        func.create_table(ir::TableData {
-            base_gv,
-            min_size: Imm64::new(0),
-            bound_gv,
-            element_size: Imm64::new(i64::from(self.pointer_bytes()) * 2),
-            index_type: I32,
-        })
-
-        // let ptr_size = self.ptr_size();
-
-        // self.info.tables[table_index].unwrap_or_else(|| {
-        //     let base = self.tables_base.unwrap_or_else(|| {
-        //         let tables_offset = self.ptr_size() as i32 * -1;
-        //         let new_base = func.create_global_value(ir::GlobalValueData::VMContext {
-        //             offset: tables_offset.into(),
-        //         });
-        //         self.globals_base = Some(new_base);
-        //         new_base
-        //     });
-
-        //     let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
-
-        //     let new_table_addr_addr = func.create_global_value(ir::GlobalValueData::Deref {
-        //         base,
-        //         offset: table_data_offset.into(),
-        //     });
-        //     let new_table_addr = func.create_global_value(ir::GlobalValueData::Deref {
-        //         base: new_table_addr_addr,
-        //         offset: 0.into(),
-        //     });
-
-        //     let new_table_bounds_addr = func.create_global_value(ir::GlobalValueData::Deref {
-        //         base,
-        //         offset: (table_data_offset + ptr_size as i32).into(),
-        //     });
-        //     let new_table_bounds = func.create_global_value(ir::GlobalValueData::Deref {
-        //         base: new_table_bounds_addr,
-        //         offset: 0.into(),
-        //     });
-
-        //     let table = func.create_table(ir::TableData {
-        //         base_gv: new_table_addr,
-        //         min_size: (self.module.tables[table_index].size as i64).into(),
-        //         bound_gv: new_table_bounds,
-        //         element_size: (ptr_size as i64).into(),
-        //     });
-
-        //     self.info.tables[table_index] = Some(table);
-        //     table
+        // func.create_table(ir::TableData {
+        //     base_gv,
+        //     min_size: Imm64::new(0),
+        //     bound_gv,
+        //     element_size: Imm64::new(i64::from(self.pointer_bytes()) * 2),
+        //     index_type: I32,
         // })
 
+        let ptr_size = self.ptr_size();
+
+        let base = self.mod_info.tables_base.unwrap_or_else(|| {
+            let tables_offset = self.ptr_size() as i32 * -1;
+            let new_base = func.create_global_value(ir::GlobalValueData::VMContext { });
+            //  {
+            //     offset: tables_offset.into(),
+            // });
+            // self.mod_info.globals_base = Some(new_base);
+            new_base
+        });
+
+        let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
+
+        let new_table_addr_addr = func.create_global_value(ir::GlobalValueData::Load {
+            base,
+            offset: table_data_offset.into(),
+            global_type: self.pointer_type(), // Might be I32
+        });
+        let new_table_addr = func.create_global_value(ir::GlobalValueData::Load {
+            base: new_table_addr_addr,
+            offset: 0.into(),
+            global_type: self.pointer_type(), // Might be I32
+        });
+
+        let new_table_bounds_addr = func.create_global_value(ir::GlobalValueData::Load {
+            base,
+            offset: (table_data_offset + ptr_size as i32).into(),
+            global_type: self.pointer_type(), // Might be I32
+        });
+        let new_table_bounds = func.create_global_value(ir::GlobalValueData::Load {
+            base: new_table_bounds_addr,
+            offset: 0.into(),
+            global_type: I32,  // Might be self.pointer_type()
+        });
+
+        let table = func.create_table(ir::TableData {
+            base_gv: new_table_addr,
+            min_size: Imm64::new(0),
+            // min_size: (self.mod_info.tables[table_index].size as i64).into(),
+            bound_gv: new_table_bounds,
+            element_size: (ptr_size as i64).into(),
+            index_type: I32
+        });
+
+        table
     }
 
     fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef {
