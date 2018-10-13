@@ -4,12 +4,12 @@ use std::rc::Rc;
 
 use wabt::script::{Value, Action};
 use super::{InvokationResult, ScriptHandler, run_single_file};
-use crate::webassembly::{compile, instantiate, Error, ErrorKind, Module, Instance, ResultObject};
-use crate::webassembly::instance::InvokeResult;
+use crate::webassembly::{compile, instantiate, Error, ErrorKind, ModuleInstance};
+// use crate::webassembly::instance::InvokeResult;
 
 struct StoreCtrl<'module> {
-    last_module: Option<ResultObject>,
-    modules: HashMap<String, Rc<&'module ResultObject>>
+    last_module: Option<ModuleInstance>,
+    modules: HashMap<String, Rc<&'module ModuleInstance>>
 }
 
 impl<'module> StoreCtrl<'module> {
@@ -29,7 +29,7 @@ impl<'module> StoreCtrl<'module> {
         }
     }
 
-    fn add_module(&mut self, name: Option<String>, module: &'module ResultObject) {
+    fn add_module(&mut self, name: Option<String>, module: &'module ModuleInstance) {
         // self.last_module = Some(Rc::new(module));
         // if let Some(name) = name {
         //     // self.modules[&name] = module;
@@ -43,7 +43,7 @@ impl<'module> StoreCtrl<'module> {
         // self.last_module = Some(module);
     }
 
-    fn get_module(self, name: Option<String>) -> &'module ResultObject {
+    fn get_module(self, name: Option<String>) -> &'module ModuleInstance {
         unimplemented!()
         // self.last_module.expect("exists")
         // return self
@@ -66,42 +66,43 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
     ) -> InvokationResult {
         // let modu = (&self.last_module);
         // let x = modu.unwrap();
-        if let Some(m) = &mut self.last_module {
-            // let function = module.exports.get(field).expect("field not found");
-            // let mut m = &mut m;
-            let mut instance = &mut m.instance;
-            // println!("HEEY {:?}", module.instance);
-            let x = instance.execute_fn(
-                &m.module,
-                &m.compilation,
-                field,
-            ).unwrap();
-            println!("X value {:?}", x);
-            let res = match x {
-                InvokeResult::VOID => {
-                    vec![]
-                },
-                InvokeResult::I32(v) => vec![Value::I32(v)],
-                InvokeResult::I64(v) => vec![Value::I64(v)],
-                InvokeResult::F32(v) => vec![Value::F32(v)],
-                InvokeResult::F64(v) => vec![Value::F64(v)],
-            };
-            InvokationResult::Vals(res)
-            // unimplemented!()
-            // InvokationResult::Vals(vec![Value::I32(*x)])
-            // unimplemented!();
-            // let result = Rc::try_unwrap(module);
-            // let mut mutinstance = Rc::make_mut(&module.instance);
-            // execute_fn(
-            //     &module.module,
-            //     &module.compilation,
-            //     &mut (&mut module.instance),
-            //     field,
-            // );
-        }
-        else {
-            panic!("module not found");
-        }
+        unimplemented!()
+        // if let Some(m) = &mut self.last_module {
+        //     // let function = module.exports.get(field).expect("field not found");
+        //     // let mut m = &mut m;
+        //     let mut instance = &mut m.instance;
+        //     // println!("HEEY {:?}", module.instance);
+        //     let x = instance.execute_fn(
+        //         &m.module,
+        //         &m.compilation,
+        //         field,
+        //     ).unwrap();
+        //     println!("X value {:?}", x);
+        //     let res = match x {
+        //         InvokeResult::VOID => {
+        //             vec![]
+        //         },
+        //         InvokeResult::I32(v) => vec![Value::I32(v)],
+        //         InvokeResult::I64(v) => vec![Value::I64(v)],
+        //         InvokeResult::F32(v) => vec![Value::F32(v)],
+        //         InvokeResult::F64(v) => vec![Value::F64(v)],
+        //     };
+        //     InvokationResult::Vals(res)
+        //     // unimplemented!()
+        //     // InvokationResult::Vals(vec![Value::I32(*x)])
+        //     // unimplemented!();
+        //     // let result = Rc::try_unwrap(module);
+        //     // let mut mutinstance = Rc::make_mut(&module.instance);
+        //     // execute_fn(
+        //     //     &module.module,
+        //     //     &module.compilation,
+        //     //     &mut (&mut module.instance),
+        //     //     field,
+        //     // );
+        // }
+        // else {
+        //     panic!("module not found");
+        // }
         // match module {
         //     Some(m) => {
         //         println!("HEEY {:?}", m);
@@ -127,18 +128,18 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         // println!("ADD MODULE {}", name.unwrap_or("no name".to_string()))
     }
     fn assert_malformed(&mut self, bytes: Vec<u8>) {
-        let module_wrapped = compile(bytes);
+        let module_wrapped = instantiate(bytes, None);
         match module_wrapped {
-            Err(Error(ErrorKind::CompileError(v), _)) => {}
+            Err(ErrorKind::CompileError(v)) => {}
             _ => panic!("Module compilation should have failed")
         }
     }
     fn assert_invalid(&mut self, bytes: Vec<u8>) {
         // print!("IS INVALID");
-        let module_wrapped = compile(bytes);
+        let module_wrapped = instantiate(bytes, None);
         // print!("IS INVALID?? {:?}", module_wrapped);
         match module_wrapped {
-            Err(Error(ErrorKind::CompileError(v), _)) => {}
+            Err(ErrorKind::CompileError(v)) => {}
             _ => assert!(false, "Module compilation should have failed")
         }
     }

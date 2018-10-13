@@ -1,37 +1,49 @@
-pub mod module;
-pub mod compilation;
-pub mod memory;
-pub mod environ;
-pub mod instance;
+// pub mod module;
+// pub mod compilation;
+// pub mod memory;
+// pub mod environ;
+// pub mod instance;
 pub mod errors;
-pub mod execute;
+// pub mod execute;
 pub mod utils;
+pub mod env;
 
+use std::str::FromStr;
 use std::time::{Duration, Instant};
 use std::panic;
 use cranelift_native;
 use cranelift_codegen::isa::TargetIsa;
-use cranelift_codegen::settings;
+// use cranelift_codegen::settings;
 use cranelift_codegen::settings::Configurable;
 
-pub use self::compilation::{compile_module, Compilation};
-pub use self::environ::{ModuleEnvironment};
-pub use self::module::Module;
-pub use self::instance::Instance;
+use target_lexicon::{self, Triple};
+
+use cranelift_codegen::isa;
+use cranelift_codegen::print_errors::pretty_verifier_error;
+use cranelift_codegen::settings::{self, Flags};
+use cranelift_codegen::verifier;
+use cranelift_wasm::{translate_module, ReturnMode};
+
+pub use self::env::ModuleInstance;
+
+// pub use self::compilation::{compile_module, Compilation};
+// pub use self::environ::{ModuleEnvironment};
+// pub use self::module::Module;
+// pub use self::instance::Instance;
 pub use self::errors::{Error, ErrorKind};
-pub use self::execute::{compile_and_link_module,execute};
+// pub use self::execute::{compile_and_link_module,execute};
 use wasmparser;
 
-pub struct ResultObject {
-    /// A WebAssembly.Module object representing the compiled WebAssembly module.
-    /// This Module can be instantiated again
-    pub module: Module,
-    /// A WebAssembly.Instance object that contains all the Exported WebAssembly
-    /// functions.
-    pub instance: Instance,
+// pub struct ResultObject {
+//     /// A WebAssembly.Module object representing the compiled WebAssembly module.
+//     /// This Module can be instantiated again
+//     pub module: Module,
+//     /// A WebAssembly.Instance object that contains all the Exported WebAssembly
+//     /// functions.
+//     pub instance: Instance,
 
-    pub compilation: Compilation,
-}
+//     pub compilation: Compilation,
+// }
 
 pub struct ImportObject {
 }
@@ -53,42 +65,60 @@ pub struct ImportObject {
 /// If the operation fails, the Result rejects with a 
 /// WebAssembly.CompileError, WebAssembly.LinkError, or
 ///  WebAssembly.RuntimeError, depending on the cause of the failure.
-pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ResultObject, ErrorKind> {
-    let now = Instant::now();
-    let isa = construct_isa();
-    println!("instantiate::init {:?}", now.elapsed());
-    // if !validate(&buffer_source) {
-    //     return Err(ErrorKind::CompileError("Module not valid".to_string()));
-    // }
-    println!("instantiate::validation {:?}", now.elapsed());
-    let mut module = Module::new();
-    let environ = ModuleEnvironment::new(&*isa, &mut module);
-    let translation = environ.translate(&buffer_source).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-    println!("instantiate::compile and link {:?}", now.elapsed());
-    let compilation = compile_and_link_module(&*isa, &translation)?;
-    // let (compilation, relocations) = compile_module(&translation, &*isa)?;
-    println!("instantiate::instantiate {:?}", now.elapsed());
+pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ModuleInstance, ErrorKind> {
+    let flags = Flags::new(settings::builder());
+    let return_mode = ReturnMode::NormalReturns;
+    let mut dummy_environ =
+        ModuleInstance::with_triple_flags(triple!("riscv64"), flags.clone(), return_mode);
 
-    let mut instance = Instance::new(
-        translation.module,
-        &compilation,
-        &translation.lazy.data_initializers,
-    );
-    println!("instantiate::execute {:?}", now.elapsed());
+    translate_module(&buffer_source, &mut dummy_environ).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
 
-    let x = execute(&module, &compilation, &mut instance)?;
+    let isa = isa::lookup(dummy_environ.info.triple)
+        .unwrap()
+        .finish(dummy_environ.info.flags);
 
-    // let instance = Instance {
-    //     tables: Vec::new(),
-    //     memories: Vec::new(),
-    //     globals: Vec::new(),
-    // };
+    for func in dummy_environ.info.function_bodies.values() {
+        verifier::verify_function(func, &*isa)
+            .map_err(|errors| panic!(pretty_verifier_error(func, Some(&*isa), None, errors)))
+            .unwrap();
+    };
+    unimplemented!()
+    // Ok(dummy_environ)
+    // let now = Instant::now();
+    // let isa = construct_isa();
+    // println!("instantiate::init {:?}", now.elapsed());
+    // // if !validate(&buffer_source) {
+    // //     return Err(ErrorKind::CompileError("Module not valid".to_string()));
+    // // }
+    // println!("instantiate::validation {:?}", now.elapsed());
+    // let mut module = Module::new();
+    // let environ = ModuleEnvironment::new(&*isa, &mut module);
+    // let translation = environ.translate(&buffer_source).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+    // println!("instantiate::compile and link {:?}", now.elapsed());
+    // let compilation = compile_and_link_module(&*isa, &translation)?;
+    // // let (compilation, relocations) = compile_module(&translation, &*isa)?;
+    // println!("instantiate::instantiate {:?}", now.elapsed());
 
-    Ok(ResultObject {
-        module,
-        compilation,
-        instance: instance,
-    })
+    // let mut instance = Instance::new(
+    //     translation.module,
+    //     &compilation,
+    //     &translation.lazy.data_initializers,
+    // );
+    // println!("instantiate::execute {:?}", now.elapsed());
+
+    // let x = execute(&module, &compilation, &mut instance)?;
+
+    // // let instance = Instance {
+    // //     tables: Vec::new(),
+    // //     memories: Vec::new(),
+    // //     globals: Vec::new(),
+    // // };
+
+    // Ok(ResultObject {
+    //     module,
+    //     compilation,
+    //     instance: instance,
+    // })
 }
 
 /// The WebAssembly.compile() function compiles a WebAssembly.Module
@@ -103,35 +133,16 @@ pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) 
 /// Errors:
 /// If the operation fails, the Result rejects with a 
 /// WebAssembly.CompileError.
-pub fn compile(buffer_source: Vec<u8>) -> Result<Module, Error> {
-    let isa = construct_isa();
+pub fn compile(buffer_source: Vec<u8>) -> Result<ModuleInstance, Error> {
+    unimplemented!();
+    // let isa = construct_isa();
 
-    let mut module = Module::new();
-    let environ = ModuleEnvironment::new(&*isa, &mut module);
-    let translation = environ.translate(&buffer_source).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-        // compile_module(&translation, &*isa)?;
-    compile_and_link_module(&*isa, &translation)?;
-    Ok(module)
-}
-
-fn construct_isa() -> Box<TargetIsa> {
-    let (mut flag_builder, isa_builder) = cranelift_native::builders().unwrap_or_else(|_| {
-        panic!("host machine is not a supported target");
-    });
-
-    // Enable verifier passes in debug mode.
-    // if cfg!(debug_assertions) {
-    // flag_builder.enable("enable_verifier").unwrap();
-    // flag_builder.set("opt_level", "fastest");
-
-    // }
-
-    // Enable optimization if requested.
-    // if args.flag_optimize {
-    flag_builder.set("opt_level", "fastest").unwrap();
-    // }
-
-    isa_builder.finish(settings::Flags::new(flag_builder))
+    // let mut module = Module::new();
+    // let environ = ModuleEnvironment::new(&*isa, &mut module);
+    // let translation = environ.translate(&buffer_source).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+    //     // compile_module(&translation, &*isa)?;
+    // compile_and_link_module(&*isa, &translation)?;
+    // Ok(module)
 }
 
 /// The WebAssembly.validate() function validates a given typed

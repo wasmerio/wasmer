@@ -1,113 +1,158 @@
-use memmap;
-use std::fmt;
+use errno;
+use libc;
+use region;
+use std::mem;
+use std::ptr;
 
-const PAGE_SIZE: u32 = 65536;
-const MAX_PAGES: u32 = 65536;
-
-/// A linear memory instance.
-///
-/// This linear memory has a stable base address and at the same time allows
-/// for dynamical growing.
-pub struct LinearMemory {
-    mmap: memmap::MmapMut,
-    current: u32,
-    maximum: Option<u32>,
+/// Round `size` up to the nearest multiple of `page_size`.
+fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
+    (size + (page_size - 1)) & !(page_size - 1)
 }
 
-impl LinearMemory {
-    /// Create a new linear memory instance with specified initial and maximum number of pages.
-    ///
-    /// `maximum` cannot be set to more than `65536` pages.
-    pub fn new(initial: u32, maximum: Option<u32>) -> Self {
-        assert!(initial <= MAX_PAGES);
-        assert!(maximum.is_none() || maximum.unwrap() <= MAX_PAGES);
+/// A simple struct consisting of a pointer and length.
+struct PtrLen {
+    ptr: *mut u8,
+    len: usize,
+}
 
-        let len = PAGE_SIZE * match maximum {
-            Some(val) => val,
-            None => initial,
-        };
-        let mmap = memmap::MmapMut::map_anon(len as usize).unwrap();
+impl PtrLen {
+    /// Create a new empty `PtrLen`.
+    fn new() -> Self {
         Self {
-            mmap,
-            current: initial,
-            maximum,
+            ptr: ptr::null_mut(),
+            len: 0,
         }
     }
 
-    /// Returns an base address of this linear memory.
-    pub fn base_addr(&mut self) -> *mut u8 {
-        self.mmap.as_mut_ptr()
+    /// Create a new `PtrLen` pointing to at least `size` bytes of memory,
+    /// suitably sized and aligned for memory protection.
+    #[cfg(not(target_os = "windows"))]
+    fn with_size(size: usize) -> Result<Self, String> {
+        let page_size = region::page::size();
+        let alloc_size = round_up_to_page_size(size, page_size);
+        unsafe {
+            let mut ptr: *mut libc::c_void = mem::uninitialized();
+            let err = libc::posix_memalign(&mut ptr, page_size, alloc_size);
+            if err == 0 {
+                Ok(Self {
+                    ptr: ptr as *mut u8,
+                    len: alloc_size,
+                })
+            } else {
+                Err(errno::Errno(err).to_string())
+            }
+        }
     }
 
-    /// Returns a number of allocated wasm pages.
-    pub fn current_size(&self) -> u32 {
-        self.current
-    }
+    #[cfg(target_os = "windows")]
+    fn with_size(size: usize) -> Result<Self, String> {
+        use winapi::um::memoryapi::VirtualAlloc;
+        use winapi::um::winnt::{MEM_COMMIT, MEM_RESERVE, PAGE_READWRITE};
 
-    /// Grow memory by the specified amount of pages.
-    ///
-    /// Returns `None` if memory can't be grown by the specified amount
-    /// of pages.
-    pub fn grow(&mut self, add_pages: u32) -> Option<u32> {
-        let new_pages = match self.current.checked_add(add_pages) {
-            Some(new_pages) => new_pages,
-            None => return None,
+        let page_size = region::page::size();
+
+        // VirtualAlloc always rounds up to the next multiple of the page size
+        let ptr = unsafe {
+            VirtualAlloc(
+                ptr::null_mut(),
+                size,
+                MEM_COMMIT | MEM_RESERVE,
+                PAGE_READWRITE,
+            )
         };
-        if let Some(val) = self.maximum {
-            if new_pages > val {
-                return None;
-            }
+        if !ptr.is_null() {
+            Ok(Self {
+                ptr: ptr as *mut u8,
+                len: round_up_to_page_size(size, page_size),
+            })
         } else {
-            // Wasm linear memories are never allowed to grow beyond what is
-            // indexable. If the memory has no maximum, enforce the greatest
-            // limit here.
-            if new_pages >= 65536 {
-                return None;
+            Err(errno::errno().to_string())
+        }
+    }
+}
+
+/// JIT memory manager. This manages pages of suitably aligned and
+/// accessible memory.
+pub struct Memory {
+    allocations: Vec<PtrLen>,
+    executable: usize,
+    current: PtrLen,
+    position: usize,
+}
+
+impl Memory {
+    pub fn new() -> Self {
+        Self {
+            allocations: Vec::new(),
+            executable: 0,
+            current: PtrLen::new(),
+            position: 0,
+        }
+    }
+
+    fn finish_current(&mut self) {
+        self.allocations
+            .push(mem::replace(&mut self.current, PtrLen::new()));
+        self.position = 0;
+    }
+
+    /// TODO: Use a proper error type.
+    pub fn allocate(&mut self, size: usize) -> Result<*mut u8, String> {
+        if size <= self.current.len - self.position {
+            // TODO: Ensure overflow is not possible.
+            let ptr = unsafe { self.current.ptr.offset(self.position as isize) };
+            self.position += size;
+            return Ok(ptr);
+        }
+
+        self.finish_current();
+
+        // TODO: Allocate more at a time.
+        self.current = PtrLen::with_size(size)?;
+        self.position = size;
+        Ok(self.current.ptr)
+    }
+
+    /// Set all memory allocated in this `Memory` up to now as readable and executable.
+    pub fn set_readable_and_executable(&mut self) {
+        self.finish_current();
+
+        for &PtrLen { ptr, len } in &self.allocations[self.executable..] {
+            if len != 0 {
+                unsafe {
+                    region::protect(ptr, len, region::Protection::ReadExecute)
+                        .expect("unable to make memory readable+executable");
+                }
             }
         }
+    }
 
-        let prev_pages = self.current;
-        let new_bytes = (new_pages * PAGE_SIZE) as usize;
+    /// Set all memory allocated in this `Memory` up to now as readonly.
+    pub fn set_readonly(&mut self) {
+        self.finish_current();
 
-        if self.mmap.len() < new_bytes {
-            // If we have no maximum, this is a "dynamic" heap, and it's allowed
-            // to move.
-            assert!(self.maximum.is_none());
-            let mut new_mmap = memmap::MmapMut::map_anon(new_bytes).unwrap();
-            new_mmap.copy_from_slice(&self.mmap);
-            self.mmap = new_mmap;
+        for &PtrLen { ptr, len } in &self.allocations[self.executable..] {
+            if len != 0 {
+                unsafe {
+                    region::protect(ptr, len, region::Protection::Read)
+                        .expect("unable to make memory readonly");
+                }
+            }
         }
-
-        self.current = new_pages;
-
-        // Ensure that newly allocated area is zeroed.
-        let new_start_offset = (prev_pages * PAGE_SIZE) as usize;
-        let new_end_offset = (new_pages * PAGE_SIZE) as usize;
-        for i in new_start_offset..new_end_offset {
-            assert!(self.mmap[i] == 0);
-        }
-
-        Some(prev_pages)
     }
 }
 
-impl fmt::Debug for LinearMemory {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("LinearMemory")
-            .field("current", &self.current)
-            .field("maximum", &self.maximum)
-            .finish()
-    }
-}
+// TODO: Implement Drop to unprotect and deallocate the memory?
 
-impl AsRef<[u8]> for LinearMemory {
-    fn as_ref(&self) -> &[u8] {
-        &self.mmap
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl AsMut<[u8]> for LinearMemory {
-    fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.mmap
+    #[test]
+    fn test_round_up_to_page_size() {
+        assert_eq!(round_up_to_page_size(0, 4096), 0);
+        assert_eq!(round_up_to_page_size(1, 4096), 4096);
+        assert_eq!(round_up_to_page_size(4096, 4096), 4096);
+        assert_eq!(round_up_to_page_size(4097, 4096), 8192);
     }
 }

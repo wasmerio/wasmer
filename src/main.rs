@@ -7,6 +7,8 @@ extern crate cranelift_codegen;
 extern crate cranelift_native;
 extern crate cranelift_wasm;
 extern crate cranelift_entity;
+#[macro_use]
+extern crate target_lexicon;
 
 use std::path::PathBuf;
 use std::fs::File;
