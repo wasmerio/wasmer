@@ -2,10 +2,16 @@
 //! module.
 use cranelift_codegen::ir;
 use cranelift_wasm::GlobalIndex;
+use std::mem::transmute;
+use std::ptr;
+use std::any::Any;
+use cranelift_codegen::ir::{AbiParam, types};
+
 
 use super::memory::LinearMemory;
-use super::module::{DataInitializer, Module, TableElements};
+use super::module::{DataInitializer, Module, Export, TableElements};
 use super::compilation::Compilation;
+use super::execute::make_vmctx;
 
 /// An Instance of a WebAssemby module.
 #[derive(Debug)]
@@ -22,6 +28,15 @@ pub struct Instance {
 
     /// WebAssembly global variable data.
     pub globals: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub enum InvokeResult {
+    VOID,
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
 }
 
 impl Instance {
@@ -134,4 +149,84 @@ impl Instance {
         let len = ty.bytes() as usize;
         &self.globals[offset..offset + len]
     }
+
+
+    pub fn execute_fn(
+        &mut self,
+        module: &Module,
+        compilation: &Compilation,
+        func_name: String,
+    ) -> Result<InvokeResult, String> {
+        // println!("execute");
+        // println!("TABLES: {:?}", self.tables);
+        // println!("MEMORIES: {:?}", self.memories);
+        // println!("GLOBALS: {:?}", self.globals);
+
+        let export_func = module.exports.get(&func_name);
+        let func_index = match export_func {
+            Some(&Export::Function(index)) => index,
+            _ => panic!("No func name")
+        };
+
+        let code_buf = &compilation.functions[module
+                                    .defined_func_index(func_index)
+                                    .expect("imported start functions not supported yet")];
+
+        let sig_index = module.functions[func_index];
+        let imported_sig = &module.signatures[sig_index];
+
+        // println!("FUNCTION CODE BUF={:?}", imported_sig);
+
+        // Collect all memory base addresses and Vec.
+        let mut mem_base_addrs = self
+            .memories
+            .iter_mut()
+            .map(LinearMemory::base_addr)
+            .collect::<Vec<_>>();
+        let vmctx = make_vmctx(self, &mut mem_base_addrs);
+
+        // unsafe {
+        //     func = transmute::<_, fn(*const *mut u8) -> Box<Any>>(code_buf.as_ptr());
+        // }
+        // ret = ;
+        match imported_sig.returns.len() {
+            0 => unsafe {
+                let func = transmute::<_, fn(*const *mut u8)>(code_buf.as_ptr());
+                func(vmctx.as_ptr());
+                Ok(InvokeResult::VOID)
+            },
+            1 => {
+                let value_type = imported_sig.returns[0].value_type;
+                match value_type {
+                    types::I32 => unsafe {
+                        let func = transmute::<_, fn(*const *mut u8) -> i32>(code_buf.as_ptr());
+                        Ok(InvokeResult::I32(func(vmctx.as_ptr())))
+                    },
+                    types::I64 => unsafe {
+                        let func = transmute::<_, fn(*const *mut u8) -> i64>(code_buf.as_ptr());
+                        Ok(InvokeResult::I64(func(vmctx.as_ptr())))
+                    },
+                    types::F32 => unsafe {
+                        let func = transmute::<_, fn(*const *mut u8) -> f32>(code_buf.as_ptr());
+                        Ok(InvokeResult::F32(func(vmctx.as_ptr())))
+                    },
+                    types::F64 => unsafe {
+                        let func = transmute::<_, fn(*const *mut u8) -> f64>(code_buf.as_ptr());
+                        Ok(InvokeResult::F64(func(vmctx.as_ptr())))
+                    },
+                    _ => panic!("Invalid signature")
+                }
+            },
+            _ => panic!("Only one-returnf functions are supported for now")
+        }
+
+        // println!("TABLES: {:?}", self.tables);
+        // println!("MEMORIES: {:?}", self.memories);
+        // println!("{:?}", module.exports);
+        // println!("execute end");
+
+
+        
+    }
+
 }

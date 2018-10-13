@@ -4,14 +4,15 @@ use std::rc::Rc;
 
 use wabt::script::{Value, Action};
 use super::{InvokationResult, ScriptHandler, run_single_file};
-use crate::webassembly::{compile, instantiate, Error, ErrorKind, Module, Instance};
+use crate::webassembly::{compile, instantiate, Error, ErrorKind, Module, Instance, ResultObject};
+use crate::webassembly::instance::InvokeResult;
 
-struct StoreCtrl {
-    last_module: Option<Rc<Instance>>,
-    modules: HashMap<String, Rc<Instance>>
+struct StoreCtrl<'module> {
+    last_module: Option<ResultObject>,
+    modules: HashMap<String, Rc<&'module ResultObject>>
 }
 
-impl StoreCtrl {
+impl<'module> StoreCtrl<'module> {
     fn new() -> Self {
         // let (tx, rx) = channel();
 
@@ -28,12 +29,12 @@ impl StoreCtrl {
         }
     }
 
-    fn add_module(&mut self, name: Option<String>, module: Rc<Instance>) {
-        if let Some(name) = name {
-            // self.modules[&name] = module;
-            self.modules.insert(name, Rc::clone(&module));
-        }
-        self.last_module = Some(Rc::clone(&module));
+    fn add_module(&mut self, name: Option<String>, module: &'module ResultObject) {
+        // self.last_module = Some(Rc::new(module));
+        // if let Some(name) = name {
+        //     // self.modules[&name] = module;
+        //     self.modules.insert(name, Rc::new(self.last_module.unwrap()));
+        // }
         // println!("ADD MODULE {:?}", name);
         // self.modules
         //     .insert(name.unwrap_or("__last_module".to_string()), module);
@@ -42,8 +43,9 @@ impl StoreCtrl {
         // self.last_module = Some(module);
     }
 
-    fn get_module(self, name: Option<String>) -> Rc<Instance> {
-        self.last_module.unwrap()
+    fn get_module(self, name: Option<String>) -> &'module ResultObject {
+        unimplemented!()
+        // self.last_module.expect("exists")
         // return self
         //     .modules
         //     .get(&name)
@@ -54,7 +56,7 @@ impl StoreCtrl {
     }
 }
 
-impl ScriptHandler for StoreCtrl {
+impl<'module> ScriptHandler for StoreCtrl<'module> {
     fn reset(&mut self) {}
     fn action_invoke(
         &mut self,
@@ -62,9 +64,43 @@ impl ScriptHandler for StoreCtrl {
         field: String,
         args: Vec<Value>,
     ) -> InvokationResult {
-        if let Some(module) = &self.last_module {
+        // let modu = (&self.last_module);
+        // let x = modu.unwrap();
+        if let Some(m) = &mut self.last_module {
             // let function = module.exports.get(field).expect("field not found");
-            println!("HEEY {:?}", module);
+            // let mut m = &mut m;
+            let mut instance = &mut m.instance;
+            // println!("HEEY {:?}", module.instance);
+            let x = instance.execute_fn(
+                &m.module,
+                &m.compilation,
+                field,
+            ).unwrap();
+            println!("X value {:?}", x);
+            let res = match x {
+                InvokeResult::VOID => {
+                    vec![]
+                },
+                InvokeResult::I32(v) => vec![Value::I32(v)],
+                InvokeResult::I64(v) => vec![Value::I64(v)],
+                InvokeResult::F32(v) => vec![Value::F32(v)],
+                InvokeResult::F64(v) => vec![Value::F64(v)],
+            };
+            InvokationResult::Vals(res)
+            // unimplemented!()
+            // InvokationResult::Vals(vec![Value::I32(*x)])
+            // unimplemented!();
+            // let result = Rc::try_unwrap(module);
+            // let mut mutinstance = Rc::make_mut(&module.instance);
+            // execute_fn(
+            //     &module.module,
+            //     &module.compilation,
+            //     &mut (&mut module.instance),
+            //     field,
+            // );
+        }
+        else {
+            panic!("module not found");
         }
         // match module {
         //     Some(m) => {
@@ -76,7 +112,7 @@ impl ScriptHandler for StoreCtrl {
         // let modul = &self.last_module;
         // modul.expect("a");
         // 
-        unimplemented!()
+        
     }
     fn action_get(&mut self, module: Option<String>, field: String) -> Value {
         // println!("action get");
@@ -84,10 +120,10 @@ impl ScriptHandler for StoreCtrl {
     }
     fn module(&mut self, bytes: Vec<u8>, name: Option<String>) {
         let module_wrapped = instantiate(bytes, None);
-        let result = module_wrapped.expect("Module is invalid");
+        let mut result = module_wrapped.expect("Module is invalid");
         // let module: &'module Module = result.module;
-        // self.last_module = Some(result.module);
-        self.add_module(name, Rc::new(result.instance));
+        self.last_module = Some(result);
+        // self.add_module(name, &mut result);
         // println!("ADD MODULE {}", name.unwrap_or("no name".to_string()))
     }
     fn assert_malformed(&mut self, bytes: Vec<u8>) {
@@ -98,7 +134,9 @@ impl ScriptHandler for StoreCtrl {
         }
     }
     fn assert_invalid(&mut self, bytes: Vec<u8>) {
+        // print!("IS INVALID");
         let module_wrapped = compile(bytes);
+        // print!("IS INVALID?? {:?}", module_wrapped);
         match module_wrapped {
             Err(Error(ErrorKind::CompileError(v), _)) => {}
             _ => assert!(false, "Module compilation should have failed")
@@ -140,4 +178,5 @@ macro_rules! wasm_tests {
 wasm_tests!{
     _type,
     br_if,
+    // call,
 }

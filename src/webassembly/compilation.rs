@@ -7,20 +7,45 @@ use cranelift_codegen::isa;
 use cranelift_codegen::Context;
 use cranelift_entity::{EntityRef, PrimaryMap};
 use cranelift_wasm::{DefinedFuncIndex, FuncIndex, FuncTranslator};
+use region::protect;
+use region::Protection;
 
 use super::environ::{get_func_name, ModuleTranslation};
 
+pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
+    match unsafe {
+        protect(
+            code_buf.as_ptr(),
+            code_buf.len(),
+            Protection::ReadWriteExecute,
+        )
+    } {
+        Err(err) => {
+            return Err(format!(
+                "failed to give executable permission to code: {}",
+                err
+            ))
+        },
+        Ok(()) => Ok(()),
+    }
+}
+
 /// The result of compiling a WebAssemby module's functions.
+#[derive(Debug)]
+pub struct LazyFunction {
+}
+
 #[derive(Debug)]
 pub struct Compilation {
     /// Compiled machine code for the function bodies.
+    pub lazy_functions: PrimaryMap<DefinedFuncIndex, LazyFunction>,
     pub functions: PrimaryMap<DefinedFuncIndex, Vec<u8>>,
 }
 
 impl Compilation {
     /// Allocates the compilation result with the given function bodies.
-    pub fn new(functions: PrimaryMap<DefinedFuncIndex, Vec<u8>>) -> Self {
-        Self { functions }
+    pub fn new(functions: PrimaryMap<DefinedFuncIndex, Vec<u8>>, lazy_functions: PrimaryMap<DefinedFuncIndex, LazyFunction>) -> Self {
+        Self { lazy_functions, functions }
     }
 }
 
@@ -47,22 +72,22 @@ impl binemit::RelocSink for RelocSink {
         name: &ExternalName,
         addend: binemit::Addend,
     ) {
-        let reloc_target = if let ExternalName::User { namespace, index } = *name {
-            debug_assert!(namespace == 0);
-            RelocationTarget::UserFunc(FuncIndex::new(index as usize))
-        } else if *name == ExternalName::testcase("grow_memory") {
-            RelocationTarget::GrowMemory
-        } else if *name == ExternalName::testcase("current_memory") {
-            RelocationTarget::CurrentMemory
-        } else {
-            panic!("unrecognized external name")
-        };
-        self.func_relocs.push(Relocation {
-            reloc,
-            reloc_target,
-            offset,
-            addend,
-        });
+        // let reloc_target = if let ExternalName::User { namespace, index } = *name {
+        //     debug_assert!(namespace == 0);
+        //     RelocationTarget::UserFunc(FuncIndex::new(index as usize))
+        // } else if *name == ExternalName::testcase("grow_memory") {
+        //     RelocationTarget::GrowMemory
+        // } else if *name == ExternalName::testcase("current_memory") {
+        //     RelocationTarget::CurrentMemory
+        // } else {
+        //     panic!("unrecognized external name")
+        // };
+        // self.func_relocs.push(Relocation {
+        //     reloc,
+        //     reloc_target,
+        //     offset,
+        //     addend,
+        // });
     }
     fn reloc_jt(
         &mut self,
@@ -115,28 +140,42 @@ pub fn compile_module<'data, 'module>(
     translation: &ModuleTranslation<'data, 'module>,
     isa: &isa::TargetIsa,
 ) -> Result<(Compilation, Relocations), String> {
+    println!("compile_module::1");
     let mut functions = PrimaryMap::new();
     let mut relocations = PrimaryMap::new();
+    let mut lazy_functions = PrimaryMap::new();
+    println!("compile_module::2");
     for (i, input) in translation.lazy.function_body_inputs.iter() {
+        // println!("compile_module::{:?}::3", i);
         let func_index = translation.module.func_index(i);
         let mut context = Context::new();
+        // println!("compile_module::{:?}::4", i);
         context.func.name = get_func_name(func_index);
         context.func.signature =
             translation.module.signatures[translation.module.functions[func_index]].clone();
 
         let mut trans = FuncTranslator::new();
+        // println!("compile_module::{:?}::5", i);
+
         trans
             .translate(input, &mut context.func, &mut translation.func_env())
             .map_err(|e| e.to_string())?;
+        // println!("compile_module::{:?}::6", i);
 
         let mut code_buf: Vec<u8> = Vec::new();
         let mut reloc_sink = RelocSink::new();
         let mut trap_sink = binemit::NullTrapSink {};
+
+        // println!("compile_module::{:?}::7", i);
         context
             .compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
             .map_err(|e| e.to_string())?;
+        protect_codebuf(&code_buf)?;
+
+        // println!("compile_module::{:?}::8", i);
+
         functions.push(code_buf);
         relocations.push(reloc_sink.func_relocs);
     }
-    Ok((Compilation::new(functions), relocations))
+    Ok((Compilation::new(functions, lazy_functions), relocations))
 }

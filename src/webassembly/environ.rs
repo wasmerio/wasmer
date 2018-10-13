@@ -10,7 +10,7 @@ use cranelift_codegen::settings;
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{
     self, translate_module, FuncIndex, Global, GlobalIndex, GlobalVariable, Memory, MemoryIndex,
-    SignatureIndex, Table, TableIndex, WasmResult,
+    SignatureIndex, Table, TableIndex, WasmResult, ReturnMode
 };
 use target_lexicon::Triple;
 
@@ -59,7 +59,9 @@ impl<'data, 'module> ModuleEnvironment<'data, 'module> {
     /// `ModuleTranslation` with an immutable reference to the `Module` (which has
     /// become fully populated).
     pub fn translate(mut self, data: &'data [u8]) -> WasmResult<ModuleTranslation<'data, 'module>> {
+        // print!("translate::1");
         translate_module(data, &mut self)?;
+        // print!("translate::2");
 
         Ok(ModuleTranslation {
             isa: self.isa,
@@ -189,7 +191,7 @@ impl<'data, 'module> cranelift_wasm::ModuleEnvironment<'data>
         offset: usize,
         elements: Vec<FuncIndex>,
     ) {
-        debug_assert!(base.is_none(), "global-value offsets not supported yet");
+        // debug_assert!(base.is_none(), "global-value offsets not supported yet");
         self.module.table_elements.push(TableElements {
             table_index,
             base,
@@ -209,7 +211,7 @@ impl<'data, 'module> cranelift_wasm::ModuleEnvironment<'data>
         offset: usize,
         data: &'data [u8],
     ) {
-        debug_assert!(base.is_none(), "global-value offsets not supported yet");
+        // debug_assert!(base.is_none(), "global-value offsets not supported yet");
         self.lazy.data_initializers.push(DataInitializer {
             memory_index,
             base,
@@ -468,6 +470,12 @@ impl<'module_environment> cranelift_wasm::FuncEnvironment for FuncEnvironment<'m
         let call_inst = pos.ins().call(cur_mem_func, &[memory_index, vmctx]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
+
+    fn return_mode(&self) -> ReturnMode {
+        // self.return_mode
+        ReturnMode::NormalReturns
+    }
+
 }
 
 /// The result of translating via `ModuleEnvironment`.

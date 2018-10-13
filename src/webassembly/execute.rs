@@ -2,8 +2,6 @@ use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_entity::PrimaryMap;
 use cranelift_wasm::{DefinedFuncIndex, MemoryIndex};
-use region::protect;
-use region::Protection;
 use std::mem::transmute;
 use std::ptr::{self, write_unaligned};
 
@@ -21,10 +19,14 @@ pub fn compile_and_link_module<'data, 'module>(
     isa: &TargetIsa,
     translation: &ModuleTranslation<'data, 'module>,
 ) -> Result<Compilation, String> {
+    println!("compile_and_link_module::1");
     let (mut compilation, relocations) = compile_module(&translation, isa)?;
+    println!("compile_and_link_module::2");
 
     // Apply relocations, now that we have virtual addresses for everything.
     relocate(&mut compilation, &relocations, &translation.module);
+    
+    println!("compile_and_link_module::3");
 
     Ok(compilation)
 }
@@ -92,7 +94,7 @@ extern "C" fn current_memory(memory_index: u32, vmctx: *mut *mut u8) -> u32 {
 
 /// Create the VmCtx data structure for the JIT'd code to use. This must
 /// match the VmCtx layout in the environment.
-fn make_vmctx(instance: &mut Instance, mem_base_addrs: &mut [*mut u8]) -> Vec<*mut u8> {
+pub fn make_vmctx(instance: &mut Instance, mem_base_addrs: &mut [*mut u8]) -> Vec<*mut u8> {
     debug_assert!(
         instance.tables.len() <= 1,
         "non-default tables is not supported"
@@ -114,13 +116,14 @@ fn make_vmctx(instance: &mut Instance, mem_base_addrs: &mut [*mut u8]) -> Vec<*m
     vmctx
 }
 
+
 /// Jumps to the code region of memory and execute the start function of the module.
 pub fn execute(
     module: &Module,
     compilation: &Compilation,
     instance: &mut Instance,
 ) -> Result<(), String> {
-    println!("execute");
+    // println!("execute");
 
     let start_index = module.start_func.or_else(|| {
         match module.exports.get("main") {
@@ -141,23 +144,6 @@ pub fn execute(
 
     // TODO: Put all the function bodies into a page-aligned memory region, and
     // then make them ReadExecute rather than ReadWriteExecute.
-    for code_buf in compilation.functions.values() {
-        match unsafe {
-            protect(
-                code_buf.as_ptr(),
-                code_buf.len(),
-                Protection::ReadWriteExecute,
-            )
-        } {
-            Ok(()) => (),
-            Err(err) => {
-                return Err(format!(
-                    "failed to give executable permission to code: {}",
-                    err
-                ))
-            }
-        }
-    }
 
     let code_buf = start_index.map(|i| {
         &compilation.functions[module
@@ -165,15 +151,16 @@ pub fn execute(
                                    .expect("imported start functions not supported yet")]
     });
 
-    // Collect all memory base addresses and Vec.
-    let mut mem_base_addrs = instance
-        .memories
-        .iter_mut()
-        .map(LinearMemory::base_addr)
-        .collect::<Vec<_>>();
-    let vmctx = make_vmctx(instance, &mut mem_base_addrs);
-
     code_buf.map(|code_buf_pt|{
+
+        // Collect all memory base addresses and Vec.
+        let mut mem_base_addrs = instance
+            .memories
+            .iter_mut()
+            .map(LinearMemory::base_addr)
+            .collect::<Vec<_>>();
+
+        let vmctx = make_vmctx(instance, &mut mem_base_addrs);
         // Rather than writing inline assembly to jump to the code region, we use the fact that
         // the Rust ABI for calling a function with no arguments and no return matches the one of
         // the generated code. Thanks to this, we can transmute the code region into a first-class
@@ -183,45 +170,8 @@ pub fn execute(
             start_func(vmctx.as_ptr());
         }
     });
-    println!("{:?}", module.exports);
-    println!("execute end");
-
-
-    Ok(())
-}
-
-
-pub fn execute_fn(
-    module: &Module,
-    compilation: &Compilation,
-    instance: &mut Instance,
-    func_name: String,
-) -> Result<(), String> {
-    println!("execute");
-
-    let start_index = match module.exports.get(&func_name) {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("No func name")
-    };
-
-    let code_buf = &compilation.functions[module
-                                   .defined_func_index(start_index)
-                                   .expect("imported start functions not supported yet")];
-
-    // Collect all memory base addresses and Vec.
-    let mut mem_base_addrs = instance
-        .memories
-        .iter_mut()
-        .map(LinearMemory::base_addr)
-        .collect::<Vec<_>>();
-    let vmctx = make_vmctx(instance, &mut mem_base_addrs);
-
-    unsafe {
-        let start_func = transmute::<_, fn(*const *mut u8)>(code_buf.as_ptr());
-        start_func(vmctx.as_ptr())
-    }
-    println!("{:?}", module.exports);
-    println!("execute end");
+    // println!("{:?}", module.exports);
+    // println!("execute end");
 
 
     Ok(())

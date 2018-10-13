@@ -7,6 +7,8 @@ pub mod errors;
 pub mod execute;
 pub mod utils;
 
+use std::time::{Duration, Instant};
+use std::panic;
 use cranelift_native;
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::settings;
@@ -51,23 +53,28 @@ pub struct ImportObject {
 /// If the operation fails, the Result rejects with a 
 /// WebAssembly.CompileError, WebAssembly.LinkError, or
 ///  WebAssembly.RuntimeError, depending on the cause of the failure.
-pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ResultObject, Error> {
+pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ResultObject, ErrorKind> {
+    let now = Instant::now();
     let isa = construct_isa();
-    println!("instantiate::init");
+    println!("instantiate::init {:?}", now.elapsed());
+    // if !validate(&buffer_source) {
+    //     return Err(ErrorKind::CompileError("Module not valid".to_string()));
+    // }
+    println!("instantiate::validation {:?}", now.elapsed());
     let mut module = Module::new();
     let environ = ModuleEnvironment::new(&*isa, &mut module);
     let translation = environ.translate(&buffer_source).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-    println!("instantiate::compile and link");
+    println!("instantiate::compile and link {:?}", now.elapsed());
     let compilation = compile_and_link_module(&*isa, &translation)?;
     // let (compilation, relocations) = compile_module(&translation, &*isa)?;
-    println!("instantiate::instantiate");
+    println!("instantiate::instantiate {:?}", now.elapsed());
 
     let mut instance = Instance::new(
         translation.module,
         &compilation,
         &translation.lazy.data_initializers,
     );
-    println!("instantiate::execute");
+    println!("instantiate::execute {:?}", now.elapsed());
 
     let x = execute(&module, &compilation, &mut instance)?;
 
@@ -79,8 +86,8 @@ pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) 
 
     Ok(ResultObject {
         module,
-        instance,
         compilation,
+        instance: instance,
     })
 }
 
@@ -102,9 +109,8 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, Error> {
     let mut module = Module::new();
     let environ = ModuleEnvironment::new(&*isa, &mut module);
     let translation = environ.translate(&buffer_source).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-    // compile_module(&translation, &*isa)?;
+        // compile_module(&translation, &*isa)?;
     compile_and_link_module(&*isa, &translation)?;
-
     Ok(module)
 }
 
@@ -115,12 +121,14 @@ fn construct_isa() -> Box<TargetIsa> {
 
     // Enable verifier passes in debug mode.
     // if cfg!(debug_assertions) {
-    flag_builder.enable("enable_verifier").unwrap();
+    // flag_builder.enable("enable_verifier").unwrap();
+    // flag_builder.set("opt_level", "fastest");
+
     // }
 
     // Enable optimization if requested.
     // if args.flag_optimize {
-    flag_builder.set("opt_level", "best").unwrap();
+    flag_builder.set("opt_level", "fastest").unwrap();
     // }
 
     isa_builder.finish(settings::Flags::new(flag_builder))
