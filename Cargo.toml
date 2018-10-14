@@ -7,14 +7,14 @@ repository = "https://github.com/wapmio/wasmer"
 publish = false
 
 [dependencies]
-# cranelift-native = "0.20.0"
-cranelift-native = { path = "cranelift/lib/native" }
-# cranelift-codegen = "0.20.0"
-cranelift-codegen = { path = "cranelift/lib/codegen" }
-# cranelift-entity = "0.20.1"
-cranelift-entity = { path = "cranelift/lib/entity" }
-# cranelift-wasm = "0.20.1"
-cranelift-wasm = { path = "cranelift/lib/wasm" }
+cranelift-native = "0.22.0"
+# cranelift-native = { path = "cranelift/lib/native" }
+cranelift-codegen = "0.22.0"
+# cranelift-codegen = { path = "cranelift/lib/codegen" }
+cranelift-entity = "0.22.0"
+# cranelift-entity = { path = "cranelift/lib/entity" }
+cranelift-wasm = "0.22.0"
+# cranelift-wasm = { path = "cranelift/lib/wasm" }
 docopt = "1.0.0"
 serde = "1.0.55"
 serde_derive = "1.0.55"
@@ -26,5 +26,4 @@ wasmparser = "0.20.0"
 region = "0.3.0"
 memmap = "0.6.2"
 spin = "0.4.9"
-# target-lexicon = "0.0.3"
 target-lexicon = { version = "0.0.3", default-features = false }

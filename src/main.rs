@@ -26,11 +26,17 @@ pub mod spec;
 pub mod common;
 
 
-/// The options for the wasmer Command Line Interface
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]
-struct Opt {
-    /// Activate debug mode
+/// The options for the wasmer Command Line Interface
+enum CLIOptions {
+    /// Run a WebAssembly file. Formats accepted: wasm, wast
+    #[structopt(name = "run")]
+    Run(Run)
+}
+
+#[derive(Debug, StructOpt)]
+struct Run {
     #[structopt(short = "d", long = "debug")]
     debug: bool,
     /// Input file
@@ -59,15 +65,20 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String>{
     Ok(())
 }
 
-
-fn main() {
-    let opt = Opt::from_args();
-    match execute_wasm(opt.path.clone()) {
+fn run(options: Run) {
+    match execute_wasm(options.path.clone()) {
         Ok(()) => {}
         Err(message) => {
-            let name = opt.path.as_os_str().to_string_lossy();
+            let name = options.path.as_os_str().to_string_lossy();
             println!("error while executing {}: {}", name, message);
             exit(1);
         }
+    }
+}
+
+fn main() {
+    let options = CLIOptions::from_args();
+    match options {
+        CLIOptions::Run(options) => run(options),
     }
 }

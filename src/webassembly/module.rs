@@ -15,9 +15,9 @@ use std::vec::Vec;
 use target_lexicon::{Triple, PointerWidth};
 use cranelift_wasm::{
     FuncTranslator,
-    FuncEnvironment as FuncEnvironmentTrait, GlobalVariable, ModuleEnvironment, ReturnMode, WasmResult,
+    FuncEnvironment as FuncEnvironmentTrait, GlobalVariable, ModuleEnvironment, WasmResult,
     DefinedFuncIndex, FuncIndex, Global, GlobalIndex, Memory, MemoryIndex, SignatureIndex, Table,
-    TableIndex, translate_module
+    TableIndex, translate_module, // ReturnMode, 
 };
 use super::memory::LinearMemory;
 
@@ -175,8 +175,8 @@ pub struct Module {
     /// Vector of wasm bytecode size for each function.
     pub func_bytecode_sizes: Vec<usize>,
 
-    /// How to return from functions.
-    return_mode: ReturnMode,
+    // How to return from functions.
+    // return_mode: ReturnMode,
 }
 
 impl Module {
@@ -205,7 +205,7 @@ impl Module {
     // }
 
     pub fn from_bytes(buffer_source: Vec<u8>, triple: Triple, flags: Option<settings::Flags>) -> Result<Self, ErrorKind> {
-        let return_mode = ReturnMode::NormalReturns;
+        // let return_mode = ReturnMode::NormalReturns;
         let flags = flags.unwrap_or_else(|| {
             settings::Flags::new(settings::builder())
         });
@@ -213,7 +213,7 @@ impl Module {
             info: ModuleInfo::with_triple_flags(triple, flags),
             trans: FuncTranslator::new(),
             func_bytecode_sizes: Vec::new(),
-            return_mode,
+            // return_mode,
         };
         // We iterate through the source bytes, generating the compiled module
         translate_module(&buffer_source, &mut module).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
@@ -224,7 +224,7 @@ impl Module {
     /// Return a `FuncEnvironment` for translating functions within this
     /// `Module`.
     pub fn func_env(&self) -> FuncEnvironment {
-        FuncEnvironment::new(&self.info, self.return_mode)
+        FuncEnvironment::new(&self.info) //, self.return_mode)
     }
 
     fn native_pointer(&self) -> ir::Type {
@@ -254,14 +254,14 @@ impl Module {
 pub struct FuncEnvironment<'environment> {
     pub mod_info: &'environment ModuleInfo,
 
-    return_mode: ReturnMode,
+    // return_mode: ReturnMode,
 }
 
 impl<'environment> FuncEnvironment<'environment> {
-    pub fn new(mod_info: &'environment ModuleInfo, return_mode: ReturnMode) -> Self {
+    pub fn new(mod_info: &'environment ModuleInfo) -> Self { // , return_mode: ReturnMode
         Self {
             mod_info,
-            return_mode,
+            // return_mode,
         }
     }
 
@@ -335,7 +335,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             },
             index_type: I32,
         })
-        // use memory::WasmMemory;
         // if index == 0 {
         //     let heap_base = self.main_memory_base.unwrap_or_else(|| {
         //         let new_base = func.create_global_value(ir::GlobalValueData::VMContext {
@@ -556,9 +555,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         Ok(pos.ins().iconst(I32, -1))
     }
 
-    fn return_mode(&self) -> ReturnMode {
-        self.return_mode
-    }
+    // fn return_mode(&self) -> ReturnMode {
+    //     self.return_mode
+    // }
 }
 
 impl<'data> ModuleEnvironment<'data> for Module {
@@ -699,7 +698,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
 
     fn define_function_body(&mut self, body_bytes: &'data [u8]) -> WasmResult<()> {
         let func = {
-            let mut func_environ = FuncEnvironment::new(&self.info, self.return_mode);
+            let mut func_environ = FuncEnvironment::new(&self.info); // , self.return_mode);
             let func_index =
                 FuncIndex::new(self.get_num_func_imports() + self.info.function_bodies.len());
             let name = get_func_name(func_index);
