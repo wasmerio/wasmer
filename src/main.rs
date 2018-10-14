@@ -55,11 +55,6 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String>{
             ).map_err(|err| String::from(err.description()))?;
     }
 
-    // let result_object = instantiate
-    // webassembly::
-    // if !webassembly::validate(&wasm_binary) {
-    //     return Err("Invalid WASM module".to_string())
-    // };
     webassembly::instantiate(wasm_binary, None).map_err(|err| String::from(err.description()))?;
     Ok(())
 }
