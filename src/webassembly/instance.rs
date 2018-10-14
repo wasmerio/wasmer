@@ -76,7 +76,7 @@ pub struct Instance {
 
 impl Instance {
     /// Create a new `Instance`.
-    pub fn new(module: &Module, data_initializers: &[DataInitializer], code_base: *const (), functions: &[usize]) -> Instance {
+    pub fn new(module: &Module, code_base: *const (), functions: &[usize]) -> Instance {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
         let mut globals: Vec<u8> = Vec::new();
@@ -119,7 +119,7 @@ impl Instance {
                 let v = LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32));
                 memories.push(v);
             }
-            for init in data_initializers {
+            for init in &module.info.data_initializers {
                 debug_assert!(init.base.is_none(), "globalvar base not supported yet");
                 let mem_mut = memories[init.memory_index].as_mut();
                 let to_init = &mut mem_mut[init.offset..init.offset + init.data.len()];

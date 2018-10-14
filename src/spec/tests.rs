@@ -121,7 +121,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
     }
     fn module(&mut self, bytes: Vec<u8>, name: Option<String>) {
         let module_wrapped = instantiate(bytes, None);
-        let mut result = module_wrapped.expect("Module is invalid");
+        let mut result = module_wrapped.expect("Module is invalid").module;
         // let module: &'module Module = result.module;
         self.last_module = Some(result);
         // self.add_module(name, &mut result);
