@@ -1,38 +1,27 @@
-// webassembly::CompileError(message, fileName, lineNumber)
-
-// The webassembly::CompileError() constructor creates a new WebAssembly
-// CompileError object, which indicates an error during WebAssembly
-// decoding or validation
-
-
-// webassembly::LinkError(message, fileName, lineNumber)
-
-// The webassembly::LinkError() constructor creates a new WebAssembly
-// LinkError object, which indicates an error during module instantiation
-// (besides traps from the start function).
-
-// new webassembly::RuntimeError(message, fileName, lineNumber)
-
-// The webassembly::RuntimeError() constructor creates a new WebAssembly
-// RuntimeError object — the type that is thrown whenever WebAssembly
-//  specifies a trap.
-
-
 error_chain! {
-    // Define additional `ErrorKind` variants.  Define custom responses with the
-    // `description` and `display` calls.
     errors {
+        //! The webassembly::CompileError() constructor creates a new WebAssembly
+        //! CompileError object, which indicates an error during WebAssembly
+        //! decoding or validation
         CompileError(reason: String) {
             description("WebAssembly compilation error")
-            display("Compilation error: '{}'", reason)
+            display("Compilation error: '{:?}'", reason)
         }
-        LinkError {
+
+        //! The webassembly::LinkError() constructor creates a new WebAssembly
+        //! LinkError object, which indicates an error during module instantiation
+        //! (besides traps from the start function).
+        LinkError(reason: String) {
             description("WebAssembly link error")
-            // display("invalid toolchain name: '{}'", t)
+            display("Link error: '{:?}'", reason)
         }
-        RuntimeError {
+
+        // The webassembly::RuntimeError() constructor creates a new WebAssembly
+        // RuntimeError object — the type that is thrown whenever WebAssembly
+        //  specifies a trap.
+        RuntimeError(reason: String) {
             description("WebAssembly runtime error")
-            // display("invalid toolchain name: '{}'", t)
+            display("Runtime error: '{:?}'", reason)
         }
     }
 }
