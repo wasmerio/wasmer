@@ -1,8 +1,14 @@
-//! An 'Instance' contains all the runtime state used by execution of a wasm module
+//! A webassembly::Instance object is a stateful, executable instance of a
+//! webassembly::Module.  Instance objects contain all the Exported
+//! WebAssembly functions that allow calling into WebAssembly code.
 
+//! The webassembly::Instance() constructor function can be called to
+//! synchronously instantiate a given webassembly::Module object. However, the
+//! primary way to get an Instance is through the asynchronous
+//! webassembly::instantiateStreaming() function.
 use cranelift_wasm::{GlobalInit, FuncIndex};
-use super::env::Module;
-use super::env::{DataInitializer, Exportable};
+use super::module::Module;
+use super::module::{DataInitializer, Exportable};
 use cranelift_entity::EntityRef;
 
 use super::memory::LinearMemory;
@@ -77,6 +83,7 @@ impl Instance {
 
         // instantiate_tables
         {
+            // Reserve table space
             tables.reserve_exact(module.info.tables.len());
             for table in &module.info.tables {
                 let len = table.entity.size;
@@ -151,6 +158,10 @@ impl Instance {
 
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
+    }
+
+    pub fn invoke(&self, func_index: FuncIndex, args: Vec<i32>) {
+        unimplemented!()
     }
 
     // pub fn start_func(&self) -> extern fn(&VmCtx) {

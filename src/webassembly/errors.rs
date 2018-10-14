@@ -1,19 +1,19 @@
-// WebAssembly.CompileError(message, fileName, lineNumber)
+// webassembly::CompileError(message, fileName, lineNumber)
 
-// The WebAssembly.CompileError() constructor creates a new WebAssembly
+// The webassembly::CompileError() constructor creates a new WebAssembly
 // CompileError object, which indicates an error during WebAssembly
 // decoding or validation
 
 
-// WebAssembly.LinkError(message, fileName, lineNumber)
+// webassembly::LinkError(message, fileName, lineNumber)
 
-// The WebAssembly.LinkError() constructor creates a new WebAssembly
+// The webassembly::LinkError() constructor creates a new WebAssembly
 // LinkError object, which indicates an error during module instantiation
 // (besides traps from the start function).
 
-// new WebAssembly.RuntimeError(message, fileName, lineNumber)
+// new webassembly::RuntimeError(message, fileName, lineNumber)
 
-// The WebAssembly.RuntimeError() constructor creates a new WebAssembly
+// The webassembly::RuntimeError() constructor creates a new WebAssembly
 // RuntimeError object — the type that is thrown whenever WebAssembly
 //  specifies a trap.
 

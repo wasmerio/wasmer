@@ -10,10 +10,19 @@ const MAX_PAGES: u32 = 65536;
 /// for dynamical growing.
 pub struct LinearMemory {
     mmap: memmap::MmapMut,
+    // The initial size of the WebAssembly Memory, in units of
+    // WebAssembly pages.
     current: u32,
+    // The maximum size the WebAssembly Memory is allowed to grow
+    // to, in units of WebAssembly pages.  When present, the maximum
+    // parameter acts as a hint to the engine to reserve memory up
+    // front.  However, the engine may ignore or clamp this reservation
+    // request.  In general, most WebAssembly modules shouldn't need
+    // to set a maximum.
     maximum: Option<u32>,
 }
 
+/// It holds the raw bytes of memory accessed by a WebAssembly Instance
 impl LinearMemory {
     /// Create a new linear memory instance with specified initial and maximum number of pages.
     ///

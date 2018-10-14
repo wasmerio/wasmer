@@ -6,7 +6,7 @@
 pub mod errors;
 // pub mod execute;
 pub mod utils;
-pub mod env;
+pub mod module;
 pub mod memory;
 pub mod instance;
 
@@ -26,7 +26,7 @@ use cranelift_codegen::settings::{self, Flags};
 use cranelift_codegen::verifier;
 use cranelift_wasm::{translate_module, ReturnMode};
 
-pub use self::env::Module;
+pub use self::module::Module;
 pub use self::instance::Instance;
 
 // pub use self::compilation::{compile_module, Compilation};
@@ -38,10 +38,10 @@ pub use self::errors::{Error, ErrorKind};
 use wasmparser;
 
 // pub struct ResultObject {
-//     /// A WebAssembly.Module object representing the compiled WebAssembly module.
+//     /// A webassembly::Module object representing the compiled WebAssembly module.
 //     /// This Module can be instantiated again
 //     pub module: Module,
-//     /// A WebAssembly.Instance object that contains all the Exported WebAssembly
+//     /// A webassembly::Instance object that contains all the Exported WebAssembly
 //     /// functions.
 //     pub instance: Instance,
 
@@ -51,7 +51,7 @@ use wasmparser;
 pub struct ImportObject {
 }
 
-/// The WebAssembly.instantiate() function allows you to compile and
+/// The webassembly::instantiate() function allows you to compile and
 /// instantiate WebAssembly code
 
 /// Params: 
@@ -60,14 +60,14 @@ pub struct ImportObject {
 
 /// * `import_object`: An object containing the values to be imported
 ///   into the newly-created Instance, such as functions or
-///   WebAssembly.Memory objects. There must be one matching property
+///   webassembly::Memory objects. There must be one matching property
 ///   for each declared import of the compiled module or else a
-///   WebAssembly.LinkError is thrown.
+///   webassembly::LinkError is thrown.
 
 /// Errors:
 /// If the operation fails, the Result rejects with a 
-/// WebAssembly.CompileError, WebAssembly.LinkError, or
-/// WebAssembly.RuntimeError, depending on the cause of the failure.
+/// webassembly::CompileError, webassembly::LinkError, or
+/// webassembly::RuntimeError, depending on the cause of the failure.
 pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<Module, ErrorKind> {
     // TODO: This should be automatically validated when creating the Module
     if !validate(&buffer_source) {
@@ -126,10 +126,10 @@ pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) 
     // })
 }
 
-/// The WebAssembly.compile() function compiles a WebAssembly.Module
+/// The webassembly::compile() function compiles a webassembly::Module
 /// from WebAssembly binary code.  This function is useful if it
 /// is necessary to a compile a module before it can be instantiated
-/// (otherwise, the WebAssembly.instantiate() function should be used).
+/// (otherwise, the webassembly::instantiate() function should be used).
 
 /// Params: 
 /// * `buffer_source`: A `Vec<u8>` containing the
@@ -137,7 +137,7 @@ pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) 
 
 /// Errors:
 /// If the operation fails, the Result rejects with a 
-/// WebAssembly.CompileError.
+/// webassembly::CompileError.
 pub fn compile(buffer_source: Vec<u8>) -> Result<Module, Error> {
     unimplemented!();
     // let isa = construct_isa();
@@ -150,7 +150,7 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, Error> {
     // Ok(module)
 }
 
-/// The WebAssembly.validate() function validates a given typed
+/// The webassembly::validate() function validates a given typed
 /// array of WebAssembly binary code, returning whether the bytes
 /// form a valid wasm module (true) or not (false).
 
