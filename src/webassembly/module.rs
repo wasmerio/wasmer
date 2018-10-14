@@ -8,7 +8,8 @@ use cranelift_codegen::ir::{
     self, AbiParam, ArgumentExtension, ArgumentLoc, ArgumentPurpose, ExtFuncData, ExternalName,
     FuncRef, Function, InstBuilder, Signature,
 };
-use cranelift_codegen::settings;
+use cranelift_codegen::print_errors::pretty_verifier_error;
+use cranelift_codegen::{isa, settings, verifier};
 use cranelift_entity::{EntityRef, PrimaryMap};
 
 use super::errors::ErrorKind;
@@ -34,9 +35,6 @@ use std::string::String;
 use std::vec::Vec;
 use target_lexicon::{PointerWidth, Triple};
 
-// use alloc::vec::Vec;
-// use alloc::string::String;
-
 /// Compute a `ir::ExternalName` for a given wasm function index.
 fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
     ir::ExternalName::user(0, func_index.index() as u32)
@@ -44,7 +42,7 @@ fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
 
 /// A collection of names under which a given entity is exported.
 pub struct Exportable<T> {
-    /// A wasm entity.
+    /// An entity.
     pub entity: T,
 
     /// Names under which the entity is exported.
@@ -91,8 +89,6 @@ pub struct ModuleInfo {
     pub tables: Vec<Exportable<Table>>,
 
     /// WebAssembly table initializers.
-    // Should be Vec<TableElements>
-    // instead of Vec<Exportable<TableElements>> ??
     pub table_elements: Vec<TableElements>,
     /// The base of tables.
     pub tables_base: Option<ir::GlobalValue>,
@@ -109,6 +105,7 @@ pub struct ModuleInfo {
     /// The start function.
     pub start_func: Option<FuncIndex>,
 
+    /// The data initializers
     pub data_initializers: Vec<DataInitializer>,
 }
 
@@ -188,30 +185,7 @@ pub struct Module {
 }
 
 impl Module {
-    /// Allocates the data structures with default flags.
-
-    // pub fn with_triple(triple: Triple) -> Self {
-    //     Self::with_triple_flags(
-    //         triple,
-    //         settings::Flags::new(settings::builder()),
-    //         ReturnMode::NormalReturns,
-    //     )
-    // }
-
-    /// Allocates the data structures with the given triple.
-    // pub fn with_triple_flags(
-    //     triple: Triple,
-    //     flags: settings::Flags,
-    //     return_mode: ReturnMode,
-    // ) -> Self {
-    //     Self {
-    //         info: ModuleInfo::with_triple_flags(triple, flags),
-    //         trans: FuncTranslator::new(),
-    //         func_bytecode_sizes: Vec::new(),
-    //         return_mode,
-    //     }
-    // }
-
+    /// Instantiate a Module given WASM bytecode
     pub fn from_bytes(
         buffer_source: Vec<u8>,
         triple: Triple,
@@ -225,6 +199,7 @@ impl Module {
             func_bytecode_sizes: Vec::new(),
             // return_mode,
         };
+
         // We iterate through the source bytes, generating the compiled module
         translate_module(&buffer_source, &mut module)
             .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
@@ -256,6 +231,18 @@ impl Module {
             Some(DefinedFuncIndex::new(
                 func.index() - self.info.imported_funcs.len(),
             ))
+        }
+    }
+
+    pub fn verify(&self) {
+        let isa = isa::lookup(self.info.triple.clone())
+            .unwrap()
+            .finish(self.info.flags.clone());
+
+        for func in self.info.function_bodies.values() {
+            verifier::verify_function(func, &*isa)
+                .map_err(|errors| panic!(pretty_verifier_error(func, Some(&*isa), None, errors)))
+                .unwrap();
         }
     }
 }
