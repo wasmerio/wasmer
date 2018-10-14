@@ -6,20 +6,24 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiateStreaming() function.
-use cranelift_wasm::{GlobalInit, FuncIndex};
 use super::module::Module;
 use super::module::{DataInitializer, Exportable};
 use cranelift_entity::EntityRef;
+use cranelift_wasm::{FuncIndex, GlobalInit};
 
 use super::memory::LinearMemory;
 use std::marker::PhantomData;
-use std::{slice, mem};
 use std::sync::Arc;
+use std::{mem, slice};
 
-use spin::RwLock;
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
+use spin::RwLock;
 
-pub fn get_function_addr(base: *const (), functions: &[usize], func_index: &FuncIndex) -> *const () {
+pub fn get_function_addr(
+    base: *const (),
+    functions: &[usize],
+    func_index: &FuncIndex,
+) -> *const () {
     let offset = functions[func_index.index()];
     (base as usize + offset) as _
 }
@@ -30,18 +34,14 @@ pub enum VmCtx {}
 impl VmCtx {
     pub fn data(&self) -> &VmCtxData {
         let heap_ptr = self as *const _ as *const VmCtxData;
-        unsafe {
-            &*heap_ptr.sub(1)
-        }
+        unsafe { &*heap_ptr.sub(1) }
     }
 
     /// This is safe because the offset is 32 bits and thus
     /// cannot extend out of the guarded wasm memory.
     pub fn fastpath_offset_ptr<T>(&self, offset: u32) -> *const T {
         let heap_ptr = self as *const _ as *const u8;
-        unsafe {
-            heap_ptr.add(offset as usize) as *const T
-        }
+        unsafe { heap_ptr.add(offset as usize) as *const T }
     }
 }
 
@@ -59,7 +59,6 @@ pub struct UserData {
     // pub process: Dispatch<Process>,
     pub instance: Instance,
 }
-
 
 /// An Instance of a WebAssembly module
 #[derive(Debug)]
@@ -93,7 +92,10 @@ impl Instance {
             }
             // instantiate tables
             for table_element in &module.info.table_elements {
-                assert!(table_element.base.is_none(), "globalvalue base not supported yet.");
+                assert!(
+                    table_element.base.is_none(),
+                    "globalvalue base not supported yet."
+                );
                 let base = 0;
 
                 let table = &mut tables[table_element.table_index];
@@ -116,7 +118,8 @@ impl Instance {
             memories.reserve_exact(module.info.memories.len());
             for memory in &module.info.memories {
                 let memory = memory.entity;
-                let v = LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32));
+                let v =
+                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32));
                 memories.push(v);
             }
             for init in &module.info.data_initializers {
@@ -135,7 +138,9 @@ impl Instance {
             globals.resize(globals_data_size, 0);
 
             // cast the globals slice to a slice of i64.
-            let globals_data = unsafe { slice::from_raw_parts_mut(globals.as_mut_ptr() as *mut i64, globals_count) };
+            let globals_data = unsafe {
+                slice::from_raw_parts_mut(globals.as_mut_ptr() as *mut i64, globals_count)
+            };
             for (i, global) in module.info.globals.iter().enumerate() {
                 let value: i64 = match global.entity.initializer {
                     GlobalInit::I32Const(n) => n as _,
@@ -144,7 +149,7 @@ impl Instance {
                     GlobalInit::F64Const(f) => unsafe { mem::transmute(f) },
                     _ => unimplemented!(),
                 };
-                
+
                 globals_data[i] = value;
             }
         };
@@ -167,7 +172,6 @@ impl Instance {
     // pub fn start_func(&self) -> extern fn(&VmCtx) {
     //     self.start_func
     // }
-
 }
 
 impl Clone for Instance {

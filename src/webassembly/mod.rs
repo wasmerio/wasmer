@@ -1,24 +1,24 @@
 pub mod errors;
-pub mod utils;
-pub mod module;
-pub mod memory;
 pub mod instance;
+pub mod memory;
+pub mod module;
+pub mod utils;
 
-use std::str::FromStr;
-use std::time::{Duration, Instant};
+use cranelift_codegen::isa;
+use cranelift_native;
 use std::panic;
 use std::ptr;
-use cranelift_native;
+use std::str::FromStr;
+use std::time::{Duration, Instant};
 use target_lexicon::{self, Triple};
 use wasmparser;
-use cranelift_codegen::isa;
 // use cranelift_codegen::print_errors::pretty_verifier_error;
 // use cranelift_codegen::verifier;
 
-pub use self::module::Module;
-pub use self::instance::Instance;
 pub use self::errors::{Error, ErrorKind};
+pub use self::instance::Instance;
 pub use self::memory::LinearMemory;
+pub use self::module::Module;
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -29,13 +29,12 @@ pub struct ResultObject {
     pub instance: Instance,
 }
 
-pub struct ImportObject {
-}
+pub struct ImportObject {}
 
 /// The webassembly::instantiate() function allows you to compile and
 /// instantiate WebAssembly code
 
-/// Params: 
+/// Params:
 /// * `buffer_source`: A `Vec<u8>` containing the
 ///   binary code of the .wasm module you want to compile.
 
@@ -46,16 +45,16 @@ pub struct ImportObject {
 ///   webassembly::LinkError is thrown.
 
 /// Errors:
-/// If the operation fails, the Result rejects with a 
+/// If the operation fails, the Result rejects with a
 /// webassembly::CompileError, webassembly::LinkError, or
 /// webassembly::RuntimeError, depending on the cause of the failure.
-pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ResultObject, ErrorKind> {
+pub fn instantiate(
+    buffer_source: Vec<u8>,
+    import_object: Option<ImportObject>,
+) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
     let instance = Instance::new(&module, ptr::null(), &vec![]);
-    Ok(ResultObject{
-        module,
-        instance
-    })
+    Ok(ResultObject { module, instance })
 }
 
 /// The webassembly::compile() function compiles a webassembly::Module
@@ -63,19 +62,19 @@ pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) 
 /// is necessary to a compile a module before it can be instantiated
 /// (otherwise, the webassembly::instantiate() function should be used).
 
-/// Params: 
+/// Params:
 /// * `buffer_source`: A `Vec<u8>` containing the
 ///   binary code of the .wasm module you want to compile.
 
 /// Errors:
-/// If the operation fails, the Result rejects with a 
+/// If the operation fails, the Result rejects with a
 /// webassembly::CompileError.
 pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     // TODO: This should be automatically validated when creating the Module
     if !validate(&buffer_source) {
         return Err(ErrorKind::CompileError("Module not valid".to_string()));
     }
-    
+
     let module = Module::from_bytes(buffer_source, triple!("riscv64"), None)?;
 
     // let isa = isa::lookup(module.info.triple)
@@ -87,7 +86,7 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     //         .map_err(|errors| panic!(pretty_verifier_error(func, Some(&*isa), None, errors)))
     //         .unwrap();
     // };
-    
+
     Ok(module)
 }
 
@@ -95,7 +94,7 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
 /// array of WebAssembly binary code, returning whether the bytes
 /// form a valid wasm module (true) or not (false).
 
-/// Params: 
+/// Params:
 /// * `buffer_source`: A `Vec<u8>` containing the
 ///   binary code of the .wasm module you want to compile.
 pub fn validate(buffer_source: &Vec<u8>) -> bool {

@@ -70,9 +70,9 @@ wast total: 0 passed; 17955 failed
 //! ```
 
 pub extern crate wabt;
-pub use wabt::script::Value;
 pub use wabt::script::Action;
 pub use wabt::script::CommandKind;
+pub use wabt::script::Value;
 
 use std::path::Path;
 use wabt::script::*;
@@ -93,7 +93,12 @@ pub trait ScriptHandler {
     ///
     /// Targets either the last loaded module if `module` is None, or
     /// the module registered with the given name otherwise.
-    fn action_invoke(&mut self, module: Option<String>, field: String, args: Vec<Value>) -> InvokationResult;
+    fn action_invoke(
+        &mut self,
+        module: Option<String>,
+        field: String,
+        args: Vec<Value>,
+    ) -> InvokationResult;
 
     /// Handles an `get` action.
     ///
@@ -110,16 +115,18 @@ pub trait ScriptHandler {
     /// if a function call trapped or exhausted the stack.
     fn action(&mut self, action: Action) -> Vec<Value> {
         match action {
-            Action::Invoke { module, field, args } => {
+            Action::Invoke {
+                module,
+                field,
+                args,
+            } => {
                 if let InvokationResult::Vals(v) = self.action_invoke(module, field, args) {
                     v
                 } else {
                     panic!("invokation returned Trap or exhausted the stack");
                 }
             }
-            Action::Get { module, field } => {
-                vec![self.action_get(module, field)]
-            }
+            Action::Get { module, field } => vec![self.action_get(module, field)],
         }
     }
 
@@ -151,14 +158,16 @@ pub trait ScriptHandler {
     /// does not trap, or refers to an global.
     fn assert_trap(&mut self, action: Action) {
         match action {
-            Action::Invoke { module, field, args } => {
+            Action::Invoke {
+                module,
+                field,
+                args,
+            } => {
                 if let InvokationResult::Vals(results) = self.action_invoke(module, field, args) {
                     panic!("invokation did not trap, but returned {:?}", results);
                 }
             }
-            Action::Get { .. } => {
-                panic!("a global access can not trap!")
-            }
+            Action::Get { .. } => panic!("a global access can not trap!"),
         }
     }
 
@@ -267,27 +276,26 @@ impl<'a> ::std::cmp::PartialEq for NanCompare<'a> {
         if self.0.len() != other.0.len() {
             return false;
         }
-        self.0.iter().zip(other.0.iter()).all(|pair| {
-            match pair {
-                (Value::I32(l), Value::I32(r)) => l == r,
-                (Value::I64(l), Value::I64(r)) => l == r,
-                (Value::F32(l), Value::F32(r)) if l.is_nan() && r.is_nan() => {
-                    l.payload() == r.payload()
-                },
-                (Value::F64(l), Value::F64(r)) if l.is_nan() && r.is_nan() => {
-                    l.payload() == r.payload()
-                },
-                (Value::F32(l), Value::F32(r)) => l == r,
-                (Value::F64(l), Value::F64(r)) => l == r,
-                _ => false,
+        self.0.iter().zip(other.0.iter()).all(|pair| match pair {
+            (Value::I32(l), Value::I32(r)) => l == r,
+            (Value::I64(l), Value::I64(r)) => l == r,
+            (Value::F32(l), Value::F32(r)) if l.is_nan() && r.is_nan() => {
+                l.payload() == r.payload()
             }
+            (Value::F64(l), Value::F64(r)) if l.is_nan() && r.is_nan() => {
+                l.payload() == r.payload()
+            }
+            (Value::F32(l), Value::F32(r)) => l == r,
+            (Value::F64(l), Value::F64(r)) => l == r,
+            _ => false,
         })
     }
 }
 impl<'a> ::std::fmt::Debug for NanCompare<'a> {
     fn fmt(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        formatter.debug_list().entries(self.0.iter().map(|e| {
-            match e {
+        formatter
+            .debug_list()
+            .entries(self.0.iter().map(|e| match e {
                 Value::F32(v) if v.is_nan() => {
                     let p = v.payload();
                     format!("F32(NaN:0x{:x})", p)
@@ -296,9 +304,9 @@ impl<'a> ::std::fmt::Debug for NanCompare<'a> {
                     let p = v.payload();
                     format!("F64(NaN:0x{:x})", p)
                 }
-                _ => format!("{:?}", e)
-            }
-        })).finish()
+                _ => format!("{:?}", e),
+            }))
+            .finish()
     }
 }
 
@@ -344,8 +352,12 @@ impl NanPayload for f32 {
         let p = bits & mask;
         p as u64
     }
-    fn signif() -> u32 { 23 }
-    fn infinite() -> Self { 1.0 / 0.0 }
+    fn signif() -> u32 {
+        23
+    }
+    fn infinite() -> Self {
+        1.0 / 0.0
+    }
     fn canonical_payload() -> u64 {
         1u64 << (Self::signif() - 1)
     }
@@ -374,8 +386,12 @@ impl NanPayload for f64 {
         let p = bits & mask;
         p
     }
-    fn signif() -> u32 { 52 }
-    fn infinite() -> Self { 1.0 / 0.0 }
+    fn signif() -> u32 {
+        52
+    }
+    fn infinite() -> Self {
+        1.0 / 0.0
+    }
     fn canonical_payload() -> u64 {
         1u64 << (Self::signif() - 1)
     }
@@ -423,24 +439,38 @@ impl SpectestResult {
                     break;
                 }
             }
-            println!("wast total: {} passed; {} failed", self.successes, self.failures.len());
+            println!(
+                "wast total: {} passed; {} failed",
+                self.successes,
+                self.failures.len()
+            );
             panic!("some wast commands failed");
         } else {
-            println!("wast total: {} passed; {} failed", self.successes, self.failures.len());
+            println!(
+                "wast total: {} passed; {} failed",
+                self.successes,
+                self.failures.len()
+            );
         }
     }
 }
 
 /// Run all scripts of the bundled webassembly testsuite on `handler`.
 pub fn run_mvp_spectest<T: ScriptHandler>(handler: &mut T) -> SpectestResult {
-    run_all_in_directory(format!("{}/testsuite", env!("CARGO_MANIFEST_DIR")).as_ref(), handler)
+    run_all_in_directory(
+        format!("{}/testsuite", env!("CARGO_MANIFEST_DIR")).as_ref(),
+        handler,
+    )
 }
 
 /// Module that is expected under the name "spectest" by all spectest testcases.
 ///
 /// This is automatically registered by all `run_` functions in this modules
 /// that work at file granularity or higher.
-pub const SPECTEST_MODULE: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/spec/spectest.wasm"));
+pub const SPECTEST_MODULE: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/src/spec/spectest.wasm"
+));
 
 /// Run all scripts in a given directory on `handler`.
 pub fn run_all_in_directory<T: ScriptHandler>(path: &Path, handler: &mut T) -> SpectestResult {
@@ -480,7 +510,7 @@ pub fn run_single_file<T: ScriptHandler>(path: &Path, handler: &mut T) -> Specte
     let filename = path.file_name().unwrap().to_str().unwrap();
     let source = fs::read(&path).unwrap();
 
-    let mut script = ScriptParser::<>::from_source_and_name(&source, filename).unwrap();
+    let mut script = ScriptParser::from_source_and_name(&source, filename).unwrap();
     let mut fatal = false;
 
     handler.reset();
@@ -507,7 +537,8 @@ pub fn run_single_file<T: ScriptHandler>(path: &Path, handler: &mut T) -> Specte
 
         match r {
             Err(msg) => {
-                res.failures.push(("<internal spectest module>".to_owned(), 0, msg));
+                res.failures
+                    .push(("<internal spectest module>".to_owned(), 0, msg));
                 fatal = true;
             }
             Ok(()) => {
@@ -518,7 +549,8 @@ pub fn run_single_file<T: ScriptHandler>(path: &Path, handler: &mut T) -> Specte
 
     while let Some(Command { line, kind }) = script.next().unwrap() {
         if fatal {
-            res.failures.push((filename.to_owned(), line, "<not attempted>".to_string()));
+            res.failures
+                .push((filename.to_owned(), line, "<not attempted>".to_string()));
             continue;
         }
         match run_single_command(kind, handler) {
@@ -541,7 +573,10 @@ pub fn run_single_file<T: ScriptHandler>(path: &Path, handler: &mut T) -> Specte
 /// Note that `T` needs to be exception safe, in the sense that any
 /// panic that happened during a method call should not affect it beyond
 /// a subsequent `reset()` call.
-pub fn run_single_command<T: ScriptHandler>(kind: CommandKind, handler: &mut T) -> Result<(), String> {
+pub fn run_single_command<T: ScriptHandler>(
+    kind: CommandKind,
+    handler: &mut T,
+) -> Result<(), String> {
     use std::panic::*;
 
     if let Err(msg) = catch_unwind(AssertUnwindSafe(|| {

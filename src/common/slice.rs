@@ -1,5 +1,5 @@
-use core::ptr::NonNull;
 use core::ops::{Index, IndexMut};
+use core::ptr::NonNull;
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]
@@ -17,7 +17,7 @@ impl<T> UncheckedSlice<T> {
     #[inline]
     unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         let ptr = self.ptr.as_ptr();
-        &mut*(ptr.add(index) as *mut _)
+        &mut *(ptr.add(index) as *mut _)
     }
 
     pub unsafe fn dangling() -> UncheckedSlice<T> {
@@ -38,9 +38,7 @@ impl<T> UncheckedSlice<T> {
 impl<'a, T> From<&'a [T]> for UncheckedSlice<T> {
     fn from(slice: &[T]) -> UncheckedSlice<T> {
         let ptr: NonNull<[T]> = slice.into();
-        UncheckedSlice {
-            ptr: ptr.cast(),
-        }
+        UncheckedSlice { ptr: ptr.cast() }
     }
 }
 
@@ -52,9 +50,7 @@ pub struct BoundedSlice<T> {
 impl<T> BoundedSlice<T> {
     pub fn get(&self, index: usize) -> Option<&T> {
         if index < self.len {
-            unsafe {
-                Some(self.data.get_unchecked(index))
-            }
+            unsafe { Some(self.data.get_unchecked(index)) }
         } else {
             None
         }
@@ -62,9 +58,7 @@ impl<T> BoundedSlice<T> {
 
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         if index < self.len {
-            unsafe {
-                Some(self.data.get_unchecked_mut(index))
-            }
+            unsafe { Some(self.data.get_unchecked_mut(index)) }
         } else {
             None
         }

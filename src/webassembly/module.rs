@@ -4,26 +4,38 @@
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Imm64, Offset32};
 use cranelift_codegen::ir::types::*;
-use cranelift_codegen::ir::{self, InstBuilder, FuncRef, ExtFuncData, ExternalName, Signature, AbiParam,
-                   ArgumentPurpose, ArgumentLoc, ArgumentExtension, Function};
+use cranelift_codegen::ir::{
+    self, AbiParam, ArgumentExtension, ArgumentLoc, ArgumentPurpose, ExtFuncData, ExternalName,
+    FuncRef, Function, InstBuilder, Signature,
+};
 use cranelift_codegen::settings;
 use cranelift_entity::{EntityRef, PrimaryMap};
 
 use super::errors::ErrorKind;
+use super::memory::LinearMemory;
+use cranelift_wasm::{
+    translate_module, // ReturnMode,
+    DefinedFuncIndex,
+    FuncEnvironment as FuncEnvironmentTrait,
+    FuncIndex,
+    FuncTranslator,
+    Global,
+    GlobalIndex,
+    GlobalVariable,
+    Memory,
+    MemoryIndex,
+    ModuleEnvironment,
+    SignatureIndex,
+    Table,
+    TableIndex,
+    WasmResult,
+};
 use std::string::String;
 use std::vec::Vec;
-use target_lexicon::{Triple, PointerWidth};
-use cranelift_wasm::{
-    FuncTranslator,
-    FuncEnvironment as FuncEnvironmentTrait, GlobalVariable, ModuleEnvironment, WasmResult,
-    DefinedFuncIndex, FuncIndex, Global, GlobalIndex, Memory, MemoryIndex, SignatureIndex, Table,
-    TableIndex, translate_module, // ReturnMode, 
-};
-use super::memory::LinearMemory;
+use target_lexicon::{PointerWidth, Triple};
 
 // use alloc::vec::Vec;
 // use alloc::string::String;
-
 
 /// Compute a `ir::ExternalName` for a given wasm function index.
 fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
@@ -124,7 +136,6 @@ impl ModuleInfo {
     }
 }
 
-
 /// A data initializer for linear memory.
 #[derive(Debug)]
 pub struct DataInitializer {
@@ -137,7 +148,6 @@ pub struct DataInitializer {
     /// The initialization data.
     pub data: Vec<u8>,
 }
-
 
 /// Possible values for a WebAssembly table element.
 #[derive(Clone, Debug)]
@@ -161,7 +171,6 @@ pub struct TableElements {
     pub elements: Vec<FuncIndex>,
 }
 
-
 /// This `ModuleEnvironment` implementation is a "naïve" one, doing essentially nothing and
 /// emitting placeholders when forced to. Don't try to execute code translated for this
 /// environment, essentially here for translation debug purposes.
@@ -174,7 +183,6 @@ pub struct Module {
 
     /// Vector of wasm bytecode size for each function.
     pub func_bytecode_sizes: Vec<usize>,
-
     // How to return from functions.
     // return_mode: ReturnMode,
 }
@@ -204,11 +212,13 @@ impl Module {
     //     }
     // }
 
-    pub fn from_bytes(buffer_source: Vec<u8>, triple: Triple, flags: Option<settings::Flags>) -> Result<Self, ErrorKind> {
+    pub fn from_bytes(
+        buffer_source: Vec<u8>,
+        triple: Triple,
+        flags: Option<settings::Flags>,
+    ) -> Result<Self, ErrorKind> {
         // let return_mode = ReturnMode::NormalReturns;
-        let flags = flags.unwrap_or_else(|| {
-            settings::Flags::new(settings::builder())
-        });
+        let flags = flags.unwrap_or_else(|| settings::Flags::new(settings::builder()));
         let mut module = Self {
             info: ModuleInfo::with_triple_flags(triple, flags),
             trans: FuncTranslator::new(),
@@ -216,7 +226,8 @@ impl Module {
             // return_mode,
         };
         // We iterate through the source bytes, generating the compiled module
-        translate_module(&buffer_source, &mut module).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+        translate_module(&buffer_source, &mut module)
+            .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
 
         Ok(module)
     }
@@ -247,18 +258,17 @@ impl Module {
             ))
         }
     }
-
 }
 
 /// The `FuncEnvironment` implementation for use by the `Module`.
 pub struct FuncEnvironment<'environment> {
     pub mod_info: &'environment ModuleInfo,
-
     // return_mode: ReturnMode,
 }
 
 impl<'environment> FuncEnvironment<'environment> {
-    pub fn new(mod_info: &'environment ModuleInfo) -> Self { // , return_mode: ReturnMode
+    pub fn new(mod_info: &'environment ModuleInfo) -> Self {
+        // , return_mode: ReturnMode
         Self {
             mod_info,
             // return_mode,
@@ -406,7 +416,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         let base = self.mod_info.tables_base.unwrap_or_else(|| {
             let tables_offset = self.ptr_size() as i32 * -1;
-            let new_base = func.create_global_value(ir::GlobalValueData::VMContext { });
+            let new_base = func.create_global_value(ir::GlobalValueData::VMContext {});
             //  {
             //     offset: tables_offset.into(),
             // });
@@ -435,7 +445,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         let new_table_bounds = func.create_global_value(ir::GlobalValueData::Load {
             base: new_table_bounds_addr,
             offset: 0.into(),
-            global_type: I32,  // Might be self.pointer_type()
+            global_type: I32, // Might be self.pointer_type()
         });
 
         let table = func.create_table(ir::TableData {
@@ -444,7 +454,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             // min_size: (self.mod_info.tables[table_index].size as i64).into(),
             bound_gv: new_table_bounds,
             element_size: (ptr_size as i64).into(),
-            index_type: I32
+            index_type: I32,
         });
 
         table

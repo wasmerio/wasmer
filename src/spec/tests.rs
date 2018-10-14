@@ -1,15 +1,15 @@
-use std::path::Path;
 use std::collections::HashMap;
+use std::path::Path;
 use std::rc::Rc;
 
-use wabt::script::{Value, Action};
-use super::{InvokationResult, ScriptHandler, run_single_file};
+use super::{run_single_file, InvokationResult, ScriptHandler};
 use crate::webassembly::{compile, instantiate, Error, ErrorKind, Module};
+use wabt::script::{Action, Value};
 // use crate::webassembly::instance::InvokeResult;
 
 struct StoreCtrl<'module> {
     last_module: Option<Module>,
-    modules: HashMap<String, Rc<&'module Module>>
+    modules: HashMap<String, Rc<&'module Module>>,
 }
 
 impl<'module> StoreCtrl<'module> {
@@ -112,8 +112,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         // println!("action invoke {}", module.unwrap_or("as".to_string()));
         // let modul = &self.last_module;
         // modul.expect("a");
-        // 
-        
+        //
     }
     fn action_get(&mut self, module: Option<String>, field: String) -> Value {
         // println!("action get");
@@ -131,7 +130,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         let module_wrapped = instantiate(bytes, None);
         match module_wrapped {
             Err(ErrorKind::CompileError(v)) => {}
-            _ => panic!("Module compilation should have failed")
+            _ => panic!("Module compilation should have failed"),
         }
     }
     fn assert_invalid(&mut self, bytes: Vec<u8>) {
@@ -140,7 +139,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         // print!("IS INVALID?? {:?}", module_wrapped);
         match module_wrapped {
             Err(ErrorKind::CompileError(v)) => {}
-            _ => assert!(false, "Module compilation should have failed")
+            _ => assert!(false, "Module compilation should have failed"),
         }
     }
     fn assert_uninstantiable(&mut self, bytes: Vec<u8>) {
@@ -157,7 +156,11 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
 
 fn do_test(test_name: String) {
     let mut handler = &mut StoreCtrl::new();
-    let test_path_str = format!("{}/src/spec/tests/{}.wast", env!("CARGO_MANIFEST_DIR"), test_name);
+    let test_path_str = format!(
+        "{}/src/spec/tests/{}.wast",
+        env!("CARGO_MANIFEST_DIR"),
+        test_name
+    );
     let test_path = Path::new(&test_path_str);
     let res = run_single_file(&test_path, handler);
     res.present()
