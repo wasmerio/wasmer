@@ -7,6 +7,8 @@ pub mod errors;
 // pub mod execute;
 pub mod utils;
 pub mod env;
+pub mod memory;
+pub mod instance;
 
 use std::str::FromStr;
 use std::time::{Duration, Instant};
@@ -25,6 +27,7 @@ use cranelift_codegen::verifier;
 use cranelift_wasm::{translate_module, ReturnMode};
 
 pub use self::env::ModuleInstance;
+pub use self::instance::Instance;
 
 // pub use self::compilation::{compile_module, Compilation};
 // pub use self::environ::{ModuleEnvironment};
@@ -68,22 +71,22 @@ pub struct ImportObject {
 pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ModuleInstance, ErrorKind> {
     let flags = Flags::new(settings::builder());
     let return_mode = ReturnMode::NormalReturns;
-    let mut dummy_environ =
+    let mut environ =
         ModuleInstance::with_triple_flags(triple!("riscv64"), flags.clone(), return_mode);
 
-    translate_module(&buffer_source, &mut dummy_environ).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+    translate_module(&buffer_source, &mut environ).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
 
-    let isa = isa::lookup(dummy_environ.info.triple)
+    let isa = isa::lookup(environ.info.triple)
         .unwrap()
-        .finish(dummy_environ.info.flags);
+        .finish(environ.info.flags);
 
-    for func in dummy_environ.info.function_bodies.values() {
+    for func in environ.info.function_bodies.values() {
         verifier::verify_function(func, &*isa)
             .map_err(|errors| panic!(pretty_verifier_error(func, Some(&*isa), None, errors)))
             .unwrap();
     };
     unimplemented!()
-    // Ok(dummy_environ)
+    // Ok(environ)
     // let now = Instant::now();
     // let isa = construct_isa();
     // println!("instantiate::init {:?}", now.elapsed());

@@ -9,6 +9,7 @@ extern crate cranelift_wasm;
 extern crate cranelift_entity;
 #[macro_use]
 extern crate target_lexicon;
+extern crate spin;
 
 use std::path::PathBuf;
 use std::fs::File;
@@ -22,6 +23,7 @@ use wabt::wat2wasm;
 
 pub mod webassembly;
 pub mod spec;
+pub mod common;
 
 
 /// The options for the wasmer Command Line Interface

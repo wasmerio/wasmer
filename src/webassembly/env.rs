@@ -78,7 +78,7 @@ pub struct ModuleInfo {
     /// WebAssembly table initializers.
     // Should be Vec<TableElements>
     // instead of Vec<Exportable<TableElements>> ??
-    pub table_elements: Vec<Exportable<TableElements>>,
+    pub table_elements: Vec<TableElements>,
     /// The base of tables.
     pub tables_base: Option<ir::GlobalValue>,
 
@@ -214,14 +214,14 @@ impl ModuleInstance {
 }
 
 /// The `FuncEnvironment` implementation for use by the `ModuleInstance`.
-pub struct FuncEnvironment<'dummy_environment> {
-    pub mod_info: &'dummy_environment ModuleInfo,
+pub struct FuncEnvironment<'environment> {
+    pub mod_info: &'environment ModuleInfo,
 
     return_mode: ReturnMode,
 }
 
-impl<'dummy_environment> FuncEnvironment<'dummy_environment> {
-    pub fn new(mod_info: &'dummy_environment ModuleInfo, return_mode: ReturnMode) -> Self {
+impl<'environment> FuncEnvironment<'environment> {
+    pub fn new(mod_info: &'environment ModuleInfo, return_mode: ReturnMode) -> Self {
         Self {
             mod_info,
             return_mode,
@@ -255,7 +255,7 @@ impl<'dummy_environment> FuncEnvironment<'dummy_environment> {
     }
 }
 
-impl<'dummy_environment> FuncEnvironmentTrait for FuncEnvironment<'dummy_environment> {
+impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn triple(&self) -> &Triple {
         &self.mod_info.triple
     }
@@ -280,6 +280,7 @@ impl<'dummy_environment> FuncEnvironmentTrait for FuncEnvironment<'dummy_environ
     }
 
     fn make_heap(&mut self, func: &mut ir::Function, _index: MemoryIndex) -> ir::Heap {
+        // OLD
         // Create a static heap whose base address is stored at `vmctx+0`.
         let addr = func.create_global_value(ir::GlobalValueData::VMContext);
         let gv = func.create_global_value(ir::GlobalValueData::Load {
@@ -297,6 +298,49 @@ impl<'dummy_environment> FuncEnvironmentTrait for FuncEnvironment<'dummy_environ
             },
             index_type: I32,
         })
+        // use memory::WasmMemory;
+        // if index == 0 {
+        //     let heap_base = self.main_memory_base.unwrap_or_else(|| {
+        //         let new_base = func.create_global_value(ir::GlobalValueData::VMContext {
+        //             offset: 0.into(),
+        //         });
+        //         self.main_memory_base = Some(new_base);
+        //         new_base
+        //     });
+
+        //     func.create_heap(ir::HeapData {
+        //         base: heap_base,
+        //         min_size: 0.into(),
+        //         guard_size: (WasmMemory::DEFAULT_GUARD_SIZE as i64).into(),
+        //         style: ir::HeapStyle::Static {
+        //             bound: (WasmMemory::DEFAULT_HEAP_SIZE as i64).into(),
+        //         },
+        //     })
+        // } else {
+        //     let memory_base = self.memory_base.unwrap_or_else(|| {
+        //         let memories_offset = self.ptr_size() as i32 * -2;
+        //         let new_base = func.create_global_value(ir::GlobalValueData::VMContext {
+        //             offset: memories_offset.into(),
+        //         });
+        //         self.memory_base = Some(new_base);
+        //         new_base
+        //     });
+
+        //     let memory_offset = (index - 1) * self.ptr_size();
+        //     let heap_base = func.create_global_value(ir::GlobalValueData::Deref {
+        //         base: memory_base,
+        //         offset: (memory_offset as i32).into(),
+        //     });
+
+        //     func.create_heap(ir::HeapData {
+        //         base: heap_base,
+        //         min_size: 0.into(),
+        //         guard_size: (WasmMemory::DEFAULT_GUARD_SIZE as i64).into(),
+        //         style: ir::HeapStyle::Static {
+        //             bound: (WasmMemory::DEFAULT_HEAP_SIZE as i64).into(),
+        //         },
+        //     })
+        // }
     }
 
     fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
@@ -558,12 +602,12 @@ impl<'data> ModuleEnvironment<'data> for ModuleInstance {
     ) {
         // NEW
         debug_assert!(base.is_none(), "global-value offsets not supported yet");
-        self.info.table_elements.push(Exportable::new(TableElements {
+        self.info.table_elements.push(TableElements {
             table_index,
             base,
             offset,
             elements,
-        }));
+        });
     }
 
     fn declare_memory(&mut self, memory: Memory) {
