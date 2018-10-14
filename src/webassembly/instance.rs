@@ -1,7 +1,7 @@
 //! An 'Instance' contains all the runtime state used by execution of a wasm module
 
 use cranelift_wasm::{GlobalInit, FuncIndex};
-use super::env::ModuleInstance;
+use super::env::Module;
 use super::env::{DataInitializer, Exportable};
 use cranelift_entity::EntityRef;
 
@@ -70,7 +70,7 @@ pub struct Instance {
 
 impl Instance {
     /// Create a new `Instance`.
-    pub fn new(module: &ModuleInstance, data_initializers: &[DataInitializer], code_base: *const (), functions: &[usize]) -> Instance {
+    pub fn new(module: &Module, data_initializers: &[DataInitializer], code_base: *const (), functions: &[usize]) -> Instance {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
         let mut globals: Vec<u8> = Vec::new();

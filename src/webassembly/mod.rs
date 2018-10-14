@@ -26,7 +26,7 @@ use cranelift_codegen::settings::{self, Flags};
 use cranelift_codegen::verifier;
 use cranelift_wasm::{translate_module, ReturnMode};
 
-pub use self::env::ModuleInstance;
+pub use self::env::Module;
 pub use self::instance::Instance;
 
 // pub use self::compilation::{compile_module, Compilation};
@@ -68,14 +68,14 @@ pub struct ImportObject {
 /// If the operation fails, the Result rejects with a 
 /// WebAssembly.CompileError, WebAssembly.LinkError, or
 /// WebAssembly.RuntimeError, depending on the cause of the failure.
-pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ModuleInstance, ErrorKind> {
-    // TODO: This should be automatically validated when creating the ModuleInstance
+pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<Module, ErrorKind> {
+    // TODO: This should be automatically validated when creating the Module
     if !validate(&buffer_source) {
         return Err(ErrorKind::CompileError("Module not valid".to_string()));
     }
     
     let module =
-        ModuleInstance::from_bytes(buffer_source, triple!("riscv64"), None)?;
+        Module::from_bytes(buffer_source, triple!("riscv64"), None)?;
 
     // let isa = isa::lookup(module.info.triple)
     //     .unwrap()
@@ -138,7 +138,7 @@ pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) 
 /// Errors:
 /// If the operation fails, the Result rejects with a 
 /// WebAssembly.CompileError.
-pub fn compile(buffer_source: Vec<u8>) -> Result<ModuleInstance, Error> {
+pub fn compile(buffer_source: Vec<u8>) -> Result<Module, Error> {
     unimplemented!();
     // let isa = construct_isa();
 

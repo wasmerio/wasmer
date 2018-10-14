@@ -47,8 +47,8 @@ impl<T> Exportable<T> {
     }
 }
 
-/// The main state belonging to a `ModuleInstance`. This is split out from
-/// `ModuleInstance` to allow it to be borrowed separately from the
+/// The main state belonging to a `Module`. This is split out from
+/// `Module` to allow it to be borrowed separately from the
 /// `FuncTranslator` field.
 pub struct ModuleInfo {
     /// Target description.
@@ -164,7 +164,7 @@ pub struct TableElements {
 /// This `ModuleEnvironment` implementation is a "naïve" one, doing essentially nothing and
 /// emitting placeholders when forced to. Don't try to execute code translated for this
 /// environment, essentially here for translation debug purposes.
-pub struct ModuleInstance {
+pub struct Module {
     /// Module information.
     pub info: ModuleInfo,
 
@@ -178,7 +178,7 @@ pub struct ModuleInstance {
     return_mode: ReturnMode,
 }
 
-impl ModuleInstance {
+impl Module {
     /// Allocates the data structures with default flags.
 
     // pub fn with_triple(triple: Triple) -> Self {
@@ -221,7 +221,7 @@ impl ModuleInstance {
     }
 
     /// Return a `FuncEnvironment` for translating functions within this
-    /// `ModuleInstance`.
+    /// `Module`.
     pub fn func_env(&self) -> FuncEnvironment {
         FuncEnvironment::new(&self.info, self.return_mode)
     }
@@ -232,7 +232,7 @@ impl ModuleInstance {
 
 }
 
-/// The `FuncEnvironment` implementation for use by the `ModuleInstance`.
+/// The `FuncEnvironment` implementation for use by the `Module`.
 pub struct FuncEnvironment<'environment> {
     pub mod_info: &'environment ModuleInfo,
 
@@ -543,7 +543,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 }
 
-impl<'data> ModuleEnvironment<'data> for ModuleInstance {
+impl<'data> ModuleEnvironment<'data> for Module {
     fn flags(&self) -> &settings::Flags {
         &self.info.flags
     }

@@ -4,12 +4,12 @@ use std::rc::Rc;
 
 use wabt::script::{Value, Action};
 use super::{InvokationResult, ScriptHandler, run_single_file};
-use crate::webassembly::{compile, instantiate, Error, ErrorKind, ModuleInstance};
+use crate::webassembly::{compile, instantiate, Error, ErrorKind, Module};
 // use crate::webassembly::instance::InvokeResult;
 
 struct StoreCtrl<'module> {
-    last_module: Option<ModuleInstance>,
-    modules: HashMap<String, Rc<&'module ModuleInstance>>
+    last_module: Option<Module>,
+    modules: HashMap<String, Rc<&'module Module>>
 }
 
 impl<'module> StoreCtrl<'module> {
@@ -29,7 +29,7 @@ impl<'module> StoreCtrl<'module> {
         }
     }
 
-    fn add_module(&mut self, name: Option<String>, module: &'module ModuleInstance) {
+    fn add_module(&mut self, name: Option<String>, module: &'module Module) {
         // self.last_module = Some(Rc::new(module));
         // if let Some(name) = name {
         //     // self.modules[&name] = module;
@@ -43,7 +43,7 @@ impl<'module> StoreCtrl<'module> {
         // self.last_module = Some(module);
     }
 
-    fn get_module(self, name: Option<String>) -> &'module ModuleInstance {
+    fn get_module(self, name: Option<String>) -> &'module Module {
         unimplemented!()
         // self.last_module.expect("exists")
         // return self
