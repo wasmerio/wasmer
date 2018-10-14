@@ -417,6 +417,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef {
         // A real implementation would probably change the calling convention and add `vmctx` and
         // signature index arguments.
+        // func.import_signature(self.module.signatures[index].clone())
         func.import_signature(self.vmctx_sig(index))
     }
 

@@ -152,6 +152,11 @@ impl Instance {
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
     }
+
+    // pub fn start_func(&self) -> extern fn(&VmCtx) {
+    //     self.start_func
+    // }
+
 }
 
 impl Clone for Instance {

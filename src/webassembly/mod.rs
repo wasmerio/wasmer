@@ -67,8 +67,13 @@ pub struct ImportObject {
 /// Errors:
 /// If the operation fails, the Result rejects with a 
 /// WebAssembly.CompileError, WebAssembly.LinkError, or
-///  WebAssembly.RuntimeError, depending on the cause of the failure.
+/// WebAssembly.RuntimeError, depending on the cause of the failure.
 pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) -> Result<ModuleInstance, ErrorKind> {
+    // TODO: This should be automatically validated when creating the ModuleInstance
+    if !validate(&buffer_source) {
+        return Err(ErrorKind::CompileError("Module not valid".to_string()));
+    }
+
     let flags = Flags::new(settings::builder());
     let return_mode = ReturnMode::NormalReturns;
     let mut environ =
