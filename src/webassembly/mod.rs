@@ -73,24 +73,21 @@ pub fn instantiate(buffer_source: Vec<u8>, import_object: Option<ImportObject>) 
     if !validate(&buffer_source) {
         return Err(ErrorKind::CompileError("Module not valid".to_string()));
     }
+    
+    let module =
+        ModuleInstance::from_bytes(buffer_source, triple!("riscv64"), None)?;
 
-    let flags = Flags::new(settings::builder());
-    let return_mode = ReturnMode::NormalReturns;
-    let mut environ =
-        ModuleInstance::with_triple_flags(triple!("riscv64"), flags.clone(), return_mode);
+    // let isa = isa::lookup(module.info.triple)
+    //     .unwrap()
+    //     .finish(module.info.flags);
 
-    translate_module(&buffer_source, &mut environ).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-
-    let isa = isa::lookup(environ.info.triple)
-        .unwrap()
-        .finish(environ.info.flags);
-
-    for func in environ.info.function_bodies.values() {
-        verifier::verify_function(func, &*isa)
-            .map_err(|errors| panic!(pretty_verifier_error(func, Some(&*isa), None, errors)))
-            .unwrap();
-    };
-    unimplemented!()
+    // for func in module.info.function_bodies.values() {
+    //     verifier::verify_function(func, &*isa)
+    //         .map_err(|errors| panic!(pretty_verifier_error(func, Some(&*isa), None, errors)))
+    //         .unwrap();
+    // };
+    
+    Ok(module)
     // Ok(environ)
     // let now = Instant::now();
     // let isa = construct_isa();

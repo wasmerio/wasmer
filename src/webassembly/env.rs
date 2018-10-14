@@ -8,6 +8,8 @@ use cranelift_codegen::ir::{self, InstBuilder, FuncRef, ExtFuncData, ExternalNam
                    ArgumentPurpose, ArgumentLoc, ArgumentExtension, Function};
 use cranelift_codegen::settings;
 use cranelift_entity::{EntityRef, PrimaryMap};
+
+use super::errors::ErrorKind;
 use std::string::String;
 use std::vec::Vec;
 use target_lexicon::{Triple, PointerWidth};
@@ -15,7 +17,7 @@ use cranelift_wasm::{
     FuncTranslator,
     FuncEnvironment as FuncEnvironmentTrait, GlobalVariable, ModuleEnvironment, ReturnMode, WasmResult,
     DefinedFuncIndex, FuncIndex, Global, GlobalIndex, Memory, MemoryIndex, SignatureIndex, Table,
-    TableIndex,
+    TableIndex, translate_module
 };
 
 // use alloc::vec::Vec;
@@ -178,27 +180,44 @@ pub struct ModuleInstance {
 
 impl ModuleInstance {
     /// Allocates the data structures with default flags.
-    pub fn with_triple(triple: Triple) -> Self {
-        Self::with_triple_flags(
-            triple,
-            settings::Flags::new(settings::builder()),
-            ReturnMode::NormalReturns,
-        )
-    }
+
+    // pub fn with_triple(triple: Triple) -> Self {
+    //     Self::with_triple_flags(
+    //         triple,
+    //         settings::Flags::new(settings::builder()),
+    //         ReturnMode::NormalReturns,
+    //     )
+    // }
 
     /// Allocates the data structures with the given triple.
-    pub fn with_triple_flags(
-        triple: Triple,
-        flags: settings::Flags,
-        return_mode: ReturnMode,
-    ) -> Self {
-        let mut x = Self {
+    // pub fn with_triple_flags(
+    //     triple: Triple,
+    //     flags: settings::Flags,
+    //     return_mode: ReturnMode,
+    // ) -> Self {
+    //     Self {
+    //         info: ModuleInfo::with_triple_flags(triple, flags),
+    //         trans: FuncTranslator::new(),
+    //         func_bytecode_sizes: Vec::new(),
+    //         return_mode,
+    //     }
+    // }
+
+    pub fn from_bytes(buffer_source: Vec<u8>, triple: Triple, flags: Option<settings::Flags>) -> Result<Self, ErrorKind> {
+        let return_mode = ReturnMode::NormalReturns;
+        let flags = flags.unwrap_or_else(|| {
+            settings::Flags::new(settings::builder())
+        });
+        let mut module = Self {
             info: ModuleInfo::with_triple_flags(triple, flags),
             trans: FuncTranslator::new(),
             func_bytecode_sizes: Vec::new(),
             return_mode,
         };
-        x
+        // We iterate through the source bytes, generating the compiled module
+        translate_module(&buffer_source, &mut module).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+
+        Ok(module)
     }
 
     /// Return a `FuncEnvironment` for translating functions within this
