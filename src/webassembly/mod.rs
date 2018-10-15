@@ -73,7 +73,7 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     }
 
     debug!("webassembly - creating module");
-    let module = Module::from_bytes(buffer_source, triple!("riscv64"), None)?;
+    let module = Module::from_bytes(buffer_source, triple!("x86_64"), None)?;
     debug!("webassembly - module created");
 
     Ok(module)
