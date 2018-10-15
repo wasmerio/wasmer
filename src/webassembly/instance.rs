@@ -103,8 +103,8 @@ impl Instance {
                     .compile(&*isa)
                     .map_err(|e| ErrorKind::CompileError(e.to_string()))?
                     as usize;
+                context_and_offsets.push((func_context, total_size));
                 total_size += code_size_offset;
-                context_and_offsets.push((func_context, code_size_offset));
             }
 
             // We only want to allocate in memory if there is more than
