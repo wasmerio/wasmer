@@ -16,7 +16,7 @@ use wasmparser;
 pub use self::errors::{Error, ErrorKind};
 pub use self::instance::Instance;
 pub use self::memory::LinearMemory;
-pub use self::module::Module;
+pub use self::module::{Export, Module, ModuleInfo};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.

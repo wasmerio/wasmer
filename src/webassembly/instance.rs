@@ -97,8 +97,12 @@ impl Instance {
             // Compile the functions (from cranelift IR to machine code)
             for function_body in module.info.function_bodies.values() {
                 let mut func_context = Context::for_function(function_body.to_owned());
-                func_context.verify(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                func_context.verify_locations(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                func_context
+                    .verify(&*isa)
+                    .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                func_context
+                    .verify_locations(&*isa)
+                    .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
                 let code_size_offset = func_context
                     .compile(&*isa)
                     .map_err(|e| ErrorKind::CompileError(e.to_string()))?
@@ -223,7 +227,7 @@ impl Instance {
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
     }
-    
+
     /// Invoke a WebAssembly function given a FuncIndex and the
     /// arguments that the function should be called with
     pub fn invoke(&self, func_index: FuncIndex, args: Vec<i32>) {

@@ -1,5 +1,9 @@
 //! "" implementations of `ModuleEnvironment` and `FuncEnvironment` for testing
 //! wasm translation.
+use std::collections::HashMap;
+use std::string::String;
+use std::vec::Vec;
+use target_lexicon::{PointerWidth, Triple};
 
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Imm64, Offset32};
@@ -12,8 +16,6 @@ use cranelift_codegen::print_errors::pretty_verifier_error;
 use cranelift_codegen::{isa, settings, verifier};
 use cranelift_entity::{EntityRef, PrimaryMap};
 
-use super::errors::ErrorKind;
-use super::memory::LinearMemory;
 use cranelift_wasm::{
     translate_module, // ReturnMode,
     DefinedFuncIndex,
@@ -31,9 +33,9 @@ use cranelift_wasm::{
     TableIndex,
     WasmResult,
 };
-use std::string::String;
-use std::vec::Vec;
-use target_lexicon::{PointerWidth, Triple};
+
+use super::errors::ErrorKind;
+use super::memory::LinearMemory;
 
 /// Compute a `ir::ExternalName` for a given wasm function index.
 fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
@@ -56,6 +58,19 @@ impl<T> Exportable<T> {
             export_names: Vec::new(),
         }
     }
+}
+
+/// An entity to export.
+#[derive(Clone, Debug)]
+pub enum Export {
+    /// Function export.
+    Function(FuncIndex),
+    /// Table export.
+    Table(TableIndex),
+    /// Memory export.
+    Memory(MemoryIndex),
+    /// Global export.
+    Global(GlobalIndex),
 }
 
 /// The main state belonging to a `Module`. This is split out from
@@ -107,6 +122,11 @@ pub struct ModuleInfo {
 
     /// The data initializers
     pub data_initializers: Vec<DataInitializer>,
+
+    /// Exported entities
+    /// We use this in order to have a O(1) allocation of the exports
+    /// rather than iterating through the Exportable elements.
+    pub exports: HashMap<String, Export>,
 }
 
 impl ModuleInfo {
@@ -129,6 +149,7 @@ impl ModuleInfo {
             data_initializers: Vec::new(),
             main_memory_base: None,
             memory_base: None,
+            exports: HashMap::new(),
         }
     }
 }
@@ -668,24 +689,40 @@ impl<'data> ModuleEnvironment<'data> for Module {
         self.info.functions[func_index]
             .export_names
             .push(String::from(name));
+        // We add to the exports to have O(1) retrieval
+        self.info
+            .exports
+            .insert(name.to_string(), Export::Function(func_index));
     }
 
     fn declare_table_export(&mut self, table_index: TableIndex, name: &'data str) {
         self.info.tables[table_index]
             .export_names
             .push(String::from(name));
+        // We add to the exports to have O(1) retrieval
+        self.info
+            .exports
+            .insert(name.to_string(), Export::Table(table_index));
     }
 
     fn declare_memory_export(&mut self, memory_index: MemoryIndex, name: &'data str) {
         self.info.memories[memory_index]
             .export_names
             .push(String::from(name));
+        // We add to the exports to have O(1) retrieval
+        self.info
+            .exports
+            .insert(name.to_string(), Export::Memory(memory_index));
     }
 
     fn declare_global_export(&mut self, global_index: GlobalIndex, name: &'data str) {
         self.info.globals[global_index]
             .export_names
             .push(String::from(name));
+        // We add to the exports to have O(1) retrieval
+        self.info
+            .exports
+            .insert(name.to_string(), Export::Global(global_index));
     }
 
     fn declare_start_func(&mut self, func_index: FuncIndex) {
