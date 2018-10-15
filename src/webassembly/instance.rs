@@ -21,7 +21,7 @@ use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::memory::LinearMemory;
 use super::module::Module;
-use super::module::{DataInitializer, Exportable};
+use super::module::{DataInitializer, Exportable, Export};
 use super::relocation::{RelocSink, TrapSink};
 
 
@@ -101,8 +101,11 @@ pub struct Instance {
     // functions: Vec<usize>,
     functions: Vec<Vec<u8>>,
 
-    /// Region start memory location
-    code_base: *const (),
+    /// The module start function
+    start_func: Option<FuncIndex>,
+
+    // Region start memory location
+    // code_base: *const (),
 }
 
 // pub fn make_vmctx(instance: &mut Instance, mem_base_addrs: &mut [*mut u8]) -> Vec<*mut u8> {
@@ -135,7 +138,7 @@ impl Instance {
         let mut memories: Vec<LinearMemory> = Vec::new();
         let mut globals: Vec<u8> = Vec::new();
         let mut functions: Vec<Vec<u8>> = Vec::new();
-        let mut code_base: *const () = ptr::null();
+        // let mut code_base: *const () = ptr::null();
 
         // Instantiate functions
         {
@@ -144,7 +147,7 @@ impl Instance {
                 .unwrap()
                 .finish(module.info.flags.clone());
 
-            let mut total_size: usize = 0;
+            // let mut total_size: usize = 0;
             let mut context_and_offsets = Vec::with_capacity(module.info.function_bodies.len());
 
             // Compile the functions (from cranelift IR to machine code)
@@ -171,7 +174,7 @@ impl Instance {
                 let func_offset = code_buf;
                 functions.push(func_offset);
 
-                context_and_offsets.push((func_context, total_size));
+                context_and_offsets.push(func_context);
                 // total_size += code_size_offset;
             }
 
@@ -286,12 +289,20 @@ impl Instance {
             }
         }
 
+        let start_func: Option<FuncIndex> = module.info.start_func.or_else(|| {
+            match module.info.exports.get("main") {
+                Some(Export::Function(index)) => Some(index.to_owned()),
+                _ => None
+            }
+        });
+
         Ok(Instance {
             tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
             memories: Arc::new(memories.into_iter().collect()),
             globals: globals,
             functions: functions,
-            code_base: code_base,
+            start_func: start_func
+            // code_base: code_base,
         })
     }
 
@@ -301,7 +312,7 @@ impl Instance {
 
     /// Invoke a WebAssembly function given a FuncIndex and the
     /// arguments that the function should be called with
-    pub fn invoke(&self, func_index: FuncIndex, args: Vec<i32>) {
+    pub fn get_function<T>(&self, func_index: FuncIndex) -> (fn() -> T) {
         // let mut mem_base_addrs = self
         //     .memories
         //     .iter_mut()
@@ -317,18 +328,28 @@ impl Instance {
         // Rust function and call it.
         // let func_pointer = get_function_addr(self.code_base, &self.functions, &func_index);
         let func_pointer = &self.functions[func_index.index()];
-        // let index = func_index.index();
-        // let func_pointer = self.functions[index];
-        println!("INVOKING FUNCTION {:?} {:?}", func_index, func_pointer);
         unsafe {
-            let func = mem::transmute::<_, fn(u32) -> u32>(func_pointer.as_ptr());
-            let result = func(2);
-            println!("FUNCTION INVOKED, result {:?}", result);
+            let func = mem::transmute::<_, fn() -> T>(func_pointer.as_ptr());
+            func
+            // let result = func(2);
+            // println!("FUNCTION INVOKED, result {:?}", result);
 
             // start_func(vmctx.as_ptr());
         }
     }
 
+    pub fn invoke(&self, func_index: FuncIndex, _args: Vec<u8>) -> u32 {
+        let func: fn() -> u32 = self.get_function(func_index);
+        func()
+    }
+
+    pub fn start(&self) {
+        if let Some(func_index) = self.start_func {
+            // let vmctx: &VmCtx = ptr::null();
+            let func: fn() = self.get_function(func_index);
+            func()
+        }
+    }
 
     // pub fn generate_context(&mut self) -> &VmCtx {
     //     let memories: Vec<UncheckedSlice<u8>> = self.memories.iter()
@@ -376,7 +397,8 @@ impl Clone for Instance {
             memories: Arc::clone(&self.memories),
             globals: self.globals.clone(),
             functions: self.functions.clone(),
-            code_base: self.code_base,
+            start_func: self.start_func.clone(),
+            // code_base: self.code_base,
         }
     }
 }
