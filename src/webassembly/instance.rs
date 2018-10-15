@@ -50,12 +50,12 @@ impl VmCtx {
 }
 
 #[repr(C)]
-pub struct VmCtxData<'a> {
+pub struct VmCtxData<'phantom> {
     pub user_data: UserData,
     globals: UncheckedSlice<u8>,
     memories: UncheckedSlice<UncheckedSlice<u8>>,
     tables: UncheckedSlice<BoundedSlice<usize>>,
-    phantom: PhantomData<&'a ()>,
+    phantom: PhantomData<&'phantom ()>,
 }
 
 #[repr(C)]
@@ -85,7 +85,7 @@ impl Instance {
         let mut globals: Vec<u8> = Vec::new();
 
         let mut functions: Vec<usize> = Vec::with_capacity(module.info.function_bodies.len());
-        // instantiate functions
+        // Instantiate functions
         {
             let isa = isa::lookup(module.info.triple.clone())
                 .unwrap()
@@ -94,11 +94,11 @@ impl Instance {
             let mut total_size: usize = 0;
             let mut context_and_offsets = Vec::with_capacity(module.info.function_bodies.len());
 
-            // Compile the functions
+            // Compile the functions (from cranelift IR to machine code)
             for function_body in module.info.function_bodies.values() {
                 let mut func_context = Context::for_function(function_body.to_owned());
-                // func_context.verify(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                // func_context.verify_locations(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                func_context.verify(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                func_context.verify_locations(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
                 let code_size_offset = func_context
                     .compile(&*isa)
                     .map_err(|e| ErrorKind::CompileError(e.to_string()))?
@@ -126,14 +126,14 @@ impl Instance {
             }
 
             // Set protection of this memory region to Read + Execute
-            // so we are able to execute them
+            // so we are able to execute the functions emitted to memory
             unsafe {
                 region::protect(region_start, total_size, region::Protection::ReadExecute)
                     .expect("unable to make memory readable+executable");
             }
         }
 
-        // instantiate_tables
+        // Instantiate tables
         {
             // Reserve table space
             tables.reserve_exact(module.info.tables.len());
@@ -164,7 +164,7 @@ impl Instance {
             }
         }
 
-        // instantiate_memories
+        // Instantiate memories
         {
             // Allocate the underlying memory and initialize it to all zeros.
             memories.reserve_exact(module.info.memories.len());
@@ -182,7 +182,7 @@ impl Instance {
             }
         }
 
-        // instantiate_globals
+        // Instantiate Globals
         {
             let globals_count = module.info.globals.len();
             // Allocate the underlying memory and initialize it to zeros
@@ -216,7 +216,9 @@ impl Instance {
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
     }
-
+    
+    /// Invoke a WebAssembly function given a FuncIndex and the
+    /// arguments that the function should be called with
     pub fn invoke(&self, func_index: FuncIndex, args: Vec<i32>) {
         unimplemented!()
     }
