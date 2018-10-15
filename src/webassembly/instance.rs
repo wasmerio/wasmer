@@ -107,29 +107,34 @@ impl Instance {
                 context_and_offsets.push((func_context, code_size_offset));
             }
 
-            // Allocate the total memory for this functions
-            let map = MmapMut::map_anon(total_size).unwrap();
-            let region_start = map.as_ptr();
+            // We only want to allocate in memory if there is more than
+            // 0 functions. Otherwise reserving a 0-sized memory
+            // cause a panic error
+            if total_size > 0 {
+                // Allocate the total memory for this functions
+                let map = MmapMut::map_anon(total_size).unwrap();
+                let region_start = map.as_ptr();
 
-            // // Emit this functions to memory
-            for (ref func_context, func_offset) in context_and_offsets.iter() {
-                let mut trap_sink = TrapSink::new(*func_offset);
-                let mut reloc_sink = RelocSink::new();
+                // // Emit this functions to memory
+                for (ref func_context, func_offset) in context_and_offsets.iter() {
+                    let mut trap_sink = TrapSink::new(*func_offset);
+                    let mut reloc_sink = RelocSink::new();
+                    unsafe {
+                        func_context.emit_to_memory(
+                            &*isa,
+                            (region_start as usize + func_offset) as *mut u8,
+                            &mut reloc_sink,
+                            &mut trap_sink,
+                        );
+                    };
+                }
+
+                // Set protection of this memory region to Read + Execute
+                // so we are able to execute the functions emitted to memory
                 unsafe {
-                    func_context.emit_to_memory(
-                        &*isa,
-                        (region_start as usize + func_offset) as *mut u8,
-                        &mut reloc_sink,
-                        &mut trap_sink,
-                    );
-                };
-            }
-
-            // Set protection of this memory region to Read + Execute
-            // so we are able to execute the functions emitted to memory
-            unsafe {
-                region::protect(region_start, total_size, region::Protection::ReadExecute)
-                    .expect("unable to make memory readable+executable");
+                    region::protect(region_start, total_size, region::Protection::ReadExecute)
+                        .expect("unable to make memory readable+executable");
+                }
             }
         }
 
