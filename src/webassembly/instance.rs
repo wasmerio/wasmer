@@ -6,7 +6,7 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiateStreaming() function.
-use cranelift_codegen::{isa, Context};
+use cranelift_codegen::{isa, Context, binemit};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
 use memmap::MmapMut;
@@ -23,6 +23,25 @@ use super::memory::LinearMemory;
 use super::module::Module;
 use super::module::{DataInitializer, Exportable};
 use super::relocation::{RelocSink, TrapSink};
+
+
+pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
+    match unsafe {
+        region::protect(
+            code_buf.as_ptr(),
+            code_buf.len(),
+            region::Protection::ReadWriteExecute,
+        )
+    } {
+        Err(err) => {
+            return Err(format!(
+                "failed to give executable permission to code: {}",
+                err
+            ))
+        },
+        Ok(()) => Ok(()),
+    }
+}
 
 pub fn get_function_addr(
     base: *const (),
@@ -69,7 +88,8 @@ pub struct UserData {
 #[derive(Debug)]
 pub struct Instance {
     /// WebAssembly table data
-    pub tables: Arc<Vec<RwLock<Vec<usize>>>>,
+    // pub tables: Arc<Vec<RwLock<Vec<usize>>>>,
+    pub tables: Arc<Vec<Vec<usize>>>,
 
     /// WebAssembly linear memory data
     pub memories: Arc<Vec<LinearMemory>>,
@@ -78,11 +98,35 @@ pub struct Instance {
     pub globals: Vec<u8>,
 
     /// Webassembly functions
-    functions: Vec<usize>,
-    
+    // functions: Vec<usize>,
+    functions: Vec<Vec<u8>>,
+
     /// Region start memory location
     code_base: *const (),
 }
+
+// pub fn make_vmctx(instance: &mut Instance, mem_base_addrs: &mut [*mut u8]) -> Vec<*mut u8> {
+//     debug_assert!(
+//         instance.tables.len() <= 1,
+//         "non-default tables is not supported"
+//     );
+
+//     let (default_table_ptr, default_table_len) = instance
+//         .tables
+//         .get_mut(0)
+//         .map(|table| (table.as_mut_ptr() as *mut u8, table.len()))
+//         .unwrap_or((ptr::null_mut(), 0));
+
+//     let mut vmctx = Vec::new();
+//     vmctx.push(instance.globals.as_mut_ptr());
+//     vmctx.push(mem_base_addrs.as_mut_ptr() as *mut u8);
+//     vmctx.push(default_table_ptr);
+//     vmctx.push(default_table_len as *mut u8);
+//     vmctx.push(instance as *mut Instance as *mut u8);
+
+//     vmctx
+// }
+
 
 impl Instance {
     /// Create a new `Instance`.
@@ -90,7 +134,7 @@ impl Instance {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
         let mut globals: Vec<u8> = Vec::new();
-        let mut functions: Vec<usize> = Vec::new();
+        let mut functions: Vec<Vec<u8>> = Vec::new();
         let mut code_base: *const () = ptr::null();
 
         // Instantiate functions
@@ -106,52 +150,66 @@ impl Instance {
             // Compile the functions (from cranelift IR to machine code)
             for function_body in module.info.function_bodies.values() {
                 let mut func_context = Context::for_function(function_body.to_owned());
-                func_context
-                    .verify(&*isa)
-                    .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                func_context
-                    .verify_locations(&*isa)
-                    .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                let code_size_offset = func_context
-                    .compile(&*isa)
-                    .map_err(|e| ErrorKind::CompileError(e.to_string()))?
-                    as usize;
+                // func_context
+                //     .verify(&*isa)
+                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                // func_context
+                //     .verify_locations(&*isa)
+                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                // let code_size_offset = func_context
+                //     .compile(&*isa)
+                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?
+                //     as usize;
+
+                let mut code_buf: Vec<u8> = Vec::new();
+                let mut reloc_sink = RelocSink::new();
+                let mut trap_sink = binemit::NullTrapSink {};
+
+                func_context.compile_and_emit(&*isa, &mut code_buf, &mut reloc_sink, &mut trap_sink).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                protect_codebuf(&code_buf);
+
+                let func_offset = code_buf;
+                functions.push(func_offset);
+
                 context_and_offsets.push((func_context, total_size));
-                total_size += code_size_offset;
+                // total_size += code_size_offset;
             }
 
             // We only want to allocate in memory if there is more than
             // 0 functions. Otherwise reserving a 0-sized memory region
             // cause a panic error
-            if total_size > 0 {
-                // Allocate the total memory for this functions
-                let map = MmapMut::map_anon(total_size).unwrap();
-                let region_start = map.as_ptr() as usize;
-                code_base = map.as_ptr() as *const ();
+            // if total_size > 0 {
+            //     // Allocate the total memory for this functions
+            //     // let map = MmapMut::map_anon(total_size).unwrap();
+            //     // let region_start = map.as_ptr() as usize;
+            //     // code_base = map.as_ptr() as *const ();
 
-                // // Emit this functions to memory
-                for (ref func_context, func_offset) in context_and_offsets.iter() {
-                    let mut trap_sink = TrapSink::new(*func_offset);
-                    let mut reloc_sink = RelocSink::new();
-                    // let mut func_pointer =  as *mut u8;
-                    unsafe {
-                        func_context.emit_to_memory(
-                            &*isa,
-                            (region_start + func_offset) as *mut u8,
-                            &mut reloc_sink,
-                            &mut trap_sink,
-                        );
-                    };
-                    functions.push(*func_offset);
-                }
+            //     // // Emit this functions to memory
+            //     for (ref func_context, func_offset) in context_and_offsets.iter() {
+            //         let mut trap_sink = TrapSink::new(*func_offset);
+            //         let mut reloc_sink = RelocSink::new();
+            //         let mut code_buf: Vec<u8> = Vec::new();
 
-                // Set protection of this memory region to Read + Execute
-                // so we are able to execute the functions emitted to memory
-                unsafe {
-                    region::protect(region_start as *mut u8, total_size, region::Protection::ReadExecute)
-                        .expect("unable to make memory readable+executable");
-                }
-            }
+            //         // let mut func_pointer =  as *mut u8;
+            //         unsafe {
+            //             func_context.emit_to_memory(
+            //                 &*isa,
+            //                 &mut code_buf,
+            //                 &mut reloc_sink,
+            //                 &mut trap_sink,
+            //             );
+            //         };
+            //         let func_offset = code_buf.as_ptr() as usize;
+            //         functions.push(*func_offset);
+            //     }
+
+            //     // Set protection of this memory region to Read + Execute
+            //     // so we are able to execute the functions emitted to memory
+            //     // unsafe {
+            //     //     region::protect(region_start as *mut u8, total_size, region::Protection::ReadExecute)
+            //     //         .expect("unable to make memory readable+executable");
+            //     // }
+            // }
         }
 
         // Instantiate tables
@@ -179,7 +237,8 @@ impl Instance {
                     // to populate the table.
 
                     // let func_index = *elem_index - module.info.imported_funcs.len() as u32;
-                    let func_addr = get_function_addr(code_base, &functions, *&func_index);
+                    let func_addr = functions[func_index.index()].as_ptr();
+                    // let func_addr = get_function_addr(code_base, &functions, *&func_index);
                     table[base + table_element.offset + i] = func_addr as _;
                 }
             }
@@ -228,7 +287,7 @@ impl Instance {
         }
 
         Ok(Instance {
-            tables: Arc::new(tables.into_iter().map(|table| RwLock::new(table)).collect()),
+            tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
             memories: Arc::new(memories.into_iter().collect()),
             globals: globals,
             functions: functions,
@@ -243,24 +302,31 @@ impl Instance {
     /// Invoke a WebAssembly function given a FuncIndex and the
     /// arguments that the function should be called with
     pub fn invoke(&self, func_index: FuncIndex, args: Vec<i32>) {
+        // let mut mem_base_addrs = self
+        //     .memories
+        //     .iter_mut()
+        //     .map(LinearMemory::base_addr)
+        //     .collect::<Vec<_>>();
+        // let vmctx = make_vmctx(&mut self, &mut mem_base_addrs);
+
         // let vmctx = make_vmctx(instance, &mut mem_base_addrs);
         // let vmctx = ptr::null();
         // Rather than writing inline assembly to jump to the code region, we use the fact that
         // the Rust ABI for calling a function with no arguments and no return matches the one of
         // the generated code. Thanks to this, we can transmute the code region into a first-class
         // Rust function and call it.
-        let func_pointer = get_function_addr(self.code_base, &self.functions, &func_index);
+        // let func_pointer = get_function_addr(self.code_base, &self.functions, &func_index);
+        let func_pointer = &self.functions[func_index.index()];
         // let index = func_index.index();
         // let func_pointer = self.functions[index];
         println!("INVOKING FUNCTION {:?} {:?}", func_index, func_pointer);
         unsafe {
-            let func = mem::transmute::<_, fn()>(func_pointer);
-            let result = func();
+            let func = mem::transmute::<_, fn(u32) -> u32>(func_pointer.as_ptr());
+            let result = func(2);
             println!("FUNCTION INVOKED, result {:?}", result);
 
             // start_func(vmctx.as_ptr());
         }
-        unimplemented!();
     }
 
 
