@@ -49,7 +49,7 @@ pub fn instantiate(
 ) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
     debug!("webassembly - creating instance");
-    let instance = Instance::new(&module, ptr::null())?;
+    let instance = Instance::new(&module)?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }

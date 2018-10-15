@@ -13,6 +13,7 @@ use memmap::MmapMut;
 use region;
 use spin::RwLock;
 use std::marker::PhantomData;
+use std::ptr;
 use std::sync::Arc;
 use std::{mem, slice};
 
@@ -75,18 +76,26 @@ pub struct Instance {
 
     /// WebAssembly global variable data
     pub globals: Vec<u8>,
+
+    /// Webassembly functions
+    functions: Vec<usize>,
+    
+    /// Region start memory location
+    code_base: *const (),
 }
 
 impl Instance {
     /// Create a new `Instance`.
-    pub fn new(module: &Module, code_base: *const ()) -> Result<Instance, ErrorKind> {
+    pub fn new(module: &Module) -> Result<Instance, ErrorKind> {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
         let mut globals: Vec<u8> = Vec::new();
+        let mut functions: Vec<usize> = Vec::new();
+        let mut code_base: *const () = ptr::null();
 
-        let mut functions: Vec<usize> = Vec::with_capacity(module.info.function_bodies.len());
         // Instantiate functions
         {
+            functions.reserve_exact(module.info.function_bodies.len());
             let isa = isa::lookup(module.info.triple.clone())
                 .unwrap()
                 .finish(module.info.flags.clone());
@@ -112,33 +121,34 @@ impl Instance {
             }
 
             // We only want to allocate in memory if there is more than
-            // 0 functions. Otherwise reserving a 0-sized memory
+            // 0 functions. Otherwise reserving a 0-sized memory region
             // cause a panic error
             if total_size > 0 {
                 // Allocate the total memory for this functions
                 let map = MmapMut::map_anon(total_size).unwrap();
-                let region_start = map.as_ptr();
+                let region_start = map.as_ptr() as usize;
+                code_base = map.as_ptr() as *const ();
 
                 // // Emit this functions to memory
                 for (ref func_context, func_offset) in context_and_offsets.iter() {
                     let mut trap_sink = TrapSink::new(*func_offset);
                     let mut reloc_sink = RelocSink::new();
-                    let mut func_pointer = (region_start as usize + func_offset) as *mut u8;
+                    // let mut func_pointer =  as *mut u8;
                     unsafe {
                         func_context.emit_to_memory(
                             &*isa,
-                            *&mut func_pointer,
+                            (region_start + func_offset) as *mut u8,
                             &mut reloc_sink,
                             &mut trap_sink,
                         );
                     };
-                    functions.push(func_pointer as usize);
+                    functions.push(*func_offset);
                 }
 
                 // Set protection of this memory region to Read + Execute
                 // so we are able to execute the functions emitted to memory
                 unsafe {
-                    region::protect(region_start, total_size, region::Protection::ReadExecute)
+                    region::protect(region_start as *mut u8, total_size, region::Protection::ReadExecute)
                         .expect("unable to make memory readable+executable");
                 }
             }
@@ -221,6 +231,8 @@ impl Instance {
             tables: Arc::new(tables.into_iter().map(|table| RwLock::new(table)).collect()),
             memories: Arc::new(memories.into_iter().collect()),
             globals: globals,
+            functions: functions,
+            code_base: code_base,
         })
     }
 
@@ -231,8 +243,60 @@ impl Instance {
     /// Invoke a WebAssembly function given a FuncIndex and the
     /// arguments that the function should be called with
     pub fn invoke(&self, func_index: FuncIndex, args: Vec<i32>) {
-        unimplemented!()
+        // let vmctx = make_vmctx(instance, &mut mem_base_addrs);
+        // let vmctx = ptr::null();
+        // Rather than writing inline assembly to jump to the code region, we use the fact that
+        // the Rust ABI for calling a function with no arguments and no return matches the one of
+        // the generated code. Thanks to this, we can transmute the code region into a first-class
+        // Rust function and call it.
+        let func_pointer = get_function_addr(self.code_base, &self.functions, &func_index);
+        // let index = func_index.index();
+        // let func_pointer = self.functions[index];
+        println!("INVOKING FUNCTION {:?} {:?}", func_index, func_pointer);
+        unsafe {
+            let func = mem::transmute::<_, fn()>(func_pointer);
+            let result = func();
+            println!("FUNCTION INVOKED, result {:?}", result);
+
+            // start_func(vmctx.as_ptr());
+        }
+        unimplemented!();
     }
+
+
+    // pub fn generate_context(&mut self) -> &VmCtx {
+    //     let memories: Vec<UncheckedSlice<u8>> = self.memories.iter()
+    //         .map(|mem| mem.into())
+    //         .collect();
+
+    //     let tables: Vec<BoundedSlice<usize>> = self.tables.iter()
+    //         .map(|table| table.write()[..].into())
+    //         .collect();
+        
+    //     let globals: UncheckedSlice<u8> = self.globals[..].into();
+
+    //     assert!(memories.len() >= 1, "modules must have at least one memory");
+    //     // the first memory has a space of `mem::size_of::<VmCtxData>()` rounded
+    //     // up to the 4KiB before it. We write the VmCtxData into that.
+    //     let data = VmCtxData {
+    //         globals: globals,
+    //         memories: memories[1..].into(),
+    //         tables: tables[..].into(),
+    //         user_data: UserData {
+    //             // process,
+    //             instance,
+    //         },
+    //         phantom: PhantomData,
+    //     };
+
+    //     let main_heap_ptr = memories[0].as_mut_ptr() as *mut VmCtxData;
+    //     unsafe {
+    //         main_heap_ptr
+    //             .sub(1)
+    //             .write(data);
+    //         &*(main_heap_ptr as *const VmCtx)
+    //     }
+    // }
 
     // pub fn start_func(&self) -> extern fn(&VmCtx) {
     //     self.start_func
@@ -245,6 +309,8 @@ impl Clone for Instance {
             tables: Arc::clone(&self.tables),
             memories: Arc::clone(&self.memories),
             globals: self.globals.clone(),
+            functions: self.functions.clone(),
+            code_base: self.code_base,
         }
     }
 }
