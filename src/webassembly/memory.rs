@@ -30,10 +30,19 @@ impl LinearMemory {
     pub fn new(initial: u32, maximum: Option<u32>) -> Self {
         assert!(initial <= MAX_PAGES);
         assert!(maximum.is_none() || maximum.unwrap() <= MAX_PAGES);
-        debug!("Instantiate LinearMemory(initial={:?}, maximum={:?})", initial, maximum);
+        debug!(
+            "Instantiate LinearMemory(initial={:?}, maximum={:?})",
+            initial, maximum
+        );
         let len = PAGE_SIZE * match maximum {
             Some(val) => val,
-            None => if initial > 0 { initial } else { 1 },
+            None => {
+                if initial > 0 {
+                    initial
+                } else {
+                    1
+                }
+            }
         };
         let mmap = MmapMut::map_anon(len as usize).unwrap();
         debug!("LinearMemory instantiated");

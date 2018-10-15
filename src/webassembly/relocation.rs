@@ -1,5 +1,5 @@
 use cranelift_codegen::binemit;
-use cranelift_codegen::ir::{self, TrapCode, SourceLoc, ExternalName};
+use cranelift_codegen::ir::{self, ExternalName, SourceLoc, TrapCode};
 
 #[derive(Debug)]
 pub struct Relocation {
@@ -17,7 +17,6 @@ pub enum RelocationType {
     Normal(u32),
     Intrinsic(String),
 }
-
 
 /// Implementation of a relocation sink that just saves all the information for later
 pub struct RelocSink {
@@ -48,35 +47,28 @@ impl binemit::RelocSink for RelocSink {
                 namespace: 0,
                 index,
             } => {
-                self.func_relocs.push(
-                    (
-                        Relocation {
-                            reloc,
-                            offset,
-                            addend,
-                        },
-                        RelocationType::Normal(index as _),
-                    )
-                );
-            },
-            ExternalName::TestCase {
-                length,
-                ascii,
-            } => {
+                self.func_relocs.push((
+                    Relocation {
+                        reloc,
+                        offset,
+                        addend,
+                    },
+                    RelocationType::Normal(index as _),
+                ));
+            }
+            ExternalName::TestCase { length, ascii } => {
                 let (slice, _) = ascii.split_at(length as usize);
                 let name = String::from_utf8(slice.to_vec()).unwrap();
 
-                self.func_relocs.push(
-                    (
-                        Relocation {
-                            reloc,
-                            offset,
-                            addend,
-                        },
-                        RelocationType::Intrinsic(name),
-                    )
-                );
-            },
+                self.func_relocs.push((
+                    Relocation {
+                        reloc,
+                        offset,
+                        addend,
+                    },
+                    RelocationType::Intrinsic(name),
+                ));
+            }
             _ => {
                 unimplemented!();
             }
@@ -99,8 +91,6 @@ impl RelocSink {
         }
     }
 }
-
-
 
 pub struct TrapData {
     pub offset: usize,

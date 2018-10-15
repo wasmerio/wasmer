@@ -2,8 +2,8 @@ pub mod errors;
 pub mod instance;
 pub mod memory;
 pub mod module;
-pub mod utils;
 pub mod relocation;
+pub mod utils;
 
 use cranelift_native;
 use std::panic;

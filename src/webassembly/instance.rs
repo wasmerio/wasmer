@@ -6,22 +6,22 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiateStreaming() function.
+use cranelift_codegen::{isa, Context};
+use cranelift_entity::EntityRef;
+use cranelift_wasm::{FuncIndex, GlobalInit};
+use memmap::MmapMut;
+use region;
+use spin::RwLock;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{mem, slice};
-use memmap::MmapMut;
-use spin::RwLock;
-use region;
-use cranelift_entity::EntityRef;
-use cranelift_wasm::{FuncIndex, GlobalInit};
-use cranelift_codegen::{Context, isa};
 
+use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::memory::LinearMemory;
-use super::relocation::{RelocSink, TrapSink};
 use super::module::Module;
 use super::module::{DataInitializer, Exportable};
-use super::super::common::slice::{BoundedSlice, UncheckedSlice};
+use super::relocation::{RelocSink, TrapSink};
 
 pub fn get_function_addr(
     base: *const (),
@@ -96,10 +96,15 @@ impl Instance {
 
             // Compile the functions
             for function_body in module.info.function_bodies.values() {
-                let mut context = Context::for_function(function_body.to_owned());
-                let code_size_offset = context.compile(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))? as usize;
+                let mut func_context = Context::for_function(function_body.to_owned());
+                // func_context.verify(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                // func_context.verify_locations(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                let code_size_offset = func_context
+                    .compile(&*isa)
+                    .map_err(|e| ErrorKind::CompileError(e.to_string()))?
+                    as usize;
                 total_size += code_size_offset;
-                context_and_offsets.push((context, code_size_offset));
+                context_and_offsets.push((func_context, code_size_offset));
             }
 
             // Allocate the total memory for this functions
@@ -111,8 +116,13 @@ impl Instance {
                 let mut trap_sink = TrapSink::new(*func_offset);
                 let mut reloc_sink = RelocSink::new();
                 unsafe {
-                    func_context.emit_to_memory(&*isa, (region_start as usize + func_offset) as *mut u8, &mut reloc_sink, &mut trap_sink);
-                }
+                    func_context.emit_to_memory(
+                        &*isa,
+                        (region_start as usize + func_offset) as *mut u8,
+                        &mut reloc_sink,
+                        &mut trap_sink,
+                    );
+                };
             }
 
             // Set protection of this memory region to Read + Execute
@@ -122,6 +132,7 @@ impl Instance {
                     .expect("unable to make memory readable+executable");
             }
         }
+
         // instantiate_tables
         {
             // Reserve table space
@@ -151,7 +162,7 @@ impl Instance {
                     table[base + table_element.offset + i] = func_addr as _;
                 }
             }
-        };
+        }
 
         // instantiate_memories
         {
@@ -169,7 +180,7 @@ impl Instance {
                 let to_init = &mut mem_mut[init.offset..init.offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
-        };
+        }
 
         // instantiate_globals
         {
@@ -193,7 +204,7 @@ impl Instance {
 
                 globals_data[i] = value;
             }
-        };
+        }
 
         Ok(Instance {
             tables: Arc::new(tables.into_iter().map(|table| RwLock::new(table)).collect()),
