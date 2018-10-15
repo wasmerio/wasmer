@@ -3,6 +3,7 @@ pub mod instance;
 pub mod memory;
 pub mod module;
 pub mod utils;
+pub mod relocation;
 
 use cranelift_native;
 use std::panic;
@@ -47,7 +48,9 @@ pub fn instantiate(
     import_object: Option<ImportObject>,
 ) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
-    let instance = Instance::new(&module, ptr::null(), &vec![]);
+    debug!("webassembly - creating instance");
+    let instance = Instance::new(&module, ptr::null())?;
+    debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }
 
@@ -63,11 +66,15 @@ pub fn instantiate(
 /// webassembly::CompileError.
 pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     // TODO: This should be automatically validated when creating the Module
-    if !validate(&buffer_source) {
+    let valid = validate(&buffer_source);
+    debug!("webassembly - valid {:?}", valid);
+    if !valid {
         return Err(ErrorKind::CompileError("Module not valid".to_string()));
     }
 
+    debug!("webassembly - creating module");
     let module = Module::from_bytes(buffer_source, triple!("riscv64"), None)?;
+    debug!("webassembly - module created");
 
     Ok(module)
 }

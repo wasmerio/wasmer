@@ -182,5 +182,5 @@ macro_rules! wasm_tests {
 wasm_tests!{
     _type,
     br_if,
-    // call,
+    call,
 }

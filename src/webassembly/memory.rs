@@ -1,4 +1,4 @@
-use memmap;
+use memmap::MmapMut;
 use std::fmt;
 
 const PAGE_SIZE: u32 = 65536;
@@ -9,7 +9,7 @@ const MAX_PAGES: u32 = 65536;
 /// This linear memory has a stable base address and at the same time allows
 /// for dynamical growing.
 pub struct LinearMemory {
-    mmap: memmap::MmapMut,
+    mmap: MmapMut,
     // The initial size of the WebAssembly Memory, in units of
     // WebAssembly pages.
     current: u32,
@@ -30,12 +30,13 @@ impl LinearMemory {
     pub fn new(initial: u32, maximum: Option<u32>) -> Self {
         assert!(initial <= MAX_PAGES);
         assert!(maximum.is_none() || maximum.unwrap() <= MAX_PAGES);
-
+        debug!("Instantiate LinearMemory(initial={:?}, maximum={:?})", initial, maximum);
         let len = PAGE_SIZE * match maximum {
             Some(val) => val,
-            None => initial,
+            None => if initial > 0 { initial } else { 1 },
         };
-        let mmap = memmap::MmapMut::map_anon(len as usize).unwrap();
+        let mmap = MmapMut::map_anon(len as usize).unwrap();
+        debug!("LinearMemory instantiated");
         Self {
             mmap,
             current: initial,
@@ -82,7 +83,7 @@ impl LinearMemory {
             // If we have no maximum, this is a "dynamic" heap, and it's allowed
             // to move.
             assert!(self.maximum.is_none());
-            let mut new_mmap = memmap::MmapMut::map_anon(new_bytes).unwrap();
+            let mut new_mmap = MmapMut::map_anon(new_bytes).unwrap();
             new_mmap.copy_from_slice(&self.mmap);
             self.mmap = new_mmap;
         }

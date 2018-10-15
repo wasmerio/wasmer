@@ -6,18 +6,22 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiateStreaming() function.
-use super::module::Module;
-use super::module::{DataInitializer, Exportable};
-use cranelift_entity::EntityRef;
-use cranelift_wasm::{FuncIndex, GlobalInit};
-
-use super::memory::LinearMemory;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{mem, slice};
-
-use super::super::common::slice::{BoundedSlice, UncheckedSlice};
+use memmap::MmapMut;
 use spin::RwLock;
+use region;
+use cranelift_entity::EntityRef;
+use cranelift_wasm::{FuncIndex, GlobalInit};
+use cranelift_codegen::{Context, isa};
+
+use super::errors::ErrorKind;
+use super::memory::LinearMemory;
+use super::relocation::{RelocSink, TrapSink};
+use super::module::Module;
+use super::module::{DataInitializer, Exportable};
+use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 
 pub fn get_function_addr(
     base: *const (),
@@ -75,11 +79,49 @@ pub struct Instance {
 
 impl Instance {
     /// Create a new `Instance`.
-    pub fn new(module: &Module, code_base: *const (), functions: &[usize]) -> Instance {
+    pub fn new(module: &Module, code_base: *const ()) -> Result<Instance, ErrorKind> {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
         let mut globals: Vec<u8> = Vec::new();
 
+        let mut functions: Vec<usize> = Vec::with_capacity(module.info.function_bodies.len());
+        // instantiate functions
+        {
+            let isa = isa::lookup(module.info.triple.clone())
+                .unwrap()
+                .finish(module.info.flags.clone());
+
+            let mut total_size: usize = 0;
+            let mut context_and_offsets = Vec::with_capacity(module.info.function_bodies.len());
+
+            // Compile the functions
+            for function_body in module.info.function_bodies.values() {
+                let mut context = Context::for_function(function_body.to_owned());
+                let code_size_offset = context.compile(&*isa).map_err(|e| ErrorKind::CompileError(e.to_string()))? as usize;
+                total_size += code_size_offset;
+                context_and_offsets.push((context, code_size_offset));
+            }
+
+            // Allocate the total memory for this functions
+            let map = MmapMut::map_anon(total_size).unwrap();
+            let region_start = map.as_ptr();
+
+            // // Emit this functions to memory
+            for (ref func_context, func_offset) in context_and_offsets.iter() {
+                let mut trap_sink = TrapSink::new(*func_offset);
+                let mut reloc_sink = RelocSink::new();
+                unsafe {
+                    func_context.emit_to_memory(&*isa, (region_start as usize + func_offset) as *mut u8, &mut reloc_sink, &mut trap_sink);
+                }
+            }
+
+            // Set protection of this memory region to Read + Execute
+            // so we are able to execute them
+            unsafe {
+                region::protect(region_start, total_size, region::Protection::ReadExecute)
+                    .expect("unable to make memory readable+executable");
+            }
+        }
         // instantiate_tables
         {
             // Reserve table space
@@ -105,8 +147,7 @@ impl Instance {
                     // to populate the table.
 
                     // let func_index = *elem_index - module.info.imported_funcs.len() as u32;
-
-                    let func_addr = get_function_addr(code_base, functions, *&func_index);
+                    let func_addr = get_function_addr(code_base, &functions, *&func_index);
                     table[base + table_element.offset + i] = func_addr as _;
                 }
             }
@@ -154,11 +195,11 @@ impl Instance {
             }
         };
 
-        Instance {
+        Ok(Instance {
             tables: Arc::new(tables.into_iter().map(|table| RwLock::new(table)).collect()),
             memories: Arc::new(memories.into_iter().collect()),
             globals: globals,
-        }
+        })
     }
 
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {

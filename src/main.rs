@@ -11,6 +11,22 @@ extern crate wabt;
 extern crate target_lexicon;
 extern crate spin;
 
+use std::time::{Duration, Instant};
+
+// #[cfg(feature = "debug")]
+macro_rules! debug {
+    ($($arg:tt)*) => {
+        println!($($arg)*);
+    }
+}
+
+// #[cfg(not(feature = "debug"))]
+// macro_rules! debug {
+//     ($($arg:tt)*) => {}
+// }
+
+// #[macro_use] extern crate log;
+
 use std::error::Error;
 use std::fs::File;
 use std::io;
