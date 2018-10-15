@@ -568,18 +568,18 @@ impl<'data> ModuleEnvironment<'data> for Module {
 
     fn declare_signature(&mut self, sig: &ir::Signature) {
         // OLD
-        // self.info.signatures.push(sig.clone());
+        self.info.signatures.push(sig.clone());
 
-        // NEW
-        let mut sig = sig.clone();
-        sig.params.push(AbiParam {
-            value_type: self.native_pointer(),
-            purpose: ArgumentPurpose::VMContext,
-            extension: ArgumentExtension::None,
-            location: ArgumentLoc::Unassigned,
-        });
-        // TODO: Deduplicate signatures.
-        self.info.signatures.push(sig);
+        // // NEW
+        // let mut sig = sig.clone();
+        // sig.params.push(AbiParam {
+        //     value_type: self.native_pointer(),
+        //     purpose: ArgumentPurpose::VMContext,
+        //     extension: ArgumentExtension::None,
+        //     location: ArgumentLoc::Unassigned,
+        // });
+        // // TODO: Deduplicate signatures.
+        // self.info.signatures.push(sig);
     }
 
     fn get_signature(&self, sig_index: SignatureIndex) -> &ir::Signature {
