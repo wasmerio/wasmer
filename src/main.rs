@@ -15,9 +15,8 @@ use std::time::{Duration, Instant};
 
 // #[cfg(feature = "debug")]
 macro_rules! debug {
-    ($($arg:tt)*) => {
-        println!($($arg)*);
-    }
+    ($fmt:expr) => (println!(concat!("Wasmer::", $fmt)));
+    ($fmt:expr, $($arg:tt)*) => (println!(concat!("Wasmer::", $fmt, "\n"), $($arg)*));
 }
 
 // #[cfg(not(feature = "debug"))]
