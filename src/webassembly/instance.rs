@@ -119,14 +119,16 @@ impl Instance {
                 for (ref func_context, func_offset) in context_and_offsets.iter() {
                     let mut trap_sink = TrapSink::new(*func_offset);
                     let mut reloc_sink = RelocSink::new();
+                    let mut func_pointer = (region_start as usize + func_offset) as *mut u8;
                     unsafe {
                         func_context.emit_to_memory(
                             &*isa,
-                            (region_start as usize + func_offset) as *mut u8,
+                            *&mut func_pointer,
                             &mut reloc_sink,
                             &mut trap_sink,
                         );
                     };
+                    functions.push(func_pointer as usize);
                 }
 
                 // Set protection of this memory region to Read + Execute
