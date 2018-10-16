@@ -16,17 +16,6 @@ extern crate spin;
 
 use std::time::{Duration, Instant};
 
-// #[cfg(feature = "debug")]
-macro_rules! debug {
-    ($fmt:expr) => (println!(concat!("Wasmer::", $fmt)));
-    ($fmt:expr, $($arg:tt)*) => (println!(concat!("Wasmer::", $fmt, "\n"), $($arg)*));
-}
-
-// #[cfg(not(feature = "debug"))]
-// macro_rules! debug {
-//     ($($arg:tt)*) => {}
-// }
-
 // #[macro_use] extern crate log;
 
 use std::error::Error;
@@ -39,6 +28,8 @@ use std::process::exit;
 use structopt::StructOpt;
 use wabt::wat2wasm;
 
+#[macro_use]
+mod macros;
 pub mod common;
 pub mod spec;
 pub mod webassembly;

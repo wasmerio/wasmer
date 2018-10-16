@@ -167,6 +167,7 @@ mod tests {
     use crate::test::Bencher;
     use super::run_single_file;
     use std::mem;
+    #[macro_use]
     use crate::webassembly::{
         compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
     };
@@ -197,6 +198,20 @@ mod tests {
         }
     }
 
+    macro_rules! instantiate_from_wast {
+        ($x:expr) => {
+            {
+                pub const WAST_BYTES: &[u8] = include_bytes!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    $x
+                ));
+                let wasm_bytes = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert wat to wasm");
+                let result_object = instantiate(wasm_bytes, None).expect("Not compiled properly");
+                result_object
+            }
+        };
+    }
+
     wasm_tests!{
         _type,
         br_if,
@@ -211,22 +226,14 @@ mod tests {
 
     #[bench]
     fn bench_identity(b: &mut Bencher) {
-        pub const BENCHMARK_BYTES: &[u8] = include_bytes!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/src/spec/tests/benchmark.wast"
-        ));
-        let wasm_bytes = wat2wasm(BENCHMARK_BYTES.to_vec()).expect("Can't convert wat to wasm");
-        let result_object = instantiate(wasm_bytes, None).expect("Not compiled properly");
+        let result_object = instantiate_from_wast!("/src/spec/tests/benchmark.wast");
         let instance = result_object.instance;
         let module = result_object.module;
         let func_index = match module.info.exports.get("identity") {
             Some(&Export::Function(index)) => index,
             _ => panic!("Function not found"),
         };
-        let func_addr = instance.get_function_pointer(func_index);
-        let func = unsafe {
-            mem::transmute::<_, fn(i32) -> i32>(func_addr)
-        };
+        let func: fn(i32) -> i32 = get_instance_function!(instance, func_index);
         assert_eq!(func(1), 1,  "Identity function not working.");
         b.iter(|| {
             func(1);
