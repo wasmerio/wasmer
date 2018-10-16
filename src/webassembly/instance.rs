@@ -401,6 +401,10 @@ impl Instance {
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
     }
+    pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {
+        let func_pointer = &self.functions[func_index.index()];
+        func_pointer.as_ptr()
+    }
 
     /// Invoke a WebAssembly function given a FuncIndex and the
     /// arguments that the function should be called with

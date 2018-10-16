@@ -2,16 +2,18 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 
-use super::{run_single_file, InvokationResult, ScriptHandler};
 use cranelift_codegen::ir::types;
-use crate::webassembly::{
-    compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
-};
+use cranelift_entity::EntityRef;
 use libffi::high::call::*;
 use libffi::high::types::CType;
 use std::iter::Iterator;
 use wabt::script::{Action, Value};
 // use crate::webassembly::instance::InvokeResult;
+
+use super::{run_single_file, InvokationResult, ScriptHandler};
+use crate::webassembly::{
+    compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
+};
 
 struct StoreCtrl<'module> {
     last_module: Option<ResultObject>,
@@ -162,8 +164,13 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
 
 mod tests {
     use std::path::Path;
-
+    use crate::test::Bencher;
     use super::run_single_file;
+    use std::mem;
+    use crate::webassembly::{
+        compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
+    };
+    use wabt::wat2wasm;
 
     fn do_test(test_name: String) {
         let mut handler = &mut super::StoreCtrl::new();
@@ -194,5 +201,35 @@ mod tests {
         _type,
         br_if,
         call,
+    }
+
+    fn my_func () -> Vec<u8> {
+        let x = String::from("hello");
+        let bytes = x.into_bytes();
+        return bytes;
+    }
+
+    #[bench]
+    fn bench_identity(b: &mut Bencher) {
+        pub const BENCHMARK_BYTES: &[u8] = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/spec/tests/benchmark.wast"
+        ));
+        let wasm_bytes = wat2wasm(BENCHMARK_BYTES.to_vec()).expect("Can't convert wat to wasm");
+        let result_object = instantiate(wasm_bytes, None).expect("Not compiled properly");
+        let instance = result_object.instance;
+        let module = result_object.module;
+        let func_index = match module.info.exports.get("identity") {
+            Some(&Export::Function(index)) => index,
+            _ => panic!("Function not found"),
+        };
+        let func_addr = instance.get_function_pointer(func_index);
+        let func = unsafe {
+            mem::transmute::<_, fn(i32) -> i32>(func_addr)
+        };
+        assert_eq!(func(1), 1,  "Identity function not working.");
+        b.iter(|| {
+            func(1);
+        });
     }
 }
