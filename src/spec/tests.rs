@@ -3,9 +3,13 @@ use std::path::Path;
 use std::rc::Rc;
 
 use super::{run_single_file, InvokationResult, ScriptHandler};
+use cranelift_codegen::ir::types;
 use crate::webassembly::{
     compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
 };
+use libffi::high::call::*;
+use libffi::high::types::CType;
+use std::iter::Iterator;
 use wabt::script::{Action, Value};
 // use crate::webassembly::instance::InvokeResult;
 
@@ -66,7 +70,6 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         field: String,
         args: Vec<Value>,
     ) -> InvokationResult {
-        println!("INVOKE");
         if let Some(result) = &mut self.last_module {
             let instance = &result.instance;
             let module = &result.module;
@@ -74,11 +77,43 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
                 Some(&Export::Function(index)) => index,
                 _ => panic!("Function not found"),
             };
-            println!("Function index: {:?}", func_index);
+            let call_args: Vec<Arg> = args
+                .iter()
+                .map(|a| match a {
+                    Value::I32(v) => arg(v),
+                    Value::I64(v) => arg(v),
+                    Value::F32(v) => arg(v),
+                    Value::F64(v) => arg(v),
+                })
+                .collect();
+            let call_func: fn() = instance.get_function(func_index);
+            let result: i64 = unsafe { call(CodePtr(call_func as *mut _), &call_args) };
+            let signature_index = module.info.functions[func_index].entity;
+            let signature = &module.info.signatures[signature_index];
+            let return_values = if signature.returns.len() > 0 {
+                let val = match signature.returns[0].value_type {
+                    types::I32 => Value::I32(result as _),
+                    types::I64 => Value::I64(result as _),
+                    types::F32 => Value::F32(result as f32),
+                    types::F64 => Value::F64(result as f64),
+                    _ => panic!("Unexpected type"),
+                };
+                vec![val]
+            } else {
+                vec![]
+            };
 
-            instance.invoke(func_index, vec![]);
+            println!(
+                "Function {:?}(index: {:?}) => {:?}",
+                field.to_string(),
+                func_index,
+                return_values
+            );
+
+            // let result = instance.invoke(func_index, vec![]);
+            return InvokationResult::Vals(return_values);
         }
-        InvokationResult::Vals(vec![])
+        panic!("module not found");
         // let x = modu.unwrap();
         // unimplemented!()
         // if let Some(m) = &mut self.last_module {
@@ -168,33 +203,39 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
     }
 }
 
-fn do_test(test_name: String) {
-    let mut handler = &mut StoreCtrl::new();
-    let test_path_str = format!(
-        "{}/src/spec/tests/{}.wast",
-        env!("CARGO_MANIFEST_DIR"),
-        test_name
-    );
-    let test_path = Path::new(&test_path_str);
-    let res = run_single_file(&test_path, handler);
-    res.present()
-}
+mod tests {
+    use std::path::Path;
 
-macro_rules! wasm_tests {
-    ($($name:ident,)*) => {
-    $(
-        #[test]
-        fn $name() {
-            // let test_filename = $value;
-            // assert_eq!(expected, fib(input));
-            do_test(stringify!($name).to_string());
-        }
-    )*
+    use super::run_single_file;
+
+    fn do_test(test_name: String) {
+        let mut handler = &mut super::StoreCtrl::new();
+        let test_path_str = format!(
+            "{}/src/spec/tests/{}.wast",
+            env!("CARGO_MANIFEST_DIR"),
+            test_name
+        );
+        let test_path = Path::new(&test_path_str);
+        let res = run_single_file(&test_path, handler);
+        res.present()
     }
-}
 
-wasm_tests!{
-    // _type,
-    // br_if,
-    call,
+    macro_rules! wasm_tests {
+        ($($name:ident,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                // let test_filename = $value;
+                // assert_eq!(expected, fib(input));
+                do_test(stringify!($name).to_string());
+            }
+        )*
+        }
+    }
+
+    wasm_tests!{
+        _type,
+        br_if,
+        call,
+    }
 }

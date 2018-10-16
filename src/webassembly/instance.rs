@@ -6,25 +6,24 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiateStreaming() function.
-use cranelift_codegen::{isa, Context, binemit};
+use cranelift_codegen::{binemit, isa, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
 use memmap::MmapMut;
 use region;
 use spin::RwLock;
+use std::iter::Iterator;
 use std::marker::PhantomData;
 use std::ptr::{self, write_unaligned};
 use std::sync::Arc;
 use std::{mem, slice};
-use std::iter::Iterator;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::memory::LinearMemory;
 use super::module::Module;
-use super::module::{DataInitializer, Exportable, Export};
-use super::relocation::{RelocSink, TrapSink, RelocationType, Reloc};
-
+use super::module::{DataInitializer, Export, Exportable};
+use super::relocation::{Reloc, RelocSink, RelocationType, TrapSink};
 
 pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
     match unsafe {
@@ -39,7 +38,7 @@ pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
                 "failed to give executable permission to code: {}",
                 err
             ))
-        },
+        }
         Ok(()) => Ok(()),
     }
 }
@@ -104,7 +103,6 @@ pub struct Instance {
 
     /// The module start function
     start_func: Option<FuncIndex>,
-
     // Region start memory location
     // code_base: *const (),
 }
@@ -130,7 +128,6 @@ pub struct Instance {
 
 //     vmctx
 // }
-
 
 impl Instance {
     /// Create a new `Instance`.
@@ -169,7 +166,9 @@ impl Instance {
                 let mut reloc_sink = RelocSink::new();
                 let mut trap_sink = binemit::NullTrapSink {};
 
-                func_context.compile_and_emit(&*isa, &mut code_buf, &mut reloc_sink, &mut trap_sink).map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                func_context
+                    .compile_and_emit(&*isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
+                    .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
                 protect_codebuf(&code_buf);
 
                 let func_offset = code_buf;
@@ -208,13 +207,15 @@ impl Instance {
                     let body = &mut functions[i];
                     match reloc.reloc {
                         Reloc::Abs8 => unsafe {
-                            let reloc_address = body.as_mut_ptr().offset(reloc.offset as isize) as i64;
+                            let reloc_address =
+                                body.as_mut_ptr().offset(reloc.offset as isize) as i64;
                             let reloc_addend = reloc.addend;
                             let reloc_abs = target_func_address as i64 + reloc_addend;
                             write_unaligned(reloc_address as *mut i64, reloc_abs);
                         },
                         Reloc::X86PCRel4 => unsafe {
-                            let reloc_address = body.as_mut_ptr().offset(reloc.offset as isize) as isize;
+                            let reloc_address =
+                                body.as_mut_ptr().offset(reloc.offset as isize) as isize;
                             let reloc_addend = reloc.addend as isize;
                             // TODO: Handle overflow.
                             let reloc_delta_i32 =
@@ -266,7 +267,6 @@ impl Instance {
                     // }
                 }
             }
-
 
             // We only want to allocate in memory if there is more than
             // 0 functions. Otherwise reserving a 0-sized memory region
@@ -379,12 +379,14 @@ impl Instance {
             }
         }
 
-        let start_func: Option<FuncIndex> = module.info.start_func.or_else(|| {
-            match module.info.exports.get("main") {
-                Some(Export::Function(index)) => Some(index.to_owned()),
-                _ => None
-            }
-        });
+        let start_func: Option<FuncIndex> =
+            module
+                .info
+                .start_func
+                .or_else(|| match module.info.exports.get("main") {
+                    Some(Export::Function(index)) => Some(index.to_owned()),
+                    _ => None,
+                });
 
         Ok(Instance {
             tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
@@ -451,7 +453,7 @@ impl Instance {
     //     let tables: Vec<BoundedSlice<usize>> = self.tables.iter()
     //         .map(|table| table.write()[..].into())
     //         .collect();
-        
+
     //     let globals: UncheckedSlice<u8> = self.globals[..].into();
 
     //     assert!(memories.len() >= 1, "modules must have at least one memory");
@@ -494,7 +496,6 @@ impl Clone for Instance {
         }
     }
 }
-
 
 extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: *mut *mut u8) -> u32 {
     unimplemented!();

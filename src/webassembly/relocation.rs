@@ -95,7 +95,6 @@ impl RelocSink {
     }
 }
 
-
 /// Implementation of a relocation sink that just saves all the information for later
 // pub struct RelocSink {
 //     /// Relocations recorded for the function.
@@ -177,7 +176,6 @@ impl RelocSink {
 //     /// Function for query current size of the default linear memory.
 //     CurrentMemory,
 // }
-
 
 pub struct TrapData {
     pub offset: usize,
