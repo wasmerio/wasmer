@@ -77,6 +77,8 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
                 Some(&Export::Function(index)) => index,
                 _ => panic!("Function not found"),
             };
+            // We map the arguments provided into the raw Arguments provided
+            // to libffi
             let call_args: Vec<Arg> = args
                 .iter()
                 .map(|a| match a {
@@ -86,8 +88,11 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
                     Value::F64(v) => arg(v),
                 })
                 .collect();
+            // We use libffi to call a function with a vector of arguments
             let call_func: fn() = instance.get_function(func_index);
             let result: i64 = unsafe { call(CodePtr(call_func as *mut _), &call_args) };
+
+            // We retrieve the return type of the function, and wrap the result with it
             let signature_index = module.info.functions[func_index].entity;
             let signature = &module.info.signatures[signature_index];
             let return_values = if signature.returns.len() > 0 {
@@ -104,64 +109,16 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
             };
 
             println!(
-                "Function {:?}(index: {:?}) => {:?}",
+                "Function {:?}(index: {:?}) ({:?}) => {:?}",
                 field.to_string(),
                 func_index,
+                call_args,
                 return_values
             );
 
-            // let result = instance.invoke(func_index, vec![]);
             return InvokationResult::Vals(return_values);
         }
         panic!("module not found");
-        // let x = modu.unwrap();
-        // unimplemented!()
-        // if let Some(m) = &mut self.last_module {
-        //     // let function = module.exports.get(field).expect("field not found");
-        //     // let mut m = &mut m;
-        //     let mut instance = &mut m.instance;
-        //     // println!("HEEY {:?}", module.instance);
-        //     let x = instance.execute_fn(
-        //         &m.module,
-        //         &m.compilation,
-        //         field,
-        //     ).unwrap();
-        //     println!("X value {:?}", x);
-        //     let res = match x {
-        //         InvokeResult::VOID => {
-        //             vec![]
-        //         },
-        //         InvokeResult::I32(v) => vec![Value::I32(v)],
-        //         InvokeResult::I64(v) => vec![Value::I64(v)],
-        //         InvokeResult::F32(v) => vec![Value::F32(v)],
-        //         InvokeResult::F64(v) => vec![Value::F64(v)],
-        //     };
-        //     InvokationResult::Vals(res)
-        //     // unimplemented!()
-        //     // InvokationResult::Vals(vec![Value::I32(*x)])
-        //     // unimplemented!();
-        //     // let result = Rc::try_unwrap(module);
-        //     // let mut mutinstance = Rc::make_mut(&module.instance);
-        //     // execute_fn(
-        //     //     &module.module,
-        //     //     &module.compilation,
-        //     //     &mut (&mut module.instance),
-        //     //     field,
-        //     // );
-        // }
-        // else {
-        //     panic!("module not found");
-        // }
-        // match module {
-        //     Some(m) => {
-        //         println!("HEEY {:?}", m);
-        //     },
-        //     _ => unimplemented!()
-        // }
-        // println!("action invoke {}", module.unwrap_or("as".to_string()));
-        // let modul = &self.last_module;
-        // modul.expect("a");
-        //
     }
     fn action_get(&mut self, module: Option<String>, field: String) -> Value {
         // println!("action get");

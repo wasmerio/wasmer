@@ -27,8 +27,10 @@ region = "0.3.0"
 memmap = "0.6.2"
 spin = "0.4.9"
 log = "0.4.5"
-libffi = "0.6.4"
 target-lexicon = { version = "0.0.3", default-features = false }
+
+[dev-dependencies]
+libffi = "0.6.4"
 
 [features]
 debug = []
