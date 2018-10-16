@@ -1,0 +1,31 @@
+language: rust
+
+rust:
+  - nightly
+
+env:
+  - CARGO_INCREMENTAL=0
+
+os: linux
+
+addons:
+  apt:
+    packages:
+      # Install makeinfo [sic] - needed for constructing libffi
+      - texinfo
+
+cache:
+  directories:
+    - $HOME/.cargo
+    - $TRAVIS_BUILD_DIR/target
+
+sudo: false
+
+notifications:
+  email:
+    on_success: never
+    on_failure: change
+
+script:
+  - cargo test
+  - cargo bench
