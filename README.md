@@ -1,8 +1,8 @@
 # wasmer - WebAssembly runtime
 
-[![Build Status](https://api.travis-ci.org/wafoundation/wasmer.svg?branch=master)](https://travis-ci.org/rust-lang-nursery/error-chain)
-[![Latest Version](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/error-chain)
-[![License](https://img.shields.io/github/license/wafoundation/wasmer.svg)](https://github.com/wafoundation/wasmer)
+[![Build Status](https://api.travis-ci.com/WAFoundation/wasmer.svg?branch=master)](https://travis-ci.com/WAFoundation/wasmer)
+[![Latest Version](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
+[![License](https://img.shields.io/github/license/WAFoundation/wasmer.svg)](https://github.com/WAFoundation/wasmer)
 
 `wasmer` is a Standalone JIT-style runtime for WebAsssembly code.
 
