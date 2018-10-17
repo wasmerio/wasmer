@@ -111,7 +111,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
             };
 
             println!(
-                "Function {:?}(index: {:?}) ({:?}) => {:?}",
+                "Function {:?}(index: {:?}) ({:?}) => returned {:?}",
                 field.to_string(),
                 func_index,
                 call_args,
@@ -177,7 +177,8 @@ mod tests {
     use std::path::Path;
     #[macro_use]
     use crate::webassembly::{
-        compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject, ImportObject
+        compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
+        ImportObject,
     };
     use wabt::wat2wasm;
 
@@ -209,7 +210,8 @@ mod tests {
     macro_rules! instantiate_from_wast {
         ($x:expr) => {{
             let wasm_bytes = include_wast2wasm_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), $x));
-            let result_object = instantiate(wasm_bytes, ImportObject::new()).expect("Not compiled properly");
+            let result_object =
+                instantiate(wasm_bytes, ImportObject::new()).expect("Not compiled properly");
             result_object
         }};
     }
@@ -235,6 +237,7 @@ mod tests {
         br_if,
         call,
         import,
+        memory,
     }
 
 }

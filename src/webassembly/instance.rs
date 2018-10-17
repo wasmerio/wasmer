@@ -232,6 +232,12 @@ impl Instance {
                         RelocationType::Normal(func_index) => {
                             get_function_addr(&FuncIndex::new(*func_index as usize), &import_functions, &functions) as isize
                         },
+                        RelocationType::CurrentMemory => {
+                            current_memory as isize
+                        },
+                        RelocationType::GrowMemory => {
+                            grow_memory as isize
+                        },
                         _ => unimplemented!()
                         // RelocationType::Intrinsic(name) => {
                         //     get_abi_intrinsic(name)?
@@ -547,7 +553,8 @@ impl Clone for Instance {
 }
 
 extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: *mut *mut u8) -> u32 {
-    unimplemented!();
+    return 0;
+    // unimplemented!();
     // unsafe {
     //     let instance = (*vmctx.offset(4)) as *mut Instance;
     //     (*instance)
@@ -558,7 +565,8 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: *mut *mut u8) -> 
 }
 
 extern "C" fn current_memory(memory_index: u32, vmctx: *mut *mut u8) -> u32 {
-    unimplemented!();
+    return 0;
+    // unimplemented!();
     // unsafe {
     //     let instance = (*vmctx.offset(4)) as *mut Instance;
     //     (*instance)

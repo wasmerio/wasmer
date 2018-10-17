@@ -13,6 +13,7 @@ use cranelift_codegen::ir::{
     FuncRef, Function, InstBuilder, Signature,
 };
 use cranelift_codegen::print_errors::pretty_verifier_error;
+use cranelift_codegen::settings::CallConv;
 use cranelift_codegen::{isa, settings, verifier};
 use cranelift_entity::{EntityRef, PrimaryMap};
 
@@ -127,6 +128,12 @@ pub struct ModuleInfo {
     /// We use this in order to have a O(1) allocation of the exports
     /// rather than iterating through the Exportable elements.
     pub exports: HashMap<String, Export>,
+
+    /// The external function declaration for implementing wasm's `current_memory`.
+    pub current_memory_extfunc: Option<FuncRef>,
+
+    /// The external function declaration for implementing wasm's `grow_memory`.
+    pub grow_memory_extfunc: Option<FuncRef>,
 }
 
 impl ModuleInfo {
@@ -150,7 +157,12 @@ impl ModuleInfo {
             main_memory_base: None,
             memory_base: None,
             exports: HashMap::new(),
+            current_memory_extfunc: None,
+            grow_memory_extfunc: None,
         }
+    }
+    pub fn set_current_memory_extfunc(&mut self, func: FuncRef) {
+        self.current_memory_extfunc = Some(func);
     }
 }
 
@@ -557,20 +569,66 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn translate_memory_grow(
         &mut self,
         mut pos: FuncCursor,
-        _index: MemoryIndex,
-        _heap: ir::Heap,
-        _val: ir::Value,
+        index: MemoryIndex,
+        heap: ir::Heap,
+        val: ir::Value,
     ) -> WasmResult<ir::Value> {
-        Ok(pos.ins().iconst(I32, -1))
+        debug_assert_eq!(index, 0, "non-default memories not supported yet");
+        let grow_mem_func = self.mod_info.grow_memory_extfunc.unwrap_or_else(|| {
+            let sig_ref = pos.func.import_signature(Signature {
+                call_conv: CallConv::SystemV,
+                // argument_bytes: None,
+                params: vec![
+                    AbiParam::new(I32),
+                    AbiParam::special(I64, ArgumentPurpose::VMContext),
+                ],
+                returns: vec![AbiParam::new(I32)],
+            });
+
+            pos.func.import_function(ExtFuncData {
+                name: ExternalName::testcase("grow_memory"),
+                signature: sig_ref,
+                colocated: false,
+            })
+        });
+
+        // self.mod_info.grow_memory_extfunc = Some(grow_mem_func);
+
+        let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
+
+        let call_inst = pos.ins().call(grow_mem_func, &[val, vmctx]);
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     fn translate_memory_size(
         &mut self,
         mut pos: FuncCursor,
-        _index: MemoryIndex,
-        _heap: ir::Heap,
+        index: MemoryIndex,
+        heap: ir::Heap,
     ) -> WasmResult<ir::Value> {
-        Ok(pos.ins().iconst(I32, -1))
+        debug_assert_eq!(index, 0, "non-default memories not supported yet");
+        let cur_mem_func = self.mod_info.current_memory_extfunc.unwrap_or_else(|| {
+            let sig_ref = pos.func.import_signature(Signature {
+                call_conv: CallConv::SystemV,
+                // argument_bytes: None,
+                params: vec![AbiParam::special(I64, ArgumentPurpose::VMContext)],
+                returns: vec![AbiParam::new(I32)],
+            });
+
+            pos.func.import_function(ExtFuncData {
+                name: ExternalName::testcase("current_memory"),
+                signature: sig_ref,
+                colocated: false,
+            })
+        });
+
+        // self.mod_info.set_current_memory_extfunc(f);
+
+        let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
+
+        let call_inst = pos.ins().call(cur_mem_func, &[vmctx]);
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
+        // Ok(pos.ins().iconst(I32, -1))
     }
 
     // fn return_mode(&self) -> ReturnMode {
@@ -677,6 +735,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
         data: &'data [u8],
     ) {
         debug_assert!(base.is_none(), "global-value offsets not supported yet");
+        // debug!("DATA INITIALIZATION {:?} {:?}", memory_index, base);
         self.info.data_initializers.push(DataInitializer {
             memory_index,
             base,

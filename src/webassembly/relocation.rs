@@ -19,6 +19,8 @@ pub struct Relocation {
 pub enum RelocationType {
     Normal(u32),
     Intrinsic(String),
+    GrowMemory,
+    CurrentMemory,
 }
 
 /// Implementation of a relocation sink that just saves all the information for later
@@ -62,14 +64,18 @@ impl binemit::RelocSink for RelocSink {
             ExternalName::TestCase { length, ascii } => {
                 let (slice, _) = ascii.split_at(length as usize);
                 let name = String::from_utf8(slice.to_vec()).unwrap();
-
+                let relocation_type = match name.as_str() {
+                    "current_memory" => RelocationType::CurrentMemory,
+                    "grow_memory" => RelocationType::GrowMemory,
+                    _ => RelocationType::Intrinsic(name),
+                };
                 self.func_relocs.push((
                     Relocation {
                         reloc,
                         offset,
                         addend,
                     },
-                    RelocationType::Intrinsic(name),
+                    relocation_type,
                 ));
             }
             _ => {
