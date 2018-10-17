@@ -1,4 +1,4 @@
-#![feature(test)]
+#![feature(test, libc)]
 
 extern crate test;
 #[macro_use]
@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 
 // #[macro_use] extern crate log;
 
+use libc;
 use std::error::Error;
 use std::fs::File;
 use std::io;
@@ -31,6 +32,7 @@ use wabt::wat2wasm;
 #[macro_use]
 mod macros;
 pub mod common;
+pub mod integrations;
 pub mod spec;
 pub mod webassembly;
 

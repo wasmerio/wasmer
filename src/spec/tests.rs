@@ -12,7 +12,7 @@ use wabt::script::{Action, Value};
 
 use super::{run_single_file, InvokationResult, ScriptHandler};
 use crate::webassembly::{
-    compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
+    compile, instantiate, Error, ErrorKind, Export, ImportObject, Instance, Module, ResultObject,
 };
 
 struct StoreCtrl<'module> {
@@ -127,18 +127,15 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         unimplemented!()
     }
     fn module(&mut self, bytes: Vec<u8>, name: Option<String>) {
-        let mut import_object = HashMap::new();
-        let mut test_import = import_object
-            .entry("test".to_string())
-            .or_insert_with(|| HashMap::new());
-        fn identity(x: i32) -> i32 {
+        let mut import_object = ImportObject::new();
+        extern "C" fn identity(x: i32) -> i32 {
             x
         };
-        test_import.insert("identity".to_string(), identity as *const u8);
+        import_object.set("test", "identity", identity as *const u8);
         // let import_object = import_object!{
         //     test.identity => fn(x: i32) {x},
         // }
-        let module_wrapped = instantiate(bytes, Some(&import_object));
+        let module_wrapped = instantiate(bytes, Some(import_object));
         let mut result = module_wrapped.expect("Module is invalid");
         // let module: &'module Module = result.module;
         self.last_module = Some(result);
@@ -211,8 +208,7 @@ mod tests {
 
     macro_rules! instantiate_from_wast {
         ($x:expr) => {{
-            pub const WAST_BYTES: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), $x));
-            let wasm_bytes = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert wat to wasm");
+            let wasm_bytes = include_wast2wasm_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), $x));
             let result_object = instantiate(wasm_bytes, None).expect("Not compiled properly");
             result_object
         }};

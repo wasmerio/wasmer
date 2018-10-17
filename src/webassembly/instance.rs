@@ -21,6 +21,7 @@ use std::{mem, slice};
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
+use super::import_object::ImportObject;
 use super::memory::LinearMemory;
 use super::module::Module;
 use super::module::{DataInitializer, Export, Exportable};
@@ -99,9 +100,6 @@ pub struct UserData {
     pub instance: Instance,
 }
 
-// The import object for the instance
-pub type ImportObject = HashMap<String, HashMap<String, *const u8>>;
-
 /// An Instance of a WebAssembly module
 #[derive(Debug)]
 pub struct Instance {
@@ -157,7 +155,7 @@ impl Instance {
     /// Create a new `Instance`.
     pub fn new(
         module: &Module,
-        import_object: Option<&ImportObject>,
+        import_object: &ImportObject<&str, &str>,
     ) -> Result<Instance, ErrorKind> {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
@@ -178,14 +176,15 @@ impl Instance {
             // let mut context_and_offsets = Vec::with_capacity(module.info.function_bodies.len());
             for (module, field) in module.info.imported_funcs.iter() {
                 // let function = &import_object.map(|i| i.get(module).map(|m| m.get(field)));
-                let mut function = fake_fun as *const u8;
-                if let Some(import_object) = import_object {
-                    if let Some(module) = import_object.get(module) {
-                        if let Some(field_function) = module.get(field) {
-                            function = *field_function;
-                        }
-                    }
-                }
+                // let mut function = fake_fun as *const u8;
+                let mut function = import_object
+                    .get(&module.as_str(), &field.as_str())
+                    .ok_or_else(|| {
+                        ErrorKind::LinkError(format!(
+                            "Imported function {}.{} was not provided in the import_functions",
+                            module, field
+                        ))
+                    })?;
                 // println!("GET FUNC {:?}", function);
                 import_functions.push(function);
                 relocations.push(vec![]);
@@ -444,8 +443,7 @@ impl Instance {
         self.memories.clone()
     }
     pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {
-        let func_pointer = &self.functions[func_index.index()];
-        func_pointer.as_ptr()
+        get_function_addr(&func_index, &self.import_functions, &self.functions)
     }
 
     // pub fn is_imported_function(&self, func_index: FuncIndex) -> bool {

@@ -3,7 +3,7 @@ name = "wasmer"
 version = "0.1.0"
 authors = ["Syrus Akbary <me@syrusakbary.com>"]
 edition = "2018"
-repository = "https://github.com/wapmio/wasmer"
+repository = "https://github.com/wafoundation/wasmer"
 publish = false
 
 [dependencies]
@@ -28,9 +28,11 @@ memmap = "0.6.2"
 spin = "0.4.9"
 log = "0.4.5"
 target-lexicon = { version = "0.0.3", default-features = false }
+libc = "0.2"
 
 [dev-dependencies]
 libffi = "0.6.4"
+# maplit = "1.0.1"
 
 [features]
 debug = []

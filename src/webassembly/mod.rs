@@ -1,4 +1,5 @@
 pub mod errors;
+pub mod import_object;
 pub mod instance;
 pub mod memory;
 pub mod module;
@@ -14,7 +15,8 @@ use target_lexicon::{self, Triple};
 use wasmparser;
 
 pub use self::errors::{Error, ErrorKind};
-pub use self::instance::{ImportObject, Instance};
+pub use self::import_object::ImportObject;
+pub use self::instance::Instance;
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
 
@@ -43,11 +45,15 @@ pub struct ResultObject {
 /// webassembly::RuntimeError, depending on the cause of the failure.
 pub fn instantiate(
     buffer_source: Vec<u8>,
-    import_object: Option<&ImportObject>,
+    import_object: Option<ImportObject<&str, &str>>,
 ) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
     debug!("webassembly - creating instance");
-    let instance = Instance::new(&module, import_object)?;
+    let import_object: ImportObject<&str, &str> = match import_object {
+        Some(import_object) => import_object,
+        None => ImportObject::new(),
+    };
+    let instance = Instance::new(&module, &import_object)?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }
