@@ -20,7 +20,7 @@ mod tests {
         let wasm_bytes = include_wast2wasm_bytes!("tests/putchar.wast");
         let import_object = generate_libc_env();
         let result_object =
-            instantiate(wasm_bytes, Some(import_object)).expect("Not compiled properly");
+            instantiate(wasm_bytes, import_object).expect("Not compiled properly");
         let module = result_object.module;
         let instance = result_object.instance;
         let func_index = match module.info.exports.get("main") {

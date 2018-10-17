@@ -135,7 +135,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         // let import_object = import_object!{
         //     test.identity => fn(x: i32) {x},
         // }
-        let module_wrapped = instantiate(bytes, Some(import_object));
+        let module_wrapped = instantiate(bytes, import_object);
         let mut result = module_wrapped.expect("Module is invalid");
         // let module: &'module Module = result.module;
         self.last_module = Some(result);
@@ -143,7 +143,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         // println!("ADD MODULE {}", name.unwrap_or("no name".to_string()))
     }
     fn assert_malformed(&mut self, bytes: Vec<u8>) {
-        let module_wrapped = instantiate(bytes, None);
+        let module_wrapped = instantiate(bytes, ImportObject::new());
         match module_wrapped {
             Err(ErrorKind::CompileError(v)) => {}
             _ => panic!("Module compilation should have failed"),
@@ -151,7 +151,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
     }
     fn assert_invalid(&mut self, bytes: Vec<u8>) {
         // print!("IS INVALID");
-        let module_wrapped = instantiate(bytes, None);
+        let module_wrapped = instantiate(bytes, ImportObject::new());
         // print!("IS INVALID?? {:?}", module_wrapped);
         match module_wrapped {
             Err(ErrorKind::CompileError(v)) => {}
@@ -177,7 +177,7 @@ mod tests {
     use std::path::Path;
     #[macro_use]
     use crate::webassembly::{
-        compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
+        compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject, ImportObject
     };
     use wabt::wat2wasm;
 
@@ -209,7 +209,7 @@ mod tests {
     macro_rules! instantiate_from_wast {
         ($x:expr) => {{
             let wasm_bytes = include_wast2wasm_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), $x));
-            let result_object = instantiate(wasm_bytes, None).expect("Not compiled properly");
+            let result_object = instantiate(wasm_bytes, ImportObject::new()).expect("Not compiled properly");
             result_object
         }};
     }
