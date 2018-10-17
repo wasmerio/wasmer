@@ -14,7 +14,7 @@ use target_lexicon::{self, Triple};
 use wasmparser;
 
 pub use self::errors::{Error, ErrorKind};
-pub use self::instance::Instance;
+pub use self::instance::{ImportObject, Instance};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
 
@@ -26,8 +26,6 @@ pub struct ResultObject {
     /// functions.
     pub instance: Instance,
 }
-
-pub struct ImportObject {}
 
 /// The webassembly::instantiate() function allows you to compile and
 /// instantiate WebAssembly code
@@ -45,11 +43,11 @@ pub struct ImportObject {}
 /// webassembly::RuntimeError, depending on the cause of the failure.
 pub fn instantiate(
     buffer_source: Vec<u8>,
-    import_object: Option<ImportObject>,
+    import_object: Option<&ImportObject>,
 ) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
     debug!("webassembly - creating instance");
-    let instance = Instance::new(&module)?;
+    let instance = Instance::new(&module, import_object)?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }

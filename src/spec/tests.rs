@@ -127,7 +127,18 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         unimplemented!()
     }
     fn module(&mut self, bytes: Vec<u8>, name: Option<String>) {
-        let module_wrapped = instantiate(bytes, None);
+        let mut import_object = HashMap::new();
+        let mut test_import = import_object
+            .entry("test".to_string())
+            .or_insert_with(|| HashMap::new());
+        fn identity(x: i32) -> i32 {
+            x
+        };
+        test_import.insert("identity".to_string(), identity as *const u8);
+        // let import_object = import_object!{
+        //     test.identity => fn(x: i32) {x},
+        // }
+        let module_wrapped = instantiate(bytes, Some(&import_object));
         let mut result = module_wrapped.expect("Module is invalid");
         // let module: &'module Module = result.module;
         self.last_module = Some(result);
@@ -163,10 +174,10 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
 }
 
 mod tests {
-    use std::path::Path;
-    use crate::test::Bencher;
     use super::run_single_file;
+    use crate::test::Bencher;
     use std::mem;
+    use std::path::Path;
     #[macro_use]
     use crate::webassembly::{
         compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
@@ -199,29 +210,12 @@ mod tests {
     }
 
     macro_rules! instantiate_from_wast {
-        ($x:expr) => {
-            {
-                pub const WAST_BYTES: &[u8] = include_bytes!(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    $x
-                ));
-                let wasm_bytes = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert wat to wasm");
-                let result_object = instantiate(wasm_bytes, None).expect("Not compiled properly");
-                result_object
-            }
-        };
-    }
-
-    wasm_tests!{
-        _type,
-        br_if,
-        call,
-    }
-
-    fn my_func () -> Vec<u8> {
-        let x = String::from("hello");
-        let bytes = x.into_bytes();
-        return bytes;
+        ($x:expr) => {{
+            pub const WAST_BYTES: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), $x));
+            let wasm_bytes = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert wat to wasm");
+            let result_object = instantiate(wasm_bytes, None).expect("Not compiled properly");
+            result_object
+        }};
     }
 
     #[bench]
@@ -234,9 +228,17 @@ mod tests {
             _ => panic!("Function not found"),
         };
         let func: fn(i32) -> i32 = get_instance_function!(instance, func_index);
-        assert_eq!(func(1), 1,  "Identity function not working.");
+        assert_eq!(func(1), 1, "Identity function not working.");
         b.iter(|| {
             func(1);
         });
     }
+
+    wasm_tests!{
+        _type,
+        br_if,
+        call,
+        import,
+    }
+
 }

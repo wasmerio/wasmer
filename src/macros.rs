@@ -2,15 +2,11 @@
 /// let func: fn(i32) -> i32 = get_instance_function!(instance, func_index);
 #[macro_export]
 macro_rules! get_instance_function {
-    ($instance:expr, $func_index:expr) => {
-        {
-            use std::mem;
-            let func_addr = $instance.get_function_pointer($func_index);
-            unsafe {
-                mem::transmute(func_addr)
-            }
-        }
-    };
+    ($instance:expr, $func_index:expr) => {{
+        use std::mem;
+        let func_addr = $instance.get_function_pointer($func_index);
+        unsafe { mem::transmute(func_addr) }
+    }};
 }
 
 // #[cfg(feature = "debug")]

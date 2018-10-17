@@ -12,6 +12,7 @@ use cranelift_wasm::{FuncIndex, GlobalInit};
 use memmap::MmapMut;
 use region;
 use spin::RwLock;
+use std::collections::HashMap;
 use std::iter::Iterator;
 use std::marker::PhantomData;
 use std::ptr::{self, write_unaligned};
@@ -43,14 +44,28 @@ pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
     }
 }
 
-pub fn get_function_addr(
-    base: *const (),
-    functions: &[usize],
+fn get_function_addr(
     func_index: &FuncIndex,
-) -> *const () {
-    let offset = functions[func_index.index()];
-    (base as usize + offset) as _
+    import_functions: &Vec<*const u8>,
+    functions: &Vec<Vec<u8>>,
+) -> *const u8 {
+    let index = func_index.index();
+    let len = import_functions.len();
+    let func_pointer = if index < len {
+        import_functions[index]
+    } else {
+        (&functions[func_index.index() - len]).as_ptr()
+    };
+    func_pointer
 }
+
+// pub fn get_function_addr(
+//     functions: &[usize],
+//     func_index: &FuncIndex,
+// ) -> *const () {
+//     let offset = functions[func_index.index()];
+//     (base as usize + offset) as _
+// }
 
 /// Zero-sized, non-instantiable type.
 pub enum VmCtx {}
@@ -84,6 +99,9 @@ pub struct UserData {
     pub instance: Instance,
 }
 
+// The import object for the instance
+pub type ImportObject = HashMap<String, HashMap<String, *const u8>>;
+
 /// An Instance of a WebAssembly module
 #[derive(Debug)]
 pub struct Instance {
@@ -100,6 +118,9 @@ pub struct Instance {
     /// Webassembly functions
     // functions: Vec<usize>,
     functions: Vec<Vec<u8>>,
+
+    /// Imported functions
+    import_functions: Vec<*const u8>,
 
     /// The module start function
     start_func: Option<FuncIndex>,
@@ -128,26 +149,47 @@ pub struct Instance {
 
 //     vmctx
 // }
+fn fake_fun(x: i32) -> i32 {
+    return x * 2;
+}
 
 impl Instance {
     /// Create a new `Instance`.
-    pub fn new(module: &Module) -> Result<Instance, ErrorKind> {
+    pub fn new(
+        module: &Module,
+        import_object: Option<&ImportObject>,
+    ) -> Result<Instance, ErrorKind> {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
         let mut globals: Vec<u8> = Vec::new();
         let mut functions: Vec<Vec<u8>> = Vec::new();
+        let mut import_functions: Vec<*const u8> = Vec::new();
         // let mut code_base: *const () = ptr::null();
 
         // Instantiate functions
         {
-            functions.reserve_exact(module.info.function_bodies.len());
+            functions.reserve_exact(module.info.functions.len());
             let isa = isa::lookup(module.info.triple.clone())
                 .unwrap()
                 .finish(module.info.flags.clone());
+            let mut relocations = Vec::new();
 
             // let mut total_size: usize = 0;
-            let mut context_and_offsets = Vec::with_capacity(module.info.function_bodies.len());
-            let mut relocations = Vec::new();
+            // let mut context_and_offsets = Vec::with_capacity(module.info.function_bodies.len());
+            for (module, field) in module.info.imported_funcs.iter() {
+                // let function = &import_object.map(|i| i.get(module).map(|m| m.get(field)));
+                let mut function = fake_fun as *const u8;
+                if let Some(import_object) = import_object {
+                    if let Some(module) = import_object.get(module) {
+                        if let Some(field_function) = module.get(field) {
+                            function = *field_function;
+                        }
+                    }
+                }
+                // println!("GET FUNC {:?}", function);
+                import_functions.push(function);
+                relocations.push(vec![]);
+            }
             // Compile the functions (from cranelift IR to machine code)
             for function_body in module.info.function_bodies.values() {
                 let mut func_context = Context::for_function(function_body.to_owned());
@@ -174,7 +216,7 @@ impl Instance {
                 let func_offset = code_buf;
                 functions.push(func_offset);
 
-                context_and_offsets.push(func_context);
+                // context_and_offsets.push(func_context);
                 relocations.push(reloc_sink.func_relocs);
                 // println!("FUNCTION RELOCATIONS {:?}", reloc_sink.func_relocs)
                 // total_size += code_size_offset;
@@ -189,7 +231,7 @@ impl Instance {
                 for (ref reloc, ref reloc_type) in function_relocs {
                     let target_func_address: isize = match reloc_type {
                         RelocationType::Normal(func_index) => {
-                            functions[*func_index as usize].as_ptr() as isize
+                            get_function_addr(&FuncIndex::new(*func_index as usize), &import_functions, &functions) as isize
                         },
                         _ => unimplemented!()
                         // RelocationType::Intrinsic(name) => {
@@ -204,18 +246,17 @@ impl Instance {
                         // RelocationTarget::CurrentMemory => current_memory as isize,
                     };
                     // print!("FUNCTION {:?}", target_func_address);
-                    let body = &mut functions[i];
+                    let func_addr =
+                        get_function_addr(&FuncIndex::new(i), &import_functions, &functions);
                     match reloc.reloc {
                         Reloc::Abs8 => unsafe {
-                            let reloc_address =
-                                body.as_mut_ptr().offset(reloc.offset as isize) as i64;
+                            let reloc_address = func_addr.offset(reloc.offset as isize) as i64;
                             let reloc_addend = reloc.addend;
                             let reloc_abs = target_func_address as i64 + reloc_addend;
                             write_unaligned(reloc_address as *mut i64, reloc_abs);
                         },
                         Reloc::X86PCRel4 => unsafe {
-                            let reloc_address =
-                                body.as_mut_ptr().offset(reloc.offset as isize) as isize;
+                            let reloc_address = func_addr.offset(reloc.offset as isize) as isize;
                             let reloc_addend = reloc.addend as isize;
                             // TODO: Handle overflow.
                             let reloc_delta_i32 =
@@ -330,8 +371,8 @@ impl Instance {
                     // to populate the table.
 
                     // let func_index = *elem_index - module.info.imported_funcs.len() as u32;
-                    let func_addr = functions[func_index.index()].as_ptr();
-                    // let func_addr = get_function_addr(code_base, &functions, *&func_index);
+                    // let func_addr = functions[func_index.index()].as_ptr();
+                    let func_addr = get_function_addr(&func_index, &import_functions, &functions);
                     table[base + table_element.offset + i] = func_addr as _;
                 }
             }
@@ -393,7 +434,8 @@ impl Instance {
             memories: Arc::new(memories.into_iter().collect()),
             globals: globals,
             functions: functions,
-            start_func: start_func
+            import_functions: import_functions,
+            start_func: start_func,
             // code_base: code_base,
         })
     }
@@ -405,6 +447,10 @@ impl Instance {
         let func_pointer = &self.functions[func_index.index()];
         func_pointer.as_ptr()
     }
+
+    // pub fn is_imported_function(&self, func_index: FuncIndex) -> bool {
+    //     func_index.index() < self.import_functions.len()
+    // }
 
     /// Invoke a WebAssembly function given a FuncIndex and the
     /// arguments that the function should be called with
@@ -423,9 +469,9 @@ impl Instance {
         // the generated code. Thanks to this, we can transmute the code region into a first-class
         // Rust function and call it.
         // let func_pointer = get_function_addr(self.code_base, &self.functions, &func_index);
-        let func_pointer = &self.functions[func_index.index()];
+        let func_pointer = get_function_addr(&func_index, &self.import_functions, &self.functions);
         unsafe {
-            let func = mem::transmute::<_, fn() -> T>(func_pointer.as_ptr());
+            let func = mem::transmute::<_, fn() -> T>(func_pointer);
             func
             // let result = func(2);
             // println!("FUNCTION INVOKED, result {:?}", result);
@@ -496,6 +542,7 @@ impl Clone for Instance {
             globals: self.globals.clone(),
             functions: self.functions.clone(),
             start_func: self.start_func.clone(),
+            import_functions: self.import_functions.clone(),
             // code_base: self.code_base,
         }
     }
