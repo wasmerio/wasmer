@@ -121,7 +121,7 @@ pub struct Instance {
     import_functions: Vec<*const u8>,
 
     /// The module start function
-    start_func: Option<FuncIndex>,
+    pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
 }

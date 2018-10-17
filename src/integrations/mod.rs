@@ -1,18 +1,24 @@
 use libc::putchar;
+use crate::webassembly::ImportObject;
+
+pub fn generate_libc_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
+    let mut import_object = ImportObject::new();
+    import_object.set("env", "putchar", putchar as *const u8);
+    import_object
+}
 
 #[cfg(test)]
 mod tests {
     use crate::webassembly::{
         instantiate, ErrorKind, Export, ImportObject, Instance, Module, ResultObject,
     };
+    use super::generate_libc_env;
     use libc::putchar;
 
     #[test]
     fn test_putchar() {
         let wasm_bytes = include_wast2wasm_bytes!("tests/putchar.wast");
-        let mut import_object = ImportObject::new();
-        import_object.set("env", "putchar", putchar as *const u8);
-
+        let import_object = generate_libc_env();
         let result_object =
             instantiate(wasm_bytes, Some(import_object)).expect("Not compiled properly");
         let module = result_object.module;
