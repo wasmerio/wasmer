@@ -633,6 +633,34 @@ fn l327_assert_return_invoke() {
     assert_eq!(result, 2 as i64);
 }
 
+// Line 328
+#[test]
+fn l328_assert_return_invoke() {
+    let ResultObject { mut instance, module } = create_module_1();
+    let func_index = match module.info.exports.get("type-f32-value") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(instance, func_index);
+    let vm_context = instance.generate_context();
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, 3.0 as f32);
+}
+
+// Line 329
+#[test]
+fn l329_assert_return_invoke() {
+    let ResultObject { mut instance, module } = create_module_1();
+    let func_index = match module.info.exports.get("type-f64-value") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(instance, func_index);
+    let vm_context = instance.generate_context();
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, 4.0 as f64);
+}
+
 // Line 331
 #[test]
 fn l331_assert_return_invoke() {

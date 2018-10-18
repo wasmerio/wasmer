@@ -325,8 +325,8 @@
 
 (assert_return (invoke "type-i32-value") (i32.const 1))
 (assert_return (invoke "type-i64-value") (i64.const 2))
-;; (assert_return (invoke "type-f32-value") (f32.const 3))
-;; (assert_return (invoke "type-f64-value") (f64.const 4))
+(assert_return (invoke "type-f32-value") (f32.const 3))
+(assert_return (invoke "type-f64-value") (f64.const 4))
 
 (assert_return (invoke "as-block-first" (i32.const 0)) (i32.const 2))
 (assert_return (invoke "as-block-first" (i32.const 1)) (i32.const 3))
