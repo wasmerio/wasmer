@@ -261,6 +261,7 @@ fn wast_to_rust(wast_filepath: &str) {
 fn main() {
     wast_to_rust("spectests/br_if.wast");
     wast_to_rust("spectests/call.wast");
+    wast_to_rust("spectests/i32_.wast");
     wast_to_rust("spectests/memory.wast");
     wast_to_rust("spectests/types.wast");
 }
