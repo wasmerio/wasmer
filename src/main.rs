@@ -33,7 +33,7 @@ use wabt::wat2wasm;
 mod macros;
 pub mod common;
 pub mod integrations;
-pub mod spec;
+pub mod spectests;
 pub mod webassembly;
 
 #[derive(Debug, StructOpt)]

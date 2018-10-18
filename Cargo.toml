@@ -5,6 +5,7 @@ authors = ["Syrus Akbary <me@syrusakbary.com>"]
 edition = "2018"
 repository = "https://github.com/wafoundation/wasmer"
 publish = false
+build = "src/build_spectests.rs"
 
 [dependencies]
 cranelift-native = "0.22.0"
@@ -29,6 +30,9 @@ spin = "0.4.9"
 log = "0.4.5"
 target-lexicon = { version = "0.0.3", default-features = false }
 libc = "0.2"
+
+[build-dependencies]
+wabt = "0.6.0"
 
 [dev-dependencies]
 libffi = "0.6.4"

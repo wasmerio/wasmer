@@ -110,18 +110,18 @@
 
 (assert_return (invoke "type-i32") (i32.const 0x132))
 (assert_return (invoke "type-i64") (i64.const 0x164))
-;; (assert_return (invoke "type-f32") (f32.const 0xf32))
-;; (assert_return (invoke "type-f64") (f64.const 0xf64))
+(assert_return (invoke "type-f32") (f32.const 0xf32))
+(assert_return (invoke "type-f64") (f64.const 0xf64))
 
 (assert_return (invoke "type-first-i32") (i32.const 32))
 (assert_return (invoke "type-first-i64") (i64.const 64))
-;; (assert_return (invoke "type-first-f32") (f32.const 1.32))
-;; (assert_return (invoke "type-first-f64") (f64.const 1.64))
+(assert_return (invoke "type-first-f32") (f32.const 1.32))
+(assert_return (invoke "type-first-f64") (f64.const 1.64))
 
 (assert_return (invoke "type-second-i32") (i32.const 32))
 (assert_return (invoke "type-second-i64") (i64.const 64))
-;; (assert_return (invoke "type-second-f32") (f32.const 32))
-;; (assert_return (invoke "type-second-f64") (f64.const 64.1))
+(assert_return (invoke "type-second-f32") (f32.const 32))
+(assert_return (invoke "type-second-f64") (f64.const 64.1))
 
 (assert_return (invoke "fac" (i64.const 0)) (i64.const 1))
 (assert_return (invoke "fac" (i64.const 1)) (i64.const 1))
