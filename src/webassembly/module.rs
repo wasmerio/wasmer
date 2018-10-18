@@ -161,9 +161,6 @@ impl ModuleInfo {
             grow_memory_extfunc: None,
         }
     }
-    pub fn set_current_memory_extfunc(&mut self, func: FuncRef) {
-        self.current_memory_extfunc = Some(func);
-    }
 }
 
 /// A data initializer for linear memory.
@@ -622,7 +619,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             })
         });
 
-        // self.mod_info.set_current_memory_extfunc(f);
+        // self.mod_info.current_memory_extfunc = cur_mem_func;
 
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
