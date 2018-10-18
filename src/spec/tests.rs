@@ -5,15 +5,37 @@ use std::rc::Rc;
 use cranelift_codegen::ir::types;
 use cranelift_entity::EntityRef;
 use libffi::high::call::*;
-use libffi::high::types::CType;
+use libffi::high::types::{CType, Type};
+use libffi::middle;
+use std::clone::Clone;
 use std::iter::Iterator;
+use std::marker::{Copy, PhantomData};
 use wabt::script::{Action, Value};
 // use crate::webassembly::instance::InvokeResult;
 
 use super::{run_single_file, InvokationResult, ScriptHandler};
 use crate::webassembly::{
     compile, instantiate, Error, ErrorKind, Export, ImportObject, Instance, Module, ResultObject,
+    VmCtx,
 };
+
+// impl Clone for VmCtx {
+//     fn clone(&self) -> Self {
+//         unimplemented!()
+//     }
+// }
+// impl Copy for VmCtx {
+// }
+
+// unsafe impl<> CType for VmCtx {
+//     fn reify() -> Type<Self> {
+//         // Type::make(middle::Type::i64())
+//         Type {
+//             untyped: middle::Type::i64(),
+//             _marker: PhantomData,
+//         }
+//     }
+// }
 
 struct StoreCtrl<'module> {
     last_module: Option<ResultObject>,
@@ -73,7 +95,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
         args: Vec<Value>,
     ) -> InvokationResult {
         if let Some(result) = &mut self.last_module {
-            let instance = &result.instance;
+            let instance = &mut result.instance;
             let module = &result.module;
             let func_index = match module.info.exports.get(&field) {
                 Some(&Export::Function(index)) => index,
@@ -81,7 +103,7 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
             };
             // We map the arguments provided into the raw Arguments provided
             // to libffi
-            let call_args: Vec<Arg> = args
+            let mut call_args: Vec<Arg> = args
                 .iter()
                 .map(|a| match a {
                     Value::I32(v) => arg(v),
@@ -90,6 +112,10 @@ impl<'module> ScriptHandler for StoreCtrl<'module> {
                     Value::F64(v) => arg(v),
                 })
                 .collect();
+            // let vmctx = &instance.generate_context();
+            // let vmctx_ref = vmctx as *const _;
+            // let u8_ref = &(vmctx_ref as *const isize);
+            // call_args.push(arg(u8_ref));
             // We use libffi to call a function with a vector of arguments
             let call_func: fn() = instance.get_function(func_index);
             let result: i64 = unsafe { call(CodePtr(call_func as *mut _), &call_args) };
@@ -178,7 +204,7 @@ mod tests {
     #[macro_use]
     use crate::webassembly::{
         compile, instantiate, Error, ErrorKind, Export, Instance, Module, ResultObject,
-        ImportObject,
+        ImportObject, VmCtx,
     };
     use wabt::wat2wasm;
 
@@ -232,12 +258,29 @@ mod tests {
         });
     }
 
+    #[test]
+    fn test_memory() {
+        let result_object = instantiate_from_wast!("/src/spec/tests/memory2.wast");
+        let mut instance = result_object.instance;
+        let module = result_object.module;
+        let func_index = match module.info.exports.get("memsize") {
+            Some(&Export::Function(index)) => index,
+            _ => panic!("Function not found"),
+        };
+        let func: fn(&VmCtx) -> i32 = get_instance_function!(instance, func_index);
+        let ctx = instance.generate_context();
+        assert_eq!(func(ctx), 1, "Identity function not working.");
+        // b.iter(|| {
+        //     func(1);
+        // });
+    }
+
     wasm_tests!{
         _type,
         br_if,
         call,
         import,
-        memory,
+        // memory,
     }
 
 }

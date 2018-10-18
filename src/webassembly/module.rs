@@ -577,7 +577,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
                 // argument_bytes: None,
                 params: vec![
                     AbiParam::new(I32),
-                    AbiParam::special(I64, ArgumentPurpose::VMContext),
+                    // AbiParam::special(I64, ArgumentPurpose::VMContext),
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
                 ],
                 returns: vec![AbiParam::new(I32)],
             });
@@ -608,7 +609,13 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             let sig_ref = pos.func.import_signature(Signature {
                 call_conv: CallConv::SystemV,
                 // argument_bytes: None,
-                params: vec![AbiParam::special(I64, ArgumentPurpose::VMContext)],
+                params: vec![
+                    // The memory index
+                    AbiParam::new(I32),
+                    // The vmctx reference
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    // AbiParam::special(I64, ArgumentPurpose::VMContext),
+                ],
                 returns: vec![AbiParam::new(I32)],
             });
 
@@ -621,9 +628,10 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         // self.mod_info.current_memory_extfunc = cur_mem_func;
 
+        let memory_index = pos.ins().iconst(I32, index as i64);
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
-        let call_inst = pos.ins().call(cur_mem_func, &[vmctx]);
+        let call_inst = pos.ins().call(cur_mem_func, &[memory_index, vmctx]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
         // Ok(pos.ins().iconst(I32, -1))
     }

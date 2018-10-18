@@ -1,5 +1,6 @@
 use memmap::MmapMut;
 use std::fmt;
+use std::ops::{Deref, DerefMut};
 
 const PAGE_SIZE: u32 = 65536;
 const MAX_PAGES: u32 = 65536;
@@ -34,16 +35,9 @@ impl LinearMemory {
             "Instantiate LinearMemory(initial={:?}, maximum={:?})",
             initial, maximum
         );
-        let initial = if initial > 0 { initial } else { 1 };
 
         let len: u64 = PAGE_SIZE as u64 * match maximum {
-            Some(val) => {
-                if val > initial {
-                    val as u64
-                } else {
-                    initial as u64
-                }
-            }
+            Some(val) => val as u64,
             None => initial as u64,
         };
         let len = if len == 0 { 1 } else { len };
@@ -71,7 +65,7 @@ impl LinearMemory {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
-    pub fn grow(&mut self, add_pages: u32) -> Option<u32> {
+    pub fn grow(&mut self, add_pages: u32) -> Option<i32> {
         let new_pages = match self.current.checked_add(add_pages) {
             Some(new_pages) => new_pages,
             None => return None,
@@ -110,7 +104,7 @@ impl LinearMemory {
             assert!(self.mmap[i] == 0);
         }
 
-        Some(prev_pages)
+        Some(prev_pages as i32)
     }
 }
 
@@ -132,5 +126,18 @@ impl AsRef<[u8]> for LinearMemory {
 impl AsMut<[u8]> for LinearMemory {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.mmap
+    }
+}
+
+impl Deref for LinearMemory {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        &*self.mmap
+    }
+}
+
+impl DerefMut for LinearMemory {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        &mut *self.mmap
     }
 }

@@ -16,7 +16,7 @@ use wasmparser;
 
 pub use self::errors::{Error, ErrorKind};
 pub use self::import_object::ImportObject;
-pub use self::instance::Instance;
+pub use self::instance::{Instance, VmCtx};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
 
