@@ -392,12 +392,20 @@ impl Instance {
         // Instantiate memories
         {
             // Allocate the underlying memory and initialize it to all zeros.
-            memories.reserve_exact(module.info.memories.len());
-            for memory in &module.info.memories {
-                let memory = memory.entity;
-                let v =
-                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32));
-                memories.push(v);
+            let total_memories = module.info.memories.len();
+            if total_memories > 0 {
+                memories.reserve_exact(total_memories);
+                for memory in &module.info.memories {
+                    let memory = memory.entity;
+                    let v = LinearMemory::new(
+                        memory.pages_count as u32,
+                        memory.maximum.map(|m| m as u32),
+                    );
+                    memories.push(v);
+                }
+            } else {
+                memories.reserve_exact(1);
+                memories.push(LinearMemory::new(0, None));
             }
             for init in &module.info.data_initializers {
                 debug_assert!(init.base.is_none(), "globalvar base not supported yet");
