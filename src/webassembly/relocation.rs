@@ -1,3 +1,7 @@
+//! The relocation package provide two structures: RelocSink, TrapSink.
+//! This structures are used by Cranelift when compiling functions to mark
+//! any other calls that this function is doing, so we can "patch" the
+//! function addrs in runtime with the functions we need.
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName, SourceLoc, TrapCode};
 
