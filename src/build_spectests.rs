@@ -226,13 +226,13 @@ fn l{}_assert_return_invoke() {{
     }
 }
 
-fn wast_to_rust(wast_filepath: &str) {
+fn wast_to_rust(wast_filepath: &str) -> String {
     let wast_filepath = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), wast_filepath);
     let path = PathBuf::from(&wast_filepath);
-    let script_name = path.file_stem().unwrap().to_str().unwrap();
+    let script_name: String = String::from(path.file_stem().unwrap().to_str().unwrap());
     let rust_test_filepath = format!(
         concat!(env!("CARGO_MANIFEST_DIR"), "/src/spectests/{}.rs"),
-        script_name
+        script_name.clone().as_str()
     );
 
     let wast_modified = fs::metadata(&wast_filepath)
@@ -256,12 +256,35 @@ fn wast_to_rust(wast_filepath: &str) {
         let generated_script = generator.finalize();
         fs::write(&rust_test_filepath, generated_script.as_bytes()).unwrap();
     }
+    script_name
 }
 
 fn main() {
-    wast_to_rust("spectests/br_if.wast");
-    wast_to_rust("spectests/call.wast");
-    wast_to_rust("spectests/i32_.wast");
-    wast_to_rust("spectests/memory.wast");
-    wast_to_rust("spectests/types.wast");
+    let tests = vec![
+        "spectests/br_if.wast",
+        "spectests/call.wast",
+        "spectests/i32_.wast",
+        "spectests/memory.wast",
+        "spectests/types.wast",
+    ];
+    let rust_test_modpath = concat!(env!("CARGO_MANIFEST_DIR"), "/src/spectests/mod.rs");
+
+    let mut modules: Vec<String> = Vec::new();
+    modules.reserve_exact(tests.len());
+
+    for test in tests.iter() {
+        let module_name = wast_to_rust(test);
+        modules.push(module_name);
+    }
+
+    let mut modfile_uses: Vec<String> = modules
+        .iter()
+        .map(|module| format!("mod {};", module))
+        .collect();
+    // We add an empty line
+    modfile_uses.push("".to_string());
+
+    let modfile: String = modfile_uses.join("\n");
+    fs::write(&rust_test_modpath, modfile.as_bytes()).unwrap();
+    // panic!(modfile);
 }
