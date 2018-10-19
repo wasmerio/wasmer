@@ -285,6 +285,10 @@ fn main() {
     modfile_uses.push("".to_string());
 
     let modfile: String = modfile_uses.join("\n");
-    fs::write(&rust_test_modpath, modfile.as_bytes()).unwrap();
+    let source = fs::read(&rust_test_modpath).unwrap();
+    // We only modify the mod file if has changed
+    if source != modfile.as_bytes() {
+        fs::write(&rust_test_modpath, modfile.as_bytes()).unwrap();
+    }
     // panic!(modfile);
 }
