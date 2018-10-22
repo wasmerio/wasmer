@@ -113,7 +113,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
     // let table: &Ta
     main(&context);
     println!("-------------NOW MAINN----------");
-    let res = mainn(pointer_tables as *const usize);
+    let res = mainn(pointer_context as *const usize);
     println!("RESULT {:?}", res);
     Ok(())
 }
