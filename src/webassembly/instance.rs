@@ -73,12 +73,13 @@ fn get_function_addr(
 #[repr(C)]
 pub struct VmCtx<'phantom> {
     pub user_data: UserData,
-    globals: UncheckedSlice<u8>,
-    memories: UncheckedSlice<UncheckedSlice<u8>>,
-    tables: UncheckedSlice<BoundedSlice<usize>>,
+    pub globals: UncheckedSlice<u8>,
+    pub memories: UncheckedSlice<UncheckedSlice<u8>>,
+    pub tables: UncheckedSlice<BoundedSlice<usize>>,
+    pub test: String,
     // globals: Vec<u8>,
     // memories: Vec<Vec<u8>>,
-    // pub tables: UncheckedSlice<BoundedSlice<usize>>,
+    // pub tables: Vec<Vec<usize>>,
     phantom: PhantomData<&'phantom ()>,
 }
 
@@ -510,6 +511,8 @@ impl Instance {
 
         let tables: Vec<BoundedSlice<usize>> = self.tables.iter().map(|table| table[..].into()).collect();
 
+        println!("GENERATING CONTEXT {:?}", self.tables);
+
         let globals: UncheckedSlice<u8> = self.globals[..].into();
 
         // assert!(memories.len() >= 1, "modules must have at least one memory");
@@ -524,6 +527,7 @@ impl Instance {
                 // process,
                 instance: instance,
             },
+            test: "TEST".to_string(),
             phantom: PhantomData,
         };
         data
@@ -569,20 +573,18 @@ impl Clone for Instance {
     }
 }
 
-extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &VmCtx) -> i32 {
+extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &mut VmCtx) -> i32 {
+    
     return 0;
     // unimplemented!();
-    // let instance = &vmctx
-    //     .data()
-    //     .user_data
-    //     .instance;
+    // let instance = &vmctx.user_data.instance;
 
-    // let mut memory = &mut instance.memories[memory_index as usize];
+    // let mut memory = instance.memories[memory_index as usize];
 
     // if let Some(old_size) = memory.grow(size) {
     //     old_size as i32
     // } else {
-    -1
+    //     -1
     // }
 
     // unsafe {
