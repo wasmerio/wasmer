@@ -71,7 +71,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
     }
 
     let import_object = integrations::generate_libc_env();
-    let webassembly::ResultObject { module, instance } =
+    let webassembly::ResultObject { module, mut instance } =
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| String::from(err.description()))?;
     let func_index = instance
@@ -80,8 +80,9 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("Main function not found"),
         });
-    let main: fn() = get_instance_function!(instance, func_index);
-    main();
+    let main: fn(&webassembly::VmCtx) = get_instance_function!(instance, func_index);
+    let context = instance.generate_context();
+    main(context);
     Ok(())
 }
 
