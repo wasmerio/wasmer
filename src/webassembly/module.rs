@@ -410,23 +410,33 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // OLD
         // Create a table whose base address is stored at `vmctx+0`.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
-        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+        let ptr_size = self.ptr_size();
+        // This will be 0 when the index is 0, not sure if the offset will work regardless
+        let base = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
             offset: Offset32::new(0),
             global_type: self.pointer_type(),
         });
+
+        let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
+
+        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base: base,
+            offset: Offset32::new(table_data_offset),
+            global_type: self.pointer_type(),
+        });
         let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: vmctx,
-            offset: Offset32::new(0),
+            base: base,
+            offset: Offset32::new(table_data_offset),
             global_type: I64,
         });
-
+    
         let table = func.create_table(ir::TableData {
             base_gv: base_gv,
             min_size: Imm64::new(0),
             bound_gv,
             element_size: Imm64::new(i64::from(self.pointer_bytes()) * 2),
-            index_type: I64,
+            index_type: self.pointer_type(),
         });
         println!("FUNC {:?}", func);
         table

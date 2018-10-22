@@ -85,13 +85,19 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         Some(&webassembly::Export::Function(index)) => index,
         _ => panic!("Mainn function not found"),
     };
-    let mainn: fn(*const u8) -> i32 = get_instance_function!(instance, mainn_func_index);
+    let mainn: fn(*const usize) -> i32 = get_instance_function!(instance, mainn_func_index);
     let context = &instance.generate_context();
+    let pointer_context =  &context as *const _;
     // println!("Context ptr {:p}", context);
-    // println!("Context ptr {:?}", &context as *const _);
+    println!("Context ptr {:?}", pointer_context);
     // println!("Context ptr {:?}", &context as *const _);
     // println!("Memories ptr {:?}", context.memories.as_ptr());
-    // println!("Tables ptr {:?}", context.tables.as_ptr());
+    let pointer_tables = &context.tables as *const _;
+    println!("Tables ptr {:?}", pointer_tables);
+    println!("Tables ptr {:p}", pointer_tables);
+    let ref tables_ptr_2 =  unsafe { (&*pointer_tables as *const _) };
+    println!("Tables ptr {:?}", tables_ptr_2);
+    println!("DIFF {:?}", (pointer_tables as usize-pointer_context as usize));
     // println!("Tables ptr {:?}", context.tables.as_ptr());
     // println!("Tables ptr {:?}", &context.tables as *const _);
     // println!("Tables ptr {:?}", &context.tables as *const _);
@@ -107,7 +113,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
     // let table: &Ta
     main(&context);
     println!("-------------NOW MAINN----------");
-    let res = mainn(context.tables.as_ptr() as *const u8);
+    let res = mainn(pointer_tables as *const usize);
     println!("RESULT {:?}", res);
     Ok(())
 }
