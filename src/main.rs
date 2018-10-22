@@ -82,7 +82,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         });
     let main: fn(&webassembly::VmCtx) = get_instance_function!(instance, func_index);
     let context = instance.generate_context();
-    main(context);
+    main(&context);
     Ok(())
 }
 
