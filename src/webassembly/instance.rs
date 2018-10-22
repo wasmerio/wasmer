@@ -49,7 +49,7 @@ fn get_function_addr(
     func_index: &FuncIndex,
     import_functions: &Vec<*const u8>,
     functions: &Vec<Vec<u8>>,
-) -> *const () {
+) -> *const u8 {
     let index = func_index.index();
     let len = import_functions.len();
     let func_pointer = if index < len {
@@ -57,7 +57,7 @@ fn get_function_addr(
     } else {
         (&functions[func_index.index() - len]).as_ptr()
     };
-    func_pointer as _
+    func_pointer
 }
 
 // pub fn get_function_addr(
@@ -468,8 +468,7 @@ impl Instance {
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
     }
-
-    pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const () {
+    pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {
         get_function_addr(&func_index, &self.import_functions, &self.functions)
     }
 
