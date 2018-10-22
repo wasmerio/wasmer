@@ -86,20 +86,20 @@ impl VmCtx {
     }
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 #[repr(C)]
 pub struct VmCtxData<'phantom> {
     pub user_data: UserData,
-    // globals: UncheckedSlice<u8>,
-    // memories: UncheckedSlice<UncheckedSlice<u8>>,
-    // tables: UncheckedSlice<BoundedSlice<usize>>,
-    globals: Vec<u8>,
-    memories: Vec<Vec<u8>>,
-    tables: Vec<Vec<usize>>,
+    globals: UncheckedSlice<u8>,
+    memories: UncheckedSlice<UncheckedSlice<u8>>,
+    tables: UncheckedSlice<BoundedSlice<usize>>,
+    // globals: Vec<u8>,
+    // memories: Vec<Vec<u8>>,
+    // pub tables: UncheckedSlice<BoundedSlice<usize>>,
     phantom: PhantomData<&'phantom ()>,
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 #[repr(C)]
 pub struct UserData {
     // pub process: Dispatch<Process>,
@@ -519,11 +519,11 @@ impl Instance {
     }
 
     pub fn generate_context(&mut self) -> &VmCtx {
-        let mut memories: Vec<Vec<u8>> = self.memories.iter().map(|mem| mem[..].into()).collect();
+        let mut memories: Vec<UncheckedSlice<u8>> = self.memories.iter().map(|mem| mem[..].into()).collect();
 
-        let tables: Vec<Vec<usize>> = self.tables.iter().map(|table| table[..].into()).collect();
+        let tables: Vec<BoundedSlice<usize>> = self.tables.iter().map(|table| table[..].into()).collect();
 
-        let globals: Vec<u8> = self.globals[..].into();
+        let globals: UncheckedSlice<u8> = self.globals[..].into();
 
         assert!(memories.len() >= 1, "modules must have at least one memory");
         // the first memory has a space of `mem::size_of::<VmCtxData>()` rounded
