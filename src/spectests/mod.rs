@@ -3,6 +3,7 @@
 
 mod br_if;
 mod call;
+mod call_indirect;
 mod i32_;
 mod memory;
 mod set_local;

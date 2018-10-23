@@ -1,5 +1,5 @@
-use core::ops::{Index, IndexMut};
-use core::ptr::NonNull;
+use std::ops::{Index, IndexMut};
+use std::ptr::NonNull;
 
 #[derive(Copy, Clone)]
 #[repr(transparent)]

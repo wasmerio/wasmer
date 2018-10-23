@@ -1,4 +1,4 @@
-use crate::webassembly::ImportObject;
+use crate::webassembly::{ImportObject, VmCtx};
 use libc::putchar;
 
 pub fn generate_libc_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
@@ -11,7 +11,7 @@ pub fn generate_libc_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
 mod tests {
     use super::generate_libc_env;
     use crate::webassembly::{
-        instantiate, ErrorKind, Export, ImportObject, Instance, Module, ResultObject,
+        instantiate, ErrorKind, Export, ImportObject, Instance, Module, ResultObject, VmCtx,
     };
     use libc::putchar;
 
@@ -21,12 +21,13 @@ mod tests {
         let import_object = generate_libc_env();
         let result_object = instantiate(wasm_bytes, import_object).expect("Not compiled properly");
         let module = result_object.module;
-        let instance = result_object.instance;
+        let mut instance = result_object.instance;
         let func_index = match module.info.exports.get("main") {
             Some(&Export::Function(index)) => index,
             _ => panic!("Function not found"),
         };
-        let main: fn() = get_instance_function!(instance, func_index);
-        main();
+        let main: fn(&VmCtx) = get_instance_function!(instance, func_index);
+        let context = instance.generate_context();
+        main(&context);
     }
 }

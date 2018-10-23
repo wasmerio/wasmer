@@ -14,7 +14,11 @@ extern crate wabt;
 extern crate target_lexicon;
 extern crate spin;
 
+use std::alloc::System;
 use std::time::{Duration, Instant};
+
+// #[global_allocator]
+// static A: System = System;
 
 // #[macro_use] extern crate log;
 
@@ -71,17 +75,21 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
     }
 
     let import_object = integrations::generate_libc_env();
-    let webassembly::ResultObject { module, instance } =
-        webassembly::instantiate(wasm_binary, import_object)
-            .map_err(|err| String::from(err.description()))?;
+    let webassembly::ResultObject {
+        module,
+        mut instance,
+    } = webassembly::instantiate(wasm_binary, import_object)
+        .map_err(|err| String::from(err.description()))?;
     let func_index = instance
         .start_func
         .unwrap_or_else(|| match module.info.exports.get("main") {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("Main function not found"),
         });
-    let main: fn() = get_instance_function!(instance, func_index);
-    main();
+    let main: fn(&webassembly::VmCtx) -> i32 = get_instance_function!(instance, func_index);
+    let context = instance.generate_context();
+    let result = main(&context);
+    println!("RESULT {}", result);
     Ok(())
 }
 

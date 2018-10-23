@@ -68,39 +68,21 @@ fn get_function_addr(
 //     (base as usize + offset) as _
 // }
 
-/// Zero-sized, non-instantiable type.
-#[derive(Debug)]
-pub enum VmCtx {}
-
-impl VmCtx {
-    pub fn data(&self) -> &VmCtxData {
-        let heap_ptr = self as *const _ as *const VmCtxData;
-        unsafe { &*heap_ptr.sub(1) }
-    }
-
-    /// This is safe because the offset is 32 bits and thus
-    /// cannot extend out of the guarded wasm memory.
-    pub fn fastpath_offset_ptr<T>(&self, offset: u32) -> *const T {
-        let heap_ptr = self as *const _ as *const u8;
-        unsafe { heap_ptr.add(offset as usize) as *const T }
-    }
-}
-
-#[derive(Debug)]
-#[repr(C)]
-pub struct VmCtxData<'phantom> {
+// #[derive(Debug)]
+#[repr(C, packed)]
+pub struct VmCtx<'phantom> {
     pub user_data: UserData,
-    // globals: UncheckedSlice<u8>,
-    // memories: UncheckedSlice<UncheckedSlice<u8>>,
-    // tables: UncheckedSlice<BoundedSlice<usize>>,
-    globals: Vec<u8>,
-    memories: Vec<Vec<u8>>,
-    tables: Vec<Vec<usize>>,
+    globals: UncheckedSlice<u8>,
+    memories: UncheckedSlice<UncheckedSlice<u8>>,
+    tables: UncheckedSlice<BoundedSlice<usize>>,
+    // globals: Vec<u8>,
+    // memories: Vec<Vec<u8>>,
+    // pub tables: Vec<Vec<usize>>,
     phantom: PhantomData<&'phantom ()>,
 }
 
-#[derive(Debug)]
-#[repr(C)]
+// #[derive(Debug)]
+#[repr(C, packed)]
 pub struct UserData {
     // pub process: Dispatch<Process>,
     pub instance: Instance,
@@ -240,9 +222,13 @@ impl Instance {
                         },
                         RelocationType::CurrentMemory => {
                             current_memory as isize
+                            // panic!("current memory not yet implemented");
+                            // unimplemented!()
                         },
                         RelocationType::GrowMemory => {
                             grow_memory as isize
+                            // panic!("Grow memory not yet implemented");
+                            // unimplemented!()
                         },
                         _ => unimplemented!()
                         // RelocationType::Intrinsic(name) => {
@@ -518,33 +504,35 @@ impl Instance {
         }
     }
 
-    pub fn generate_context(&mut self) -> &VmCtx {
-        let mut memories: Vec<Vec<u8>> = self.memories.iter().map(|mem| mem[..].into()).collect();
+    pub fn generate_context(&mut self) -> VmCtx {
+        let memories: Vec<UncheckedSlice<u8>> =
+            self.memories.iter().map(|mem| mem[..].into()).collect();
+        let tables: Vec<BoundedSlice<usize>> =
+            self.tables.iter().map(|table| table[..].into()).collect();
+        let globals: UncheckedSlice<u8> = self.globals[..].into();
 
-        let tables: Vec<Vec<usize>> = self.tables.iter().map(|table| table[..].into()).collect();
+        // println!("GENERATING CONTEXT {:?}", self.tables);
 
-        let globals: Vec<u8> = self.globals[..].into();
-
-        assert!(memories.len() >= 1, "modules must have at least one memory");
+        // assert!(memories.len() >= 1, "modules must have at least one memory");
         // the first memory has a space of `mem::size_of::<VmCtxData>()` rounded
         // up to the 4KiB before it. We write the VmCtxData into that.
         let instance = self.clone();
-        let data = VmCtxData {
+        let data = VmCtx {
             globals: globals,
-            memories: memories[1..].into(),
+            memories: memories[..].into(),
             tables: tables[..].into(),
             user_data: UserData {
                 // process,
-                instance,
+                instance: instance,
             },
             phantom: PhantomData,
         };
-
-        let main_heap_ptr = memories[0].as_mut_ptr() as *mut VmCtxData;
-        unsafe {
-            main_heap_ptr.sub(1).write(data);
-            &*(main_heap_ptr as *const VmCtx)
-        }
+        data
+        // let main_heap_ptr = memories[0].as_mut_ptr() as *mut VmCtxData;
+        // unsafe {
+        //     main_heap_ptr.sub(1).write(data);
+        //     &*(main_heap_ptr as *const VmCtx)
+        // }
     }
 
     /// Returns a slice of the contents of allocated linear memory.
@@ -582,20 +570,17 @@ impl Clone for Instance {
     }
 }
 
-extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &VmCtx) -> i32 {
-    // return 0;
-    unimplemented!();
-    // let instance = &vmctx
-    //     .data()
-    //     .user_data
-    //     .instance;
+extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &mut VmCtx) -> i32 {
+    return 0;
+    // unimplemented!();
+    // let instance = &vmctx.user_data.instance;
 
-    // let mut memory = &mut instance.memories[memory_index as usize];
+    // let mut memory = instance.memories[memory_index as usize];
 
     // if let Some(old_size) = memory.grow(size) {
     //     old_size as i32
     // } else {
-    -1
+    //     -1
     // }
 
     // unsafe {
@@ -608,18 +593,24 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &VmCtx) -> i32 {
 }
 
 extern "C" fn current_memory(memory_index: u32, vmctx: &VmCtx) -> u32 {
-    // return 0;
-    println!("current_memory::init {:?}", memory_index);
-    let instance = &vmctx.data().user_data.instance;
-
+    let instance = &vmctx.user_data.instance;
     let memory = &instance.memories[memory_index as usize];
-    println!(
-        "INSPECTED MEMORY ({:?}) {:?}",
-        memory.current_size(),
-        instance.inspect_memory(0, 0, 1)
-    );
-
     memory.current_size() as u32
+
+    // return 0;
+    // unimplemented!();
+
+    // println!("current_memory::init {:?}", memory_index);
+    // let instance = &vmctx.data().user_data.instance;
+
+    // let memory = &instance.memories[memory_index as usize];
+    // println!(
+    //     "INSPECTED MEMORY ({:?}) {:?}",
+    //     memory.current_size(),
+    //     instance.inspect_memory(0, 0, 1)
+    // );
+
+    // memory.current_size() as u32
     // return 1;
     // let vm = unsafe {
     //     (*vmctx) as *mut VmCtx

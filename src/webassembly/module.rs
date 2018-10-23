@@ -407,74 +407,88 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 
     fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
-        // OLD
-        // Create a table whose base address is stored at `vmctx+0`.
-        // let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
-        // let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-        //     base: vmctx,
-        //     offset: Offset32::new(0),
-        //     global_type: self.pointer_type(),
-        // });
-        // let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-        //     base: vmctx,
-        //     offset: Offset32::new(0),
-        //     global_type: I32,
-        // });
-
-        // func.create_table(ir::TableData {
-        //     base_gv,
-        //     min_size: Imm64::new(0),
-        //     bound_gv,
-        //     element_size: Imm64::new(i64::from(self.pointer_bytes()) * 2),
-        //     index_type: I32,
-        // })
-
+        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_size = self.ptr_size();
 
-        let base = self.mod_info.tables_base.unwrap_or_else(|| {
-            let tables_offset = self.ptr_size() as i32 * -1;
-            let new_base = func.create_global_value(ir::GlobalValueData::VMContext {});
-            //  {
-            //     offset: tables_offset.into(),
-            // });
-            // self.mod_info.globals_base = Some(new_base);
-            new_base
+        // Given a vmctx, we want to retrieve vmctx.tables
+        // Create a table whose base address is stored at `vmctx+112`.
+        // 112 is the offset of the vmctx.tables pointer respect to vmctx pointer
+        let base = func.create_global_value(ir::GlobalValueData::Load {
+            base: vmctx,
+            offset: Offset32::new(112),
+            global_type: self.pointer_type(),
         });
 
+        // This will be 0 when the index is 0, not sure if the offset will work regardless
         let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
 
-        let new_table_addr_addr = func.create_global_value(ir::GlobalValueData::Load {
-            base,
-            offset: table_data_offset.into(),
-            global_type: self.pointer_type(), // Might be I32
+        // We get the pointer for our table index
+        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base: base,
+            offset: Offset32::new(table_data_offset),
+            global_type: self.pointer_type(),
         });
-        let new_table_addr = func.create_global_value(ir::GlobalValueData::Load {
-            base: new_table_addr_addr,
-            offset: 0.into(),
-            global_type: self.pointer_type(), // Might be I32
-        });
-
-        let new_table_bounds_addr = func.create_global_value(ir::GlobalValueData::Load {
-            base,
-            offset: (table_data_offset + ptr_size as i32).into(),
-            global_type: self.pointer_type(), // Might be I32
-        });
-        let new_table_bounds = func.create_global_value(ir::GlobalValueData::Load {
-            base: new_table_bounds_addr,
-            offset: 0.into(),
-            global_type: I32, // Might be self.pointer_type()
+        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base: base,
+            offset: Offset32::new(table_data_offset),
+            global_type: I64,
         });
 
         let table = func.create_table(ir::TableData {
-            base_gv: new_table_addr,
+            base_gv: base_gv,
             min_size: Imm64::new(0),
-            // min_size: (self.mod_info.tables[table_index].size as i64).into(),
-            bound_gv: new_table_bounds,
-            element_size: (ptr_size as i64).into(),
-            index_type: I32,
+            bound_gv,
+            element_size: Imm64::new(i64::from(self.pointer_bytes())),
+            index_type: self.pointer_type(),
         });
-
+        // println!("FUNC {:?}", func);
         table
+        // let ptr_size = self.ptr_size();
+
+        // let base = self.mod_info.tables_base.unwrap_or_else(|| {
+        //     let tables_offset = self.ptr_size() as i32 * -1;
+        //     let new_base = func.create_global_value(ir::GlobalValueData::VMContext {});
+        //     //  {
+        //     //     offset: tables_offset.into(),
+        //     // });
+        //     // self.mod_info.globals_base = Some(new_base);
+        //     new_base
+        // });
+
+        // let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
+
+        // let new_table_addr_addr = func.create_global_value(ir::GlobalValueData::Load {
+        //     base,
+        //     offset: table_data_offset.into(),
+        //     global_type: self.pointer_type(), // Might be I32
+        // });
+        // let new_table_addr = func.create_global_value(ir::GlobalValueData::Load {
+        //     base: new_table_addr_addr,
+        //     offset: 0.into(),
+        //     global_type: self.pointer_type(), // Might be I32
+        // });
+
+        // let new_table_bounds_addr = func.create_global_value(ir::GlobalValueData::Load {
+        //     base,
+        //     offset: (table_data_offset + ptr_size as i32).into(),
+        //     global_type: self.pointer_type(), // Might be I32
+        // });
+        // let new_table_bounds = func.create_global_value(ir::GlobalValueData::Load {
+        //     base: new_table_bounds_addr,
+        //     offset: 0.into(),
+        //     global_type: I32, // Might be self.pointer_type()
+        // });
+
+        // let table = func.create_table(ir::TableData {
+        //     base_gv: new_table_addr,
+        //     min_size: Imm64::new(0),
+        //     // min_size: (self.mod_info.tables[table_index].size as i64).into(),
+        //     bound_gv: new_table_bounds,
+        //     element_size: (ptr_size as i64).into(),
+        //     index_type: I32,
+        // });
+
+        // table
     }
 
     fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef {
@@ -501,7 +515,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         &mut self,
         mut pos: FuncCursor,
         _table_index: TableIndex,
-        _table: ir::Table,
+        table: ir::Table,
         _sig_index: SignatureIndex,
         sig_ref: ir::SigRef,
         callee: ir::Value,
@@ -518,15 +532,20 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // TODO: Generate bounds checking code.
         let ptr = self.pointer_type();
         let callee_offset = if ptr == I32 {
-            pos.ins().imul_imm(callee, 4)
+            // pos.ins().imul_imm(callee, 4)
+            callee
         } else {
             let ext = pos.ins().uextend(I64, callee);
-            pos.ins().imul_imm(ext, 4)
+            ext
+            // pos.ins().imul_imm(ext, 4)
         };
+        let entry_addr = pos
+            .ins()
+            .table_addr(self.pointer_type(), table, callee_offset, 0);
         let mut mflags = ir::MemFlags::new();
         mflags.set_notrap();
         mflags.set_aligned();
-        let func_ptr = pos.ins().load(ptr, mflags, callee_offset, 0);
+        let func_ptr = pos.ins().load(ptr, mflags, entry_addr, 0);
 
         // Build a value list for the indirect call instruction containing the callee, call_args,
         // and the vmctx parameter.
@@ -535,10 +554,14 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         args.extend(call_args.iter().cloned(), &mut pos.func.dfg.value_lists);
         args.push(vmctx, &mut pos.func.dfg.value_lists);
 
-        Ok(pos
+        let inst = pos
             .ins()
             .CallIndirect(ir::Opcode::CallIndirect, INVALID, sig_ref, args)
-            .0)
+            .0;
+
+        // println!("FUNC {:?}", pos.func);
+
+        Ok(inst)
     }
 
     fn translate_call(
