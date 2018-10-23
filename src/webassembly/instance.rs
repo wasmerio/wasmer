@@ -503,9 +503,9 @@ impl Instance {
         result
     }
 
-    pub fn start(&mut self, vmctx: &VmCtx) {
+    pub fn start(&self, vmctx: &VmCtx) {
         if let Some(func_index) = self.start_func {
-            let func: fn(&VmCtx) = get_instance_function!(self, func_index);
+            let func: fn(&VmCtx) = get_instance_function!(&self, func_index);
             func(vmctx)
         }
     }
