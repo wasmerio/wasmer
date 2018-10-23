@@ -13,6 +13,7 @@ mod call_indirect;
 mod const_;
 mod data;
 mod exports;
+mod f32_;
 mod func_ptrs;
 mod i32_;
 mod i64_;

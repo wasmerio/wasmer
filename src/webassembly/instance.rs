@@ -9,6 +9,7 @@
 use cranelift_codegen::{binemit, isa, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
+use cranelift_codegen::ir::LibCall;
 use memmap::MmapMut;
 use region;
 use spin::RwLock;
@@ -225,13 +226,21 @@ impl Instance {
                         },
                         RelocationType::CurrentMemory => {
                             current_memory as isize
-                            // panic!("current memory not yet implemented");
-                            // unimplemented!()
                         },
                         RelocationType::GrowMemory => {
                             grow_memory as isize
-                            // panic!("Grow memory not yet implemented");
-                            // unimplemented!()
+                        },
+                        RelocationType::LibCall(LibCall::CeilF32) => {
+                            _ceilf32 as isize
+                        },
+                        RelocationType::LibCall(LibCall::FloorF32) => {
+                            _floorf32 as isize
+                        },
+                        RelocationType::LibCall(LibCall::TruncF32) => {
+                            _truncf32 as isize
+                        },
+                        RelocationType::LibCall(LibCall::NearestF32) => {
+                            _nearbyintf32 as isize
                         },
                         _ => unimplemented!()
                         // RelocationType::Intrinsic(name) => {
@@ -634,4 +643,26 @@ extern "C" fn current_memory(memory_index: u32, vmctx: &VmCtx) -> u32 {
     //         .memory_mut(memory_index as MemoryIndex)
     //         .current_size()
     // }
+}
+
+
+// Because of this bug https://github.com/rust-lang/rust/issues/34123
+// We create internal functions for it
+
+use std::intrinsics::{ceilf32, floorf32, truncf32, nearbyintf32};
+
+unsafe extern fn _ceilf32(x: f32) -> f32 {
+    ceilf32(x)
+}
+
+unsafe extern fn _floorf32(x: f32) -> f32 {
+    floorf32(x)
+}
+
+unsafe extern fn _truncf32(x: f32) -> f32 {
+    truncf32(x)
+}
+
+unsafe extern fn _nearbyintf32(x: f32) -> f32 {
+    nearbyintf32(x)
 }
