@@ -11,6 +11,7 @@ mod break_drop;
 mod call;
 mod call_indirect;
 mod const_;
+mod data;
 mod func_ptrs;
 mod i32_;
 mod i64_;
