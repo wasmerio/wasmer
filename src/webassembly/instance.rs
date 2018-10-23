@@ -152,6 +152,7 @@ impl Instance {
         let mut import_functions: Vec<*const u8> = Vec::new();
         // let mut code_base: *const () = ptr::null();
 
+        debug!("Instance - Instantiating functions");
         // Instantiate functions
         {
             functions.reserve_exact(module.info.functions.len());
@@ -177,6 +178,7 @@ impl Instance {
                 import_functions.push(function);
                 relocations.push(vec![]);
             }
+            debug!("Instance - Compiling functions");
             // Compile the functions (from cranelift IR to machine code)
             for function_body in module.info.function_bodies.values() {
                 let mut func_context = Context::for_function(function_body.to_owned());
@@ -209,6 +211,7 @@ impl Instance {
                 // total_size += code_size_offset;
             }
 
+            debug!("Instance - Relocating functions");
             // For each of the functions used, we see what are the calls inside this functions
             // and relocate each call to the proper memory address.
             // The relocations are relative to the relocation's address plus four bytes
@@ -343,6 +346,7 @@ impl Instance {
             // }
         }
 
+        debug!("Instance - Instantiating tables");
         // Instantiate tables
         {
             // Reserve table space
@@ -375,6 +379,7 @@ impl Instance {
             }
         }
 
+        debug!("Instance - Instantiating memories");
         // Instantiate memories
         {
             // Allocate the underlying memory and initialize it to all zeros.
@@ -401,6 +406,7 @@ impl Instance {
             }
         }
 
+        debug!("Instance - Instantiating globals");
         // Instantiate Globals
         {
             let globals_count = module.info.globals.len();
@@ -504,7 +510,7 @@ impl Instance {
         }
     }
 
-    pub fn generate_context(&mut self) -> VmCtx {
+    pub fn generate_context(&self) -> VmCtx {
         let memories: Vec<UncheckedSlice<u8>> =
             self.memories.iter().map(|mem| mem[..].into()).collect();
         let tables: Vec<BoundedSlice<usize>> =
