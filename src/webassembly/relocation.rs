@@ -3,7 +3,7 @@
 //! any other calls that this function is doing, so we can "patch" the
 //! function addrs in runtime with the functions we need.
 use cranelift_codegen::binemit;
-use cranelift_codegen::ir::{self, ExternalName, SourceLoc, TrapCode};
+use cranelift_codegen::ir::{self, ExternalName, SourceLoc, TrapCode, LibCall};
 
 pub use cranelift_codegen::binemit::Reloc;
 use cranelift_wasm::FuncIndex;
@@ -23,6 +23,7 @@ pub struct Relocation {
 pub enum RelocationType {
     Normal(u32),
     Intrinsic(String),
+    LibCall(LibCall),
     GrowMemory,
     CurrentMemory,
 }
@@ -73,6 +74,17 @@ impl binemit::RelocSink for RelocSink {
                     "grow_memory" => RelocationType::GrowMemory,
                     _ => RelocationType::Intrinsic(name),
                 };
+                self.func_relocs.push((
+                    Relocation {
+                        reloc,
+                        offset,
+                        addend,
+                    },
+                    relocation_type,
+                ));
+            }
+            ExternalName::LibCall(libcall) => {
+                let relocation_type = RelocationType::LibCall(libcall);
                 self.func_relocs.push((
                     Relocation {
                         reloc,
