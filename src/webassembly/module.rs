@@ -409,7 +409,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_size = self.ptr_size();
-        
+
         // Given a vmctx, we want to retrieve vmctx.tables
         // Create a table whose base address is stored at `vmctx+112`.
         // 112 is the offset of the vmctx.tables pointer respect to vmctx pointer
@@ -433,7 +433,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             offset: Offset32::new(table_data_offset),
             global_type: I64,
         });
-    
+
         let table = func.create_table(ir::TableData {
             base_gv: base_gv,
             min_size: Imm64::new(0),
@@ -539,12 +539,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             ext
             // pos.ins().imul_imm(ext, 4)
         };
-        let entry_addr = pos.ins().table_addr(
-            self.pointer_type(),
-            table,
-            callee_offset,
-            0,
-        );
+        let entry_addr = pos
+            .ins()
+            .table_addr(self.pointer_type(), table, callee_offset, 0);
         let mut mflags = ir::MemFlags::new();
         mflags.set_notrap();
         mflags.set_aligned();

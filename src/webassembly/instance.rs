@@ -68,7 +68,6 @@ fn get_function_addr(
 //     (base as usize + offset) as _
 // }
 
-
 // #[derive(Debug)]
 #[repr(C, packed)]
 pub struct VmCtx<'phantom> {
@@ -506,8 +505,10 @@ impl Instance {
     }
 
     pub fn generate_context(&mut self) -> VmCtx {
-        let memories: Vec<UncheckedSlice<u8>> = self.memories.iter().map(|mem| mem[..].into()).collect();
-        let tables: Vec<BoundedSlice<usize>> = self.tables.iter().map(|table| table[..].into()).collect();
+        let memories: Vec<UncheckedSlice<u8>> =
+            self.memories.iter().map(|mem| mem[..].into()).collect();
+        let tables: Vec<BoundedSlice<usize>> =
+            self.tables.iter().map(|table| table[..].into()).collect();
         let globals: UncheckedSlice<u8> = self.globals[..].into();
 
         // println!("GENERATING CONTEXT {:?}", self.tables);
@@ -570,7 +571,6 @@ impl Clone for Instance {
 }
 
 extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &mut VmCtx) -> i32 {
-    
     return 0;
     // unimplemented!();
     // let instance = &vmctx.user_data.instance;

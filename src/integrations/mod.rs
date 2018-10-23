@@ -38,8 +38,7 @@ pub fn generate_libc_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
 mod tests {
     use super::generate_libc_env;
     use crate::webassembly::{
-        instantiate, ErrorKind, Export, ImportObject, Instance, Module, ResultObject,
-        VmCtx
+        instantiate, ErrorKind, Export, ImportObject, Instance, Module, ResultObject, VmCtx,
     };
     use libc::putchar;
 
