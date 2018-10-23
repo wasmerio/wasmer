@@ -242,6 +242,18 @@ impl Instance {
                         RelocationType::LibCall(LibCall::NearestF32) => {
                             _nearbyintf32 as isize
                         },
+                        RelocationType::LibCall(LibCall::CeilF64) => {
+                            _ceilf64 as isize
+                        },
+                        RelocationType::LibCall(LibCall::FloorF64) => {
+                            _floorf64 as isize
+                        },
+                        RelocationType::LibCall(LibCall::TruncF64) => {
+                            _truncf64 as isize
+                        },
+                        RelocationType::LibCall(LibCall::NearestF64) => {
+                            _nearbyintf64 as isize
+                        },
                         _ => unimplemented!()
                         // RelocationType::Intrinsic(name) => {
                         //     get_abi_intrinsic(name)?
@@ -649,8 +661,9 @@ extern "C" fn current_memory(memory_index: u32, vmctx: &VmCtx) -> u32 {
 // Because of this bug https://github.com/rust-lang/rust/issues/34123
 // We create internal functions for it
 
-use std::intrinsics::{ceilf32, floorf32, truncf32, nearbyintf32};
+use std::intrinsics::{ceilf32, floorf32, truncf32, nearbyintf32, ceilf64, floorf64, truncf64, nearbyintf64};
 
+// F32
 unsafe extern fn _ceilf32(x: f32) -> f32 {
     ceilf32(x)
 }
@@ -665,4 +678,21 @@ unsafe extern fn _truncf32(x: f32) -> f32 {
 
 unsafe extern fn _nearbyintf32(x: f32) -> f32 {
     nearbyintf32(x)
+}
+
+// F64
+unsafe extern fn _ceilf64(x: f64) -> f64 {
+    ceilf64(x)
+}
+
+unsafe extern fn _floorf64(x: f64) -> f64 {
+    floorf64(x)
+}
+
+unsafe extern fn _truncf64(x: f64) -> f64 {
+    truncf64(x)
+}
+
+unsafe extern fn _nearbyintf64(x: f64) -> f64 {
+    nearbyintf64(x)
 }
