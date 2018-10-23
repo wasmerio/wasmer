@@ -412,9 +412,10 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         
         // Given a vmctx, we want to retrieve vmctx.tables
         // Create a table whose base address is stored at `vmctx+120`.
+        // 120 is the offset of the vmctx.tables pointer respect to vmctx pointer
         let base = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(120), // The offset of the vmctx.tables pointer respect to vmctx pointer
+            offset: Offset32::new(120),
             global_type: self.pointer_type(),
         });
 
