@@ -2,13 +2,13 @@
 //! WebAssembly spec tests. It will convert the files indicated in TESTS
 //! from "/spectests/{MODULE}.wast" to "/src/spectests/{MODULE}.rs".
 use std::collections::HashMap;
+use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
 use std::time::SystemTime;
 use wabt::script::{Action, Command, CommandKind, ModuleBinary, ScriptParser, Value};
 use wabt::wasm2wat;
-use std::env;
 
 static ENV_VAR: &str = "WASM_GENERATE_SPECTESTS";
 
