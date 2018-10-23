@@ -84,9 +84,10 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("Main function not found"),
         });
-    let main: fn(&webassembly::VmCtx) = get_instance_function!(instance, func_index);
+    let main: fn(&webassembly::VmCtx) -> i32 = get_instance_function!(instance, func_index);
     let context = instance.generate_context();
-    main(&context);
+    let result = main(&context);
+    println!("RESULT {}", result);
     Ok(())
 }
 
