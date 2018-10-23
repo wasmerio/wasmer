@@ -15,6 +15,7 @@ mod data;
 mod exports;
 mod f32_;
 mod f32_bitwise;
+mod f32_cmp;
 mod f64_;
 mod func_ptrs;
 mod i32_;
