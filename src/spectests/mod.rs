@@ -11,6 +11,7 @@ mod call;
 mod call_indirect;
 mod func_ptrs;
 mod i32_;
+mod i64_;
 mod memory;
 mod set_local;
 mod types;
