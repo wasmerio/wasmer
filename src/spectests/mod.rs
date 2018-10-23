@@ -14,6 +14,7 @@ mod const_;
 mod func_ptrs;
 mod i32_;
 mod i64_;
+mod labels;
 mod memory;
 mod set_local;
 mod types;
