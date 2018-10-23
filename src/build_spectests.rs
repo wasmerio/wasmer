@@ -1,3 +1,6 @@
+//! This file will run at build time to autogenerate Rust tests based on
+//! WebAssembly spec tests. It will convert the files indicated in TESTS
+//! from "/spectests/{MODULE}.wast" to "/src/spectests/{MODULE}.rs".
 use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
@@ -76,7 +79,6 @@ use wabt::wat2wasm;\n\n",
             self.buffer
                 .push_str(&format!("\n// Line {}\n", self.last_line));
             self.visit_command(&kind);
-            // &self.buffer.push_str(convert_command(kind));
         }
     }
 
@@ -92,7 +94,7 @@ use wabt::wat2wasm;\n\n",
     instantiate(wasm_binary, spectest_importobject()).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
-                // We do this to ident four spaces back
+                // We do this to ident four spaces, so it looks aligned to the function body
                 wast_string.replace("\n", "\n    ").replace("\"", "\\\""),
             )
             .as_str(),
@@ -196,41 +198,39 @@ fn l{}_assert_return_invoke() {{
         match cmd {
             CommandKind::Module { module, name } => {
                 self.visit_module(module, name);
-                // c.module(module.into_vec(), name);
             }
             CommandKind::AssertReturn { action, expected } => {
                 self.visit_assert_return(action, expected);
             }
             CommandKind::AssertReturnCanonicalNan { action } => {
-                // c.assert_return_canonical_nan(action);
+                // Do nothing for now
             }
             CommandKind::AssertReturnArithmeticNan { action } => {
-                // c.assert_return_arithmetic_nan(action);
+                // Do nothing for now
             }
             CommandKind::AssertTrap { action, message: _ } => {
-                // c.assert_trap(action);
+                // Do nothing for now
             }
             CommandKind::AssertInvalid { module, message: _ } => {
                 self.visit_assert_invalid(module);
             }
             CommandKind::AssertMalformed { module, message: _ } => {
                 self.visit_assert_malformed(module);
-                // c.assert_malformed(module.into_vec());
             }
             CommandKind::AssertUninstantiable { module, message: _ } => {
-                // c.assert_uninstantiable(module.into_vec());
+                // Do nothing for now
             }
             CommandKind::AssertExhaustion { action } => {
-                // c.assert_exhaustion(action);
+                // Do nothing for now
             }
             CommandKind::AssertUnlinkable { module, message: _ } => {
-                // c.assert_unlinkable(module.into_vec());
+                // Do nothing for now
             }
             CommandKind::Register { name, as_name } => {
-                // c.register(name, as_name);
+                // Do nothing for now
             }
             CommandKind::PerformAction(action) => {
-                // c.action(action);
+                // Do nothing for now
             }
         }
     }
@@ -302,5 +302,4 @@ fn main() {
     if source != modfile.as_bytes() {
         fs::write(&rust_test_modpath, modfile.as_bytes()).unwrap();
     }
-    // panic!(modfile);
 }
