@@ -14,7 +14,7 @@ extern crate wabt;
 extern crate target_lexicon;
 extern crate spin;
 
-use std::alloc::System;
+// use std::alloc::System;
 use std::time::{Duration, Instant};
 
 // #[global_allocator]
