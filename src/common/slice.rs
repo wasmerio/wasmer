@@ -4,18 +4,18 @@ use std::ptr::NonNull;
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct UncheckedSlice<T> {
-    pub ptr: NonNull<T>,
+    ptr: NonNull<T>,
 }
 
 impl<T> UncheckedSlice<T> {
     #[inline]
-    pub unsafe fn get_unchecked(&self, index: usize) -> &T {
+    unsafe fn get_unchecked(&self, index: usize) -> &T {
         let ptr = self.ptr.as_ptr();
         &*ptr.add(index)
     }
 
     #[inline]
-    pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
+    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         let ptr = self.ptr.as_ptr();
         &mut *(ptr.add(index) as *mut _)
     }
