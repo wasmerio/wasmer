@@ -411,11 +411,11 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         let ptr_size = self.ptr_size();
         
         // Given a vmctx, we want to retrieve vmctx.tables
-        // Create a table whose base address is stored at `vmctx+120`.
-        // 120 is the offset of the vmctx.tables pointer respect to vmctx pointer
+        // Create a table whose base address is stored at `vmctx+112`.
+        // 112 is the offset of the vmctx.tables pointer respect to vmctx pointer
         let base = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(120),
+            offset: Offset32::new(112),
             global_type: self.pointer_type(),
         });
 
@@ -438,10 +438,10 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base_gv: base_gv,
             min_size: Imm64::new(0),
             bound_gv,
-            element_size: Imm64::new(i64::from(self.pointer_bytes()) * 2),
+            element_size: Imm64::new(i64::from(self.pointer_bytes())),
             index_type: self.pointer_type(),
         });
-        println!("FUNC {:?}", func);
+        // println!("FUNC {:?}", func);
         table
         // let ptr_size = self.ptr_size();
 
@@ -562,7 +562,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .CallIndirect(ir::Opcode::CallIndirect, INVALID, sig_ref, args)
             .0;
 
-        println!("FUNC {:?}", pos.func);
+        // println!("FUNC {:?}", pos.func);
 
         Ok(inst)
     }

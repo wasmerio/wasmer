@@ -15,6 +15,10 @@ extern crate target_lexicon;
 extern crate spin;
 
 use std::time::{Duration, Instant};
+use std::alloc::System;
+
+// #[global_allocator]
+// static A: System = System;
 
 // #[macro_use] extern crate log;
 
@@ -81,40 +85,8 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             _ => panic!("Main function not found"),
         });
     let main: fn(&webassembly::VmCtx) = get_instance_function!(instance, func_index);
-    let mainn_func_index = match module.info.exports.get("mainn") {
-        Some(&webassembly::Export::Function(index)) => index,
-        _ => panic!("Mainn function not found"),
-    };
-    let mainn: fn(*const usize) -> i32 = get_instance_function!(instance, mainn_func_index);
-    let context = &instance.generate_context();
-    let pointer_context =  &context as *const _;
-    // println!("Context ptr {:p}", context);
-    println!("Context ptr {:?}", pointer_context);
-    // println!("Context ptr {:?}", &context as *const _);
-    // println!("Memories ptr {:?}", context.memories.as_ptr());
-    let pointer_tables = &context.tables as *const _;
-    println!("Tables ptr {:?}", pointer_tables);
-    println!("Tables ptr {:p}", pointer_tables);
-    let ref tables_ptr_2 =  unsafe { (&*pointer_tables as *const _) };
-    println!("Tables ptr {:?}", tables_ptr_2);
-    println!("DIFF {:?}", (pointer_tables as usize-pointer_context as usize));
-    // println!("Tables ptr {:?}", context.tables.as_ptr());
-    // println!("Tables ptr {:?}", &context.tables as *const _);
-    // println!("Tables ptr {:?}", &context.tables as *const _);
-    // println!("User data ptr {:?}", &context.user_data as *const _);
-    // println!("Globals ptr {:?}", &context.globals as *const _);
-    // println!("Memories ptr {:?}", &context.memories as *const _);
-    // println!("Tables ptr {:?}", &context.tables as *const _);
-    // unsafe {
-    //     println!("Tables 0 ptr {:p}", &context.tables.get_unchecked(0));
-    //     println!("Tables 0 ptr {:p}", &context.tables.get_unchecked(0).get(0));
-    // }
-    let table_ptr = &context.tables as *const _;
-    // let table: &Ta
+    let context = instance.generate_context();
     main(&context);
-    println!("-------------NOW MAINN----------");
-    let res = mainn(pointer_context as *const usize);
-    println!("RESULT {:?}", res);
     Ok(())
 }
 
