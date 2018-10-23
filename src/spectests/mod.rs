@@ -7,6 +7,7 @@ mod block;
 mod br;
 mod br_if;
 mod br_table;
+mod break_drop;
 mod call;
 mod call_indirect;
 mod const_;
