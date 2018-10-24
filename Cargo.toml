@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Syrus Akbary <me@syrusakbary.com>"]
 edition = "2018"
 repository = "https://github.com/wafoundation/wasmer"
-publish = false
+publish = true
 build = "src/build_spectests.rs"
 include = [
     "examples/**/*",
