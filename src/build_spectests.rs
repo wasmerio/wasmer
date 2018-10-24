@@ -51,10 +51,9 @@ fn wabt2rust_type(v: &Value) -> String {
 }
 
 fn is_nan(v: &Value) -> bool {
-    if let Value::F32(v) = v  {
+    if let Value::F32(v) = v {
         return v.is_nan();
-    }
-    else if let Value::F64(v) = v  {
+    } else if let Value::F64(v) = v {
         return v.is_nan();
     }
     return false;
@@ -65,7 +64,6 @@ fn wabt2rust_value(v: &Value) -> String {
         Value::I32(v) => format!("{:?} as i32", v),
         Value::I64(v) => format!("{:?} as i64", v),
         Value::F32(v) => {
-            
             match *v {
                 std::f32::INFINITY => "std::f32::INFINITY".to_string(),
                 std::f32::NEG_INFINITY => "std::f32::NEG_INFINITY".to_string(),
@@ -74,17 +72,15 @@ fn wabt2rust_value(v: &Value) -> String {
                     if v.is_nan() {
                         if v.is_sign_negative() {
                             "-std::f32::NAN".to_string()
-                        }
-                        else {
+                        } else {
                             "std::f32::NAN".to_string()
                         }
-                    }
-                    else {
+                    } else {
                         format!("{:?} as f32", v)
                     }
                 }
             }
-        },
+        }
         Value::F64(v) => {
             match *v {
                 std::f64::INFINITY => "std::f64::INFINITY".to_string(),
@@ -94,12 +90,10 @@ fn wabt2rust_value(v: &Value) -> String {
                     if v.is_nan() {
                         if v.is_sign_negative() {
                             "-std::f64::NAN".to_string()
-                        }
-                        else {
+                        } else {
                             "std::f64::NAN".to_string()
                         }
-                    }
-                    else {
+                    } else {
                         format!("{:?} as f64", v)
                     }
                 }
@@ -264,10 +258,12 @@ fn l{}_assert_malformed() {{
                     "()".to_string()
                 };
                 let assertion = if expected.len() > 0 && is_nan(&expected[0]) {
-                    format!("assert!(result.is_nan());
-    assert_eq!(result.is_sign_positive(), ({}).is_sign_positive());", expected_result)
-                }
-                else {
+                    format!(
+                        "assert!(result.is_nan());
+    assert_eq!(result.is_sign_positive(), ({}).is_sign_positive());",
+                        expected_result
+                    )
+                } else {
                     format!("assert_eq!(result, {});", expected_result)
                 };
                 // We map the arguments provided into the raw Arguments provided

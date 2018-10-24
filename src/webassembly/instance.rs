@@ -6,10 +6,10 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiateStreaming() function.
+use cranelift_codegen::ir::LibCall;
 use cranelift_codegen::{binemit, isa, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
-use cranelift_codegen::ir::LibCall;
 use memmap::MmapMut;
 use region;
 use spin::RwLock;
@@ -657,42 +657,43 @@ extern "C" fn current_memory(memory_index: u32, vmctx: &VmCtx) -> u32 {
     // }
 }
 
-
 // Because of this bug https://github.com/rust-lang/rust/issues/34123
 // We create internal functions for it
 
-use std::intrinsics::{ceilf32, floorf32, truncf32, nearbyintf32, ceilf64, floorf64, truncf64, nearbyintf64};
+use std::intrinsics::{
+    ceilf32, ceilf64, floorf32, floorf64, nearbyintf32, nearbyintf64, truncf32, truncf64,
+};
 
 // F32
-unsafe extern fn _ceilf32(x: f32) -> f32 {
+unsafe extern "C" fn _ceilf32(x: f32) -> f32 {
     ceilf32(x)
 }
 
-unsafe extern fn _floorf32(x: f32) -> f32 {
+unsafe extern "C" fn _floorf32(x: f32) -> f32 {
     floorf32(x)
 }
 
-unsafe extern fn _truncf32(x: f32) -> f32 {
+unsafe extern "C" fn _truncf32(x: f32) -> f32 {
     truncf32(x)
 }
 
-unsafe extern fn _nearbyintf32(x: f32) -> f32 {
+unsafe extern "C" fn _nearbyintf32(x: f32) -> f32 {
     nearbyintf32(x)
 }
 
 // F64
-unsafe extern fn _ceilf64(x: f64) -> f64 {
+unsafe extern "C" fn _ceilf64(x: f64) -> f64 {
     ceilf64(x)
 }
 
-unsafe extern fn _floorf64(x: f64) -> f64 {
+unsafe extern "C" fn _floorf64(x: f64) -> f64 {
     floorf64(x)
 }
 
-unsafe extern fn _truncf64(x: f64) -> f64 {
+unsafe extern "C" fn _truncf64(x: f64) -> f64 {
     truncf64(x)
 }
 
-unsafe extern fn _nearbyintf64(x: f64) -> f64 {
+unsafe extern "C" fn _nearbyintf64(x: f64) -> f64 {
     nearbyintf64(x)
 }

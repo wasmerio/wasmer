@@ -3,7 +3,7 @@
 //! any other calls that this function is doing, so we can "patch" the
 //! function addrs in runtime with the functions we need.
 use cranelift_codegen::binemit;
-use cranelift_codegen::ir::{self, ExternalName, SourceLoc, TrapCode, LibCall};
+use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
 
 pub use cranelift_codegen::binemit::Reloc;
 use cranelift_wasm::FuncIndex;
