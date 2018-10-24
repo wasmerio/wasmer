@@ -101,31 +101,6 @@ pub struct Instance {
     // code_base: *const (),
 }
 
-// pub fn make_vmctx(instance: &mut Instance, mem_base_addrs: &mut [*mut u8]) -> Vec<*mut u8> {
-//     debug_assert!(
-//         instance.tables.len() <= 1,
-//         "non-default tables is not supported"
-//     );
-
-//     let (default_table_ptr, default_table_len) = instance
-//         .tables
-//         .get_mut(0)
-//         .map(|table| (table.as_mut_ptr() as *mut u8, table.len()))
-//         .unwrap_or((ptr::null_mut(), 0));
-
-//     let mut vmctx = Vec::new();
-//     vmctx.push(instance.globals.as_mut_ptr());
-//     vmctx.push(mem_base_addrs.as_mut_ptr() as *mut u8);
-//     vmctx.push(default_table_ptr);
-//     vmctx.push(default_table_len as *mut u8);
-//     vmctx.push(instance as *mut Instance as *mut u8);
-
-//     vmctx
-// }
-fn fake_fun(x: i32) -> i32 {
-    return x * 2;
-}
-
 impl Instance {
     /// Create a new `Instance`.
     pub fn new(
