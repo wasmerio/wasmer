@@ -5,7 +5,7 @@
 //! The webassembly::Instance() constructor function can be called to
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
-//! webassembly::instantiateStreaming() function.
+//! webassembly::instantiate_streaming() function.
 use cranelift_codegen::ir::LibCall;
 use cranelift_codegen::{binemit, isa, Context};
 use cranelift_entity::EntityRef;
