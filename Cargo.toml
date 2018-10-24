@@ -6,6 +6,16 @@ edition = "2018"
 repository = "https://github.com/wafoundation/wasmer"
 publish = false
 build = "src/build_spectests.rs"
+include = [
+    "examples/**/*",
+    "src/**/*",
+    "Cargo.lock",
+    "Cargo.toml",
+    "LICENSE",
+    "Makefile",
+    "README.md",
+    "rustfmt.toml"
+]
 
 [dependencies]
 cranelift-native = "0.22.0"
