@@ -1,4 +1,4 @@
-# wasmer - WebAssembly runtime
+# wasmer - WebAssembly Runtime
 
 [![Build Status](https://api.travis-ci.com/WAFoundation/wasmer.svg?branch=master)](https://travis-ci.com/WAFoundation/wasmer)
 [![Latest Version](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
@@ -37,20 +37,33 @@ cargo install
 
 ## Testing
 
+This library should be always fully tested.
+
+Thanks to [spectests](spectests/) we can assure 100% compatibility with the WebAssembly spec test suite.
+
 Tests can be run with:
 
 ```sh
 cargo test
 ```
 
-## Principles
+If you need to re-generate the Rust tests from the spectests
+you can run:
+
+```sh
+make spectests
+```
+
+## Roadmap
 
 Wasmer is an open project guided by strong principles, aiming to be modular, flexible and fast. It is open to the community to help set its direction.
 
-- Modular: the project includes lots of components that have well-defined functions and APIs that work together.
-- Tested: All WebAssembly spec test cases should be covered.
-- Developer focused: The APIs are intended to be functional and useful to build powerful tools.
-- Fast: it should be as fast as possible.
+Below are some of the goals (written with order) of this project:
+
+- [ ] It should be 100% compatible with the WebAssembly Spectest (on the works)
+- [ ] It should be fast. We can achieve this by caching the function compilations
+- [ ] Support Emscripten calls
+- [ ] Support Rust ABI calls
 
 ## License
 
