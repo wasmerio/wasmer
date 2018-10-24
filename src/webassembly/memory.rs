@@ -1,3 +1,8 @@
+//! The webassembly::Memory() constructor creates a new Memory object which is
+//! a structure that holds the raw bytes of memory accessed by a
+//! webassembly::Instance.
+//! A memory created by Rust or in WebAssembly code will be accessible and
+//! mutable from both Rust and WebAssembly.
 use memmap::MmapMut;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
