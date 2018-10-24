@@ -10,13 +10,10 @@ use cranelift_codegen::ir::LibCall;
 use cranelift_codegen::{binemit, isa, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
-use memmap::MmapMut;
 use region;
-use spin::RwLock;
-use std::collections::HashMap;
 use std::iter::Iterator;
 use std::marker::PhantomData;
-use std::ptr::{self, write_unaligned};
+use std::ptr::write_unaligned;
 use std::sync::Arc;
 use std::{mem, slice};
 
@@ -25,8 +22,8 @@ use super::errors::ErrorKind;
 use super::import_object::ImportObject;
 use super::memory::LinearMemory;
 use super::module::Module;
-use super::module::{DataInitializer, Export, Exportable};
-use super::relocation::{Reloc, RelocSink, RelocationType, TrapSink};
+use super::module::Export;
+use super::relocation::{Reloc, RelocSink, RelocationType};
 
 pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
     match unsafe {
@@ -61,14 +58,6 @@ fn get_function_addr(
     func_pointer
 }
 
-// pub fn get_function_addr(
-//     functions: &[usize],
-//     func_index: &FuncIndex,
-// ) -> *const () {
-//     let offset = functions[func_index.index()];
-//     (base as usize + offset) as _
-// }
-
 // #[derive(Debug)]
 #[repr(C, packed)]
 pub struct VmCtx<'phantom> {
@@ -76,9 +65,6 @@ pub struct VmCtx<'phantom> {
     globals: UncheckedSlice<u8>,
     memories: UncheckedSlice<UncheckedSlice<u8>>,
     tables: UncheckedSlice<BoundedSlice<usize>>,
-    // globals: Vec<u8>,
-    // memories: Vec<Vec<u8>>,
-    // pub tables: Vec<Vec<usize>>,
     phantom: PhantomData<&'phantom ()>,
 }
 
@@ -483,45 +469,6 @@ impl Instance {
     }
     pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {
         get_function_addr(&func_index, &self.import_functions, &self.functions)
-    }
-
-    // pub fn is_imported_function(&self, func_index: FuncIndex) -> bool {
-    //     func_index.index() < self.import_functions.len()
-    // }
-
-    /// Invoke a WebAssembly function given a FuncIndex and the
-    /// arguments that the function should be called with
-    pub fn get_function<T>(&self, func_index: FuncIndex) -> (fn() -> T) {
-        // let mut mem_base_addrs = self
-        //     .memories
-        //     .iter_mut()
-        //     .map(LinearMemory::base_addr)
-        //     .collect::<Vec<_>>();
-        // let vmctx = make_vmctx(&mut self, &mut mem_base_addrs);
-
-        // let vmctx = make_vmctx(instance, &mut mem_base_addrs);
-        // let vmctx = ptr::null();
-        // Rather than writing inline assembly to jump to the code region, we use the fact that
-        // the Rust ABI for calling a function with no arguments and no return matches the one of
-        // the generated code. Thanks to this, we can transmute the code region into a first-class
-        // Rust function and call it.
-        // let func_pointer = get_function_addr(self.code_base, &self.functions, &func_index);
-        let func_pointer = get_function_addr(&func_index, &self.import_functions, &self.functions);
-        unsafe {
-            let func = mem::transmute::<_, fn() -> T>(func_pointer);
-            func
-            // let result = func(2);
-            // println!("FUNCTION INVOKED, result {:?}", result);
-
-            // start_func(vmctx.as_ptr());
-        }
-    }
-
-    pub fn invoke(&self, func_index: FuncIndex, _args: Vec<u8>) -> i32 {
-        let func: fn() -> i32 = self.get_function(func_index);
-        let result = func();
-        println!("RESULT {:?}", result);
-        result
     }
 
     pub fn start(&self, vmctx: &VmCtx) {

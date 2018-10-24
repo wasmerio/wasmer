@@ -1,4 +1,5 @@
-/// This macro helps to get a function for an instance easily
+/// Retrieve a WebAssembly function given a Instance and a FuncIndex
+/// Example:
 /// let func: fn(i32) -> i32 = get_instance_function!(instance, func_index);
 #[macro_export]
 macro_rules! get_instance_function {
