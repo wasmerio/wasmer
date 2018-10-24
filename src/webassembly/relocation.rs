@@ -8,7 +8,7 @@ use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
 pub use cranelift_codegen::binemit::Reloc;
 use cranelift_wasm::FuncIndex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Relocation {
     /// The relocation code.
     pub reloc: binemit::Reloc,
@@ -16,10 +16,12 @@ pub struct Relocation {
     pub offset: binemit::CodeOffset,
     /// The addend to add to the relocation value.
     pub addend: binemit::Addend,
+    /// Relocation type.
+    pub target: RelocationType,
 }
 
 /// Specify the type of relocation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RelocationType {
     Normal(u32),
     Intrinsic(String),
@@ -30,9 +32,8 @@ pub enum RelocationType {
 
 /// Implementation of a relocation sink that just saves all the information for later
 pub struct RelocSink {
-    // func: &'func ir::Function,
     /// Relocations recorded for the function.
-    pub func_relocs: Vec<(Relocation, RelocationType)>,
+    pub func_relocs: Vec<Relocation>,
 }
 
 impl binemit::RelocSink for RelocSink {
@@ -57,14 +58,12 @@ impl binemit::RelocSink for RelocSink {
                 namespace: 0,
                 index,
             } => {
-                self.func_relocs.push((
-                    Relocation {
-                        reloc,
-                        offset,
-                        addend,
-                    },
-                    RelocationType::Normal(index as _),
-                ));
+                self.func_relocs.push(Relocation {
+                    reloc,
+                    offset,
+                    addend,
+                    target: RelocationType::Normal(index as _),
+                });
             }
             ExternalName::TestCase { length, ascii } => {
                 let (slice, _) = ascii.split_at(length as usize);
@@ -74,25 +73,21 @@ impl binemit::RelocSink for RelocSink {
                     "grow_memory" => RelocationType::GrowMemory,
                     _ => RelocationType::Intrinsic(name),
                 };
-                self.func_relocs.push((
-                    Relocation {
-                        reloc,
-                        offset,
-                        addend,
-                    },
-                    relocation_type,
-                ));
+                self.func_relocs.push(Relocation {
+                    reloc,
+                    offset,
+                    addend,
+                    target: relocation_type,
+                });
             }
             ExternalName::LibCall(libcall) => {
                 let relocation_type = RelocationType::LibCall(libcall);
-                self.func_relocs.push((
-                    Relocation {
-                        reloc,
-                        offset,
-                        addend,
-                    },
-                    relocation_type,
-                ));
+                self.func_relocs.push(Relocation {
+                    reloc,
+                    offset,
+                    addend,
+                    target: relocation_type,
+                });
             }
             _ => {
                 unimplemented!();
@@ -109,6 +104,7 @@ impl binemit::RelocSink for RelocSink {
     }
 }
 
+/// Implementation of a relocation sink that just saves all the information for later
 impl RelocSink {
     pub fn new() -> RelocSink {
         RelocSink {
@@ -116,88 +112,6 @@ impl RelocSink {
         }
     }
 }
-
-/// Implementation of a relocation sink that just saves all the information for later
-// pub struct RelocSink {
-//     /// Relocations recorded for the function.
-//     pub func_relocs: Vec<Relocation>,
-// }
-
-// impl binemit::RelocSink for RelocSink {
-//     fn reloc_ebb(
-//         &mut self,
-//         _offset: binemit::CodeOffset,
-//         _reloc: binemit::Reloc,
-//         _ebb_offset: binemit::CodeOffset,
-//     ) {
-//         // This should use the `offsets` field of `ir::Function`.
-//         panic!("ebb headers not yet implemented");
-//     }
-//     fn reloc_external(
-//         &mut self,
-//         offset: binemit::CodeOffset,
-//         reloc: binemit::Reloc,
-//         name: &ExternalName,
-//         addend: binemit::Addend,
-//     ) {
-//         let reloc_target = if let ExternalName::User { namespace, index } = *name {
-//             debug_assert!(namespace == 0);
-//             RelocationTarget::UserFunc(FuncIndex::new(index as usize))
-//         } else if *name == ExternalName::testcase("grow_memory") {
-//             RelocationTarget::GrowMemory
-//         } else if *name == ExternalName::testcase("current_memory") {
-//             RelocationTarget::CurrentMemory
-//         } else {
-//             panic!("unrecognized external name")
-//         };
-//         self.func_relocs.push(Relocation {
-//             reloc,
-//             reloc_target,
-//             offset,
-//             addend,
-//         });
-//     }
-//     fn reloc_jt(
-//         &mut self,
-//         _offset: binemit::CodeOffset,
-//         _reloc: binemit::Reloc,
-//         _jt: ir::JumpTable,
-//     ) {
-//         panic!("jump tables not yet implemented");
-//     }
-// }
-
-// impl RelocSink {
-//     pub fn new() -> Self {
-//         Self {
-//             func_relocs: Vec::new(),
-//         }
-//     }
-// }
-
-// /// A record of a relocation to perform.
-// #[derive(Debug, Clone)]
-// pub struct Relocation {
-//     /// The relocation code.
-//     pub reloc: binemit::Reloc,
-//     /// Relocation target.
-//     pub reloc_target: RelocationTarget,
-//     /// The offset where to apply the relocation.
-//     pub offset: binemit::CodeOffset,
-//     /// The addend to add to the relocation value.
-//     pub addend: binemit::Addend,
-// }
-
-// /// Destination function. Can be either user function or some special one, like grow_memory.
-// #[derive(Debug, Copy, Clone)]
-// pub enum RelocationTarget {
-//     /// The user function index.
-//     UserFunc(FuncIndex),
-//     /// Function for growing the default memory by the specified amount of pages.
-//     GrowMemory,
-//     /// Function for query current size of the default linear memory.
-//     CurrentMemory,
-// }
 
 pub struct TrapData {
     pub offset: usize,

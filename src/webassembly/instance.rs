@@ -21,8 +21,8 @@ use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::import_object::ImportObject;
 use super::memory::LinearMemory;
-use super::module::Module;
 use super::module::Export;
+use super::module::Module;
 use super::relocation::{Reloc, RelocSink, RelocationType};
 
 pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
@@ -204,11 +204,10 @@ impl Instance {
             // The relocations are relative to the relocation's address plus four bytes
             // TODO: Support architectures other than x64, and other reloc kinds.
             for (i, function_relocs) in relocations.iter().enumerate() {
-                // for r in function_relocs {
-                for (ref reloc, ref reloc_type) in function_relocs {
-                    let target_func_address: isize = match reloc_type {
+                for ref reloc in function_relocs {
+                    let target_func_address: isize = match reloc.target {
                         RelocationType::Normal(func_index) => {
-                            get_function_addr(&FuncIndex::new(*func_index as usize), &import_functions, &functions) as isize
+                            get_function_addr(&FuncIndex::new(func_index as usize), &import_functions, &functions) as isize
                         },
                         RelocationType::CurrentMemory => {
                             current_memory as isize
@@ -244,15 +243,8 @@ impl Instance {
                         // RelocationType::Intrinsic(name) => {
                         //     get_abi_intrinsic(name)?
                         // },
-                        // RelocationTarget::UserFunc(index) => {
-                        //     functions[module.defined_func_index(index).expect(
-                        //         "relocation to imported function not supported yet",
-                        //     )].as_ptr() as isize
-                        // }
-                        // RelocationTarget::GrowMemory => grow_memory as isize,
-                        // RelocationTarget::CurrentMemory => current_memory as isize,
                     };
-                    // print!("FUNCTION {:?}", target_func_address);
+
                     let func_addr =
                         get_function_addr(&FuncIndex::new(i), &import_functions, &functions);
                     match reloc.reloc {
@@ -272,47 +264,6 @@ impl Instance {
                         },
                         _ => panic!("unsupported reloc kind"),
                     }
-                    // let reloc_address = unsafe {
-                    //     (target_func_address.to_owned().as_mut_ptr() as *const u8).offset(reloc.offset as isize)
-                    // };
-
-                    // match reloc.reloc {
-                    //     Reloc::Abs8 => {
-                    //         unsafe {
-                    //             // (reloc_address as *mut usize).write(target_func_address.to_owned().as_ptr() as usize);
-                    //         }
-                    //     }
-                    //     _ => unimplemented!()
-                    // }
-
-                    // let target_func_address: isize = match r.reloc_target {
-                    //     RelocationTarget::UserFunc(index) => {
-                    //         functions[module.defined_func_index(index).expect(
-                    //             "relocation to imported function not supported yet",
-                    //         )].as_ptr() as isize
-                    //     }
-                    //     RelocationTarget::GrowMemory => grow_memory as isize,
-                    //     RelocationTarget::CurrentMemory => current_memory as isize,
-                    // };
-
-                    // let body = &mut functions[i];
-                    // match r.reloc {
-                    //     Reloc::Abs8 => unsafe {
-                    //         let reloc_address = body.as_mut_ptr().offset(r.offset as isize) as i64;
-                    //         let reloc_addend = r.addend;
-                    //         let reloc_abs = target_func_address as i64 + reloc_addend;
-                    //         write_unaligned(reloc_address as *mut i64, reloc_abs);
-                    //     },
-                    //     Reloc::X86PCRel4 => unsafe {
-                    //         let reloc_address = body.as_mut_ptr().offset(r.offset as isize) as isize;
-                    //         let reloc_addend = r.addend as isize;
-                    //         // TODO: Handle overflow.
-                    //         let reloc_delta_i32 =
-                    //             (target_func_address - reloc_address + reloc_addend) as i32;
-                    //         write_unaligned(reloc_address as *mut i32, reloc_delta_i32);
-                    //     },
-                    //     _ => panic!("unsupported reloc kind"),
-                    // }
                 }
             }
 
@@ -547,10 +498,10 @@ impl Clone for Instance {
 
 extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &mut VmCtx) -> i32 {
     let mut instance = &mut vmctx.user_data.instance;
-    instance.memory_mut(memory_index as usize)
-            .grow(size)
-            .unwrap_or(i32::max_value()) // Should be -1 ?
-
+    instance
+        .memory_mut(memory_index as usize)
+        .grow(size)
+        .unwrap_or(i32::max_value()) // Should be -1 ?
 }
 
 extern "C" fn current_memory(memory_index: u32, vmctx: &VmCtx) -> u32 {
