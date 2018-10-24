@@ -37,8 +37,9 @@ use wabt::wat2wasm;
 mod macros;
 pub mod common;
 pub mod integrations;
-pub mod spectests;
 pub mod webassembly;
+#[cfg(test)]
+mod spectests;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]
