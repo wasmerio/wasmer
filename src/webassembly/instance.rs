@@ -458,11 +458,12 @@ impl Instance {
         })
     }
 
-    // pub fn memory_mut(&self, memory_index: usize) -> &mut LinearMemory {
-    //     self.memories
-    //         .get_mut(memory_index)
-    //         .unwrap_or_else(|| panic!("no memory for index {}", memory_index))
-    // }
+    pub fn memory_mut(&mut self, memory_index: usize) -> &mut LinearMemory {
+        let mut memories = Arc::get_mut(&mut self.memories).unwrap();
+        memories
+            .get_mut(memory_index)
+            .unwrap_or_else(|| panic!("no memory for index {}", memory_index))
+    }
 
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
@@ -545,63 +546,17 @@ impl Clone for Instance {
 }
 
 extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &mut VmCtx) -> i32 {
-    return 0;
-    // unimplemented!();
-    // let instance = &vmctx.user_data.instance;
+    let mut instance = &mut vmctx.user_data.instance;
+    instance.memory_mut(memory_index as usize)
+            .grow(size)
+            .unwrap_or(i32::max_value()) // Should be -1 ?
 
-    // let mut memory = instance.memories[memory_index as usize];
-
-    // if let Some(old_size) = memory.grow(size) {
-    //     old_size as i32
-    // } else {
-    //     -1
-    // }
-
-    // unsafe {
-    //     let instance = (*vmctx.offset(4)) as *mut Instance;
-    //     (*instance)
-    //         .memory_mut(memory_index as MemoryIndex)
-    //         .grow(size)
-    //         .unwrap_or(u32::max_value())
-    // }
 }
 
 extern "C" fn current_memory(memory_index: u32, vmctx: &VmCtx) -> u32 {
     let instance = &vmctx.user_data.instance;
     let memory = &instance.memories[memory_index as usize];
     memory.current_size() as u32
-
-    // return 0;
-    // unimplemented!();
-
-    // println!("current_memory::init {:?}", memory_index);
-    // let instance = &vmctx.data().user_data.instance;
-
-    // let memory = &instance.memories[memory_index as usize];
-    // println!(
-    //     "INSPECTED MEMORY ({:?}) {:?}",
-    //     memory.current_size(),
-    //     instance.inspect_memory(0, 0, 1)
-    // );
-
-    // memory.current_size() as u32
-    // return 1;
-    // let vm = unsafe {
-    //     (*vmctx) as *mut VmCtx
-    // };
-    // println!("current_memory::instance {:?} {:?}", memory_index, vmctx);
-    // let memory = &instance.memories[0];
-    // println!("MEMORY INDEX {:?}", memory_index);
-    // unimplemented!()
-    // memory.current_size() as u32
-
-    // unimplemented!();
-    // unsafe {
-    //     let instance = (*vmctx.offset(4)) as *mut Instance;
-    //     (*instance)
-    //         .memory_mut(memory_index as MemoryIndex)
-    //         .current_size()
-    // }
 }
 
 // Because of this bug https://github.com/rust-lang/rust/issues/34123
