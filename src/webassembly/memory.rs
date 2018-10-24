@@ -36,11 +36,10 @@ impl LinearMemory {
             initial, maximum
         );
 
-        let len: u64 = PAGE_SIZE as u64
-            * match maximum {
-                Some(val) => val as u64,
-                None => initial as u64,
-            };
+        let len: u64 = PAGE_SIZE as u64 * match maximum {
+            Some(val) => val as u64,
+            None => initial as u64,
+        };
         let len = if len == 0 { PAGE_SIZE as u64 } else { len };
 
         let mmap = MmapMut::map_anon(len as usize).unwrap();

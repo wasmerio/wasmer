@@ -1,5 +1,6 @@
-//! "" implementations of `ModuleEnvironment` and `FuncEnvironment` for testing
-//! wasm translation.
+//! Implementations of `ModuleEnvironment` (as `Module`) and `FuncEnvironment`
+//! This module helps to translate wasm code into Cranelift Codegen IR
+//! (that will be later compiled in the WebAssembly instance)
 use std::collections::HashMap;
 use std::string::String;
 use std::vec::Vec;
@@ -9,8 +10,8 @@ use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Imm64, Offset32};
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
-    self, AbiParam, ArgumentExtension, ArgumentLoc, ArgumentPurpose, ExtFuncData, ExternalName,
-    FuncRef, Function, InstBuilder, Signature,
+    self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, Function, InstBuilder,
+    Signature,
 };
 use cranelift_codegen::print_errors::pretty_verifier_error;
 use cranelift_codegen::settings::CallConv;
@@ -36,7 +37,6 @@ use cranelift_wasm::{
 };
 
 use super::errors::ErrorKind;
-use super::memory::LinearMemory;
 
 /// Compute a `ir::ExternalName` for a given wasm function index.
 fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
@@ -443,52 +443,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         });
         // println!("FUNC {:?}", func);
         table
-        // let ptr_size = self.ptr_size();
-
-        // let base = self.mod_info.tables_base.unwrap_or_else(|| {
-        //     let tables_offset = self.ptr_size() as i32 * -1;
-        //     let new_base = func.create_global_value(ir::GlobalValueData::VMContext {});
-        //     //  {
-        //     //     offset: tables_offset.into(),
-        //     // });
-        //     // self.mod_info.globals_base = Some(new_base);
-        //     new_base
-        // });
-
-        // let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
-
-        // let new_table_addr_addr = func.create_global_value(ir::GlobalValueData::Load {
-        //     base,
-        //     offset: table_data_offset.into(),
-        //     global_type: self.pointer_type(), // Might be I32
-        // });
-        // let new_table_addr = func.create_global_value(ir::GlobalValueData::Load {
-        //     base: new_table_addr_addr,
-        //     offset: 0.into(),
-        //     global_type: self.pointer_type(), // Might be I32
-        // });
-
-        // let new_table_bounds_addr = func.create_global_value(ir::GlobalValueData::Load {
-        //     base,
-        //     offset: (table_data_offset + ptr_size as i32).into(),
-        //     global_type: self.pointer_type(), // Might be I32
-        // });
-        // let new_table_bounds = func.create_global_value(ir::GlobalValueData::Load {
-        //     base: new_table_bounds_addr,
-        //     offset: 0.into(),
-        //     global_type: I32, // Might be self.pointer_type()
-        // });
-
-        // let table = func.create_table(ir::TableData {
-        //     base_gv: new_table_addr,
-        //     min_size: Imm64::new(0),
-        //     // min_size: (self.mod_info.tables[table_index].size as i64).into(),
-        //     bound_gv: new_table_bounds,
-        //     element_size: (ptr_size as i64).into(),
-        //     index_type: I32,
-        // });
-
-        // table
     }
 
     fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef {
