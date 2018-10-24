@@ -54,6 +54,16 @@ pub fn instantiate(
     Ok(ResultObject { module, instance })
 }
 
+/// The webassembly::instantiateStreaming() function compiles and instantiates
+/// a WebAssembly module directly from a streamed underlying source.
+/// This is the most efficient, optimized way to load wasm code.
+pub fn instantiateStreaming(
+    buffer_source: Vec<u8>,
+    import_object: ImportObject<&str, &str>,
+) -> Result<ResultObject, ErrorKind> {
+    unimplemented!();
+}
+
 /// The webassembly::compile() function compiles a webassembly::Module
 /// from WebAssembly binary code.  This function is useful if it
 /// is necessary to a compile a module before it can be instantiated
