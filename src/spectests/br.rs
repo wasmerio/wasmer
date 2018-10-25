@@ -549,6 +549,7 @@ fn create_module_1() -> ResultObject {
 
 // Line 327
 fn l327_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l327_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("type-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -561,6 +562,7 @@ fn l327_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 328
 fn l328_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l328_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("type-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -573,6 +575,7 @@ fn l328_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 329
 fn l329_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l329_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("type-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -585,6 +588,7 @@ fn l329_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 330
 fn l330_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l330_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("type-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -597,6 +601,7 @@ fn l330_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 332
 fn l332_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l332_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("type-i32-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -609,6 +614,7 @@ fn l332_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 333
 fn l333_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l333_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("type-i64-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -621,6 +627,7 @@ fn l333_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 334
 fn l334_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l334_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("type-f32-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -633,6 +640,7 @@ fn l334_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 335
 fn l335_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l335_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("type-f64-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -645,6 +653,7 @@ fn l335_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 337
 fn l337_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l337_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-block-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -657,6 +666,7 @@ fn l337_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 338
 fn l338_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l338_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-block-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -669,6 +679,7 @@ fn l338_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 339
 fn l339_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l339_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-block-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -681,6 +692,7 @@ fn l339_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 340
 fn l340_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l340_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-block-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -693,6 +705,7 @@ fn l340_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 342
 fn l342_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l342_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-loop-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -705,6 +718,7 @@ fn l342_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 343
 fn l343_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l343_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-loop-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -717,6 +731,7 @@ fn l343_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 344
 fn l344_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l344_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-loop-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -729,6 +744,7 @@ fn l344_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 346
 fn l346_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l346_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-br-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -741,6 +757,7 @@ fn l346_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 348
 fn l348_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l348_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -753,6 +770,7 @@ fn l348_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 349
 fn l349_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l349_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -765,6 +783,7 @@ fn l349_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 350
 fn l350_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l350_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-value-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -777,6 +796,7 @@ fn l350_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 352
 fn l352_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l352_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-index") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -789,6 +809,7 @@ fn l352_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 353
 fn l353_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l353_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -801,6 +822,7 @@ fn l353_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 354
 fn l354_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l354_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-value-index") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -813,6 +835,7 @@ fn l354_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 356
 fn l356_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l356_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-return-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -825,6 +848,7 @@ fn l356_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 358
 fn l358_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l358_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -837,6 +861,7 @@ fn l358_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 359
 fn l359_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l359_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-then") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -849,6 +874,7 @@ fn l359_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 360
 fn l360_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l360_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-then") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -861,6 +887,7 @@ fn l360_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 361
 fn l361_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l361_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-else") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -873,6 +900,7 @@ fn l361_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 362
 fn l362_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l362_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-else") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -885,6 +913,7 @@ fn l362_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 364
 fn l364_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l364_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -897,6 +926,7 @@ fn l364_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 365
 fn l365_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l365_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -909,6 +939,7 @@ fn l365_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 366
 fn l366_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l366_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-second") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -921,6 +952,7 @@ fn l366_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 367
 fn l367_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l367_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-second") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -933,6 +965,7 @@ fn l367_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 368
 fn l368_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l368_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -945,6 +978,7 @@ fn l368_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 370
 fn l370_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l370_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-call-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -957,6 +991,7 @@ fn l370_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 371
 fn l371_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l371_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-call-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -969,6 +1004,7 @@ fn l371_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 372
 fn l372_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l372_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-call-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -981,6 +1017,7 @@ fn l372_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 374
 fn l374_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l374_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-func") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -993,6 +1030,7 @@ fn l374_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 375
 fn l375_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l375_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1005,6 +1043,7 @@ fn l375_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 376
 fn l376_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l376_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1017,6 +1056,7 @@ fn l376_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 377
 fn l377_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l377_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1029,6 +1069,7 @@ fn l377_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 379
 fn l379_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l379_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1041,6 +1082,7 @@ fn l379_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 381
 fn l381_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l381_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-load-address") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1053,6 +1095,7 @@ fn l381_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 382
 fn l382_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l382_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-loadN-address") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1065,6 +1108,7 @@ fn l382_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 384
 fn l384_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l384_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-store-address") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1077,6 +1121,7 @@ fn l384_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 385
 fn l385_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l385_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-store-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1089,6 +1134,7 @@ fn l385_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 386
 fn l386_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l386_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-storeN-address") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1101,6 +1147,7 @@ fn l386_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 387
 fn l387_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l387_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-storeN-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1113,6 +1160,7 @@ fn l387_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 389
 fn l389_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l389_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-unary-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1125,6 +1173,7 @@ fn l389_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 391
 fn l391_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l391_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-binary-left") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1137,6 +1186,7 @@ fn l391_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 392
 fn l392_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l392_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-binary-right") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1149,6 +1199,7 @@ fn l392_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 394
 fn l394_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l394_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-test-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1161,6 +1212,7 @@ fn l394_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 396
 fn l396_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l396_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-compare-left") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1173,6 +1225,7 @@ fn l396_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 397
 fn l397_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l397_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-compare-right") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1185,6 +1238,7 @@ fn l397_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 399
 fn l399_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l399_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-convert-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1197,6 +1251,7 @@ fn l399_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 401
 fn l401_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l401_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-memory.grow-size") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1209,6 +1264,7 @@ fn l401_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 403
 fn l403_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l403_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("nested-block-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1221,6 +1277,7 @@ fn l403_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 404
 fn l404_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l404_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("nested-br-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1233,6 +1290,7 @@ fn l404_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 405
 fn l405_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l405_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("nested-br_if-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1245,6 +1303,7 @@ fn l405_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 406
 fn l406_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l406_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("nested-br_if-value-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1257,6 +1316,7 @@ fn l406_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 407
 fn l407_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l407_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("nested-br_table-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1269,6 +1329,7 @@ fn l407_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 408
 fn l408_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l408_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("nested-br_table-value-index") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),

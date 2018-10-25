@@ -78,6 +78,7 @@ fn create_module_5() -> ResultObject {
 
 // Line 11
 fn l11_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l11_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("memsize") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -111,6 +112,7 @@ fn create_module_6() -> ResultObject {
 
 // Line 13
 fn l13_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l13_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("memsize") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -144,6 +146,7 @@ fn create_module_7() -> ResultObject {
 
 // Line 15
 fn l15_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l15_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("memsize") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),

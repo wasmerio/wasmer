@@ -154,6 +154,7 @@ fn create_module_12() -> ResultObject {
 
 // Line 22
 fn l22_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l22_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("e") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -166,6 +167,7 @@ fn l22_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 23
 fn l23_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l23_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("e") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),

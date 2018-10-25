@@ -38,6 +38,7 @@ fn create_module_1() -> ResultObject {
 
 // Line 7
 fn l7_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l7_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("br") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -50,6 +51,7 @@ fn l7_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 8
 fn l8_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l8_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("br_if") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -62,6 +64,7 @@ fn l8_assert_return_invoke(result_object: &ResultObject) {
 
 // Line 9
 fn l9_assert_return_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "l9_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("br_table") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),

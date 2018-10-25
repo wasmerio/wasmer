@@ -276,6 +276,7 @@ fn l{}_assert_malformed() {{
                 self.buffer.push_str(
                     format!(
                         "fn {}(result_object: &ResultObject) {{
+    println!(\"Executing function {{}}\", \"{}\");
     let func_index = match result_object.module.info.exports.get({:?}) {{
         Some(&Export::Function(index)) => index,
         _ => panic!(\"Function not found\"),
@@ -285,6 +286,7 @@ fn l{}_assert_malformed() {{
     let result = invoke_fn({});
     {}
 }}\n",
+                        func_name,
                         func_name,
                         field,
                         args_types.join(", "),
