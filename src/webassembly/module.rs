@@ -37,6 +37,7 @@ use cranelift_wasm::{
 };
 
 use super::errors::ErrorKind;
+use super::memory::LinearMemory;
 
 /// Compute a `ir::ExternalName` for a given wasm function index.
 fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
@@ -356,9 +357,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         func.create_heap(ir::HeapData {
             base: base,
             min_size: Imm64::new(0),
-            guard_size: Imm64::new(0x8000_0000),
+            guard_size: Imm64::new(LinearMemory::DEFAULT_GUARD_SIZE as i64),
             style: ir::HeapStyle::Static {
-                bound: Imm64::new(0x1_0000_0000),
+                bound: Imm64::new(LinearMemory::DEFAULT_HEAP_SIZE as i64),
             },
             index_type: I32,
         })

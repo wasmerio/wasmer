@@ -30,6 +30,11 @@ pub struct LinearMemory {
 
 /// It holds the raw bytes of memory accessed by a WebAssembly Instance
 impl LinearMemory {
+    pub const WASM_PAGE_SIZE: usize = 1 << 16; // 64 KiB
+    pub const DEFAULT_HEAP_SIZE: usize = 1 << 32; // 4 GiB
+    pub const DEFAULT_GUARD_SIZE: usize = 1 << 31; // 2 GiB
+    pub const DEFAULT_SIZE: usize = Self::DEFAULT_HEAP_SIZE + Self::DEFAULT_GUARD_SIZE; // 8GiB
+
     /// Create a new linear memory instance with specified initial and maximum number of pages.
     ///
     /// `maximum` cannot be set to more than `65536` pages.
