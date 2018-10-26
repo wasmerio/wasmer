@@ -37,40 +37,37 @@ fn create_module_1() -> ResultObject {
 }
 
 // Line 7
-fn l7_assert_return_invoke(result_object: &ResultObject) {
+fn l7_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l7_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("br") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
-    let vm_context = result_object.instance.generate_context();
     let result = invoke_fn(&vm_context);
     assert_eq!(result, ());
 }
 
 // Line 8
-fn l8_assert_return_invoke(result_object: &ResultObject) {
+fn l8_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l8_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("br_if") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
-    let vm_context = result_object.instance.generate_context();
     let result = invoke_fn(&vm_context);
     assert_eq!(result, ());
 }
 
 // Line 9
-fn l9_assert_return_invoke(result_object: &ResultObject) {
+fn l9_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l9_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("br_table") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
-    let vm_context = result_object.instance.generate_context();
     let result = invoke_fn(&vm_context);
     assert_eq!(result, ());
 }
@@ -78,8 +75,9 @@ fn l9_assert_return_invoke(result_object: &ResultObject) {
 #[test]
 fn test_module_1() {
     let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    l7_assert_return_invoke(&result_object);
-    l8_assert_return_invoke(&result_object);
-    l9_assert_return_invoke(&result_object);
+    l7_assert_return_invoke(&result_object, &vm_context);
+    l8_assert_return_invoke(&result_object, &vm_context);
+    l9_assert_return_invoke(&result_object, &vm_context);
 }

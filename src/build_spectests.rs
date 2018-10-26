@@ -157,7 +157,7 @@ use wabt::wat2wasm;\n\n",
             .entry(module)
             .or_insert(Vec::new())
             .iter()
-            .map(|call_str| format!("{}(&result_object);", call_str))
+            .map(|call_str| format!("{}(&result_object, &vm_context);", call_str))
             .collect();
         if calls.len() > 0 {
             self.buffer.push_str(
@@ -165,6 +165,7 @@ use wabt::wat2wasm;\n\n",
                     "\n#[test]
 fn test_module_{}() {{
     let result_object = create_module_{}();
+    let vm_context = result_object.instance.generate_context();
     // We group the calls together
     {}
 }}\n",
@@ -275,14 +276,13 @@ fn l{}_assert_malformed() {{
                 let func_name = format!("l{}_assert_return_invoke", self.last_line);
                 self.buffer.push_str(
                     format!(
-                        "fn {}(result_object: &ResultObject) {{
+                        "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{
     println!(\"Executing function {{}}\", \"{}\");
     let func_index = match result_object.module.info.exports.get({:?}) {{
         Some(&Export::Function(index)) => index,
         _ => panic!(\"Function not found\"),
     }};
     let invoke_fn: fn({}){} = get_instance_function!(result_object.instance, func_index);
-    let vm_context = result_object.instance.generate_context();
     let result = invoke_fn({});
     {}
 }}\n",
