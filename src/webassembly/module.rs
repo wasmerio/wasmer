@@ -344,21 +344,21 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 
     fn make_heap(&mut self, func: &mut ir::Function, _index: MemoryIndex) -> ir::Heap {
-        // OLD
-        // Create a static heap whose base address is stored at `vmctx+0`.
-        let addr = func.create_global_value(ir::GlobalValueData::VMContext);
-        let gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: addr,
-            offset: Offset32::new(0),
+        // Create a static heap whose base address is stored at `vmctx+104`.
+        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+
+        let base = func.create_global_value(ir::GlobalValueData::Load {
+            base: vmctx,
+            offset: Offset32::new(104),
             global_type: self.pointer_type(),
         });
 
         func.create_heap(ir::HeapData {
-            base: gv,
-            min_size: 0.into(),
-            guard_size: 0x8000_0000.into(),
+            base: base,
+            min_size: Imm64::new(0),
+            guard_size: Imm64::new(0x8000_0000),
             style: ir::HeapStyle::Static {
-                bound: 0x1_0000_0000.into(),
+                bound: Imm64::new(0x1_0000_0000),
             },
             index_type: I32,
         })
