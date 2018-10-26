@@ -385,7 +385,9 @@ impl Instance {
     }
 
     pub fn memory_mut(&mut self, memory_index: usize) -> &mut LinearMemory {
-        let mut memories = Arc::get_mut(&mut self.memories).unwrap();
+        let memories = Arc::get_mut(&mut self.memories).unwrap_or_else(|| {
+            panic!("Can't get memories as a mutable pointer (there might exist more mutable pointers to the memories)")
+        });
         memories
             .get_mut(memory_index)
             .unwrap_or_else(|| panic!("no memory for index {}", memory_index))

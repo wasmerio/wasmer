@@ -500,15 +500,15 @@
 (assert_return (invoke "as-br_table-first") (f32.const 0xf32))
 (assert_return (invoke "as-br_table-last") (i32.const 2))
 
-;; (assert_return (invoke "as-store-first"))
-;; (assert_return (invoke "as-store-last"))
+(assert_return (invoke "as-store-first"))
+(assert_return (invoke "as-store-last"))
 
 ;; (assert_return (invoke "as-memory.grow-value") (i32.const 1))
 (assert_return (invoke "as-return-value") (i32.const 1))
 (assert_return (invoke "as-drop-operand"))
 (assert_return (invoke "as-br-value") (f32.const 1))
 (assert_return (invoke "as-set_local-value") (f64.const 1))
-;; (assert_return (invoke "as-load-operand") (i32.const 1))
+(assert_return (invoke "as-load-operand") (i32.const 1))
 
 ;; Invalid syntax
 

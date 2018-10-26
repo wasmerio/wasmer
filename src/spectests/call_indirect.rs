@@ -1560,6 +1560,30 @@ fn l501_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 2 as i32);
 }
 
+// Line 503
+fn l503_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l503_assert_return_invoke");
+    let func_index = match result_object.module.info.exports.get("as-store-first") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, ());
+}
+
+// Line 504
+fn l504_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l504_assert_return_invoke");
+    let func_index = match result_object.module.info.exports.get("as-store-last") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, ());
+}
+
 // Line 507
 fn l507_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l507_assert_return_invoke");
@@ -1606,6 +1630,18 @@ fn l510_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert_eq!(result, 1.0 as f64);
+}
+
+// Line 511
+fn l511_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l511_assert_return_invoke");
+    let func_index = match result_object.module.info.exports.get("as-load-operand") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, 1 as i32);
 }
 
 // Line 516
@@ -1915,8 +1951,11 @@ fn test_module_1() {
     l498_assert_return_invoke(&result_object, &vm_context);
     l500_assert_return_invoke(&result_object, &vm_context);
     l501_assert_return_invoke(&result_object, &vm_context);
+    l503_assert_return_invoke(&result_object, &vm_context);
+    l504_assert_return_invoke(&result_object, &vm_context);
     l507_assert_return_invoke(&result_object, &vm_context);
     l508_assert_return_invoke(&result_object, &vm_context);
     l509_assert_return_invoke(&result_object, &vm_context);
     l510_assert_return_invoke(&result_object, &vm_context);
+    l511_assert_return_invoke(&result_object, &vm_context);
 }
