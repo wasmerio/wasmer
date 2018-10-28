@@ -371,6 +371,15 @@
   (func (export "as-set_local-value") (result f64)
     (local f64) (set_local 0 (call_indirect (type $over-f64) (f64.const 1) (i32.const 7))) (get_local 0)
   )
+  (func (export "as-tee_local-value") (result f64)
+    (local f64) (tee_local 0 (call_indirect (type $over-f64) (f64.const 1) (i32.const 7)))
+  )
+  (global $a (mut f64) (f64.const 10.0))
+  (func (export "as-set_global-value") (result f64)
+    (set_global $a (call_indirect (type $over-f64) (f64.const 1.0) (i32.const 7)))
+    (get_global $a)
+  )
+
   (func (export "as-load-operand") (result i32)
     (i32.load (call_indirect (type $out-i32) (i32.const 0)))
   )
@@ -508,6 +517,8 @@
 (assert_return (invoke "as-drop-operand"))
 (assert_return (invoke "as-br-value") (f32.const 1))
 (assert_return (invoke "as-set_local-value") (f64.const 1))
+(assert_return (invoke "as-tee_local-value") (f64.const 1))
+(assert_return (invoke "as-set_global-value") (f64.const 1.0))
 (assert_return (invoke "as-load-operand") (i32.const 1))
 
 ;; Invalid syntax

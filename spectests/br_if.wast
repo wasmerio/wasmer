@@ -205,6 +205,19 @@
       (i32.const -1)
     )
   )
+  (func (export "as-tee_local-value") (param i32) (result i32)
+    (block (result i32)
+      (tee_local 0 (br_if 0 (i32.const 1) (get_local 0)))
+      (return (i32.const -1))
+    )
+  )
+  (global $a (mut i32) (i32.const 10))
+  (func (export "as-set_global-value") (param i32) (result i32)
+    (block (result i32)
+      (set_global $a (br_if 0 (i32.const 1) (get_local 0)))
+      (return (i32.const -1))
+    )
+  )
 
   (func (export "as-unary-operand") (result f64)
     (block (result f64) (f64.neg (br_if 0 (f64.const 1.0) (i32.const 1))))
@@ -390,6 +403,12 @@
 
 (assert_return (invoke "as-set_local-value" (i32.const 0)) (i32.const -1))
 (assert_return (invoke "as-set_local-value" (i32.const 1)) (i32.const 17))
+
+(assert_return (invoke "as-tee_local-value" (i32.const 0)) (i32.const -1))
+(assert_return (invoke "as-tee_local-value" (i32.const 1)) (i32.const 1))
+
+(assert_return (invoke "as-set_global-value" (i32.const 0)) (i32.const -1))
+(assert_return (invoke "as-set_global-value" (i32.const 1)) (i32.const 1))
 
 (assert_return (invoke "as-unary-operand") (f64.const 1.0))
 (assert_return (invoke "as-binary-left") (i32.const 1))

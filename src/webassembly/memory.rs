@@ -15,7 +15,7 @@ const MAX_PAGES: u32 = 65536;
 /// This linear memory has a stable base address and at the same time allows
 /// for dynamical growing.
 pub struct LinearMemory {
-    mmap: MmapMut,
+    pub mmap: MmapMut,
     // The initial size of the WebAssembly Memory, in units of
     // WebAssembly pages.
     current: u32,
