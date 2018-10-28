@@ -355,11 +355,10 @@ impl Instance {
                 let value: i64 = match global.entity.initializer {
                     GlobalInit::I32Const(n) => n as _,
                     GlobalInit::I64Const(n) => n,
-                    GlobalInit::F32Const(f) => unsafe { mem::transmute(f as f64) },
-                    GlobalInit::F64Const(f) => unsafe { mem::transmute(f) },
+                    GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
+                    GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
                     _ => unimplemented!(),
                 };
-
                 globals_data[i] = value;
             }
         }
@@ -414,7 +413,7 @@ impl Instance {
             self.tables.iter().map(|table| table[..].into()).collect();
         let globals: UncheckedSlice<u8> = self.globals[..].into();
 
-        // println!("GENERATING CONTEXT {:?}", self.tables);
+        // println!("GENERATING CONTEXT {:?}", self.globals);
 
         // assert!(memories.len() >= 1, "modules must have at least one memory");
         // the first memory has a space of `mem::size_of::<VmCtxData>()` rounded

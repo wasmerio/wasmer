@@ -22,6 +22,7 @@ mod f64_;
 mod f64_bitwise;
 mod f64_cmp;
 mod func_ptrs;
+mod globals;
 mod i32_;
 mod i64_;
 mod labels;

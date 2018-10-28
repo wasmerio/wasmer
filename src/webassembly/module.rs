@@ -331,11 +331,18 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
     fn make_global(&mut self, func: &mut ir::Function, index: GlobalIndex) -> GlobalVariable {
         // Just create a dummy `vmctx` global.
-        let offset = ((index * 8) as i64 + 8).into();
-        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext {});
-        let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
+        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+
+        let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset,
+            offset: Offset32::new(96),
+            global_type: self.pointer_type(),
+        });
+
+        let offset = (index * 8) as i64;
+        let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
+            base: globals_base_addr,
+            offset: Imm64::new(offset),
             global_type: self.pointer_type(),
         });
         GlobalVariable::Memory {
