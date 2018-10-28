@@ -27,5 +27,6 @@ mod i64_;
 mod labels;
 mod memory;
 mod set_local;
+mod stack;
 mod switch;
 mod types;
