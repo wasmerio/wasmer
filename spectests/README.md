@@ -22,21 +22,21 @@ Currently supported command assertions:
 
 - [x] Module _mostly implemented_ (it should support named modules `(module $Xx)`).
 - [x] AssertReturn _mostly implemented_ (it should support calls to named modules `(invoke $Xx "call")`).
-- [] AssertReturnCanonicalNan _not implemented yet_
-- [] AssertReturnArithmeticNan _not implemented yet_
-- [] AssertTrap _not implemented yet_
+- [ ] AssertReturnCanonicalNan _not implemented yet_
+- [ ] AssertReturnArithmeticNan _not implemented yet_
+- [ ] AssertTrap _not implemented yet_
 - [x] AssertInvalid _Fully implemented_ (it should not require to do validation separate from compilation)
 - [x] AssertMalformed _Fully implemented_
-- [] AssertUninstantiable _not implemented yet_
-- [] AssertExhaustion _not implemented yet_
-- [] Register _not implemented yet_
-- [] PerformAction _not implemented yet_
+- [ ] AssertUninstantiable _not implemented yet_
+- [ ] AssertExhaustion _not implemented yet_
+- [ ] Register _not implemented yet_
+- [ ] PerformAction _not implemented yet_
 
 ### Specific non-supported cases
 
 There are some cases that we decided to skip for now to fasten the time to release:
 
-- `SKIP_NAN_BITS`: Cases like params to invokations such as: `(f32.const nan:0x200000)` are currently not well supported in tests. Files modified:
+- `SKIP_NAN_BITS`: Cases like invokations with params such as: `(f32.const nan:0x200000)` are currently not well supported in tests. Files modified:
   - `conversions.wast`
 - `SKIP_MEMORY_GROW`: When accessing to the context memories multiple times, the mutable access to a memory index raises an error. For this reason we decied to skip the tests (for now) until this issue is resolved. Files modified:
   - `block.wast`
