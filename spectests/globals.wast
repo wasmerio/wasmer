@@ -247,8 +247,11 @@
 )
 
 ;; mutable globals can be exported
-(module (global (mut f32) (f32.const 0)) (export "a" (global 0)))
-(module (global (export "a") (mut f32) (f32.const 0)))
+;; SKIP_MUTABLE_GLOBALS
+;; (module (global (mut f32) (f32.const 0)) (export "a" (global 0)))
+
+;; SKIP_MUTABLE_GLOBALS
+;; (module (global (export "a") (mut f32) (f32.const 0)))
 
 (assert_invalid
   (module (global f32 (f32.neg (f32.const 0))))
@@ -300,9 +303,11 @@
   "unknown global"
 )
 
-(module
-  (import "spectest" "global_i32" (global i32))
-)
+;; SKIP_MUTABLE_GLOBALS
+;; (module
+;;   (import "spectest" "global_i32" (global i32))
+;; )
+
 (assert_malformed
   (module binary
     "\00asm" "\01\00\00\00"

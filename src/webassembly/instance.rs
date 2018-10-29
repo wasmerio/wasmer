@@ -333,8 +333,9 @@ impl Instance {
             }
             for init in &module.info.data_initializers {
                 debug_assert!(init.base.is_none(), "globalvar base not supported yet");
+                let mut offset = init.offset;
                 let mem_mut = memories[init.memory_index].as_mut();
-                let to_init = &mut mem_mut[init.offset..init.offset + init.data.len()];
+                let to_init = &mut mem_mut[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
         }
@@ -357,7 +358,16 @@ impl Instance {
                     GlobalInit::I64Const(n) => n,
                     GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
                     GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
-                    _ => unimplemented!(),
+                    GlobalInit::GlobalRef(global_index) => {
+                        unimplemented!("GlobalInit::GlobalRef is not yet supported")
+                    }
+                    GlobalInit::Import() => {
+                        // Right now (because there is no module/field fields on the Import
+                        // https://github.com/CraneStation/cranelift/blob/5cabce9b58ff960534d4017fad11f2e78c72ceab/lib/wasm/src/sections_translator.rs#L90-L99 )
+                        // It's impossible to know where to take the global from.
+                        // This should be fixed in Cranelift itself.
+                        unimplemented!("GlobalInit::Import is not yet supported")
+                    }
                 };
                 globals_data[i] = value;
             }

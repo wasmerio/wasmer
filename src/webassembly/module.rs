@@ -734,8 +734,6 @@ impl<'data> ModuleEnvironment<'data> for Module {
         offset: usize,
         data: &'data [u8],
     ) {
-        debug_assert!(base.is_none(), "global-value offsets not supported yet");
-        // debug!("DATA INITIALIZATION {:?} {:?}", memory_index, base);
         self.info.data_initializers.push(DataInitializer {
             memory_index,
             base,

@@ -269,6 +269,9 @@ fn create_module_1() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
+fn start_module_1(result_object: &ResultObject, vm_context: &VmCtx) {
+    result_object.instance.start(&vm_context);
+}
 
 // Line 182
 fn c1_l182_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -808,13 +811,110 @@ fn c46_l245_assert_invalid() {
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 250
+// Line 257
+#[test]
+fn c47_l257_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 10, 1, 125, 0, 67, 0, 0, 0, 0, 140, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 262
+#[test]
+fn c48_l262_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 6, 1, 125, 0, 32, 0, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 267
+#[test]
+fn c49_l267_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 10, 1, 125, 0, 67, 0, 0, 128, 63, 140, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 272
+#[test]
+fn c50_l272_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 7, 1, 127, 0, 65, 0, 1, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 277
+#[test]
+fn c51_l277_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 5, 1, 127, 0, 1, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 282
+#[test]
+fn c52_l282_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 9, 1, 127, 0, 67, 0, 0, 0, 0, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 287
+#[test]
+fn c53_l287_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 8, 1, 127, 0, 65, 0, 65, 0, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 292
+#[test]
+fn c54_l292_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 4, 1, 127, 0, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 297
+#[test]
+fn c55_l297_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 6, 1, 127, 0, 35, 0, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 302
+#[test]
+fn c56_l302_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 11, 2, 127, 0, 35, 1, 11, 127, 0, 65, 0, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 312
+#[test]
+fn c57_l312_assert_malformed() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 2, 148, 128, 128, 128, 0, 1, 8, 115, 112, 101, 99, 116, 101, 115, 116, 10, 103, 108, 111, 98, 97, 108, 95, 105, 51, 50, 3, 127, 2];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+}
+
+// Line 325
+#[test]
+fn c58_l325_assert_malformed() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 2, 148, 128, 128, 128, 0, 1, 8, 115, 112, 101, 99, 116, 101, 115, 116, 10, 103, 108, 111, 98, 97, 108, 95, 105, 51, 50, 3, 127, 255];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+}
+
+// Line 338
 
 #[test]
 fn test_module_1() {
     let result_object = create_module_1();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
+    start_module_1(&result_object, &vm_context);
     c1_l182_action_invoke(&result_object, &vm_context);
     c2_l183_action_invoke(&result_object, &vm_context);
     c3_l184_action_invoke(&result_object, &vm_context);
@@ -862,149 +962,35 @@ fn test_module_1() {
 }
 fn create_module_2() -> ResultObject {
     let module_str = "(module
-      (global (;0;) (mut f32) (f32.const 0x0p+0 (;=0;)))
-      (export \"a\" (global 0)))
-    ";
-    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
-}
-
-// Line 251
-fn create_module_3() -> ResultObject {
-    let module_str = "(module
-      (global (;0;) (mut f32) (f32.const 0x0p+0 (;=0;)))
-      (export \"a\" (global 0)))
-    ";
-    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
-}
-
-// Line 254
-#[test]
-fn c49_l254_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 10, 1, 125, 0, 67, 0, 0, 0, 0, 140, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 259
-#[test]
-fn c50_l259_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 6, 1, 125, 0, 32, 0, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 264
-#[test]
-fn c51_l264_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 10, 1, 125, 0, 67, 0, 0, 128, 63, 140, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 269
-#[test]
-fn c52_l269_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 7, 1, 127, 0, 65, 0, 1, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 274
-#[test]
-fn c53_l274_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 5, 1, 127, 0, 1, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 279
-#[test]
-fn c54_l279_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 9, 1, 127, 0, 67, 0, 0, 0, 0, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 284
-#[test]
-fn c55_l284_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 8, 1, 127, 0, 65, 0, 65, 0, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 289
-#[test]
-fn c56_l289_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 4, 1, 127, 0, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 294
-#[test]
-fn c57_l294_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 6, 1, 127, 0, 35, 0, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 299
-#[test]
-fn c58_l299_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 11, 2, 127, 0, 35, 1, 11, 127, 0, 65, 0, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 303
-fn create_module_4() -> ResultObject {
-    let module_str = "(module
-      (import \"spectest\" \"global_i32\" (global (;0;) i32)))
-    ";
-    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
-}
-
-// Line 307
-#[test]
-fn c60_l307_assert_malformed() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 2, 148, 128, 128, 128, 0, 1, 8, 115, 112, 101, 99, 116, 101, 115, 116, 10, 103, 108, 111, 98, 97, 108, 95, 105, 51, 50, 3, 127, 2];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
-}
-
-// Line 320
-#[test]
-fn c61_l320_assert_malformed() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 2, 148, 128, 128, 128, 0, 1, 8, 115, 112, 101, 99, 116, 101, 115, 116, 10, 103, 108, 111, 98, 97, 108, 95, 105, 51, 50, 3, 127, 255];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
-}
-
-// Line 333
-fn create_module_5() -> ResultObject {
-    let module_str = "(module
       (global (;0;) i32 (i32.const 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
+fn start_module_2(result_object: &ResultObject, vm_context: &VmCtx) {
+    result_object.instance.start(&vm_context);
+}
 
-// Line 337
+// Line 342
 #[test]
-fn c63_l337_assert_malformed() {
+fn c60_l342_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 134, 128, 128, 128, 0, 1, 127, 2, 65, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 349
+// Line 354
 #[test]
-fn c64_l349_assert_malformed() {
+fn c61_l354_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 134, 128, 128, 128, 0, 1, 127, 255, 65, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
+}
+
+#[test]
+fn test_module_2() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    // We group the calls together
+    start_module_2(&result_object, &vm_context);
 }

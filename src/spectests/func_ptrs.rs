@@ -44,6 +44,9 @@ fn create_module_1() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
+fn start_module_1(result_object: &ResultObject, vm_context: &VmCtx) {
+    result_object.instance.start(&vm_context);
+}
 
 // Line 27
 fn c1_l27_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -156,6 +159,7 @@ fn test_module_1() {
     let result_object = create_module_1();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
+    start_module_1(&result_object, &vm_context);
     c1_l27_action_invoke(&result_object, &vm_context);
     c2_l28_action_invoke(&result_object, &vm_context);
     c3_l29_action_invoke(&result_object, &vm_context);
@@ -189,6 +193,9 @@ fn create_module_2() -> ResultObject {
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
+}
+fn start_module_2(result_object: &ResultObject, vm_context: &VmCtx) {
+    result_object.instance.start(&vm_context);
 }
 
 // Line 71
@@ -378,6 +385,7 @@ fn test_module_2() {
     let result_object = create_module_2();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
+    start_module_2(&result_object, &vm_context);
     c13_l71_action_invoke(&result_object, &vm_context);
     c14_l72_action_invoke(&result_object, &vm_context);
     c15_l73_action_invoke(&result_object, &vm_context);
@@ -411,6 +419,9 @@ fn create_module_3() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
+fn start_module_3(result_object: &ResultObject, vm_context: &VmCtx) {
+    result_object.instance.start(&vm_context);
+}
 
 // Line 105
 fn c34_l105_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -441,6 +452,7 @@ fn test_module_3() {
     let result_object = create_module_3();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
+    start_module_3(&result_object, &vm_context);
     c34_l105_action_invoke(&result_object, &vm_context);
     c35_l106_action_invoke(&result_object, &vm_context);
 }
