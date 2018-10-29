@@ -318,7 +318,7 @@ fn create_module_25() -> ResultObject {
 
 // Line 283
 #[test]
-fn l283_assert_invalid() {
+fn c39_l283_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 11, 6, 1, 0, 65, 0, 11, 0];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -326,7 +326,7 @@ fn l283_assert_invalid() {
 
 // Line 292
 #[test]
-fn l292_assert_invalid() {
+fn c40_l292_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 6, 1, 0, 66, 0, 11, 0];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -334,7 +334,7 @@ fn l292_assert_invalid() {
 
 // Line 300
 #[test]
-fn l300_assert_invalid() {
+fn c41_l300_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 104, 11, 0];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -342,7 +342,7 @@ fn l300_assert_invalid() {
 
 // Line 308
 #[test]
-fn l308_assert_invalid() {
+fn c42_l308_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 5, 1, 0, 1, 11, 0];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -350,7 +350,7 @@ fn l308_assert_invalid() {
 
 // Line 316
 #[test]
-fn l316_assert_invalid() {
+fn c43_l316_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 1, 65, 0, 11, 0];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -358,7 +358,7 @@ fn l316_assert_invalid() {
 
 // Line 324
 #[test]
-fn l324_assert_invalid() {
+fn c44_l324_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 1, 11, 0];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");

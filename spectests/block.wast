@@ -167,6 +167,15 @@
   (func (export "as-set_local-value") (result i32)
     (local i32) (set_local 0 (block (result i32) (i32.const 1))) (get_local 0)
   )
+  (func (export "as-tee_local-value") (result i32)
+    (local i32) (tee_local 0 (block (result i32) (i32.const 1)))
+  )
+  (global $a (mut i32) (i32.const 10))
+  (func (export "as-set_global-value") (result i32)
+    (set_global $a (block (result i32) (i32.const 1)))
+    (get_global $a)
+  )
+
   (func (export "as-load-operand") (result i32)
     (i32.load (block (result i32) (i32.const 1)))
   )
@@ -271,12 +280,15 @@
 (assert_return (invoke "as-store-first"))
 (assert_return (invoke "as-store-last"))
 
+;; SKIP_MEMORY_GROW
 ;; (assert_return (invoke "as-memory.grow-value") (i32.const 1))
 (assert_return (invoke "as-call-value") (i32.const 1))
 (assert_return (invoke "as-return-value") (i32.const 1))
 (assert_return (invoke "as-drop-operand"))
 (assert_return (invoke "as-br-value") (i32.const 1))
 (assert_return (invoke "as-set_local-value") (i32.const 1))
+(assert_return (invoke "as-tee_local-value") (i32.const 1))
+(assert_return (invoke "as-set_global-value") (i32.const 1))
 (assert_return (invoke "as-load-operand") (i32.const 1))
 
 (assert_return (invoke "as-unary-operand") (i32.const 0))

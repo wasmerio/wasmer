@@ -414,8 +414,8 @@ fn create_module_1() -> ResultObject {
 }
 
 // Line 217
-fn l217_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l217_assert_return_invoke");
+fn c1_l217_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c1_l217_action_invoke");
     let func_index = match result_object.module.info.exports.get("type-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -426,8 +426,8 @@ fn l217_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 218
-fn l218_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l218_assert_return_invoke");
+fn c2_l218_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c2_l218_action_invoke");
     let func_index = match result_object.module.info.exports.get("type-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -438,8 +438,8 @@ fn l218_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 219
-fn l219_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l219_assert_return_invoke");
+fn c3_l219_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c3_l219_action_invoke");
     let func_index = match result_object.module.info.exports.get("type-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -450,8 +450,8 @@ fn l219_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 220
-fn l220_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l220_assert_return_invoke");
+fn c4_l220_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c4_l220_action_invoke");
     let func_index = match result_object.module.info.exports.get("type-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -462,8 +462,8 @@ fn l220_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 222
-fn l222_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l222_assert_return_invoke");
+fn c5_l222_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c5_l222_action_invoke");
     let func_index = match result_object.module.info.exports.get("type-i32-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -474,8 +474,8 @@ fn l222_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 223
-fn l223_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l223_assert_return_invoke");
+fn c6_l223_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c6_l223_action_invoke");
     let func_index = match result_object.module.info.exports.get("type-i64-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -486,8 +486,8 @@ fn l223_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 224
-fn l224_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l224_assert_return_invoke");
+fn c7_l224_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c7_l224_action_invoke");
     let func_index = match result_object.module.info.exports.get("type-f32-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -498,8 +498,8 @@ fn l224_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 225
-fn l225_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l225_assert_return_invoke");
+fn c8_l225_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c8_l225_action_invoke");
     let func_index = match result_object.module.info.exports.get("type-f64-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -510,8 +510,8 @@ fn l225_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 227
-fn l227_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l227_assert_return_invoke");
+fn c9_l227_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c9_l227_action_invoke");
     let func_index = match result_object.module.info.exports.get("nullary") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -522,8 +522,8 @@ fn l227_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 228
-fn l228_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l228_assert_return_invoke");
+fn c10_l228_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c10_l228_action_invoke");
     let func_index = match result_object.module.info.exports.get("unary") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -534,8 +534,8 @@ fn l228_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 230
-fn l230_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l230_assert_return_invoke");
+fn c11_l230_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c11_l230_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-func-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -546,8 +546,8 @@ fn l230_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 231
-fn l231_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l231_assert_return_invoke");
+fn c12_l231_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c12_l231_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-func-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -558,8 +558,8 @@ fn l231_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 232
-fn l232_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l232_assert_return_invoke");
+fn c13_l232_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c13_l232_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-func-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -570,8 +570,8 @@ fn l232_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 233
-fn l233_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l233_assert_return_invoke");
+fn c14_l233_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c14_l233_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-func-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -582,8 +582,8 @@ fn l233_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 235
-fn l235_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l235_assert_return_invoke");
+fn c15_l235_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c15_l235_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-block-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -594,8 +594,8 @@ fn l235_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 236
-fn l236_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l236_assert_return_invoke");
+fn c16_l236_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c16_l236_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-block-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -606,8 +606,8 @@ fn l236_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 237
-fn l237_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l237_assert_return_invoke");
+fn c17_l237_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c17_l237_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-block-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -618,8 +618,8 @@ fn l237_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 238
-fn l238_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l238_assert_return_invoke");
+fn c18_l238_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c18_l238_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-block-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -630,8 +630,8 @@ fn l238_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 240
-fn l240_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l240_assert_return_invoke");
+fn c19_l240_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c19_l240_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-loop-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -642,8 +642,8 @@ fn l240_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 241
-fn l241_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l241_assert_return_invoke");
+fn c20_l241_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c20_l241_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-loop-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -654,8 +654,8 @@ fn l241_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 242
-fn l242_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l242_assert_return_invoke");
+fn c21_l242_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c21_l242_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-loop-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -666,8 +666,8 @@ fn l242_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 244
-fn l244_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l244_assert_return_invoke");
+fn c22_l244_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c22_l244_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -678,8 +678,8 @@ fn l244_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 246
-fn l246_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l246_assert_return_invoke");
+fn c23_l246_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c23_l246_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -690,8 +690,8 @@ fn l246_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 247
-fn l247_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l247_assert_return_invoke");
+fn c24_l247_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c24_l247_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -702,8 +702,8 @@ fn l247_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 248
-fn l248_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l248_assert_return_invoke");
+fn c25_l248_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c25_l248_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-value-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -714,8 +714,8 @@ fn l248_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 250
-fn l250_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l250_assert_return_invoke");
+fn c26_l250_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c26_l250_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-index") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -726,8 +726,8 @@ fn l250_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 251
-fn l251_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l251_assert_return_invoke");
+fn c27_l251_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c27_l251_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -738,8 +738,8 @@ fn l251_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 252
-fn l252_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l252_assert_return_invoke");
+fn c28_l252_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c28_l252_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-value-index") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -750,8 +750,8 @@ fn l252_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 254
-fn l254_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l254_assert_return_invoke");
+fn c29_l254_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c29_l254_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-return-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -762,8 +762,8 @@ fn l254_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 256
-fn l256_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l256_assert_return_invoke");
+fn c30_l256_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c30_l256_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -774,8 +774,8 @@ fn l256_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 257
-fn l257_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l257_assert_return_invoke");
+fn c31_l257_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c31_l257_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-then") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -786,8 +786,8 @@ fn l257_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 258
-fn l258_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l258_assert_return_invoke");
+fn c32_l258_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c32_l258_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-then") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -798,8 +798,8 @@ fn l258_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 259
-fn l259_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l259_assert_return_invoke");
+fn c33_l259_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c33_l259_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-else") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -810,8 +810,8 @@ fn l259_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 260
-fn l260_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l260_assert_return_invoke");
+fn c34_l260_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c34_l260_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-else") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -822,8 +822,8 @@ fn l260_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 262
-fn l262_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l262_assert_return_invoke");
+fn c35_l262_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c35_l262_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -834,8 +834,8 @@ fn l262_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 263
-fn l263_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l263_assert_return_invoke");
+fn c36_l263_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c36_l263_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -846,8 +846,8 @@ fn l263_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 264
-fn l264_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l264_assert_return_invoke");
+fn c37_l264_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c37_l264_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-second") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -858,8 +858,8 @@ fn l264_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 265
-fn l265_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l265_assert_return_invoke");
+fn c38_l265_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c38_l265_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-second") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -870,8 +870,8 @@ fn l265_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 266
-fn l266_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l266_assert_return_invoke");
+fn c39_l266_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c39_l266_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-cond") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -882,8 +882,8 @@ fn l266_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 268
-fn l268_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l268_assert_return_invoke");
+fn c40_l268_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c40_l268_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -894,8 +894,8 @@ fn l268_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 269
-fn l269_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l269_assert_return_invoke");
+fn c41_l269_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c41_l269_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -906,8 +906,8 @@ fn l269_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 270
-fn l270_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l270_assert_return_invoke");
+fn c42_l270_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c42_l270_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -918,8 +918,8 @@ fn l270_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 272
-fn l272_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l272_assert_return_invoke");
+fn c43_l272_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c43_l272_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-func") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -930,8 +930,8 @@ fn l272_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 273
-fn l273_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l273_assert_return_invoke");
+fn c44_l273_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c44_l273_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -942,8 +942,8 @@ fn l273_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 274
-fn l274_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l274_assert_return_invoke");
+fn c45_l274_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c45_l274_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -954,8 +954,8 @@ fn l274_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 275
-fn l275_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l275_assert_return_invoke");
+fn c46_l275_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c46_l275_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -966,8 +966,8 @@ fn l275_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 277
-fn l277_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l277_assert_return_invoke");
+fn c47_l277_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c47_l277_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -978,8 +978,8 @@ fn l277_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 279
-fn l279_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l279_assert_return_invoke");
+fn c48_l279_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c48_l279_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-load-address") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -990,8 +990,8 @@ fn l279_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 280
-fn l280_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l280_assert_return_invoke");
+fn c49_l280_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c49_l280_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-loadN-address") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1002,8 +1002,8 @@ fn l280_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 282
-fn l282_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l282_assert_return_invoke");
+fn c50_l282_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c50_l282_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-store-address") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1014,8 +1014,8 @@ fn l282_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 283
-fn l283_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l283_assert_return_invoke");
+fn c51_l283_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c51_l283_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-store-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1026,8 +1026,8 @@ fn l283_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 284
-fn l284_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l284_assert_return_invoke");
+fn c52_l284_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c52_l284_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-storeN-address") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1038,8 +1038,8 @@ fn l284_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 285
-fn l285_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l285_assert_return_invoke");
+fn c53_l285_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c53_l285_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-storeN-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1050,8 +1050,8 @@ fn l285_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 287
-fn l287_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l287_assert_return_invoke");
+fn c54_l287_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c54_l287_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-unary-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1062,8 +1062,8 @@ fn l287_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 289
-fn l289_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l289_assert_return_invoke");
+fn c55_l289_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c55_l289_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-binary-left") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1074,8 +1074,8 @@ fn l289_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 290
-fn l290_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l290_assert_return_invoke");
+fn c56_l290_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c56_l290_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-binary-right") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1086,8 +1086,8 @@ fn l290_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 292
-fn l292_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l292_assert_return_invoke");
+fn c57_l292_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c57_l292_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-test-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1098,8 +1098,8 @@ fn l292_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 294
-fn l294_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l294_assert_return_invoke");
+fn c58_l294_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c58_l294_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-compare-left") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1110,8 +1110,8 @@ fn l294_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 295
-fn l295_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l295_assert_return_invoke");
+fn c59_l295_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c59_l295_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-compare-right") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1122,8 +1122,8 @@ fn l295_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 297
-fn l297_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l297_assert_return_invoke");
+fn c60_l297_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c60_l297_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-convert-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1134,8 +1134,8 @@ fn l297_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 299
-fn l299_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l299_assert_return_invoke");
+fn c61_l299_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c61_l299_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-memory.grow-size") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1147,7 +1147,7 @@ fn l299_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 
 // Line 302
 #[test]
-fn l302_assert_invalid() {
+fn c62_l302_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 5, 1, 3, 0, 15, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -1155,7 +1155,7 @@ fn l302_assert_invalid() {
 
 // Line 306
 #[test]
-fn l306_assert_invalid() {
+fn c63_l306_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 6, 1, 4, 0, 1, 15, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -1163,7 +1163,7 @@ fn l306_assert_invalid() {
 
 // Line 310
 #[test]
-fn l310_assert_invalid() {
+fn c64_l310_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 7, 1, 5, 0, 66, 1, 15, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -1174,65 +1174,65 @@ fn test_module_1() {
     let result_object = create_module_1();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    l217_assert_return_invoke(&result_object, &vm_context);
-    l218_assert_return_invoke(&result_object, &vm_context);
-    l219_assert_return_invoke(&result_object, &vm_context);
-    l220_assert_return_invoke(&result_object, &vm_context);
-    l222_assert_return_invoke(&result_object, &vm_context);
-    l223_assert_return_invoke(&result_object, &vm_context);
-    l224_assert_return_invoke(&result_object, &vm_context);
-    l225_assert_return_invoke(&result_object, &vm_context);
-    l227_assert_return_invoke(&result_object, &vm_context);
-    l228_assert_return_invoke(&result_object, &vm_context);
-    l230_assert_return_invoke(&result_object, &vm_context);
-    l231_assert_return_invoke(&result_object, &vm_context);
-    l232_assert_return_invoke(&result_object, &vm_context);
-    l233_assert_return_invoke(&result_object, &vm_context);
-    l235_assert_return_invoke(&result_object, &vm_context);
-    l236_assert_return_invoke(&result_object, &vm_context);
-    l237_assert_return_invoke(&result_object, &vm_context);
-    l238_assert_return_invoke(&result_object, &vm_context);
-    l240_assert_return_invoke(&result_object, &vm_context);
-    l241_assert_return_invoke(&result_object, &vm_context);
-    l242_assert_return_invoke(&result_object, &vm_context);
-    l244_assert_return_invoke(&result_object, &vm_context);
-    l246_assert_return_invoke(&result_object, &vm_context);
-    l247_assert_return_invoke(&result_object, &vm_context);
-    l248_assert_return_invoke(&result_object, &vm_context);
-    l250_assert_return_invoke(&result_object, &vm_context);
-    l251_assert_return_invoke(&result_object, &vm_context);
-    l252_assert_return_invoke(&result_object, &vm_context);
-    l254_assert_return_invoke(&result_object, &vm_context);
-    l256_assert_return_invoke(&result_object, &vm_context);
-    l257_assert_return_invoke(&result_object, &vm_context);
-    l258_assert_return_invoke(&result_object, &vm_context);
-    l259_assert_return_invoke(&result_object, &vm_context);
-    l260_assert_return_invoke(&result_object, &vm_context);
-    l262_assert_return_invoke(&result_object, &vm_context);
-    l263_assert_return_invoke(&result_object, &vm_context);
-    l264_assert_return_invoke(&result_object, &vm_context);
-    l265_assert_return_invoke(&result_object, &vm_context);
-    l266_assert_return_invoke(&result_object, &vm_context);
-    l268_assert_return_invoke(&result_object, &vm_context);
-    l269_assert_return_invoke(&result_object, &vm_context);
-    l270_assert_return_invoke(&result_object, &vm_context);
-    l272_assert_return_invoke(&result_object, &vm_context);
-    l273_assert_return_invoke(&result_object, &vm_context);
-    l274_assert_return_invoke(&result_object, &vm_context);
-    l275_assert_return_invoke(&result_object, &vm_context);
-    l277_assert_return_invoke(&result_object, &vm_context);
-    l279_assert_return_invoke(&result_object, &vm_context);
-    l280_assert_return_invoke(&result_object, &vm_context);
-    l282_assert_return_invoke(&result_object, &vm_context);
-    l283_assert_return_invoke(&result_object, &vm_context);
-    l284_assert_return_invoke(&result_object, &vm_context);
-    l285_assert_return_invoke(&result_object, &vm_context);
-    l287_assert_return_invoke(&result_object, &vm_context);
-    l289_assert_return_invoke(&result_object, &vm_context);
-    l290_assert_return_invoke(&result_object, &vm_context);
-    l292_assert_return_invoke(&result_object, &vm_context);
-    l294_assert_return_invoke(&result_object, &vm_context);
-    l295_assert_return_invoke(&result_object, &vm_context);
-    l297_assert_return_invoke(&result_object, &vm_context);
-    l299_assert_return_invoke(&result_object, &vm_context);
+    c1_l217_action_invoke(&result_object, &vm_context);
+    c2_l218_action_invoke(&result_object, &vm_context);
+    c3_l219_action_invoke(&result_object, &vm_context);
+    c4_l220_action_invoke(&result_object, &vm_context);
+    c5_l222_action_invoke(&result_object, &vm_context);
+    c6_l223_action_invoke(&result_object, &vm_context);
+    c7_l224_action_invoke(&result_object, &vm_context);
+    c8_l225_action_invoke(&result_object, &vm_context);
+    c9_l227_action_invoke(&result_object, &vm_context);
+    c10_l228_action_invoke(&result_object, &vm_context);
+    c11_l230_action_invoke(&result_object, &vm_context);
+    c12_l231_action_invoke(&result_object, &vm_context);
+    c13_l232_action_invoke(&result_object, &vm_context);
+    c14_l233_action_invoke(&result_object, &vm_context);
+    c15_l235_action_invoke(&result_object, &vm_context);
+    c16_l236_action_invoke(&result_object, &vm_context);
+    c17_l237_action_invoke(&result_object, &vm_context);
+    c18_l238_action_invoke(&result_object, &vm_context);
+    c19_l240_action_invoke(&result_object, &vm_context);
+    c20_l241_action_invoke(&result_object, &vm_context);
+    c21_l242_action_invoke(&result_object, &vm_context);
+    c22_l244_action_invoke(&result_object, &vm_context);
+    c23_l246_action_invoke(&result_object, &vm_context);
+    c24_l247_action_invoke(&result_object, &vm_context);
+    c25_l248_action_invoke(&result_object, &vm_context);
+    c26_l250_action_invoke(&result_object, &vm_context);
+    c27_l251_action_invoke(&result_object, &vm_context);
+    c28_l252_action_invoke(&result_object, &vm_context);
+    c29_l254_action_invoke(&result_object, &vm_context);
+    c30_l256_action_invoke(&result_object, &vm_context);
+    c31_l257_action_invoke(&result_object, &vm_context);
+    c32_l258_action_invoke(&result_object, &vm_context);
+    c33_l259_action_invoke(&result_object, &vm_context);
+    c34_l260_action_invoke(&result_object, &vm_context);
+    c35_l262_action_invoke(&result_object, &vm_context);
+    c36_l263_action_invoke(&result_object, &vm_context);
+    c37_l264_action_invoke(&result_object, &vm_context);
+    c38_l265_action_invoke(&result_object, &vm_context);
+    c39_l266_action_invoke(&result_object, &vm_context);
+    c40_l268_action_invoke(&result_object, &vm_context);
+    c41_l269_action_invoke(&result_object, &vm_context);
+    c42_l270_action_invoke(&result_object, &vm_context);
+    c43_l272_action_invoke(&result_object, &vm_context);
+    c44_l273_action_invoke(&result_object, &vm_context);
+    c45_l274_action_invoke(&result_object, &vm_context);
+    c46_l275_action_invoke(&result_object, &vm_context);
+    c47_l277_action_invoke(&result_object, &vm_context);
+    c48_l279_action_invoke(&result_object, &vm_context);
+    c49_l280_action_invoke(&result_object, &vm_context);
+    c50_l282_action_invoke(&result_object, &vm_context);
+    c51_l283_action_invoke(&result_object, &vm_context);
+    c52_l284_action_invoke(&result_object, &vm_context);
+    c53_l285_action_invoke(&result_object, &vm_context);
+    c54_l287_action_invoke(&result_object, &vm_context);
+    c55_l289_action_invoke(&result_object, &vm_context);
+    c56_l290_action_invoke(&result_object, &vm_context);
+    c57_l292_action_invoke(&result_object, &vm_context);
+    c58_l294_action_invoke(&result_object, &vm_context);
+    c59_l295_action_invoke(&result_object, &vm_context);
+    c60_l297_action_invoke(&result_object, &vm_context);
+    c61_l299_action_invoke(&result_object, &vm_context);
 }

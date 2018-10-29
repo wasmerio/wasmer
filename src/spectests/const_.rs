@@ -36,7 +36,7 @@ fn create_module_2() -> ResultObject {
 
 // Line 8
 #[test]
-fn l8_assert_malformed() {
+fn c2_l8_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 49, 48, 48, 48, 48, 48, 48, 48, 48, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -44,7 +44,7 @@ fn l8_assert_malformed() {
 
 // Line 12
 #[test]
-fn l12_assert_malformed() {
+fn c3_l12_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 45, 48, 120, 56, 48, 48, 48, 48, 48, 48, 49, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -76,7 +76,7 @@ fn create_module_4() -> ResultObject {
 
 // Line 19
 #[test]
-fn l19_assert_malformed() {
+fn c6_l19_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 52, 50, 57, 52, 57, 54, 55, 50, 57, 54, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -84,7 +84,7 @@ fn l19_assert_malformed() {
 
 // Line 23
 #[test]
-fn l23_assert_malformed() {
+fn c7_l23_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 45, 50, 49, 52, 55, 52, 56, 51, 54, 52, 57, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -116,7 +116,7 @@ fn create_module_6() -> ResultObject {
 
 // Line 30
 #[test]
-fn l30_assert_malformed() {
+fn c10_l30_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 49, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -124,7 +124,7 @@ fn l30_assert_malformed() {
 
 // Line 34
 #[test]
-fn l34_assert_malformed() {
+fn c11_l34_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 45, 48, 120, 56, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 49, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -156,7 +156,7 @@ fn create_module_8() -> ResultObject {
 
 // Line 41
 #[test]
-fn l41_assert_malformed() {
+fn c14_l41_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 49, 56, 52, 52, 54, 55, 52, 52, 48, 55, 51, 55, 48, 57, 53, 53, 49, 54, 49, 54, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -164,7 +164,7 @@ fn l41_assert_malformed() {
 
 // Line 45
 #[test]
-fn l45_assert_malformed() {
+fn c15_l45_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 45, 57, 50, 50, 51, 51, 55, 50, 48, 51, 54, 56, 53, 52, 55, 55, 53, 56, 48, 57, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -244,7 +244,7 @@ fn create_module_14() -> ResultObject {
 
 // Line 56
 #[test]
-fn l56_assert_malformed() {
+fn c22_l56_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 49, 112, 49, 50, 56, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -252,7 +252,7 @@ fn l56_assert_malformed() {
 
 // Line 60
 #[test]
-fn l60_assert_malformed() {
+fn c23_l60_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 51, 50, 46, 99, 111, 110, 115, 116, 32, 45, 48, 120, 49, 112, 49, 50, 56, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -260,7 +260,7 @@ fn l60_assert_malformed() {
 
 // Line 64
 #[test]
-fn l64_assert_malformed() {
+fn c24_l64_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 49, 46, 102, 102, 102, 102, 102, 102, 112, 49, 50, 55, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -268,7 +268,7 @@ fn l64_assert_malformed() {
 
 // Line 68
 #[test]
-fn l68_assert_malformed() {
+fn c25_l68_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 51, 50, 46, 99, 111, 110, 115, 116, 32, 45, 48, 120, 49, 46, 102, 102, 102, 102, 102, 102, 112, 49, 50, 55, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -300,7 +300,7 @@ fn create_module_16() -> ResultObject {
 
 // Line 75
 #[test]
-fn l75_assert_malformed() {
+fn c28_l75_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 51, 50, 46, 99, 111, 110, 115, 116, 32, 49, 101, 51, 57, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -308,7 +308,7 @@ fn l75_assert_malformed() {
 
 // Line 79
 #[test]
-fn l79_assert_malformed() {
+fn c29_l79_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 51, 50, 46, 99, 111, 110, 115, 116, 32, 45, 49, 101, 51, 57, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -340,7 +340,7 @@ fn create_module_18() -> ResultObject {
 
 // Line 86
 #[test]
-fn l86_assert_malformed() {
+fn c32_l86_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 51, 50, 46, 99, 111, 110, 115, 116, 32, 51, 52, 48, 50, 56, 50, 51, 53, 54, 55, 55, 57, 55, 51, 51, 54, 54, 49, 54, 51, 55, 53, 51, 57, 51, 57, 53, 52, 53, 56, 49, 52, 50, 53, 54, 56, 52, 52, 56, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -348,7 +348,7 @@ fn l86_assert_malformed() {
 
 // Line 90
 #[test]
-fn l90_assert_malformed() {
+fn c33_l90_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 51, 50, 46, 99, 111, 110, 115, 116, 32, 45, 51, 52, 48, 50, 56, 50, 51, 53, 54, 55, 55, 57, 55, 51, 51, 54, 54, 49, 54, 51, 55, 53, 51, 57, 51, 57, 53, 52, 53, 56, 49, 52, 50, 53, 54, 56, 52, 52, 56, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -428,7 +428,7 @@ fn create_module_24() -> ResultObject {
 
 // Line 101
 #[test]
-fn l101_assert_malformed() {
+fn c40_l101_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 49, 112, 49, 48, 50, 52, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -436,7 +436,7 @@ fn l101_assert_malformed() {
 
 // Line 105
 #[test]
-fn l105_assert_malformed() {
+fn c41_l105_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 54, 52, 46, 99, 111, 110, 115, 116, 32, 45, 48, 120, 49, 112, 49, 48, 50, 52, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -444,7 +444,7 @@ fn l105_assert_malformed() {
 
 // Line 109
 #[test]
-fn l109_assert_malformed() {
+fn c42_l109_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 49, 46, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 56, 112, 49, 48, 50, 51, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -452,7 +452,7 @@ fn l109_assert_malformed() {
 
 // Line 113
 #[test]
-fn l113_assert_malformed() {
+fn c43_l113_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 54, 52, 46, 99, 111, 110, 115, 116, 32, 45, 48, 120, 49, 46, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 102, 56, 112, 49, 48, 50, 51, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -484,7 +484,7 @@ fn create_module_26() -> ResultObject {
 
 // Line 120
 #[test]
-fn l120_assert_malformed() {
+fn c46_l120_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 54, 52, 46, 99, 111, 110, 115, 116, 32, 49, 101, 51, 48, 57, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -492,7 +492,7 @@ fn l120_assert_malformed() {
 
 // Line 124
 #[test]
-fn l124_assert_malformed() {
+fn c47_l124_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 54, 52, 46, 99, 111, 110, 115, 116, 32, 45, 49, 101, 51, 48, 57, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -524,7 +524,7 @@ fn create_module_28() -> ResultObject {
 
 // Line 131
 #[test]
-fn l131_assert_malformed() {
+fn c50_l131_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 54, 52, 46, 99, 111, 110, 115, 116, 32, 50, 54, 57, 54, 53, 51, 57, 55, 48, 50, 50, 57, 51, 52, 55, 51, 53, 54, 50, 50, 49, 55, 57, 49, 49, 51, 53, 53, 57, 55, 53, 53, 54, 53, 51, 53, 49, 57, 55, 49, 48, 53, 56, 53, 49, 50, 56, 56, 55, 54, 55, 52, 57, 52, 56, 57, 56, 51, 55, 54, 50, 49, 53, 50, 48, 52, 55, 51, 53, 56, 57, 49, 49, 55, 48, 48, 52, 50, 56, 48, 56, 49, 52, 48, 56, 56, 52, 51, 51, 55, 57, 52, 57, 49, 53, 48, 51, 49, 55, 50, 53, 55, 51, 49, 48, 54, 56, 56, 52, 51, 48, 50, 55, 49, 53, 55, 51, 54, 57, 54, 51, 53, 49, 52, 56, 49, 57, 57, 48, 51, 51, 52, 49, 57, 54, 50, 55, 52, 49, 53, 50, 55, 48, 49, 51, 50, 48, 48, 53, 53, 51, 48, 54, 50, 55, 53, 52, 55, 57, 48, 55, 52, 56, 54, 53, 56, 54, 52, 56, 50, 54, 57, 50, 51, 49, 49, 52, 51, 54, 56, 50, 51, 53, 49, 51, 53, 53, 56, 51, 57, 57, 51, 52, 49, 54, 49, 49, 51, 56, 48, 50, 55, 54, 50, 54, 56, 50, 55, 48, 48, 57, 49, 51, 52, 53, 54, 56, 55, 52, 56, 53, 53, 51, 53, 52, 56, 51, 52, 52, 50, 50, 50, 52, 56, 55, 49, 50, 56, 51, 56, 57, 57, 56, 49, 56, 53, 48, 50, 50, 52, 49, 50, 49, 57, 54, 55, 51, 57, 51, 48, 54, 50, 49, 55, 48, 56, 52, 55, 53, 51, 49, 48, 55, 50, 54, 53, 55, 55, 49, 51, 55, 56, 57, 52, 57, 56, 50, 49, 56, 55, 53, 54, 48, 54, 48, 51, 57, 50, 55, 54, 49, 56, 55, 50, 56, 55, 53, 53, 50, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -532,7 +532,7 @@ fn l131_assert_malformed() {
 
 // Line 135
 #[test]
-fn l135_assert_malformed() {
+fn c51_l135_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 102, 54, 52, 46, 99, 111, 110, 115, 116, 32, 45, 50, 54, 57, 54, 53, 51, 57, 55, 48, 50, 50, 57, 51, 52, 55, 51, 53, 54, 50, 50, 49, 55, 57, 49, 49, 51, 53, 53, 57, 55, 53, 53, 54, 53, 51, 53, 49, 57, 55, 49, 48, 53, 56, 53, 49, 50, 56, 56, 55, 54, 55, 52, 57, 52, 56, 57, 56, 51, 55, 54, 50, 49, 53, 50, 48, 52, 55, 51, 53, 56, 57, 49, 49, 55, 48, 48, 52, 50, 56, 48, 56, 49, 52, 48, 56, 56, 52, 51, 51, 55, 57, 52, 57, 49, 53, 48, 51, 49, 55, 50, 53, 55, 51, 49, 48, 54, 56, 56, 52, 51, 48, 50, 55, 49, 53, 55, 51, 54, 57, 54, 51, 53, 49, 52, 56, 49, 57, 57, 48, 51, 51, 52, 49, 57, 54, 50, 55, 52, 49, 53, 50, 55, 48, 49, 51, 50, 48, 48, 53, 53, 51, 48, 54, 50, 55, 53, 52, 55, 57, 48, 55, 52, 56, 54, 53, 56, 54, 52, 56, 50, 54, 57, 50, 51, 49, 49, 52, 51, 54, 56, 50, 51, 53, 49, 51, 53, 53, 56, 51, 57, 57, 51, 52, 49, 54, 49, 49, 51, 56, 48, 50, 55, 54, 50, 54, 56, 50, 55, 48, 48, 57, 49, 51, 52, 53, 54, 56, 55, 52, 56, 53, 53, 51, 53, 52, 56, 51, 52, 52, 50, 50, 50, 52, 56, 55, 49, 50, 56, 51, 56, 57, 57, 56, 49, 56, 53, 48, 50, 50, 52, 49, 50, 49, 57, 54, 55, 51, 57, 51, 48, 54, 50, 49, 55, 48, 56, 52, 55, 53, 51, 49, 48, 55, 50, 54, 53, 55, 55, 49, 51, 55, 56, 57, 52, 57, 56, 50, 49, 56, 55, 53, 54, 48, 54, 48, 51, 57, 50, 55, 54, 49, 56, 55, 50, 56, 55, 53, 53, 50, 41, 32, 100, 114, 111, 112, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
