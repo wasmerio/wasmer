@@ -30,7 +30,7 @@ Currently supported command assertions:
 - [ ] AssertUninstantiable _not implemented yet_
 - [ ] AssertExhaustion _not implemented yet_
 - [ ] Register _not implemented yet_
-- [ ] PerformAction _not implemented yet_
+- [x] PerformAction _partially implemented, only function invokations for now_
 
 ### Specific non-supported cases
 

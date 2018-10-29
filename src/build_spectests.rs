@@ -253,39 +253,46 @@ fn l{}_assert_malformed() {{
         );
     }
 
-    fn visit_assert_return(&mut self, action: &Action, expected: &Vec<Value>) {
+    fn visit_action(&mut self, action: &Action, expected: Option<&Vec<Value>>) {
         match action {
             Action::Invoke {
                 module,
                 field,
                 args,
             } => {
-                let func_return = if expected.len() > 0 {
-                    format!(" -> {}", wabt2rust_type(&expected[0]))
-                } else {
-                    "".to_string()
+                let (func_return, assertion) = match expected {
+                    Some(expected) => {
+                        let func_return = if expected.len() > 0 {
+                            format!(" -> {}", wabt2rust_type(&expected[0]))
+                        } else {
+                            "".to_string()
+                        };
+                        let expected_result = if expected.len() > 0 {
+                            wabt2rust_value(&expected[0])
+                        } else {
+                            "()".to_string()
+                        };
+                        let assertion = if expected.len() > 0 && is_nan(&expected[0]) {
+                            format!(
+                                "assert!(result.is_nan());
+            assert_eq!(result.is_sign_positive(), ({}).is_sign_positive());",
+                                expected_result
+                            )
+                        } else {
+                            format!("assert_eq!(result, {});", expected_result)
+                        };
+                        (func_return, assertion)
+                    }
+                    None => ("".to_string(), "".to_string()),
                 };
-                let expected_result = if expected.len() > 0 {
-                    wabt2rust_value(&expected[0])
-                } else {
-                    "()".to_string()
-                };
-                let assertion = if expected.len() > 0 && is_nan(&expected[0]) {
-                    format!(
-                        "assert!(result.is_nan());
-    assert_eq!(result.is_sign_positive(), ({}).is_sign_positive());",
-                        expected_result
-                    )
-                } else {
-                    format!("assert_eq!(result, {});", expected_result)
-                };
+
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
                 let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
                 args_types.push("&VmCtx".to_string());
                 let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
                 args_values.push("&vm_context".to_string());
-                let func_name = format!("l{}_assert_return_invoke", self.last_line);
+                let func_name = format!("l{}_action_invoke", self.last_line);
                 self.buffer.push_str(
                     format!(
                         "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{
@@ -325,7 +332,7 @@ fn l{}_assert_malformed() {{
                 self.visit_module(module, name);
             }
             CommandKind::AssertReturn { action, expected } => {
-                self.visit_assert_return(action, expected);
+                self.visit_action(action, Some(expected));
             }
             CommandKind::AssertReturnCanonicalNan { action } => {
                 // Do nothing for now
@@ -355,7 +362,7 @@ fn l{}_assert_malformed() {{
                 // Do nothing for now
             }
             CommandKind::PerformAction(action) => {
-                // Do nothing for now
+                self.visit_action(action, None);
             }
         }
     }

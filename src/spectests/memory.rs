@@ -77,8 +77,8 @@ fn create_module_5() -> ResultObject {
 }
 
 // Line 11
-fn l11_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l11_assert_return_invoke");
+fn l11_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l11_action_invoke");
     let func_index = match result_object.module.info.exports.get("memsize") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -95,7 +95,7 @@ fn test_module_5() {
     let result_object = create_module_5();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    l11_assert_return_invoke(&result_object, &vm_context);
+    l11_action_invoke(&result_object, &vm_context);
 }
 fn create_module_6() -> ResultObject {
     let module_str = "(module
@@ -111,8 +111,8 @@ fn create_module_6() -> ResultObject {
 }
 
 // Line 13
-fn l13_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l13_assert_return_invoke");
+fn l13_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l13_action_invoke");
     let func_index = match result_object.module.info.exports.get("memsize") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -129,7 +129,7 @@ fn test_module_6() {
     let result_object = create_module_6();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    l13_assert_return_invoke(&result_object, &vm_context);
+    l13_action_invoke(&result_object, &vm_context);
 }
 fn create_module_7() -> ResultObject {
     let module_str = "(module
@@ -145,8 +145,8 @@ fn create_module_7() -> ResultObject {
 }
 
 // Line 15
-fn l15_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l15_assert_return_invoke");
+fn l15_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l15_action_invoke");
     let func_index = match result_object.module.info.exports.get("memsize") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -289,5 +289,5 @@ fn test_module_7() {
     let result_object = create_module_7();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    l15_assert_return_invoke(&result_object, &vm_context);
+    l15_action_invoke(&result_object, &vm_context);
 }

@@ -37,8 +37,8 @@ fn create_module_1() -> ResultObject {
 }
 
 // Line 7
-fn l7_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l7_assert_return_invoke");
+fn l7_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l7_action_invoke");
     let func_index = match result_object.module.info.exports.get("br") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -49,8 +49,8 @@ fn l7_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 8
-fn l8_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l8_assert_return_invoke");
+fn l8_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l8_action_invoke");
     let func_index = match result_object.module.info.exports.get("br_if") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -61,8 +61,8 @@ fn l8_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 9
-fn l9_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l9_assert_return_invoke");
+fn l9_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l9_action_invoke");
     let func_index = match result_object.module.info.exports.get("br_table") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -77,7 +77,7 @@ fn test_module_1() {
     let result_object = create_module_1();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    l7_assert_return_invoke(&result_object, &vm_context);
-    l8_assert_return_invoke(&result_object, &vm_context);
-    l9_assert_return_invoke(&result_object, &vm_context);
+    l7_action_invoke(&result_object, &vm_context);
+    l8_action_invoke(&result_object, &vm_context);
+    l9_action_invoke(&result_object, &vm_context);
 }
