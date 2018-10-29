@@ -29,6 +29,7 @@ mod get_local;
 mod globals;
 mod i32_;
 mod i64_;
+mod if_;
 mod labels;
 mod left_to_right;
 mod loop_;

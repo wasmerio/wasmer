@@ -72,7 +72,7 @@ This spectests are currently covered:
 - globals.wast ✅
 - i32.wast ✅
 - i64.wast ✅
-- if.wast
+- if.wast ✅
 - imports.wast
 - inline-module.wast
 - int_exprs.wast
@@ -121,3 +121,4 @@ There are some cases that we decided to skip for now to fasten the time to relea
   - `call.wast`
   - `globals.wast`
   - `loop.wast`
+  - `if.wast`
