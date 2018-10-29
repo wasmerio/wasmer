@@ -63,7 +63,7 @@ This spectests are currently covered:
 - float_memory.wast
 - float_misc.wast
 - forward.wast
-- func.wast
+- func.wast ✅
 - func_ptrs.wast ✅
 - get_local.wast ✅
 - globals.wast ✅
