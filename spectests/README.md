@@ -32,6 +32,83 @@ Currently supported command assertions:
 - [ ] Register _not implemented yet_
 - [x] PerformAction _partially implemented, only function invokations for now_
 
+### Covered spectests
+
+This spectests are currently covered:
+
+- address.wast ✅
+- align.wast ✅
+- binary.wast
+- block.wast ✅
+- br.wast ✅
+- br_if.wast ✅
+- br_table.wast ✅
+- break-drop.wast ✅
+- call.wast ✅
+- call_indirect.wast ✅
+- comments.wast
+- const.wast ✅
+- conversions.wast ✅
+- custom.wast
+- data.wast ✅
+- elem.wast
+- endianness.wast ✅
+- exports.wast ✅
+- f32.wast ✅
+- f32_bitwise.wast ✅
+- f32_cmp.wast ✅
+- f64.wast ✅
+- f64_bitwise.wast ✅
+- f64_cmp.wast ✅
+- fac.wast
+- float_exprs.wast
+- float_literals.wast ✅
+- float_memory.wast
+- float_misc.wast
+- forward.wast
+- func.wast
+- func_ptrs.wast ✅
+- get_local.wast ✅
+- globals.wast ✅
+- i32.wast ✅
+- i64.wast ✅
+- if.wast
+- imports.wast
+- inline-module.wast
+- int_exprs.wast
+- int_literals.wast
+- labels.wast ✅
+- left-to-right.wast ✅
+- linking.wast
+- loop.wast ✅
+- memory.wast ✅
+- memory_grow.wast
+- memory_redundancy.wast ✅
+- memory_trap.wast
+- names.wast ✅
+- nop.wast
+- return.wast ✅
+- run.py
+- select.wast ✅
+- set_local.wast ✅
+- skip-stack-guard-page.wast
+- stack.wast
+- start.wast
+- store_retval.wast
+- switch.wast ✅
+- tee_local.wast ✅
+- token.wast
+- traps.wast
+- type.wast ✅
+- typecheck.wast
+- unreachable.wast
+- unreached-invalid.wast
+- unwind.wast
+- utf8-custom-section-id.wast
+- utf8-import-field.wast
+- utf8-import-module.wast
+- utf8-invalid-encoding.wast
+
 ### Specific non-supported cases
 
 There are some cases that we decided to skip for now to fasten the time to release:
