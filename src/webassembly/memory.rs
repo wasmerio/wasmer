@@ -116,6 +116,18 @@ impl LinearMemory {
 
         Some(prev_pages as i32)
     }
+
+    pub fn carve_slice(&self, offset: u32, size: u32) -> Option<&[u8]> {
+        let start = offset as usize;
+        let end = start + size as usize;
+        let slice: &[u8] = &*self;
+
+        // if end <= self.mapped_size() {
+        Some(&slice[start..end])
+        // } else {
+        //     None
+        // }
+    }
 }
 
 impl fmt::Debug for LinearMemory {
@@ -151,3 +163,18 @@ impl DerefMut for LinearMemory {
         &mut *self.mmap
     }
 }
+
+// impl Clone for LinearMemory {
+//     fn clone(&self) -> LinearMemory {
+//         let mut mmap = MmapMut::map_anon(self.maximum.unwrap_or(self.current) as usize).unwrap();
+//         let mut base_mmap = &self.mmap;
+//         let to_init = &mut mmap[0..self.current as usize];
+//         to_init.copy_from_slice(&self.mmap);
+
+//         return LinearMemory {
+//             mmap: mmap,
+//             current: self.current,
+//             maximum: self.maximum,
+//         };
+//     }
+// }
