@@ -30,6 +30,7 @@ mod i64_;
 mod labels;
 mod loop_;
 mod memory;
+mod memory_redundancy;
 mod set_local;
 mod stack;
 mod switch;
