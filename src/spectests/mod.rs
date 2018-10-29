@@ -31,4 +31,5 @@ mod memory;
 mod set_local;
 mod stack;
 mod switch;
+mod tee_local;
 mod types;
