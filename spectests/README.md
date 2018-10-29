@@ -35,7 +35,7 @@ This spectests are currently covered:
 
 - address.wast ✅
 - align.wast ✅
-- binary.wast
+- binary.wast ✅
 - block.wast ✅
 - br.wast ✅
 - br_if.wast ✅

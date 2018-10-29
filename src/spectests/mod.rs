@@ -5,6 +5,7 @@
 mod _common;
 mod address;
 mod align;
+mod binary;
 mod block;
 mod br;
 mod br_if;
