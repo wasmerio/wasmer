@@ -807,22 +807,10 @@ fn l281_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, ());
 }
 
-// Line 284
-fn l284_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l284_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-call-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
-    assert_eq!(result, 1 as i32);
-}
-
 // Line 285
 fn l285_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l285_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-return-value") {
+    let func_index = match result_object.module.info.exports.get("as-call-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
@@ -834,6 +822,18 @@ fn l285_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 // Line 286
 fn l286_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l286_assert_return_invoke");
+    let func_index = match result_object.module.info.exports.get("as-return-value") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, 1 as i32);
+}
+
+// Line 287
+fn l287_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l287_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-drop-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -843,22 +843,10 @@ fn l286_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, ());
 }
 
-// Line 287
-fn l287_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l287_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-br-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
-    assert_eq!(result, 1 as i32);
-}
-
 // Line 288
 fn l288_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l288_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-set_local-value") {
+    let func_index = match result_object.module.info.exports.get("as-br-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
@@ -870,7 +858,7 @@ fn l288_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 // Line 289
 fn l289_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l289_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-tee_local-value") {
+    let func_index = match result_object.module.info.exports.get("as-set_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
@@ -882,7 +870,7 @@ fn l289_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 // Line 290
 fn l290_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l290_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-set_global-value") {
+    let func_index = match result_object.module.info.exports.get("as-tee_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
@@ -894,6 +882,18 @@ fn l290_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 // Line 291
 fn l291_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l291_assert_return_invoke");
+    let func_index = match result_object.module.info.exports.get("as-set_global-value") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, 1 as i32);
+}
+
+// Line 292
+fn l292_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l292_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-load-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -903,9 +903,9 @@ fn l291_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 293
-fn l293_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l293_assert_return_invoke");
+// Line 294
+fn l294_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l294_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-unary-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -915,9 +915,9 @@ fn l293_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 0 as i32);
 }
 
-// Line 294
-fn l294_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l294_assert_return_invoke");
+// Line 295
+fn l295_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l295_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-binary-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -927,9 +927,9 @@ fn l294_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 12 as i32);
 }
 
-// Line 295
-fn l295_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l295_assert_return_invoke");
+// Line 296
+fn l296_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l296_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-test-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -939,9 +939,9 @@ fn l295_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 0 as i32);
 }
 
-// Line 296
-fn l296_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l296_assert_return_invoke");
+// Line 297
+fn l297_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l297_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-compare-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -951,9 +951,9 @@ fn l296_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 0 as i32);
 }
 
-// Line 298
-fn l298_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l298_assert_return_invoke");
+// Line 299
+fn l299_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l299_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("break-bare") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -963,22 +963,10 @@ fn l298_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 19 as i32);
 }
 
-// Line 299
-fn l299_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l299_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("break-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
-    assert_eq!(result, 18 as i32);
-}
-
 // Line 300
 fn l300_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l300_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("break-repeated") {
+    let func_index = match result_object.module.info.exports.get("break-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
@@ -990,6 +978,18 @@ fn l300_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 // Line 301
 fn l301_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l301_assert_return_invoke");
+    let func_index = match result_object.module.info.exports.get("break-repeated") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, 18 as i32);
+}
+
+// Line 302
+fn l302_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l302_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("break-inner") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -999,9 +999,9 @@ fn l301_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 15 as i32);
 }
 
-// Line 303
-fn l303_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l303_assert_return_invoke");
+// Line 304
+fn l304_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l304_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("effects") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1011,1009 +1011,1009 @@ fn l303_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 306
+// Line 307
 #[test]
-fn l306_assert_invalid() {
+fn l307_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 64, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 310
+// Line 311
 #[test]
-fn l310_assert_invalid() {
+fn l311_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 64, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 314
+// Line 315
 #[test]
-fn l314_assert_invalid() {
+fn l315_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 64, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 318
+// Line 319
 #[test]
-fn l318_assert_invalid() {
+fn l319_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 64, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 323
+// Line 324
 #[test]
-fn l323_assert_invalid() {
+fn l324_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 64, 65, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 329
+// Line 330
 #[test]
-fn l329_assert_invalid() {
+fn l330_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 64, 66, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 335
+// Line 336
 #[test]
-fn l335_assert_invalid() {
+fn l336_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64, 67, 0, 0, 128, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 341
+// Line 342
 #[test]
-fn l341_assert_invalid() {
+fn l342_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 64, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 348
+// Line 349
 #[test]
-fn l348_assert_invalid() {
+fn l349_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 127, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 354
+// Line 355
 #[test]
-fn l354_assert_invalid() {
+fn l355_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 126, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 360
+// Line 361
 #[test]
-fn l360_assert_invalid() {
+fn l361_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 125, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 366
+// Line 367
 #[test]
-fn l366_assert_invalid() {
+fn l367_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 124, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 373
+// Line 374
 #[test]
-fn l373_assert_invalid() {
+fn l374_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 8, 1, 6, 0, 2, 127, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 379
+// Line 380
 #[test]
-fn l379_assert_invalid() {
+fn l380_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 8, 1, 6, 0, 2, 126, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 385
+// Line 386
 #[test]
-fn l385_assert_invalid() {
+fn l386_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 8, 1, 6, 0, 2, 125, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 391
+// Line 392
 #[test]
-fn l391_assert_invalid() {
+fn l392_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 8, 1, 6, 0, 2, 124, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 398
+// Line 399
 #[test]
-fn l398_assert_invalid() {
+fn l399_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 127, 66, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 404
+// Line 405
 #[test]
-fn l404_assert_invalid() {
+fn l405_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 127, 67, 0, 0, 0, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 410
+// Line 411
 #[test]
-fn l410_assert_invalid() {
+fn l411_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 127, 68, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 416
+// Line 417
 #[test]
-fn l416_assert_invalid() {
+fn l417_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 126, 65, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 422
+// Line 423
 #[test]
-fn l422_assert_invalid() {
+fn l423_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 126, 67, 0, 0, 0, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 428
+// Line 429
 #[test]
-fn l428_assert_invalid() {
+fn l429_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 126, 68, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 434
+// Line 435
 #[test]
-fn l434_assert_invalid() {
+fn l435_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 125, 65, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 440
+// Line 441
 #[test]
-fn l440_assert_invalid() {
+fn l441_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 125, 66, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 446
+// Line 447
 #[test]
-fn l446_assert_invalid() {
+fn l447_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 125, 68, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 452
+// Line 453
 #[test]
-fn l452_assert_invalid() {
+fn l453_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 124, 65, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 458
+// Line 459
 #[test]
-fn l458_assert_invalid() {
+fn l459_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 124, 66, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 464
+// Line 465
 #[test]
-fn l464_assert_invalid() {
+fn l465_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 124, 67, 0, 0, 0, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 471
+// Line 472
 #[test]
-fn l471_assert_invalid() {
+fn l472_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 126, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 477
+// Line 478
 #[test]
-fn l477_assert_invalid() {
+fn l478_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 125, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 483
+// Line 484
 #[test]
-fn l483_assert_invalid() {
+fn l484_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 124, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 489
+// Line 490
 #[test]
-fn l489_assert_invalid() {
+fn l490_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 127, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 495
+// Line 496
 #[test]
-fn l495_assert_invalid() {
+fn l496_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 125, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 501
+// Line 502
 #[test]
-fn l501_assert_invalid() {
+fn l502_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 124, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 507
+// Line 508
 #[test]
-fn l507_assert_invalid() {
+fn l508_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 127, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 513
+// Line 514
 #[test]
-fn l513_assert_invalid() {
+fn l514_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 126, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 519
+// Line 520
 #[test]
-fn l519_assert_invalid() {
+fn l520_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 124, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 525
+// Line 526
 #[test]
-fn l525_assert_invalid() {
+fn l526_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 127, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 531
+// Line 532
 #[test]
-fn l531_assert_invalid() {
+fn l532_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 126, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 537
+// Line 538
 #[test]
-fn l537_assert_invalid() {
+fn l538_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 125, 0, 0, 0, 27, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 544
+// Line 545
 #[test]
-fn l544_assert_invalid() {
+fn l545_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 127, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 550
+// Line 551
 #[test]
-fn l550_assert_invalid() {
+fn l551_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 126, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 556
+// Line 557
 #[test]
-fn l556_assert_invalid() {
+fn l557_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 125, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 562
+// Line 563
 #[test]
-fn l562_assert_invalid() {
+fn l563_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 124, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 569
+// Line 570
 #[test]
-fn l569_assert_invalid() {
+fn l570_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 127, 12, 0, 65, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 575
+// Line 576
 #[test]
-fn l575_assert_invalid() {
+fn l576_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 126, 12, 0, 66, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 581
+// Line 582
 #[test]
-fn l581_assert_invalid() {
+fn l582_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 14, 1, 12, 0, 2, 125, 12, 0, 67, 0, 0, 128, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 587
+// Line 588
 #[test]
-fn l587_assert_invalid() {
+fn l588_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 124, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 594
+// Line 595
 #[test]
-fn l594_assert_invalid() {
+fn l595_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 127, 1, 12, 0, 65, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 600
+// Line 601
 #[test]
-fn l600_assert_invalid() {
+fn l601_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 126, 1, 12, 0, 66, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 606
+// Line 607
 #[test]
-fn l606_assert_invalid() {
+fn l607_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 125, 1, 12, 0, 67, 0, 0, 128, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 612
+// Line 613
 #[test]
-fn l612_assert_invalid() {
+fn l613_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 124, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 619
+// Line 620
 #[test]
-fn l619_assert_invalid() {
+fn l620_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 13, 1, 11, 0, 2, 127, 66, 1, 12, 0, 65, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 625
+// Line 626
 #[test]
-fn l625_assert_invalid() {
+fn l626_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 127, 67, 0, 0, 128, 63, 12, 0, 65, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 631
+// Line 632
 #[test]
-fn l631_assert_invalid() {
+fn l632_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 127, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 65, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 637
+// Line 638
 #[test]
-fn l637_assert_invalid() {
+fn l638_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 13, 1, 11, 0, 2, 126, 65, 1, 12, 0, 66, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 643
+// Line 644
 #[test]
-fn l643_assert_invalid() {
+fn l644_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 126, 67, 0, 0, 128, 63, 12, 0, 66, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 649
+// Line 650
 #[test]
-fn l649_assert_invalid() {
+fn l650_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 126, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 66, 1, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 655
+// Line 656
 #[test]
-fn l655_assert_invalid() {
+fn l656_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 125, 65, 1, 12, 0, 67, 0, 0, 128, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 661
+// Line 662
 #[test]
-fn l661_assert_invalid() {
+fn l662_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 125, 66, 1, 12, 0, 67, 0, 0, 128, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 667
+// Line 668
 #[test]
-fn l667_assert_invalid() {
+fn l668_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 23, 1, 21, 0, 2, 125, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 67, 0, 0, 128, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 673
+// Line 674
 #[test]
-fn l673_assert_invalid() {
+fn l674_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 126, 65, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 679
+// Line 680
 #[test]
-fn l679_assert_invalid() {
+fn l680_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 124, 66, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 685
+// Line 686
 #[test]
-fn l685_assert_invalid() {
+fn l686_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 23, 1, 21, 0, 2, 124, 67, 0, 0, 128, 63, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 692
+// Line 693
 #[test]
-fn l692_assert_invalid() {
+fn l693_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 2, 127, 1, 12, 0, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 698
+// Line 699
 #[test]
-fn l698_assert_invalid() {
+fn l699_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 14, 1, 12, 0, 2, 126, 1, 12, 0, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 704
+// Line 705
 #[test]
-fn l704_assert_invalid() {
+fn l705_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 17, 1, 15, 0, 2, 125, 1, 12, 0, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 710
+// Line 711
 #[test]
-fn l710_assert_invalid() {
+fn l711_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 124, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 717
+// Line 718
 #[test]
-fn l717_assert_invalid() {
+fn l718_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 127, 66, 1, 12, 0, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 723
+// Line 724
 #[test]
-fn l723_assert_invalid() {
+fn l724_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 127, 67, 0, 0, 128, 63, 12, 0, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 729
+// Line 730
 #[test]
-fn l729_assert_invalid() {
+fn l730_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 22, 1, 20, 0, 2, 127, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 735
+// Line 736
 #[test]
-fn l735_assert_invalid() {
+fn l736_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 126, 65, 1, 12, 0, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 741
+// Line 742
 #[test]
-fn l741_assert_invalid() {
+fn l742_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 126, 67, 0, 0, 128, 63, 12, 0, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 747
+// Line 748
 #[test]
-fn l747_assert_invalid() {
+fn l748_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 22, 1, 20, 0, 2, 126, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 753
+// Line 754
 #[test]
-fn l753_assert_invalid() {
+fn l754_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 125, 65, 1, 12, 0, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 759
+// Line 760
 #[test]
-fn l759_assert_invalid() {
+fn l760_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 125, 66, 1, 12, 0, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 765
+// Line 766
 #[test]
-fn l765_assert_invalid() {
+fn l766_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 125, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 771
+// Line 772
 #[test]
-fn l771_assert_invalid() {
+fn l772_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 22, 1, 20, 0, 2, 124, 65, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 777
+// Line 778
 #[test]
-fn l777_assert_invalid() {
+fn l778_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 22, 1, 20, 0, 2, 124, 66, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 783
+// Line 784
 #[test]
-fn l783_assert_invalid() {
+fn l784_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 124, 67, 0, 0, 128, 63, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 790
+// Line 791
 #[test]
-fn l790_assert_invalid() {
+fn l791_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 127, 2, 127, 65, 1, 12, 1, 11, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 796
+// Line 797
 #[test]
-fn l796_assert_invalid() {
+fn l797_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 126, 2, 126, 66, 1, 12, 1, 11, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 802
+// Line 803
 #[test]
-fn l802_assert_invalid() {
+fn l803_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 125, 2, 125, 67, 0, 0, 128, 63, 12, 1, 11, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 808
+// Line 809
 #[test]
-fn l808_assert_invalid() {
+fn l809_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 23, 1, 21, 0, 2, 124, 2, 124, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 1, 11, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 815
+// Line 816
 #[test]
-fn l815_assert_invalid() {
+fn l816_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 127, 2, 64, 12, 1, 11, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 821
+// Line 822
 #[test]
-fn l821_assert_invalid() {
+fn l822_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 126, 2, 64, 12, 1, 11, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 827
+// Line 828
 #[test]
-fn l827_assert_invalid() {
+fn l828_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 125, 2, 64, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 833
+// Line 834
 #[test]
-fn l833_assert_invalid() {
+fn l834_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 23, 1, 21, 0, 2, 124, 2, 64, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 840
+// Line 841
 #[test]
-fn l840_assert_invalid() {
+fn l841_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 17, 1, 15, 0, 2, 127, 2, 127, 1, 12, 1, 11, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 846
+// Line 847
 #[test]
-fn l846_assert_invalid() {
+fn l847_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 17, 1, 15, 0, 2, 126, 2, 126, 1, 12, 1, 11, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 852
+// Line 853
 #[test]
-fn l852_assert_invalid() {
+fn l853_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 125, 2, 125, 1, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 858
+// Line 859
 #[test]
-fn l858_assert_invalid() {
+fn l859_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 24, 1, 22, 0, 2, 124, 2, 124, 1, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 865
+// Line 866
 #[test]
-fn l865_assert_invalid() {
+fn l866_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 127, 2, 127, 66, 1, 12, 1, 11, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 873
+// Line 874
 #[test]
-fn l873_assert_invalid() {
+fn l874_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 127, 2, 127, 67, 0, 0, 128, 63, 12, 1, 11, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 881
+// Line 882
 #[test]
-fn l881_assert_invalid() {
+fn l882_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 127, 2, 127, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 1, 11, 65, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 889
+// Line 890
 #[test]
-fn l889_assert_invalid() {
+fn l890_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 126, 2, 126, 65, 1, 12, 1, 11, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 897
+// Line 898
 #[test]
-fn l897_assert_invalid() {
+fn l898_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 126, 2, 126, 67, 0, 0, 128, 63, 12, 1, 11, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 905
+// Line 906
 #[test]
-fn l905_assert_invalid() {
+fn l906_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 126, 2, 126, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 1, 11, 66, 1, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 913
+// Line 914
 #[test]
-fn l913_assert_invalid() {
+fn l914_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 125, 2, 125, 65, 1, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 921
+// Line 922
 #[test]
-fn l921_assert_invalid() {
+fn l922_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 125, 2, 125, 66, 1, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 929
+// Line 930
 #[test]
-fn l929_assert_invalid() {
+fn l930_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 28, 1, 26, 0, 2, 125, 2, 125, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 937
+// Line 938
 #[test]
-fn l937_assert_invalid() {
+fn l938_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 124, 2, 124, 65, 1, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 945
+// Line 946
 #[test]
-fn l945_assert_invalid() {
+fn l946_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 124, 2, 124, 66, 1, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 953
+// Line 954
 #[test]
-fn l953_assert_invalid() {
+fn l954_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 28, 1, 26, 0, 2, 124, 2, 124, 67, 0, 0, 128, 63, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 962
+// Line 963
 #[test]
-fn l962_assert_invalid() {
+fn l963_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 10, 1, 8, 0, 2, 64, 12, 0, 11, 104, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 968
+// Line 969
 #[test]
-fn l968_assert_invalid() {
+fn l969_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 10, 1, 8, 0, 2, 64, 12, 0, 11, 122, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 974
+// Line 975
 #[test]
-fn l974_assert_invalid() {
+fn l975_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 10, 1, 8, 0, 2, 64, 12, 0, 11, 142, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 980
+// Line 981
 #[test]
-fn l980_assert_invalid() {
+fn l981_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 10, 1, 8, 0, 2, 64, 12, 0, 11, 156, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 987
+// Line 988
 #[test]
-fn l987_assert_invalid() {
+fn l988_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 64, 1, 12, 0, 11, 104, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 993
+// Line 994
 #[test]
-fn l993_assert_invalid() {
+fn l994_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 64, 1, 12, 0, 11, 122, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 999
+// Line 1000
 #[test]
-fn l999_assert_invalid() {
+fn l1000_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 64, 1, 12, 0, 11, 142, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1005
+// Line 1006
 #[test]
-fn l1005_assert_invalid() {
+fn l1006_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 64, 1, 12, 0, 11, 156, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1012
+// Line 1013
 #[test]
-fn l1012_assert_invalid() {
+fn l1013_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64, 66, 9, 12, 0, 11, 122, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1018
+// Line 1019
 #[test]
-fn l1018_assert_invalid() {
+fn l1019_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 64, 67, 0, 0, 16, 65, 12, 0, 11, 142, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1024
+// Line 1025
 #[test]
-fn l1024_assert_invalid() {
+fn l1025_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 64, 68, 0, 0, 0, 0, 0, 0, 34, 64, 12, 0, 11, 156, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1030
+// Line 1031
 #[test]
-fn l1030_assert_invalid() {
+fn l1031_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64, 65, 9, 12, 0, 11, 104, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1036
+// Line 1037
 #[test]
-fn l1036_assert_invalid() {
+fn l1037_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 64, 67, 0, 0, 16, 65, 12, 0, 11, 142, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1042
+// Line 1043
 #[test]
-fn l1042_assert_invalid() {
+fn l1043_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 64, 68, 0, 0, 0, 0, 0, 0, 34, 64, 12, 0, 11, 156, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1048
+// Line 1049
 #[test]
-fn l1048_assert_invalid() {
+fn l1049_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64, 65, 9, 12, 0, 11, 104, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1054
+// Line 1055
 #[test]
-fn l1054_assert_invalid() {
+fn l1055_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64, 66, 9, 12, 0, 11, 122, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1060
+// Line 1061
 #[test]
-fn l1060_assert_invalid() {
+fn l1061_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 64, 68, 0, 0, 0, 0, 0, 0, 34, 64, 12, 0, 11, 156, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1066
+// Line 1067
 #[test]
-fn l1066_assert_invalid() {
+fn l1067_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64, 65, 9, 12, 0, 11, 104, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1072
+// Line 1073
 #[test]
-fn l1072_assert_invalid() {
+fn l1073_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64, 66, 9, 12, 0, 11, 122, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1078
+// Line 1079
 #[test]
-fn l1078_assert_invalid() {
+fn l1079_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 64, 67, 0, 0, 16, 65, 12, 0, 11, 142, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 1085
+// Line 1086
 #[test]
-fn l1085_assert_malformed() {
+fn l1086_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 98, 108, 111, 99, 107, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 1089
+// Line 1090
 #[test]
-fn l1089_assert_malformed() {
+fn l1090_assert_malformed() {
     let wasm_binary = [40, 102, 117, 110, 99, 32, 98, 108, 111, 99, 107, 32, 36, 97, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -2047,7 +2047,6 @@ fn test_module_1() {
     l278_assert_return_invoke(&result_object, &vm_context);
     l280_assert_return_invoke(&result_object, &vm_context);
     l281_assert_return_invoke(&result_object, &vm_context);
-    l284_assert_return_invoke(&result_object, &vm_context);
     l285_assert_return_invoke(&result_object, &vm_context);
     l286_assert_return_invoke(&result_object, &vm_context);
     l287_assert_return_invoke(&result_object, &vm_context);
@@ -2055,13 +2054,14 @@ fn test_module_1() {
     l289_assert_return_invoke(&result_object, &vm_context);
     l290_assert_return_invoke(&result_object, &vm_context);
     l291_assert_return_invoke(&result_object, &vm_context);
-    l293_assert_return_invoke(&result_object, &vm_context);
+    l292_assert_return_invoke(&result_object, &vm_context);
     l294_assert_return_invoke(&result_object, &vm_context);
     l295_assert_return_invoke(&result_object, &vm_context);
     l296_assert_return_invoke(&result_object, &vm_context);
-    l298_assert_return_invoke(&result_object, &vm_context);
+    l297_assert_return_invoke(&result_object, &vm_context);
     l299_assert_return_invoke(&result_object, &vm_context);
     l300_assert_return_invoke(&result_object, &vm_context);
     l301_assert_return_invoke(&result_object, &vm_context);
-    l303_assert_return_invoke(&result_object, &vm_context);
+    l302_assert_return_invoke(&result_object, &vm_context);
+    l304_assert_return_invoke(&result_object, &vm_context);
 }

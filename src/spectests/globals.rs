@@ -680,22 +680,10 @@ fn l226_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 229
-fn l229_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l229_assert_return_invoke");
+// Line 230
+fn l230_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l230_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-call-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
-    assert_eq!(result, 6 as i32);
-}
-
-// Line 231
-fn l231_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l231_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-return-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
@@ -707,6 +695,18 @@ fn l231_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 // Line 232
 fn l232_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l232_assert_return_invoke");
+    let func_index = match result_object.module.info.exports.get("as-return-value") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&vm_context);
+    assert_eq!(result, 6 as i32);
+}
+
+// Line 233
+fn l233_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l233_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-drop-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -716,9 +716,9 @@ fn l232_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, ());
 }
 
-// Line 233
-fn l233_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l233_assert_return_invoke");
+// Line 234
+fn l234_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l234_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-br-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -728,22 +728,10 @@ fn l233_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 6 as i32);
 }
 
-// Line 235
-fn l235_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l235_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-set_local-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i32, &VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1 as i32, &vm_context);
-    assert_eq!(result, 6 as i32);
-}
-
 // Line 236
 fn l236_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l236_assert_return_invoke");
-    let func_index = match result_object.module.info.exports.get("as-tee_local-value") {
+    let func_index = match result_object.module.info.exports.get("as-set_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
@@ -755,6 +743,18 @@ fn l236_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 // Line 237
 fn l237_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     println!("Executing function {}", "l237_assert_return_invoke");
+    let func_index = match result_object.module.info.exports.get("as-tee_local-value") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    assert_eq!(result, 6 as i32);
+}
+
+// Line 238
+fn l238_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l238_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_global-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -764,9 +764,9 @@ fn l237_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 6 as i32);
 }
 
-// Line 239
-fn l239_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l239_assert_return_invoke");
+// Line 240
+fn l240_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l240_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-unary-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -776,9 +776,9 @@ fn l239_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 0 as i32);
 }
 
-// Line 240
-fn l240_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l240_assert_return_invoke");
+// Line 241
+fn l241_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l241_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-binary-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -788,9 +788,9 @@ fn l240_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 36 as i32);
 }
 
-// Line 241
-fn l241_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l241_assert_return_invoke");
+// Line 242
+fn l242_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "l242_assert_return_invoke");
     let func_index = match result_object.module.info.exports.get("as-compare-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -800,15 +800,15 @@ fn l241_assert_return_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 244
+// Line 245
 #[test]
-fn l244_assert_invalid() {
+fn l245_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 6, 9, 1, 125, 0, 67, 0, 0, 0, 0, 11, 10, 8, 1, 6, 0, 65, 1, 36, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 249
+// Line 250
 
 #[test]
 fn test_module_1() {
@@ -849,16 +849,16 @@ fn test_module_1() {
     l224_assert_return_invoke(&result_object, &vm_context);
     l225_assert_return_invoke(&result_object, &vm_context);
     l226_assert_return_invoke(&result_object, &vm_context);
-    l229_assert_return_invoke(&result_object, &vm_context);
-    l231_assert_return_invoke(&result_object, &vm_context);
+    l230_assert_return_invoke(&result_object, &vm_context);
     l232_assert_return_invoke(&result_object, &vm_context);
     l233_assert_return_invoke(&result_object, &vm_context);
-    l235_assert_return_invoke(&result_object, &vm_context);
+    l234_assert_return_invoke(&result_object, &vm_context);
     l236_assert_return_invoke(&result_object, &vm_context);
     l237_assert_return_invoke(&result_object, &vm_context);
-    l239_assert_return_invoke(&result_object, &vm_context);
+    l238_assert_return_invoke(&result_object, &vm_context);
     l240_assert_return_invoke(&result_object, &vm_context);
     l241_assert_return_invoke(&result_object, &vm_context);
+    l242_assert_return_invoke(&result_object, &vm_context);
 }
 fn create_module_2() -> ResultObject {
     let module_str = "(module
@@ -869,7 +869,7 @@ fn create_module_2() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-// Line 250
+// Line 251
 fn create_module_3() -> ResultObject {
     let module_str = "(module
       (global (;0;) (mut f32) (f32.const 0x0p+0 (;=0;)))
@@ -879,87 +879,87 @@ fn create_module_3() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-// Line 253
+// Line 254
 #[test]
-fn l253_assert_invalid() {
+fn l254_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 10, 1, 125, 0, 67, 0, 0, 0, 0, 140, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 258
+// Line 259
 #[test]
-fn l258_assert_invalid() {
+fn l259_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 6, 1, 125, 0, 32, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 263
+// Line 264
 #[test]
-fn l263_assert_invalid() {
+fn l264_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 10, 1, 125, 0, 67, 0, 0, 128, 63, 140, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 268
+// Line 269
 #[test]
-fn l268_assert_invalid() {
+fn l269_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 7, 1, 127, 0, 65, 0, 1, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 273
+// Line 274
 #[test]
-fn l273_assert_invalid() {
+fn l274_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 5, 1, 127, 0, 1, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 278
+// Line 279
 #[test]
-fn l278_assert_invalid() {
+fn l279_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 9, 1, 127, 0, 67, 0, 0, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 283
+// Line 284
 #[test]
-fn l283_assert_invalid() {
+fn l284_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 8, 1, 127, 0, 65, 0, 65, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 288
+// Line 289
 #[test]
-fn l288_assert_invalid() {
+fn l289_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 4, 1, 127, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 293
+// Line 294
 #[test]
-fn l293_assert_invalid() {
+fn l294_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 6, 1, 127, 0, 35, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 298
+// Line 299
 #[test]
-fn l298_assert_invalid() {
+fn l299_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 11, 2, 127, 0, 35, 1, 11, 127, 0, 65, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 302
+// Line 303
 fn create_module_4() -> ResultObject {
     let module_str = "(module
       (import \"spectest\" \"global_i32\" (global (;0;) i32)))
@@ -968,23 +968,23 @@ fn create_module_4() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-// Line 306
+// Line 307
 #[test]
-fn l306_assert_malformed() {
+fn l307_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 2, 148, 128, 128, 128, 0, 1, 8, 115, 112, 101, 99, 116, 101, 115, 116, 10, 103, 108, 111, 98, 97, 108, 95, 105, 51, 50, 3, 127, 2];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 319
+// Line 320
 #[test]
-fn l319_assert_malformed() {
+fn l320_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 2, 148, 128, 128, 128, 0, 1, 8, 115, 112, 101, 99, 116, 101, 115, 116, 10, 103, 108, 111, 98, 97, 108, 95, 105, 51, 50, 3, 127, 255];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 332
+// Line 333
 fn create_module_5() -> ResultObject {
     let module_str = "(module
       (global (;0;) i32 (i32.const 0)))
@@ -993,17 +993,17 @@ fn create_module_5() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-// Line 336
+// Line 337
 #[test]
-fn l336_assert_malformed() {
+fn l337_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 134, 128, 128, 128, 0, 1, 127, 2, 65, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 348
+// Line 349
 #[test]
-fn l348_assert_malformed() {
+fn l349_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 6, 134, 128, 128, 128, 0, 1, 127, 255, 65, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
