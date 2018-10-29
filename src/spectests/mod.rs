@@ -13,6 +13,7 @@ mod br_table;
 mod break_drop;
 mod call;
 mod call_indirect;
+mod comments;
 mod const_;
 mod conversions;
 mod data;

@@ -43,7 +43,7 @@ This spectests are currently covered:
 - break-drop.wast ✅
 - call.wast ✅
 - call_indirect.wast ✅
-- comments.wast
+- comments.wast ✅
 - const.wast ✅
 - conversions.wast ✅
 - custom.wast
