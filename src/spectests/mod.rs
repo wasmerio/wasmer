@@ -28,6 +28,7 @@ mod globals;
 mod i32_;
 mod i64_;
 mod labels;
+mod loop_;
 mod memory;
 mod set_local;
 mod stack;

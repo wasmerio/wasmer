@@ -43,3 +43,4 @@ There are some cases that we decided to skip for now to fasten the time to relea
   - `call_indirect.wast`
   - `call.wast`
   - `globals.wast`
+  - `loop.wast`
