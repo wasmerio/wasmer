@@ -13,6 +13,7 @@ mod break_drop;
 mod call;
 mod call_indirect;
 mod const_;
+mod conversions;
 mod data;
 mod exports;
 mod f32_;
