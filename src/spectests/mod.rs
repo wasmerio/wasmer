@@ -28,6 +28,7 @@ mod globals;
 mod i32_;
 mod i64_;
 mod labels;
+mod left_to_right;
 mod loop_;
 mod memory;
 mod memory_redundancy;
