@@ -34,7 +34,7 @@ fn create_module_1() -> ResultObject {
 
 // Line 44
 #[test]
-fn l44_assert_malformed() {
+fn c1_l44_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -42,7 +42,7 @@ fn l44_assert_malformed() {
 
 // Line 48
 #[test]
-fn l48_assert_malformed() {
+fn c2_l48_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 36, 120, 32, 105, 51, 50, 41, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
@@ -50,7 +50,7 @@ fn l48_assert_malformed() {
 
 // Line 53
 #[test]
-fn l53_assert_invalid() {
+fn c3_l53_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 0, 2, 127, 127];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -58,7 +58,7 @@ fn l53_assert_invalid() {
 
 // Line 57
 #[test]
-fn l57_assert_invalid() {
+fn c4_l57_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 0, 2, 127, 127];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");

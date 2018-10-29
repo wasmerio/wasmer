@@ -160,8 +160,8 @@ fn create_module_1() -> ResultObject {
 }
 
 // Line 130
-fn l130_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l130_action_invoke");
+fn c1_l130_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c1_l130_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-expr") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -172,8 +172,8 @@ fn l130_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 131
-fn l131_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l131_action_invoke");
+fn c2_l131_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c2_l131_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-stack") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -184,8 +184,8 @@ fn l131_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 132
-fn l132_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l132_action_invoke");
+fn c3_l132_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c3_l132_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-mixed") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -202,9 +202,9 @@ fn test_module_1() {
     let result_object = create_module_1();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    l130_action_invoke(&result_object, &vm_context);
-    l131_action_invoke(&result_object, &vm_context);
-    l132_action_invoke(&result_object, &vm_context);
+    c1_l130_action_invoke(&result_object, &vm_context);
+    c2_l131_action_invoke(&result_object, &vm_context);
+    c3_l132_action_invoke(&result_object, &vm_context);
 }
 fn create_module_2() -> ResultObject {
     let module_str = "(module

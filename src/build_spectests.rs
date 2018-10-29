@@ -115,6 +115,7 @@ fn wabt2rust_value(v: &Value) -> String {
 struct WastTestGenerator {
     last_module: i32,
     last_line: u64,
+    command_no: i32,
     filename: String,
     script_parser: ScriptParser,
     module_calls: HashMap<i32, Vec<String>>,
@@ -131,6 +132,7 @@ impl WastTestGenerator {
         WastTestGenerator {
             last_module: 0,
             last_line: 0,
+            command_no: 0,
             filename: filename.to_string(),
             script_parser: script,
             buffer: buffer,
@@ -156,11 +158,16 @@ use wabt::wat2wasm;\n\n",
             self.buffer
                 .push_str(&format!("\n// Line {}\n", self.last_line));
             self.visit_command(&kind);
+            self.command_no = self.command_no + 1;
         }
         for n in 1..self.last_module + 1 {
             self.flush_module_calls(n);
         }
     }
+    fn command_name(&self) -> String {
+        format!("c{}_l{}", self.command_no, self.last_line)
+    }
+
     fn flush_module_calls(&mut self, module: i32) {
         let calls: Vec<String> = self
             .module_calls
@@ -219,12 +226,12 @@ fn test_module_{}() {{
         self.buffer.push_str(
             format!(
                 "#[test]
-fn l{}_assert_invalid() {{
+fn {}_assert_invalid() {{
     let wasm_binary = {:?};
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), \"WASM should not compile as is invalid\");
 }}\n",
-                self.last_line,
+                self.command_name(),
                 wasm_binary,
                 // We do this to ident four spaces back
                 // String::from_utf8_lossy(&wasm_binary),
@@ -239,12 +246,12 @@ fn l{}_assert_invalid() {{
         self.buffer.push_str(
             format!(
                 "#[test]
-fn l{}_assert_malformed() {{
+fn {}_assert_malformed() {{
     let wasm_binary = {:?};
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), \"WASM should not compile as is malformed\");
 }}\n",
-                self.last_line,
+                self.command_name(),
                 wasm_binary,
                 // We do this to ident four spaces back
                 // String::from_utf8_lossy(&wasm_binary),
@@ -293,7 +300,7 @@ fn l{}_assert_malformed() {{
                 args_types.push("&VmCtx".to_string());
                 let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
                 args_values.push("&vm_context".to_string());
-                let func_name = format!("l{}_action_invoke", self.last_line);
+                let func_name = format!("{}_action_invoke", self.command_name());
                 self.buffer.push_str(
                     format!(
                         "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{

@@ -96,8 +96,8 @@ fn create_module_1() -> ResultObject {
 }
 
 // Line 59
-fn l59_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l59_action_invoke");
+fn c1_l59_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c1_l59_action_invoke");
     let func_index = match result_object.module.info.exports.get("test_store_to_load") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -108,8 +108,8 @@ fn l59_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 60
-fn l60_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l60_action_invoke");
+fn c2_l60_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c2_l60_action_invoke");
     let func_index = match result_object.module.info.exports.get("zero_everything") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -120,8 +120,8 @@ fn l60_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 61
-fn l61_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l61_action_invoke");
+fn c3_l61_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c3_l61_action_invoke");
     let func_index = match result_object.module.info.exports.get("test_redundant_load") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -132,8 +132,8 @@ fn l61_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 62
-fn l62_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l62_action_invoke");
+fn c4_l62_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c4_l62_action_invoke");
     let func_index = match result_object.module.info.exports.get("zero_everything") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -144,8 +144,8 @@ fn l62_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 63
-fn l63_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l63_action_invoke");
+fn c5_l63_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c5_l63_action_invoke");
     let func_index = match result_object.module.info.exports.get("test_dead_store") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -156,8 +156,8 @@ fn l63_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 64
-fn l64_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l64_action_invoke");
+fn c6_l64_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c6_l64_action_invoke");
     let func_index = match result_object.module.info.exports.get("zero_everything") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -168,8 +168,8 @@ fn l64_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 65
-fn l65_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
-    println!("Executing function {}", "l65_action_invoke");
+fn c7_l65_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c7_l65_action_invoke");
     let func_index = match result_object.module.info.exports.get("malloc_aliasing") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -184,11 +184,11 @@ fn test_module_1() {
     let result_object = create_module_1();
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    l59_action_invoke(&result_object, &vm_context);
-    l60_action_invoke(&result_object, &vm_context);
-    l61_action_invoke(&result_object, &vm_context);
-    l62_action_invoke(&result_object, &vm_context);
-    l63_action_invoke(&result_object, &vm_context);
-    l64_action_invoke(&result_object, &vm_context);
-    l65_action_invoke(&result_object, &vm_context);
+    c1_l59_action_invoke(&result_object, &vm_context);
+    c2_l60_action_invoke(&result_object, &vm_context);
+    c3_l61_action_invoke(&result_object, &vm_context);
+    c4_l62_action_invoke(&result_object, &vm_context);
+    c5_l63_action_invoke(&result_object, &vm_context);
+    c6_l64_action_invoke(&result_object, &vm_context);
+    c7_l65_action_invoke(&result_object, &vm_context);
 }
