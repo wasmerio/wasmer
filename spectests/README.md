@@ -57,7 +57,7 @@ This spectests are currently covered:
 - f64.wast ✅
 - f64_bitwise.wast ✅
 - f64_cmp.wast ✅
-- fac.wast
+- fac.wast ✅
 - float_exprs.wast
 - float_literals.wast ✅
 - float_memory.wast

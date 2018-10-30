@@ -25,6 +25,7 @@ mod f32_cmp;
 mod f64_;
 mod f64_bitwise;
 mod f64_cmp;
+mod fac;
 mod float_literals;
 mod func;
 mod func_ptrs;
