@@ -51,4 +51,8 @@ wabt = "0.6.0"
 # maplit = "1.0.1"
 
 [features]
+default = ["fast-tests"]
+
 debug = []
+# This feature will allow cargo test to run much faster
+fast-tests = []
