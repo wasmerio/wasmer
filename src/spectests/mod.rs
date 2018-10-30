@@ -52,6 +52,7 @@ mod select;
 mod set_local;
 mod stack;
 mod start;
+mod store_retval;
 mod switch;
 mod tee_local;
 mod types;

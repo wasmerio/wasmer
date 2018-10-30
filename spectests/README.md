@@ -90,7 +90,7 @@ This spectests are currently covered:
 - skip-stack-guard-page.wast
 - stack.wast ✅
 - start.wast ✅
-- store_retval.wast
+- store_retval.wast ✅
 - switch.wast ✅
 - tee_local.wast ✅
 - token.wast
