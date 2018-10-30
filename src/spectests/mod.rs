@@ -30,6 +30,7 @@ mod fac;
 mod float_exprs;
 mod float_literals;
 mod float_memory;
+mod float_misc;
 mod func;
 mod func_ptrs;
 mod get_local;
