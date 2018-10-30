@@ -73,7 +73,7 @@ This spectests are currently covered:
 - imports.wast
 - inline-module.wast
 - int_exprs.wast ✅
-- int_literals.wast
+- int_literals.wast ✅
 - labels.wast ✅
 - left-to-right.wast ✅
 - linking.wast

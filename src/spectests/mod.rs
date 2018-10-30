@@ -40,6 +40,7 @@ mod i32_;
 mod i64_;
 mod if_;
 mod int_exprs;
+mod int_literals;
 mod labels;
 mod left_to_right;
 mod loop_;
