@@ -7,6 +7,7 @@
 )]
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::spectest_importobject;
+use std::{f32, f64};
 use wabt::wat2wasm;
 
 
@@ -2828,7 +2829,7 @@ fn c212_l527_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2144337921)).is_sign_positive());
 }
 
 // Line 529
@@ -3065,7 +3066,7 @@ fn c230_l574_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9222246136947933185)).is_sign_positive());
 }
 
 // Line 576

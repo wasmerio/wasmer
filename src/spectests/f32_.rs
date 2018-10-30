@@ -7,6 +7,7 @@
 )]
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::spectest_importobject;
+use std::{f32, f64};
 use wabt::wat2wasm;
 
 
@@ -417,8 +418,8 @@ fn c29_l47_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 48
@@ -429,8 +430,8 @@ fn c30_l48_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 49
@@ -441,8 +442,8 @@ fn c31_l49_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 50
@@ -453,8 +454,8 @@ fn c32_l50_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 51
@@ -817,8 +818,8 @@ fn c69_l87_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 88
@@ -829,8 +830,8 @@ fn c70_l88_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 89
@@ -841,8 +842,8 @@ fn c71_l89_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 90
@@ -853,8 +854,8 @@ fn c72_l90_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 91
@@ -1217,8 +1218,8 @@ fn c109_l127_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 128
@@ -1229,8 +1230,8 @@ fn c110_l128_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 129
@@ -1241,8 +1242,8 @@ fn c111_l129_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 130
@@ -1253,8 +1254,8 @@ fn c112_l130_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 131
@@ -1617,8 +1618,8 @@ fn c149_l167_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.5 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 168
@@ -1629,8 +1630,8 @@ fn c150_l168_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.5 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 169
@@ -1641,8 +1642,8 @@ fn c151_l169_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.5 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 170
@@ -1653,8 +1654,8 @@ fn c152_l170_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.5 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 171
@@ -2017,8 +2018,8 @@ fn c189_l207_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-1.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 208
@@ -2029,8 +2030,8 @@ fn c190_l208_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-1.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 209
@@ -2041,8 +2042,8 @@ fn c191_l209_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(1.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 210
@@ -2053,8 +2054,8 @@ fn c192_l210_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(1.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 211
@@ -2417,8 +2418,8 @@ fn c229_l247_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 248
@@ -2429,8 +2430,8 @@ fn c230_l248_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-6.2831855 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 249
@@ -2441,8 +2442,8 @@ fn c231_l249_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 250
@@ -2453,8 +2454,8 @@ fn c232_l250_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(6.2831855 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 251
@@ -2770,7 +2771,7 @@ fn c265_l283_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 284
@@ -2806,7 +2807,7 @@ fn c268_l286_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 287
@@ -2817,8 +2818,8 @@ fn c269_l287_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 288
@@ -2829,8 +2830,8 @@ fn c270_l288_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 289
@@ -2841,8 +2842,8 @@ fn c271_l289_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 290
@@ -2853,8 +2854,8 @@ fn c272_l290_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 291
@@ -2881,8 +2882,8 @@ fn c281_l299_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 300
@@ -2893,8 +2894,8 @@ fn c282_l300_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 301
@@ -2905,8 +2906,8 @@ fn c283_l301_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 302
@@ -2917,8 +2918,8 @@ fn c284_l302_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 303
@@ -2929,8 +2930,8 @@ fn c285_l303_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 304
@@ -2941,8 +2942,8 @@ fn c286_l304_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 305
@@ -2953,8 +2954,8 @@ fn c287_l305_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 306
@@ -2965,8 +2966,8 @@ fn c288_l306_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 307
@@ -2977,8 +2978,8 @@ fn c289_l307_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 308
@@ -2989,8 +2990,8 @@ fn c290_l308_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 309
@@ -3001,8 +3002,8 @@ fn c291_l309_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 310
@@ -3013,8 +3014,8 @@ fn c292_l310_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 311
@@ -3025,8 +3026,8 @@ fn c293_l311_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 312
@@ -3037,8 +3038,8 @@ fn c294_l312_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 313
@@ -3049,8 +3050,8 @@ fn c295_l313_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 314
@@ -3061,8 +3062,8 @@ fn c296_l314_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 315
@@ -3073,8 +3074,8 @@ fn c297_l315_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 316
@@ -3085,8 +3086,8 @@ fn c298_l316_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 317
@@ -3097,8 +3098,8 @@ fn c299_l317_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 318
@@ -3109,8 +3110,8 @@ fn c300_l318_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 319
@@ -3121,8 +3122,8 @@ fn c301_l319_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 320
@@ -3133,8 +3134,8 @@ fn c302_l320_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 321
@@ -3145,8 +3146,8 @@ fn c303_l321_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 322
@@ -3157,8 +3158,8 @@ fn c304_l322_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 323
@@ -3169,8 +3170,8 @@ fn c305_l323_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 324
@@ -3181,8 +3182,8 @@ fn c306_l324_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 325
@@ -3193,8 +3194,8 @@ fn c307_l325_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 326
@@ -3205,8 +3206,8 @@ fn c308_l326_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 327
@@ -3217,8 +3218,8 @@ fn c309_l327_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 328
@@ -3233,8 +3234,8 @@ fn c312_l330_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 331
@@ -3757,8 +3758,8 @@ fn c429_l447_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 448
@@ -3769,8 +3770,8 @@ fn c430_l448_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 449
@@ -3781,8 +3782,8 @@ fn c431_l449_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 450
@@ -3793,8 +3794,8 @@ fn c432_l450_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 451
@@ -4157,8 +4158,8 @@ fn c469_l487_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 488
@@ -4169,8 +4170,8 @@ fn c470_l488_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 489
@@ -4181,8 +4182,8 @@ fn c471_l489_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 490
@@ -4193,8 +4194,8 @@ fn c472_l490_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 491
@@ -4557,8 +4558,8 @@ fn c509_l527_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 528
@@ -4569,8 +4570,8 @@ fn c510_l528_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 529
@@ -4581,8 +4582,8 @@ fn c511_l529_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 530
@@ -4593,8 +4594,8 @@ fn c512_l530_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 531
@@ -4957,8 +4958,8 @@ fn c549_l567_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.5 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 568
@@ -4969,8 +4970,8 @@ fn c550_l568_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.5 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 569
@@ -4981,8 +4982,8 @@ fn c551_l569_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.5 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 570
@@ -4993,8 +4994,8 @@ fn c552_l570_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.5 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 571
@@ -5357,8 +5358,8 @@ fn c589_l607_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-1.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 608
@@ -5369,8 +5370,8 @@ fn c590_l608_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-1.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 609
@@ -5381,8 +5382,8 @@ fn c591_l609_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(1.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 610
@@ -5393,8 +5394,8 @@ fn c592_l610_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(1.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 611
@@ -5757,8 +5758,8 @@ fn c629_l647_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 648
@@ -5769,8 +5770,8 @@ fn c630_l648_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-6.2831855 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 649
@@ -5781,8 +5782,8 @@ fn c631_l649_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 650
@@ -5793,8 +5794,8 @@ fn c632_l650_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(6.2831855 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 651
@@ -6122,7 +6123,7 @@ fn c666_l684_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 685
@@ -6134,7 +6135,7 @@ fn c667_l685_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 686
@@ -6157,8 +6158,8 @@ fn c669_l687_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 688
@@ -6169,8 +6170,8 @@ fn c670_l688_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 689
@@ -6181,8 +6182,8 @@ fn c671_l689_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 690
@@ -6193,8 +6194,8 @@ fn c672_l690_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 691
@@ -6221,8 +6222,8 @@ fn c681_l699_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 700
@@ -6233,8 +6234,8 @@ fn c682_l700_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 701
@@ -6245,8 +6246,8 @@ fn c683_l701_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 702
@@ -6257,8 +6258,8 @@ fn c684_l702_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 703
@@ -6269,8 +6270,8 @@ fn c685_l703_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 704
@@ -6281,8 +6282,8 @@ fn c686_l704_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 705
@@ -6293,8 +6294,8 @@ fn c687_l705_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 706
@@ -6305,8 +6306,8 @@ fn c688_l706_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 707
@@ -6317,8 +6318,8 @@ fn c689_l707_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 708
@@ -6329,8 +6330,8 @@ fn c690_l708_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 709
@@ -6341,8 +6342,8 @@ fn c691_l709_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 710
@@ -6353,8 +6354,8 @@ fn c692_l710_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 711
@@ -6365,8 +6366,8 @@ fn c693_l711_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 712
@@ -6377,8 +6378,8 @@ fn c694_l712_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 713
@@ -6389,8 +6390,8 @@ fn c695_l713_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 714
@@ -6401,8 +6402,8 @@ fn c696_l714_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 715
@@ -6413,8 +6414,8 @@ fn c697_l715_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 716
@@ -6425,8 +6426,8 @@ fn c698_l716_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 717
@@ -6437,8 +6438,8 @@ fn c699_l717_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 718
@@ -6449,8 +6450,8 @@ fn c700_l718_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 719
@@ -6461,8 +6462,8 @@ fn c701_l719_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 720
@@ -6473,8 +6474,8 @@ fn c702_l720_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 721
@@ -6485,8 +6486,8 @@ fn c703_l721_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 722
@@ -6497,8 +6498,8 @@ fn c704_l722_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 723
@@ -6509,8 +6510,8 @@ fn c705_l723_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 724
@@ -6521,8 +6522,8 @@ fn c706_l724_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 725
@@ -6533,8 +6534,8 @@ fn c707_l725_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 726
@@ -6545,8 +6546,8 @@ fn c708_l726_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 727
@@ -6559,8 +6560,8 @@ fn c710_l728_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 729
@@ -6571,8 +6572,8 @@ fn c711_l729_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 730
@@ -7457,8 +7458,8 @@ fn c869_l887_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 888
@@ -7469,8 +7470,8 @@ fn c870_l888_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 889
@@ -7481,8 +7482,8 @@ fn c871_l889_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 890
@@ -7493,8 +7494,8 @@ fn c872_l890_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 891
@@ -7857,8 +7858,8 @@ fn c909_l927_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 928
@@ -7869,8 +7870,8 @@ fn c910_l928_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 929
@@ -7881,8 +7882,8 @@ fn c911_l929_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 930
@@ -7893,8 +7894,8 @@ fn c912_l930_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 931
@@ -8257,8 +8258,8 @@ fn c949_l967_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.5 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 968
@@ -8269,8 +8270,8 @@ fn c950_l968_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.5 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 969
@@ -8281,8 +8282,8 @@ fn c951_l969_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.5 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 970
@@ -8293,8 +8294,8 @@ fn c952_l970_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.5 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 971
@@ -8657,8 +8658,8 @@ fn c989_l1007_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-1.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1008
@@ -8669,8 +8670,8 @@ fn c990_l1008_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-1.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1009
@@ -8681,8 +8682,8 @@ fn c991_l1009_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(1.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1010
@@ -8693,8 +8694,8 @@ fn c992_l1010_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(1.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1011
@@ -9010,7 +9011,7 @@ fn c1025_l1043_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6.2831855 as f32, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1044
@@ -9022,7 +9023,7 @@ fn c1026_l1044_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6.2831855 as f32, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1045
@@ -9034,7 +9035,7 @@ fn c1027_l1045_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6.2831855 as f32, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1046
@@ -9046,7 +9047,7 @@ fn c1028_l1046_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6.2831855 as f32, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1047
@@ -9057,8 +9058,8 @@ fn c1029_l1047_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1048
@@ -9069,8 +9070,8 @@ fn c1030_l1048_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-6.2831855 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1049
@@ -9081,8 +9082,8 @@ fn c1031_l1049_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1050
@@ -9093,8 +9094,8 @@ fn c1032_l1050_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(6.2831855 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1051
@@ -9362,7 +9363,7 @@ fn c1061_l1079_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1080
@@ -9374,7 +9375,7 @@ fn c1062_l1080_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1081
@@ -9386,7 +9387,7 @@ fn c1063_l1081_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1082
@@ -9398,7 +9399,7 @@ fn c1064_l1082_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1083
@@ -9410,7 +9411,7 @@ fn c1065_l1083_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1084
@@ -9422,7 +9423,7 @@ fn c1066_l1084_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1085
@@ -9434,7 +9435,7 @@ fn c1067_l1085_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1086
@@ -9446,7 +9447,7 @@ fn c1068_l1086_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1087
@@ -9457,8 +9458,8 @@ fn c1069_l1087_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1088
@@ -9469,8 +9470,8 @@ fn c1070_l1088_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1089
@@ -9481,8 +9482,8 @@ fn c1071_l1089_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1090
@@ -9493,8 +9494,8 @@ fn c1072_l1090_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1091
@@ -9529,8 +9530,8 @@ fn c1085_l1103_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1104
@@ -9541,8 +9542,8 @@ fn c1086_l1104_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1105
@@ -9553,8 +9554,8 @@ fn c1087_l1105_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1106
@@ -9565,8 +9566,8 @@ fn c1088_l1106_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1107
@@ -9577,8 +9578,8 @@ fn c1089_l1107_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1108
@@ -9589,8 +9590,8 @@ fn c1090_l1108_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1109
@@ -9601,8 +9602,8 @@ fn c1091_l1109_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1110
@@ -9613,8 +9614,8 @@ fn c1092_l1110_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1111
@@ -9625,8 +9626,8 @@ fn c1093_l1111_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1112
@@ -9637,8 +9638,8 @@ fn c1094_l1112_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1113
@@ -9649,8 +9650,8 @@ fn c1095_l1113_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1114
@@ -9661,8 +9662,8 @@ fn c1096_l1114_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1115
@@ -9673,8 +9674,8 @@ fn c1097_l1115_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1116
@@ -9685,8 +9686,8 @@ fn c1098_l1116_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1117
@@ -9697,8 +9698,8 @@ fn c1099_l1117_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1118
@@ -9709,8 +9710,8 @@ fn c1100_l1118_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1119
@@ -9721,8 +9722,8 @@ fn c1101_l1119_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1120
@@ -9733,8 +9734,8 @@ fn c1102_l1120_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1121
@@ -9745,8 +9746,8 @@ fn c1103_l1121_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1122
@@ -9757,8 +9758,8 @@ fn c1104_l1122_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1123
@@ -9769,8 +9770,8 @@ fn c1105_l1123_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1124
@@ -9781,8 +9782,8 @@ fn c1106_l1124_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1125
@@ -9793,8 +9794,8 @@ fn c1107_l1125_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1126
@@ -9805,8 +9806,8 @@ fn c1108_l1126_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1127
@@ -9817,8 +9818,8 @@ fn c1109_l1127_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1128
@@ -9829,8 +9830,8 @@ fn c1110_l1128_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1129
@@ -9841,8 +9842,8 @@ fn c1111_l1129_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1130
@@ -9853,8 +9854,8 @@ fn c1112_l1130_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1131
@@ -10337,7 +10338,7 @@ fn c1229_l1247_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-0.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -10349,7 +10350,7 @@ fn c1230_l1248_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-0.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -10361,7 +10362,7 @@ fn c1231_l1249_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(0.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -10373,7 +10374,7 @@ fn c1232_l1250_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(0.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -10402,7 +10403,7 @@ fn c1241_l1259_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1260
@@ -10414,7 +10415,7 @@ fn c1242_l1260_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1261
@@ -10426,7 +10427,7 @@ fn c1243_l1261_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1262
@@ -10438,7 +10439,7 @@ fn c1244_l1262_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1263
@@ -10737,7 +10738,7 @@ fn c1269_l1287_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -10749,7 +10750,7 @@ fn c1270_l1288_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -10761,7 +10762,7 @@ fn c1271_l1289_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -10773,7 +10774,7 @@ fn c1272_l1290_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -10802,7 +10803,7 @@ fn c1281_l1299_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1300
@@ -10814,7 +10815,7 @@ fn c1282_l1300_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1301
@@ -10826,7 +10827,7 @@ fn c1283_l1301_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1302
@@ -10838,7 +10839,7 @@ fn c1284_l1302_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1303
@@ -11137,7 +11138,7 @@ fn c1309_l1327_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -11149,7 +11150,7 @@ fn c1310_l1328_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -11161,7 +11162,7 @@ fn c1311_l1329_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -11173,7 +11174,7 @@ fn c1312_l1330_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -11202,7 +11203,7 @@ fn c1321_l1339_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1340
@@ -11214,7 +11215,7 @@ fn c1322_l1340_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1341
@@ -11226,7 +11227,7 @@ fn c1323_l1341_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.5 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1342
@@ -11238,7 +11239,7 @@ fn c1324_l1342_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.5 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1343
@@ -11250,7 +11251,7 @@ fn c1325_l1343_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f32, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1344
@@ -11262,7 +11263,7 @@ fn c1326_l1344_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f32, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1345
@@ -11274,7 +11275,7 @@ fn c1327_l1345_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.5 as f32, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1346
@@ -11286,7 +11287,7 @@ fn c1328_l1346_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.5 as f32, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1347
@@ -11537,7 +11538,7 @@ fn c1349_l1367_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-0.5 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -11549,7 +11550,7 @@ fn c1350_l1368_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-0.5 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -11561,7 +11562,7 @@ fn c1351_l1369_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(0.5 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -11573,7 +11574,7 @@ fn c1352_l1370_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(0.5 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -11602,7 +11603,7 @@ fn c1361_l1379_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1380
@@ -11614,7 +11615,7 @@ fn c1362_l1380_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1381
@@ -11626,7 +11627,7 @@ fn c1363_l1381_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1382
@@ -11638,7 +11639,7 @@ fn c1364_l1382_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1383
@@ -11650,7 +11651,7 @@ fn c1365_l1383_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f32, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1384
@@ -11662,7 +11663,7 @@ fn c1366_l1384_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f32, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1385
@@ -11674,7 +11675,7 @@ fn c1367_l1385_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1386
@@ -11686,7 +11687,7 @@ fn c1368_l1386_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1387
@@ -11937,7 +11938,7 @@ fn c1389_l1407_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-1.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -11949,7 +11950,7 @@ fn c1390_l1408_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-1.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -11961,7 +11962,7 @@ fn c1391_l1409_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(1.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -11973,7 +11974,7 @@ fn c1392_l1410_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(1.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -12002,7 +12003,7 @@ fn c1401_l1419_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6.2831855 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1420
@@ -12014,7 +12015,7 @@ fn c1402_l1420_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6.2831855 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1421
@@ -12026,7 +12027,7 @@ fn c1403_l1421_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6.2831855 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1422
@@ -12038,7 +12039,7 @@ fn c1404_l1422_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6.2831855 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1423
@@ -12050,7 +12051,7 @@ fn c1405_l1423_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6.2831855 as f32, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1424
@@ -12062,7 +12063,7 @@ fn c1406_l1424_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6.2831855 as f32, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1425
@@ -12074,7 +12075,7 @@ fn c1407_l1425_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6.2831855 as f32, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1426
@@ -12086,7 +12087,7 @@ fn c1408_l1426_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6.2831855 as f32, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1427
@@ -12098,7 +12099,7 @@ fn c1409_l1427_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6.2831855 as f32, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1428
@@ -12110,7 +12111,7 @@ fn c1410_l1428_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6.2831855 as f32, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1429
@@ -12122,7 +12123,7 @@ fn c1411_l1429_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6.2831855 as f32, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1430
@@ -12134,7 +12135,7 @@ fn c1412_l1430_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6.2831855 as f32, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1431
@@ -12337,7 +12338,7 @@ fn c1429_l1447_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -12349,7 +12350,7 @@ fn c1430_l1448_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-6.2831855 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -12361,7 +12362,7 @@ fn c1431_l1449_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -12373,7 +12374,7 @@ fn c1432_l1450_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(6.2831855 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -12402,7 +12403,7 @@ fn c1441_l1459_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1460
@@ -12414,7 +12415,7 @@ fn c1442_l1460_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1461
@@ -12426,7 +12427,7 @@ fn c1443_l1461_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1462
@@ -12438,7 +12439,7 @@ fn c1444_l1462_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1463
@@ -12450,7 +12451,7 @@ fn c1445_l1463_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1464
@@ -12462,7 +12463,7 @@ fn c1446_l1464_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1465
@@ -12474,7 +12475,7 @@ fn c1447_l1465_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1466
@@ -12486,7 +12487,7 @@ fn c1448_l1466_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1467
@@ -12498,7 +12499,7 @@ fn c1449_l1467_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1468
@@ -12510,7 +12511,7 @@ fn c1450_l1468_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1469
@@ -12522,7 +12523,7 @@ fn c1451_l1469_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1470
@@ -12534,7 +12535,7 @@ fn c1452_l1470_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1471
@@ -12546,7 +12547,7 @@ fn c1453_l1471_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1472
@@ -12558,7 +12559,7 @@ fn c1454_l1472_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1473
@@ -12570,7 +12571,7 @@ fn c1455_l1473_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1474
@@ -12582,7 +12583,7 @@ fn c1456_l1474_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1475
@@ -12737,7 +12738,7 @@ fn c1469_l1487_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -12749,7 +12750,7 @@ fn c1470_l1488_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -12761,7 +12762,7 @@ fn c1471_l1489_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -12773,7 +12774,7 @@ fn c1472_l1490_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -12801,8 +12802,8 @@ fn c1481_l1499_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1500
@@ -12813,8 +12814,8 @@ fn c1482_l1500_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1501
@@ -12825,8 +12826,8 @@ fn c1483_l1501_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1502
@@ -12837,8 +12838,8 @@ fn c1484_l1502_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1503
@@ -12849,8 +12850,8 @@ fn c1485_l1503_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1504
@@ -12861,8 +12862,8 @@ fn c1486_l1504_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1505
@@ -12873,8 +12874,8 @@ fn c1487_l1505_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1506
@@ -12885,8 +12886,8 @@ fn c1488_l1506_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1507
@@ -12897,8 +12898,8 @@ fn c1489_l1507_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1508
@@ -12909,8 +12910,8 @@ fn c1490_l1508_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1509
@@ -12921,8 +12922,8 @@ fn c1491_l1509_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1510
@@ -12933,8 +12934,8 @@ fn c1492_l1510_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1511
@@ -12945,8 +12946,8 @@ fn c1493_l1511_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1512
@@ -12957,8 +12958,8 @@ fn c1494_l1512_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1513
@@ -12969,8 +12970,8 @@ fn c1495_l1513_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1514
@@ -12981,8 +12982,8 @@ fn c1496_l1514_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1515
@@ -12993,8 +12994,8 @@ fn c1497_l1515_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1516
@@ -13005,8 +13006,8 @@ fn c1498_l1516_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1517
@@ -13017,8 +13018,8 @@ fn c1499_l1517_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1518
@@ -13029,8 +13030,8 @@ fn c1500_l1518_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1519
@@ -13041,8 +13042,8 @@ fn c1501_l1519_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1520
@@ -13053,8 +13054,8 @@ fn c1502_l1520_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1521
@@ -13065,8 +13066,8 @@ fn c1503_l1521_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1522
@@ -13077,8 +13078,8 @@ fn c1504_l1522_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1523
@@ -13089,8 +13090,8 @@ fn c1505_l1523_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1524
@@ -13101,8 +13102,8 @@ fn c1506_l1524_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1525
@@ -13113,8 +13114,8 @@ fn c1507_l1525_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1526
@@ -13125,8 +13126,8 @@ fn c1508_l1526_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1527
@@ -13657,8 +13658,8 @@ fn c1629_l1647_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1648
@@ -13669,7 +13670,7 @@ fn c1630_l1648_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-0.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -13681,8 +13682,8 @@ fn c1631_l1649_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1650
@@ -13693,7 +13694,7 @@ fn c1632_l1650_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(0.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -14057,8 +14058,8 @@ fn c1669_l1687_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1688
@@ -14069,7 +14070,7 @@ fn c1670_l1688_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.000000000000000000000000000000000000000000001 as f32);
 }
 
@@ -14081,8 +14082,8 @@ fn c1671_l1689_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1690
@@ -14093,7 +14094,7 @@ fn c1672_l1690_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.000000000000000000000000000000000000000000001 as f32);
 }
 
@@ -14457,8 +14458,8 @@ fn c1709_l1727_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1728
@@ -14469,7 +14470,7 @@ fn c1710_l1728_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.000000000000000000000000000000000000011754944 as f32);
 }
 
@@ -14481,8 +14482,8 @@ fn c1711_l1729_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1730
@@ -14493,7 +14494,7 @@ fn c1712_l1730_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.000000000000000000000000000000000000011754944 as f32);
 }
 
@@ -14857,8 +14858,8 @@ fn c1749_l1767_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-0.5 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1768
@@ -14869,7 +14870,7 @@ fn c1750_l1768_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-0.5 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -0.5 as f32);
 }
 
@@ -14881,8 +14882,8 @@ fn c1751_l1769_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(0.5 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1770
@@ -14893,7 +14894,7 @@ fn c1752_l1770_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(0.5 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 0.5 as f32);
 }
 
@@ -15257,8 +15258,8 @@ fn c1789_l1807_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-1.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1808
@@ -15269,7 +15270,7 @@ fn c1790_l1808_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-1.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -1.0 as f32);
 }
 
@@ -15281,8 +15282,8 @@ fn c1791_l1809_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(1.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1810
@@ -15293,7 +15294,7 @@ fn c1792_l1810_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(1.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 1.0 as f32);
 }
 
@@ -15657,8 +15658,8 @@ fn c1829_l1847_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1848
@@ -15669,7 +15670,7 @@ fn c1830_l1848_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-6.2831855 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -6.2831855 as f32);
 }
 
@@ -15681,8 +15682,8 @@ fn c1831_l1849_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1850
@@ -15693,7 +15694,7 @@ fn c1832_l1850_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(6.2831855 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 6.2831855 as f32);
 }
 
@@ -16057,8 +16058,8 @@ fn c1869_l1887_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1888
@@ -16069,7 +16070,7 @@ fn c1870_l1888_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, -340282350000000000000000000000000000000.0 as f32);
 }
 
@@ -16081,8 +16082,8 @@ fn c1871_l1889_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1890
@@ -16093,7 +16094,7 @@ fn c1872_l1890_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
     assert_eq!(result, 340282350000000000000000000000000000000.0 as f32);
 }
 
@@ -16121,8 +16122,8 @@ fn c1881_l1899_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1900
@@ -16133,8 +16134,8 @@ fn c1882_l1900_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1901
@@ -16145,7 +16146,7 @@ fn c1883_l1901_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.0 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, -0.0 as f32, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -16157,7 +16158,7 @@ fn c1884_l1902_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.0 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, 0.0 as f32, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -16169,8 +16170,8 @@ fn c1885_l1903_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1904
@@ -16181,8 +16182,8 @@ fn c1886_l1904_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1905
@@ -16193,7 +16194,7 @@ fn c1887_l1905_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
     assert_eq!(result, -0.000000000000000000000000000000000000000000001 as f32);
 }
 
@@ -16205,7 +16206,7 @@ fn c1888_l1906_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
     assert_eq!(result, 0.000000000000000000000000000000000000000000001 as f32);
 }
 
@@ -16217,8 +16218,8 @@ fn c1889_l1907_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1908
@@ -16229,8 +16230,8 @@ fn c1890_l1908_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1909
@@ -16241,7 +16242,7 @@ fn c1891_l1909_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
     assert_eq!(result, -0.000000000000000000000000000000000000011754944 as f32);
 }
 
@@ -16253,7 +16254,7 @@ fn c1892_l1910_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
     assert_eq!(result, 0.000000000000000000000000000000000000011754944 as f32);
 }
 
@@ -16265,8 +16266,8 @@ fn c1893_l1911_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1912
@@ -16277,8 +16278,8 @@ fn c1894_l1912_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1913
@@ -16289,7 +16290,7 @@ fn c1895_l1913_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.5 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, -0.5 as f32, &vm_context);
     assert_eq!(result, -0.5 as f32);
 }
 
@@ -16301,7 +16302,7 @@ fn c1896_l1914_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.5 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, 0.5 as f32, &vm_context);
     assert_eq!(result, 0.5 as f32);
 }
 
@@ -16313,8 +16314,8 @@ fn c1897_l1915_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1916
@@ -16325,8 +16326,8 @@ fn c1898_l1916_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1917
@@ -16337,7 +16338,7 @@ fn c1899_l1917_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -1.0 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, -1.0 as f32, &vm_context);
     assert_eq!(result, -1.0 as f32);
 }
 
@@ -16349,7 +16350,7 @@ fn c1900_l1918_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 1.0 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, 1.0 as f32, &vm_context);
     assert_eq!(result, 1.0 as f32);
 }
 
@@ -16361,8 +16362,8 @@ fn c1901_l1919_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1920
@@ -16373,8 +16374,8 @@ fn c1902_l1920_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1921
@@ -16385,7 +16386,7 @@ fn c1903_l1921_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -6.2831855 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, -6.2831855 as f32, &vm_context);
     assert_eq!(result, -6.2831855 as f32);
 }
 
@@ -16397,7 +16398,7 @@ fn c1904_l1922_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 6.2831855 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, 6.2831855 as f32, &vm_context);
     assert_eq!(result, 6.2831855 as f32);
 }
 
@@ -16409,8 +16410,8 @@ fn c1905_l1923_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1924
@@ -16421,8 +16422,8 @@ fn c1906_l1924_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1925
@@ -16433,7 +16434,7 @@ fn c1907_l1925_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
     assert_eq!(result, -340282350000000000000000000000000000000.0 as f32);
 }
 
@@ -16445,7 +16446,7 @@ fn c1908_l1926_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    let result = invoke_fn(f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
     assert_eq!(result, 340282350000000000000000000000000000000.0 as f32);
 }
 
@@ -16457,8 +16458,8 @@ fn c1909_l1927_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1928
@@ -16469,8 +16470,8 @@ fn c1910_l1928_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1929
@@ -16481,8 +16482,8 @@ fn c1911_l1929_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::INFINITY, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1930
@@ -16493,8 +16494,8 @@ fn c1912_l1930_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1931
@@ -17017,7 +17018,7 @@ fn c2029_l2047_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-0.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -17029,8 +17030,8 @@ fn c2030_l2048_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2049
@@ -17041,7 +17042,7 @@ fn c2031_l2049_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(0.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -17053,8 +17054,8 @@ fn c2032_l2050_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2051
@@ -17417,7 +17418,7 @@ fn c2069_l2087_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.000000000000000000000000000000000000000000001 as f32);
 }
 
@@ -17429,8 +17430,8 @@ fn c2070_l2088_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2089
@@ -17441,7 +17442,7 @@ fn c2071_l2089_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.000000000000000000000000000000000000000000001 as f32);
 }
 
@@ -17453,8 +17454,8 @@ fn c2072_l2090_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2091
@@ -17817,7 +17818,7 @@ fn c2109_l2127_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.000000000000000000000000000000000000011754944 as f32);
 }
 
@@ -17829,8 +17830,8 @@ fn c2110_l2128_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2129
@@ -17841,7 +17842,7 @@ fn c2111_l2129_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.000000000000000000000000000000000000011754944 as f32);
 }
 
@@ -17853,8 +17854,8 @@ fn c2112_l2130_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2131
@@ -18217,7 +18218,7 @@ fn c2149_l2167_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-0.5 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -0.5 as f32);
 }
 
@@ -18229,8 +18230,8 @@ fn c2150_l2168_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.5 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-0.5 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2169
@@ -18241,7 +18242,7 @@ fn c2151_l2169_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(0.5 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 0.5 as f32);
 }
 
@@ -18253,8 +18254,8 @@ fn c2152_l2170_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.5 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(0.5 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2171
@@ -18617,7 +18618,7 @@ fn c2189_l2207_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-1.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -1.0 as f32);
 }
 
@@ -18629,8 +18630,8 @@ fn c2190_l2208_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-1.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2209
@@ -18641,7 +18642,7 @@ fn c2191_l2209_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(1.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 1.0 as f32);
 }
 
@@ -18653,8 +18654,8 @@ fn c2192_l2210_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(1.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2211
@@ -19017,7 +19018,7 @@ fn c2229_l2247_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -6.2831855 as f32);
 }
 
@@ -19029,8 +19030,8 @@ fn c2230_l2248_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-6.2831855 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-6.2831855 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2249
@@ -19041,7 +19042,7 @@ fn c2231_l2249_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(6.2831855 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 6.2831855 as f32);
 }
 
@@ -19053,8 +19054,8 @@ fn c2232_l2250_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(6.2831855 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(6.2831855 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2251
@@ -19417,7 +19418,7 @@ fn c2269_l2287_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, -340282350000000000000000000000000000000.0 as f32);
 }
 
@@ -19429,8 +19430,8 @@ fn c2270_l2288_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2289
@@ -19441,7 +19442,7 @@ fn c2271_l2289_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::NEG_INFINITY, &vm_context);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::NEG_INFINITY, &vm_context);
     assert_eq!(result, 340282350000000000000000000000000000000.0 as f32);
 }
 
@@ -19453,8 +19454,8 @@ fn c2272_l2290_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2291
@@ -19481,7 +19482,7 @@ fn c2281_l2299_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.0 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.0 as f32, &vm_context);
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -19493,7 +19494,7 @@ fn c2282_l2300_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.0 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.0 as f32, &vm_context);
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -19505,8 +19506,8 @@ fn c2283_l2301_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2302
@@ -19517,8 +19518,8 @@ fn c2284_l2302_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2303
@@ -19529,7 +19530,7 @@ fn c2285_l2303_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
     assert_eq!(result, -0.000000000000000000000000000000000000000000001 as f32);
 }
 
@@ -19541,7 +19542,7 @@ fn c2286_l2304_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
     assert_eq!(result, 0.000000000000000000000000000000000000000000001 as f32);
 }
 
@@ -19553,8 +19554,8 @@ fn c2287_l2305_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2306
@@ -19565,8 +19566,8 @@ fn c2288_l2306_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000000000001 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2307
@@ -19577,7 +19578,7 @@ fn c2289_l2307_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
     assert_eq!(result, -0.000000000000000000000000000000000000011754944 as f32);
 }
 
@@ -19589,7 +19590,7 @@ fn c2290_l2308_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
     assert_eq!(result, 0.000000000000000000000000000000000000011754944 as f32);
 }
 
@@ -19601,8 +19602,8 @@ fn c2291_l2309_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2310
@@ -19613,8 +19614,8 @@ fn c2292_l2310_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.000000000000000000000000000000000000011754944 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2311
@@ -19625,7 +19626,7 @@ fn c2293_l2311_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -0.5 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, -0.5 as f32, &vm_context);
     assert_eq!(result, -0.5 as f32);
 }
 
@@ -19637,7 +19638,7 @@ fn c2294_l2312_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 0.5 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, 0.5 as f32, &vm_context);
     assert_eq!(result, 0.5 as f32);
 }
 
@@ -19649,8 +19650,8 @@ fn c2295_l2313_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2314
@@ -19661,8 +19662,8 @@ fn c2296_l2314_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 0.5 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 0.5 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2315
@@ -19673,7 +19674,7 @@ fn c2297_l2315_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -1.0 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, -1.0 as f32, &vm_context);
     assert_eq!(result, -1.0 as f32);
 }
 
@@ -19685,7 +19686,7 @@ fn c2298_l2316_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 1.0 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, 1.0 as f32, &vm_context);
     assert_eq!(result, 1.0 as f32);
 }
 
@@ -19697,8 +19698,8 @@ fn c2299_l2317_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2318
@@ -19709,8 +19710,8 @@ fn c2300_l2318_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 1.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 1.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2319
@@ -19721,7 +19722,7 @@ fn c2301_l2319_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, -6.2831855 as f32, &vm_context);
     assert_eq!(result, -6.2831855 as f32);
 }
 
@@ -19733,7 +19734,7 @@ fn c2302_l2320_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, 6.2831855 as f32, &vm_context);
     assert_eq!(result, 6.2831855 as f32);
 }
 
@@ -19745,8 +19746,8 @@ fn c2303_l2321_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2322
@@ -19757,8 +19758,8 @@ fn c2304_l2322_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 6.2831855 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 6.2831855 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2323
@@ -19769,7 +19770,7 @@ fn c2305_l2323_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
     assert_eq!(result, -340282350000000000000000000000000000000.0 as f32);
 }
 
@@ -19781,7 +19782,7 @@ fn c2306_l2324_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    let result = invoke_fn(f32::NEG_INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
     assert_eq!(result, 340282350000000000000000000000000000000.0 as f32);
 }
 
@@ -19793,8 +19794,8 @@ fn c2307_l2325_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, -340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2326
@@ -19805,8 +19806,8 @@ fn c2308_l2326_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, 340282350000000000000000000000000000000.0 as f32, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2327
@@ -19817,8 +19818,8 @@ fn c2309_l2327_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 2328
@@ -19829,8 +19830,8 @@ fn c2310_l2328_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2329
@@ -19841,8 +19842,8 @@ fn c2311_l2329_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2330
@@ -19853,8 +19854,8 @@ fn c2312_l2330_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2331
@@ -20151,8 +20152,8 @@ fn c2416_l2434_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2435
@@ -20339,8 +20340,8 @@ fn c2435_l2453_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 2454
@@ -20351,8 +20352,8 @@ fn c2436_l2454_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2455
@@ -20539,8 +20540,8 @@ fn c2455_l2473_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 2474
@@ -20551,8 +20552,8 @@ fn c2456_l2474_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2475
@@ -20739,8 +20740,8 @@ fn c2475_l2493_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 2494
@@ -20751,8 +20752,8 @@ fn c2476_l2494_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2495
@@ -20939,8 +20940,8 @@ fn c2495_l2513_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NEG_INFINITY, &vm_context);
-    assert_eq!(result, std::f32::NEG_INFINITY);
+    let result = invoke_fn(f32::NEG_INFINITY, &vm_context);
+    assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 2514
@@ -20951,8 +20952,8 @@ fn c2496_l2514_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::INFINITY, &vm_context);
-    assert_eq!(result, std::f32::INFINITY);
+    let result = invoke_fn(f32::INFINITY, &vm_context);
+    assert_eq!(result, f32::INFINITY);
 }
 
 // Line 2515

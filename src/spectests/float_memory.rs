@@ -7,6 +7,7 @@
 )]
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::spectest_importobject;
+use std::{f32, f64};
 use wabt::wat2wasm;
 
 
@@ -71,7 +72,7 @@ fn c2_l16_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
 }
 
 // Line 17
@@ -144,7 +145,7 @@ fn c8_l22_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
 }
 
 // Line 23
@@ -217,7 +218,7 @@ fn c14_l28_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
 }
 
 // Line 30
@@ -303,7 +304,7 @@ fn c17_l41_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
 }
 
 // Line 42
@@ -376,7 +377,7 @@ fn c23_l47_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
 }
 
 // Line 48
@@ -449,7 +450,7 @@ fn c29_l53_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
 }
 
 // Line 57
@@ -535,7 +536,7 @@ fn c32_l68_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
 }
 
 // Line 69
@@ -608,7 +609,7 @@ fn c38_l74_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
 }
 
 // Line 75
@@ -681,7 +682,7 @@ fn c44_l80_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
 }
 
 // Line 82
@@ -767,7 +768,7 @@ fn c47_l93_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
 }
 
 // Line 94
@@ -840,7 +841,7 @@ fn c53_l99_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
 }
 
 // Line 100
@@ -913,7 +914,7 @@ fn c59_l105_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
 }
 
 // Line 109
@@ -999,7 +1000,7 @@ fn c62_l120_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2144337921)).is_sign_positive());
 }
 
 // Line 121
@@ -1072,7 +1073,7 @@ fn c68_l126_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2144337921)).is_sign_positive());
 }
 
 // Line 127
@@ -1145,7 +1146,7 @@ fn c74_l132_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2144337921)).is_sign_positive());
 }
 
 // Line 134
@@ -1231,7 +1232,7 @@ fn c77_l145_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9222246136947933185)).is_sign_positive());
 }
 
 // Line 146
@@ -1304,7 +1305,7 @@ fn c83_l151_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9222246136947933185)).is_sign_positive());
 }
 
 // Line 152
@@ -1377,7 +1378,7 @@ fn c89_l157_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
     let invoke_fn: fn(&VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9222246136947933185)).is_sign_positive());
 }
 
 #[test]

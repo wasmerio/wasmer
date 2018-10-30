@@ -7,6 +7,7 @@
 )]
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::spectest_importobject;
+use std::{f32, f64};
 use wabt::wat2wasm;
 
 

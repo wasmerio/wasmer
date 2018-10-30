@@ -96,16 +96,13 @@ fn wabt2rust_value(v: &Value) -> String {
         Value::I64(v) => format!("{:?} as i64", v),
         Value::F32(v) => {
             match *v {
-                std::f32::INFINITY => "std::f32::INFINITY".to_string(),
-                std::f32::NEG_INFINITY => "std::f32::NEG_INFINITY".to_string(),
-                // std::f32::NAN => "std::f32::NAN".to_string(),
+                std::f32::INFINITY => "f32::INFINITY".to_string(),
+                std::f32::NEG_INFINITY => "f32::NEG_INFINITY".to_string(),
+                // std::f32::NAN => "f32::NAN".to_string(),
                 _ => {
                     if v.is_nan() {
-                        if v.is_sign_negative() {
-                            "-std::f32::NAN".to_string()
-                        } else {
-                            "std::f32::NAN".to_string()
-                        }
+                        // Support for non-canonical NaNs
+                        format!("f32::from_bits({:?})", v.to_bits())
                     } else {
                         format!("{:?} as f32", v)
                     }
@@ -114,16 +111,12 @@ fn wabt2rust_value(v: &Value) -> String {
         }
         Value::F64(v) => {
             match *v {
-                std::f64::INFINITY => "std::f64::INFINITY".to_string(),
-                std::f64::NEG_INFINITY => "std::f64::NEG_INFINITY".to_string(),
-                // std::f64::NAN => "std::f64::NAN".to_string(),
+                std::f64::INFINITY => "f64::INFINITY".to_string(),
+                std::f64::NEG_INFINITY => "f64::NEG_INFINITY".to_string(),
+                // std::f64::NAN => "f64::NAN".to_string(),
                 _ => {
                     if v.is_nan() {
-                        if v.is_sign_negative() {
-                            "-std::f64::NAN".to_string()
-                        } else {
-                            "std::f64::NAN".to_string()
-                        }
+                        format!("f64::from_bits({:?})", v.to_bits())
                     } else {
                         format!("{:?} as f64", v)
                     }
@@ -171,6 +164,7 @@ impl WastTestGenerator {
 )]
 use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, VmCtx, Export}};
 use super::_common::spectest_importobject;
+use std::{{f32, f64}};
 use wabt::wat2wasm;\n\n",
             self.filename
         ));

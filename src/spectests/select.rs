@@ -7,6 +7,7 @@
 )]
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::spectest_importobject;
+use std::{f32, f64};
 use wabt::wat2wasm;
 
 
@@ -183,9 +184,9 @@ fn c9_l41_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NAN, 1.0 as f32, 1 as i32, &vm_context);
+    let result = invoke_fn(f32::from_bits(2143289344), 1.0 as f32, 1 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
 }
 
 // Line 42
@@ -196,9 +197,9 @@ fn c10_l42_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NAN, 1.0 as f32, 1 as i32, &vm_context);
+    let result = invoke_fn(f32::from_bits(2139226884), 1.0 as f32, 1 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2139226884)).is_sign_positive());
 }
 
 // Line 43
@@ -209,7 +210,7 @@ fn c11_l43_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NAN, 1.0 as f32, 0 as i32, &vm_context);
+    let result = invoke_fn(f32::from_bits(2143289344), 1.0 as f32, 0 as i32, &vm_context);
     assert_eq!(result, 1.0 as f32);
 }
 
@@ -221,7 +222,7 @@ fn c12_l44_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f32::NAN, 1.0 as f32, 0 as i32, &vm_context);
+    let result = invoke_fn(f32::from_bits(2139226884), 1.0 as f32, 0 as i32, &vm_context);
     assert_eq!(result, 1.0 as f32);
 }
 
@@ -233,7 +234,7 @@ fn c13_l45_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, std::f32::NAN, 1 as i32, &vm_context);
+    let result = invoke_fn(2.0 as f32, f32::from_bits(2143289344), 1 as i32, &vm_context);
     assert_eq!(result, 2.0 as f32);
 }
 
@@ -245,7 +246,7 @@ fn c14_l46_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, std::f32::NAN, 1 as i32, &vm_context);
+    let result = invoke_fn(2.0 as f32, f32::from_bits(2139226884), 1 as i32, &vm_context);
     assert_eq!(result, 2.0 as f32);
 }
 
@@ -257,9 +258,9 @@ fn c15_l47_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, std::f32::NAN, 0 as i32, &vm_context);
+    let result = invoke_fn(2.0 as f32, f32::from_bits(2143289344), 0 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
 }
 
 // Line 48
@@ -270,9 +271,9 @@ fn c16_l48_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f32, f32, i32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, std::f32::NAN, 0 as i32, &vm_context);
+    let result = invoke_fn(2.0 as f32, f32::from_bits(2139226884), 0 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f32::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f32::from_bits(2139226884)).is_sign_positive());
 }
 
 // Line 50
@@ -283,9 +284,9 @@ fn c17_l50_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f64, f64, i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f64::NAN, 1.0 as f64, 1 as i32, &vm_context);
+    let result = invoke_fn(f64::from_bits(9221120237041090560), 1.0 as f64, 1 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
 }
 
 // Line 51
@@ -296,9 +297,9 @@ fn c18_l51_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f64, f64, i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f64::NAN, 1.0 as f64, 1 as i32, &vm_context);
+    let result = invoke_fn(f64::from_bits(9218868437227537156), 1.0 as f64, 1 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9218868437227537156)).is_sign_positive());
 }
 
 // Line 52
@@ -309,7 +310,7 @@ fn c19_l52_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f64, f64, i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f64::NAN, 1.0 as f64, 0 as i32, &vm_context);
+    let result = invoke_fn(f64::from_bits(9221120237041090560), 1.0 as f64, 0 as i32, &vm_context);
     assert_eq!(result, 1.0 as f64);
 }
 
@@ -321,7 +322,7 @@ fn c20_l53_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f64, f64, i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(std::f64::NAN, 1.0 as f64, 0 as i32, &vm_context);
+    let result = invoke_fn(f64::from_bits(9218868437227537156), 1.0 as f64, 0 as i32, &vm_context);
     assert_eq!(result, 1.0 as f64);
 }
 
@@ -333,7 +334,7 @@ fn c21_l54_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f64, f64, i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, std::f64::NAN, 1 as i32, &vm_context);
+    let result = invoke_fn(2.0 as f64, f64::from_bits(9221120237041090560), 1 as i32, &vm_context);
     assert_eq!(result, 2.0 as f64);
 }
 
@@ -345,7 +346,7 @@ fn c22_l55_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f64, f64, i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, std::f64::NAN, 1 as i32, &vm_context);
+    let result = invoke_fn(2.0 as f64, f64::from_bits(9218868437227537156), 1 as i32, &vm_context);
     assert_eq!(result, 2.0 as f64);
 }
 
@@ -357,9 +358,9 @@ fn c23_l56_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f64, f64, i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, std::f64::NAN, 0 as i32, &vm_context);
+    let result = invoke_fn(2.0 as f64, f64::from_bits(9221120237041090560), 0 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
 }
 
 // Line 57
@@ -370,9 +371,9 @@ fn c24_l57_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
         _ => panic!("Function not found"),
     };
     let invoke_fn: fn(f64, f64, i32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, std::f64::NAN, 0 as i32, &vm_context);
+    let result = invoke_fn(2.0 as f64, f64::from_bits(9218868437227537156), 0 as i32, &vm_context);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (std::f64::NAN).is_sign_positive());
+            assert_eq!(result.is_sign_positive(), (f64::from_bits(9218868437227537156)).is_sign_positive());
 }
 
 // Line 59

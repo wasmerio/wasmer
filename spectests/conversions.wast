@@ -72,11 +72,9 @@
 (assert_trap (invoke "i32.trunc_s_f32" (f32.const inf)) "integer overflow")
 (assert_trap (invoke "i32.trunc_s_f32" (f32.const -inf)) "integer overflow")
 (assert_trap (invoke "i32.trunc_s_f32" (f32.const nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i32.trunc_s_f32" (f32.const nan:0x200000)) "invalid conversion to integer")
+(assert_trap (invoke "i32.trunc_s_f32" (f32.const nan:0x200000)) "invalid conversion to integer")
 (assert_trap (invoke "i32.trunc_s_f32" (f32.const -nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i32.trunc_s_f32" (f32.const -nan:0x200000)) "invalid conversion to integer")
+(assert_trap (invoke "i32.trunc_s_f32" (f32.const -nan:0x200000)) "invalid conversion to integer")
 
 (assert_return (invoke "i32.trunc_u_f32" (f32.const 0.0)) (i32.const 0))
 (assert_return (invoke "i32.trunc_u_f32" (f32.const -0.0)) (i32.const 0))
@@ -96,11 +94,9 @@
 (assert_trap (invoke "i32.trunc_u_f32" (f32.const inf)) "integer overflow")
 (assert_trap (invoke "i32.trunc_u_f32" (f32.const -inf)) "integer overflow")
 (assert_trap (invoke "i32.trunc_u_f32" (f32.const nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i32.trunc_u_f32" (f32.const nan:0x200000)) "invalid conversion to integer")
+(assert_trap (invoke "i32.trunc_u_f32" (f32.const nan:0x200000)) "invalid conversion to integer")
 (assert_trap (invoke "i32.trunc_u_f32" (f32.const -nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i32.trunc_u_f32" (f32.const -nan:0x200000)) "invalid conversion to integer")
+(assert_trap (invoke "i32.trunc_u_f32" (f32.const -nan:0x200000)) "invalid conversion to integer")
 
 (assert_return (invoke "i32.trunc_s_f64" (f64.const 0.0)) (i32.const 0))
 (assert_return (invoke "i32.trunc_s_f64" (f64.const -0.0)) (i32.const 0))
@@ -121,11 +117,9 @@
 (assert_trap (invoke "i32.trunc_s_f64" (f64.const inf)) "integer overflow")
 (assert_trap (invoke "i32.trunc_s_f64" (f64.const -inf)) "integer overflow")
 (assert_trap (invoke "i32.trunc_s_f64" (f64.const nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i32.trunc_s_f64" (f64.const nan:0x4000000000000)) "invalid conversion to integer")
+(assert_trap (invoke "i32.trunc_s_f64" (f64.const nan:0x4000000000000)) "invalid conversion to integer")
 (assert_trap (invoke "i32.trunc_s_f64" (f64.const -nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i32.trunc_s_f64" (f64.const -nan:0x4000000000000)) "invalid conversion to integer")
+(assert_trap (invoke "i32.trunc_s_f64" (f64.const -nan:0x4000000000000)) "invalid conversion to integer")
 
 (assert_return (invoke "i32.trunc_u_f64" (f64.const 0.0)) (i32.const 0))
 (assert_return (invoke "i32.trunc_u_f64" (f64.const -0.0)) (i32.const 0))
@@ -149,11 +143,9 @@
 (assert_trap (invoke "i32.trunc_u_f64" (f64.const inf)) "integer overflow")
 (assert_trap (invoke "i32.trunc_u_f64" (f64.const -inf)) "integer overflow")
 (assert_trap (invoke "i32.trunc_u_f64" (f64.const nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i32.trunc_u_f64" (f64.const nan:0x4000000000000)) "invalid conversion to integer")
+(assert_trap (invoke "i32.trunc_u_f64" (f64.const nan:0x4000000000000)) "invalid conversion to integer")
 (assert_trap (invoke "i32.trunc_u_f64" (f64.const -nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i32.trunc_u_f64" (f64.const -nan:0x4000000000000)) "invalid conversion to integer")
+(assert_trap (invoke "i32.trunc_u_f64" (f64.const -nan:0x4000000000000)) "invalid conversion to integer")
 
 (assert_return (invoke "i64.trunc_s_f32" (f32.const 0.0)) (i64.const 0))
 (assert_return (invoke "i64.trunc_s_f32" (f32.const -0.0)) (i64.const 0))
@@ -176,11 +168,9 @@
 (assert_trap (invoke "i64.trunc_s_f32" (f32.const inf)) "integer overflow")
 (assert_trap (invoke "i64.trunc_s_f32" (f32.const -inf)) "integer overflow")
 (assert_trap (invoke "i64.trunc_s_f32" (f32.const nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i64.trunc_s_f32" (f32.const nan:0x200000)) "invalid conversion to integer")
+(assert_trap (invoke "i64.trunc_s_f32" (f32.const nan:0x200000)) "invalid conversion to integer")
 (assert_trap (invoke "i64.trunc_s_f32" (f32.const -nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i64.trunc_s_f32" (f32.const -nan:0x200000)) "invalid conversion to integer")
+(assert_trap (invoke "i64.trunc_s_f32" (f32.const -nan:0x200000)) "invalid conversion to integer")
 
 (assert_return (invoke "i64.trunc_u_f32" (f32.const 0.0)) (i64.const 0))
 (assert_return (invoke "i64.trunc_u_f32" (f32.const -0.0)) (i64.const 0))
@@ -198,11 +188,9 @@
 (assert_trap (invoke "i64.trunc_u_f32" (f32.const inf)) "integer overflow")
 (assert_trap (invoke "i64.trunc_u_f32" (f32.const -inf)) "integer overflow")
 (assert_trap (invoke "i64.trunc_u_f32" (f32.const nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i64.trunc_u_f32" (f32.const nan:0x200000)) "invalid conversion to integer")
+(assert_trap (invoke "i64.trunc_u_f32" (f32.const nan:0x200000)) "invalid conversion to integer")
 (assert_trap (invoke "i64.trunc_u_f32" (f32.const -nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i64.trunc_u_f32" (f32.const -nan:0x200000)) "invalid conversion to integer")
+(assert_trap (invoke "i64.trunc_u_f32" (f32.const -nan:0x200000)) "invalid conversion to integer")
 
 (assert_return (invoke "i64.trunc_s_f64" (f64.const 0.0)) (i64.const 0))
 (assert_return (invoke "i64.trunc_s_f64" (f64.const -0.0)) (i64.const 0))
@@ -225,11 +213,9 @@
 (assert_trap (invoke "i64.trunc_s_f64" (f64.const inf)) "integer overflow")
 (assert_trap (invoke "i64.trunc_s_f64" (f64.const -inf)) "integer overflow")
 (assert_trap (invoke "i64.trunc_s_f64" (f64.const nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i64.trunc_s_f64" (f64.const nan:0x4000000000000)) "invalid conversion to integer")
+(assert_trap (invoke "i64.trunc_s_f64" (f64.const nan:0x4000000000000)) "invalid conversion to integer")
 (assert_trap (invoke "i64.trunc_s_f64" (f64.const -nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i64.trunc_s_f64" (f64.const -nan:0x4000000000000)) "invalid conversion to integer")
+(assert_trap (invoke "i64.trunc_s_f64" (f64.const -nan:0x4000000000000)) "invalid conversion to integer")
 
 (assert_return (invoke "i64.trunc_u_f64" (f64.const 0.0)) (i64.const 0))
 (assert_return (invoke "i64.trunc_u_f64" (f64.const -0.0)) (i64.const 0))
@@ -251,11 +237,9 @@
 (assert_trap (invoke "i64.trunc_u_f64" (f64.const inf)) "integer overflow")
 (assert_trap (invoke "i64.trunc_u_f64" (f64.const -inf)) "integer overflow")
 (assert_trap (invoke "i64.trunc_u_f64" (f64.const nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i64.trunc_u_f64" (f64.const nan:0x4000000000000)) "invalid conversion to integer")
+(assert_trap (invoke "i64.trunc_u_f64" (f64.const nan:0x4000000000000)) "invalid conversion to integer")
 (assert_trap (invoke "i64.trunc_u_f64" (f64.const -nan)) "invalid conversion to integer")
-;; SKIP_NAN_BITS
-;; (assert_trap (invoke "i64.trunc_u_f64" (f64.const -nan:0x4000000000000)) "invalid conversion to integer")
+(assert_trap (invoke "i64.trunc_u_f64" (f64.const -nan:0x4000000000000)) "invalid conversion to integer")
 
 (assert_return (invoke "f32.convert_s_i32" (i32.const 1)) (f32.const 1.0))
 (assert_return (invoke "f32.convert_s_i32" (i32.const -1)) (f32.const -1.0))
@@ -361,11 +345,9 @@
 (assert_return (invoke "f64.promote_f32" (f32.const inf)) (f64.const inf))
 (assert_return (invoke "f64.promote_f32" (f32.const -inf)) (f64.const -inf))
 (assert_return_canonical_nan (invoke "f64.promote_f32" (f32.const nan)))
-;; SKIP_NAN_BITS
-;; (assert_return_arithmetic_nan (invoke "f64.promote_f32" (f32.const nan:0x200000)))
+(assert_return_arithmetic_nan (invoke "f64.promote_f32" (f32.const nan:0x200000)))
 (assert_return_canonical_nan (invoke "f64.promote_f32" (f32.const -nan)))
-;; SKIP_NAN_BITS
-;; (assert_return_arithmetic_nan (invoke "f64.promote_f32" (f32.const -nan:0x200000)))
+(assert_return_arithmetic_nan (invoke "f64.promote_f32" (f32.const -nan:0x200000)))
 
 (assert_return (invoke "f32.demote_f64" (f64.const 0.0)) (f32.const 0.0))
 (assert_return (invoke "f32.demote_f64" (f64.const -0.0)) (f32.const -0.0))
@@ -410,11 +392,9 @@
 (assert_return (invoke "f32.demote_f64" (f64.const -0x1.6972b30cfb562p+1)) (f32.const -0x1.6972b4p+1))
 (assert_return (invoke "f32.demote_f64" (f64.const -0x1.bedbe4819d4c4p+112)) (f32.const -0x1.bedbe4p+112))
 (assert_return_canonical_nan (invoke "f32.demote_f64" (f64.const nan)))
-;; SKIP_NAN_BITS
-;; (assert_return_arithmetic_nan (invoke "f32.demote_f64" (f64.const nan:0x4000000000000)))
+(assert_return_arithmetic_nan (invoke "f32.demote_f64" (f64.const nan:0x4000000000000)))
 (assert_return_canonical_nan (invoke "f32.demote_f64" (f64.const -nan)))
-;; SKIP_NAN_BITS
-;; (assert_return_arithmetic_nan (invoke "f32.demote_f64" (f64.const -nan:0x4000000000000)))
+(assert_return_arithmetic_nan (invoke "f32.demote_f64" (f64.const -nan:0x4000000000000)))
 (assert_return (invoke "f32.demote_f64" (f64.const 0x1p-1022)) (f32.const 0.0))
 (assert_return (invoke "f32.demote_f64" (f64.const -0x1p-1022)) (f32.const -0.0))
 (assert_return (invoke "f32.demote_f64" (f64.const 0x1.0p-150)) (f32.const 0.0))
@@ -425,22 +405,19 @@
 (assert_return (invoke "f32.reinterpret_i32" (i32.const 0)) (f32.const 0.0))
 (assert_return (invoke "f32.reinterpret_i32" (i32.const 0x80000000)) (f32.const -0.0))
 (assert_return (invoke "f32.reinterpret_i32" (i32.const 1)) (f32.const 0x1p-149))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "f32.reinterpret_i32" (i32.const -1)) (f32.const -nan:0x7fffff))
+(assert_return (invoke "f32.reinterpret_i32" (i32.const -1)) (f32.const -nan:0x7fffff))
 (assert_return (invoke "f32.reinterpret_i32" (i32.const 123456789)) (f32.const 0x1.b79a2ap-113))
 (assert_return (invoke "f32.reinterpret_i32" (i32.const -2147483647)) (f32.const -0x1p-149))
 (assert_return (invoke "f32.reinterpret_i32" (i32.const 0x7f800000)) (f32.const inf))
 (assert_return (invoke "f32.reinterpret_i32" (i32.const 0xff800000)) (f32.const -inf))
 (assert_return (invoke "f32.reinterpret_i32" (i32.const 0x7fc00000)) (f32.const nan))
 (assert_return (invoke "f32.reinterpret_i32" (i32.const 0xffc00000)) (f32.const -nan))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "f32.reinterpret_i32" (i32.const 0x7fa00000)) (f32.const nan:0x200000))
-;; (assert_return (invoke "f32.reinterpret_i32" (i32.const 0xffa00000)) (f32.const -nan:0x200000))
+(assert_return (invoke "f32.reinterpret_i32" (i32.const 0x7fa00000)) (f32.const nan:0x200000))
+(assert_return (invoke "f32.reinterpret_i32" (i32.const 0xffa00000)) (f32.const -nan:0x200000))
 
 (assert_return (invoke "f64.reinterpret_i64" (i64.const 0)) (f64.const 0.0))
 (assert_return (invoke "f64.reinterpret_i64" (i64.const 1)) (f64.const 0x0.0000000000001p-1022))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "f64.reinterpret_i64" (i64.const -1)) (f64.const -nan:0xfffffffffffff))
+(assert_return (invoke "f64.reinterpret_i64" (i64.const -1)) (f64.const -nan:0xfffffffffffff))
 (assert_return (invoke "f64.reinterpret_i64" (i64.const 0x8000000000000000)) (f64.const -0.0))
 (assert_return (invoke "f64.reinterpret_i64" (i64.const 1234567890)) (f64.const 0x0.00000499602d2p-1022))
 (assert_return (invoke "f64.reinterpret_i64" (i64.const -9223372036854775807)) (f64.const -0x0.0000000000001p-1022))
@@ -448,16 +425,13 @@
 (assert_return (invoke "f64.reinterpret_i64" (i64.const 0xfff0000000000000)) (f64.const -inf))
 (assert_return (invoke "f64.reinterpret_i64" (i64.const 0x7ff8000000000000)) (f64.const nan))
 (assert_return (invoke "f64.reinterpret_i64" (i64.const 0xfff8000000000000)) (f64.const -nan))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "f64.reinterpret_i64" (i64.const 0x7ff4000000000000)) (f64.const nan:0x4000000000000))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "f64.reinterpret_i64" (i64.const 0xfff4000000000000)) (f64.const -nan:0x4000000000000))
+(assert_return (invoke "f64.reinterpret_i64" (i64.const 0x7ff4000000000000)) (f64.const nan:0x4000000000000))
+(assert_return (invoke "f64.reinterpret_i64" (i64.const 0xfff4000000000000)) (f64.const -nan:0x4000000000000))
 
 (assert_return (invoke "i32.reinterpret_f32" (f32.const 0.0)) (i32.const 0))
 (assert_return (invoke "i32.reinterpret_f32" (f32.const -0.0)) (i32.const 0x80000000))
 (assert_return (invoke "i32.reinterpret_f32" (f32.const 0x1p-149)) (i32.const 1))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "i32.reinterpret_f32" (f32.const -nan:0x7fffff)) (i32.const -1))
+(assert_return (invoke "i32.reinterpret_f32" (f32.const -nan:0x7fffff)) (i32.const -1))
 (assert_return (invoke "i32.reinterpret_f32" (f32.const -0x1p-149)) (i32.const 0x80000001))
 (assert_return (invoke "i32.reinterpret_f32" (f32.const 1.0)) (i32.const 1065353216))
 (assert_return (invoke "i32.reinterpret_f32" (f32.const 3.1415926)) (i32.const 1078530010))
@@ -467,16 +441,13 @@
 (assert_return (invoke "i32.reinterpret_f32" (f32.const -inf)) (i32.const 0xff800000))
 (assert_return (invoke "i32.reinterpret_f32" (f32.const nan)) (i32.const 0x7fc00000))
 (assert_return (invoke "i32.reinterpret_f32" (f32.const -nan)) (i32.const 0xffc00000))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "i32.reinterpret_f32" (f32.const nan:0x200000)) (i32.const 0x7fa00000))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "i32.reinterpret_f32" (f32.const -nan:0x200000)) (i32.const 0xffa00000))
+(assert_return (invoke "i32.reinterpret_f32" (f32.const nan:0x200000)) (i32.const 0x7fa00000))
+(assert_return (invoke "i32.reinterpret_f32" (f32.const -nan:0x200000)) (i32.const 0xffa00000))
 
 (assert_return (invoke "i64.reinterpret_f64" (f64.const 0.0)) (i64.const 0))
 (assert_return (invoke "i64.reinterpret_f64" (f64.const -0.0)) (i64.const 0x8000000000000000))
 (assert_return (invoke "i64.reinterpret_f64" (f64.const 0x0.0000000000001p-1022)) (i64.const 1))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "i64.reinterpret_f64" (f64.const -nan:0xfffffffffffff)) (i64.const -1))
+(assert_return (invoke "i64.reinterpret_f64" (f64.const -nan:0xfffffffffffff)) (i64.const -1))
 (assert_return (invoke "i64.reinterpret_f64" (f64.const -0x0.0000000000001p-1022)) (i64.const 0x8000000000000001))
 (assert_return (invoke "i64.reinterpret_f64" (f64.const 1.0)) (i64.const 4607182418800017408))
 (assert_return (invoke "i64.reinterpret_f64" (f64.const 3.14159265358979)) (i64.const 4614256656552045841))
@@ -486,7 +457,5 @@
 (assert_return (invoke "i64.reinterpret_f64" (f64.const -inf)) (i64.const 0xfff0000000000000))
 (assert_return (invoke "i64.reinterpret_f64" (f64.const nan)) (i64.const 0x7ff8000000000000))
 (assert_return (invoke "i64.reinterpret_f64" (f64.const -nan)) (i64.const 0xfff8000000000000))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "i64.reinterpret_f64" (f64.const nan:0x4000000000000)) (i64.const 0x7ff4000000000000))
-;; SKIP_NAN_BITS
-;; (assert_return (invoke "i64.reinterpret_f64" (f64.const -nan:0x4000000000000)) (i64.const 0xfff4000000000000))
+(assert_return (invoke "i64.reinterpret_f64" (f64.const nan:0x4000000000000)) (i64.const 0x7ff4000000000000))
+(assert_return (invoke "i64.reinterpret_f64" (f64.const -nan:0x4000000000000)) (i64.const 0xfff4000000000000))

@@ -109,8 +109,6 @@ This spectests are currently covered:
 
 There are some cases that we decided to skip for now to fasten the time to release:
 
-- `SKIP_NAN_BITS`: Cases like invokations with params such as: `(f32.const nan:0x200000)` are currently not well supported in tests. Spectests affected:
-  - `conversions.wast`
 - `SKIP_MEMORY_GROW`: When accessing to the context memories multiple times, the mutable access to a memory index raises an error. For this reason we decied to skip the tests (for now) until this issue is resolved. Spectests affected:
   - `block.wast`
   - `call_indirect.wast`
