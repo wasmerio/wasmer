@@ -88,7 +88,7 @@ This spectests are currently covered:
 - select.wast ✅
 - set_local.wast ✅
 - skip-stack-guard-page.wast
-- stack.wast
+- stack.wast ✅
 - start.wast ✅
 - store_retval.wast
 - switch.wast ✅
