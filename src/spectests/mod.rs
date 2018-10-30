@@ -29,6 +29,7 @@ mod f64_cmp;
 mod fac;
 mod float_exprs;
 mod float_literals;
+mod float_memory;
 mod func;
 mod func_ptrs;
 mod get_local;
