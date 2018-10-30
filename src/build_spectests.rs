@@ -287,7 +287,7 @@ fn {}_assert_malformed() {{
         );
     }
 
-    fn visit_action(&mut self, action: &Action, expected: Option<&Vec<Value>>) {
+    fn visit_action(&mut self, action: &Action, expected: Option<&Vec<Value>>) -> Option<String> {
         match action {
             Action::Invoke {
                 module,
@@ -349,15 +349,34 @@ fn {}_assert_malformed() {{
                     )
                     .as_str(),
                 );
-                self.module_calls
-                    .entry(self.last_module)
-                    .or_insert(Vec::new())
-                    .push(func_name);
+                Some(func_name)
                 // let mut module_calls = self.module_calls.get(&self.last_module).unwrap();
                 // module_calls.push(func_name);
             }
-            _ => {}
-        };
+            _ => None,
+        }
+    }
+    fn visit_assert_return(&mut self, action: &Action, expected: &Vec<Value>) {
+        let action_fn_name = self.visit_action(action, Some(expected));
+
+        if action_fn_name.is_none() {
+            return;
+        }
+        self.module_calls
+            .entry(self.last_module)
+            .or_insert(Vec::new())
+            .push(action_fn_name.unwrap());
+    }
+    fn visit_perform_action(&mut self, action: &Action) {
+        let action_fn_name = self.visit_action(action, None);
+
+        if action_fn_name.is_none() {
+            return;
+        }
+        self.module_calls
+            .entry(self.last_module)
+            .or_insert(Vec::new())
+            .push(action_fn_name.unwrap());
     }
 
     fn visit_command(&mut self, cmd: &CommandKind) {
@@ -366,7 +385,7 @@ fn {}_assert_malformed() {{
                 self.visit_module(module, name);
             }
             CommandKind::AssertReturn { action, expected } => {
-                self.visit_action(action, Some(expected));
+                self.visit_assert_return(action, expected)
             }
             CommandKind::AssertReturnCanonicalNan { action } => {
                 // Do nothing for now
@@ -396,7 +415,7 @@ fn {}_assert_malformed() {{
                 // Do nothing for now
             }
             CommandKind::PerformAction(action) => {
-                self.visit_action(action, None);
+                self.visit_perform_action(action);
             }
         }
     }
