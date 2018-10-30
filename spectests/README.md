@@ -96,7 +96,7 @@ This spectests are currently covered:
 - token.wast
 - traps.wast
 - type.wast ✅
-- typecheck.wast
+- typecheck.wast ✅
 - unreachable.wast
 - unreached-invalid.wast
 - unwind.wast
