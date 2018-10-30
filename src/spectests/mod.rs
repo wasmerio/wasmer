@@ -46,6 +46,7 @@ mod left_to_right;
 mod loop_;
 mod memory;
 mod memory_redundancy;
+mod nop;
 mod return_;
 mod select;
 mod set_local;

@@ -83,7 +83,7 @@ This spectests are currently covered:
 - memory_redundancy.wast ✅
 - memory_trap.wast
 - names.wast ✅
-- nop.wast
+- nop.wast ✅
 - return.wast ✅
 - select.wast ✅
 - set_local.wast ✅
@@ -118,5 +118,6 @@ There are some cases that we decided to skip for now to fasten the time to relea
   - `globals.wast`
   - `loop.wast`
   - `if.wast`
+  - `nop.wast`
 - `SKIP_MUTABLE_GLOBALS`: Right now the WASM parser can't validate a module with imported/exported mut globals. We decided to skip the tests until Cranelift and wasmparser can handle this (original spec proposal: https://github.com/WebAssembly/mutable-global). Spectests affected:
   - `globals.wast`
