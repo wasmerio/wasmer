@@ -46,7 +46,7 @@ This spectests are currently covered:
 - comments.wast ✅
 - const.wast ✅
 - conversions.wast ✅
-- custom.wast
+- custom.wast ✅
 - data.wast ✅
 - elem.wast
 - endianness.wast ✅

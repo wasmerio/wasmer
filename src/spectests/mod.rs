@@ -16,6 +16,7 @@ mod call_indirect;
 mod comments;
 mod const_;
 mod conversions;
+mod custom;
 mod data;
 mod endianness;
 mod exports;
