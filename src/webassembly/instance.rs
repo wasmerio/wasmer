@@ -123,11 +123,9 @@ impl Instance {
                 .finish(module.info.flags.clone());
             let mut relocations = Vec::new();
 
-            // let mut total_size: usize = 0;
-            // let mut context_and_offsets = Vec::with_capacity(module.info.function_bodies.len());
+            // We walk through the imported functions and set the relocations
+            // for each of this functions to be an empty vector (as is defined outside of wasm)
             for (module, field) in module.info.imported_funcs.iter() {
-                // let function = &import_object.map(|i| i.get(module).map(|m| m.get(field)));
-                // let mut function = fake_fun as *const u8;
                 let mut function = import_object
                     .get(&module.as_str(), &field.as_str())
                     .ok_or_else(|| {
@@ -158,10 +156,13 @@ impl Instance {
                 let mut code_buf: Vec<u8> = Vec::new();
                 let mut reloc_sink = RelocSink::new();
                 let mut trap_sink = binemit::NullTrapSink {};
-
+                // This will compile a cranelift ir::Func into a code buffer (stored in memory)
+                // and will push any inner function calls to the reloc sync.
+                // In case traps need to be triggered, they will go to trap_sink
                 func_context
                     .compile_and_emit(&*isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
                     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                // We set this code_buf to be readable & executable
                 protect_codebuf(&code_buf);
 
                 let func_offset = code_buf;
