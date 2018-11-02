@@ -163,8 +163,10 @@ impl WastTestGenerator {
     dead_code
 )]
 use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, VmCtx, Export}};
-use super::_common::spectest_importobject;
-use std::{{f32, f64}};
+use super::_common::{{
+    spectest_importobject,
+    NaNCheck,
+}};
 use wabt::wat2wasm;\n\n",
             self.filename
         ));
@@ -179,6 +181,7 @@ use wabt::wat2wasm;\n\n",
             self.flush_module_calls(n);
         }
     }
+
     fn command_name(&self) -> String {
         format!("c{}_l{}", self.command_no, self.last_line)
     }
@@ -271,6 +274,107 @@ fn {}_assert_invalid() {{
             .as_str(),
         );
     }
+
+    fn visit_assert_return_arithmetic_nan(&mut self, action: &Action) {
+        match action {
+            Action::Invoke { module, field, args, } => {
+                let mut return_type = wabt2rust_type(&args[0]);
+                let mut func_return = format!(" -> {}", return_type);
+                let assertion = String::from("assert!(result.is_quiet_nan())");
+
+                // We map the arguments provided into the raw Arguments provided
+                // to libffi
+                let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
+                args_types.push("&VmCtx".to_string());
+                let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
+                args_values.push("&vm_context".to_string());
+                let func_name = format!("{}_assert_return_arithmetic_nan", self.command_name());
+                self.buffer.push_str(
+                    format!(
+                        "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{
+    println!(\"Executing function {{}}\", \"{}\");
+    let func_index = match result_object.module.info.exports.get({:?}) {{
+        Some(&Export::Function(index)) => index,
+        _ => panic!(\"Function not found\"),
+    }};
+    let invoke_fn: fn({}){} = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn({});
+    {}
+}}\n",
+                        func_name,
+                        func_name,
+                        field,
+                        args_types.join(", "),
+                        func_return,
+                        args_values.join(", "),
+                        assertion,
+                    )
+                    .as_str(),
+                );
+                self.module_calls
+                    .entry(self.last_module)
+                    .or_insert(Vec::new())
+                    .push(func_name);
+                // let mut module_calls = self.module_calls.get(&self.last_module).unwrap();
+                // module_calls.push(func_name);
+            }
+            _ => {}
+        };
+    }
+
+    // PROBLEM: Im assuming the return type from the first argument type
+    // and wabt does gives us the `expected` result
+    fn visit_assert_return_canonical_nan(&mut self, action: &Action) {
+        match action {
+            Action::Invoke { module, field, args, } => {
+                let mut return_type = match &field.as_str() {
+                    &"f64.promote_f32" => String::from("f64"),
+                    &"f32.promote_f64" => String::from("f32"),
+                    _ => wabt2rust_type(&args[0]),
+                };
+                let mut func_return = format!(" -> {}", return_type);
+                let assertion = String::from("assert!(result.is_quiet_nan())");
+
+                // We map the arguments provided into the raw Arguments provided
+                // to libffi
+                let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
+                args_types.push("&VmCtx".to_string());
+                let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
+                args_values.push("&vm_context".to_string());
+                let func_name = format!("{}_assert_return_canonical_nan", self.command_name());
+                self.buffer.push_str(
+                    format!(
+                        "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{
+    println!(\"Executing function {{}}\", \"{}\");
+    let func_index = match result_object.module.info.exports.get({:?}) {{
+        Some(&Export::Function(index)) => index,
+        _ => panic!(\"Function not found\"),
+    }};
+    let invoke_fn: fn({}){} = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn({});
+    {}
+}}\n",
+                        func_name,
+                        func_name,
+                        field,
+                        args_types.join(", "),
+                        func_return,
+                        args_values.join(", "),
+                        assertion,
+                    )
+                    .as_str(),
+                );
+                self.module_calls
+                    .entry(self.last_module)
+                    .or_insert(Vec::new())
+                    .push(func_name);
+                // let mut module_calls = self.module_calls.get(&self.last_module).unwrap();
+                // module_calls.push(func_name);
+            }
+            _ => {}
+        };
+    }
+
     fn visit_assert_malformed(&mut self, module: &ModuleBinary) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
         // let wast_string = wasm2wat(wasm_binary).expect("Can't convert back to wasm");
@@ -393,10 +497,10 @@ fn {}_assert_malformed() {{
                 self.visit_assert_return(action, expected)
             }
             CommandKind::AssertReturnCanonicalNan { action } => {
-                // Do nothing for now
+                self.visit_assert_return_canonical_nan(action);
             }
             CommandKind::AssertReturnArithmeticNan { action } => {
-                // Do nothing for now
+                self.visit_assert_return_arithmetic_nan(action);
             }
             CommandKind::AssertTrap { action, message: _ } => {
                 // Do nothing for now

@@ -6,8 +6,10 @@
     dead_code
 )]
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
-use super::_common::spectest_importobject;
-use std::{f32, f64};
+use super::_common::{
+    spectest_importobject,
+    NaNCheck,
+};
 use wabt::wat2wasm;
 
 
@@ -4557,6 +4559,16 @@ fn c367_l569_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 572
+fn c368_l572_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c368_l572_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.sqrt") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000015535152663257847 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 573
 fn c369_l573_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -5811,6 +5823,7 @@ fn test_module_1() {
     c365_l567_action_invoke(&result_object, &vm_context);
     c366_l568_action_invoke(&result_object, &vm_context);
     c367_l569_action_invoke(&result_object, &vm_context);
+    c368_l572_assert_return_canonical_nan(&result_object, &vm_context);
     c369_l573_action_invoke(&result_object, &vm_context);
     c370_l574_action_invoke(&result_object, &vm_context);
     c371_l575_action_invoke(&result_object, &vm_context);
