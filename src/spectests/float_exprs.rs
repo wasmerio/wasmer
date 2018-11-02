@@ -6,8 +6,10 @@
     dead_code
 )]
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
-use super::_common::spectest_importobject;
-use std::{f32, f64};
+use super::_common::{
+    spectest_importobject,
+    NaNCheck,
+};
 use wabt::wat2wasm;
 
 
@@ -316,8 +318,28 @@ fn c19_l48_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 49
+fn c20_l49_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c20_l49_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_zero") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 50
+fn c21_l50_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c21_l50_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_zero") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 54
 
@@ -329,6 +351,8 @@ fn test_module_3() {
     start_module_3(&result_object, &vm_context);
     c18_l47_action_invoke(&result_object, &vm_context);
     c19_l48_action_invoke(&result_object, &vm_context);
+    c20_l49_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c21_l50_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_4() -> ResultObject {
     let module_str = "(module
@@ -377,8 +401,28 @@ fn c24_l62_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 63
+fn c25_l63_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c25_l63_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_sub") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 64
+fn c26_l64_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c26_l64_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_sub") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 68
 
@@ -390,6 +434,8 @@ fn test_module_4() {
     start_module_4(&result_object, &vm_context);
     c23_l61_action_invoke(&result_object, &vm_context);
     c24_l62_action_invoke(&result_object, &vm_context);
+    c25_l63_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c26_l64_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_5() -> ResultObject {
     let module_str = "(module
@@ -414,8 +460,28 @@ fn start_module_5(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 75
+fn c28_l75_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c28_l75_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_sub_zero") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 76
+fn c29_l76_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c29_l76_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_sub_zero") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 80
 
@@ -425,6 +491,8 @@ fn test_module_5() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_5(&result_object, &vm_context);
+    c28_l75_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c29_l76_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_6() -> ResultObject {
     let module_str = "(module
@@ -485,6 +553,16 @@ fn c33_l89_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 90
+fn c34_l90_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c34_l90_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_zero") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 91
 fn c35_l91_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -523,6 +601,16 @@ fn c37_l93_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 94
+fn c38_l94_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c38_l94_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_zero") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 99
 
@@ -535,9 +623,11 @@ fn test_module_6() {
     c31_l87_action_invoke(&result_object, &vm_context);
     c32_l88_action_invoke(&result_object, &vm_context);
     c33_l89_action_invoke(&result_object, &vm_context);
+    c34_l90_assert_return_arithmetic_nan(&result_object, &vm_context);
     c35_l91_action_invoke(&result_object, &vm_context);
     c36_l92_action_invoke(&result_object, &vm_context);
     c37_l93_action_invoke(&result_object, &vm_context);
+    c38_l94_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_7() -> ResultObject {
     let module_str = "(module
@@ -562,8 +652,28 @@ fn start_module_7(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 106
+fn c40_l106_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c40_l106_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_one") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 107
+fn c41_l107_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c41_l107_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_one") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 111
 
@@ -573,6 +683,8 @@ fn test_module_7() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_7(&result_object, &vm_context);
+    c40_l106_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c41_l107_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_8() -> ResultObject {
     let module_str = "(module
@@ -597,20 +709,100 @@ fn start_module_8(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 118
+fn c43_l118_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c43_l118_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_div") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 119
+fn c44_l119_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c44_l119_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_div") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.0 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 120
+fn c45_l120_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c45_l120_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_div") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2143289344), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 121
+fn c46_l121_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c46_l121_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_div") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 122
+fn c47_l122_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c47_l122_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_div") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 123
+fn c48_l123_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c48_l123_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_div") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.0 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 124
+fn c49_l124_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c49_l124_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_div") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9221120237041090560), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 125
+fn c50_l125_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c50_l125_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_div") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 129
 
@@ -620,6 +812,14 @@ fn test_module_8() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_8(&result_object, &vm_context);
+    c43_l118_assert_return_canonical_nan(&result_object, &vm_context);
+    c44_l119_assert_return_canonical_nan(&result_object, &vm_context);
+    c45_l120_assert_return_canonical_nan(&result_object, &vm_context);
+    c46_l121_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c47_l122_assert_return_canonical_nan(&result_object, &vm_context);
+    c48_l123_assert_return_canonical_nan(&result_object, &vm_context);
+    c49_l124_assert_return_canonical_nan(&result_object, &vm_context);
+    c50_l125_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_9() -> ResultObject {
     let module_str = "(module
@@ -644,8 +844,28 @@ fn start_module_9(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 136
+fn c52_l136_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c52_l136_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_one") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 137
+fn c53_l137_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c53_l137_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_one") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 141
 
@@ -655,6 +875,8 @@ fn test_module_9() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_9(&result_object, &vm_context);
+    c52_l136_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c53_l137_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_10() -> ResultObject {
     let module_str = "(module
@@ -679,8 +901,28 @@ fn start_module_10(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 148
+fn c55_l148_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c55_l148_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg1") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 149
+fn c56_l149_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c56_l149_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg1") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 153
 
@@ -690,6 +932,8 @@ fn test_module_10() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_10(&result_object, &vm_context);
+    c55_l148_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c56_l149_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_11() -> ResultObject {
     let module_str = "(module
@@ -714,8 +958,28 @@ fn start_module_11(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 160
+fn c58_l160_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c58_l160_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_neg0_sub") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 161
+fn c59_l161_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c59_l161_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_neg0_sub") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 165
 
@@ -725,6 +989,8 @@ fn test_module_11() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_11(&result_object, &vm_context);
+    c58_l160_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c59_l161_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_12() -> ResultObject {
     let module_str = "(module
@@ -749,8 +1015,28 @@ fn start_module_12(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 172
+fn c61_l172_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c61_l172_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_neg1_mul") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 173
+fn c62_l173_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c62_l173_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_neg1_mul") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 177
 
@@ -760,6 +1046,8 @@ fn test_module_12() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_12(&result_object, &vm_context);
+    c61_l172_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c62_l173_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_13() -> ResultObject {
     let module_str = "(module
@@ -898,12 +1186,52 @@ fn start_module_15(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 208
+fn c70_l208_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c70_l208_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_sub_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::INFINITY, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 209
+fn c71_l209_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c71_l209_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_sub_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2143289344), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 210
+fn c72_l210_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c72_l210_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_sub_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::INFINITY, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 211
+fn c73_l211_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c73_l211_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_sub_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9221120237041090560), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 215
 
@@ -913,6 +1241,10 @@ fn test_module_15() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_15(&result_object, &vm_context);
+    c70_l208_assert_return_canonical_nan(&result_object, &vm_context);
+    c71_l209_assert_return_canonical_nan(&result_object, &vm_context);
+    c72_l210_assert_return_canonical_nan(&result_object, &vm_context);
+    c73_l211_assert_return_canonical_nan(&result_object, &vm_context);
 }
 fn create_module_16() -> ResultObject {
     let module_str = "(module
@@ -937,20 +1269,100 @@ fn start_module_16(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 222
+fn c75_l222_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c75_l222_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::INFINITY, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 223
+fn c76_l223_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c76_l223_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2143289344), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 224
+fn c77_l224_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c77_l224_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 225
+fn c78_l225_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c78_l225_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.0 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 226
+fn c79_l226_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c79_l226_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::INFINITY, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 227
+fn c80_l227_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c80_l227_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9221120237041090560), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 228
+fn c81_l228_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c81_l228_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 229
+fn c82_l229_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c82_l229_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_self") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.0 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 233
 
@@ -960,6 +1372,14 @@ fn test_module_16() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_16(&result_object, &vm_context);
+    c75_l222_assert_return_canonical_nan(&result_object, &vm_context);
+    c76_l223_assert_return_canonical_nan(&result_object, &vm_context);
+    c77_l224_assert_return_canonical_nan(&result_object, &vm_context);
+    c78_l225_assert_return_canonical_nan(&result_object, &vm_context);
+    c79_l226_assert_return_canonical_nan(&result_object, &vm_context);
+    c80_l227_assert_return_canonical_nan(&result_object, &vm_context);
+    c81_l228_assert_return_canonical_nan(&result_object, &vm_context);
+    c82_l229_assert_return_canonical_nan(&result_object, &vm_context);
 }
 fn create_module_17() -> ResultObject {
     let module_str = "(module
@@ -2195,12 +2615,52 @@ fn c164_l383_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 384
+fn c165_l384_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c165_l384_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 385
+fn c166_l385_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c166_l385_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.0 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 386
+fn c167_l386_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c167_l386_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 387
+fn c168_l387_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c168_l387_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2143289344), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 388
 fn c169_l388_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -2251,12 +2711,52 @@ fn c172_l391_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 392
+fn c173_l392_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c173_l392_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 393
+fn c174_l393_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c174_l393_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.0 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 394
+fn c175_l394_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c175_l394_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9221120237041090560), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 395
+fn c176_l395_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c176_l395_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 399
 
@@ -2270,10 +2770,18 @@ fn test_module_24() {
     c162_l381_action_invoke(&result_object, &vm_context);
     c163_l382_action_invoke(&result_object, &vm_context);
     c164_l383_action_invoke(&result_object, &vm_context);
+    c165_l384_assert_return_canonical_nan(&result_object, &vm_context);
+    c166_l385_assert_return_canonical_nan(&result_object, &vm_context);
+    c167_l386_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c168_l387_assert_return_canonical_nan(&result_object, &vm_context);
     c169_l388_action_invoke(&result_object, &vm_context);
     c170_l389_action_invoke(&result_object, &vm_context);
     c171_l390_action_invoke(&result_object, &vm_context);
     c172_l391_action_invoke(&result_object, &vm_context);
+    c173_l392_assert_return_canonical_nan(&result_object, &vm_context);
+    c174_l393_assert_return_canonical_nan(&result_object, &vm_context);
+    c175_l394_assert_return_canonical_nan(&result_object, &vm_context);
+    c176_l395_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_25() -> ResultObject {
     let module_str = "(module
@@ -2346,12 +2854,52 @@ fn c181_l409_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 410
+fn c182_l410_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c182_l410_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 411
+fn c183_l411_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c183_l411_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.0 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 412
+fn c184_l412_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c184_l412_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 413
+fn c185_l413_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c185_l413_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2143289344), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 414
 fn c186_l414_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -2402,12 +2950,52 @@ fn c189_l417_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 418
+fn c190_l418_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c190_l418_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 419
+fn c191_l419_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c191_l419_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.0 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 420
+fn c192_l420_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c192_l420_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9221120237041090560), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 421
+fn c193_l421_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c193_l421_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 425
 
@@ -2421,10 +3009,18 @@ fn test_module_25() {
     c179_l407_action_invoke(&result_object, &vm_context);
     c180_l408_action_invoke(&result_object, &vm_context);
     c181_l409_action_invoke(&result_object, &vm_context);
+    c182_l410_assert_return_canonical_nan(&result_object, &vm_context);
+    c183_l411_assert_return_canonical_nan(&result_object, &vm_context);
+    c184_l412_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c185_l413_assert_return_canonical_nan(&result_object, &vm_context);
     c186_l414_action_invoke(&result_object, &vm_context);
     c187_l415_action_invoke(&result_object, &vm_context);
     c188_l416_action_invoke(&result_object, &vm_context);
     c189_l417_action_invoke(&result_object, &vm_context);
+    c190_l418_assert_return_canonical_nan(&result_object, &vm_context);
+    c191_l419_assert_return_canonical_nan(&result_object, &vm_context);
+    c192_l420_assert_return_canonical_nan(&result_object, &vm_context);
+    c193_l421_assert_return_arithmetic_nan(&result_object, &vm_context);
 }
 fn create_module_26() -> ResultObject {
     let module_str = "(module
@@ -3966,6 +4562,16 @@ fn start_module_37(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 638
+fn c295_l638_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c295_l638_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 639
 fn c296_l639_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -4119,6 +4725,7 @@ fn test_module_37() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_37(&result_object, &vm_context);
+    c295_l638_assert_return_arithmetic_nan(&result_object, &vm_context);
     c296_l639_action_invoke(&result_object, &vm_context);
     c297_l640_action_invoke(&result_object, &vm_context);
     c298_l641_action_invoke(&result_object, &vm_context);
@@ -10001,8 +10608,28 @@ fn c661_l1655_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 1656
+fn c662_l1656_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c662_l1656_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_neg") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::INFINITY, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 1657
+fn c663_l1657_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c663_l1657_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_neg") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::NEG_INFINITY, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 1659
 fn c664_l1659_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -10029,8 +10656,28 @@ fn c665_l1660_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 1661
+fn c666_l1661_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c666_l1661_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_neg") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::INFINITY, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 1662
+fn c667_l1662_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c667_l1662_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_neg") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::NEG_INFINITY, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 1666
 
@@ -10042,8 +10689,12 @@ fn test_module_67() {
     start_module_67(&result_object, &vm_context);
     c660_l1654_action_invoke(&result_object, &vm_context);
     c661_l1655_action_invoke(&result_object, &vm_context);
+    c662_l1656_assert_return_canonical_nan(&result_object, &vm_context);
+    c663_l1657_assert_return_canonical_nan(&result_object, &vm_context);
     c664_l1659_action_invoke(&result_object, &vm_context);
     c665_l1660_action_invoke(&result_object, &vm_context);
+    c666_l1661_assert_return_canonical_nan(&result_object, &vm_context);
+    c667_l1662_assert_return_canonical_nan(&result_object, &vm_context);
 }
 fn create_module_68() -> ResultObject {
     let module_str = "(module
@@ -10915,6 +11566,16 @@ fn start_module_73(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 1793
+fn c724_l1793_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c724_l1793_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrts") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.000000000000000000000000000000000000043885047 as f32, -0.00000000000000000000000011867334 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 1794
 fn c725_l1794_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -10965,6 +11626,16 @@ fn c728_l1797_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 1799
+fn c729_l1799_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c729_l1799_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrts") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012742064369772862 as f64, -0.006829962938197246 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 1800
 fn c730_l1800_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -11022,10 +11693,12 @@ fn test_module_73() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_73(&result_object, &vm_context);
+    c724_l1793_assert_return_canonical_nan(&result_object, &vm_context);
     c725_l1794_action_invoke(&result_object, &vm_context);
     c726_l1795_action_invoke(&result_object, &vm_context);
     c727_l1796_action_invoke(&result_object, &vm_context);
     c728_l1797_action_invoke(&result_object, &vm_context);
+    c729_l1799_assert_return_canonical_nan(&result_object, &vm_context);
     c730_l1800_action_invoke(&result_object, &vm_context);
     c731_l1801_action_invoke(&result_object, &vm_context);
     c732_l1802_action_invoke(&result_object, &vm_context);
@@ -11058,6 +11731,16 @@ fn start_module_74(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 1815
+fn c735_l1815_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c735_l1815_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_sqrts") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-58545012.0 as f32, -0.000000000000000006443773 as f32, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 1816
 fn c736_l1816_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -11108,6 +11791,16 @@ fn c739_l1819_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 1821
+fn c740_l1821_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c740_l1821_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_sqrts") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012206137319883022 as f64, -0.000000000000000000000000000000000000000000000000000000008209583449676083 as f64, &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 1822
 fn c741_l1822_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -11165,10 +11858,12 @@ fn test_module_74() {
     let vm_context = result_object.instance.generate_context();
     // We group the calls together
     start_module_74(&result_object, &vm_context);
+    c735_l1815_assert_return_canonical_nan(&result_object, &vm_context);
     c736_l1816_action_invoke(&result_object, &vm_context);
     c737_l1817_action_invoke(&result_object, &vm_context);
     c738_l1818_action_invoke(&result_object, &vm_context);
     c739_l1819_action_invoke(&result_object, &vm_context);
+    c740_l1821_assert_return_canonical_nan(&result_object, &vm_context);
     c741_l1822_action_invoke(&result_object, &vm_context);
     c742_l1823_action_invoke(&result_object, &vm_context);
     c743_l1824_action_invoke(&result_object, &vm_context);

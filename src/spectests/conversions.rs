@@ -6,8 +6,10 @@
     dead_code
 )]
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
-use super::_common::spectest_importobject;
-use std::{f32, f64};
+use super::_common::{
+    spectest_importobject,
+    NaNCheck,
+};
 use wabt::wat2wasm;
 
 
@@ -2957,12 +2959,52 @@ fn c291_l346_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 347
+fn c292_l347_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c292_l347_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.promote_f32") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2143289344), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 348
+fn c293_l348_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c293_l348_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.promote_f32") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(2141192192), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 349
+fn c294_l349_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c294_l349_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f64.promote_f32") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(4290772992), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 350
+fn c295_l350_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c295_l350_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f64.promote_f32") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f32::from_bits(4288675840), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 352
 fn c296_l352_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -3469,12 +3511,52 @@ fn c337_l393_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 394
+fn c338_l394_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c338_l394_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.demote_f64") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9221120237041090560), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 395
+fn c339_l395_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c339_l395_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.demote_f64") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(9219994337134247936), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 396
+fn c340_l396_assert_return_canonical_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c340_l396_assert_return_canonical_nan");
+    let func_index = match result_object.module.info.exports.get("f32.demote_f64") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(18444492273895866368), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 397
+fn c341_l397_assert_return_arithmetic_nan(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c341_l397_assert_return_arithmetic_nan");
+    let func_index = match result_object.module.info.exports.get("f32.demote_f64") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(f64, &VmCtx) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(f64::from_bits(18443366373989023744), &vm_context);
+    assert!(result.is_quiet_nan())
+}
 
 // Line 398
 fn c342_l398_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -4436,6 +4518,10 @@ fn test_module_1() {
     c289_l344_action_invoke(&result_object, &vm_context);
     c290_l345_action_invoke(&result_object, &vm_context);
     c291_l346_action_invoke(&result_object, &vm_context);
+    c292_l347_assert_return_canonical_nan(&result_object, &vm_context);
+    c293_l348_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c294_l349_assert_return_canonical_nan(&result_object, &vm_context);
+    c295_l350_assert_return_arithmetic_nan(&result_object, &vm_context);
     c296_l352_action_invoke(&result_object, &vm_context);
     c297_l353_action_invoke(&result_object, &vm_context);
     c298_l354_action_invoke(&result_object, &vm_context);
@@ -4478,6 +4564,10 @@ fn test_module_1() {
     c335_l391_action_invoke(&result_object, &vm_context);
     c336_l392_action_invoke(&result_object, &vm_context);
     c337_l393_action_invoke(&result_object, &vm_context);
+    c338_l394_assert_return_canonical_nan(&result_object, &vm_context);
+    c339_l395_assert_return_arithmetic_nan(&result_object, &vm_context);
+    c340_l396_assert_return_canonical_nan(&result_object, &vm_context);
+    c341_l397_assert_return_arithmetic_nan(&result_object, &vm_context);
     c342_l398_action_invoke(&result_object, &vm_context);
     c343_l399_action_invoke(&result_object, &vm_context);
     c344_l400_action_invoke(&result_object, &vm_context);
