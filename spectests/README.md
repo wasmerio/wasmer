@@ -19,8 +19,8 @@ Currently supported command assertions:
 
 - [x] Module _mostly implemented_ (it should support named modules `(module $Xx)`).
 - [x] AssertReturn _mostly implemented_ (it should support calls to named modules `(invoke $Xx "call")`).
-- [ ] AssertReturnCanonicalNan _not implemented yet_
-- [ ] AssertReturnArithmeticNan _not implemented yet_
+- [x] AssertReturnCanonicalNan _fully implemented_
+- [x] AssertReturnArithmeticNan _fully implemented_
 - [ ] AssertTrap _not implemented yet_
 - [x] AssertInvalid _Fully implemented_ (it should not require to do validation separate from compilation)
 - [x] AssertMalformed _Fully implemented_
