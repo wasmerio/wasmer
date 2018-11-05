@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: rustlang/rust:nightly
+      - image: circleci/rust:latest
 
     steps:
       - checkout
@@ -10,6 +10,7 @@ jobs:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
 
+      - run: rustup default nightly
       - run: cargo test
 
       - save_cache:
