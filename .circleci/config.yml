@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/rust:latest
+      - image: rustlang/rust:nightly
 
     steps:
       - checkout
