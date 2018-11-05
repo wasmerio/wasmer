@@ -1,19 +1,18 @@
-# wasmer - WebAssembly Runtime
+<p align="center"><a href="https://wasmer.io" target="_blank" rel="noopener noreferrer"><img width="400" src="https://raw.githubusercontent.com/WAFoundation/wasmer/master/logo.png" alt="Wasmer logo"></a></p>
 
-[![Build Status](https://api.travis-ci.com/WAFoundation/wasmer.svg?branch=master)](https://travis-ci.com/WAFoundation/wasmer)
-[![Latest Version](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
-[![License](https://img.shields.io/github/license/WAFoundation/wasmer.svg)](https://github.com/WAFoundation/wasmer)
+<p align="center">
+  <a href="https://travis-ci.com/WAFoundation/wasmer"><img src="https://api.travis-ci.com/WAFoundation/wasmer.svg?branch=master" alt="Build Status"></a>
+  <a href="https://github.com/WAFoundation/wasmer/blob/master/LICENSE"><img src="https://img.shields.io/github/license/WAFoundation/wasmer.svg" alt="License"></a>
+</p>
 
-`wasmer` is a Standalone JIT-style runtime for WebAsssembly code.
+## Introduction
 
-The [Cranelift](https://github.com/CraneStation/cranelift) compiler is used to compile WebAssembly to native machine code. Once compiled, there are no complex interactions between the application and the runtime (unlike jit compilers, like v8) to reduce surface area for vulnerabilities.
-
-[Documentation (crates.io)](https://docs.rs/wasmer).
+Wasmer is a Standalone JIT-style WebAsssembly runtime code built on [Cranelift](https://github.com/CraneStation/cranelift) code generator engine.
 
 ## Usage
 
-It can load both the standard binary format (`.wasm`), and the text format
-defined by the WebAssembly reference interpreter (`.wat`).
+`wasmer` can execute both the standard binary format (`.wasm`) and the text
+format defined by the WebAssembly reference interpreter (`.wat`).
 
 Once installed, you will be able to run:
 
@@ -37,9 +36,7 @@ cargo install
 
 ## Testing
 
-This library should be always fully tested.
-
-Thanks to [spectests](spectests/) we can assure 100% compatibility with the WebAssembly spec test suite.
+Thanks to [spectests](https://github.com/WAFoundation/wasmer/tree/master/spectests) we can assure 100% compatibility with the WebAssembly spec test suite.
 
 Tests can be run with:
 
@@ -60,7 +57,7 @@ Wasmer is an open project guided by strong principles, aiming to be modular, fle
 
 Below are some of the goals (written with order) of this project:
 
-- [ ] It should be 100% compatible with the WebAssembly Spectest (on the works)
+- [ ] It should be 100% compatible with the [WebAssembly Spectest](https://github.com/WAFoundation/wasmer/tree/master/spectests) (on the works)
 - [ ] It should be fast. We can achieve this by caching the function compilations
 - [ ] Support Emscripten calls
 - [ ] Support Rust ABI calls
