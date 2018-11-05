@@ -9,7 +9,7 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-
+      - run: sudo apt-get install -y cmake
       - run: rustup default nightly
       - run: cargo test
 
