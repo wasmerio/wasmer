@@ -109,14 +109,6 @@ This spectests are currently covered:
 
 There are some cases that we decided to skip for now to fasten the time to release:
 
-- `SKIP_MEMORY_GROW`: When accessing to the context memories multiple times, the mutable access to a memory index raises an error. For this reason we decied to skip the tests (for now) until this issue is resolved. Spectests affected:
-  - `block.wast`
-  - `call_indirect.wast`
-  - `call.wast`
-  - `globals.wast`
-  - `loop.wast`
-  - `if.wast`
-  - `nop.wast`
 - `SKIP_MUTABLE_GLOBALS`: Right now the WASM parser can't validate a module with imported/exported mut globals. We decided to skip the tests until Cranelift and wasmparser can handle this (original spec proposal: https://github.com/WebAssembly/mutable-global). Spectests affected:
   - `globals.wast`
 - `SKIP_CALL_INDIRECT_TYPE_MISMATCH`: we implemented traps in a fast way. We haven't covered yet the type mismatch on `call_indirect`. Specs affected:
