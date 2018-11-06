@@ -570,8 +570,11 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
                 call_conv: CallConv::SystemV,
                 // argument_bytes: None,
                 params: vec![
+                    // Size
                     AbiParam::new(I32),
-                    // AbiParam::special(I64, ArgumentPurpose::VMContext),
+                    // Memory index
+                    AbiParam::new(I32),
+                    // VMContext
                     AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
                 ],
                 returns: vec![AbiParam::new(I32)],
@@ -586,9 +589,10 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         // self.mod_info.grow_memory_extfunc = Some(grow_mem_func);
 
+        let memory_index = pos.ins().iconst(I32, index as i64);
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
-        let call_inst = pos.ins().call(grow_mem_func, &[val, vmctx]);
+        let call_inst = pos.ins().call(grow_mem_func, &[val, memory_index, vmctx]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
