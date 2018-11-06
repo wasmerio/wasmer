@@ -42,6 +42,7 @@ spin = "0.4.10"
 log = "0.4.5"
 target-lexicon = { version = "0.0.3", default-features = false }
 libc = "0.2"
+nix = "0.11"
 
 [build-dependencies]
 wabt = "0.6.0"
