@@ -5,12 +5,14 @@
     warnings,
     dead_code
 )]
+use std::panic;
+use wabt::wat2wasm;
+
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
 };
-use wabt::wat2wasm;
 
 
 // Line 3
@@ -458,10 +460,70 @@ fn c24_l60_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 62
+fn c25_l62_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c25_l62_action_invoke");
+    let func_index = match result_object.module.info.exports.get("div_s") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i64, 0 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c25_l62_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c25_l62_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 63
+fn c26_l63_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c26_l63_action_invoke");
+    let func_index = match result_object.module.info.exports.get("div_s") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i64, 0 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c26_l63_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c26_l63_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 64
+fn c27_l64_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c27_l64_action_invoke");
+    let func_index = match result_object.module.info.exports.get("div_s") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(-9223372036854775808 as i64, -1 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c27_l64_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c27_l64_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 65
 fn c28_l65_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -656,8 +718,48 @@ fn c43_l80_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 82
+fn c44_l82_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c44_l82_action_invoke");
+    let func_index = match result_object.module.info.exports.get("div_u") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i64, 0 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c44_l82_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c44_l82_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 83
+fn c45_l83_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c45_l83_action_invoke");
+    let func_index = match result_object.module.info.exports.get("div_u") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i64, 0 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c45_l83_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c45_l83_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 84
 fn c46_l84_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -828,8 +930,48 @@ fn c59_l97_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 99
+fn c60_l99_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c60_l99_action_invoke");
+    let func_index = match result_object.module.info.exports.get("rem_s") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i64, 0 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c60_l99_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c60_l99_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 100
+fn c61_l100_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c61_l100_action_invoke");
+    let func_index = match result_object.module.info.exports.get("rem_s") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i64, 0 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c61_l100_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c61_l100_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 101
 fn c62_l101_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
@@ -1048,8 +1190,48 @@ fn c79_l118_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 120
+fn c80_l120_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c80_l120_action_invoke");
+    let func_index = match result_object.module.info.exports.get("rem_u") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i64, 0 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c80_l120_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c80_l120_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 121
+fn c81_l121_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c81_l121_action_invoke");
+    let func_index = match result_object.module.info.exports.get("rem_u") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i64, i64, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i64, 0 as i64, &vm_context);
+    
+}
+
+#[test]
+fn c81_l121_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c81_l121_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 122
 fn c82_l122_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {

@@ -162,12 +162,14 @@ impl WastTestGenerator {
     warnings,
     dead_code
 )]
+use std::panic;
+use wabt::wat2wasm;
+
 use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, VmCtx, Export}};
 use super::_common::{{
     spectest_importobject,
     NaNCheck,
-}};
-use wabt::wat2wasm;\n\n",
+}};\n\n",
             self.filename
         ));
         while let Some(Command { line, kind }) = &self.script_parser.next().unwrap() {
@@ -277,7 +279,11 @@ fn {}_assert_invalid() {{
 
     fn visit_assert_return_arithmetic_nan(&mut self, action: &Action) {
         match action {
-            Action::Invoke { module, field, args, } => {
+            Action::Invoke {
+                module,
+                field,
+                args,
+            } => {
                 let mut return_type = wabt2rust_type(&args[0]);
                 let mut func_return = format!(" -> {}", return_type);
                 let assertion = String::from("assert!(result.is_quiet_nan())");
@@ -326,7 +332,11 @@ fn {}_assert_invalid() {{
     // and wabt does gives us the `expected` result
     fn visit_assert_return_canonical_nan(&mut self, action: &Action) {
         match action {
-            Action::Invoke { module, field, args, } => {
+            Action::Invoke {
+                module,
+                field,
+                args,
+            } => {
                 let mut return_type = match &field.as_str() {
                     &"f64.promote_f32" => String::from("f64"),
                     &"f32.promote_f64" => String::from("f32"),
@@ -487,6 +497,39 @@ fn {}_assert_malformed() {{
             .or_insert(Vec::new())
             .push(action_fn_name.unwrap());
     }
+    fn visit_assert_trap(&mut self, action: &Action) {
+        let action_fn_name = self.visit_action(action, None);
+
+        if action_fn_name.is_none() {
+            return;
+        }
+        let trap_func_name = format!("{}_assert_trap", self.command_name());
+        self.buffer.push_str(
+            format!(
+                "
+#[test]
+fn {}() {{
+    let result_object = create_module_{}();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {{
+        {}(&result_object, &vm_context);
+    }});
+    assert!(result.is_err());
+}}\n",
+                trap_func_name,
+                self.last_module,
+                action_fn_name.unwrap(),
+            )
+            .as_str(),
+        );
+
+        // We don't group trap calls as they may cause memory faults
+        // on the instance memory. So we test them alone.
+        // self.module_calls
+        //     .entry(self.last_module)
+        //     .or_insert(Vec::new())
+        //     .push(trap_func_name);
+    }
 
     fn visit_command(&mut self, cmd: &CommandKind) {
         match cmd {
@@ -503,7 +546,7 @@ fn {}_assert_malformed() {{
                 self.visit_assert_return_arithmetic_nan(action);
             }
             CommandKind::AssertTrap { action, message: _ } => {
-                // Do nothing for now
+                self.visit_assert_trap(action);
             }
             CommandKind::AssertInvalid { module, message: _ } => {
                 self.visit_assert_invalid(module);

@@ -5,12 +5,14 @@
     warnings,
     dead_code
 )]
+use std::panic;
+use wabt::wat2wasm;
+
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
 };
-use wabt::wat2wasm;
 
 
 // Line 3
@@ -1042,26 +1044,246 @@ fn c74_l191_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 192
+fn c75_l192_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c75_l192_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32_good5") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(65508 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c75_l192_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c75_l192_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 194
+fn c76_l194_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c76_l194_action_invoke");
+    let func_index = match result_object.module.info.exports.get("8u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c76_l194_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c76_l194_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 195
+fn c77_l195_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c77_l195_action_invoke");
+    let func_index = match result_object.module.info.exports.get("8s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c77_l195_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c77_l195_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 196
+fn c78_l196_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c78_l196_action_invoke");
+    let func_index = match result_object.module.info.exports.get("16u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c78_l196_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c78_l196_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 197
+fn c79_l197_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c79_l197_action_invoke");
+    let func_index = match result_object.module.info.exports.get("16s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c79_l197_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c79_l197_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 198
+fn c80_l198_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c80_l198_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c80_l198_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c80_l198_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 200
+fn c81_l200_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c81_l200_action_invoke");
+    let func_index = match result_object.module.info.exports.get("8u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c81_l200_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c81_l200_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 201
+fn c82_l201_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c82_l201_action_invoke");
+    let func_index = match result_object.module.info.exports.get("8s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c82_l201_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c82_l201_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 202
+fn c83_l202_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c83_l202_action_invoke");
+    let func_index = match result_object.module.info.exports.get("16u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c83_l202_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c83_l202_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 203
+fn c84_l203_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c84_l203_action_invoke");
+    let func_index = match result_object.module.info.exports.get("16s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c84_l203_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c84_l203_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 204
+fn c85_l204_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c85_l204_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c85_l204_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c85_l204_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 207
 #[test]
@@ -2592,34 +2814,334 @@ fn c191_l478_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 479
+fn c192_l479_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c192_l479_action_invoke");
+    let func_index = match result_object.module.info.exports.get("64_good5") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(65504 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c192_l479_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c192_l479_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 481
+fn c193_l481_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c193_l481_action_invoke");
+    let func_index = match result_object.module.info.exports.get("8u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c193_l481_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c193_l481_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 482
+fn c194_l482_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c194_l482_action_invoke");
+    let func_index = match result_object.module.info.exports.get("8s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c194_l482_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c194_l482_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 483
+fn c195_l483_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c195_l483_action_invoke");
+    let func_index = match result_object.module.info.exports.get("16u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c195_l483_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c195_l483_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 484
+fn c196_l484_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c196_l484_action_invoke");
+    let func_index = match result_object.module.info.exports.get("16s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c196_l484_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c196_l484_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 485
+fn c197_l485_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c197_l485_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c197_l485_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c197_l485_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 486
+fn c198_l486_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c198_l486_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c198_l486_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c198_l486_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 487
+fn c199_l487_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c199_l487_action_invoke");
+    let func_index = match result_object.module.info.exports.get("64_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c199_l487_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c199_l487_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 489
+fn c200_l489_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c200_l489_action_invoke");
+    let func_index = match result_object.module.info.exports.get("8u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c200_l489_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c200_l489_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 490
+fn c201_l490_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c201_l490_action_invoke");
+    let func_index = match result_object.module.info.exports.get("8s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c201_l490_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c201_l490_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 491
+fn c202_l491_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c202_l491_action_invoke");
+    let func_index = match result_object.module.info.exports.get("16u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c202_l491_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c202_l491_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 492
+fn c203_l492_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c203_l492_action_invoke");
+    let func_index = match result_object.module.info.exports.get("16s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c203_l492_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c203_l492_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 493
+fn c204_l493_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c204_l493_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32u_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c204_l493_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c204_l493_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 494
+fn c205_l494_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c205_l494_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32s_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c205_l494_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c205_l494_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 495
+fn c206_l495_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c206_l495_action_invoke");
+    let func_index = match result_object.module.info.exports.get("64_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c206_l495_assert_trap() {
+    let result_object = create_module_2();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c206_l495_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 499
 
@@ -2943,10 +3465,70 @@ fn c221_l538_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 539
+fn c222_l539_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c222_l539_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32_good5") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(65525 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c222_l539_assert_trap() {
+    let result_object = create_module_3();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c222_l539_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 541
+fn c223_l541_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c223_l541_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c223_l541_assert_trap() {
+    let result_object = create_module_3();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c223_l541_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 542
+fn c224_l542_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c224_l542_action_invoke");
+    let func_index = match result_object.module.info.exports.get("32_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c224_l542_assert_trap() {
+    let result_object = create_module_3();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c224_l542_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 546
 
@@ -3180,10 +3762,70 @@ fn c239_l585_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 586
+fn c240_l586_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c240_l586_action_invoke");
+    let func_index = match result_object.module.info.exports.get("64_good5") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(65511 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c240_l586_assert_trap() {
+    let result_object = create_module_4();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c240_l586_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 588
+fn c241_l588_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c241_l588_action_invoke");
+    let func_index = match result_object.module.info.exports.get("64_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c241_l588_assert_trap() {
+    let result_object = create_module_4();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c241_l588_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 589
+fn c242_l589_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c242_l589_action_invoke");
+    let func_index = match result_object.module.info.exports.get("64_bad") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c242_l589_assert_trap() {
+    let result_object = create_module_4();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c242_l589_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 #[test]
 fn test_module_4() {

@@ -12,6 +12,7 @@ extern crate cranelift_wasm;
 extern crate wabt;
 #[macro_use]
 extern crate target_lexicon;
+extern crate nix;
 extern crate spin;
 
 // use std::alloc::System;
@@ -37,6 +38,7 @@ use wabt::wat2wasm;
 mod macros;
 pub mod common;
 pub mod integrations;
+pub mod sighandler;
 #[cfg(test)]
 mod spectests;
 pub mod webassembly;

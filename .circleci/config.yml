@@ -11,7 +11,7 @@ jobs:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
       - run: rustup default nightly-2018-10-07
-      - run: cargo test
+      - run: make test
 
       - save_cache:
           paths:

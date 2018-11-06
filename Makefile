@@ -14,4 +14,4 @@ install:
 	cargo install --path .
 
 test:
-	cargo test
+	cargo test -- --test-threads=1
