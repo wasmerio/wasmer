@@ -18,13 +18,13 @@ pub unsafe fn install_sighandler() {
     sigaction(SIGILL, &sa).unwrap();
     sigaction(SIGSEGV, &sa).unwrap();
     sigaction(SIGBUS, &sa).unwrap();
-    let result = setjmp((&mut setjmp_buffer[..]).as_mut_ptr() as *mut ::nix::libc::c_void);
+    let result = setjmp((&mut SETJMP_BUFFER[..]).as_mut_ptr() as *mut ::nix::libc::c_void);
     if result != 0 {
         panic!("Signal Error: {}", result);
     }
 }
 
-static mut setjmp_buffer: [::nix::libc::c_int; 27] = [0; 27];
+static mut SETJMP_BUFFER: [::nix::libc::c_int; 27] = [0; 27];
 extern "C" {
     fn setjmp(env: *mut ::nix::libc::c_void) -> ::nix::libc::c_int;
     fn longjmp(env: *mut ::nix::libc::c_void, val: ::nix::libc::c_int);
@@ -32,7 +32,7 @@ extern "C" {
 extern "C" fn signal_trap_handler(_: ::nix::libc::c_int) {
     unsafe {
         longjmp(
-            (&mut setjmp_buffer).as_mut_ptr() as *mut ::nix::libc::c_void,
+            (&mut SETJMP_BUFFER).as_mut_ptr() as *mut ::nix::libc::c_void,
             3,
         );
     }

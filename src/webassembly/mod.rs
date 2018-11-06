@@ -6,12 +6,9 @@ pub mod module;
 pub mod relocation;
 pub mod utils;
 
-use cranelift_native;
 use std::panic;
-use std::ptr;
 use std::str::FromStr;
-use std::time::{Duration, Instant};
-use target_lexicon::{self, Triple};
+use target_lexicon;
 use wasmparser;
 
 pub use self::errors::{Error, ErrorKind};
@@ -58,8 +55,8 @@ pub fn instantiate(
 /// a WebAssembly module directly from a streamed underlying source.
 /// This is the most efficient, optimized way to load wasm code.
 pub fn instantiate_streaming(
-    buffer_source: Vec<u8>,
-    import_object: ImportObject<&str, &str>,
+    _buffer_source: Vec<u8>,
+    _import_object: ImportObject<&str, &str>,
 ) -> Result<ResultObject, ErrorKind> {
     unimplemented!();
 }

@@ -14,8 +14,8 @@ use region;
 use std::iter::Iterator;
 use std::marker::PhantomData;
 use std::ptr::write_unaligned;
+use std::slice;
 use std::sync::Arc;
-use std::{mem, slice};
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
@@ -59,7 +59,7 @@ fn get_function_addr(
 }
 
 // #[derive(Debug)]
-#[repr(C, packed)]
+#[repr(C)]
 pub struct VmCtx<'phantom> {
     pub user_data: UserData,
     globals: UncheckedSlice<u8>,
@@ -69,7 +69,7 @@ pub struct VmCtx<'phantom> {
 }
 
 // #[derive(Debug)]
-#[repr(C, packed)]
+#[repr(C)]
 pub struct UserData {
     // pub process: Dispatch<Process>,
     pub instance: Instance,
@@ -126,7 +126,7 @@ impl Instance {
             // We walk through the imported functions and set the relocations
             // for each of this functions to be an empty vector (as is defined outside of wasm)
             for (module, field) in module.info.imported_funcs.iter() {
-                let mut function = import_object
+                let function = import_object
                     .get(&module.as_str(), &field.as_str())
                     .ok_or_else(|| {
                         ErrorKind::LinkError(format!(
@@ -163,7 +163,7 @@ impl Instance {
                     .compile_and_emit(&*isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
                     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
                 // We set this code_buf to be readable & executable
-                protect_codebuf(&code_buf);
+                protect_codebuf(&code_buf).unwrap();
 
                 let func_offset = code_buf;
                 functions.push(func_offset);
@@ -334,7 +334,7 @@ impl Instance {
             }
             for init in &module.info.data_initializers {
                 debug_assert!(init.base.is_none(), "globalvar base not supported yet");
-                let mut offset = init.offset;
+                let offset = init.offset;
                 let mem_mut = memories[init.memory_index].as_mut();
                 let to_init = &mut mem_mut[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
@@ -359,7 +359,7 @@ impl Instance {
                     GlobalInit::I64Const(n) => n,
                     GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
                     GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
-                    GlobalInit::GlobalRef(global_index) => {
+                    GlobalInit::GlobalRef(_global_index) => {
                         unimplemented!("GlobalInit::GlobalRef is not yet supported")
                     }
                     GlobalInit::Import() => {
@@ -484,7 +484,7 @@ impl Clone for Instance {
 }
 
 extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &mut VmCtx) -> i32 {
-    let mut instance = &mut vmctx.user_data.instance;
+    let instance = &mut vmctx.user_data.instance;
     instance
         .memory_mut(memory_index as usize)
         .grow(size)

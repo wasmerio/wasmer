@@ -1,7 +1,5 @@
 use crate::webassembly::{ImportObject, VmCtx};
 use libc::{printf, putchar};
-use std::io;
-use std::io::Write;
 
 extern "C" fn _printf(memory_offset: i32, extra: i32, vm_context: &mut VmCtx) -> i32 {
     // println!("PRINTF");
@@ -23,10 +21,7 @@ pub fn generate_libc_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
 #[cfg(test)]
 mod tests {
     use super::generate_libc_env;
-    use crate::webassembly::{
-        instantiate, ErrorKind, Export, ImportObject, Instance, Module, ResultObject, VmCtx,
-    };
-    use libc::putchar;
+    use crate::webassembly::{instantiate, Export, VmCtx};
 
     #[test]
     fn test_putchar() {
@@ -34,7 +29,7 @@ mod tests {
         let import_object = generate_libc_env();
         let result_object = instantiate(wasm_bytes, import_object).expect("Not compiled properly");
         let module = result_object.module;
-        let mut instance = result_object.instance;
+        let instance = result_object.instance;
         let func_index = match module.info.exports.get("main") {
             Some(&Export::Function(index)) => index,
             _ => panic!("Function not found"),
@@ -50,7 +45,7 @@ mod tests {
         let import_object = generate_libc_env();
         let result_object = instantiate(wasm_bytes, import_object).expect("Not compiled properly");
         let module = result_object.module;
-        let mut instance = result_object.instance;
+        let instance = result_object.instance;
         let func_index = match module.info.exports.get("main") {
             Some(&Export::Function(index)) => index,
             _ => panic!("Function not found"),
