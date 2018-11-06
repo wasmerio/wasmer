@@ -4,9 +4,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::io::{self, Read};
 use std::path::PathBuf;
-use std::time::SystemTime;
 use wabt::script::{Action, Command, CommandKind, ModuleBinary, ScriptParser, Value};
 use wabt::wasm2wat;
 
@@ -74,10 +72,10 @@ const TESTS: [&str; 54] = [
 
 fn wabt2rust_type(v: &Value) -> String {
     match v {
-        Value::I32(v) => format!("i32"),
-        Value::I64(v) => format!("i64"),
-        Value::F32(v) => format!("f32"),
-        Value::F64(v) => format!("f64"),
+        Value::I32(_v) => format!("i32"),
+        Value::I64(_v) => format!("i64"),
+        Value::F32(_v) => format!("f32"),
+        Value::F64(_v) => format!("f64"),
     }
 }
 
@@ -95,32 +93,30 @@ fn wabt2rust_value(v: &Value) -> String {
         Value::I32(v) => format!("{:?} as i32", v),
         Value::I64(v) => format!("{:?} as i64", v),
         Value::F32(v) => {
-            match *v {
-                std::f32::INFINITY => "f32::INFINITY".to_string(),
-                std::f32::NEG_INFINITY => "f32::NEG_INFINITY".to_string(),
-                // std::f32::NAN => "f32::NAN".to_string(),
-                _ => {
-                    if v.is_nan() {
-                        // Support for non-canonical NaNs
-                        format!("f32::from_bits({:?})", v.to_bits())
-                    } else {
-                        format!("{:?} as f32", v)
-                    }
+            if v.is_infinite() {
+                if v.is_sign_negative() {
+                    "f32::NEG_INFINITY".to_string()
+                } else {
+                    "f32::INFINITY".to_string()
                 }
+            } else if v.is_nan() {
+                // Support for non-canonical NaNs
+                format!("f32::from_bits({:?})", v.to_bits())
+            } else {
+                format!("{:?} as f32", v)
             }
         }
         Value::F64(v) => {
-            match *v {
-                std::f64::INFINITY => "f64::INFINITY".to_string(),
-                std::f64::NEG_INFINITY => "f64::NEG_INFINITY".to_string(),
-                // std::f64::NAN => "f64::NAN".to_string(),
-                _ => {
-                    if v.is_nan() {
-                        format!("f64::from_bits({:?})", v.to_bits())
-                    } else {
-                        format!("{:?} as f64", v)
-                    }
+            if v.is_infinite() {
+                if v.is_sign_negative() {
+                    "f64::NEG_INFINITY".to_string()
+                } else {
+                    "f64::INFINITY".to_string()
                 }
+            } else if v.is_nan() {
+                format!("f64::from_bits({:?})", v.to_bits())
+            } else {
+                format!("{:?} as f64", v)
             }
         }
     }
@@ -140,9 +136,8 @@ impl WastTestGenerator {
     fn new(path: &PathBuf) -> Self {
         let filename = path.file_name().unwrap().to_str().unwrap();
         let source = fs::read(&path).unwrap();
-        let mut script: ScriptParser =
-            ScriptParser::from_source_and_name(&source, filename).unwrap();
-        let mut buffer = String::new();
+        let script: ScriptParser = ScriptParser::from_source_and_name(&source, filename).unwrap();
+        let buffer = String::new();
         WastTestGenerator {
             last_module: 0,
             last_line: 0,
@@ -216,7 +211,7 @@ fn test_module_{}() {{
         self.module_calls.remove(&module);
     }
 
-    fn visit_module(&mut self, module: &ModuleBinary, name: &Option<String>) {
+    fn visit_module(&mut self, module: &ModuleBinary, _name: &Option<String>) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
         let wast_string = wasm2wat(wasm_binary).expect("Can't convert back to wasm");
         self.flush_module_calls(self.last_module);
@@ -280,12 +275,12 @@ fn {}_assert_invalid() {{
     fn visit_assert_return_arithmetic_nan(&mut self, action: &Action) {
         match action {
             Action::Invoke {
-                module,
+                module: _,
                 field,
                 args,
             } => {
-                let mut return_type = wabt2rust_type(&args[0]);
-                let mut func_return = format!(" -> {}", return_type);
+                let return_type = wabt2rust_type(&args[0]);
+                let func_return = format!(" -> {}", return_type);
                 let assertion = String::from("assert!(result.is_quiet_nan())");
 
                 // We map the arguments provided into the raw Arguments provided
@@ -333,16 +328,16 @@ fn {}_assert_invalid() {{
     fn visit_assert_return_canonical_nan(&mut self, action: &Action) {
         match action {
             Action::Invoke {
-                module,
+                module: _,
                 field,
                 args,
             } => {
-                let mut return_type = match &field.as_str() {
+                let return_type = match &field.as_str() {
                     &"f64.promote_f32" => String::from("f64"),
                     &"f32.promote_f64" => String::from("f32"),
                     _ => wabt2rust_type(&args[0]),
                 };
-                let mut func_return = format!(" -> {}", return_type);
+                let func_return = format!(" -> {}", return_type);
                 let assertion = String::from("assert!(result.is_quiet_nan())");
 
                 // We map the arguments provided into the raw Arguments provided
@@ -409,7 +404,7 @@ fn {}_assert_malformed() {{
     fn visit_action(&mut self, action: &Action, expected: Option<&Vec<Value>>) -> Option<String> {
         match action {
             Action::Invoke {
-                module,
+                module: _,
                 field,
                 args,
             } => {
@@ -554,16 +549,25 @@ fn {}() {{
             CommandKind::AssertMalformed { module, message: _ } => {
                 self.visit_assert_malformed(module);
             }
-            CommandKind::AssertUninstantiable { module, message: _ } => {
+            CommandKind::AssertUninstantiable {
+                module: _,
+                message: _,
+            } => {
                 // Do nothing for now
             }
-            CommandKind::AssertExhaustion { action } => {
+            CommandKind::AssertExhaustion { action: _ } => {
                 // Do nothing for now
             }
-            CommandKind::AssertUnlinkable { module, message: _ } => {
+            CommandKind::AssertUnlinkable {
+                module: _,
+                message: _,
+            } => {
                 // Do nothing for now
             }
-            CommandKind::Register { name, as_name } => {
+            CommandKind::Register {
+                name: _,
+                as_name: _,
+            } => {
                 // Do nothing for now
             }
             CommandKind::PerformAction(action) => {
@@ -592,7 +596,7 @@ fn wast_to_rust(wast_filepath: &str) -> (String, i32) {
         .expect("Can't get wast file metadata")
         .modified()
         .expect("Can't get wast file modified date");
-    let should_modify = match fs::metadata(&rust_test_filepath) {
+    let _should_modify = match fs::metadata(&rust_test_filepath) {
         Ok(m) => {
             m.modified()
                 .expect("Can't get rust test file modified date")

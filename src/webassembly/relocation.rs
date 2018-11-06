@@ -6,7 +6,6 @@ use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
 
 pub use cranelift_codegen::binemit::Reloc;
-use cranelift_wasm::FuncIndex;
 
 #[derive(Debug, Clone)]
 pub struct Relocation {

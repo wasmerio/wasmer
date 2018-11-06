@@ -10,8 +10,7 @@ use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Imm64, Offset32};
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
-    self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, Function, InstBuilder,
-    Signature,
+    self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature,
 };
 use cranelift_codegen::print_errors::pretty_verifier_error;
 use cranelift_codegen::settings::CallConv;
@@ -244,9 +243,9 @@ impl Module {
         FuncEnvironment::new(&self.info) //, self.return_mode)
     }
 
-    fn native_pointer(&self) -> ir::Type {
-        self.func_env().pointer_type()
-    }
+    // fn native_pointer(&self) -> ir::Type {
+    //     self.func_env().pointer_type()
+    // }
 
     /// Convert a `DefinedFuncIndex` into a `FuncIndex`.
     pub fn func_index(&self, defined_func: DefinedFuncIndex) -> FuncIndex {
@@ -293,12 +292,12 @@ impl<'environment> FuncEnvironment<'environment> {
         }
     }
 
-    fn get_real_call_args(func: &Function, call_args: &[ir::Value]) -> Vec<ir::Value> {
-        let mut real_call_args = Vec::with_capacity(call_args.len() + 1);
-        real_call_args.extend_from_slice(call_args);
-        real_call_args.push(func.special_param(ArgumentPurpose::VMContext).unwrap());
-        real_call_args
-    }
+    // fn get_real_call_args(func: &Function, call_args: &[ir::Value]) -> Vec<ir::Value> {
+    //     let mut real_call_args = Vec::with_capacity(call_args.len() + 1);
+    //     real_call_args.extend_from_slice(call_args);
+    //     real_call_args.push(func.special_param(ArgumentPurpose::VMContext).unwrap());
+    //     real_call_args
+    // }
 
     // Create a signature for `sigidx` amended with a `vmctx` argument after the standard wasm
     // arguments.
@@ -562,7 +561,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        _heap: ir::Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value> {
         debug_assert_eq!(index, 0, "non-default memories not supported yet");
@@ -597,7 +596,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        _heap: ir::Heap,
     ) -> WasmResult<ir::Value> {
         debug_assert_eq!(index, 0, "non-default memories not supported yet");
         let cur_mem_func = self.mod_info.current_memory_extfunc.unwrap_or_else(|| {

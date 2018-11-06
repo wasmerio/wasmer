@@ -19,8 +19,8 @@ macro_rules! get_instance_function {
 macro_rules! include_wast2wasm_bytes {
     ($x:expr) => {{
         use wabt::wat2wasm;
-        const wast_bytes: &[u8] = include_bytes!($x);
-        wat2wasm(wast_bytes.to_vec()).expect(&format!("Can't convert {} file to wasm", $x))
+        const WAST_BYTES: &[u8] = include_bytes!($x);
+        wat2wasm(WAST_BYTES.to_vec()).expect(&format!("Can't convert {} file to wasm", $x))
     }};
 }
 
