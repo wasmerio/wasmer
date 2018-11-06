@@ -135,67 +135,68 @@ fn create_module_1() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_1(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_1(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 84
-fn c1_l84_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c1_l84_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c1_l84_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-rec") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(25 as i64, &result_object.instance);
     assert_eq!(result, 7034535277573963776 as i64);
 }
 
 // Line 85
-fn c2_l85_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c2_l85_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c2_l85_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-iter") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(25 as i64, &result_object.instance);
     assert_eq!(result, 7034535277573963776 as i64);
 }
 
 // Line 86
-fn c3_l86_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c3_l86_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c3_l86_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-rec-named") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(25 as i64, &result_object.instance);
     assert_eq!(result, 7034535277573963776 as i64);
 }
 
 // Line 87
-fn c4_l87_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c4_l87_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c4_l87_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-iter-named") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(25 as i64, &result_object.instance);
     assert_eq!(result, 7034535277573963776 as i64);
 }
 
 // Line 88
-fn c5_l88_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c5_l88_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c5_l88_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-opt") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(25 as i64, &result_object.instance);
     assert_eq!(result, 7034535277573963776 as i64);
 }
 
@@ -204,12 +205,11 @@ fn c5_l88_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_1() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_1(&result_object, &vm_context);
-    c1_l84_action_invoke(&result_object, &vm_context);
-    c2_l85_action_invoke(&result_object, &vm_context);
-    c3_l86_action_invoke(&result_object, &vm_context);
-    c4_l87_action_invoke(&result_object, &vm_context);
-    c5_l88_action_invoke(&result_object, &vm_context);
+    start_module_1(&result_object);
+    c1_l84_action_invoke(&result_object);
+    c2_l85_action_invoke(&result_object);
+    c3_l86_action_invoke(&result_object);
+    c4_l87_action_invoke(&result_object);
+    c5_l88_action_invoke(&result_object);
 }

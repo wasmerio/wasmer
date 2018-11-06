@@ -672,787 +672,788 @@ fn create_module_1() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_1(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_1(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 305
-fn c1_l305_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c1_l305_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c1_l305_action_invoke");
     let func_index = match result_object.module.info.exports.get("empty") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, ());
 }
 
 // Line 306
-fn c2_l306_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c2_l306_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c2_l306_action_invoke");
     let func_index = match result_object.module.info.exports.get("singular") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 7 as i32);
 }
 
 // Line 307
-fn c3_l307_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c3_l307_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c3_l307_action_invoke");
     let func_index = match result_object.module.info.exports.get("multi") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 8 as i32);
 }
 
 // Line 308
-fn c4_l308_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c4_l308_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c4_l308_action_invoke");
     let func_index = match result_object.module.info.exports.get("nested") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 9 as i32);
 }
 
 // Line 309
-fn c5_l309_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c5_l309_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c5_l309_action_invoke");
     let func_index = match result_object.module.info.exports.get("deep") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 150 as i32);
 }
 
 // Line 311
-fn c6_l311_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c6_l311_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c6_l311_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 312
-fn c7_l312_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c7_l312_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c7_l312_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 2 as i32);
 }
 
 // Line 313
-fn c8_l313_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c8_l313_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c8_l313_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 2 as i32);
 }
 
 // Line 315
-fn c9_l315_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c9_l315_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c9_l315_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-condition") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, ());
 }
 
 // Line 316
-fn c10_l316_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c10_l316_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c10_l316_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-then") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 317
-fn c11_l317_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c11_l317_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c11_l317_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-else") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 2 as i32);
 }
 
 // Line 319
-fn c12_l319_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c12_l319_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c12_l319_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 320
-fn c13_l320_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c13_l320_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c13_l320_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 2 as i32);
 }
 
 // Line 322
-fn c14_l322_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c14_l322_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c14_l322_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 323
-fn c15_l323_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c15_l323_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c15_l323_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 2 as i32);
 }
 
 // Line 325
-fn c16_l325_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c16_l325_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c16_l325_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 326
-fn c17_l326_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c17_l326_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c17_l326_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 2 as i32);
 }
 
 // Line 327
-fn c18_l327_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c18_l327_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c18_l327_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call_indirect-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 329
-fn c19_l329_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c19_l329_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c19_l329_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-store-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, ());
 }
 
 // Line 330
-fn c20_l330_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c20_l330_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c20_l330_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-store-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, ());
 }
 
 // Line 334
-fn c21_l334_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c21_l334_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c21_l334_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-call-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 335
-fn c22_l335_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c22_l335_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c22_l335_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-return-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 336
-fn c23_l336_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c23_l336_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c23_l336_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-drop-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, ());
 }
 
 // Line 337
-fn c24_l337_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c24_l337_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c24_l337_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 338
-fn c25_l338_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c25_l338_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c25_l338_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 339
-fn c26_l339_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c26_l339_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c26_l339_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-tee_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 340
-fn c27_l340_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c27_l340_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c27_l340_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_global-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 341
-fn c28_l341_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c28_l341_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c28_l341_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-load-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 343
-fn c29_l343_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c29_l343_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c29_l343_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-unary-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0 as i32);
 }
 
 // Line 344
-fn c30_l344_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c30_l344_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c30_l344_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-binary-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 12 as i32);
 }
 
 // Line 345
-fn c31_l345_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c31_l345_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c31_l345_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-test-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0 as i32);
 }
 
 // Line 346
-fn c32_l346_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c32_l346_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c32_l346_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-compare-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0 as i32);
 }
 
 // Line 348
-fn c33_l348_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c33_l348_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c33_l348_action_invoke");
     let func_index = match result_object.module.info.exports.get("break-bare") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 19 as i32);
 }
 
 // Line 349
-fn c34_l349_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c34_l349_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c34_l349_action_invoke");
     let func_index = match result_object.module.info.exports.get("break-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 18 as i32);
 }
 
 // Line 350
-fn c35_l350_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c35_l350_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c35_l350_action_invoke");
     let func_index = match result_object.module.info.exports.get("break-repeated") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 18 as i32);
 }
 
 // Line 351
-fn c36_l351_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c36_l351_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c36_l351_action_invoke");
     let func_index = match result_object.module.info.exports.get("break-inner") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 31 as i32);
 }
 
 // Line 353
-fn c37_l353_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c37_l353_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c37_l353_action_invoke");
     let func_index = match result_object.module.info.exports.get("effects") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&VmCtx) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&vm_context);
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1 as i32);
 }
 
 // Line 355
-fn c38_l355_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c38_l355_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c38_l355_action_invoke");
     let func_index = match result_object.module.info.exports.get("while") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i64, &result_object.instance);
     assert_eq!(result, 1 as i64);
 }
 
 // Line 356
-fn c39_l356_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c39_l356_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c39_l356_action_invoke");
     let func_index = match result_object.module.info.exports.get("while") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i64, &result_object.instance);
     assert_eq!(result, 1 as i64);
 }
 
 // Line 357
-fn c40_l357_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c40_l357_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c40_l357_action_invoke");
     let func_index = match result_object.module.info.exports.get("while") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(2 as i64, &result_object.instance);
     assert_eq!(result, 2 as i64);
 }
 
 // Line 358
-fn c41_l358_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c41_l358_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c41_l358_action_invoke");
     let func_index = match result_object.module.info.exports.get("while") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(3 as i64, &result_object.instance);
     assert_eq!(result, 6 as i64);
 }
 
 // Line 359
-fn c42_l359_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c42_l359_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c42_l359_action_invoke");
     let func_index = match result_object.module.info.exports.get("while") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(5 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(5 as i64, &result_object.instance);
     assert_eq!(result, 120 as i64);
 }
 
 // Line 360
-fn c43_l360_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c43_l360_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c43_l360_action_invoke");
     let func_index = match result_object.module.info.exports.get("while") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(20 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(20 as i64, &result_object.instance);
     assert_eq!(result, 2432902008176640000 as i64);
 }
 
 // Line 362
-fn c44_l362_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c44_l362_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c44_l362_action_invoke");
     let func_index = match result_object.module.info.exports.get("for") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i64, &result_object.instance);
     assert_eq!(result, 1 as i64);
 }
 
 // Line 363
-fn c45_l363_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c45_l363_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c45_l363_action_invoke");
     let func_index = match result_object.module.info.exports.get("for") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i64, &result_object.instance);
     assert_eq!(result, 1 as i64);
 }
 
 // Line 364
-fn c46_l364_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c46_l364_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c46_l364_action_invoke");
     let func_index = match result_object.module.info.exports.get("for") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(2 as i64, &result_object.instance);
     assert_eq!(result, 2 as i64);
 }
 
 // Line 365
-fn c47_l365_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c47_l365_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c47_l365_action_invoke");
     let func_index = match result_object.module.info.exports.get("for") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(3 as i64, &result_object.instance);
     assert_eq!(result, 6 as i64);
 }
 
 // Line 366
-fn c48_l366_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c48_l366_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c48_l366_action_invoke");
     let func_index = match result_object.module.info.exports.get("for") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(5 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(5 as i64, &result_object.instance);
     assert_eq!(result, 120 as i64);
 }
 
 // Line 367
-fn c49_l367_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c49_l367_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c49_l367_action_invoke");
     let func_index = match result_object.module.info.exports.get("for") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &VmCtx) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(20 as i64, &vm_context);
+    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(20 as i64, &result_object.instance);
     assert_eq!(result, 2432902008176640000 as i64);
 }
 
 // Line 369
-fn c50_l369_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c50_l369_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c50_l369_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, 7.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0.0 as f32, 7.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 370
-fn c51_l370_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c51_l370_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c51_l370_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(7.0 as f32, 0.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(7.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 371
-fn c52_l371_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c52_l371_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c52_l371_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, 1.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
 
 // Line 372
-fn c53_l372_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c53_l372_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c53_l372_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, 2.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 2.0 as f32);
 }
 
 // Line 373
-fn c54_l373_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c54_l373_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c54_l373_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, 3.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1.0 as f32, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 4.0 as f32);
 }
 
 // Line 374
-fn c55_l374_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c55_l374_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c55_l374_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, 4.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1.0 as f32, 4.0 as f32, &result_object.instance);
     assert_eq!(result, 6.0 as f32);
 }
 
 // Line 375
-fn c56_l375_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c56_l375_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c56_l375_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, 100.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1.0 as f32, 100.0 as f32, &result_object.instance);
     assert_eq!(result, 2550.0 as f32);
 }
 
 // Line 376
-fn c57_l376_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c57_l376_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c57_l376_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1.0 as f32, 101.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1.0 as f32, 101.0 as f32, &result_object.instance);
     assert_eq!(result, 2601.0 as f32);
 }
 
 // Line 377
-fn c58_l377_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c58_l377_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c58_l377_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, 1.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(2.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
 
 // Line 378
-fn c59_l378_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c59_l378_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c59_l378_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3.0 as f32, 1.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(3.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
 
 // Line 379
-fn c60_l379_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c60_l379_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c60_l379_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(10.0 as f32, 1.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(10.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
 
 // Line 380
-fn c61_l380_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c61_l380_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c61_l380_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, 2.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(2.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 3.0 as f32);
 }
 
 // Line 381
-fn c62_l381_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c62_l381_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c62_l381_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, 3.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(2.0 as f32, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 4.0 as f32);
 }
 
 // Line 382
-fn c63_l382_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c63_l382_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c63_l382_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(7.0 as f32, 4.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(7.0 as f32, 4.0 as f32, &result_object.instance);
     assert_eq!(result, 10.309524 as f32);
 }
 
 // Line 383
-fn c64_l383_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c64_l383_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c64_l383_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(7.0 as f32, 100.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(7.0 as f32, 100.0 as f32, &result_object.instance);
     assert_eq!(result, 4381.548 as f32);
 }
 
 // Line 384
-fn c65_l384_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+fn c65_l384_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c65_l384_action_invoke");
     let func_index = match result_object.module.info.exports.get("nesting") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &VmCtx) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(7.0 as f32, 101.0 as f32, &vm_context);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(7.0 as f32, 101.0 as f32, &result_object.instance);
     assert_eq!(result, 2601.0 as f32);
 }
 
@@ -1547,72 +1548,71 @@ fn c76_l440_assert_malformed() {
 #[test]
 fn test_module_1() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_1(&result_object, &vm_context);
-    c1_l305_action_invoke(&result_object, &vm_context);
-    c2_l306_action_invoke(&result_object, &vm_context);
-    c3_l307_action_invoke(&result_object, &vm_context);
-    c4_l308_action_invoke(&result_object, &vm_context);
-    c5_l309_action_invoke(&result_object, &vm_context);
-    c6_l311_action_invoke(&result_object, &vm_context);
-    c7_l312_action_invoke(&result_object, &vm_context);
-    c8_l313_action_invoke(&result_object, &vm_context);
-    c9_l315_action_invoke(&result_object, &vm_context);
-    c10_l316_action_invoke(&result_object, &vm_context);
-    c11_l317_action_invoke(&result_object, &vm_context);
-    c12_l319_action_invoke(&result_object, &vm_context);
-    c13_l320_action_invoke(&result_object, &vm_context);
-    c14_l322_action_invoke(&result_object, &vm_context);
-    c15_l323_action_invoke(&result_object, &vm_context);
-    c16_l325_action_invoke(&result_object, &vm_context);
-    c17_l326_action_invoke(&result_object, &vm_context);
-    c18_l327_action_invoke(&result_object, &vm_context);
-    c19_l329_action_invoke(&result_object, &vm_context);
-    c20_l330_action_invoke(&result_object, &vm_context);
-    c21_l334_action_invoke(&result_object, &vm_context);
-    c22_l335_action_invoke(&result_object, &vm_context);
-    c23_l336_action_invoke(&result_object, &vm_context);
-    c24_l337_action_invoke(&result_object, &vm_context);
-    c25_l338_action_invoke(&result_object, &vm_context);
-    c26_l339_action_invoke(&result_object, &vm_context);
-    c27_l340_action_invoke(&result_object, &vm_context);
-    c28_l341_action_invoke(&result_object, &vm_context);
-    c29_l343_action_invoke(&result_object, &vm_context);
-    c30_l344_action_invoke(&result_object, &vm_context);
-    c31_l345_action_invoke(&result_object, &vm_context);
-    c32_l346_action_invoke(&result_object, &vm_context);
-    c33_l348_action_invoke(&result_object, &vm_context);
-    c34_l349_action_invoke(&result_object, &vm_context);
-    c35_l350_action_invoke(&result_object, &vm_context);
-    c36_l351_action_invoke(&result_object, &vm_context);
-    c37_l353_action_invoke(&result_object, &vm_context);
-    c38_l355_action_invoke(&result_object, &vm_context);
-    c39_l356_action_invoke(&result_object, &vm_context);
-    c40_l357_action_invoke(&result_object, &vm_context);
-    c41_l358_action_invoke(&result_object, &vm_context);
-    c42_l359_action_invoke(&result_object, &vm_context);
-    c43_l360_action_invoke(&result_object, &vm_context);
-    c44_l362_action_invoke(&result_object, &vm_context);
-    c45_l363_action_invoke(&result_object, &vm_context);
-    c46_l364_action_invoke(&result_object, &vm_context);
-    c47_l365_action_invoke(&result_object, &vm_context);
-    c48_l366_action_invoke(&result_object, &vm_context);
-    c49_l367_action_invoke(&result_object, &vm_context);
-    c50_l369_action_invoke(&result_object, &vm_context);
-    c51_l370_action_invoke(&result_object, &vm_context);
-    c52_l371_action_invoke(&result_object, &vm_context);
-    c53_l372_action_invoke(&result_object, &vm_context);
-    c54_l373_action_invoke(&result_object, &vm_context);
-    c55_l374_action_invoke(&result_object, &vm_context);
-    c56_l375_action_invoke(&result_object, &vm_context);
-    c57_l376_action_invoke(&result_object, &vm_context);
-    c58_l377_action_invoke(&result_object, &vm_context);
-    c59_l378_action_invoke(&result_object, &vm_context);
-    c60_l379_action_invoke(&result_object, &vm_context);
-    c61_l380_action_invoke(&result_object, &vm_context);
-    c62_l381_action_invoke(&result_object, &vm_context);
-    c63_l382_action_invoke(&result_object, &vm_context);
-    c64_l383_action_invoke(&result_object, &vm_context);
-    c65_l384_action_invoke(&result_object, &vm_context);
+    start_module_1(&result_object);
+    c1_l305_action_invoke(&result_object);
+    c2_l306_action_invoke(&result_object);
+    c3_l307_action_invoke(&result_object);
+    c4_l308_action_invoke(&result_object);
+    c5_l309_action_invoke(&result_object);
+    c6_l311_action_invoke(&result_object);
+    c7_l312_action_invoke(&result_object);
+    c8_l313_action_invoke(&result_object);
+    c9_l315_action_invoke(&result_object);
+    c10_l316_action_invoke(&result_object);
+    c11_l317_action_invoke(&result_object);
+    c12_l319_action_invoke(&result_object);
+    c13_l320_action_invoke(&result_object);
+    c14_l322_action_invoke(&result_object);
+    c15_l323_action_invoke(&result_object);
+    c16_l325_action_invoke(&result_object);
+    c17_l326_action_invoke(&result_object);
+    c18_l327_action_invoke(&result_object);
+    c19_l329_action_invoke(&result_object);
+    c20_l330_action_invoke(&result_object);
+    c21_l334_action_invoke(&result_object);
+    c22_l335_action_invoke(&result_object);
+    c23_l336_action_invoke(&result_object);
+    c24_l337_action_invoke(&result_object);
+    c25_l338_action_invoke(&result_object);
+    c26_l339_action_invoke(&result_object);
+    c27_l340_action_invoke(&result_object);
+    c28_l341_action_invoke(&result_object);
+    c29_l343_action_invoke(&result_object);
+    c30_l344_action_invoke(&result_object);
+    c31_l345_action_invoke(&result_object);
+    c32_l346_action_invoke(&result_object);
+    c33_l348_action_invoke(&result_object);
+    c34_l349_action_invoke(&result_object);
+    c35_l350_action_invoke(&result_object);
+    c36_l351_action_invoke(&result_object);
+    c37_l353_action_invoke(&result_object);
+    c38_l355_action_invoke(&result_object);
+    c39_l356_action_invoke(&result_object);
+    c40_l357_action_invoke(&result_object);
+    c41_l358_action_invoke(&result_object);
+    c42_l359_action_invoke(&result_object);
+    c43_l360_action_invoke(&result_object);
+    c44_l362_action_invoke(&result_object);
+    c45_l363_action_invoke(&result_object);
+    c46_l364_action_invoke(&result_object);
+    c47_l365_action_invoke(&result_object);
+    c48_l366_action_invoke(&result_object);
+    c49_l367_action_invoke(&result_object);
+    c50_l369_action_invoke(&result_object);
+    c51_l370_action_invoke(&result_object);
+    c52_l371_action_invoke(&result_object);
+    c53_l372_action_invoke(&result_object);
+    c54_l373_action_invoke(&result_object);
+    c55_l374_action_invoke(&result_object);
+    c56_l375_action_invoke(&result_object);
+    c57_l376_action_invoke(&result_object);
+    c58_l377_action_invoke(&result_object);
+    c59_l378_action_invoke(&result_object);
+    c60_l379_action_invoke(&result_object);
+    c61_l380_action_invoke(&result_object);
+    c62_l381_action_invoke(&result_object);
+    c63_l382_action_invoke(&result_object);
+    c64_l383_action_invoke(&result_object);
+    c65_l384_action_invoke(&result_object);
 }

@@ -35,8 +35,9 @@ fn create_module_1() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_1(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_1(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 23
@@ -44,9 +45,8 @@ fn start_module_1(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_1() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_1(&result_object, &vm_context);
+    start_module_1(&result_object);
 }
 fn create_module_2() -> ResultObject {
     let module_str = "(module
@@ -56,8 +56,9 @@ fn create_module_2() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_2(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_2(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 27
@@ -65,9 +66,8 @@ fn start_module_2(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_2() {
     let result_object = create_module_2();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_2(&result_object, &vm_context);
+    start_module_2(&result_object);
 }
 fn create_module_3() -> ResultObject {
     let module_str = "(module
@@ -77,8 +77,9 @@ fn create_module_3() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_3(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_3(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 32
@@ -86,9 +87,8 @@ fn start_module_3(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_3() {
     let result_object = create_module_3();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_3(&result_object, &vm_context);
+    start_module_3(&result_object);
 }
 fn create_module_4() -> ResultObject {
     let module_str = "(module
@@ -102,8 +102,9 @@ fn create_module_4() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_4(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_4(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 40
@@ -111,9 +112,8 @@ fn start_module_4(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_4() {
     let result_object = create_module_4();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_4(&result_object, &vm_context);
+    start_module_4(&result_object);
 }
 fn create_module_5() -> ResultObject {
     let module_str = "(module
@@ -128,8 +128,9 @@ fn create_module_5() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_5(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_5(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 82
@@ -137,9 +138,8 @@ fn start_module_5(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_5() {
     let result_object = create_module_5();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_5(&result_object, &vm_context);
+    start_module_5(&result_object);
 }
 fn create_module_6() -> ResultObject {
     let module_str = "(module
@@ -150,8 +150,9 @@ fn create_module_6() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_6(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_6(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 87
@@ -159,9 +160,8 @@ fn start_module_6(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_6() {
     let result_object = create_module_6();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_6(&result_object, &vm_context);
+    start_module_6(&result_object);
 }
 fn create_module_7() -> ResultObject {
     let module_str = "(module
@@ -172,8 +172,9 @@ fn create_module_7() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_7(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_7(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 93
@@ -181,9 +182,8 @@ fn start_module_7(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_7() {
     let result_object = create_module_7();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_7(&result_object, &vm_context);
+    start_module_7(&result_object);
 }
 fn create_module_8() -> ResultObject {
     let module_str = "(module
@@ -193,8 +193,9 @@ fn create_module_8() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_8(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_8(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 98
@@ -202,9 +203,8 @@ fn start_module_8(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_8() {
     let result_object = create_module_8();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_8(&result_object, &vm_context);
+    start_module_8(&result_object);
 }
 fn create_module_9() -> ResultObject {
     let module_str = "(module
@@ -214,8 +214,9 @@ fn create_module_9() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_9(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_9(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 102
@@ -223,9 +224,8 @@ fn start_module_9(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_9() {
     let result_object = create_module_9();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_9(&result_object, &vm_context);
+    start_module_9(&result_object);
 }
 fn create_module_10() -> ResultObject {
     let module_str = "(module
@@ -235,8 +235,9 @@ fn create_module_10() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_10(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_10(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 107
@@ -244,9 +245,8 @@ fn start_module_10(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_10() {
     let result_object = create_module_10();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_10(&result_object, &vm_context);
+    start_module_10(&result_object);
 }
 fn create_module_11() -> ResultObject {
     let module_str = "(module
@@ -256,8 +256,9 @@ fn create_module_11() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_11(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_11(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 112
@@ -265,9 +266,8 @@ fn start_module_11(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_11() {
     let result_object = create_module_11();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_11(&result_object, &vm_context);
+    start_module_11(&result_object);
 }
 fn create_module_12() -> ResultObject {
     let module_str = "(module
@@ -277,8 +277,9 @@ fn create_module_12() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_12(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_12(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 117
@@ -286,9 +287,8 @@ fn start_module_12(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_12() {
     let result_object = create_module_12();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_12(&result_object, &vm_context);
+    start_module_12(&result_object);
 }
 fn create_module_13() -> ResultObject {
     let module_str = "(module
@@ -298,8 +298,9 @@ fn create_module_13() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_13(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_13(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 121
@@ -307,9 +308,8 @@ fn start_module_13(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_13() {
     let result_object = create_module_13();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_13(&result_object, &vm_context);
+    start_module_13(&result_object);
 }
 fn create_module_14() -> ResultObject {
     let module_str = "(module
@@ -319,8 +319,9 @@ fn create_module_14() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_14(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_14(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 126
@@ -328,9 +329,8 @@ fn start_module_14(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_14() {
     let result_object = create_module_14();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_14(&result_object, &vm_context);
+    start_module_14(&result_object);
 }
 fn create_module_15() -> ResultObject {
     let module_str = "(module
@@ -340,8 +340,9 @@ fn create_module_15() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_15(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_15(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 131
@@ -349,9 +350,8 @@ fn start_module_15(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_15() {
     let result_object = create_module_15();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_15(&result_object, &vm_context);
+    start_module_15(&result_object);
 }
 fn create_module_16() -> ResultObject {
     let module_str = "(module
@@ -361,8 +361,9 @@ fn create_module_16() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_16(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_16(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 136
@@ -370,9 +371,8 @@ fn start_module_16(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_16() {
     let result_object = create_module_16();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_16(&result_object, &vm_context);
+    start_module_16(&result_object);
 }
 fn create_module_17() -> ResultObject {
     let module_str = "(module
@@ -382,8 +382,9 @@ fn create_module_17() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_17(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_17(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 155
@@ -391,9 +392,8 @@ fn start_module_17(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_17() {
     let result_object = create_module_17();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_17(&result_object, &vm_context);
+    start_module_17(&result_object);
 }
 fn create_module_18() -> ResultObject {
     let module_str = "(module
@@ -403,8 +403,9 @@ fn create_module_18() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_18(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_18(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 160
@@ -412,9 +413,8 @@ fn start_module_18(result_object: &ResultObject, vm_context: &VmCtx) {
 #[test]
 fn test_module_18() {
     let result_object = create_module_18();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_18(&result_object, &vm_context);
+    start_module_18(&result_object);
 }
 fn create_module_19() -> ResultObject {
     let module_str = "(module
@@ -424,8 +424,9 @@ fn create_module_19() -> ResultObject {
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
-fn start_module_19(result_object: &ResultObject, vm_context: &VmCtx) {
-    result_object.instance.start(&vm_context);
+
+fn start_module_19(result_object: &ResultObject) {
+    result_object.instance.start();
 }
 
 // Line 168
@@ -507,7 +508,6 @@ fn c38_l330_assert_invalid() {
 #[test]
 fn test_module_19() {
     let result_object = create_module_19();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
-    start_module_19(&result_object, &vm_context);
+    start_module_19(&result_object);
 }

@@ -189,7 +189,7 @@ use super::_common::{{
             .entry(module)
             .or_insert(Vec::new())
             .iter()
-            .map(|call_str| format!("{}(&result_object, &vm_context);", call_str))
+            .map(|call_str| format!("{}(&result_object);", call_str))
             .collect();
         if calls.len() > 0 {
             self.buffer.push_str(
@@ -197,7 +197,6 @@ use super::_common::{{
                     "\n#[test]
 fn test_module_{}() {{
     let result_object = create_module_{}();
-    let vm_context = result_object.instance.generate_context();
     // We group the calls together
     {}
 }}\n",
@@ -238,8 +237,8 @@ fn test_module_{}() {{
         let start_module_call = format!("start_module_{}", self.last_module);
         self.buffer.push_str(
             format!(
-                "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{
-    result_object.instance.start(&vm_context);
+                "\nfn {}(result_object: &ResultObject) {{
+    result_object.instance.start();
 }}\n",
                 start_module_call
             )
@@ -286,13 +285,13 @@ fn {}_assert_invalid() {{
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
                 let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
-                args_types.push("&VmCtx".to_string());
+                args_types.push("&Instance".to_string());
                 let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
-                args_values.push("&vm_context".to_string());
+                args_values.push("&result_object.instance".to_string());
                 let func_name = format!("{}_assert_return_arithmetic_nan", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{
+                        "fn {}(result_object: &ResultObject) {{
     println!(\"Executing function {{}}\", \"{}\");
     let func_index = match result_object.module.info.exports.get({:?}) {{
         Some(&Export::Function(index)) => index,
@@ -343,13 +342,13 @@ fn {}_assert_invalid() {{
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
                 let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
-                args_types.push("&VmCtx".to_string());
+                args_types.push("&Instance".to_string());
                 let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
-                args_values.push("&vm_context".to_string());
+                args_values.push("&result_object.instance".to_string());
                 let func_name = format!("{}_assert_return_canonical_nan", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{
+                        "fn {}(result_object: &ResultObject) {{
     println!(\"Executing function {{}}\", \"{}\");
     let func_index = match result_object.module.info.exports.get({:?}) {{
         Some(&Export::Function(index)) => index,
@@ -437,13 +436,13 @@ fn {}_assert_malformed() {{
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
                 let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
-                args_types.push("&VmCtx".to_string());
+                args_types.push("&Instance".to_string());
                 let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
-                args_values.push("&vm_context".to_string());
+                args_values.push("&result_object.instance".to_string());
                 let func_name = format!("{}_action_invoke", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {}(result_object: &ResultObject, vm_context: &VmCtx) {{
+                        "fn {}(result_object: &ResultObject) {{
     println!(\"Executing function {{}}\", \"{}\");
     let func_index = match result_object.module.info.exports.get({:?}) {{
         Some(&Export::Function(index)) => index,

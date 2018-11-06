@@ -58,6 +58,7 @@ fn get_function_addr(
     func_pointer
 }
 
+// TODO: To be removed.
 // #[derive(Debug)]
 #[repr(C)]
 pub struct VmCtx<'phantom> {
@@ -68,6 +69,7 @@ pub struct VmCtx<'phantom> {
     phantom: PhantomData<&'phantom ()>,
 }
 
+// TODO: To be removed.
 // #[derive(Debug)]
 #[repr(C)]
 pub struct UserData {
@@ -406,17 +408,19 @@ impl Instance {
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
     }
+
     pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {
         get_function_addr(&func_index, &self.import_functions, &self.functions)
     }
 
-    pub fn start(&self, vmctx: &VmCtx) {
+    pub fn start(&self) {
         if let Some(func_index) = self.start_func {
-            let func: fn(&VmCtx) = get_instance_function!(&self, func_index);
-            func(vmctx)
+            let func: fn(&Instance) = get_instance_function!(&self, func_index);
+            func(self)
         }
     }
 
+    // TODO: To be removed.
     pub fn generate_context(&self) -> VmCtx {
         let memories: Vec<UncheckedSlice<u8>> =
             self.memories.iter().map(|mem| mem[..].into()).collect();
@@ -483,16 +487,16 @@ impl Clone for Instance {
     }
 }
 
-extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &mut VmCtx) -> i32 {
-    let instance = &mut vmctx.user_data.instance;
+extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance) -> i32 {
+    // For now only the first index can be accessed // BTW, the memory_index coming in is random!
+    let memory_index: u32 = 0;
     instance
         .memory_mut(memory_index as usize)
         .grow(size)
         .unwrap_or(i32::max_value()) // Should be -1 ?
 }
 
-extern "C" fn current_memory(memory_index: u32, vmctx: &VmCtx) -> u32 {
-    let instance = &vmctx.user_data.instance;
+extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_size() as u32
 }

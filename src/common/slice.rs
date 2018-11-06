@@ -1,7 +1,7 @@
 use std::ops::{Index, IndexMut};
 use std::ptr::NonNull;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
 pub struct UncheckedSlice<T> {
     ptr: NonNull<T>,
@@ -42,6 +42,7 @@ impl<'a, T> From<&'a [T]> for UncheckedSlice<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct BoundedSlice<T> {
     data: UncheckedSlice<T>,
     len: usize,
