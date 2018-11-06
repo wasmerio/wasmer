@@ -2,16 +2,16 @@
 
 # This will re-generate the Rust test files based on spectests/*.wast
 spectests:
-	WASM_GENERATE_SPECTESTS=1 cargo build
+	WASM_GENERATE_SPECTESTS=1 cargo +nightly build
 
 # clean:
 #     rm -rf target
 
 build:
-	cargo build
+	cargo +nightly build
 
 install:
-	cargo install --path .
+	cargo +nightly install --path .
 
 test:
-	cargo test -- --test-threads=1
+	cargo +nightly test -- --test-threads=1
