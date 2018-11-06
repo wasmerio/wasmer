@@ -8,7 +8,7 @@
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
@@ -610,9 +610,8 @@ fn c39_l70_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c39_l70_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c39_l70_action_invoke(&result_object, &vm_context);
+        c39_l70_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -632,9 +631,8 @@ fn c40_l71_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c40_l71_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c40_l71_action_invoke(&result_object, &vm_context);
+        c40_l71_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -654,9 +652,8 @@ fn c41_l72_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c41_l72_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c41_l72_action_invoke(&result_object, &vm_context);
+        c41_l72_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -676,9 +673,8 @@ fn c42_l73_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c42_l73_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c42_l73_action_invoke(&result_object, &vm_context);
+        c42_l73_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -698,9 +694,8 @@ fn c43_l74_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c43_l74_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c43_l74_action_invoke(&result_object, &vm_context);
+        c43_l74_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -720,9 +715,8 @@ fn c44_l75_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c44_l75_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c44_l75_action_invoke(&result_object, &vm_context);
+        c44_l75_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -742,9 +736,8 @@ fn c45_l76_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c45_l76_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c45_l76_action_invoke(&result_object, &vm_context);
+        c45_l76_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -764,9 +757,8 @@ fn c46_l77_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c46_l77_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c46_l77_action_invoke(&result_object, &vm_context);
+        c46_l77_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -942,9 +934,8 @@ fn c60_l92_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c60_l92_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c60_l92_action_invoke(&result_object, &vm_context);
+        c60_l92_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -964,9 +955,8 @@ fn c61_l93_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c61_l93_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c61_l93_action_invoke(&result_object, &vm_context);
+        c61_l93_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -986,9 +976,8 @@ fn c62_l94_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c62_l94_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c62_l94_action_invoke(&result_object, &vm_context);
+        c62_l94_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1008,9 +997,8 @@ fn c63_l95_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c63_l95_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c63_l95_action_invoke(&result_object, &vm_context);
+        c63_l95_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1030,9 +1018,8 @@ fn c64_l96_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c64_l96_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c64_l96_action_invoke(&result_object, &vm_context);
+        c64_l96_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1052,9 +1039,8 @@ fn c65_l97_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c65_l97_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c65_l97_action_invoke(&result_object, &vm_context);
+        c65_l97_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1074,9 +1060,8 @@ fn c66_l98_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c66_l98_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c66_l98_action_invoke(&result_object, &vm_context);
+        c66_l98_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1096,9 +1081,8 @@ fn c67_l99_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c67_l99_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c67_l99_action_invoke(&result_object, &vm_context);
+        c67_l99_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1286,9 +1270,8 @@ fn c82_l115_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c82_l115_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c82_l115_action_invoke(&result_object, &vm_context);
+        c82_l115_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1308,9 +1291,8 @@ fn c83_l116_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c83_l116_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c83_l116_action_invoke(&result_object, &vm_context);
+        c83_l116_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1330,9 +1312,8 @@ fn c84_l117_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c84_l117_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c84_l117_action_invoke(&result_object, &vm_context);
+        c84_l117_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1352,9 +1333,8 @@ fn c85_l118_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c85_l118_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c85_l118_action_invoke(&result_object, &vm_context);
+        c85_l118_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1374,9 +1354,8 @@ fn c86_l119_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c86_l119_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c86_l119_action_invoke(&result_object, &vm_context);
+        c86_l119_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1396,9 +1375,8 @@ fn c87_l120_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c87_l120_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c87_l120_action_invoke(&result_object, &vm_context);
+        c87_l120_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1418,9 +1396,8 @@ fn c88_l121_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c88_l121_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c88_l121_action_invoke(&result_object, &vm_context);
+        c88_l121_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1440,9 +1417,8 @@ fn c89_l122_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c89_l122_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c89_l122_action_invoke(&result_object, &vm_context);
+        c89_l122_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1630,9 +1606,8 @@ fn c104_l138_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c104_l138_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c104_l138_action_invoke(&result_object, &vm_context);
+        c104_l138_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1652,9 +1627,8 @@ fn c105_l139_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c105_l139_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c105_l139_action_invoke(&result_object, &vm_context);
+        c105_l139_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1674,9 +1648,8 @@ fn c106_l140_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c106_l140_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c106_l140_action_invoke(&result_object, &vm_context);
+        c106_l140_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1696,9 +1669,8 @@ fn c107_l141_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c107_l141_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c107_l141_action_invoke(&result_object, &vm_context);
+        c107_l141_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1718,9 +1690,8 @@ fn c108_l142_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c108_l142_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c108_l142_action_invoke(&result_object, &vm_context);
+        c108_l142_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1740,9 +1711,8 @@ fn c109_l143_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c109_l143_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c109_l143_action_invoke(&result_object, &vm_context);
+        c109_l143_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1762,9 +1732,8 @@ fn c110_l144_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c110_l144_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c110_l144_action_invoke(&result_object, &vm_context);
+        c110_l144_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1784,9 +1753,8 @@ fn c111_l145_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c111_l145_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c111_l145_action_invoke(&result_object, &vm_context);
+        c111_l145_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1806,9 +1774,8 @@ fn c112_l146_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c112_l146_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c112_l146_action_invoke(&result_object, &vm_context);
+        c112_l146_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1828,9 +1795,8 @@ fn c113_l147_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c113_l147_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c113_l147_action_invoke(&result_object, &vm_context);
+        c113_l147_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1850,9 +1816,8 @@ fn c114_l148_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c114_l148_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c114_l148_action_invoke(&result_object, &vm_context);
+        c114_l148_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2064,9 +2029,8 @@ fn c131_l166_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c131_l166_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c131_l166_action_invoke(&result_object, &vm_context);
+        c131_l166_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2086,9 +2050,8 @@ fn c132_l167_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c132_l167_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c132_l167_action_invoke(&result_object, &vm_context);
+        c132_l167_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2108,9 +2071,8 @@ fn c133_l168_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c133_l168_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c133_l168_action_invoke(&result_object, &vm_context);
+        c133_l168_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2130,9 +2092,8 @@ fn c134_l169_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c134_l169_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c134_l169_action_invoke(&result_object, &vm_context);
+        c134_l169_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2152,9 +2113,8 @@ fn c135_l170_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c135_l170_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c135_l170_action_invoke(&result_object, &vm_context);
+        c135_l170_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2174,9 +2134,8 @@ fn c136_l171_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c136_l171_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c136_l171_action_invoke(&result_object, &vm_context);
+        c136_l171_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2196,9 +2155,8 @@ fn c137_l172_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c137_l172_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c137_l172_action_invoke(&result_object, &vm_context);
+        c137_l172_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2218,9 +2176,8 @@ fn c138_l173_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c138_l173_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c138_l173_action_invoke(&result_object, &vm_context);
+        c138_l173_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2372,9 +2329,8 @@ fn c150_l186_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c150_l186_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c150_l186_action_invoke(&result_object, &vm_context);
+        c150_l186_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2394,9 +2350,8 @@ fn c151_l187_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c151_l187_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c151_l187_action_invoke(&result_object, &vm_context);
+        c151_l187_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2416,9 +2371,8 @@ fn c152_l188_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c152_l188_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c152_l188_action_invoke(&result_object, &vm_context);
+        c152_l188_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2438,9 +2392,8 @@ fn c153_l189_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c153_l189_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c153_l189_action_invoke(&result_object, &vm_context);
+        c153_l189_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2460,9 +2413,8 @@ fn c154_l190_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c154_l190_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c154_l190_action_invoke(&result_object, &vm_context);
+        c154_l190_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2482,9 +2434,8 @@ fn c155_l191_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c155_l191_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c155_l191_action_invoke(&result_object, &vm_context);
+        c155_l191_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2504,9 +2455,8 @@ fn c156_l192_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c156_l192_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c156_l192_action_invoke(&result_object, &vm_context);
+        c156_l192_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2526,9 +2476,8 @@ fn c157_l193_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c157_l193_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c157_l193_action_invoke(&result_object, &vm_context);
+        c157_l193_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2740,9 +2689,8 @@ fn c174_l211_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c174_l211_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c174_l211_action_invoke(&result_object, &vm_context);
+        c174_l211_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2762,9 +2710,8 @@ fn c175_l212_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c175_l212_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c175_l212_action_invoke(&result_object, &vm_context);
+        c175_l212_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2784,9 +2731,8 @@ fn c176_l213_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c176_l213_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c176_l213_action_invoke(&result_object, &vm_context);
+        c176_l213_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2806,9 +2752,8 @@ fn c177_l214_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c177_l214_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c177_l214_action_invoke(&result_object, &vm_context);
+        c177_l214_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2828,9 +2773,8 @@ fn c178_l215_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c178_l215_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c178_l215_action_invoke(&result_object, &vm_context);
+        c178_l215_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2850,9 +2794,8 @@ fn c179_l216_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c179_l216_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c179_l216_action_invoke(&result_object, &vm_context);
+        c179_l216_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2872,9 +2815,8 @@ fn c180_l217_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c180_l217_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c180_l217_action_invoke(&result_object, &vm_context);
+        c180_l217_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2894,9 +2836,8 @@ fn c181_l218_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c181_l218_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c181_l218_action_invoke(&result_object, &vm_context);
+        c181_l218_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -3096,9 +3037,8 @@ fn c197_l235_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c197_l235_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c197_l235_action_invoke(&result_object, &vm_context);
+        c197_l235_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -3118,9 +3058,8 @@ fn c198_l236_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c198_l236_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c198_l236_action_invoke(&result_object, &vm_context);
+        c198_l236_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -3140,9 +3079,8 @@ fn c199_l237_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c199_l237_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c199_l237_action_invoke(&result_object, &vm_context);
+        c199_l237_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -3162,9 +3100,8 @@ fn c200_l238_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c200_l238_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c200_l238_action_invoke(&result_object, &vm_context);
+        c200_l238_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -3184,9 +3121,8 @@ fn c201_l239_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c201_l239_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c201_l239_action_invoke(&result_object, &vm_context);
+        c201_l239_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -3206,9 +3142,8 @@ fn c202_l240_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c202_l240_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c202_l240_action_invoke(&result_object, &vm_context);
+        c202_l240_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -3228,9 +3163,8 @@ fn c203_l241_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c203_l241_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c203_l241_action_invoke(&result_object, &vm_context);
+        c203_l241_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -3250,9 +3184,8 @@ fn c204_l242_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c204_l242_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c204_l242_action_invoke(&result_object, &vm_context);
+        c204_l242_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -5633,6 +5566,7 @@ fn c401_l461_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_1() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);

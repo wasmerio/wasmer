@@ -8,7 +8,7 @@
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
@@ -117,6 +117,7 @@ fn c4_l21_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_1() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -170,6 +171,7 @@ fn c7_l31_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_2() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_2();
     // We group the calls together
     start_module_2(&result_object);
@@ -209,6 +211,7 @@ fn c9_l40_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_3() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_3();
     // We group the calls together
     start_module_3(&result_object);
@@ -307,6 +310,7 @@ fn c14_l59_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_4() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_4();
     // We group the calls together
     start_module_4(&result_object);
@@ -408,6 +412,7 @@ fn c19_l78_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_5() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_5();
     // We group the calls together
     start_module_5(&result_object);
@@ -509,6 +514,7 @@ fn c24_l97_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_6() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_6();
     // We group the calls together
     start_module_6(&result_object);
@@ -565,9 +571,8 @@ fn c26_l113_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c26_l113_assert_trap() {
     let result_object = create_module_7();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c26_l113_action_invoke(&result_object, &vm_context);
+        c26_l113_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -587,9 +592,8 @@ fn c27_l114_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c27_l114_assert_trap() {
     let result_object = create_module_7();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c27_l114_action_invoke(&result_object, &vm_context);
+        c27_l114_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -609,9 +613,8 @@ fn c28_l115_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c28_l115_assert_trap() {
     let result_object = create_module_7();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c28_l115_action_invoke(&result_object, &vm_context);
+        c28_l115_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -631,9 +634,8 @@ fn c29_l116_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c29_l116_assert_trap() {
     let result_object = create_module_7();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c29_l116_action_invoke(&result_object, &vm_context);
+        c29_l116_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -642,6 +644,7 @@ fn c29_l116_assert_trap() {
 
 #[test]
 fn test_module_7() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_7();
     // We group the calls together
     start_module_7(&result_object);
@@ -694,9 +697,8 @@ fn c31_l132_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c31_l132_assert_trap() {
     let result_object = create_module_8();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c31_l132_action_invoke(&result_object, &vm_context);
+        c31_l132_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -716,9 +718,8 @@ fn c32_l133_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c32_l133_assert_trap() {
     let result_object = create_module_8();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c32_l133_action_invoke(&result_object, &vm_context);
+        c32_l133_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -738,9 +739,8 @@ fn c33_l134_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c33_l134_assert_trap() {
     let result_object = create_module_8();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c33_l134_action_invoke(&result_object, &vm_context);
+        c33_l134_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -760,9 +760,8 @@ fn c34_l135_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c34_l135_assert_trap() {
     let result_object = create_module_8();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c34_l135_action_invoke(&result_object, &vm_context);
+        c34_l135_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -771,6 +770,7 @@ fn c34_l135_assert_trap() {
 
 #[test]
 fn test_module_8() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_8();
     // We group the calls together
     start_module_8(&result_object);
@@ -868,6 +868,7 @@ fn c39_l154_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_9() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_9();
     // We group the calls together
     start_module_9(&result_object);
@@ -927,6 +928,7 @@ fn c42_l167_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_10() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_10();
     // We group the calls together
     start_module_10(&result_object);
@@ -984,6 +986,7 @@ fn c45_l180_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_11() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_11();
     // We group the calls together
     start_module_11(&result_object);
@@ -1038,9 +1041,8 @@ fn c47_l196_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c47_l196_assert_trap() {
     let result_object = create_module_12();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c47_l196_action_invoke(&result_object, &vm_context);
+        c47_l196_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1060,9 +1062,8 @@ fn c48_l197_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c48_l197_assert_trap() {
     let result_object = create_module_12();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c48_l197_action_invoke(&result_object, &vm_context);
+        c48_l197_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1082,9 +1083,8 @@ fn c49_l198_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c49_l198_assert_trap() {
     let result_object = create_module_12();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c49_l198_action_invoke(&result_object, &vm_context);
+        c49_l198_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1104,9 +1104,8 @@ fn c50_l199_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c50_l199_assert_trap() {
     let result_object = create_module_12();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c50_l199_action_invoke(&result_object, &vm_context);
+        c50_l199_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1115,6 +1114,7 @@ fn c50_l199_assert_trap() {
 
 #[test]
 fn test_module_12() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_12();
     // We group the calls together
     start_module_12(&result_object);
@@ -1252,6 +1252,7 @@ fn c59_l222_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_13() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_13();
     // We group the calls together
     start_module_13(&result_object);
@@ -1397,6 +1398,7 @@ fn c68_l245_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_14() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_14();
     // We group the calls together
     start_module_14(&result_object);
@@ -1542,6 +1544,7 @@ fn c77_l268_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_15() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_15();
     // We group the calls together
     start_module_15(&result_object);
@@ -1687,6 +1690,7 @@ fn c86_l291_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_16() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_16();
     // We group the calls together
     start_module_16(&result_object);
@@ -1832,6 +1836,7 @@ fn c95_l314_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_17() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_17();
     // We group the calls together
     start_module_17(&result_object);
@@ -1977,6 +1982,7 @@ fn c104_l337_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_18() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_18();
     // We group the calls together
     start_module_18(&result_object);
@@ -2027,9 +2033,8 @@ fn c106_l349_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c106_l349_assert_trap() {
     let result_object = create_module_19();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c106_l349_action_invoke(&result_object, &vm_context);
+        c106_l349_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -2049,15 +2054,15 @@ fn c107_l350_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c107_l350_assert_trap() {
     let result_object = create_module_19();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c107_l350_action_invoke(&result_object, &vm_context);
+        c107_l350_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
 
 #[test]
 fn test_module_19() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_19();
     // We group the calls together
     start_module_19(&result_object);

@@ -160,7 +160,7 @@ impl WastTestGenerator {
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, VmCtx, Export}};
+use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, Instance, Export}};
 use super::_common::{{
     spectest_importobject,
     NaNCheck,
@@ -504,9 +504,8 @@ fn {}_assert_malformed() {{
 #[test]
 fn {}() {{
     let result_object = create_module_{}();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {{
-        {}(&result_object, &vm_context);
+        {}(&result_object);
     }});
     assert!(result.is_err());
 }}\n",

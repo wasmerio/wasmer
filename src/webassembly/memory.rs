@@ -77,7 +77,7 @@ impl LinearMemory {
     /// of pages.
     pub fn grow(&mut self, add_pages: u32) -> Option<i32> {
         debug!("grow_memory called!");
-        debug!("old memory address = {:p} = {:?}", self.mmap.as_ptr(), self.mmap);
+        debug!("old memory = {:?}", self.mmap);
         let prev_pages = self.current;
 
         let new_pages = match self.current.checked_add(add_pages) {
@@ -126,7 +126,7 @@ impl LinearMemory {
             // Update relevant fields
             self.mmap = new_mmap;
             self.current = new_pages;
-            debug!("new memory address = {:p} = {:?}", self.mmap.as_ptr(), self.mmap);
+            debug!("new memory = {:?}", self.mmap);
         }
 
         Some(prev_pages as i32)

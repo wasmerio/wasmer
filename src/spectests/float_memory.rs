@@ -8,7 +8,7 @@
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
@@ -230,6 +230,7 @@ fn c14_l28_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_1() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -462,6 +463,7 @@ fn c29_l53_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_2() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_2();
     // We group the calls together
     start_module_2(&result_object);
@@ -694,6 +696,7 @@ fn c44_l80_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_3() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_3();
     // We group the calls together
     start_module_3(&result_object);
@@ -926,6 +929,7 @@ fn c59_l105_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_4() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_4();
     // We group the calls together
     start_module_4(&result_object);
@@ -1158,6 +1162,7 @@ fn c74_l132_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_5() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_5();
     // We group the calls together
     start_module_5(&result_object);
@@ -1388,6 +1393,7 @@ fn c89_l157_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_6() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_6();
     // We group the calls together
     start_module_6(&result_object);

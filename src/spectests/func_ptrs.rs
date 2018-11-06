@@ -8,7 +8,7 @@
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
@@ -162,6 +162,7 @@ fn c11_l49_assert_invalid() {
 
 #[test]
 fn test_module_1() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -303,9 +304,8 @@ fn c20_l78_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c20_l78_assert_trap() {
     let result_object = create_module_2();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c20_l78_action_invoke(&result_object, &vm_context);
+        c20_l78_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -325,9 +325,8 @@ fn c21_l79_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c21_l79_assert_trap() {
     let result_object = create_module_2();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c21_l79_action_invoke(&result_object, &vm_context);
+        c21_l79_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -347,9 +346,8 @@ fn c22_l80_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c22_l80_assert_trap() {
     let result_object = create_module_2();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c22_l80_action_invoke(&result_object, &vm_context);
+        c22_l80_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -453,9 +451,8 @@ fn c30_l89_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c30_l89_assert_trap() {
     let result_object = create_module_2();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c30_l89_action_invoke(&result_object, &vm_context);
+        c30_l89_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -475,9 +472,8 @@ fn c31_l90_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c31_l90_assert_trap() {
     let result_object = create_module_2();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c31_l90_action_invoke(&result_object, &vm_context);
+        c31_l90_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -497,9 +493,8 @@ fn c32_l91_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c32_l91_assert_trap() {
     let result_object = create_module_2();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c32_l91_action_invoke(&result_object, &vm_context);
+        c32_l91_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -508,6 +503,7 @@ fn c32_l91_assert_trap() {
 
 #[test]
 fn test_module_2() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_2();
     // We group the calls together
     start_module_2(&result_object);
@@ -575,6 +571,7 @@ fn c35_l106_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_3() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_3();
     // We group the calls together
     start_module_3(&result_object);

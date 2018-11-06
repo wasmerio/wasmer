@@ -588,7 +588,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         });
 
         // self.mod_info.grow_memory_extfunc = Some(grow_mem_func);
-
         let memory_index = pos.ins().iconst(I32, index as i64);
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 

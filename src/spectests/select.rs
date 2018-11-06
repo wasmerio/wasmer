@@ -8,7 +8,7 @@
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
@@ -396,9 +396,8 @@ fn c25_l59_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c25_l59_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c25_l59_action_invoke(&result_object, &vm_context);
+        c25_l59_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -418,9 +417,8 @@ fn c26_l60_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c26_l60_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c26_l60_action_invoke(&result_object, &vm_context);
+        c26_l60_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -440,9 +438,8 @@ fn c27_l61_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c27_l61_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c27_l61_action_invoke(&result_object, &vm_context);
+        c27_l61_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -462,9 +459,8 @@ fn c28_l62_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c28_l62_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c28_l62_action_invoke(&result_object, &vm_context);
+        c28_l62_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -479,6 +475,7 @@ fn c29_l65_assert_invalid() {
 
 #[test]
 fn test_module_1() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);

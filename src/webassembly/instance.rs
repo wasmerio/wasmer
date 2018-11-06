@@ -488,7 +488,8 @@ impl Clone for Instance {
 }
 
 extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance) -> i32 {
-    // For now only the first index can be accessed // BTW, the memory_index coming in is random!
+    // For now only the first mem can be accessed
+    // BTW, the memory_index coming in is random!
     let memory_index: u32 = 0;
     instance
         .memory_mut(memory_index as usize)

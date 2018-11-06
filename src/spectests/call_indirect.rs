@@ -8,7 +8,7 @@
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
@@ -753,9 +753,8 @@ fn c19_l414_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c19_l414_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c19_l414_action_invoke(&result_object, &vm_context);
+        c19_l414_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -775,9 +774,8 @@ fn c20_l415_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c20_l415_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c20_l415_action_invoke(&result_object, &vm_context);
+        c20_l415_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -797,9 +795,8 @@ fn c21_l416_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c21_l416_assert_trap() {
     let result_object = create_module_1();
-    let vm_context = result_object.instance.generate_context();
     let result = panic::catch_unwind(|| {
-        c21_l416_action_invoke(&result_object, &vm_context);
+        c21_l416_action_invoke(&result_object);
     });
     assert!(result.is_err());
 }
@@ -1950,6 +1947,7 @@ fn c127_l799_assert_invalid() {
 
 #[test]
 fn test_module_1() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);

@@ -8,7 +8,7 @@
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
@@ -99,6 +99,7 @@ fn c5_l15_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_1() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -259,6 +260,7 @@ fn c16_l35_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_2() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_2();
     // We group the calls together
     start_module_2(&result_object);
@@ -348,6 +350,7 @@ fn c21_l50_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_3() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_3();
     // We group the calls together
     start_module_3(&result_object);
@@ -431,6 +434,7 @@ fn c26_l64_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_4() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_4();
     // We group the calls together
     start_module_4(&result_object);
@@ -490,6 +494,7 @@ fn c29_l76_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_5() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_5();
     // We group the calls together
     start_module_5(&result_object);
@@ -619,6 +624,7 @@ fn c38_l94_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_6() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_6();
     // We group the calls together
     start_module_6(&result_object);
@@ -682,6 +688,7 @@ fn c41_l107_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_7() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_7();
     // We group the calls together
     start_module_7(&result_object);
@@ -811,6 +818,7 @@ fn c50_l125_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_8() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_8();
     // We group the calls together
     start_module_8(&result_object);
@@ -874,6 +882,7 @@ fn c53_l137_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_9() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_9();
     // We group the calls together
     start_module_9(&result_object);
@@ -931,6 +940,7 @@ fn c56_l149_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_10() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_10();
     // We group the calls together
     start_module_10(&result_object);
@@ -988,6 +998,7 @@ fn c59_l161_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_11() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_11();
     // We group the calls together
     start_module_11(&result_object);
@@ -1045,6 +1056,7 @@ fn c62_l173_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_12() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_12();
     // We group the calls together
     start_module_12(&result_object);
@@ -1102,6 +1114,7 @@ fn c65_l185_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_13() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_13();
     // We group the calls together
     start_module_13(&result_object);
@@ -1159,6 +1172,7 @@ fn c68_l197_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_14() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_14();
     // We group the calls together
     start_module_14(&result_object);
@@ -1240,6 +1254,7 @@ fn c73_l211_assert_return_canonical_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_15() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_15();
     // We group the calls together
     start_module_15(&result_object);
@@ -1371,6 +1386,7 @@ fn c82_l229_assert_return_canonical_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_16() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_16();
     // We group the calls together
     start_module_16(&result_object);
@@ -1530,6 +1546,7 @@ fn c93_l249_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_17() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_17();
     // We group the calls together
     start_module_17(&result_object);
@@ -1699,6 +1716,7 @@ fn c104_l269_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_18() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_18();
     // We group the calls together
     start_module_18(&result_object);
@@ -1864,6 +1882,7 @@ fn c115_l289_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_19() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_19();
     // We group the calls together
     start_module_19(&result_object);
@@ -2029,6 +2048,7 @@ fn c126_l309_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_20() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_20();
     // We group the calls together
     start_module_20(&result_object);
@@ -2194,6 +2214,7 @@ fn c137_l329_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_21() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_21();
     // We group the calls together
     start_module_21(&result_object);
@@ -2363,6 +2384,7 @@ fn c148_l349_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_22() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_22();
     // We group the calls together
     start_module_22(&result_object);
@@ -2532,6 +2554,7 @@ fn c159_l369_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_23() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_23();
     // We group the calls together
     start_module_23(&result_object);
@@ -2765,6 +2788,7 @@ fn c176_l395_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_24() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_24();
     // We group the calls together
     start_module_24(&result_object);
@@ -3004,6 +3028,7 @@ fn c193_l421_assert_return_arithmetic_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_25() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_25();
     // We group the calls together
     start_module_25(&result_object);
@@ -3181,6 +3206,7 @@ fn c204_l443_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_26() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_26();
     // We group the calls together
     start_module_26(&result_object);
@@ -3276,6 +3302,7 @@ fn c210_l456_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_27() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_27();
     // We group the calls together
     start_module_27(&result_object);
@@ -3434,6 +3461,7 @@ fn c221_l477_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_28() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_28();
     // We group the calls together
     start_module_28(&result_object);
@@ -3530,6 +3558,7 @@ fn c227_l490_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_29() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_29();
     // We group the calls together
     start_module_29(&result_object);
@@ -3720,6 +3749,7 @@ fn c240_l519_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_30() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_30();
     // We group the calls together
     start_module_30(&result_object);
@@ -3887,6 +3917,7 @@ fn c251_l540_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_31() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_31();
     // We group the calls together
     start_module_31(&result_object);
@@ -4052,6 +4083,7 @@ fn c262_l561_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_32() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_32();
     // We group the calls together
     start_module_32(&result_object);
@@ -4217,6 +4249,7 @@ fn c273_l582_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_33() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_33();
     // We group the calls together
     start_module_33(&result_object);
@@ -4382,6 +4415,7 @@ fn c284_l603_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_34() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_34();
     // We group the calls together
     start_module_34(&result_object);
@@ -4451,6 +4485,7 @@ fn c287_l615_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_35() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_35();
     // We group the calls together
     start_module_35(&result_object);
@@ -4538,6 +4573,7 @@ fn c293_l628_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_36() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_36();
     // We group the calls together
     start_module_36(&result_object);
@@ -4724,6 +4760,7 @@ fn c307_l650_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_37() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_37();
     // We group the calls together
     start_module_37(&result_object);
@@ -4892,6 +4929,7 @@ fn c318_l671_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_38() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_38();
     // We group the calls together
     start_module_38(&result_object);
@@ -4989,6 +5027,7 @@ fn c324_l684_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_39() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_39();
     // We group the calls together
     start_module_39(&result_object);
@@ -5479,6 +5518,7 @@ fn c357_l757_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_40() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_40();
     // We group the calls together
     start_module_40(&result_object);
@@ -5719,6 +5759,7 @@ fn c371_l796_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_41() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_41();
     // We group the calls together
     start_module_41(&result_object);
@@ -5940,6 +5981,7 @@ fn c385_l831_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_42() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_42();
     // We group the calls together
     start_module_42(&result_object);
@@ -6406,6 +6448,7 @@ fn c418_l878_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_43() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_43();
     // We group the calls together
     start_module_43(&result_object);
@@ -6915,6 +6958,7 @@ fn c451_l925_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_44() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_44();
     // We group the calls together
     start_module_44(&result_object);
@@ -7440,6 +7484,7 @@ fn c484_l1004_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_45() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_45();
     // We group the calls together
     start_module_45(&result_object);
@@ -7965,6 +8010,7 @@ fn c517_l1051_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_46() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_46();
     // We group the calls together
     start_module_46(&result_object);
@@ -8506,6 +8552,7 @@ fn c550_l1130_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_47() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_47();
     // We group the calls together
     start_module_47(&result_object);
@@ -8601,6 +8648,7 @@ fn c553_l1145_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_48() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_48();
     // We group the calls together
     start_module_48(&result_object);
@@ -8674,6 +8722,7 @@ fn c555_l1167_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_49() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_49();
     // We group the calls together
     start_module_49(&result_object);
@@ -8746,6 +8795,7 @@ fn c557_l1186_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_50() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_50();
     // We group the calls together
     start_module_50(&result_object);
@@ -8786,6 +8836,7 @@ fn c559_l1197_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_51() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_51();
     // We group the calls together
     start_module_51(&result_object);
@@ -8827,6 +8878,7 @@ fn c561_l1208_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_52() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_52();
     // We group the calls together
     start_module_52(&result_object);
@@ -8871,6 +8923,7 @@ fn c563_l1220_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_53() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_53();
     // We group the calls together
     start_module_53(&result_object);
@@ -8953,6 +9006,7 @@ fn c567_l1246_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_54() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_54();
     // We group the calls together
     start_module_54(&result_object);
@@ -8993,6 +9047,7 @@ fn c569_l1257_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_55() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_55();
     // We group the calls together
     start_module_55(&result_object);
@@ -9051,6 +9106,7 @@ fn c572_l1273_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_56() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_56();
     // We group the calls together
     start_module_56(&result_object);
@@ -9304,6 +9360,7 @@ fn c591_l1305_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_57() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_57();
     // We group the calls together
     start_module_57(&result_object);
@@ -9481,6 +9538,7 @@ fn c602_l1329_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_58() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_58();
     // We group the calls together
     start_module_58(&result_object);
@@ -9650,6 +9708,7 @@ fn c613_l1353_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_59() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_59();
     // We group the calls together
     start_module_59(&result_object);
@@ -9794,6 +9853,7 @@ fn c619_l1395_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_60() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_60();
     // We group the calls together
     start_module_60(&result_object);
@@ -9933,6 +9993,7 @@ fn c625_l1434_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_61() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_61();
     // We group the calls together
     start_module_61(&result_object);
@@ -10039,6 +10100,7 @@ fn c628_l1531_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_62() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_62();
     // We group the calls together
     start_module_62(&result_object);
@@ -10142,6 +10204,7 @@ fn c631_l1582_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_63() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_63();
     // We group the calls together
     start_module_63(&result_object);
@@ -10273,6 +10336,7 @@ fn c640_l1602_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_64() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_64();
     // We group the calls together
     start_module_64(&result_object);
@@ -10410,6 +10474,7 @@ fn c649_l1622_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_65() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_65();
     // We group the calls together
     start_module_65(&result_object);
@@ -10549,6 +10614,7 @@ fn c658_l1642_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_66() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_66();
     // We group the calls together
     start_module_66(&result_object);
@@ -10686,6 +10752,7 @@ fn c667_l1662_assert_return_canonical_nan(result_object: &ResultObject) {
 
 #[test]
 fn test_module_67() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_67();
     // We group the calls together
     start_module_67(&result_object);
@@ -10861,6 +10928,7 @@ fn c678_l1690_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_68() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_68();
     // We group the calls together
     start_module_68(&result_object);
@@ -11026,6 +11094,7 @@ fn c689_l1713_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_69() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_69();
     // We group the calls together
     start_module_69(&result_object);
@@ -11195,6 +11264,7 @@ fn c700_l1737_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_70() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_70();
     // We group the calls together
     start_module_70(&result_object);
@@ -11364,6 +11434,7 @@ fn c711_l1759_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_71() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_71();
     // We group the calls together
     start_module_71(&result_object);
@@ -11527,6 +11598,7 @@ fn c722_l1781_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_72() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_72();
     // We group the calls together
     start_module_72(&result_object);
@@ -11692,6 +11764,7 @@ fn c733_l1803_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_73() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_73();
     // We group the calls together
     start_module_73(&result_object);
@@ -11857,6 +11930,7 @@ fn c744_l1825_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_74() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_74();
     // We group the calls together
     start_module_74(&result_object);
@@ -12024,6 +12098,7 @@ fn c755_l1847_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_75() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_75();
     // We group the calls together
     start_module_75(&result_object);
@@ -12093,6 +12168,7 @@ fn c758_l1861_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_76() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_76();
     // We group the calls together
     start_module_76(&result_object);
@@ -12321,6 +12397,7 @@ fn c772_l1905_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_77() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_77();
     // We group the calls together
     start_module_77(&result_object);
@@ -12393,6 +12470,7 @@ fn c775_l1919_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_78() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_78();
     // We group the calls together
     start_module_78(&result_object);
@@ -12458,6 +12536,7 @@ fn c778_l1935_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_79() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_79();
     // We group the calls together
     start_module_79(&result_object);
@@ -12741,6 +12820,7 @@ fn c793_l1986_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_80() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_80();
     // We group the calls together
     start_module_80(&result_object);
@@ -12866,6 +12946,7 @@ fn c796_l2070_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_81() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_81();
     // We group the calls together
     start_module_81(&result_object);
@@ -12931,6 +13012,7 @@ fn c799_l2084_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_82() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_82();
     // We group the calls together
     start_module_82(&result_object);
@@ -13038,6 +13120,7 @@ fn c804_l2106_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_83() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_83();
     // We group the calls together
     start_module_83(&result_object);
@@ -13207,6 +13290,7 @@ fn c813_l2143_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_84() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_84();
     // We group the calls together
     start_module_84(&result_object);
@@ -13282,6 +13366,7 @@ fn c816_l2158_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_85() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_85();
     // We group the calls together
     start_module_85(&result_object);
@@ -13365,6 +13450,7 @@ fn c819_l2213_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_86() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_86();
     // We group the calls together
     start_module_86(&result_object);
@@ -13556,6 +13642,7 @@ fn c828_l2245_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_87() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_87();
     // We group the calls together
     start_module_87(&result_object);
@@ -14152,6 +14239,7 @@ fn c862_l2361_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_88() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_88();
     // We group the calls together
     start_module_88(&result_object);
@@ -14263,6 +14351,7 @@ fn c865_l2393_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_89() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_89();
     // We group the calls together
     start_module_89(&result_object);
@@ -14378,6 +14467,7 @@ fn c872_l2416_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_90() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_90();
     // We group the calls together
     start_module_90(&result_object);
@@ -14443,6 +14533,7 @@ fn c875_l2431_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_91() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_91();
     // We group the calls together
     start_module_91(&result_object);
@@ -14506,6 +14597,7 @@ fn c878_l2444_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_92() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_92();
     // We group the calls together
     start_module_92(&result_object);
@@ -14697,6 +14789,7 @@ fn c891_l2473_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_93() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_93();
     // We group the calls together
     start_module_93(&result_object);
@@ -14748,6 +14841,7 @@ fn c893_l2483_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_94() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_94();
     // We group the calls together
     start_module_94(&result_object);
@@ -14855,6 +14949,7 @@ fn c896_l2554_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_95() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_95();
     // We group the calls together
     start_module_95(&result_object);
@@ -14920,6 +15015,7 @@ fn c899_l2570_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_96() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_96();
     // We group the calls together
     start_module_96(&result_object);

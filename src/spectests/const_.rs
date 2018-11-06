@@ -8,7 +8,7 @@
 use std::panic;
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
@@ -35,6 +35,7 @@ fn start_module_1(result_object: &ResultObject) {
 
 #[test]
 fn test_module_1() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -74,6 +75,7 @@ fn c3_l12_assert_malformed() {
 
 #[test]
 fn test_module_2() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_2();
     // We group the calls together
     start_module_2(&result_object);
@@ -97,6 +99,7 @@ fn start_module_3(result_object: &ResultObject) {
 
 #[test]
 fn test_module_3() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_3();
     // We group the calls together
     start_module_3(&result_object);
@@ -136,6 +139,7 @@ fn c7_l23_assert_malformed() {
 
 #[test]
 fn test_module_4() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_4();
     // We group the calls together
     start_module_4(&result_object);
@@ -159,6 +163,7 @@ fn start_module_5(result_object: &ResultObject) {
 
 #[test]
 fn test_module_5() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_5();
     // We group the calls together
     start_module_5(&result_object);
@@ -198,6 +203,7 @@ fn c11_l34_assert_malformed() {
 
 #[test]
 fn test_module_6() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_6();
     // We group the calls together
     start_module_6(&result_object);
@@ -221,6 +227,7 @@ fn start_module_7(result_object: &ResultObject) {
 
 #[test]
 fn test_module_7() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_7();
     // We group the calls together
     start_module_7(&result_object);
@@ -260,6 +267,7 @@ fn c15_l45_assert_malformed() {
 
 #[test]
 fn test_module_8() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_8();
     // We group the calls together
     start_module_8(&result_object);
@@ -283,6 +291,7 @@ fn start_module_9(result_object: &ResultObject) {
 
 #[test]
 fn test_module_9() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_9();
     // We group the calls together
     start_module_9(&result_object);
@@ -306,6 +315,7 @@ fn start_module_10(result_object: &ResultObject) {
 
 #[test]
 fn test_module_10() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_10();
     // We group the calls together
     start_module_10(&result_object);
@@ -329,6 +339,7 @@ fn start_module_11(result_object: &ResultObject) {
 
 #[test]
 fn test_module_11() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_11();
     // We group the calls together
     start_module_11(&result_object);
@@ -352,6 +363,7 @@ fn start_module_12(result_object: &ResultObject) {
 
 #[test]
 fn test_module_12() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_12();
     // We group the calls together
     start_module_12(&result_object);
@@ -375,6 +387,7 @@ fn start_module_13(result_object: &ResultObject) {
 
 #[test]
 fn test_module_13() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_13();
     // We group the calls together
     start_module_13(&result_object);
@@ -430,6 +443,7 @@ fn c25_l68_assert_malformed() {
 
 #[test]
 fn test_module_14() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_14();
     // We group the calls together
     start_module_14(&result_object);
@@ -453,6 +467,7 @@ fn start_module_15(result_object: &ResultObject) {
 
 #[test]
 fn test_module_15() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_15();
     // We group the calls together
     start_module_15(&result_object);
@@ -492,6 +507,7 @@ fn c29_l79_assert_malformed() {
 
 #[test]
 fn test_module_16() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_16();
     // We group the calls together
     start_module_16(&result_object);
@@ -515,6 +531,7 @@ fn start_module_17(result_object: &ResultObject) {
 
 #[test]
 fn test_module_17() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_17();
     // We group the calls together
     start_module_17(&result_object);
@@ -554,6 +571,7 @@ fn c33_l90_assert_malformed() {
 
 #[test]
 fn test_module_18() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_18();
     // We group the calls together
     start_module_18(&result_object);
@@ -577,6 +595,7 @@ fn start_module_19(result_object: &ResultObject) {
 
 #[test]
 fn test_module_19() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_19();
     // We group the calls together
     start_module_19(&result_object);
@@ -600,6 +619,7 @@ fn start_module_20(result_object: &ResultObject) {
 
 #[test]
 fn test_module_20() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_20();
     // We group the calls together
     start_module_20(&result_object);
@@ -623,6 +643,7 @@ fn start_module_21(result_object: &ResultObject) {
 
 #[test]
 fn test_module_21() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_21();
     // We group the calls together
     start_module_21(&result_object);
@@ -646,6 +667,7 @@ fn start_module_22(result_object: &ResultObject) {
 
 #[test]
 fn test_module_22() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_22();
     // We group the calls together
     start_module_22(&result_object);
@@ -669,6 +691,7 @@ fn start_module_23(result_object: &ResultObject) {
 
 #[test]
 fn test_module_23() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_23();
     // We group the calls together
     start_module_23(&result_object);
@@ -724,6 +747,7 @@ fn c43_l113_assert_malformed() {
 
 #[test]
 fn test_module_24() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_24();
     // We group the calls together
     start_module_24(&result_object);
@@ -747,6 +771,7 @@ fn start_module_25(result_object: &ResultObject) {
 
 #[test]
 fn test_module_25() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_25();
     // We group the calls together
     start_module_25(&result_object);
@@ -786,6 +811,7 @@ fn c47_l124_assert_malformed() {
 
 #[test]
 fn test_module_26() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_26();
     // We group the calls together
     start_module_26(&result_object);
@@ -809,6 +835,7 @@ fn start_module_27(result_object: &ResultObject) {
 
 #[test]
 fn test_module_27() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_27();
     // We group the calls together
     start_module_27(&result_object);
@@ -846,6 +873,7 @@ fn c51_l135_assert_malformed() {
 
 #[test]
 fn test_module_28() {
+    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_28();
     // We group the calls together
     start_module_28(&result_object);
