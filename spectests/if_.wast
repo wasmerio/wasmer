@@ -444,10 +444,8 @@
 (assert_return (invoke "as-store-last" (i32.const 0)))
 (assert_return (invoke "as-store-last" (i32.const 1)))
 
-;; SKIP_MEMORY_GROW
-;; (assert_return (invoke "as-memory.grow-value" (i32.const 0)) (i32.const 1))
-;; SKIP_MEMORY_GROW
-;; (assert_return (invoke "as-memory.grow-value" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "as-memory.grow-value" (i32.const 0)) (i32.const 1))
+(assert_return (invoke "as-memory.grow-value" (i32.const 1)) (i32.const 1))
 
 (assert_return (invoke "as-call-value" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "as-call-value" (i32.const 1)) (i32.const 1))
