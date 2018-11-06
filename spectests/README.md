@@ -21,7 +21,7 @@ Currently supported command assertions:
 - [x] AssertReturn _mostly implemented_ (it should support calls to named modules `(invoke $Xx "call")`).
 - [x] AssertReturnCanonicalNan _fully implemented_
 - [x] AssertReturnArithmeticNan _fully implemented_
-- [ ] AssertTrap _not implemented yet_
+- [x] AssertTrap _fully implemented_
 - [x] AssertInvalid _Fully implemented_ (it should not require to do validation separate from compilation)
 - [x] AssertMalformed _Fully implemented_
 - [ ] AssertUninstantiable _not implemented yet_
@@ -119,3 +119,5 @@ There are some cases that we decided to skip for now to fasten the time to relea
   - `nop.wast`
 - `SKIP_MUTABLE_GLOBALS`: Right now the WASM parser can't validate a module with imported/exported mut globals. We decided to skip the tests until Cranelift and wasmparser can handle this (original spec proposal: https://github.com/WebAssembly/mutable-global). Spectests affected:
   - `globals.wast`
+- `SKIP_CALL_INDIRECT_TYPE_MISMATCH`: we implemented traps in a fast way. We haven't covered yet the type mismatch on `call_indirect`. Specs affected:
+  - `call_indirect.wast`

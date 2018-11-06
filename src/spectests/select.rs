@@ -5,12 +5,14 @@
     warnings,
     dead_code
 )]
+use std::panic;
+use wabt::wat2wasm;
+
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
 };
-use wabt::wat2wasm;
 
 
 // Line 1
@@ -379,12 +381,92 @@ fn c24_l57_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 59
+fn c25_l59_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c25_l59_action_invoke");
+    let func_index = match result_object.module.info.exports.get("select_trap_l") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c25_l59_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c25_l59_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 60
+fn c26_l60_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c26_l60_action_invoke");
+    let func_index = match result_object.module.info.exports.get("select_trap_l") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c26_l60_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c26_l60_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 61
+fn c27_l61_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c27_l61_action_invoke");
+    let func_index = match result_object.module.info.exports.get("select_trap_r") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c27_l61_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c27_l61_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 62
+fn c28_l62_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c28_l62_action_invoke");
+    let func_index = match result_object.module.info.exports.get("select_trap_r") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(0 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c28_l62_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c28_l62_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 65
 #[test]

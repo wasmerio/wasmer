@@ -5,12 +5,14 @@
     warnings,
     dead_code
 )]
+use std::panic;
+use wabt::wat2wasm;
+
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, VmCtx, Export};
 use super::_common::{
     spectest_importobject,
     NaNCheck,
 };
-use wabt::wat2wasm;
 
 
 // Line 3
@@ -1207,6 +1209,26 @@ fn c47_l439_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
 }
 
 // Line 440
+fn c48_l440_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
+    println!("Executing function {}", "c48_l440_action_invoke");
+    let func_index = match result_object.module.info.exports.get("as-call_indirect-last") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(i32, &VmCtx) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(1 as i32, &vm_context);
+    
+}
+
+#[test]
+fn c48_l440_assert_trap() {
+    let result_object = create_module_1();
+    let vm_context = result_object.instance.generate_context();
+    let result = panic::catch_unwind(|| {
+        c48_l440_action_invoke(&result_object, &vm_context);
+    });
+    assert!(result.is_err());
+}
 
 // Line 442
 fn c49_l442_action_invoke(result_object: &ResultObject, vm_context: &VmCtx) {
