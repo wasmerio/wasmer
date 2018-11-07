@@ -20,7 +20,7 @@ pub fn generate_libc_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
 #[cfg(test)]
 mod tests {
     use super::generate_libc_env;
-    use crate::webassembly::{instantiate, Export, VmCtx};
+    use crate::webassembly::{instantiate, Export, Instance};
 
     #[test]
     fn test_putchar() {

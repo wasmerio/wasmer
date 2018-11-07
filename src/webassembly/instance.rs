@@ -106,6 +106,7 @@ pub struct Instance {
     pub data_pointers: DataPointers,
 
     // Default memory bound
+    // TODO: Support for only one LinearMemory for now.
     pub default_memory_bound: i32
 }
 
@@ -547,19 +548,29 @@ impl Clone for Instance {
     }
 }
 
+/// TODO:
+///   Need to improve how memories are stored and grown.
+///   Dynamic memory is inefficient both for growing and for access
+///   Cranelift's dynamic heap assumes a _statically-known_ number of LinearMemories,
+///   because it expects a corresponding global variable for each LinearMemory
+///
+/// Reference:
+/// - https://cranelift.readthedocs.io/en/latest/ir.html?highlight=vmctx#heap-examples,
+///
 extern "C"  fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance) -> i32 {
-    // For now only the first mem can be accessed
-    // BTW, the memory_index coming in is random!
+    // TODO: Support for only one LinearMemory for now.
     let memory_index: u32 = 0;
     let old_mem_size = instance
         .memory_mut(memory_index as usize)
         .grow(size)
         .unwrap_or(i32::max_value()); // Should be -1 ?
 
+    // Update the default_memory_bound
     instance.default_memory_bound =
         (instance.memories.get(0).unwrap().current as usize * LinearMemory::WASM_PAGE_SIZE) as i32;
 
-    // PROBLEM: The memories changed, so I have to do the whole slice thing all over again.
+    // The grown memory changed so data_pointers need to be updated as well.
+    // TODO: Refactor repetitive code
     let tables_pointer: Vec<BoundedSlice<usize>> =
         instance.tables.iter().map(|table| table[..].into()).collect();
     let memories_pointer: Vec<UncheckedSlice<u8>> =
@@ -575,15 +586,6 @@ extern "C"  fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance
 
     // Update data_pointers
     instance.data_pointers = data_pointers;
-
-    println!(
-        "
-        new mem loc = {:p}
-        instance.default_memory_bound = {:?}
-        ",
-        &instance.memories.get(0).unwrap().mmap.get(0),
-        instance.default_memory_bound
-    );
 
     return old_mem_size;
 }

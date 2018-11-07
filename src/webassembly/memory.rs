@@ -105,8 +105,8 @@ impl LinearMemory {
             // to move.
             let mut new_mmap = MmapMut::map_anon(new_bytes).unwrap();
 
-            // Copy old mem to new mem. Will a while loop be faster or
-            // is this going to be optimized?
+            // Copy old mem to new mem. Will a while loop be faster or is this going to be optimized?
+            // TODO: Consider static heap for efficiency.
             for i in 0..prev_bytes {
                  unsafe {
                     let new_mmap_index = new_mmap.get_unchecked_mut(i);
@@ -115,8 +115,8 @@ impl LinearMemory {
                 }
             }
 
-            // Zero out the remaining mem region // TODO: Check if memmap
-            // should zeroes out everything by default.
+            // Zero out the remaining mem region
+            // TODO: Check if memmap zeroes out everything by default. This is very inefficient!
             for i in prev_bytes..new_bytes {
                 unsafe {
                     let index = new_mmap.get_unchecked_mut(i);
