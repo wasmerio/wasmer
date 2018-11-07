@@ -328,35 +328,53 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         &self.mod_info.flags
     }
 
-    fn make_global(&mut self, func: &mut ir::Function, index: GlobalIndex) -> GlobalVariable {
-        // Just create a dummy `vmctx` global.
+    fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        let ptr_size = self.ptr_size();
 
-        let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+        // Given a vmctx, we want to retrieve vmctx.tables
+        // Create a table whose base address is stored at `vmctx+88`.
+        // 88 is the offset of the vmctx.tables pointer respect to vmctx pointer
+        let base = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(96),
+            offset: Offset32::new(88),
             global_type: self.pointer_type(),
         });
 
-        let offset = (index * 8) as i64;
-        let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
-            base: globals_base_addr,
-            offset: Imm64::new(offset),
+        // This will be 0 when the index is 0, not sure if the offset will work regardless
+        let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
+
+        // We get the pointer for our table index
+        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base: base,
+            offset: Offset32::new(table_data_offset),
             global_type: self.pointer_type(),
         });
-        GlobalVariable::Memory {
-            gv: iadd,
-            ty: self.mod_info.globals[index].entity.ty,
-        }
+
+        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base: base,
+            offset: Offset32::new(table_data_offset),
+            global_type: I64,
+        });
+
+        let table = func.create_table(ir::TableData {
+            base_gv: base_gv,
+            min_size: Imm64::new(0),
+            bound_gv,
+            element_size: Imm64::new(i64::from(self.pointer_bytes())),
+            index_type: self.pointer_type(),
+        });
+        // println!("FUNC {:?}", func);
+        table
     }
 
     fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> ir::Heap {
-        // Create a static heap whose base address is stored at `vmctx+104`.
+        // Create a static heap whose base address is stored at `vmctx+96`.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
 
         let heap_base_addr = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(104),
+            offset: Offset32::new(96),
             global_type: self.pointer_type(),
         });
 
@@ -370,15 +388,22 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             global_type: self.pointer_type(),
         });
 
+        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base: vmctx,
+            offset: Offset32::new(120),
+            global_type: I32,
+        });
+
         func.create_heap(ir::HeapData {
             base: heap_base,
             min_size: Imm64::new(0),
             guard_size: Imm64::new(LinearMemory::DEFAULT_GUARD_SIZE as i64),
-            style: ir::HeapStyle::Static {
-                bound: Imm64::new(LinearMemory::DEFAULT_HEAP_SIZE as i64),
+            style: ir::HeapStyle::Dynamic {
+                bound_gv,
             },
             index_type: I32,
         })
+
         // if index == 0 {
         //     let heap_base = self.main_memory_base.unwrap_or_else(|| {
         //         let new_base = func.create_global_value(ir::GlobalValueData::VMContext {
@@ -423,43 +448,26 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // }
     }
 
-    fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
+    fn make_global(&mut self, func: &mut ir::Function, index: GlobalIndex) -> GlobalVariable {
+        // Just create a dummy `vmctx` global.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
-        let ptr_size = self.ptr_size();
 
-        // Given a vmctx, we want to retrieve vmctx.tables
-        // Create a table whose base address is stored at `vmctx+112`.
-        // 112 is the offset of the vmctx.tables pointer respect to vmctx pointer
-        let base = func.create_global_value(ir::GlobalValueData::Load {
+        let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(112),
+            offset: Offset32::new(104),
             global_type: self.pointer_type(),
         });
 
-        // This will be 0 when the index is 0, not sure if the offset will work regardless
-        let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
-
-        // We get the pointer for our table index
-        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: base,
-            offset: Offset32::new(table_data_offset),
+        let offset = (index * 8) as i64;
+        let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
+            base: globals_base_addr,
+            offset: Imm64::new(offset),
             global_type: self.pointer_type(),
         });
-        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: base,
-            offset: Offset32::new(table_data_offset),
-            global_type: I64,
-        });
-
-        let table = func.create_table(ir::TableData {
-            base_gv: base_gv,
-            min_size: Imm64::new(0),
-            bound_gv,
-            element_size: Imm64::new(i64::from(self.pointer_bytes())),
-            index_type: self.pointer_type(),
-        });
-        // println!("FUNC {:?}", func);
-        table
+        GlobalVariable::Memory {
+            gv: iadd,
+            ty: self.mod_info.globals[index].entity.ty,
+        }
     }
 
     fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef {
@@ -588,7 +596,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         });
 
         // self.mod_info.grow_memory_extfunc = Some(grow_mem_func);
-
         let memory_index = pos.ins().iconst(I32, index as i64);
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 

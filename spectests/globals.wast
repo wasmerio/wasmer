@@ -224,8 +224,7 @@
 (assert_return (invoke "as-store-first"))
 (assert_return (invoke "as-store-last"))
 (assert_return (invoke "as-load-operand") (i32.const 1))
-;; SKIP_MEMORY_GROW
-;; (assert_return (invoke "as-memory.grow-value") (i32.const 1))
+(assert_return (invoke "as-memory.grow-value") (i32.const 1))
 
 (assert_return (invoke "as-call-value") (i32.const 6))
 

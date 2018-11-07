@@ -80,15 +80,17 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
     let webassembly::ResultObject { module, instance } =
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| String::from(err.description()))?;
+
+    // webassembly::utils::print_instance_offsets(&instance);
+
     let func_index = instance
         .start_func
         .unwrap_or_else(|| match module.info.exports.get("main") {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("Main function not found"),
         });
-    let main: fn(&webassembly::VmCtx) -> i32 = get_instance_function!(instance, func_index);
-    let context = instance.generate_context();
-    let result = main(&context);
+    let main: fn(&webassembly::Instance) -> i32 = get_instance_function!(instance, func_index);
+    let result = main(&instance);
     println!("RESULT {}", result);
     Ok(())
 }

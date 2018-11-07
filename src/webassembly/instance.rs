@@ -58,8 +58,9 @@ fn get_function_addr(
     func_pointer
 }
 
-// #[derive(Debug)]
-#[repr(C)]
+// TODO: To be removed.
+#[derive(Debug)]
+#[repr(C, packed)]
 pub struct VmCtx<'phantom> {
     pub user_data: UserData,
     globals: UncheckedSlice<u8>,
@@ -68,8 +69,9 @@ pub struct VmCtx<'phantom> {
     phantom: PhantomData<&'phantom ()>,
 }
 
-// #[derive(Debug)]
-#[repr(C)]
+// TODO: To be removed.
+#[derive(Debug)]
+#[repr(C, packed)]
 pub struct UserData {
     // pub process: Dispatch<Process>,
     pub instance: Instance,
@@ -99,6 +101,28 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
+
+    // C-like pointers to data (heaps, globals, tables)
+    pub data_pointers: DataPointers,
+
+    // Default memory bound
+    // TODO: Support for only one LinearMemory for now.
+    pub default_memory_bound: i32
+}
+
+
+/// Contains pointers to data (heaps, globals, tables) needed
+/// by Cranelift.
+#[derive(Debug)]
+pub struct DataPointers {
+    // Pointer to tables
+    pub tables: UncheckedSlice<BoundedSlice<usize>>,
+
+    // Pointer to memories
+    pub memories: UncheckedSlice<UncheckedSlice<u8>>,
+
+    // Pointer to globals
+    pub globals: UncheckedSlice<u8>,
 }
 
 impl Instance {
@@ -138,6 +162,7 @@ impl Instance {
                 import_functions.push(function);
                 relocations.push(vec![]);
             }
+
             debug!("Instance - Compiling functions");
             // Compile the functions (from cranelift IR to machine code)
             for function_body in module.info.function_bodies.values() {
@@ -150,7 +175,7 @@ impl Instance {
                 //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
                 // let code_size_offset = func_context
                 //     .compile(&*isa)
-                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?
+                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
                 //     as usize;
 
                 let mut code_buf: Vec<u8> = Vec::new();
@@ -161,7 +186,10 @@ impl Instance {
                 // In case traps need to be triggered, they will go to trap_sink
                 func_context
                     .compile_and_emit(&*isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
-                    .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+                    .map_err(|e| {
+                        println!("CompileError: {}", e.to_string());
+                        ErrorKind::CompileError(e.to_string())
+                    })?;
                 // We set this code_buf to be readable & executable
                 protect_codebuf(&code_buf).unwrap();
 
@@ -383,13 +411,30 @@ impl Instance {
                     _ => None,
                 });
 
+        // TODO: Refactor repetitive code
+        let tables_pointer: Vec<BoundedSlice<usize>> =
+            tables.iter().map(|table| table[..].into()).collect();
+        let memories_pointer: Vec<UncheckedSlice<u8>> =
+            memories.iter().map(|mem| mem[..].into()).collect();
+        let globals_pointer: UncheckedSlice<u8> = globals[..].into();
+
+        let data_pointers = DataPointers {
+            memories: memories_pointer[..].into(),
+            globals: globals_pointer,
+            tables: tables_pointer[..].into(),
+        };
+
+        let default_memory_bound = LinearMemory::WASM_PAGE_SIZE as i32;
+
         Ok(Instance {
             tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
             memories: Arc::new(memories.into_iter().collect()),
-            globals: globals,
-            functions: functions,
-            import_functions: import_functions,
-            start_func: start_func,
+            globals,
+            functions,
+            import_functions,
+            start_func,
+            data_pointers,
+            default_memory_bound,
             // code_base: code_base,
         })
     }
@@ -406,17 +451,19 @@ impl Instance {
     pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
         self.memories.clone()
     }
+
     pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {
         get_function_addr(&func_index, &self.import_functions, &self.functions)
     }
 
-    pub fn start(&self, vmctx: &VmCtx) {
+    pub fn start(&self) {
         if let Some(func_index) = self.start_func {
-            let func: fn(&VmCtx) = get_instance_function!(&self, func_index);
-            func(vmctx)
+            let func: fn(&Instance) = get_instance_function!(&self, func_index);
+            func(self)
         }
     }
 
+    // TODO: To be removed.
     pub fn generate_context(&self) -> VmCtx {
         let memories: Vec<UncheckedSlice<u8>> =
             self.memories.iter().map(|mem| mem[..].into()).collect();
@@ -471,6 +518,22 @@ impl Instance {
 
 impl Clone for Instance {
     fn clone(&self) -> Instance {
+        // TODO: Refactor repetitive code
+        let tables_pointer: Vec<BoundedSlice<usize>> =
+            self.tables.iter().map(|table| table[..].into()).collect();
+        let memories_pointer: Vec<UncheckedSlice<u8>> =
+            self.memories.iter().map(|mem| mem[..].into()).collect();
+        let globals_pointer: UncheckedSlice<u8> = self.globals[..].into();
+
+        let data_pointers = DataPointers {
+            memories: memories_pointer[..].into(),
+            globals: globals_pointer,
+            tables: tables_pointer[..].into(),
+        };
+
+        let default_memory_bound =
+            self.memories.get(0).unwrap().current as i32;
+
         Instance {
             tables: Arc::clone(&self.tables),
             memories: Arc::clone(&self.memories),
@@ -478,21 +541,56 @@ impl Clone for Instance {
             functions: self.functions.clone(),
             start_func: self.start_func.clone(),
             import_functions: self.import_functions.clone(),
+            data_pointers,
+            default_memory_bound,
             // code_base: self.code_base,
         }
     }
 }
 
-extern "C" fn grow_memory(size: u32, memory_index: u32, vmctx: &mut VmCtx) -> i32 {
-    let instance = &mut vmctx.user_data.instance;
-    instance
+/// TODO:
+///   Need to improve how memories are stored and grown.
+///   Dynamic memory is inefficient both for growing and for access
+///   Cranelift's dynamic heap assumes a _statically-known_ number of LinearMemories,
+///   because it expects a corresponding global variable for each LinearMemory
+///
+/// Reference:
+/// - https://cranelift.readthedocs.io/en/latest/ir.html?highlight=vmctx#heap-examples,
+///
+extern "C"  fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance) -> i32 {
+    // TODO: Support for only one LinearMemory for now.
+    let memory_index: u32 = 0;
+    let old_mem_size = instance
         .memory_mut(memory_index as usize)
         .grow(size)
-        .unwrap_or(i32::max_value()) // Should be -1 ?
+        .unwrap_or(i32::max_value()); // Should be -1 ?
+
+    // Update the default_memory_bound
+    instance.default_memory_bound =
+        (instance.memories.get(0).unwrap().current as usize * LinearMemory::WASM_PAGE_SIZE) as i32;
+
+    // The grown memory changed so data_pointers need to be updated as well.
+    // TODO: Refactor repetitive code
+    let tables_pointer: Vec<BoundedSlice<usize>> =
+        instance.tables.iter().map(|table| table[..].into()).collect();
+    let memories_pointer: Vec<UncheckedSlice<u8>> =
+        instance.memories.iter().map(|mem| mem[..].into()).collect();
+    let globals_pointer: UncheckedSlice<u8> =
+        instance.globals[..].into();
+
+    let data_pointers = DataPointers {
+        memories: memories_pointer[..].into(),
+        globals: globals_pointer,
+        tables: tables_pointer[..].into(),
+    };
+
+    // Update data_pointers
+    instance.data_pointers = data_pointers;
+
+    return old_mem_size;
 }
 
-extern "C" fn current_memory(memory_index: u32, vmctx: &VmCtx) -> u32 {
-    let instance = &vmctx.user_data.instance;
+extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_size() as u32
 }
