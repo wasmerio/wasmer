@@ -1,7 +1,7 @@
 <p align="center"><a href="https://wasmer.io" target="_blank" rel="noopener noreferrer"><img width="400" src="https://raw.githubusercontent.com/WAFoundation/wasmer/master/logo.png" alt="Wasmer logo"></a></p>
 
 <p align="center">
-  <a href="https://circleci.com/gh/wafoundation/wasmer/"><img src="https://img.shields.io/circleci/project/github/WAFoundation/wasmer.svg" alt="Build Status"></a>
+  <a href="https://circleci.com/gh/wafoundation/wasmer/"><img src="https://img.shields.io/circleci/project/github/WAFoundation/wasmer/master.svg" alt="Build Status"></a>
   <a href="https://github.com/WAFoundation/wasmer/blob/master/LICENSE"><img src="https://img.shields.io/github/license/WAFoundation/wasmer.svg" alt="License"></a>
 </p>
 
