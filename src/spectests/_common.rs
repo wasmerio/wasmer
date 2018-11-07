@@ -42,11 +42,11 @@ impl NaNCheck for f32 {
         self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
     }
 
-    /// For a NaN to be canonical, its mantissa bits must all be set,
-    /// only the MSB is disregarded. (i.e we don't care if the MSB of the mantissa is set or not)
+    /// For a NaN to be canonical, its mantissa bits must all be unset
     fn is_canonical_nan(&self) -> bool {
-        let bit_mask = 0b0____1111_1111____011_1111_1111_1111_1111_1111;
-        (self.to_bits() & bit_mask) == bit_mask
+        let bit_mask: u32 = 0b1____0000_0000____011_1111_1111_1111_1111_1111;
+        let masked_value = self.to_bits() ^ bit_mask;
+        masked_value == 0xFFFF_FFFF || masked_value == 0x7FFF_FFFF
     }
 }
 
@@ -57,11 +57,11 @@ impl NaNCheck for f64 {
         self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
     }
 
-    /// For a NaN to be canonical, its mantissa bits must all be set,
-    /// only the MSB is disregarded. (i.e we don't care if the MSB of the mantissa is set or not)
+    /// For a NaN to be canonical, its mantissa bits must all be unset
     fn is_canonical_nan(&self) -> bool {
-        // 0b0____111_1111_1111____0111_1111_1111_1111 ... 1111
-        let bit_mask = 0x7FF7FFFFFFFFFFFF;
-        (self.to_bits() & bit_mask) == bit_mask
+        let bit_mask: u64 =
+            0b1____000_0000_0000____0111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111;
+        let masked_value = self.to_bits() ^ bit_mask;
+        masked_value == 0x7FFF_FFFF_FFFF_FFFF || masked_value == 0xFFF_FFFF_FFFF_FFFF
     }
 }
