@@ -12,7 +12,6 @@ use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
 use region;
 use std::iter::Iterator;
-use std::marker::PhantomData;
 use std::ptr::write_unaligned;
 use std::slice;
 use std::sync::Arc;
@@ -59,23 +58,23 @@ fn get_function_addr(
 }
 
 // TODO: To be removed.
-#[derive(Debug)]
-#[repr(C, packed)]
-pub struct VmCtx<'phantom> {
-    pub user_data: UserData,
-    globals: UncheckedSlice<u8>,
-    memories: UncheckedSlice<UncheckedSlice<u8>>,
-    tables: UncheckedSlice<BoundedSlice<usize>>,
-    phantom: PhantomData<&'phantom ()>,
-}
+// #[derive(Debug)]
+// #[repr(C, packed)]
+// pub struct VmCtx<'phantom> {
+//     pub user_data: UserData,
+//     globals: UncheckedSlice<u8>,
+//     memories: UncheckedSlice<UncheckedSlice<u8>>,
+//     tables: UncheckedSlice<BoundedSlice<usize>>,
+//     phantom: PhantomData<&'phantom ()>,
+// }
 
-// TODO: To be removed.
-#[derive(Debug)]
-#[repr(C, packed)]
-pub struct UserData {
-    // pub process: Dispatch<Process>,
-    pub instance: Instance,
-}
+// // TODO: To be removed.
+// #[derive(Debug)]
+// #[repr(C, packed)]
+// pub struct UserData {
+//     // pub process: Dispatch<Process>,
+//     pub instance: Instance,
+// }
 
 /// An Instance of a WebAssembly module
 #[derive(Debug)]
@@ -107,9 +106,8 @@ pub struct Instance {
 
     // Default memory bound
     // TODO: Support for only one LinearMemory for now.
-    pub default_memory_bound: i32
+    pub default_memory_bound: i32,
 }
-
 
 /// Contains pointers to data (heaps, globals, tables) needed
 /// by Cranelift.
@@ -464,36 +462,35 @@ impl Instance {
     }
 
     // TODO: To be removed.
-    pub fn generate_context(&self) -> VmCtx {
-        let memories: Vec<UncheckedSlice<u8>> =
-            self.memories.iter().map(|mem| mem[..].into()).collect();
-        let tables: Vec<BoundedSlice<usize>> =
-            self.tables.iter().map(|table| table[..].into()).collect();
-        let globals: UncheckedSlice<u8> = self.globals[..].into();
+    // pub fn generate_context(&self) -> VmCtx {
+    //     let memories: Vec<UncheckedSlice<u8>> =
+    //         self.memories.iter().map(|mem| mem[..].into()).collect();
+    //     let tables: Vec<BoundedSlice<usize>> =
+    //         self.tables.iter().map(|table| table[..].into()).collect();
+    //     let globals: UncheckedSlice<u8> = self.globals[..].into();
 
-        // println!("GENERATING CONTEXT {:?}", self.globals);
+    //     // println!("GENERATING CONTEXT {:?}", self.globals);
 
-        // assert!(memories.len() >= 1, "modules must have at least one memory");
-        // the first memory has a space of `mem::size_of::<VmCtxData>()` rounded
-        // up to the 4KiB before it. We write the VmCtxData into that.
-        let instance = self.clone();
-        let data = VmCtx {
-            globals: globals,
-            memories: memories[..].into(),
-            tables: tables[..].into(),
-            user_data: UserData {
-                // process,
-                instance: instance,
-            },
-            phantom: PhantomData,
-        };
-        data
-        // let main_heap_ptr = memories[0].as_mut_ptr() as *mut VmCtxData;
-        // unsafe {
-        //     main_heap_ptr.sub(1).write(data);
-        //     &*(main_heap_ptr as *const VmCtx)
-        // }
-    }
+    //     // assert!(memories.len() >= 1, "modules must have at least one memory");
+    //     // the first memory has a space of `mem::size_of::<VmCtxData>()` rounded
+    //     // up to the 4KiB before it. We write the VmCtxData into that.
+    //     let instance = self.clone();
+    //     VmCtx {
+    //         globals: globals,
+    //         memories: memories[..].into(),
+    //         tables: tables[..].into(),
+    //         user_data: UserData {
+    //             // process,
+    //             instance: instance,
+    //         },
+    //         phantom: PhantomData,
+    //     }
+    //     // let main_heap_ptr = memories[0].as_mut_ptr() as *mut VmCtxData;
+    //     // unsafe {
+    //     //     main_heap_ptr.sub(1).write(data);
+    //     //     &*(main_heap_ptr as *const VmCtx)
+    //     // }
+    // }
 
     /// Returns a slice of the contents of allocated linear memory.
     pub fn inspect_memory(&self, memory_index: usize, address: usize, len: usize) -> &[u8] {
@@ -531,8 +528,7 @@ impl Clone for Instance {
             tables: tables_pointer[..].into(),
         };
 
-        let default_memory_bound =
-            self.memories.get(0).unwrap().current as i32;
+        let default_memory_bound = self.memories.get(0).unwrap().current as i32;
 
         Instance {
             tables: Arc::clone(&self.tables),
@@ -557,9 +553,13 @@ impl Clone for Instance {
 /// Reference:
 /// - https://cranelift.readthedocs.io/en/latest/ir.html?highlight=vmctx#heap-examples,
 ///
-extern "C"  fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance) -> i32 {
+extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance) -> i32 {
     // TODO: Support for only one LinearMemory for now.
-    let memory_index: u32 = 0;
+    debug_assert_eq!(
+        memory_index, 0,
+        "non-default memory_index (0) not supported yet"
+    );
+
     let old_mem_size = instance
         .memory_mut(memory_index as usize)
         .grow(size)
@@ -571,12 +571,14 @@ extern "C"  fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance
 
     // The grown memory changed so data_pointers need to be updated as well.
     // TODO: Refactor repetitive code
-    let tables_pointer: Vec<BoundedSlice<usize>> =
-        instance.tables.iter().map(|table| table[..].into()).collect();
+    let tables_pointer: Vec<BoundedSlice<usize>> = instance
+        .tables
+        .iter()
+        .map(|table| table[..].into())
+        .collect();
     let memories_pointer: Vec<UncheckedSlice<u8>> =
         instance.memories.iter().map(|mem| mem[..].into()).collect();
-    let globals_pointer: UncheckedSlice<u8> =
-        instance.globals[..].into();
+    let globals_pointer: UncheckedSlice<u8> = instance.globals[..].into();
 
     let data_pointers = DataPointers {
         memories: memories_pointer[..].into(),

@@ -1,7 +1,6 @@
 //! Utility functions for the webassembly library
 use super::instance::Instance;
 use std::mem::transmute;
-use super::super::common::slice::{UncheckedSlice, BoundedSlice};
 
 /// Detect if a provided binary is a WASM file
 pub fn is_wasm_binary(binary: &Vec<u8>) -> bool {
@@ -37,10 +36,15 @@ instance.data_pointers.globals \t- {:X} | offset - {:?}
 instance.default_memory_bound \t- {:X} | offset - {:?}
 ====== INSTANCE OFFSET TABLE ======
         ",
-        instance_address, 0,
-        tables_pointer_address, tables_pointer_address - instance_address,
-        memories_pointer_address, memories_pointer_address - instance_address,
-        globals_pointer_address, globals_pointer_address - instance_address,
-        default_memory_bound_address, default_memory_bound_address - instance_address,
+        instance_address,
+        0,
+        tables_pointer_address,
+        tables_pointer_address - instance_address,
+        memories_pointer_address,
+        memories_pointer_address - instance_address,
+        globals_pointer_address,
+        globals_pointer_address - instance_address,
+        default_memory_bound_address,
+        default_memory_bound_address - instance_address,
     );
 }
