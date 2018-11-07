@@ -271,6 +271,7 @@ fn {}_assert_invalid() {{
         );
     }
 
+    // TODO: Refactor repetitive code
     fn visit_assert_return_arithmetic_nan(&mut self, action: &Action) {
         match action {
             Action::Invoke {
@@ -324,6 +325,7 @@ fn {}_assert_invalid() {{
 
     // PROBLEM: Im assuming the return type from the first argument type
     // and wabt does gives us the `expected` result
+    // TODO: Refactor repetitive code
     fn visit_assert_return_canonical_nan(&mut self, action: &Action) {
         match action {
             Action::Invoke {
@@ -400,6 +402,7 @@ fn {}_assert_malformed() {{
         );
     }
 
+    // TODO: Refactor repetitive code
     fn visit_action(&mut self, action: &Action, expected: Option<&Vec<Value>>) -> Option<String> {
         match action {
             Action::Invoke {
@@ -469,6 +472,7 @@ fn {}_assert_malformed() {{
             _ => None,
         }
     }
+
     fn visit_assert_return(&mut self, action: &Action, expected: &Vec<Value>) {
         let action_fn_name = self.visit_action(action, Some(expected));
 
@@ -480,6 +484,7 @@ fn {}_assert_malformed() {{
             .or_insert(Vec::new())
             .push(action_fn_name.unwrap());
     }
+    
     fn visit_perform_action(&mut self, action: &Action) {
         let action_fn_name = self.visit_action(action, None);
 
@@ -491,6 +496,7 @@ fn {}_assert_malformed() {{
             .or_insert(Vec::new())
             .push(action_fn_name.unwrap());
     }
+
     fn visit_assert_trap(&mut self, action: &Action) {
         let action_fn_name = self.visit_action(action, None);
 
