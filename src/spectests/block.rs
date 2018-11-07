@@ -2042,7 +2042,6 @@ fn c167_l1089_assert_malformed() {
 
 #[test]
 fn test_module_1() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -2064,23 +2063,23 @@ fn test_module_1() {
     c16_l271_action_invoke(&result_object);
     c17_l273_action_invoke(&result_object);
     c18_l274_action_invoke(&result_object);
-    // c19_l276_action_invoke(&result_object);
-    // c20_l277_action_invoke(&result_object);
-    // c21_l278_action_invoke(&result_object);
+    c19_l276_action_invoke(&result_object);
+    c20_l277_action_invoke(&result_object);
+    c21_l278_action_invoke(&result_object);
     c22_l280_action_invoke(&result_object);
-    // c23_l281_action_invoke(&result_object);
-    // c24_l283_action_invoke(&result_object);
-    // c25_l284_action_invoke(&result_object);
-    // c26_l285_action_invoke(&result_object);
-    // c27_l286_action_invoke(&result_object);
-    // c28_l287_action_invoke(&result_object);
-    // c29_l288_action_invoke(&result_object);
-    // c30_l289_action_invoke(&result_object);
-    // c31_l290_action_invoke(&result_object);
-    // c32_l291_action_invoke(&result_object);
-    // c33_l293_action_invoke(&result_object);
-    // c34_l294_action_invoke(&result_object);
-    // c35_l295_action_invoke(&result_object);
+    c23_l281_action_invoke(&result_object);
+    c24_l283_action_invoke(&result_object);
+    c25_l284_action_invoke(&result_object);
+    c26_l285_action_invoke(&result_object);
+    c27_l286_action_invoke(&result_object);
+    c28_l287_action_invoke(&result_object);
+    c29_l288_action_invoke(&result_object);
+    c30_l289_action_invoke(&result_object);
+    c31_l290_action_invoke(&result_object);
+    c32_l291_action_invoke(&result_object);
+    c33_l293_action_invoke(&result_object);
+    c34_l294_action_invoke(&result_object);
+    c35_l295_action_invoke(&result_object);
     c36_l296_action_invoke(&result_object);
     c37_l298_action_invoke(&result_object);
     c38_l299_action_invoke(&result_object);

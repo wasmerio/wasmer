@@ -891,9 +891,21 @@ fn c48_l264_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, ());
 }
 
-// Line 268
-fn c49_l268_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c49_l268_action_invoke");
+// Line 266
+fn c49_l266_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c49_l266_action_invoke");
+    let func_index = match result_object.module.info.exports.get("as-memory.grow-value") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
+    assert_eq!(result, 1 as i32);
+}
+
+// Line 267
+fn c50_l267_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c50_l267_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-return-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -903,9 +915,9 @@ fn c49_l268_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 306 as i32);
 }
 
-// Line 269
-fn c50_l269_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c50_l269_action_invoke");
+// Line 268
+fn c51_l268_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c51_l268_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-drop-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -915,9 +927,9 @@ fn c50_l269_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, ());
 }
 
-// Line 270
-fn c51_l270_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c51_l270_action_invoke");
+// Line 269
+fn c52_l269_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c52_l269_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -927,9 +939,9 @@ fn c51_l270_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 306 as i32);
 }
 
-// Line 271
-fn c52_l271_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c52_l271_action_invoke");
+// Line 270
+fn c53_l270_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c53_l270_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -939,9 +951,9 @@ fn c52_l271_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 306 as i32);
 }
 
-// Line 272
-fn c53_l272_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c53_l272_action_invoke");
+// Line 271
+fn c54_l271_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c54_l271_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-tee_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -951,9 +963,9 @@ fn c53_l272_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 306 as i32);
 }
 
-// Line 273
-fn c54_l273_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c54_l273_action_invoke");
+// Line 272
+fn c55_l272_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c55_l272_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_global-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -963,9 +975,9 @@ fn c54_l273_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 306 as i32);
 }
 
-// Line 274
-fn c55_l274_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c55_l274_action_invoke");
+// Line 273
+fn c56_l273_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c56_l273_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-load-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -975,97 +987,97 @@ fn c55_l274_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 279
+// Line 278
 #[test]
-fn c56_l279_assert_invalid() {
+fn c57_l278_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 3, 2, 0, 0, 10, 10, 2, 5, 0, 16, 1, 69, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 286
+// Line 285
 #[test]
-fn c57_l286_assert_invalid() {
+fn c58_l285_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 8, 2, 96, 0, 0, 96, 0, 1, 126, 3, 3, 2, 0, 1, 10, 12, 2, 5, 0, 16, 1, 69, 11, 4, 0, 66, 1, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 294
+// Line 293
 #[test]
-fn c58_l294_assert_invalid() {
+fn c59_l293_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 8, 2, 96, 0, 0, 96, 1, 127, 0, 3, 3, 2, 0, 1, 10, 9, 2, 4, 0, 16, 1, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 301
+// Line 300
 #[test]
-fn c59_l301_assert_invalid() {
+fn c60_l300_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 0, 0, 96, 2, 124, 127, 0, 3, 3, 2, 0, 1, 10, 9, 2, 4, 0, 16, 1, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 308
+// Line 307
 #[test]
-fn c60_l308_assert_invalid() {
+fn c61_l307_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 3, 2, 0, 0, 10, 11, 2, 6, 0, 65, 1, 16, 1, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 315
+// Line 314
 #[test]
-fn c61_l315_assert_invalid() {
+fn c62_l314_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 3, 2, 0, 0, 10, 20, 2, 15, 0, 68, 0, 0, 0, 0, 0, 0, 0, 64, 65, 1, 16, 1, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 323
+// Line 322
 #[test]
-fn c62_l323_assert_invalid() {
+fn c63_l322_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 0, 0, 96, 2, 127, 127, 0, 3, 3, 2, 0, 1, 10, 12, 2, 7, 0, 1, 65, 1, 16, 1, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 330
+// Line 329
 #[test]
-fn c63_l330_assert_invalid() {
+fn c64_l329_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 0, 0, 96, 2, 127, 127, 0, 3, 3, 2, 0, 1, 10, 12, 2, 7, 0, 65, 1, 1, 16, 1, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 337
+// Line 336
 #[test]
-fn c64_l337_assert_invalid() {
+fn c65_l336_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 0, 0, 96, 2, 127, 124, 0, 3, 3, 2, 0, 1, 10, 20, 2, 15, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 65, 1, 16, 1, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 344
+// Line 343
 #[test]
-fn c65_l344_assert_invalid() {
+fn c66_l343_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 0, 0, 96, 2, 124, 127, 0, 3, 3, 2, 0, 1, 10, 20, 2, 15, 0, 65, 1, 68, 0, 0, 0, 0, 0, 0, 240, 63, 16, 1, 11, 2, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 355
+// Line 354
 #[test]
-fn c66_l355_assert_invalid() {
+fn c67_l354_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 6, 1, 4, 0, 16, 1, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 359
+// Line 358
 #[test]
-fn c67_l359_assert_invalid() {
+fn c68_l358_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 10, 1, 8, 0, 16, 148, 152, 219, 226, 3, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -1073,7 +1085,6 @@ fn c67_l359_assert_invalid() {
 
 #[test]
 fn test_module_1() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -1122,11 +1133,12 @@ fn test_module_1() {
     c45_l260_action_invoke(&result_object);
     c47_l263_action_invoke(&result_object);
     c48_l264_action_invoke(&result_object);
-    c49_l268_action_invoke(&result_object);
-    c50_l269_action_invoke(&result_object);
-    c51_l270_action_invoke(&result_object);
-    c52_l271_action_invoke(&result_object);
-    c53_l272_action_invoke(&result_object);
-    c54_l273_action_invoke(&result_object);
-    c55_l274_action_invoke(&result_object);
+    c49_l266_action_invoke(&result_object);
+    c50_l267_action_invoke(&result_object);
+    c51_l268_action_invoke(&result_object);
+    c52_l269_action_invoke(&result_object);
+    c53_l270_action_invoke(&result_object);
+    c54_l271_action_invoke(&result_object);
+    c55_l272_action_invoke(&result_object);
+    c56_l273_action_invoke(&result_object);
 }

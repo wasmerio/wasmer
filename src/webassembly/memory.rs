@@ -18,7 +18,7 @@ pub struct LinearMemory {
     pub mmap: MmapMut,
     // The initial size of the WebAssembly Memory, in units of
     // WebAssembly pages.
-    current: u32,
+    pub current: u32,
     // The maximum size the WebAssembly Memory is allowed to grow
     // to, in units of WebAssembly pages.  When present, the maximum
     // parameter acts as a hint to the engine to reserve memory up

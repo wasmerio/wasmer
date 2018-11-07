@@ -83,7 +83,6 @@ fn c3_l9_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_1() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);

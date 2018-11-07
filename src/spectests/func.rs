@@ -1167,7 +1167,6 @@ fn c69_l284_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_1() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -1278,7 +1277,6 @@ fn c71_l303_assert_invalid() {
 
 #[test]
 fn test_module_2() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_2();
     // We group the calls together
     start_module_2(&result_object);
@@ -1789,7 +1787,6 @@ fn c122_l659_assert_malformed() {
 
 #[test]
 fn test_module_3() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_3();
     // We group the calls together
     start_module_3(&result_object);

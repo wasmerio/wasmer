@@ -13,12 +13,12 @@
 error_chain! {
     errors {
         CompileError(reason: String) {
-            description("WebAssembly compilation error"),
-            display("Compilation error: '{:?}'", reason),
+            description("WebAssembly compilation error")
+            display("Compilation error: '{:?}'", reason)
         }
 
         LinkError(reason: String) {
-            description("WebAssembly link error"),
+            description("WebAssembly link error")
             display("Link error: '{:?}'", reason)
         }
 

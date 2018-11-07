@@ -137,7 +137,6 @@ fn c8_l49_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_1() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_1();
     // We group the calls together
     start_module_1(&result_object);
@@ -244,7 +243,6 @@ fn c14_l78_action_invoke(result_object: &ResultObject) {
 
 #[test]
 fn test_module_2() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_2();
     // We group the calls together
     start_module_2(&result_object);
@@ -276,7 +274,6 @@ fn start_module_3(result_object: &ResultObject) {
 
 #[test]
 fn test_module_3() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_3();
     // We group the calls together
     start_module_3(&result_object);
@@ -303,7 +300,6 @@ fn start_module_4(result_object: &ResultObject) {
 
 #[test]
 fn test_module_4() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_4();
     // We group the calls together
     start_module_4(&result_object);
@@ -326,7 +322,6 @@ fn start_module_5(result_object: &ResultObject) {
 
 #[test]
 fn test_module_5() {
-    println!("Running tests in file: {:?}", file!());
     let result_object = create_module_5();
     // We group the calls together
     start_module_5(&result_object);
