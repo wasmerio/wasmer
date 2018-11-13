@@ -57,7 +57,7 @@ jobs:
             cargo --version
       - run:
           name: Execute tests
-          command:
+          command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             make test
@@ -68,8 +68,8 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             make release
             mkdir -p artifacts
-            VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
-            echo "${VERSION}" >> artifacts/version
+            # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
+            # echo "${VERSION}" >> artifacts/version
             cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
       - persist_to_workspace:
           root: .
