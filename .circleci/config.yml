@@ -16,6 +16,8 @@ jobs:
           command: |
             make release
             mkdir -p artifacts
+            VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
+            echo "${VERSION}" >> artifacts/version
             cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
       - persist_to_workspace:
           root: .
@@ -47,7 +49,8 @@ jobs:
           command: |
             # go get github.com/tcnksm/ghr
             # VERSION=$(git log -1 --pretty=%B)
-            VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
+            VERSION=$(cat ./artifacts/version)
+            rm ./artifacts/version
             # VERSION=${CIRCLE_TAG}
             # VERSION=$(./artifacts/ --version)
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
