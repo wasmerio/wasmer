@@ -46,7 +46,7 @@ jobs:
       - run:
           name: Install CMAKE
           command: |
-            wget https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
+            curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
