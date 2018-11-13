@@ -51,10 +51,21 @@ jobs:
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
           name: Install Rust Nightly
-          command: curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2018-10-07
-      - run: make test
-      - run:
           command: |
+            curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2018-10-07
+            export PATH="$HOME/.cargo/bin:$PATH"
+            cargo --version
+      - run:
+          name: Execute tests
+          command:
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+            make test
+      - run:
+          name: Make build
+          command: |
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
             make release
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
