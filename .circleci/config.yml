@@ -12,11 +12,61 @@ jobs:
       - run: sudo apt-get install -y cmake
       - run: rustup default nightly-2018-10-07
       - run: make test
-
+      - run:
+          command: |
+            make release
+            mkdir -p artifacts
+            cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
+      - persist_to_workspace:
+          root: .
+          paths:
+            - artifacts
       - save_cache:
           paths:
             - /usr/local/cargo/registry
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
+            - target/release/build
+            - target/release/deps
           key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+
+  # create-release-artifacts-mac:
+  #   macos:
+  #     xcode: "9.0"
+  #     - checkout
+
+  publish-github-release:
+    docker:
+      - image: cibuilds/github
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: "Publish Release on GitHub"
+          command: |
+            # go get github.com/tcnksm/ghr
+            # VERSION=$(git log -1 --pretty=%B)
+            VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
+            # VERSION=${CIRCLE_TAG}
+            # VERSION=$(./artifacts/ --version)
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
+
+workflows:
+  version: 2
+  main:
+    jobs:
+      - build
+      # :
+      #     filters:
+      #       tags:
+      #         only: /^\d+\.\d+\.\d+$/
+
+      - publish-github-release:
+          requires:
+            - build
+          # filters:
+          #   branches:
+          #     ignore: /.*/
+          #   tags:
+          #     only: /^\d+\.\d+\.\d+$/
