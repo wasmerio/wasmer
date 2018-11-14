@@ -2,11 +2,14 @@ use crate::webassembly::{ImportObject, ImportValue};
 
 mod printf;
 mod putchar;
+mod abort;
 
 pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
     import_object.set("env", "printf", ImportValue::Func(printf::printf as *const u8));
     import_object.set("env", "putchar", ImportValue::Func(putchar::putchar as *const u8));
+    import_object.set("env", "abort", ImportValue::Func(abort::abort as *const u8));
+    import_object.set("env", "_abort", ImportValue::Func(abort::abort as *const u8));
     import_object
 }
 
