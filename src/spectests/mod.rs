@@ -68,6 +68,7 @@ mod start;
 mod store_retval;
 mod switch;
 mod tee_local;
+mod token;
 mod traps;
 mod typecheck;
 mod types;

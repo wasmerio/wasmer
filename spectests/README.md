@@ -93,7 +93,7 @@ This spectests are currently covered:
 - store_retval.wast ✅
 - switch.wast ✅
 - tee_local.wast ✅
-- token.wast
+- token.wast ✅
 - traps.wast ✅
 - type.wast ✅
 - typecheck.wast ✅
