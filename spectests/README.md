@@ -94,7 +94,7 @@ This spectests are currently covered:
 - switch.wast ✅
 - tee_local.wast ✅
 - token.wast
-- traps.wast
+- traps.wast ✅
 - type.wast ✅
 - typecheck.wast ✅
 - unreachable.wast
