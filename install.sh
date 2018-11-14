@@ -127,14 +127,14 @@ wasmer_detect_profile() {
 wasmer_link() {
   printf "$cyan> Adding to \$PATH...$reset\n"
   WASMER_PROFILE="$(wasmer_detect_profile)"
-  SOURCE_STR="\nexport PATH=\"\$HOME/.wasmer/bin:\$PATH\"\n"
+  SOURCE_STR="\n  export PATH=\"\$HOME/.wasmer/bin:\$PATH\"\n"
 
   if [ -z "${WASMER_PROFILE-}" ] ; then
-    printf "$red> Profile not found. Tried ${WASMER_PROFILE} (as defined in \$PROFILE), ~/.bashrc, ~/.bash_profile, ~/.zshrc, and ~/.profile.\n"
-    echo "> Create one of them and run this script again"
-    echo "> Create it (touch ${WASMER_PROFILE}) and run this script again"
-    echo "   OR"
-    printf "> Append the following lines to the correct file yourself:$reset\n"
+    printf "$red  > Profile not found. Tried ${WASMER_PROFILE} (as defined in \$PROFILE), ~/.bashrc, ~/.bash_profile, ~/.zshrc, and ~/.profile.\n"
+    echo "  > Create one of them and run this script again"
+    echo "  > Create it (touch ${WASMER_PROFILE}) and run this script again"
+    echo "    OR"
+    printf "  > Append the following lines to the correct file yourself:$reset\n"
     command printf "${SOURCE_STR}"
   else
     if ! grep -q 'wasmer' "$WASMER_PROFILE"; then
@@ -144,9 +144,9 @@ wasmer_link() {
         command printf "$SOURCE_STR" >> "$WASMER_PROFILE"
       fi
     fi
-
-    printf "$cyan> We've added the following to your $WASMER_PROFILE\n"
-    echo "> If this isn't the profile of your current shell then please add the following to your correct profile:"
+    printf "\033[1A$cyan> Adding to \$PATH... ✓$reset\n"
+    printf "$white  We've added the following to your $WASMER_PROFILE\n"
+    echo "  If this isn't the profile of your current shell then please add the following to your correct profile:"
     printf "   $SOURCE_STR$reset\n"
 
     version=`$HOME/.wasmer/bin/wasmer --version` || (
@@ -154,7 +154,7 @@ wasmer_link() {
       exit 1;
     )
 
-    printf "$green> Successfully installed Wasmer $version! Please open another terminal where the \`wasmer\` command will now be available.$reset\n"
+    printf "$green> Successfully installed Wasmer $version!\n${white}  Please open another terminal where the \`wasmer\` command will now be available.$reset\n"
   fi
 }
 
@@ -303,7 +303,6 @@ wasmer_download() {
       INSTALL_DIRECTORY="$HOME/.wasmer"
   fi
   WASMER=INSTALL_DIRECTORY
-  printf "$cyan> Getting wasmer releases...$reset\n"
 
   # assemble expected release artifact name
   BINARY="wasmer-${OS}-${ARCH}"
@@ -315,10 +314,11 @@ wasmer_download() {
 
   # if WASMER_RELEASE_TAG was not provided, assume latest
   if [ -z "$WASMER_RELEASE_TAG" ]; then
+      printf "$cyan> Getting wasmer releases...$reset\n"
       wasmer_download_json LATEST_RELEASE "$RELEASES_URL/latest"
       WASMER_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
+      printf "\033[1A$cyan> Getting wasmer releases... ✓$reset\n"
   fi
-  printf "$cyan> Latest wasmer release: $WASMER_RELEASE_TAG$reset\n"
 
   # fetch the real release data to make sure it exists before we attempt a download
   wasmer_download_json RELEASE_DATA "$RELEASES_URL/tag/$WASMER_RELEASE_TAG"
@@ -326,9 +326,12 @@ wasmer_download() {
   BINARY_URL="$RELEASES_URL/download/$WASMER_RELEASE_TAG/$BINARY"
   DOWNLOAD_FILE=$(mktemp -t wasmer.XXXXXXXXXX)
 
-  printf "$cyan> Downloading executable...$reset\n"
+  printf "$cyan> Downloading $WASMER_RELEASE_TAG release...$reset\n"
   wasmer_download_file "$BINARY_URL" "$DOWNLOAD_FILE"
-
+  # echo -en "\b\b"
+  printf "\033[2A$cyan> Downloading $WASMER_RELEASE_TAG release... ✓$reset\033[K\n"
+  printf "\033[K\n\033[1A"
+  # printf "\033[1A$cyan> Downloaded$reset\033[K\n"
   # echo "Setting executable permissions."
   chmod +x "$DOWNLOAD_FILE"
 
