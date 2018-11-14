@@ -37,7 +37,7 @@ use wabt::wat2wasm;
 #[macro_use]
 mod macros;
 pub mod common;
-pub mod integrations;
+pub mod linkers;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
@@ -77,7 +77,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         wasm_binary = wat2wasm(wasm_binary).map_err(|err| String::from(err.description()))?;
     }
 
-    let import_object = integrations::generate_libc_env();
+    let import_object = linkers::generate_emscripten_env();
     let webassembly::ResultObject { module, instance } =
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| format!("{}", err))?;

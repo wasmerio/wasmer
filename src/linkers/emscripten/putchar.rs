@@ -1,0 +1,1 @@
+pub use libc::putchar;
