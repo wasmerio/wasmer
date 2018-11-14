@@ -14,17 +14,17 @@ error_chain! {
     errors {
         CompileError(reason: String) {
             description("WebAssembly compilation error")
-            display("Compilation error: '{:?}'", reason)
+            display("Compilation error: {}", reason)
         }
 
         LinkError(reason: String) {
             description("WebAssembly link error")
-            display("Link error: '{:?}'", reason)
+            display("Link error: {}", reason)
         }
 
         RuntimeError(reason: String) {
             description("WebAssembly runtime error")
-            display("Runtime error: '{:?}'", reason)
+            display("Runtime error: {}", reason)
         }
     }
 }

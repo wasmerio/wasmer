@@ -69,7 +69,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
     let import_object = integrations::generate_libc_env();
     let webassembly::ResultObject { module, instance } =
         webassembly::instantiate(wasm_binary, import_object)
-            .map_err(|err| String::from(err.description()))?;
+            .map_err(|err| format!("{}", err))?;
 
     webassembly::utils::print_instance_offsets(&instance);
 
