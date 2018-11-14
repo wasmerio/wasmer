@@ -111,6 +111,16 @@ pub struct DataPointers {
 
 }
 
+#[derive(Debug, Clone)]
+pub struct InstanceOptions {
+    // Shall we mock automatically the imported functions if they don't exist?
+    pub mock_missing_imports: bool,
+}
+
+extern fn mock_fn() -> i32 {
+    return 0;
+}
+
 impl Instance {
     pub const TABLES_OFFSET: usize = 0; // 0 on 64-bit | 0 on 32-bit
     pub const MEMORIES_OFFSET: usize = size_of::<TablesSlice>(); // 8 on 64-bit | 4 on 32-bit
@@ -122,6 +132,7 @@ impl Instance {
     pub fn new(
         module: &Module,
         import_object: ImportObject<&str, &str>,
+        options: InstanceOptions,
     ) -> Result<Instance, ErrorKind> {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
@@ -130,24 +141,8 @@ impl Instance {
         let mut functions: Vec<Vec<u8>> = Vec::new();
         let mut import_functions: Vec<*const u8> = Vec::new();
 
-        let mut imported_functions: Vec<((&str, &str), *const u8)> = Vec::new();
-        let mut imported_tables: Vec<((&str, &str), Vec<usize>)> = Vec::new();
-        let mut imported_memories: Vec<((&str, &str), LinearMemory)> = Vec::new();
-        let mut imported_globals: Vec<((&str, &str), u8)> = Vec::new();
-
-        // Looping through and getting the imported objects
-        for (key, value) in import_object.map {
-            match value {
-                ImportValue::Memory(value) =>
-                    imported_memories.push(((key.0, key.1), value)),
-                ImportValue::Table(value) =>
-                    imported_tables.push(((key.0, key.1), value)),
-                ImportValue::Global(value) =>
-                    imported_globals.push(((key.0, key.1), value)),
-                ImportValue::Func(value) =>
-                    imported_functions.push(((key.0, key.1), value)),
-            }
-        }
+        let mut imported_memories: Vec<LinearMemory> = Vec::new();
+        let mut imported_tables: Vec<Vec<usize>> = Vec::new();
 
         debug!("Instance - Instantiating functions");
         // Instantiate functions
@@ -158,14 +153,35 @@ impl Instance {
                 .finish(module.info.flags.clone());
             let mut relocations = Vec::new();
 
-            // Walk through the imported functions and set the relocations
-            // TODO: Needs to be optimize the find part.
-            //      I also think it relies on the order of import declaration in module
+            // let imported_functions: Vec<String> = module.info.imported_funcs.iter().map(|(module, field)| {
+            //     format!(" * {}.{}", module, field)
+            // }).collect();
+
+            // println!("Instance imported functions: \n{}", imported_functions.join("\n"));
+
+            // We walk through the imported functions and set the relocations
+            // for each of this functions to be an empty vector (as is defined outside of wasm)
             for (module, field) in module.info.imported_funcs.iter() {
-                let function =
-                    imported_functions.iter().find(|(key, _value)| key.0 == module && key.1 == field)
-                        .unwrap_or_else(|| panic!("Imported function {}.{} was not provided in the import_functions", module, field));
-                import_functions.push(function.1);
+                let imported = import_object
+                    .get(&module.as_str(), &field.as_str());
+                let function = match imported {
+                    Some(ImportValue::Func(f)) => f,
+                    None => {
+                        // if options.mock_missing_imports {
+                        //     debug!("The import {}.{} is not provided, therefore will be mocked.", module, field);
+                        //     mock_fn as *const u8
+                        // }
+                        // else {
+                        return Err(ErrorKind::LinkError(format!(
+                            "Imported function {}.{} was not provided in the import_functions",
+                            module, field
+                        )));
+                        // }
+                    },
+                    other => panic!("Expected function import, received {:?}", other)
+                };
+                // println!("GET FUNC {:?}", function);
+                import_functions.push(*function);
                 relocations.push(vec![]);
             }
 
@@ -278,6 +294,17 @@ impl Instance {
             }
         }
 
+        // Looping through and getting the imported objects
+        for (key, value) in import_object.map {
+            match value {
+                ImportValue::Memory(value) =>
+                    imported_memories.push(value),
+                ImportValue::Table(value) =>
+                    imported_tables.push(value),
+                _ => (),
+            }
+        }
+
         debug!("Instance - Instantiating tables");
         // Instantiate tables
         {
@@ -285,7 +312,7 @@ impl Instance {
             tables.reserve_exact(imported_tables.len() + module.info.tables.len());
 
             // Get imported tables
-            for (_key, table) in imported_tables {
+            for table in imported_tables {
                 tables.push(table);
             }
 
@@ -328,7 +355,7 @@ impl Instance {
             memories.reserve_exact(imported_memories.len() + module.info.memories.len());
 
             // Get imported memories
-            for (_key, memory) in imported_memories {
+            for memory in imported_memories {
                 memories.push(memory);
             }
 
