@@ -20,7 +20,8 @@ extern crate spin;
 // #[global_allocator]
 // static A: System = System;
 
-// #[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 // use libc;
 use std::error::Error;
@@ -89,9 +90,8 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("Main function not found"),
         });
-    let main: fn(&webassembly::Instance) -> i32 = get_instance_function!(instance, func_index);
-    let result = main(&instance);
-    println!("RESULT {}", result);
+    let main: fn(&webassembly::Instance) = get_instance_function!(instance, func_index);
+    main(&instance);
     Ok(())
 }
 
