@@ -67,6 +67,7 @@ const TESTS: [&str; 55] = [
     "spectests/store_retval.wast",
     "spectests/switch.wast",
     "spectests/tee_local.wast",
+    "spectests/traps.wast",
     "spectests/typecheck.wast",
     "spectests/types.wast",
 ];
