@@ -63,9 +63,9 @@ wasmer_download_file() {
 
     # echo "Fetching $url.."
     if test -x "$(command -v curl)"; then
-        code=$(curl -s -w '%{http_code}' -L "$url" -o "$destination")
+        code=$(curl --progress-bar -w '%{http_code}' -L "$url" -o "$destination")
     elif test -x "$(command -v wget)"; then
-        code=$(wget -q -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
+        code=$(wget --show-progress --progress=bar:force:noscroll -q -O "$destination" --server-response "$url" 2>&1 | awk '/^  HTTP/{print $2}' | tail -1)
     else
         printf "$red> Neither curl nor wget was available to perform http requests.$reset\n"
         exit 1
@@ -219,28 +219,28 @@ initOS() {
 # source $WASMERPATH/startup.sh
 
 wasmer_install() {
-magenta1="${reset}\033[34;2m"
-magenta2="${reset}\033[34m"
-magenta3="${reset}\033[34;1m"
+  magenta1="${reset}\033[34;1m"
+  magenta2="${reset}\033[34m"
+  magenta3="${reset}\033[34;2m"
 
   printf "${white}Installing Wasmer!$reset\n"
   printf "
-              ${magenta3}SSS${reSet}                                 
-              ${magenta3}SSSSS${reSet}                               
-      ${magenta2}AAA     ${magenta3}SSSSSS${reSet}                   
-      ${magenta2}AAAAAA  ${magenta3}SSSSSSSSSSSSS${reSet}            
-${magenta1}W${magenta2}     AAAAAAA ${magenta3}SSSSSSSSSSSSSS${reSet}
-${magenta1}WWWWW${magenta2} AAAAAAAAAAAAA${magenta3}SSSSSSSSS${reSet}                                                                                           
-${magenta1}WWWWWW${magenta2}AAAAAAAAAAAAAAA${magenta3}SSSSSSS${reSet}                                                                                           
-${magenta1}WWWWWWWWWWWW${magenta2}AAAAAAAAA${magenta3}SSSSSSS${reSet}
-${magenta1}WWWWWWWWWWWWWW${magenta2}AAAAAAA${magenta3}SSSSSSS${reSet}
-${magenta1}WWWWWWWWWWWWWW${magenta2}AAAAAAA${magenta3}SSSSSSS${reSet}
-${magenta1}WWWWWWWWWWWWWW${magenta2}AAAAAAA${magenta3}SSSSSSS${reSet}
-${magenta1}WWWWWWWWWWWWWW${magenta2}AAAAAAA    ${magenta3}SSS${reSet}
-${magenta1}WWWWWWWWWWWWWW${magenta2}AAAAAAA                          
-   ${magenta1}WWWWWWWWWWW${magenta2}    AAA                          
-      ${magenta1}WWWWWWWW${magenta2}                                 
-          ${magenta1}WWWW${magenta2}                                 
+              ${magenta3}###${reset}                                 
+              ${magenta3}#####${reset}                               
+      ${magenta2}###     ${magenta3}######${reset}                   
+      ${magenta2}######  ${magenta3}#############${reset}            
+${magenta1}#${magenta2}     ####### ${magenta3}##############${reset}
+${magenta1}#####${magenta2} #############${magenta3}#########${reset}                                                                                           
+${magenta1}######${magenta2}###############${magenta3}#######${reset}                                                                                           
+${magenta1}############${magenta2}#########${magenta3}#######${reset}
+${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+${magenta1}##############${magenta2}#######    ${magenta3}###${reset}
+${magenta1}##############${magenta2}#######                          
+   ${magenta1}###########${magenta2}    ###                          
+      ${magenta1}########${magenta2}                                 
+          ${magenta1}####${reset}                                 
 
 "
 #   if [ -d "$HOME/.wasmer" ]; then
