@@ -225,22 +225,22 @@ wasmer_install() {
 
   printf "${white}Installing Wasmer!$reset\n"
   printf "
-               ${magenta3}###${reset}                                 
-               ${magenta3}#####${reset}                               
-       ${magenta2}###     ${magenta3}######${reset}                   
-       ${magenta2}######  ${magenta3}#############${reset}            
- ${magenta1}#${magenta2}     ####### ${magenta3}##############${reset}
- ${magenta1}#####${magenta2} #############${magenta3}#########${reset}
+ ${magenta1}      ${magenta2}        ${magenta3}###${reset}                                 
+ ${magenta1}      ${magenta2}        ${magenta3}#####${reset}                               
+ ${magenta1}      ${magenta2}###     ${magenta3}######${reset}                   
+ ${magenta1}      ${magenta2}######  ${magenta3}#############${reset}            
+ ${magenta1}#     ${magenta2}####### ${magenta3}##############${reset}
+ ${magenta1}##### ${magenta2}#############${magenta3}#########${reset}
  ${magenta1}######${magenta2}###############${magenta3}#######${reset}
  ${magenta1}############${magenta2}#########${magenta3}#######${reset}
  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######    ${magenta3}###${reset}
+ ${magenta1}##############${magenta2}#######${magenta3}    ###${reset}
  ${magenta1}##############${magenta2}#######                          
     ${magenta1}###########${magenta2}    ###                          
        ${magenta1}########${magenta2}                                 
-           ${magenta1}####${reset}                                 
+           ${magenta1}####${reset}                                    
 
 "
 #   if [ -d "$HOME/.wasmer" ]; then
