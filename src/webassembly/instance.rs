@@ -123,11 +123,22 @@ pub struct DataPointers {
     pub globals: UncheckedSlice<u8>,
 }
 
+#[derive(Debug, Clone)]
+pub struct InstanceOptions {
+    // Shall we mock automatically the imported functions if they don't exist?
+    pub mock_missing_imports: bool,
+}
+
+extern fn mock_fn() -> i32 {
+    return 0;
+}
+
 impl Instance {
     /// Create a new `Instance`.
     pub fn new(
         module: &Module,
         import_object: &ImportObject<&str, &str>,
+        options: InstanceOptions,
     ) -> Result<Instance, ErrorKind> {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
@@ -145,17 +156,31 @@ impl Instance {
                 .finish(module.info.flags.clone());
             let mut relocations = Vec::new();
 
+            // let imported_functions: Vec<String> = module.info.imported_funcs.iter().map(|(module, field)| {
+            //     format!(" * {}.{}", module, field)
+            // }).collect();
+
+            // println!("Instance imported functions: \n{}", imported_functions.join("\n"));
+
             // We walk through the imported functions and set the relocations
             // for each of this functions to be an empty vector (as is defined outside of wasm)
             for (module, field) in module.info.imported_funcs.iter() {
                 let function = import_object
-                    .get(&module.as_str(), &field.as_str())
-                    .ok_or_else(|| {
+                    .get(&module.as_str(), &field.as_str());
+                let function = if options.mock_missing_imports {
+                    function.unwrap_or_else(|| {
+                        debug!("The import {}.{} is not provided, therefore will be mocked.", module, field);
+                        mock_fn as *const u8
+                    })
+                }
+                else {
+                    function.ok_or_else(|| {
                         ErrorKind::LinkError(format!(
                             "Imported function {}.{} was not provided in the import_functions",
                             module, field
                         ))
-                    })?;
+                    })?
+                };
                 // println!("GET FUNC {:?}", function);
                 import_functions.push(function);
                 relocations.push(vec![]);
