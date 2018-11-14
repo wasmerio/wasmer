@@ -489,6 +489,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
 
+
         // The `callee` value is an index into a table of function pointers.
         // Apparently, that table is stored at absolute address 0 in this dummy environment.
         // TODO: Generate bounds checking code.
@@ -536,6 +537,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .func
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
+
+        // println!("POINTER BYTES {}", self.pointer_bytes());
+        // println!("POINTER SIZE {}", self.ptr_size());
 
         // Build a value list for the call instruction containing the call_args and the vmctx
         // parameter.

@@ -67,6 +67,7 @@ fn get_function_addr(
 ///      first field
 #[repr(C)]
 #[derive(Debug)]
+#[repr(C)]
 pub struct Instance {
     // C-like pointers to data (heaps, globals, tables)
     pub data_pointers: DataPointers,
@@ -99,6 +100,7 @@ pub struct Instance {
 /// NOTE: Rearranging the fields will break the memory arrangement model
 #[repr(C)]
 #[derive(Debug)]
+#[repr(C)]
 pub struct DataPointers {
     // Pointer to tables
     pub tables: TablesSlice,
