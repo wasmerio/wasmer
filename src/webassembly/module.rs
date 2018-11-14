@@ -332,12 +332,12 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_size = self.ptr_size();
 
-        // Given a vmctx, we want to retrieve vmctx.tables
-        // Create a table whose base address is stored at `vmctx+88`.
-        // 88 is the offset of the vmctx.tables pointer respect to vmctx pointer
+        // Given a instance, we want to retrieve instance.tables
+        // Create a table whose base address is stored at `instance+0`.
+        // 0 is the offset of the vmctx.tables pointer respect to vmctx pointer
         let base = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(88),
+            offset: Offset32::new(0),
             global_type: self.pointer_type(),
         });
 
@@ -369,12 +369,12 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 
     fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> ir::Heap {
-        // Create a static heap whose base address is stored at `vmctx+96`.
+        // Create a static heap whose base address is stored at `instance+8`.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
 
         let heap_base_addr = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(96),
+            offset: Offset32::new(8),
             global_type: self.pointer_type(),
         });
 
@@ -454,7 +454,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(104),
+            offset: Offset32::new(16),
             global_type: self.pointer_type(),
         });
 
@@ -506,6 +506,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
 
+
         // The `callee` value is an index into a table of function pointers.
         // Apparently, that table is stored at absolute address 0 in this dummy environment.
         // TODO: Generate bounds checking code.
@@ -555,6 +556,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .func
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
+
+        // println!("POINTER BYTES {}", self.pointer_bytes());
+        // println!("POINTER SIZE {}", self.ptr_size());
 
         // Build a value list for the call instruction containing the call_args and the vmctx
         // parameter.

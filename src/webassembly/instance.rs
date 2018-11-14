@@ -78,7 +78,11 @@ fn get_function_addr(
 
 /// An Instance of a WebAssembly module
 #[derive(Debug)]
+#[repr(C)]
 pub struct Instance {
+    // C-like pointers to data (heaps, globals, tables)
+    pub data_pointers: DataPointers,
+
     /// WebAssembly table data
     // pub tables: Arc<Vec<RwLock<Vec<usize>>>>,
     pub tables: Arc<Vec<Vec<usize>>>,
@@ -101,9 +105,6 @@ pub struct Instance {
     // Region start memory location
     // code_base: *const (),
 
-    // C-like pointers to data (heaps, globals, tables)
-    pub data_pointers: DataPointers,
-
     // Default memory bound
     // TODO: Support for only one LinearMemory for now.
     pub default_memory_bound: i32,
@@ -112,6 +113,7 @@ pub struct Instance {
 /// Contains pointers to data (heaps, globals, tables) needed
 /// by Cranelift.
 #[derive(Debug)]
+#[repr(C)]
 pub struct DataPointers {
     // Pointer to tables
     pub tables: UncheckedSlice<BoundedSlice<usize>>,
