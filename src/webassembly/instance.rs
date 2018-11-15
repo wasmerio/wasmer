@@ -83,6 +83,10 @@ pub struct Instance {
     // C-like pointers to data (heaps, globals, tables)
     pub data_pointers: DataPointers,
 
+    // Default memory bound
+    // TODO: Support for only one LinearMemory for now.
+    pub default_memory_bound: i32,
+
     /// WebAssembly table data
     // pub tables: Arc<Vec<RwLock<Vec<usize>>>>,
     pub tables: Arc<Vec<Vec<usize>>>,
@@ -104,10 +108,6 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
-
-    // Default memory bound
-    // TODO: Support for only one LinearMemory for now.
-    pub default_memory_bound: i32,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
