@@ -1,8 +1,8 @@
 use crate::webassembly::ImportObject;
 
+mod abort;
 mod printf;
 mod putchar;
-mod abort;
 
 pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();

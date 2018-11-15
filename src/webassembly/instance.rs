@@ -131,7 +131,7 @@ pub struct InstanceOptions {
     pub mock_missing_imports: bool,
 }
 
-extern fn mock_fn() -> i32 {
+extern "C" fn mock_fn() -> i32 {
     return 0;
 }
 
@@ -167,15 +167,16 @@ impl Instance {
             // We walk through the imported functions and set the relocations
             // for each of this functions to be an empty vector (as is defined outside of wasm)
             for (module, field) in module.info.imported_funcs.iter() {
-                let function = import_object
-                    .get(&module.as_str(), &field.as_str());
+                let function = import_object.get(&module.as_str(), &field.as_str());
                 let function = if options.mock_missing_imports {
                     function.unwrap_or_else(|| {
-                        debug!("The import {}.{} is not provided, therefore will be mocked.", module, field);
+                        debug!(
+                            "The import {}.{} is not provided, therefore will be mocked.",
+                            module, field
+                        );
                         mock_fn as *const u8
                     })
-                }
-                else {
+                } else {
                     function.ok_or_else(|| {
                         ErrorKind::LinkError(format!(
                             "Imported function {}.{} was not provided in the import_functions",

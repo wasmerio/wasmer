@@ -5,7 +5,7 @@
 //! Please read more about this here: https://github.com/CraneStation/wasmtime/issues/15
 //! This code is inspired by: https://github.com/pepyakin/wasmtime/commit/625a2b6c0815b21996e111da51b9664feb174622
 use nix::sys::signal::{
-    sigaction, Signal, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
+    sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
 };
 
 static mut SETJMP_BUFFER: [::nix::libc::c_int; 27] = [0; 27];
