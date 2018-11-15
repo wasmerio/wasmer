@@ -1359,7 +1359,7 @@ fn create_module_3() -> ResultObject {
       (export \"signature-implicit-reused\" (func 8))
       (export \"signature-explicit-duplicate\" (func 9))
       (export \"signature-implicit-duplicate\" (func 10))
-      (elem (i32.const 0) 4 2 1 4 0 5 6))
+      (elem (;0;) (i32.const 0) 4 2 1 4 0 5 6))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

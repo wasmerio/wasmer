@@ -2,7 +2,7 @@
 name = "wasmer"
 version = "0.1.0"
 authors = ["Syrus Akbary <me@syrusakbary.com>"]
-edition = "2018"
+# edition = "2018"
 repository = "https://github.com/wafoundation/wasmer"
 publish = true
 description = "High-Performance WebAssembly JIT interpreter"
@@ -34,18 +34,19 @@ serde_derive = "1.0.55"
 tempdir = "0.3.7"
 error-chain = "0.12.0"
 structopt = "0.2.11"
-wabt = "0.6.0"
+wabt = "0.7.1"
 wasmparser = "0.20.0"
 region = "0.3.0"
 memmap = "0.6.2"
-spin = "0.4.10"
+# spin = "0.4.10"
 log = "0.4.5"
 target-lexicon = { version = "0.0.3", default-features = false }
-libc = "0.2"
+# libc = "0.2"
+libc = { git = "https://github.com/rust-lang/libc" }
 nix = "0.11"
 
 [build-dependencies]
-wabt = "0.6.0"
+wabt = "0.7.1"
 
 # [dev-dependencies]
 # libffi = "0.6.4"

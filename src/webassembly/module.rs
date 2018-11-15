@@ -427,9 +427,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base: heap_base,
             min_size: Imm64::new(0),
             guard_size: Imm64::new(LinearMemory::DEFAULT_GUARD_SIZE as i64),
-            style: ir::HeapStyle::Dynamic {
-                bound_gv,
-            },
+            style: ir::HeapStyle::Dynamic { bound_gv },
             index_type: I32,
         })
 
@@ -534,7 +532,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .func
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
-
 
         // The `callee` value is an index into a table of function pointers.
         // Apparently, that table is stored at absolute address 0 in this dummy environment.

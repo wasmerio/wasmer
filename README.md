@@ -29,9 +29,6 @@ To build this project you will need Rust and Cargo.
 git clone https://github.com/wafoundation/wasmer.git
 cd wasmer
 
-# Use rust nightly (we use 2018-10-07 as latest are failing)
-rustup default nightly-2018-10-07
-
 # install tools
 # make sure that `python` is accessible.
 cargo install
@@ -44,7 +41,7 @@ Thanks to [spectests](https://github.com/WAFoundation/wasmer/tree/master/spectes
 Tests can be run with:
 
 ```sh
-cargo test
+make test
 ```
 
 If you need to re-generate the Rust tests from the spectests

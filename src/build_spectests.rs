@@ -1,6 +1,8 @@
 //! This file will run at build time to autogenerate Rust tests based on
 //! WebAssembly spec tests. It will convert the files indicated in TESTS
 //! from "/spectests/{MODULE}.wast" to "/src/spectests/{MODULE}.rs".
+extern crate wabt;
+
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -205,8 +207,7 @@ fn test_module_{}() {{
                     module,
                     module,
                     calls.join("\n    ")
-                )
-                .as_str(),
+                ).as_str(),
             );
         }
         self.module_calls.remove(&module);
@@ -215,7 +216,8 @@ fn test_module_{}() {{
     fn visit_module(&mut self, module: &ModuleBinary, _name: &Option<String>) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
         let wast_string = wasm2wat(wasm_binary).expect("Can't convert back to wasm");
-        self.flush_module_calls(self.last_module);
+        let last_module = self.last_module;
+        self.flush_module_calls(last_module);
         self.last_module = self.last_module + 1;
         // self.module_calls.insert(self.last_module, vec![]);
         self.buffer.push_str(
@@ -231,8 +233,7 @@ fn test_module_{}() {{
                     .replace("\n", "\n    ")
                     .replace("\\", "\\\\")
                     .replace("\"", "\\\""),
-            )
-            .as_str(),
+            ).as_str(),
         );
 
         // We set the start call to the module
@@ -243,8 +244,7 @@ fn test_module_{}() {{
     result_object.instance.start();
 }}\n",
                 start_module_call
-            )
-            .as_str(),
+            ).as_str(),
         );
         self.module_calls
             .entry(self.last_module)
@@ -255,6 +255,7 @@ fn test_module_{}() {{
     fn visit_assert_invalid(&mut self, module: &ModuleBinary) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
         // let wast_string = wasm2wat(wasm_binary).expect("Can't convert back to wasm");
+        let command_name = self.command_name();
         self.buffer.push_str(
             format!(
                 "#[test]
@@ -263,13 +264,12 @@ fn {}_assert_invalid() {{
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), \"WASM should not compile as is invalid\");
 }}\n",
-                self.command_name(),
+                command_name,
                 wasm_binary,
                 // We do this to ident four spaces back
                 // String::from_utf8_lossy(&wasm_binary),
                 // wast_string.replace("\n", "\n    "),
-            )
-            .as_str(),
+            ).as_str(),
         );
     }
 
@@ -311,8 +311,7 @@ fn {}_assert_invalid() {{
                         func_return,
                         args_values.join(", "),
                         assertion,
-                    )
-                    .as_str(),
+                    ).as_str(),
                 );
                 self.module_calls
                     .entry(self.last_module)
@@ -369,8 +368,7 @@ fn {}_assert_invalid() {{
                         func_return,
                         args_values.join(", "),
                         assertion,
-                    )
-                    .as_str(),
+                    ).as_str(),
                 );
                 self.module_calls
                     .entry(self.last_module)
@@ -385,6 +383,7 @@ fn {}_assert_invalid() {{
 
     fn visit_assert_malformed(&mut self, module: &ModuleBinary) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
+        let command_name = self.command_name();
         // let wast_string = wasm2wat(wasm_binary).expect("Can't convert back to wasm");
         self.buffer.push_str(
             format!(
@@ -394,13 +393,12 @@ fn {}_assert_malformed() {{
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), \"WASM should not compile as is malformed\");
 }}\n",
-                self.command_name(),
+                command_name,
                 wasm_binary,
                 // We do this to ident four spaces back
                 // String::from_utf8_lossy(&wasm_binary),
                 // wast_string.replace("\n", "\n    "),
-            )
-            .as_str(),
+            ).as_str(),
         );
     }
 
@@ -464,8 +462,7 @@ fn {}_assert_malformed() {{
                         func_return,
                         args_values.join(", "),
                         assertion,
-                    )
-                    .as_str(),
+                    ).as_str(),
                 );
                 Some(func_name)
                 // let mut module_calls = self.module_calls.get(&self.last_module).unwrap();
@@ -486,7 +483,7 @@ fn {}_assert_malformed() {{
             .or_insert(Vec::new())
             .push(action_fn_name.unwrap());
     }
-    
+
     fn visit_perform_action(&mut self, action: &Action) {
         let action_fn_name = self.visit_action(action, None);
 
@@ -520,8 +517,7 @@ fn {}() {{
                 trap_func_name,
                 self.last_module,
                 action_fn_name.unwrap(),
-            )
-            .as_str(),
+            ).as_str(),
         );
 
         // We don't group trap calls as they may cause memory faults

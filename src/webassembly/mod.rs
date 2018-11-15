@@ -47,7 +47,13 @@ pub fn instantiate(
 ) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
     debug!("webassembly - creating instance");
-    let instance = Instance::new(&module, &import_object, InstanceOptions { mock_missing_imports: true })?;
+    let instance = Instance::new(
+        &module,
+        &import_object,
+        InstanceOptions {
+            mock_missing_imports: true,
+        },
+    )?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }
@@ -100,7 +106,12 @@ pub fn validate_or_error(bytes: &[u8]) -> Result<(), ErrorKind> {
         let state = parser.read();
         match *state {
             wasmparser::ParserState::EndWasm => return Ok(()),
-            wasmparser::ParserState::Error(err) => return Err(ErrorKind::CompileError(format!("Validation error: {}", err.message))),
+            wasmparser::ParserState::Error(err) => {
+                return Err(ErrorKind::CompileError(format!(
+                    "Validation error: {}",
+                    err.message
+                )))
+            }
             _ => (),
         }
     }

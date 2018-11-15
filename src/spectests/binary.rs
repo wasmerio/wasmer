@@ -519,7 +519,7 @@ fn test_module_14() {
 fn create_module_15() -> ResultObject {
     let module_str = "(module
       (memory (;0;) 0)
-      (data (i32.const 0) \"\"))
+      (data (;0;) (i32.const 0) \"\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -540,7 +540,7 @@ fn test_module_15() {
 fn create_module_16() -> ResultObject {
     let module_str = "(module
       (table (;0;) 0 anyfunc)
-      (elem (i32.const 0)))
+      (elem (;0;) (i32.const 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

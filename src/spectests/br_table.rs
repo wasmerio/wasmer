@@ -781,7 +781,7 @@ fn create_module_1() -> ResultObject {
       (export \"nested-br_table-value\" (func 66))
       (export \"nested-br_table-value-index\" (func 67))
       (export \"nested-br_table-loop-block\" (func 68))
-      (elem (i32.const 0) 37))
+      (elem (;0;) (i32.const 0) 37))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

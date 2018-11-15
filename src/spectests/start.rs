@@ -63,7 +63,7 @@ fn create_module_1() -> ResultObject {
       (export \"inc\" (func 0))
       (export \"get\" (func 1))
       (start 2)
-      (data (i32.const 0) \"A\"))
+      (data (;0;) (i32.const 0) \"A\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -169,7 +169,7 @@ fn create_module_2() -> ResultObject {
       (export \"inc\" (func 0))
       (export \"get\" (func 1))
       (start 2)
-      (data (i32.const 0) \"A\"))
+      (data (;0;) (i32.const 0) \"A\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
