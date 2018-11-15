@@ -1,6 +1,8 @@
 //! This file will run at build time to autogenerate Rust tests based on
 //! WebAssembly spec tests. It will convert the files indicated in TESTS
 //! from "/spectests/{MODULE}.wast" to "/src/spectests/{MODULE}.rs".
+extern crate wabt;
+
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -215,7 +217,8 @@ fn test_module_{}() {{
     fn visit_module(&mut self, module: &ModuleBinary, _name: &Option<String>) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
         let wast_string = wasm2wat(wasm_binary).expect("Can't convert back to wasm");
-        self.flush_module_calls(self.last_module);
+        let last_module = self.last_module;
+        self.flush_module_calls(last_module);
         self.last_module = self.last_module + 1;
         // self.module_calls.insert(self.last_module, vec![]);
         self.buffer.push_str(
@@ -255,6 +258,7 @@ fn test_module_{}() {{
     fn visit_assert_invalid(&mut self, module: &ModuleBinary) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
         // let wast_string = wasm2wat(wasm_binary).expect("Can't convert back to wasm");
+        let command_name = self.command_name();
         self.buffer.push_str(
             format!(
                 "#[test]
@@ -263,7 +267,7 @@ fn {}_assert_invalid() {{
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), \"WASM should not compile as is invalid\");
 }}\n",
-                self.command_name(),
+                command_name,
                 wasm_binary,
                 // We do this to ident four spaces back
                 // String::from_utf8_lossy(&wasm_binary),
@@ -385,6 +389,7 @@ fn {}_assert_invalid() {{
 
     fn visit_assert_malformed(&mut self, module: &ModuleBinary) {
         let wasm_binary: Vec<u8> = module.clone().into_vec();
+        let command_name = self.command_name();
         // let wast_string = wasm2wat(wasm_binary).expect("Can't convert back to wasm");
         self.buffer.push_str(
             format!(
@@ -394,7 +399,7 @@ fn {}_assert_malformed() {{
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), \"WASM should not compile as is malformed\");
 }}\n",
-                self.command_name(),
+                command_name,
                 wasm_binary,
                 // We do this to ident four spaces back
                 // String::from_utf8_lossy(&wasm_binary),

@@ -10,7 +10,6 @@ jobs:
           keys:
             - v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
-      - run: rustup default nightly-2018-10-07
       - run: make test
       - run:
           command: |
@@ -50,9 +49,9 @@ jobs:
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
-          name: Install Rust Nightly
+          name: Install Rust
           command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2018-10-07
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       - run:

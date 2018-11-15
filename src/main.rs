@@ -1,18 +1,18 @@
-#![feature(test, libc, core_intrinsics)]
-
-extern crate test;
 #[macro_use]
 extern crate error_chain;
+extern crate libc;
 extern crate cranelift_codegen;
 extern crate cranelift_entity;
 extern crate cranelift_native;
 extern crate cranelift_wasm;
 extern crate structopt;
 extern crate wabt;
+extern crate wasmparser;
+extern crate memmap;
+extern crate region;
 #[macro_use]
 extern crate target_lexicon;
 extern crate nix;
-extern crate spin;
 
 // use std::alloc::System;
 // use std::time::{Duration, Instant};
@@ -23,7 +23,6 @@ extern crate spin;
 #[macro_use]
 extern crate log;
 
-// use libc;
 use std::fs::File;
 use std::io;
 use std::io::Read;
