@@ -45,7 +45,7 @@ fn create_module_1() -> ResultObject {
       (export \"f32.store\" (func 2))
       (export \"i32.store\" (func 3))
       (export \"reset\" (func 4))
-      (data (i32.const 0) \"\\00\\00\\a0\\7f\"))
+      (data (;0;) (i32.const 0) \"\\00\\00\\a0\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -277,7 +277,7 @@ fn create_module_2() -> ResultObject {
       (export \"f64.store\" (func 2))
       (export \"i64.store\" (func 3))
       (export \"reset\" (func 4))
-      (data (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\f4\\7f\"))
+      (data (;0;) (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\f4\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -509,7 +509,7 @@ fn create_module_3() -> ResultObject {
       (export \"f32.store\" (func 2))
       (export \"i32.store\" (func 3))
       (export \"reset\" (func 4))
-      (data (i32.const 0) \"\\00\\00\\00\\a0\\7f\"))
+      (data (;0;) (i32.const 0) \"\\00\\00\\00\\a0\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -741,7 +741,7 @@ fn create_module_4() -> ResultObject {
       (export \"f64.store\" (func 2))
       (export \"i64.store\" (func 3))
       (export \"reset\" (func 4))
-      (data (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\00\\f4\\7f\"))
+      (data (;0;) (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\00\\f4\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -973,7 +973,7 @@ fn create_module_5() -> ResultObject {
       (export \"f32.store\" (func 2))
       (export \"i32.store\" (func 3))
       (export \"reset\" (func 4))
-      (data (i32.const 0) \"\\01\\00\\d0\\7f\"))
+      (data (;0;) (i32.const 0) \"\\01\\00\\d0\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -1205,7 +1205,7 @@ fn create_module_6() -> ResultObject {
       (export \"f64.store\" (func 2))
       (export \"i64.store\" (func 3))
       (export \"reset\" (func 4))
-      (data (i32.const 0) \"\\01\\00\\00\\00\\00\\00\\fc\\7f\"))
+      (data (;0;) (i32.const 0) \"\\01\\00\\00\\00\\00\\00\\fc\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
