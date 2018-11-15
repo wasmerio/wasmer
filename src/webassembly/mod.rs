@@ -10,6 +10,8 @@ use std::panic;
 use std::str::FromStr;
 use target_lexicon;
 use wasmparser;
+use cranelift_codegen::{isa, settings};
+use cranelift_codegen::isa::TargetIsa;
 
 pub use self::errors::{Error, ErrorKind};
 pub use self::import_object::ImportObject;
@@ -44,9 +46,12 @@ pub fn instantiate(
     buffer_source: Vec<u8>,
     import_object: ImportObject<&str, &str>,
 ) -> Result<ResultObject, ErrorKind> {
+    let flags = settings::Flags::new(settings::builder());
+    let isa = isa::lookup(triple!("x86_64")).unwrap().finish(flags);
+
     let module = compile(buffer_source)?;
     debug!("webassembly - creating instance");
-    let instance = Instance::new(&module, &import_object, InstanceOptions { mock_missing_imports: true })?;
+    let instance = Instance::new(&module, &import_object, InstanceOptions { mock_missing_imports: true, isa: isa })?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }
@@ -78,9 +83,11 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     if !valid {
         return Err(ErrorKind::CompileError("Module not valid".to_string()));
     }
+    let flags = settings::Flags::new(settings::builder());
+    let isa = isa::lookup(triple!("x86_64")).unwrap().finish(flags);
 
     debug!("webassembly - creating module");
-    let module = Module::from_bytes(buffer_source, triple!("x86_64"), None)?;
+    let module = Module::from_bytes(buffer_source, isa.frontend_config())?;
     debug!("webassembly - module created");
 
     Ok(module)

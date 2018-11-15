@@ -7,9 +7,10 @@
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiate_streaming() function.
 use cranelift_codegen::ir::LibCall;
-use cranelift_codegen::{binemit, isa, Context};
+use cranelift_codegen::{binemit, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
+use cranelift_codegen::isa::TargetIsa;
 use region;
 use std::iter::Iterator;
 use std::ptr::write_unaligned;
@@ -125,10 +126,10 @@ pub struct DataPointers {
     pub globals: UncheckedSlice<u8>,
 }
 
-#[derive(Debug, Clone)]
 pub struct InstanceOptions {
     // Shall we mock automatically the imported functions if they don't exist?
     pub mock_missing_imports: bool,
+    pub isa: Box<TargetIsa>,
 }
 
 extern fn mock_fn() -> i32 {
@@ -153,9 +154,6 @@ impl Instance {
         // Instantiate functions
         {
             functions.reserve_exact(module.info.functions.len());
-            let isa = isa::lookup(module.info.triple.clone())
-                .unwrap()
-                .finish(module.info.flags.clone());
             let mut relocations = Vec::new();
 
             // let imported_functions: Vec<String> = module.info.imported_funcs.iter().map(|(module, field)| {
@@ -210,7 +208,7 @@ impl Instance {
                 // and will push any inner function calls to the reloc sync.
                 // In case traps need to be triggered, they will go to trap_sink
                 func_context
-                    .compile_and_emit(&*isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
+                    .compile_and_emit(&*options.isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
                     .map_err(|e| {
                         debug!("CompileError: {}", e.to_string());
                         ErrorKind::CompileError(e.to_string())
@@ -352,7 +350,7 @@ impl Instance {
                 );
                 let base = 0;
 
-                let table = &mut tables[table_element.table_index];
+                let table = &mut tables[table_element.table_index.index()];
                 for (i, func_index) in table_element.elements.iter().enumerate() {
                     // since the table just contains functions in the MVP
                     // we get the address of the specified function indexes
@@ -388,7 +386,7 @@ impl Instance {
             for init in &module.info.data_initializers {
                 debug_assert!(init.base.is_none(), "globalvar base not supported yet");
                 let offset = init.offset;
-                let mem_mut = memories[init.memory_index].as_mut();
+                let mem_mut = memories[init.memory_index.index()].as_mut();
                 let to_init = &mut mem_mut[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
