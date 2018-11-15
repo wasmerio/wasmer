@@ -29,6 +29,8 @@ green="\033[32m"
 yellow="\033[33m"
 cyan="\033[36m"
 white="\033[37m"
+bold="\e[1m"
+dim="\e[2m"
 
 RELEASES_URL="https://github.com/WAFoundation/wasmer/releases"
 
@@ -127,14 +129,14 @@ wasmer_detect_profile() {
 wasmer_link() {
   printf "$cyan> Adding to \$PATH...$reset\n"
   WASMER_PROFILE="$(wasmer_detect_profile)"
-  SOURCE_STR="\n  export PATH=\"\$HOME/.wasmer/bin:\$PATH\"\n"
+  SOURCE_STR="\nexport PATH=\"\$HOME/.wasmer/bin:\$PATH\"\n"
 
   if [ -z "${WASMER_PROFILE-}" ] ; then
-    printf "$red  > Profile not found. Tried ${WASMER_PROFILE} (as defined in \$PROFILE), ~/.bashrc, ~/.bash_profile, ~/.zshrc, and ~/.profile.\n"
-    echo "  > Create one of them and run this script again"
-    echo "  > Create it (touch ${WASMER_PROFILE}) and run this script again"
-    echo "    OR"
-    printf "  > Append the following lines to the correct file yourself:$reset\n"
+    printf "${red}Profile not found. Tried:\n* ${WASMER_PROFILE} (as defined in \$PROFILE)\n* ~/.bashrc\n* ~/.bash_profile\n* ~/.zshrc\n* ~/.profile.\n"
+    echo "\nHow to solve this issue?\n* Create one of them and run this script again"
+    echo "* Create it (touch ${WASMER_PROFILE}) and run this script again"
+    echo "  OR"
+    printf "* Append the following lines to the correct file yourself:$reset\n"
     command printf "${SOURCE_STR}"
   else
     if ! grep -q 'wasmer' "$WASMER_PROFILE"; then
@@ -145,16 +147,16 @@ wasmer_link() {
       fi
     fi
     printf "\033[1A$cyan> Adding to \$PATH... ✓$reset\n"
-    printf "$white  We've added the following to your $WASMER_PROFILE\n"
-    echo "  If this isn't the profile of your current shell then please add the following to your correct profile:"
-    printf "   $SOURCE_STR$reset\n"
+    printf "${dim}Note: We've added the following to your $WASMER_PROFILE\n"
+    echo "If this isn't the profile of your current shell then please add the following to your correct profile:"
+    printf "$SOURCE_STR$reset\n"
 
     version=`$HOME/.wasmer/bin/wasmer --version` || (
-      printf "$red> Wasmer was installed, but doesn't seem to be working :(.$reset\n"
+      printf "$red> wasmer was installed, but doesn't seem to be working :($reset\n"
       exit 1;
     )
 
-    printf "$green> Successfully installed Wasmer $version!\n${white}  Please open another terminal where the \`wasmer\` command will now be available.$reset\n"
+    printf "$green> Successfully installed $version!\n${reset}Please open another terminal where the \`${bold}wasmer$reset\` command will now be available.$reset\n"
   fi
 }
 
@@ -223,7 +225,7 @@ wasmer_install() {
   magenta2="${reset}\033[34m"
   magenta3="${reset}\033[34;2m"
 
-  printf "${white}Installing Wasmer!$reset\n"
+  printf "${reset}Installing Wasmer!$reset\n"
   printf "
                ${magenta3}###${reset}                                 
                ${magenta3}#####${reset}                               
