@@ -23,6 +23,7 @@ use super::memory::LinearMemory;
 use super::module::Export;
 use super::module::Module;
 use super::relocation::{Reloc, RelocSink, RelocationType};
+use super::math_intrinsics;
 
 pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
     match unsafe {
@@ -246,28 +247,28 @@ impl Instance {
                             grow_memory as isize
                         },
                         RelocationType::LibCall(LibCall::CeilF32) => {
-                            _ceilf32 as isize
+                            math_intrinsics::ceilf32 as isize
                         },
                         RelocationType::LibCall(LibCall::FloorF32) => {
-                            _floorf32 as isize
+                            math_intrinsics::floorf32 as isize
                         },
                         RelocationType::LibCall(LibCall::TruncF32) => {
-                            _truncf32 as isize
+                            math_intrinsics::truncf32 as isize
                         },
                         RelocationType::LibCall(LibCall::NearestF32) => {
-                            _nearbyintf32 as isize
+                            math_intrinsics::nearbyintf32 as isize
                         },
                         RelocationType::LibCall(LibCall::CeilF64) => {
-                            _ceilf64 as isize
+                            math_intrinsics::ceilf64 as isize
                         },
                         RelocationType::LibCall(LibCall::FloorF64) => {
-                            _floorf64 as isize
+                            math_intrinsics::floorf64 as isize
                         },
                         RelocationType::LibCall(LibCall::TruncF64) => {
-                            _truncf64 as isize
+                            math_intrinsics::truncf64 as isize
                         },
                         RelocationType::LibCall(LibCall::NearestF64) => {
-                            _nearbyintf64 as isize
+                            math_intrinsics::nearbyintf64 as isize
                         },
                         _ => unimplemented!()
                         // RelocationType::Intrinsic(name) => {
@@ -623,61 +624,4 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_size() as u32
-}
-
-// Because of this bug https://github.com/rust-lang/rust/issues/34123
-// We create internal functions for it
-
-// use std::intrinsics::{
-//     ceilf32, ceilf64, floorf32, floorf64, nearbyintf32, nearbyintf64, truncf32, truncf64,
-// };
-
-// F32
-#[inline]
-extern "C" fn _ceilf32(x: f32) -> f32 {
-    // ceilf32(x)
-    x.ceil()
-}
-
-#[inline]
-extern "C" fn _floorf32(x: f32) -> f32 {
-    // floorf32(x)
-    x.floor()
-}
-
-#[inline]
-extern "C" fn _truncf32(x: f32) -> f32 {
-    // truncf32(x)
-    x.trunc()
-}
-
-#[inline]
-extern "C" fn _nearbyintf32(x: f32) -> f32 {
-    // nearbyintf32(x)
-    x.round()
-}
-
-// F64
-#[inline]
-extern "C" fn _ceilf64(x: f64) -> f64 {
-    // ceilf64(x)
-    x.ceil()
-}
-
-#[inline]
-extern "C" fn _floorf64(x: f64) -> f64 {
-    // floorf64(x)
-    x.floor()
-}
-
-#[inline]
-extern "C" fn _truncf64(x: f64) -> f64 {
-    // truncf64(x)
-    x.trunc()
-}
-
-#[inline]
-extern "C" fn _nearbyintf64(x: f64) -> f64 {
-    // nearbyintf64(x)
-    x.round()
 }

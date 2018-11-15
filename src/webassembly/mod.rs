@@ -5,6 +5,7 @@ pub mod memory;
 pub mod module;
 pub mod relocation;
 pub mod utils;
+pub mod math_intrinsics;
 
 use std::panic;
 use std::str::FromStr;
