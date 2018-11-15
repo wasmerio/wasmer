@@ -39,6 +39,35 @@ use super::errors::ErrorKind;
 use super::memory::LinearMemory;
 use super::instance::Instance;
 
+/// Get the integer type used for representing pointers on this platform.
+fn native_pointer_type() -> ir::Type {
+    if cfg!(target_pointer_width = "64") {
+        ir::types::I64
+    } else {
+        ir::types::I32
+    }
+}
+
+/// Number of bytes in a native pointer.
+pub fn native_pointer_size() -> i32 {
+    if cfg!(target_pointer_width = "64") {
+        8
+    } else {
+        4
+    }
+}
+
+// /// Convert a TlsData offset into a `Offset32` for a global decl.
+// fn offset32(offset: usize) -> ir::immediates::Offset32 {
+//     assert!(offset <= i32::max_value() as usize);
+//     (offset as i32).into()
+// }
+
+// /// Convert a usize offset into a `Imm64` for an iadd_imm.
+// fn imm64(offset: usize) -> ir::immediates::Imm64 {
+//     (offset as i64).into()
+// }
+
 /// Compute a `ir::ExternalName` for a given wasm function index.
 fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
     ir::ExternalName::user(0, func_index.index() as u32)
@@ -356,7 +385,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         let base_gv = func.create_global_value(ir::GlobalValueData::Load {
             base,
             offset: Offset32::new(table_data_offset),
-            global_type: self.pointer_type(),
+            global_type: native_pointer_type(),
         });
 
         // Load value at the (base + table_data_offset)
@@ -384,6 +413,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
     //      be 8 bytes. That will definitely gove the wrong offset values
     fn make_heap(&mut self, func: &mut ir::Function, memory_index: MemoryIndex) -> ir::Heap {
+        assert_eq!(memory_index, 0, "Only one WebAssembly memory supported");
         let instance = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_size = self.ptr_size();
 
@@ -444,7 +474,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
             base: globals_base_addr,
             offset: Imm64::new(offset),
-            global_type: self.pointer_type(),
+            global_type: native_pointer_type(),
         });
 
         GlobalVariable::Memory {
