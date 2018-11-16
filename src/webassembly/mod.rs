@@ -14,8 +14,8 @@ use wasmparser;
 use wasmparser::WasmDecoder;
 
 pub use self::errors::{Error, ErrorKind};
-pub use self::import_object::ImportObject;
-pub use self::instance::{Instance, InstanceOptions};
+pub use self::import_object::{ImportObject, ImportValue};
+pub use self::instance::{Instance};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
 
@@ -48,13 +48,7 @@ pub fn instantiate(
 ) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
     debug!("webassembly - creating instance");
-    let instance = Instance::new(
-        &module,
-        &import_object,
-        InstanceOptions {
-            mock_missing_imports: true,
-        },
-    )?;
+    let instance = Instance::new(&module, import_object)?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }
@@ -81,9 +75,11 @@ pub fn instantiate_streaming(
 /// webassembly::CompileError.
 pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     // TODO: This should be automatically validated when creating the Module
-    debug!("webassembly - validating module");
-    validate_or_error(&buffer_source)?;
-
+    let valid = validate(&buffer_source);
+    debug!("webassembly - valid {:?}", valid);
+    if !valid {
+        return Err(ErrorKind::CompileError("Module not valid".to_string()));
+    }
     debug!("webassembly - creating module");
     let module = Module::from_bytes(buffer_source, triple!("x86_64"), None)?;
     debug!("webassembly - module created");

@@ -9,31 +9,42 @@ pub fn is_wasm_binary(binary: &Vec<u8>) -> bool {
 
 pub fn print_instance_offsets(instance: &Instance) {
     let instance_address = instance as *const _ as usize;
+    let data_ptr = &instance.data_pointers;
 
     let tables_pointer_address_ptr: *const usize =
-        unsafe { transmute(&instance.data_pointers.tables) };
+        unsafe { transmute(&data_ptr.tables) };
     let tables_pointer_address = tables_pointer_address_ptr as usize;
 
     let memories_pointer_address_ptr: *const usize =
-        unsafe { transmute(&instance.data_pointers.memories) };
+        unsafe { transmute(&data_ptr.memories) };
     let memories_pointer_address = memories_pointer_address_ptr as usize;
 
-    let globals_pointer_address_ptr: *const usize =
-        unsafe { transmute(&instance.data_pointers.globals) };
-    let globals_pointer_address = globals_pointer_address_ptr as usize;
+    let memories_pointer_address_ptr_0: *const usize =
+        unsafe { transmute(&data_ptr.memories.get_unchecked(0)) };
+    let memories_pointer_address_0 = memories_pointer_address_ptr_0 as usize;
 
-    let default_memory_bound_address_ptr: *const usize =
-        unsafe { transmute(&instance.default_memory_bound) };
-    let default_memory_bound_address = default_memory_bound_address_ptr as usize;
+    let memories_pointer_address_ptr_0_data: *const usize =
+        unsafe { transmute(&data_ptr.memories.get_unchecked(0).data) };
+    let memories_pointer_address_0_data = memories_pointer_address_ptr_0_data as usize;
+
+    let memories_pointer_address_ptr_0_len: *const usize =
+        unsafe { transmute(&data_ptr.memories.get_unchecked(0).len) };
+    let memories_pointer_address_0_len = memories_pointer_address_ptr_0_len as usize;
+
+    let globals_pointer_address_ptr: *const usize =
+        unsafe { transmute(&data_ptr.globals) };
+    let globals_pointer_address = globals_pointer_address_ptr as usize;
 
     println!(
         "
 ====== INSTANCE OFFSET TABLE ======
 instance \t\t\t- {:X} | offset - {:?}
 instance.data_pointers.tables \t- {:X} | offset - {:?}
-instance.data_pointers.memories - {:X} | offset - {:?}
+instance.data_pointers.memories\t- {:X} | offset - {:?}
+    .memories[0] \t\t- {:X} | offset - {:?}
+    .memories[0].data\t\t- {:X} | offset - {:?}
+    .memories[0].len({:?})\t- {:X} | offset - {:?}
 instance.data_pointers.globals \t- {:X} | offset - {:?}
-instance.default_memory_bound \t- {:X} | offset - {:?}
 ====== INSTANCE OFFSET TABLE ======
         ",
         instance_address,
@@ -42,9 +53,16 @@ instance.default_memory_bound \t- {:X} | offset - {:?}
         tables_pointer_address - instance_address,
         memories_pointer_address,
         memories_pointer_address - instance_address,
+
+        memories_pointer_address_0,
+        0,
+        memories_pointer_address_0_data,
+        memories_pointer_address_0_data - memories_pointer_address_0_data,
+        data_ptr.memories.get_unchecked(0).len,
+        memories_pointer_address_0_len,
+        memories_pointer_address_0_len - memories_pointer_address_0_data,
+
         globals_pointer_address,
         globals_pointer_address - instance_address,
-        default_memory_bound_address,
-        default_memory_bound_address - instance_address,
     );
 }
