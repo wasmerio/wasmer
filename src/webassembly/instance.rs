@@ -24,6 +24,7 @@ use super::memory::LinearMemory;
 use super::module::Export;
 use super::module::Module;
 use super::relocation::{Reloc, RelocSink, RelocationType};
+use super::math_intrinsics;
 
 pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
     match unsafe {
@@ -53,7 +54,7 @@ fn get_function_addr(
     let func_pointer = if index < len {
         import_functions[index]
     } else {
-        (&functions[func_index.index() - len]).as_ptr()
+        (functions[index - len]).as_ptr()
     };
     func_pointer
 }
@@ -84,6 +85,10 @@ pub struct Instance {
     // C-like pointers to data (heaps, globals, tables)
     pub data_pointers: DataPointers,
 
+    // Default memory bound
+    // TODO: Support for only one LinearMemory for now.
+    pub default_memory_bound: i32,
+
     /// WebAssembly table data
     // pub tables: Arc<Vec<RwLock<Vec<usize>>>>,
     pub tables: Arc<Vec<Vec<usize>>>,
@@ -105,10 +110,6 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
-
-    // Default memory bound
-    // TODO: Support for only one LinearMemory for now.
-    pub default_memory_bound: i32,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
@@ -132,7 +133,7 @@ pub struct InstanceOptions {
     pub isa: Box<TargetIsa>,
 }
 
-extern fn mock_fn() -> i32 {
+extern "C" fn mock_fn() -> i32 {
     return 0;
 }
 
@@ -165,15 +166,16 @@ impl Instance {
             // We walk through the imported functions and set the relocations
             // for each of this functions to be an empty vector (as is defined outside of wasm)
             for (module, field) in module.info.imported_funcs.iter() {
-                let function = import_object
-                    .get(&module.as_str(), &field.as_str());
+                let function = import_object.get(&module.as_str(), &field.as_str());
                 let function = if options.mock_missing_imports {
                     function.unwrap_or_else(|| {
-                        debug!("The import {}.{} is not provided, therefore will be mocked.", module, field);
+                        debug!(
+                            "The import {}.{} is not provided, therefore will be mocked.",
+                            module, field
+                        );
                         mock_fn as *const u8
                     })
-                }
-                else {
+                } else {
                     function.ok_or_else(|| {
                         ErrorKind::LinkError(format!(
                             "Imported function {}.{} was not provided in the import_functions",
@@ -243,28 +245,28 @@ impl Instance {
                             grow_memory as isize
                         },
                         RelocationType::LibCall(LibCall::CeilF32) => {
-                            _ceilf32 as isize
+                            math_intrinsics::ceilf32 as isize
                         },
                         RelocationType::LibCall(LibCall::FloorF32) => {
-                            _floorf32 as isize
+                            math_intrinsics::floorf32 as isize
                         },
                         RelocationType::LibCall(LibCall::TruncF32) => {
-                            _truncf32 as isize
+                            math_intrinsics::truncf32 as isize
                         },
                         RelocationType::LibCall(LibCall::NearestF32) => {
-                            _nearbyintf32 as isize
+                            math_intrinsics::nearbyintf32 as isize
                         },
                         RelocationType::LibCall(LibCall::CeilF64) => {
-                            _ceilf64 as isize
+                            math_intrinsics::ceilf64 as isize
                         },
                         RelocationType::LibCall(LibCall::FloorF64) => {
-                            _floorf64 as isize
+                            math_intrinsics::floorf64 as isize
                         },
                         RelocationType::LibCall(LibCall::TruncF64) => {
-                            _truncf64 as isize
+                            math_intrinsics::truncf64 as isize
                         },
                         RelocationType::LibCall(LibCall::NearestF64) => {
-                            _nearbyintf64 as isize
+                            math_intrinsics::nearbyintf64 as isize
                         },
                         _ => unimplemented!()
                         // RelocationType::Intrinsic(name) => {
@@ -430,7 +432,7 @@ impl Instance {
                 .info
                 .start_func
                 .or_else(|| match module.info.exports.get("main") {
-                    Some(Export::Function(index)) => Some(index.to_owned()),
+                    Some(Export::Function(index)) => Some(*index),
                     _ => None,
                 });
 
@@ -620,45 +622,4 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_size() as u32
-}
-
-// Because of this bug https://github.com/rust-lang/rust/issues/34123
-// We create internal functions for it
-
-use std::intrinsics::{
-    ceilf32, ceilf64, floorf32, floorf64, nearbyintf32, nearbyintf64, truncf32, truncf64,
-};
-
-// F32
-unsafe extern "C" fn _ceilf32(x: f32) -> f32 {
-    ceilf32(x)
-}
-
-unsafe extern "C" fn _floorf32(x: f32) -> f32 {
-    floorf32(x)
-}
-
-unsafe extern "C" fn _truncf32(x: f32) -> f32 {
-    truncf32(x)
-}
-
-unsafe extern "C" fn _nearbyintf32(x: f32) -> f32 {
-    nearbyintf32(x)
-}
-
-// F64
-unsafe extern "C" fn _ceilf64(x: f64) -> f64 {
-    ceilf64(x)
-}
-
-unsafe extern "C" fn _floorf64(x: f64) -> f64 {
-    floorf64(x)
-}
-
-unsafe extern "C" fn _truncf64(x: f64) -> f64 {
-    truncf64(x)
-}
-
-unsafe extern "C" fn _nearbyintf64(x: f64) -> f64 {
-    nearbyintf64(x)
 }

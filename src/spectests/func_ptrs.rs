@@ -194,7 +194,7 @@ fn create_module_2() -> ResultObject {
       (table (;0;) 7 7 anyfunc)
       (export \"callt\" (func 5))
       (export \"callu\" (func 6))
-      (elem (i32.const 0) 0 1 2 3 4 0 2))
+      (elem (;0;) (i32.const 0) 0 1 2 3 4 0 2))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -533,7 +533,7 @@ fn create_module_3() -> ResultObject {
         call_indirect (type 0))
       (table (;0;) 2 2 anyfunc)
       (export \"callt\" (func 2))
-      (elem (i32.const 0) 0 1))
+      (elem (;0;) (i32.const 0) 0 1))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

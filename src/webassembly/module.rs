@@ -36,6 +36,35 @@ use cranelift_wasm::{
 use super::errors::ErrorKind;
 use super::memory::LinearMemory;
 
+/// Get the integer type used for representing pointers on this platform.
+fn native_pointer_type() -> ir::Type {
+    if cfg!(target_pointer_width = "64") {
+        ir::types::I64
+    } else {
+        ir::types::I32
+    }
+}
+
+/// Number of bytes in a native pointer.
+pub fn native_pointer_size() -> i32 {
+    if cfg!(target_pointer_width = "64") {
+        8
+    } else {
+        4
+    }
+}
+
+/// Convert a TlsData offset into a `Offset32` for a global decl.
+fn offset32(offset: usize) -> ir::immediates::Offset32 {
+    assert!(offset <= i32::max_value() as usize);
+    (offset as i32).into()
+}
+
+/// Convert a usize offset into a `Imm64` for an iadd_imm.
+fn imm64(offset: usize) -> ir::immediates::Imm64 {
+    (offset as i64).into()
+}
+
 /// Compute a `ir::ExternalName` for a given wasm function index.
 fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
     ir::ExternalName::user(0, func_index.index() as u32)
@@ -208,32 +237,6 @@ pub struct Module {
     // return_mode: ReturnMode,
 }
 
- fn native_pointer_type() -> ir::Type {
-     if cfg!(target_pointer_width = "64") {
-         ir::types::I64
-     } else {
-         ir::types::I32
-     }
- }
- 
- /// Number of bytes in a native pointer.
- pub fn native_pointer_size() -> i32 {
-     if cfg!(target_pointer_width = "64") {
-         8
-     } else {
-         4
-     }
- }
-
-
- fn offset32(offset: usize) -> Offset32 {
-     assert!(offset <= i32::max_value() as usize);
-    (offset as i32).into()
-}
- /// Convert a usize offset into a `Imm64` for an iadd_imm.
-fn imm64(offset: usize) -> Imm64 {
-    (offset as i64).into()
-}
 
 impl Module {
     /// Instantiate a Module given WASM bytecode
@@ -359,8 +362,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // 0 is the offset of the vmctx.tables pointer respect to vmctx pointer
         let base = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: offset32(0),
-            global_type: self.pointer_type(),
+            offset: offset32(native_pointer_size() as usize * 0),
+            global_type: native_pointer_type(),
             readonly: true,
         });
 
@@ -371,7 +374,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
             base: base,
             offset: offset32(0),
-            global_type: I64,
+            global_type: native_pointer_type(),
             readonly: false,
         });
 
@@ -394,13 +397,14 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 
     fn make_heap(&mut self, func: &mut ir::Function, memory_index: MemoryIndex) -> ir::Heap {
+        assert_eq!(memory_index.index(), 0, "Only one WebAssembly memory supported");
         // Create a static heap whose base address is stored at `instance+8`.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
 
         let heap_base_addr = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: offset32(8),
-            global_type: self.pointer_type(),
+            offset: offset32(native_pointer_size() as usize * 1),
+            global_type: native_pointer_type(),
             readonly: true,
         });
 
@@ -411,13 +415,13 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         let heap_base = func.create_global_value(ir::GlobalValueData::Load {
             base: heap_base_addr,
             offset: offset32(memories_offset),
-            global_type: self.pointer_type(),
+            global_type: native_pointer_type(),
             readonly: true,
         });
 
         let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: offset32(120),
+            offset: offset32(native_pointer_size() as usize * 3),
             global_type: I32,
             readonly: false,
         });
@@ -426,9 +430,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base: heap_base,
             min_size: Imm64::new(0),
             guard_size: Imm64::new(LinearMemory::DEFAULT_GUARD_SIZE as i64),
-            style: ir::HeapStyle::Dynamic {
-                bound_gv,
-            },
+            style: ir::HeapStyle::Dynamic { bound_gv },
             index_type: I32,
         })
 
@@ -482,16 +484,16 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: offset32(16),
-            global_type: self.pointer_type(),
+            offset: offset32(native_pointer_size() as usize * 2),
+            global_type: native_pointer_type(),
             readonly: false,
         });
 
-        let offset = (global_index.index() * 8) as i64;
+        let offset = (global_index.index() * native_pointer_size() as usize) as i64;
         let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
             base: globals_base_addr,
             offset: Imm64::new(offset),
-            global_type: self.pointer_type(),
+            global_type: native_pointer_type(),
         });
         GlobalVariable::Memory {
             gv: iadd,
@@ -534,7 +536,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .func
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
-
 
         // The `callee` value is an index into a table of function pointers.
         // Apparently, that table is stored at absolute address 0 in this dummy environment.

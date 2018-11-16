@@ -667,7 +667,7 @@ fn create_module_1() -> ResultObject {
       (export \"while\" (func 42))
       (export \"for\" (func 43))
       (export \"nesting\" (func 44))
-      (elem (i32.const 0) 16))
+      (elem (;0;) (i32.const 0) 16))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

@@ -1,18 +1,18 @@
-#![feature(test, libc, core_intrinsics)]
-
-extern crate test;
 #[macro_use]
 extern crate error_chain;
 extern crate cranelift_codegen;
 extern crate cranelift_entity;
 extern crate cranelift_native;
 extern crate cranelift_wasm;
+extern crate libc;
+extern crate memmap;
+extern crate region;
 extern crate structopt;
 extern crate wabt;
+extern crate wasmparser;
 #[macro_use]
 extern crate target_lexicon;
 extern crate nix;
-extern crate spin;
 
 // use std::alloc::System;
 // use std::time::{Duration, Instant};
@@ -23,8 +23,6 @@ extern crate spin;
 #[macro_use]
 extern crate log;
 
-// use libc;
-use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -32,7 +30,6 @@ use std::path::PathBuf;
 use std::process::exit;
 
 use structopt::StructOpt;
-use wabt::wat2wasm;
 
 #[macro_use]
 mod macros;
@@ -62,7 +59,7 @@ struct Run {
 }
 
 /// Read the contents of a file
-fn read_file_contents(path: PathBuf) -> Result<Vec<u8>, io::Error> {
+fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
     let mut buffer: Vec<u8> = Vec::new();
     let mut file = File::open(path)?;
     file.read_to_end(&mut buffer)?;
@@ -71,16 +68,22 @@ fn read_file_contents(path: PathBuf) -> Result<Vec<u8>, io::Error> {
 
 /// Execute a WASM/WAT file
 fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
-    let mut wasm_binary: Vec<u8> =
-        read_file_contents(wasm_path).map_err(|err| String::from(err.description()))?;
+    let mut wasm_binary: Vec<u8> = read_file_contents(&wasm_path).map_err(|err| {
+        format!(
+            "Can't read the file {}: {}",
+            wasm_path.as_os_str().to_string_lossy(),
+            err
+        )
+    })?;
     if !webassembly::utils::is_wasm_binary(&wasm_binary) {
-        wasm_binary = wat2wasm(wasm_binary).map_err(|err| String::from(err.description()))?;
+        wasm_binary = wabt::wat2wasm(wasm_binary)
+            .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
     }
 
     let import_object = linkers::generate_emscripten_env();
     let webassembly::ResultObject { module, instance } =
         webassembly::instantiate(wasm_binary, import_object)
-            .map_err(|err| format!("{}", err))?;
+            .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     // webassembly::utils::print_instance_offsets(&instance);
 
@@ -99,8 +102,8 @@ fn run(options: Run) {
     match execute_wasm(options.path.clone()) {
         Ok(()) => {}
         Err(message) => {
-            let name = options.path.as_os_str().to_string_lossy();
-            println!("error while executing {}: {}", name, message);
+            // let name = options.path.as_os_str().to_string_lossy();
+            println!("{}", message);
             exit(1);
         }
     }

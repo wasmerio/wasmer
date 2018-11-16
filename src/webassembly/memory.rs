@@ -108,7 +108,7 @@ impl LinearMemory {
             // Copy old mem to new mem. Will a while loop be faster or is this going to be optimized?
             // TODO: Consider static heap for efficiency.
             for i in 0..prev_bytes {
-                 unsafe {
+                unsafe {
                     let new_mmap_index = new_mmap.get_unchecked_mut(i);
                     let old_mmap_index = self.mmap.get_unchecked(i);
                     *new_mmap_index = *old_mmap_index;
