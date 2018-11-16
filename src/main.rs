@@ -13,16 +13,6 @@ extern crate wabt;
 extern crate target_lexicon;
 extern crate nix;
 extern crate spin;
-
-// use std::alloc::System;
-// use std::time::{Duration, Instant};
-
-// #[global_allocator]
-// static A: System = System;
-
-// #[macro_use] extern crate log;
-
-// use libc;
 use std::error::Error;
 use std::fs::File;
 use std::io;
@@ -81,7 +71,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| String::from(err.description()))?;
 
-    // webassembly::utils::print_instance_offsets(&instance);
+    webassembly::utils::print_instance_offsets(&instance);
 
     let func_index = instance
         .start_func

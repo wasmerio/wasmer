@@ -6,12 +6,13 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use crate::webassembly::LinearMemory;
 
 // We introduced the Pair and BorrowedPair types. We can't use (A, B)
 // directly due to the orphan rule E0210. This is fine since the map
 // is an implementation detail.
 #[derive(PartialEq, Eq, Hash)]
-struct Pair<A, B>(A, B);
+pub struct Pair<A, B>(pub A, pub B);
 
 #[derive(PartialEq, Eq, Hash)]
 struct BorrowedPair<'a, 'b, A: 'a, B: 'b>(&'a A, &'b B);
@@ -63,7 +64,7 @@ impl<'a, A: Eq, B: Eq> Eq for (KeyPair<A, B> + 'a) {}
 
 // OP's ImportObject struct
 pub struct ImportObject<A: Eq + Hash, B: Eq + Hash> {
-    map: HashMap<Pair<A, B>, *const u8>,
+    pub map: HashMap<Pair<A, B>, ImportValue>,
 }
 
 impl<A: Eq + Hash, B: Eq + Hash> ImportObject<A, B> {
@@ -73,13 +74,12 @@ impl<A: Eq + Hash, B: Eq + Hash> ImportObject<A, B> {
         }
     }
 
-    pub fn get(&self, a: &A, b: &B) -> Option<*const u8> {
+    pub fn get(&self, a: &A, b: &B) -> Option<&ImportValue> {
         self.map
             .get(&BorrowedPair(a, b) as &KeyPair<A, B>)
-            .map(|p| *p)
     }
 
-    pub fn set(&mut self, a: A, b: B, v: *const u8) {
+    pub fn set(&mut self, a: A, b: B, v: ImportValue) {
         self.map.insert(Pair(a, b), v);
     }
 }
@@ -109,18 +109,24 @@ where
     }
 }
 
+#[derive(PartialEq, Debug)]
+pub enum ImportValue {
+    Func(*const u8),
+    Global(u8),
+    Table(Vec<usize>),
+    Memory(LinearMemory),
+}
+
 #[cfg(test)]
 mod tests {
     use super::ImportObject;
+    use super::ImportValue;
 
     #[test]
     fn test_import_object() {
         fn x() {}
         let mut import_object = ImportObject::new();
-        import_object.set("abc", "def", x as *const u8);
-        // import_object.set("123"), A("456"), 45.0);
-        assert_eq!(import_object.get(&"abc", &"def").unwrap(), x as *const u8);
-        // assert_eq!(import_object.get(&"abc", &"dxf"), 4.0);
-        // assert_eq!(import_object.get(&A("123"), &A("456")), 45.0);
+        import_object.set("abc", "def", ImportValue::Func(x as *const u8));
+        assert_eq!(*import_object.get(&"abc", &"def").unwrap(), ImportValue::Func(x as *const u8));
     }
 }

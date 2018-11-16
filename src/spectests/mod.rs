@@ -20,6 +20,7 @@ mod const_;
 mod conversions;
 mod custom;
 mod data;
+mod elem;
 mod endianness;
 mod exports;
 #[cfg(not(feature = "fast-tests"))]

@@ -1,4 +1,4 @@
-use crate::webassembly::{ImportObject, Instance};
+use crate::webassembly::{ImportObject, ImportValue, Instance};
 use libc::{printf, putchar};
 
 extern "C" fn _printf(memory_offset: i32, extra: i32, instance: &Instance) -> i32 {
@@ -12,8 +12,8 @@ extern "C" fn _printf(memory_offset: i32, extra: i32, instance: &Instance) -> i3
 
 pub fn generate_libc_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
-    import_object.set("env", "printf", _printf as *const u8);
-    import_object.set("env", "putchar", putchar as *const u8);
+    import_object.set("env", "printf", ImportValue::Func(_printf as *const u8));
+    import_object.set("env", "putchar", ImportValue::Func(putchar as *const u8));
     import_object
 }
 
@@ -34,7 +34,7 @@ mod tests {
             _ => panic!("Function not found"),
         };
         let main: fn(&Instance) = get_instance_function!(instance, func_index);
-        main(&instance);
+        main(&instance)
     }
 
     #[test]

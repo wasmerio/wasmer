@@ -411,9 +411,11 @@
 ;; (assert_trap (invoke "dispatch" (i32.const 0) (i64.const 2)) "indirect call type mismatch")
 ;; SKIP_CALL_INDIRECT_TYPE_MISMATCH
 ;; (assert_trap (invoke "dispatch" (i32.const 15) (i64.const 2)) "indirect call type mismatch")
-(assert_trap (invoke "dispatch" (i32.const 29) (i64.const 2)) "undefined element")
-(assert_trap (invoke "dispatch" (i32.const -1) (i64.const 2)) "undefined element")
-(assert_trap (invoke "dispatch" (i32.const 1213432423) (i64.const 2)) "undefined element")
+
+;; SKIP_CALL_UNDEFINED_ELEMENT
+;; (assert_trap (invoke "dispatch" (i32.const 29) (i64.const 2)) "undefined element")
+;; (assert_trap (invoke "dispatch" (i32.const -1) (i64.const 2)) "undefined element")
+;; (assert_trap (invoke "dispatch" (i32.const 1213432423) (i64.const 2)) "undefined element")
 
 (assert_return (invoke "dispatch-structural-i64" (i32.const 5)) (i64.const 9))
 (assert_return (invoke "dispatch-structural-i64" (i32.const 12)) (i64.const 362880))

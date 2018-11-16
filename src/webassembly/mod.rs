@@ -12,7 +12,7 @@ use target_lexicon;
 use wasmparser;
 
 pub use self::errors::{Error, ErrorKind};
-pub use self::import_object::ImportObject;
+pub use self::import_object::{ImportObject, ImportValue};
 pub use self::instance::{Instance};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
@@ -46,7 +46,7 @@ pub fn instantiate(
 ) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
     debug!("webassembly - creating instance");
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&module, import_object)?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }
@@ -78,7 +78,6 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     if !valid {
         return Err(ErrorKind::CompileError("Module not valid".to_string()));
     }
-
     debug!("webassembly - creating module");
     let module = Module::from_bytes(buffer_source, triple!("x86_64"), None)?;
     debug!("webassembly - module created");

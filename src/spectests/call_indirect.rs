@@ -738,72 +738,9 @@ fn c18_l409_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2 as i64);
 }
 
-// Line 414
-fn c19_l414_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c19_l414_action_invoke");
-    let func_index = match result_object.module.info.exports.get("dispatch") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(29 as i32, 2 as i64, &result_object.instance);
-    
-}
-
-#[test]
-fn c19_l414_assert_trap() {
-    let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c19_l414_action_invoke(&result_object);
-    });
-    assert!(result.is_err());
-}
-
-// Line 415
-fn c20_l415_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c20_l415_action_invoke");
-    let func_index = match result_object.module.info.exports.get("dispatch") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1 as i32, 2 as i64, &result_object.instance);
-    
-}
-
-#[test]
-fn c20_l415_assert_trap() {
-    let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c20_l415_action_invoke(&result_object);
-    });
-    assert!(result.is_err());
-}
-
-// Line 416
-fn c21_l416_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c21_l416_action_invoke");
-    let func_index = match result_object.module.info.exports.get("dispatch") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(1213432423 as i32, 2 as i64, &result_object.instance);
-    
-}
-
-#[test]
-fn c21_l416_assert_trap() {
-    let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c21_l416_action_invoke(&result_object);
-    });
-    assert!(result.is_err());
-}
-
-// Line 418
-fn c22_l418_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c22_l418_action_invoke");
+// Line 420
+fn c19_l420_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c19_l420_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -813,9 +750,9 @@ fn c22_l418_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 9 as i64);
 }
 
-// Line 419
-fn c23_l419_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c23_l419_action_invoke");
+// Line 421
+fn c20_l421_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c20_l421_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -825,9 +762,9 @@ fn c23_l419_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 362880 as i64);
 }
 
-// Line 420
-fn c24_l420_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c24_l420_action_invoke");
+// Line 422
+fn c21_l422_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c21_l422_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -837,9 +774,9 @@ fn c24_l420_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 55 as i64);
 }
 
-// Line 421
-fn c25_l421_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c25_l421_action_invoke");
+// Line 423
+fn c22_l423_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c22_l423_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -849,9 +786,9 @@ fn c25_l421_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 9 as i64);
 }
 
-// Line 427
-fn c26_l427_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c26_l427_action_invoke");
+// Line 429
+fn c23_l429_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c23_l429_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -861,9 +798,9 @@ fn c26_l427_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 9 as i32);
 }
 
-// Line 428
-fn c27_l428_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c27_l428_action_invoke");
+// Line 430
+fn c24_l430_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c24_l430_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -873,9 +810,9 @@ fn c27_l428_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 362880 as i32);
 }
 
-// Line 429
-fn c28_l429_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c28_l429_action_invoke");
+// Line 431
+fn c25_l431_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c25_l431_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -885,9 +822,9 @@ fn c28_l429_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 55 as i32);
 }
 
-// Line 430
-fn c29_l430_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c29_l430_action_invoke");
+// Line 432
+fn c26_l432_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c26_l432_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -897,9 +834,9 @@ fn c29_l430_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 9 as i32);
 }
 
-// Line 436
-fn c30_l436_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c30_l436_action_invoke");
+// Line 438
+fn c27_l438_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c27_l438_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -909,9 +846,9 @@ fn c30_l436_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 9.0 as f32);
 }
 
-// Line 437
-fn c31_l437_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c31_l437_action_invoke");
+// Line 439
+fn c28_l439_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c28_l439_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -921,9 +858,9 @@ fn c31_l437_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 362880.0 as f32);
 }
 
-// Line 438
-fn c32_l438_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c32_l438_action_invoke");
+// Line 440
+fn c29_l440_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c29_l440_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -933,9 +870,9 @@ fn c32_l438_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 55.0 as f32);
 }
 
-// Line 439
-fn c33_l439_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c33_l439_action_invoke");
+// Line 441
+fn c30_l441_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c30_l441_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -945,9 +882,9 @@ fn c33_l439_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 9.0 as f32);
 }
 
-// Line 445
-fn c34_l445_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c34_l445_action_invoke");
+// Line 447
+fn c31_l447_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c31_l447_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -957,9 +894,9 @@ fn c34_l445_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 9.0 as f64);
 }
 
-// Line 446
-fn c35_l446_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c35_l446_action_invoke");
+// Line 448
+fn c32_l448_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c32_l448_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -969,9 +906,9 @@ fn c35_l446_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 362880.0 as f64);
 }
 
-// Line 447
-fn c36_l447_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c36_l447_action_invoke");
+// Line 449
+fn c33_l449_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c33_l449_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -981,9 +918,9 @@ fn c36_l447_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 55.0 as f64);
 }
 
-// Line 448
-fn c37_l448_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c37_l448_action_invoke");
+// Line 450
+fn c34_l450_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c34_l450_action_invoke");
     let func_index = match result_object.module.info.exports.get("dispatch-structural-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -993,9 +930,9 @@ fn c37_l448_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 9.0 as f64);
 }
 
-// Line 454
-fn c38_l454_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c38_l454_action_invoke");
+// Line 456
+fn c35_l456_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c35_l456_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1005,9 +942,9 @@ fn c38_l454_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i64);
 }
 
-// Line 455
-fn c39_l455_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c39_l455_action_invoke");
+// Line 457
+fn c36_l457_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c36_l457_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1017,9 +954,9 @@ fn c39_l455_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i64);
 }
 
-// Line 456
-fn c40_l456_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c40_l456_action_invoke");
+// Line 458
+fn c37_l458_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c37_l458_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1029,9 +966,9 @@ fn c40_l456_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 120 as i64);
 }
 
-// Line 457
-fn c41_l457_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c41_l457_action_invoke");
+// Line 459
+fn c38_l459_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c38_l459_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1041,9 +978,9 @@ fn c41_l457_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 7034535277573963776 as i64);
 }
 
-// Line 459
-fn c42_l459_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c42_l459_action_invoke");
+// Line 461
+fn c39_l461_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c39_l461_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1053,9 +990,9 @@ fn c42_l459_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 460
-fn c43_l460_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c43_l460_action_invoke");
+// Line 462
+fn c40_l462_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c40_l462_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1065,9 +1002,9 @@ fn c43_l460_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 461
-fn c44_l461_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c44_l461_action_invoke");
+// Line 463
+fn c41_l463_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c41_l463_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1077,9 +1014,9 @@ fn c44_l461_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 120 as i32);
 }
 
-// Line 462
-fn c45_l462_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c45_l462_action_invoke");
+// Line 464
+fn c42_l464_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c42_l464_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1089,9 +1026,9 @@ fn c45_l462_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 3628800 as i32);
 }
 
-// Line 464
-fn c46_l464_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c46_l464_action_invoke");
+// Line 466
+fn c43_l466_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c43_l466_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1101,9 +1038,9 @@ fn c46_l464_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f32);
 }
 
-// Line 465
-fn c47_l465_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c47_l465_action_invoke");
+// Line 467
+fn c44_l467_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c44_l467_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1113,9 +1050,9 @@ fn c47_l465_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f32);
 }
 
-// Line 466
-fn c48_l466_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c48_l466_action_invoke");
+// Line 468
+fn c45_l468_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c45_l468_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1125,9 +1062,9 @@ fn c48_l466_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 120.0 as f32);
 }
 
-// Line 467
-fn c49_l467_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c49_l467_action_invoke");
+// Line 469
+fn c46_l469_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c46_l469_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1137,9 +1074,9 @@ fn c49_l467_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 3628800.0 as f32);
 }
 
-// Line 469
-fn c50_l469_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c50_l469_action_invoke");
+// Line 471
+fn c47_l471_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c47_l471_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1149,9 +1086,9 @@ fn c50_l469_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f64);
 }
 
-// Line 470
-fn c51_l470_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c51_l470_action_invoke");
+// Line 472
+fn c48_l472_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c48_l472_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1161,9 +1098,9 @@ fn c51_l470_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f64);
 }
 
-// Line 471
-fn c52_l471_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c52_l471_action_invoke");
+// Line 473
+fn c49_l473_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c49_l473_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1173,9 +1110,9 @@ fn c52_l471_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 120.0 as f64);
 }
 
-// Line 472
-fn c53_l472_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c53_l472_action_invoke");
+// Line 474
+fn c50_l474_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c50_l474_action_invoke");
     let func_index = match result_object.module.info.exports.get("fac-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1185,9 +1122,9 @@ fn c53_l472_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 3628800.0 as f64);
 }
 
-// Line 474
-fn c54_l474_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c54_l474_action_invoke");
+// Line 476
+fn c51_l476_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c51_l476_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1197,9 +1134,9 @@ fn c54_l474_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i64);
 }
 
-// Line 475
-fn c55_l475_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c55_l475_action_invoke");
+// Line 477
+fn c52_l477_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c52_l477_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1209,9 +1146,9 @@ fn c55_l475_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i64);
 }
 
-// Line 476
-fn c56_l476_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c56_l476_action_invoke");
+// Line 478
+fn c53_l478_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c53_l478_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1221,9 +1158,9 @@ fn c56_l476_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2 as i64);
 }
 
-// Line 477
-fn c57_l477_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c57_l477_action_invoke");
+// Line 479
+fn c54_l479_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c54_l479_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1233,9 +1170,9 @@ fn c57_l477_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 8 as i64);
 }
 
-// Line 478
-fn c58_l478_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c58_l478_action_invoke");
+// Line 480
+fn c55_l480_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c55_l480_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1245,9 +1182,9 @@ fn c58_l478_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 10946 as i64);
 }
 
-// Line 480
-fn c59_l480_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c59_l480_action_invoke");
+// Line 482
+fn c56_l482_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c56_l482_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1257,9 +1194,9 @@ fn c59_l480_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 481
-fn c60_l481_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c60_l481_action_invoke");
+// Line 483
+fn c57_l483_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c57_l483_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1269,9 +1206,9 @@ fn c60_l481_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 482
-fn c61_l482_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c61_l482_action_invoke");
+// Line 484
+fn c58_l484_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c58_l484_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1281,9 +1218,9 @@ fn c61_l482_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2 as i32);
 }
 
-// Line 483
-fn c62_l483_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c62_l483_action_invoke");
+// Line 485
+fn c59_l485_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c59_l485_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1293,9 +1230,9 @@ fn c62_l483_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 8 as i32);
 }
 
-// Line 484
-fn c63_l484_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c63_l484_action_invoke");
+// Line 486
+fn c60_l486_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c60_l486_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-i32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1305,9 +1242,9 @@ fn c63_l484_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 10946 as i32);
 }
 
-// Line 486
-fn c64_l486_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c64_l486_action_invoke");
+// Line 488
+fn c61_l488_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c61_l488_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1317,9 +1254,9 @@ fn c64_l486_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f32);
 }
 
-// Line 487
-fn c65_l487_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c65_l487_action_invoke");
+// Line 489
+fn c62_l489_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c62_l489_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1329,9 +1266,9 @@ fn c65_l487_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f32);
 }
 
-// Line 488
-fn c66_l488_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c66_l488_action_invoke");
+// Line 490
+fn c63_l490_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c63_l490_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1341,9 +1278,9 @@ fn c66_l488_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2.0 as f32);
 }
 
-// Line 489
-fn c67_l489_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c67_l489_action_invoke");
+// Line 491
+fn c64_l491_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c64_l491_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1353,9 +1290,9 @@ fn c67_l489_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 8.0 as f32);
 }
 
-// Line 490
-fn c68_l490_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c68_l490_action_invoke");
+// Line 492
+fn c65_l492_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c65_l492_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f32") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1365,9 +1302,9 @@ fn c68_l490_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 10946.0 as f32);
 }
 
-// Line 492
-fn c69_l492_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c69_l492_action_invoke");
+// Line 494
+fn c66_l494_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c66_l494_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1377,9 +1314,9 @@ fn c69_l492_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f64);
 }
 
-// Line 493
-fn c70_l493_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c70_l493_action_invoke");
+// Line 495
+fn c67_l495_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c67_l495_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1389,9 +1326,9 @@ fn c70_l493_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f64);
 }
 
-// Line 494
-fn c71_l494_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c71_l494_action_invoke");
+// Line 496
+fn c68_l496_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c68_l496_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1401,9 +1338,9 @@ fn c71_l494_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2.0 as f64);
 }
 
-// Line 495
-fn c72_l495_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c72_l495_action_invoke");
+// Line 497
+fn c69_l497_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c69_l497_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1413,9 +1350,9 @@ fn c72_l495_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 8.0 as f64);
 }
 
-// Line 496
-fn c73_l496_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c73_l496_action_invoke");
+// Line 498
+fn c70_l498_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c70_l498_action_invoke");
     let func_index = match result_object.module.info.exports.get("fib-f64") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1425,9 +1362,9 @@ fn c73_l496_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 10946.0 as f64);
 }
 
-// Line 498
-fn c74_l498_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c74_l498_action_invoke");
+// Line 500
+fn c71_l500_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c71_l500_action_invoke");
     let func_index = match result_object.module.info.exports.get("even") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1437,9 +1374,9 @@ fn c74_l498_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 44 as i32);
 }
 
-// Line 499
-fn c75_l499_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c75_l499_action_invoke");
+// Line 501
+fn c72_l501_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c72_l501_action_invoke");
     let func_index = match result_object.module.info.exports.get("even") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1449,9 +1386,9 @@ fn c75_l499_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 99 as i32);
 }
 
-// Line 500
-fn c76_l500_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c76_l500_action_invoke");
+// Line 502
+fn c73_l502_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c73_l502_action_invoke");
     let func_index = match result_object.module.info.exports.get("even") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1461,9 +1398,9 @@ fn c76_l500_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 44 as i32);
 }
 
-// Line 501
-fn c77_l501_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c77_l501_action_invoke");
+// Line 503
+fn c74_l503_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c74_l503_action_invoke");
     let func_index = match result_object.module.info.exports.get("even") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1473,9 +1410,9 @@ fn c77_l501_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 99 as i32);
 }
 
-// Line 502
-fn c78_l502_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c78_l502_action_invoke");
+// Line 504
+fn c75_l504_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c75_l504_action_invoke");
     let func_index = match result_object.module.info.exports.get("odd") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1485,9 +1422,9 @@ fn c78_l502_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 99 as i32);
 }
 
-// Line 503
-fn c79_l503_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c79_l503_action_invoke");
+// Line 505
+fn c76_l505_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c76_l505_action_invoke");
     let func_index = match result_object.module.info.exports.get("odd") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1497,9 +1434,9 @@ fn c79_l503_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 44 as i32);
 }
 
-// Line 504
-fn c80_l504_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c80_l504_action_invoke");
+// Line 506
+fn c77_l506_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c77_l506_action_invoke");
     let func_index = match result_object.module.info.exports.get("odd") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1509,9 +1446,9 @@ fn c80_l504_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 99 as i32);
 }
 
-// Line 505
-fn c81_l505_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c81_l505_action_invoke");
+// Line 507
+fn c78_l507_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c78_l507_action_invoke");
     let func_index = match result_object.module.info.exports.get("odd") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1521,13 +1458,13 @@ fn c81_l505_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 44 as i32);
 }
 
-// Line 507
-
-// Line 508
+// Line 509
 
 // Line 510
-fn c84_l510_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c84_l510_action_invoke");
+
+// Line 512
+fn c81_l512_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c81_l512_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1537,9 +1474,9 @@ fn c84_l510_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 306 as i32);
 }
 
-// Line 511
-fn c85_l511_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c85_l511_action_invoke");
+// Line 513
+fn c82_l513_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c82_l513_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-mid") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1549,9 +1486,9 @@ fn c85_l511_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2 as i32);
 }
 
-// Line 512
-fn c86_l512_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c86_l512_action_invoke");
+// Line 514
+fn c83_l514_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c83_l514_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-select-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1561,9 +1498,9 @@ fn c86_l512_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2 as i32);
 }
 
-// Line 514
-fn c87_l514_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c87_l514_action_invoke");
+// Line 516
+fn c84_l516_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c84_l516_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-if-condition") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1573,9 +1510,9 @@ fn c87_l514_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 516
-fn c88_l516_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c88_l516_action_invoke");
+// Line 518
+fn c85_l518_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c85_l518_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1585,9 +1522,9 @@ fn c88_l516_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 356 as i64);
 }
 
-// Line 517
-fn c89_l517_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c89_l517_action_invoke");
+// Line 519
+fn c86_l519_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c86_l519_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_if-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1597,9 +1534,9 @@ fn c89_l517_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2 as i32);
 }
 
-// Line 519
-fn c90_l519_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c90_l519_action_invoke");
+// Line 521
+fn c87_l521_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c87_l521_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1609,9 +1546,9 @@ fn c90_l519_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 3890.0 as f32);
 }
 
-// Line 520
-fn c91_l520_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c91_l520_action_invoke");
+// Line 522
+fn c88_l522_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c88_l522_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br_table-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1621,9 +1558,9 @@ fn c91_l520_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 2 as i32);
 }
 
-// Line 522
-fn c92_l522_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c92_l522_action_invoke");
+// Line 524
+fn c89_l524_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c89_l524_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-store-first") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1633,9 +1570,9 @@ fn c92_l522_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, ());
 }
 
-// Line 523
-fn c93_l523_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c93_l523_action_invoke");
+// Line 525
+fn c90_l525_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c90_l525_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-store-last") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1645,9 +1582,9 @@ fn c93_l523_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, ());
 }
 
-// Line 525
-fn c94_l525_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c94_l525_action_invoke");
+// Line 527
+fn c91_l527_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c91_l527_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-memory.grow-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1657,9 +1594,9 @@ fn c94_l525_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 526
-fn c95_l526_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c95_l526_action_invoke");
+// Line 528
+fn c92_l528_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c92_l528_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-return-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1669,9 +1606,9 @@ fn c95_l526_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 527
-fn c96_l527_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c96_l527_action_invoke");
+// Line 529
+fn c93_l529_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c93_l529_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-drop-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1681,9 +1618,9 @@ fn c96_l527_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, ());
 }
 
-// Line 528
-fn c97_l528_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c97_l528_action_invoke");
+// Line 530
+fn c94_l530_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c94_l530_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-br-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1693,9 +1630,9 @@ fn c97_l528_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f32);
 }
 
-// Line 529
-fn c98_l529_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c98_l529_action_invoke");
+// Line 531
+fn c95_l531_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c95_l531_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1705,9 +1642,9 @@ fn c98_l529_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f64);
 }
 
-// Line 530
-fn c99_l530_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c99_l530_action_invoke");
+// Line 532
+fn c96_l532_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c96_l532_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-tee_local-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1717,9 +1654,9 @@ fn c99_l530_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f64);
 }
 
-// Line 531
-fn c100_l531_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c100_l531_action_invoke");
+// Line 533
+fn c97_l533_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c97_l533_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-set_global-value") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1729,9 +1666,9 @@ fn c100_l531_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1.0 as f64);
 }
 
-// Line 532
-fn c101_l532_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c101_l532_action_invoke");
+// Line 534
+fn c98_l534_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c98_l534_action_invoke");
     let func_index = match result_object.module.info.exports.get("as-load-operand") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -1741,217 +1678,217 @@ fn c101_l532_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 1 as i32);
 }
 
-// Line 537
+// Line 539
 #[test]
-fn c102_l537_assert_malformed() {
+fn c99_l539_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 32, 32, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 32, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 549
+// Line 551
 #[test]
-fn c103_l549_assert_malformed() {
+fn c100_l551_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 32, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 32, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 561
+// Line 563
 #[test]
-fn c104_l561_assert_malformed() {
+fn c101_l563_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 32, 32, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 32, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 573
+// Line 575
 #[test]
-fn c105_l573_assert_malformed() {
+fn c102_l575_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 32, 32, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 32, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 585
+// Line 587
 #[test]
-fn c106_l585_assert_malformed() {
+fn c103_l587_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 32, 32, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 32, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 597
+// Line 599
 #[test]
-fn c107_l597_assert_malformed() {
+fn c104_l599_assert_malformed() {
     let wasm_binary = [40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 607
+// Line 609
 #[test]
-fn c108_l607_assert_malformed() {
+fn c105_l609_assert_malformed() {
     let wasm_binary = [40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 112, 97, 114, 97, 109, 32, 36, 120, 32, 105, 51, 50, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 614
+// Line 616
 #[test]
-fn c109_l614_assert_malformed() {
+fn c106_l616_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 624
+// Line 626
 #[test]
-fn c110_l624_assert_malformed() {
+fn c107_l626_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 634
+// Line 636
 #[test]
-fn c111_l634_assert_malformed() {
+fn c108_l636_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 644
+// Line 646
 #[test]
-fn c112_l644_assert_malformed() {
+fn c109_l646_assert_malformed() {
     let wasm_binary = [40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 32, 40, 102, 117, 110, 99, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 41, 41, 40, 116, 97, 98, 108, 101, 32, 48, 32, 97, 110, 121, 102, 117, 110, 99, 41, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 40, 99, 97, 108, 108, 95, 105, 110, 100, 105, 114, 101, 99, 116, 32, 40, 116, 121, 112, 101, 32, 36, 115, 105, 103, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 32, 32, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 32, 32, 41, 41];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
-// Line 659
+// Line 661
 #[test]
-fn c113_l659_assert_invalid() {
+fn c110_l661_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 667
+// Line 669
 #[test]
-fn c114_l667_assert_invalid() {
+fn c111_l669_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 4, 4, 1, 112, 0, 0, 10, 10, 1, 8, 0, 65, 0, 17, 0, 0, 69, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 675
+// Line 677
 #[test]
-fn c115_l675_assert_invalid() {
+fn c112_l677_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 8, 2, 96, 0, 1, 126, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 10, 1, 8, 0, 65, 0, 17, 0, 0, 69, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 684
+// Line 686
 #[test]
-fn c116_l684_assert_invalid() {
+fn c113_l686_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 8, 2, 96, 1, 127, 0, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 9, 1, 7, 0, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 692
+// Line 694
 #[test]
-fn c117_l692_assert_invalid() {
+fn c114_l694_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 2, 124, 127, 0, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 9, 1, 7, 0, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 700
+// Line 702
 #[test]
-fn c118_l700_assert_invalid() {
+fn c115_l702_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 4, 4, 1, 112, 0, 0, 10, 11, 1, 9, 0, 65, 1, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 708
+// Line 710
 #[test]
-fn c119_l708_assert_invalid() {
+fn c116_l710_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 4, 4, 1, 112, 0, 0, 10, 20, 1, 18, 0, 68, 0, 0, 0, 0, 0, 0, 0, 64, 65, 1, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 719
+// Line 721
 #[test]
-fn c120_l719_assert_invalid() {
+fn c117_l721_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 8, 2, 96, 1, 127, 0, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 10, 1, 8, 0, 65, 1, 1, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 727
+// Line 729
 #[test]
-fn c121_l727_assert_invalid() {
+fn c118_l729_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 8, 2, 96, 1, 127, 0, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 11, 1, 9, 0, 65, 0, 66, 1, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 736
+// Line 738
 #[test]
-fn c122_l736_assert_invalid() {
+fn c119_l738_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 2, 127, 127, 0, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 12, 1, 10, 0, 1, 65, 1, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 746
+// Line 748
 #[test]
-fn c123_l746_assert_invalid() {
+fn c120_l748_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 2, 127, 127, 0, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 12, 1, 10, 0, 65, 1, 1, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 756
+// Line 758
 #[test]
-fn c124_l756_assert_invalid() {
+fn c121_l758_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 2, 127, 124, 0, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 20, 1, 18, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 65, 1, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 766
+// Line 768
 #[test]
-fn c125_l766_assert_invalid() {
+fn c122_l768_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 9, 2, 96, 2, 124, 127, 0, 96, 0, 0, 3, 2, 1, 1, 4, 4, 1, 112, 0, 0, 10, 20, 1, 18, 0, 65, 1, 68, 0, 0, 0, 0, 0, 0, 240, 63, 65, 0, 17, 0, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 780
+// Line 782
 #[test]
-fn c126_l780_assert_invalid() {
+fn c123_l782_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 4, 4, 1, 112, 0, 0, 10, 9, 1, 7, 0, 65, 0, 17, 1, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 787
+// Line 789
 #[test]
-fn c127_l787_assert_invalid() {
+fn c124_l789_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 4, 4, 1, 112, 0, 0, 10, 13, 1, 11, 0, 65, 0, 17, 148, 152, 219, 226, 3, 0, 11];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
 }
 
-// Line 798
+// Line 800
 #[test]
-fn c128_l798_assert_invalid() {
+fn c125_l800_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 5, 1, 112, 1, 2, 2, 9, 8, 1, 0, 65, 0, 11, 2, 0, 0];
     let compilation = compile(wasm_binary.to_vec());
     assert!(compilation.is_err(), "WASM should not compile as is invalid");
@@ -1980,82 +1917,82 @@ fn test_module_1() {
     c16_l407_action_invoke(&result_object);
     c17_l408_action_invoke(&result_object);
     c18_l409_action_invoke(&result_object);
-    c22_l418_action_invoke(&result_object);
-    c23_l419_action_invoke(&result_object);
-    c24_l420_action_invoke(&result_object);
-    c25_l421_action_invoke(&result_object);
-    c26_l427_action_invoke(&result_object);
-    c27_l428_action_invoke(&result_object);
-    c28_l429_action_invoke(&result_object);
-    c29_l430_action_invoke(&result_object);
-    c30_l436_action_invoke(&result_object);
-    c31_l437_action_invoke(&result_object);
-    c32_l438_action_invoke(&result_object);
-    c33_l439_action_invoke(&result_object);
-    c34_l445_action_invoke(&result_object);
-    c35_l446_action_invoke(&result_object);
-    c36_l447_action_invoke(&result_object);
-    c37_l448_action_invoke(&result_object);
-    c38_l454_action_invoke(&result_object);
-    c39_l455_action_invoke(&result_object);
-    c40_l456_action_invoke(&result_object);
-    c41_l457_action_invoke(&result_object);
-    c42_l459_action_invoke(&result_object);
-    c43_l460_action_invoke(&result_object);
-    c44_l461_action_invoke(&result_object);
-    c45_l462_action_invoke(&result_object);
-    c46_l464_action_invoke(&result_object);
-    c47_l465_action_invoke(&result_object);
-    c48_l466_action_invoke(&result_object);
-    c49_l467_action_invoke(&result_object);
-    c50_l469_action_invoke(&result_object);
-    c51_l470_action_invoke(&result_object);
-    c52_l471_action_invoke(&result_object);
-    c53_l472_action_invoke(&result_object);
-    c54_l474_action_invoke(&result_object);
-    c55_l475_action_invoke(&result_object);
-    c56_l476_action_invoke(&result_object);
-    c57_l477_action_invoke(&result_object);
-    c58_l478_action_invoke(&result_object);
-    c59_l480_action_invoke(&result_object);
-    c60_l481_action_invoke(&result_object);
-    c61_l482_action_invoke(&result_object);
-    c62_l483_action_invoke(&result_object);
-    c63_l484_action_invoke(&result_object);
-    c64_l486_action_invoke(&result_object);
-    c65_l487_action_invoke(&result_object);
-    c66_l488_action_invoke(&result_object);
-    c67_l489_action_invoke(&result_object);
-    c68_l490_action_invoke(&result_object);
-    c69_l492_action_invoke(&result_object);
-    c70_l493_action_invoke(&result_object);
-    c71_l494_action_invoke(&result_object);
-    c72_l495_action_invoke(&result_object);
-    c73_l496_action_invoke(&result_object);
-    c74_l498_action_invoke(&result_object);
-    c75_l499_action_invoke(&result_object);
-    c76_l500_action_invoke(&result_object);
-    c77_l501_action_invoke(&result_object);
-    c78_l502_action_invoke(&result_object);
-    c79_l503_action_invoke(&result_object);
-    c80_l504_action_invoke(&result_object);
-    c81_l505_action_invoke(&result_object);
-    c84_l510_action_invoke(&result_object);
-    c85_l511_action_invoke(&result_object);
-    c86_l512_action_invoke(&result_object);
-    c87_l514_action_invoke(&result_object);
-    c88_l516_action_invoke(&result_object);
-    c89_l517_action_invoke(&result_object);
-    c90_l519_action_invoke(&result_object);
-    c91_l520_action_invoke(&result_object);
-    c92_l522_action_invoke(&result_object);
-    c93_l523_action_invoke(&result_object);
-    c94_l525_action_invoke(&result_object);
-    c95_l526_action_invoke(&result_object);
-    c96_l527_action_invoke(&result_object);
-    c97_l528_action_invoke(&result_object);
-    c98_l529_action_invoke(&result_object);
-    c99_l530_action_invoke(&result_object);
-    c100_l531_action_invoke(&result_object);
-    c101_l532_action_invoke(&result_object);
+    c19_l420_action_invoke(&result_object);
+    c20_l421_action_invoke(&result_object);
+    c21_l422_action_invoke(&result_object);
+    c22_l423_action_invoke(&result_object);
+    c23_l429_action_invoke(&result_object);
+    c24_l430_action_invoke(&result_object);
+    c25_l431_action_invoke(&result_object);
+    c26_l432_action_invoke(&result_object);
+    c27_l438_action_invoke(&result_object);
+    c28_l439_action_invoke(&result_object);
+    c29_l440_action_invoke(&result_object);
+    c30_l441_action_invoke(&result_object);
+    c31_l447_action_invoke(&result_object);
+    c32_l448_action_invoke(&result_object);
+    c33_l449_action_invoke(&result_object);
+    c34_l450_action_invoke(&result_object);
+    c35_l456_action_invoke(&result_object);
+    c36_l457_action_invoke(&result_object);
+    c37_l458_action_invoke(&result_object);
+    c38_l459_action_invoke(&result_object);
+    c39_l461_action_invoke(&result_object);
+    c40_l462_action_invoke(&result_object);
+    c41_l463_action_invoke(&result_object);
+    c42_l464_action_invoke(&result_object);
+    c43_l466_action_invoke(&result_object);
+    c44_l467_action_invoke(&result_object);
+    c45_l468_action_invoke(&result_object);
+    c46_l469_action_invoke(&result_object);
+    c47_l471_action_invoke(&result_object);
+    c48_l472_action_invoke(&result_object);
+    c49_l473_action_invoke(&result_object);
+    c50_l474_action_invoke(&result_object);
+    c51_l476_action_invoke(&result_object);
+    c52_l477_action_invoke(&result_object);
+    c53_l478_action_invoke(&result_object);
+    c54_l479_action_invoke(&result_object);
+    c55_l480_action_invoke(&result_object);
+    c56_l482_action_invoke(&result_object);
+    c57_l483_action_invoke(&result_object);
+    c58_l484_action_invoke(&result_object);
+    c59_l485_action_invoke(&result_object);
+    c60_l486_action_invoke(&result_object);
+    c61_l488_action_invoke(&result_object);
+    c62_l489_action_invoke(&result_object);
+    c63_l490_action_invoke(&result_object);
+    c64_l491_action_invoke(&result_object);
+    c65_l492_action_invoke(&result_object);
+    c66_l494_action_invoke(&result_object);
+    c67_l495_action_invoke(&result_object);
+    c68_l496_action_invoke(&result_object);
+    c69_l497_action_invoke(&result_object);
+    c70_l498_action_invoke(&result_object);
+    c71_l500_action_invoke(&result_object);
+    c72_l501_action_invoke(&result_object);
+    c73_l502_action_invoke(&result_object);
+    c74_l503_action_invoke(&result_object);
+    c75_l504_action_invoke(&result_object);
+    c76_l505_action_invoke(&result_object);
+    c77_l506_action_invoke(&result_object);
+    c78_l507_action_invoke(&result_object);
+    c81_l512_action_invoke(&result_object);
+    c82_l513_action_invoke(&result_object);
+    c83_l514_action_invoke(&result_object);
+    c84_l516_action_invoke(&result_object);
+    c85_l518_action_invoke(&result_object);
+    c86_l519_action_invoke(&result_object);
+    c87_l521_action_invoke(&result_object);
+    c88_l522_action_invoke(&result_object);
+    c89_l524_action_invoke(&result_object);
+    c90_l525_action_invoke(&result_object);
+    c91_l527_action_invoke(&result_object);
+    c92_l528_action_invoke(&result_object);
+    c93_l529_action_invoke(&result_object);
+    c94_l530_action_invoke(&result_object);
+    c95_l531_action_invoke(&result_object);
+    c96_l532_action_invoke(&result_object);
+    c97_l533_action_invoke(&result_object);
+    c98_l534_action_invoke(&result_object);
 }
