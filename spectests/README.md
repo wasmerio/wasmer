@@ -123,11 +123,13 @@ Currently cranelift_wasm::ModuleEnvironment does not provide `declare_table_impo
 - `SKIP_SHARED_TABLE` [elem.wast]
 Currently sharing tables between instances/modules does not work. Below are some of the reasons it is hard to achieve.
 
-  - Rust naturally prevents such because of the possibility of race conditions
-  - ImportObject is just a wrapper, what we really care about is references to its content.
-  - Instance::new contains a mutation points, the part where after getting the object (memory or table) we push values to it
-    table[table_element_index] = func_addr
-  - Instance has its own created memories and tables and references to them must outlive Instance::new()
+  - Rust naturally prevents such because of the possibility of race conditions.
+  - `ImportObject` is just a wrapper, what we really care about are the references to its content.
+  - There are sections where we mutate these references in `Instance::new` function.
+    ```rust
+    table[table_element_index] = func_addr ...;
+    ```
+  - Instance has its own memories and tables (which are internal to a wasm module). References to them must outlive  the `Instance::new()` function.
   - Possible strategy
     ```rust
     // ImportObject should be passed by ref
@@ -138,11 +140,12 @@ Currently sharing tables between instances/modules does not work. Below are some
 
     // For parts where mutatation is really needed
     fn get_mut(&import) -> &mut ImportObject {
-        unsafe { transmute::<&ImportObject, &mut ImportObject>(import) }
+        let res = unsafe { transmute::<&ImportObject, &mut ImportObject>(import) };
+        res
     }
     ```
   - `elem.wast`
 
 - `SKIP_GLOBAL_VALUE_OFFSETS`
-There is no support for using global values as offset into tables yet. I believe this is an issue from cranelift side as well, so we will have to wait for it to be supported.
+There is no support for using global values as offset into tables yet.
   - `elem.wast`

@@ -21,18 +21,18 @@ fn create_module_1() -> ResultObject {
       (type (;0;) (func))
       (func (;0;) (type 0))
       (table (;0;) 10 anyfunc)
-      (elem (i32.const 0))
-      (elem (i32.const 0) 0 0)
-      (elem (i32.const 0))
-      (elem (i32.const 0) 0 0)
-      (elem (i32.const 0))
-      (elem (i32.const 0) 0 0)
-      (elem (i32.const 0))
-      (elem (i32.const 0) 0 0)
-      (elem (i32.const 0))
-      (elem (i32.const 0) 0 0)
-      (elem (i32.const 0))
-      (elem (i32.const 0) 0 0))
+      (elem (;0;) (i32.const 0))
+      (elem (;1;) (i32.const 0) 0 0)
+      (elem (;2;) (i32.const 0))
+      (elem (;3;) (i32.const 0) 0 0)
+      (elem (;4;) (i32.const 0))
+      (elem (;5;) (i32.const 0) 0 0)
+      (elem (;6;) (i32.const 0))
+      (elem (;7;) (i32.const 0) 0 0)
+      (elem (;8;) (i32.const 0))
+      (elem (;9;) (i32.const 0) 0 0)
+      (elem (;10;) (i32.const 0))
+      (elem (;11;) (i32.const 0) 0 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -55,7 +55,7 @@ fn create_module_2() -> ResultObject {
       (type (;0;) (func))
       (func (;0;) (type 0))
       (table (;0;) 10 anyfunc)
-      (elem (i32.const 0) 0))
+      (elem (;0;) (i32.const 0) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -78,7 +78,7 @@ fn create_module_3() -> ResultObject {
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 10 anyfunc))
       (func (;0;) (type 0))
-      (elem (i32.const 0) 0))
+      (elem (;0;) (i32.const 0) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -101,11 +101,11 @@ fn create_module_4() -> ResultObject {
       (type (;0;) (func))
       (func (;0;) (type 0))
       (table (;0;) 10 anyfunc)
-      (elem (i32.const 0) 0)
-      (elem (i32.const 3) 0)
-      (elem (i32.const 7) 0)
-      (elem (i32.const 5) 0)
-      (elem (i32.const 3) 0))
+      (elem (;0;) (i32.const 0) 0)
+      (elem (;1;) (i32.const 3) 0)
+      (elem (;2;) (i32.const 7) 0)
+      (elem (;3;) (i32.const 5) 0)
+      (elem (;4;) (i32.const 3) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -128,11 +128,11 @@ fn create_module_5() -> ResultObject {
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 10 anyfunc))
       (func (;0;) (type 0))
-      (elem (i32.const 9) 0)
-      (elem (i32.const 3) 0)
-      (elem (i32.const 7) 0)
-      (elem (i32.const 3) 0)
-      (elem (i32.const 5) 0))
+      (elem (;0;) (i32.const 9) 0)
+      (elem (;1;) (i32.const 3) 0)
+      (elem (;2;) (i32.const 7) 0)
+      (elem (;3;) (i32.const 3) 0)
+      (elem (;4;) (i32.const 5) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -166,8 +166,8 @@ fn create_module_6() -> ResultObject {
       (table (;0;) 10 anyfunc)
       (export \"call-7\" (func 2))
       (export \"call-9\" (func 3))
-      (elem (i32.const 7) 0)
-      (elem (i32.const 9) 1))
+      (elem (;0;) (i32.const 7) 0)
+      (elem (;1;) (i32.const 9) 1))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -216,7 +216,7 @@ fn create_module_7() -> ResultObject {
       (type (;0;) (func))
       (func (;0;) (type 0))
       (table (;0;) 10 anyfunc)
-      (elem (i32.const 9) 0))
+      (elem (;0;) (i32.const 9) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -239,7 +239,7 @@ fn create_module_8() -> ResultObject {
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 10 anyfunc))
       (func (;0;) (type 0))
-      (elem (i32.const 9) 0))
+      (elem (;0;) (i32.const 9) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -260,7 +260,7 @@ fn test_module_8() {
 fn create_module_9() -> ResultObject {
     let module_str = "(module
       (table (;0;) 0 anyfunc)
-      (elem (i32.const 0)))
+      (elem (;0;) (i32.const 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -281,7 +281,7 @@ fn test_module_9() {
 fn create_module_10() -> ResultObject {
     let module_str = "(module
       (import \"spectest\" \"table\" (table (;0;) 0 anyfunc))
-      (elem (i32.const 0)))
+      (elem (;0;) (i32.const 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -302,7 +302,7 @@ fn test_module_10() {
 fn create_module_11() -> ResultObject {
     let module_str = "(module
       (table (;0;) 0 0 anyfunc)
-      (elem (i32.const 0)))
+      (elem (;0;) (i32.const 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -323,7 +323,7 @@ fn test_module_11() {
 fn create_module_12() -> ResultObject {
     let module_str = "(module
       (table (;0;) 20 anyfunc)
-      (elem (i32.const 20)))
+      (elem (;0;) (i32.const 20)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -346,7 +346,7 @@ fn create_module_13() -> ResultObject {
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 0 anyfunc))
       (func (;0;) (type 0))
-      (elem (i32.const 0) 0))
+      (elem (;0;) (i32.const 0) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -369,7 +369,7 @@ fn create_module_14() -> ResultObject {
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 0 100 anyfunc))
       (func (;0;) (type 0))
-      (elem (i32.const 0) 0))
+      (elem (;0;) (i32.const 0) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -392,7 +392,7 @@ fn create_module_15() -> ResultObject {
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 0 anyfunc))
       (func (;0;) (type 0))
-      (elem (i32.const 1) 0))
+      (elem (;0;) (i32.const 1) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -415,7 +415,7 @@ fn create_module_16() -> ResultObject {
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 0 30 anyfunc))
       (func (;0;) (type 0))
-      (elem (i32.const 1) 0))
+      (elem (;0;) (i32.const 1) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -517,8 +517,8 @@ fn create_module_17() -> ResultObject {
         call_indirect (type 0))
       (table (;0;) 10 anyfunc)
       (export \"call-overwritten\" (func 2))
-      (elem (i32.const 9) 0)
-      (elem (i32.const 9) 1))
+      (elem (;0;) (i32.const 9) 0)
+      (elem (;1;) (i32.const 9) 1))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -561,8 +561,8 @@ fn create_module_18() -> ResultObject {
         i32.const 9
         call_indirect (type 0))
       (export \"call-overwritten-element\" (func 2))
-      (elem (i32.const 9) 0)
-      (elem (i32.const 9) 1))
+      (elem (;0;) (i32.const 9) 0)
+      (elem (;1;) (i32.const 9) 1))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -614,8 +614,8 @@ fn create_module_19() -> ResultObject {
       (export \"call-7\" (func 2))
       (export \"call-8\" (func 3))
       (export \"call-9\" (func 4))
-      (elem (i32.const 8) 0)
-      (elem (i32.const 9) 1))
+      (elem (;0;) (i32.const 8) 0)
+      (elem (;1;) (i32.const 9) 1))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -643,8 +643,8 @@ fn create_module_20() -> ResultObject {
         i32.const 67)
       (func (;1;) (type 0) (result i32)
         i32.const 68)
-      (elem (i32.const 7) 0)
-      (elem (i32.const 8) 1))
+      (elem (;0;) (i32.const 7) 0)
+      (elem (;1;) (i32.const 8) 1))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -670,8 +670,8 @@ fn create_module_21() -> ResultObject {
         i32.const 69)
       (func (;1;) (type 0) (result i32)
         i32.const 70)
-      (elem (i32.const 8) 0)
-      (elem (i32.const 9) 1))
+      (elem (;0;) (i32.const 8) 0)
+      (elem (;1;) (i32.const 9) 1))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

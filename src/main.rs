@@ -15,7 +15,6 @@ extern crate target_lexicon;
 extern crate nix;
 #[macro_use]
 extern crate log;
-extern crate spin;
 use std::error::Error;
 use std::fs::File;
 use std::io;
