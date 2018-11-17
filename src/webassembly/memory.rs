@@ -90,15 +90,13 @@ impl LinearMemory {
             return None;
         }
 
-        let prev_bytes = self.mmap.len();
+        let prev_bytes = (prev_pages * PAGE_SIZE) as usize;
         let new_bytes = (new_pages * PAGE_SIZE) as usize;
 
-        // Updating self.mmap if new_bytes > prev_bytes
+        // Updating self.current if new_bytes > prev_bytes
         if new_bytes > prev_bytes {
-            debug!("new memory = {:?}", self.mmap);
+            self.current = new_pages;
         }
-
-        self.current = new_pages;
 
         Some(prev_pages as i32)
     }

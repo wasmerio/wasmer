@@ -508,13 +508,14 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
     let old_mem_size = instance
         .memory_mut(memory_index as usize)
         .grow(size)
-        .unwrap_or(i32::max_value()); // Should be -1 ?
+        .unwrap_or(-1);
 
-    // Get new memory bytes
-    let new_mem_bytes = (old_mem_size as usize + size  as usize) * LinearMemory::WASM_PAGE_SIZE;
-
-    // Update data_pointer
-    instance.data_pointers.memories.get_unchecked_mut(memory_index  as usize).len = new_mem_bytes;
+    if old_mem_size != -1 {
+        // Get new memory bytes
+        let new_mem_bytes = (old_mem_size as usize + size  as usize) * LinearMemory::WASM_PAGE_SIZE;
+        // Update data_pointer
+        instance.data_pointers.memories.get_unchecked_mut(memory_index  as usize).len = new_mem_bytes;
+    }
 
     old_mem_size
 }

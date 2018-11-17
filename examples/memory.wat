@@ -14,10 +14,12 @@
         (drop)
         (memory.grow (i32.const 0))
 
-
         (drop)
         (memory.grow (i32.const 2))
 
+        (drop)
+        (memory.grow (i32.const 65536))
+        
         (drop)
         (memory.grow (i32.const 12))
     )
