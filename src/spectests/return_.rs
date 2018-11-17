@@ -412,7 +412,7 @@ fn create_module_1() -> ResultObject {
       (export \"as-compare-right\" (func 56))
       (export \"as-convert-operand\" (func 57))
       (export \"as-memory.grow-size\" (func 58))
-      (elem (i32.const 0) 36))
+      (elem (;0;) (i32.const 0) 36))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

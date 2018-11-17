@@ -427,7 +427,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         // Based on the index provided, we need to know the offset into memories array
         // Each element in the memories array has a size of (ptr_size * 2)
-        let memory_data_offset = (memory_index as usize * ptr_size * 2) as i32;
+        let memory_data_offset = 0; // (memory_index as usize * ptr_size * 2) as i32;
 
         // Load value at the (base + memory_data_offset)
         // which is the address of data_pointer.memories[index].data

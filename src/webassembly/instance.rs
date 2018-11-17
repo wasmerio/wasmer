@@ -24,6 +24,7 @@ use super::memory::LinearMemory;
 use super::module::Export;
 use super::module::Module;
 use super::relocation::{Reloc, RelocSink, RelocationType};
+use super::math_intrinsics;
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
 type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
@@ -57,7 +58,7 @@ fn get_function_addr(
     let func_pointer = if index < len {
         import_functions[index]
     } else {
-        (&functions[func_index.index() - len]).as_ptr()
+        (functions[index - len]).as_ptr()
     };
     func_pointer
 }
@@ -119,9 +120,9 @@ pub struct InstanceOptions {
     pub mock_missing_imports: bool,
 }
 
-extern fn mock_fn() -> i32 {
-    return 0;
-}
+// extern fn mock_fn() -> i32 {
+//     return 0;
+// }
 
 impl Instance {
     pub const TABLES_OFFSET: usize = 0; // 0 on 64-bit | 0 on 32-bit
@@ -134,7 +135,7 @@ impl Instance {
     pub fn new(
         module: &Module,
         import_object: ImportObject<&str, &str>,
-        options: InstanceOptions,
+        _options: InstanceOptions,
     ) -> Result<Instance, ErrorKind> {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
@@ -244,28 +245,28 @@ impl Instance {
                             grow_memory as isize
                         },
                         RelocationType::LibCall(LibCall::CeilF32) => {
-                            _ceilf32 as isize
+                            math_intrinsics::ceilf32 as isize
                         },
                         RelocationType::LibCall(LibCall::FloorF32) => {
-                            _floorf32 as isize
+                            math_intrinsics::floorf32 as isize
                         },
                         RelocationType::LibCall(LibCall::TruncF32) => {
-                            _truncf32 as isize
+                            math_intrinsics::truncf32 as isize
                         },
                         RelocationType::LibCall(LibCall::NearestF32) => {
-                            _nearbyintf32 as isize
+                            math_intrinsics::nearbyintf32 as isize
                         },
                         RelocationType::LibCall(LibCall::CeilF64) => {
-                            _ceilf64 as isize
+                            math_intrinsics::ceilf64 as isize
                         },
                         RelocationType::LibCall(LibCall::FloorF64) => {
-                            _floorf64 as isize
+                            math_intrinsics::floorf64 as isize
                         },
                         RelocationType::LibCall(LibCall::TruncF64) => {
-                            _truncf64 as isize
+                            math_intrinsics::truncf64 as isize
                         },
                         RelocationType::LibCall(LibCall::NearestF64) => {
-                            _nearbyintf64 as isize
+                            math_intrinsics::nearbyintf64 as isize
                         },
                         _ => unimplemented!()
                         // RelocationType::Intrinsic(name) => {
@@ -297,7 +298,7 @@ impl Instance {
         }
 
         // Looping through and getting the imported objects
-        for (key, value) in import_object.map {
+        for (_key, value) in import_object.map {
             match value {
                 ImportValue::Memory(value) =>
                     imported_memories.push(value),
@@ -420,7 +421,7 @@ impl Instance {
                 .info
                 .start_func
                 .or_else(|| match module.info.exports.get("main") {
-                    Some(Export::Function(index)) => Some(index.to_owned()),
+                    Some(Export::Function(index)) => Some(*index),
                     _ => None,
                 });
 
@@ -521,45 +522,4 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_size() as u32
-}
-
-// Because of this bug https://github.com/rust-lang/rust/issues/34123
-// We create internal functions for it
-
-use std::intrinsics::{
-    ceilf32, ceilf64, floorf32, floorf64, nearbyintf32, nearbyintf64, truncf32, truncf64,
-};
-
-// F32
-unsafe extern "C" fn _ceilf32(x: f32) -> f32 {
-    ceilf32(x)
-}
-
-unsafe extern "C" fn _floorf32(x: f32) -> f32 {
-    floorf32(x)
-}
-
-unsafe extern "C" fn _truncf32(x: f32) -> f32 {
-    truncf32(x)
-}
-
-unsafe extern "C" fn _nearbyintf32(x: f32) -> f32 {
-    nearbyintf32(x)
-}
-
-// F64
-unsafe extern "C" fn _ceilf64(x: f64) -> f64 {
-    ceilf64(x)
-}
-
-unsafe extern "C" fn _floorf64(x: f64) -> f64 {
-    floorf64(x)
-}
-
-unsafe extern "C" fn _truncf64(x: f64) -> f64 {
-    truncf64(x)
-}
-
-unsafe extern "C" fn _nearbyintf64(x: f64) -> f64 {
-    nearbyintf64(x)
 }

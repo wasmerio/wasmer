@@ -635,7 +635,7 @@ fn create_module_1() -> ResultObject {
       (export \"break-bare\" (func 36))
       (export \"break-value\" (func 37))
       (export \"effects\" (func 38))
-      (elem (i32.const 0) 16))
+      (elem (;0;) (i32.const 0) 16))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

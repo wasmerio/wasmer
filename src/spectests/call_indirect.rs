@@ -512,7 +512,7 @@ fn create_module_1() -> ResultObject {
       (export \"as-tee_local-value\" (func 63))
       (export \"as-set_global-value\" (func 64))
       (export \"as-load-operand\" (func 65))
-      (elem (i32.const 0) 0 1 2 3 4 5 6 7 10 8 11 9 35 36 43 44 45 46 47 12 13 14 15 37 38 39 40 41 42))
+      (elem (;0;) (i32.const 0) 0 1 2 3 4 5 6 7 10 8 11 9 35 36 43 44 45 46 47 12 13 14 15 37 38 39 40 41 42))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")

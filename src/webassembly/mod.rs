@@ -5,11 +5,13 @@ pub mod memory;
 pub mod module;
 pub mod relocation;
 pub mod utils;
+pub mod math_intrinsics;
 
 use std::panic;
 use std::str::FromStr;
 use target_lexicon;
 use wasmparser;
+use wasmparser::WasmDecoder;
 
 pub use self::errors::{Error, ErrorKind};
 pub use self::import_object::{ImportObject, ImportValue};
@@ -46,7 +48,13 @@ pub fn instantiate(
 ) -> Result<ResultObject, ErrorKind> {
     let module = compile(buffer_source)?;
     debug!("webassembly - creating instance");
-    let instance = Instance::new(&module, import_object, InstanceOptions { mock_missing_imports: true })?;
+    let instance = Instance::new(
+        &module,
+        import_object,
+        InstanceOptions {
+            mock_missing_imports: true,
+        },
+    )?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }
@@ -73,11 +81,9 @@ pub fn instantiate_streaming(
 /// webassembly::CompileError.
 pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     // TODO: This should be automatically validated when creating the Module
-    let valid = validate(&buffer_source);
-    debug!("webassembly - valid {:?}", valid);
-    if !valid {
-        return Err(ErrorKind::CompileError("Module not valid".to_string()));
-    }
+    debug!("webassembly - validating module");
+    validate_or_error(&buffer_source)?;
+
     debug!("webassembly - creating module");
     let module = Module::from_bytes(buffer_source, triple!("x86_64"), None)?;
     debug!("webassembly - module created");
@@ -89,8 +95,25 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
 /// array of WebAssembly binary code, returning whether the bytes
 /// form a valid wasm module (true) or not (false).
 /// Params:
-/// * `buffer_source`: A `Vec<u8>` containing the
+/// * `buffer_source`: A `&[u8]` containing the
 ///   binary code of the .wasm module you want to compile.
-pub fn validate(buffer_source: &Vec<u8>) -> bool {
-    wasmparser::validate(buffer_source, None)
+pub fn validate(buffer_source: &[u8]) -> bool {
+    validate_or_error(buffer_source).is_ok()
+}
+
+pub fn validate_or_error(bytes: &[u8]) -> Result<(), ErrorKind> {
+    let mut parser = wasmparser::ValidatingParser::new(bytes, None);
+    loop {
+        let state = parser.read();
+        match *state {
+            wasmparser::ParserState::EndWasm => return Ok(()),
+            wasmparser::ParserState::Error(err) => {
+                return Err(ErrorKind::CompileError(format!(
+                    "Validation error: {}",
+                    err.message
+                )))
+            }
+            _ => (),
+        }
+    }
 }
