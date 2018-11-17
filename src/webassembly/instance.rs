@@ -193,7 +193,7 @@ impl Instance {
                 func_context
                     .compile_and_emit(&*isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
                     .map_err(|e| {
-                        println!("CompileError: {}", e.to_string());
+                        debug!("CompileError: {}", e.to_string());
                         ErrorKind::CompileError(e.to_string())
                     })?;
                 // We set this code_buf to be readable & executable
