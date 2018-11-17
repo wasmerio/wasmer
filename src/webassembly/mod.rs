@@ -14,7 +14,7 @@ use wasmparser;
 use wasmparser::WasmDecoder;
 
 pub use self::errors::{Error, ErrorKind};
-pub use self::import_object::ImportObject;
+pub use self::import_object::{ImportObject, ImportValue};
 pub use self::instance::{Instance, InstanceOptions};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
@@ -50,7 +50,7 @@ pub fn instantiate(
     debug!("webassembly - creating instance");
     let instance = Instance::new(
         &module,
-        &import_object,
+        import_object,
         InstanceOptions {
             mock_missing_imports: true,
         },

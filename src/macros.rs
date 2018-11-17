@@ -23,3 +23,17 @@ macro_rules! include_wast2wasm_bytes {
         wat2wasm(WAST_BYTES.to_vec()).expect(&format!("Can't convert {} file to wasm", $x))
     }};
 }
+
+// #[cfg(feature= "debug")]
+#[macro_export]
+macro_rules! debug {
+    ($fmt:expr) => (println!(concat!("Wasmer::", $fmt)));
+    ($fmt:expr, $($arg:tt)*) => (println!(concat!("Wasmer::", $fmt, "\n"), $($arg)*));
+}
+
+// #[cfg(not(feature= "debug"))]
+// #[macro_export]
+// macro_rules! debug {
+//     ($fmt:expr) => {};
+//     ($fmt:expr, $($arg:tt)*) => {};
+// }
