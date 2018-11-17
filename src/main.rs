@@ -13,6 +13,8 @@ extern crate wasmparser;
 #[macro_use]
 extern crate target_lexicon;
 extern crate nix;
+#[macro_use]
+extern crate log;
 
 use std::fs::File;
 use std::io;
