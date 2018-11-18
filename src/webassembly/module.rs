@@ -391,7 +391,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base,
             offset: Offset32::new(table_data_offset + ptr_size as i32),
             global_type: self.pointer_type(),
-            readonly: true,
+            readonly: false,
         });
 
         // Create table based on the data above
@@ -399,7 +399,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base_gv,
             min_size: Imm64::new(0),
             bound_gv,
-            element_size: Imm64::new(i64::from(self.pointer_bytes()) * 2),
+            element_size: Imm64::new(i64::from(self.pointer_bytes())),
             index_type: I64,
         });
 
@@ -525,18 +525,22 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // The `callee` value is an index into a table of function pointers.
         // Apparently, that table is stored at absolute address 0 in this dummy environment.
         // TODO: Generate bounds checking code.
-        let ptr = self.pointer_type();
+        let ptr = native_pointer_type();
         let callee_offset = if ptr == I32 {
             // pos.ins().imul_imm(callee, 4)
             callee
         } else {
-            let ext = pos.ins().uextend(I64, callee);
+            let ext = pos.ins().uextend(ptr, callee);
             ext
             // pos.ins().imul_imm(ext, 4)
         };
+        // let entry_size = native_pointer_size() as i64 * 2;
+        // let callee_scaled = pos.ins().imul_imm(callee_offset, entry_size);
+
         let entry_addr = pos
             .ins()
-            .table_addr(self.pointer_type(), table, callee_offset, 0);
+            .table_addr(ptr, table, callee_offset, 0);
+
         let mut mflags = ir::MemFlags::new();
         mflags.set_notrap();
         mflags.set_aligned();
