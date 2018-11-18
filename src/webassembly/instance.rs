@@ -16,15 +16,20 @@ use std::iter::Iterator;
 use std::ptr::write_unaligned;
 use std::slice;
 use std::sync::Arc;
+use std::mem::size_of;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
-use super::import_object::ImportObject;
+use super::import_object::{ImportObject, ImportValue};
 use super::memory::LinearMemory;
 use super::module::Export;
 use super::module::Module;
 use super::relocation::{Reloc, RelocSink, RelocationType};
 use super::math_intrinsics;
+
+type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
+type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
+type GlobalsSlice = UncheckedSlice<u8>;
 
 pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
     match unsafe {
@@ -59,35 +64,15 @@ fn get_function_addr(
     func_pointer
 }
 
-// TODO: To be removed.
-// #[derive(Debug)]
-// #[repr(C, packed)]
-// pub struct VmCtx<'phantom> {
-//     pub user_data: UserData,
-//     globals: UncheckedSlice<u8>,
-//     memories: UncheckedSlice<UncheckedSlice<u8>>,
-//     tables: UncheckedSlice<BoundedSlice<usize>>,
-//     phantom: PhantomData<&'phantom ()>,
-// }
-
-// // TODO: To be removed.
-// #[derive(Debug)]
-// #[repr(C, packed)]
-// pub struct UserData {
-//     // pub process: Dispatch<Process>,
-//     pub instance: Instance,
-// }
-
 /// An Instance of a WebAssembly module
+/// NOTE: There is an assumption that data_pointers is always the
+///      first field
+#[repr(C)]
 #[derive(Debug)]
 #[repr(C)]
 pub struct Instance {
     // C-like pointers to data (heaps, globals, tables)
     pub data_pointers: DataPointers,
-
-    // Default memory bound
-    // TODO: Support for only one LinearMemory for now.
-    pub default_memory_bound: i32,
 
     /// WebAssembly table data
     // pub tables: Arc<Vec<RwLock<Vec<usize>>>>,
@@ -114,17 +99,20 @@ pub struct Instance {
 
 /// Contains pointers to data (heaps, globals, tables) needed
 /// by Cranelift.
+/// NOTE: Rearranging the fields will break the memory arrangement model
+#[repr(C)]
 #[derive(Debug)]
 #[repr(C)]
 pub struct DataPointers {
     // Pointer to tables
-    pub tables: UncheckedSlice<BoundedSlice<usize>>,
+    pub tables: TablesSlice,
 
     // Pointer to memories
-    pub memories: UncheckedSlice<UncheckedSlice<u8>>,
+    pub memories: MemoriesSlice,
 
     // Pointer to globals
-    pub globals: UncheckedSlice<u8>,
+    pub globals: GlobalsSlice,
+
 }
 
 pub struct InstanceOptions {
@@ -133,23 +121,32 @@ pub struct InstanceOptions {
     pub isa: Box<TargetIsa>,
 }
 
-extern "C" fn mock_fn() -> i32 {
-    return 0;
-}
+// extern fn mock_fn() -> i32 {
+//     return 0;
+// }
 
 impl Instance {
+    pub const TABLES_OFFSET: usize = 0; // 0 on 64-bit | 0 on 32-bit
+    pub const MEMORIES_OFFSET: usize = size_of::<TablesSlice>(); // 8 on 64-bit | 4 on 32-bit
+    pub const GLOBALS_OFFSET: usize = Instance::MEMORIES_OFFSET + size_of::<MemoriesSlice>(); // 16 on 64-bit | 8 on 32-bit
+
     /// Create a new `Instance`.
+    /// TODO: Raise an error when expected import is not part of imported object
+    ///     Also make sure imports that are not declared do not get added to the instance
     pub fn new(
         module: &Module,
-        import_object: &ImportObject<&str, &str>,
+        import_object: ImportObject<&str, &str>,
         options: InstanceOptions,
     ) -> Result<Instance, ErrorKind> {
         let mut tables: Vec<Vec<usize>> = Vec::new();
         let mut memories: Vec<LinearMemory> = Vec::new();
         let mut globals: Vec<u8> = Vec::new();
+
         let mut functions: Vec<Vec<u8>> = Vec::new();
         let mut import_functions: Vec<*const u8> = Vec::new();
-        // let mut code_base: *const () = ptr::null();
+
+        let mut imported_memories: Vec<LinearMemory> = Vec::new();
+        let mut imported_tables: Vec<Vec<usize>> = Vec::new();
 
         debug!("Instance - Instantiating functions");
         // Instantiate functions
@@ -166,25 +163,26 @@ impl Instance {
             // We walk through the imported functions and set the relocations
             // for each of this functions to be an empty vector (as is defined outside of wasm)
             for (module, field) in module.info.imported_funcs.iter() {
-                let function = import_object.get(&module.as_str(), &field.as_str());
-                let function = if options.mock_missing_imports {
-                    function.unwrap_or_else(|| {
-                        debug!(
-                            "The import {}.{} is not provided, therefore will be mocked.",
-                            module, field
-                        );
-                        mock_fn as *const u8
-                    })
-                } else {
-                    function.ok_or_else(|| {
-                        ErrorKind::LinkError(format!(
+                let imported = import_object
+                    .get(&module.as_str(), &field.as_str());
+                let function = match imported {
+                    Some(ImportValue::Func(f)) => f,
+                    None => {
+                        // if options.mock_missing_imports {
+                        //     debug!("The import {}.{} is not provided, therefore will be mocked.", module, field);
+                        //     mock_fn as *const u8
+                        // }
+                        // else {
+                        return Err(ErrorKind::LinkError(format!(
                             "Imported function {}.{} was not provided in the import_functions",
                             module, field
-                        ))
-                    })?
+                        )));
+                        // }
+                    },
+                    other => panic!("Expected function import, received {:?}", other)
                 };
                 // println!("GET FUNC {:?}", function);
-                import_functions.push(function);
+                import_functions.push(*function);
                 relocations.push(vec![]);
             }
 
@@ -295,61 +293,46 @@ impl Instance {
                     }
                 }
             }
+        }
 
-            // We only want to allocate in memory if there is more than
-            // 0 functions. Otherwise reserving a 0-sized memory region
-            // cause a panic error
-            // if total_size > 0 {
-            //     // Allocate the total memory for this functions
-            //     // let map = MmapMut::map_anon(total_size).unwrap();
-            //     // let region_start = map.as_ptr() as usize;
-            //     // code_base = map.as_ptr() as *const ();
-
-            //     // // Emit this functions to memory
-            //     for (ref func_context, func_offset) in context_and_offsets.iter() {
-            //         let mut trap_sink = TrapSink::new(*func_offset);
-            //         let mut reloc_sink = RelocSink::new();
-            //         let mut code_buf: Vec<u8> = Vec::new();
-
-            //         // let mut func_pointer =  as *mut u8;
-            //         unsafe {
-            //             func_context.emit_to_memory(
-            //                 &*isa,
-            //                 &mut code_buf,
-            //                 &mut reloc_sink,
-            //                 &mut trap_sink,
-            //             );
-            //         };
-            //         let func_offset = code_buf.as_ptr() as usize;
-            //         functions.push(*func_offset);
-            //     }
-
-            //     // Set protection of this memory region to Read + Execute
-            //     // so we are able to execute the functions emitted to memory
-            //     // unsafe {
-            //     //     region::protect(region_start as *mut u8, total_size, region::Protection::ReadExecute)
-            //     //         .expect("unable to make memory readable+executable");
-            //     // }
-            // }
+        // Looping through and getting the imported objects
+        for (_key, value) in import_object.map {
+            match value {
+                ImportValue::Memory(value) =>
+                    imported_memories.push(value),
+                ImportValue::Table(value) =>
+                    imported_tables.push(value),
+                _ => (),
+            }
         }
 
         debug!("Instance - Instantiating tables");
         // Instantiate tables
         {
-            // Reserve table space
-            tables.reserve_exact(module.info.tables.len());
+            // Reserve space for tables
+            tables.reserve_exact(imported_tables.len() + module.info.tables.len());
+
+            // Get imported tables
+            for table in imported_tables {
+                tables.push(table);
+            }
+
+            // Get tables in module
             for table in &module.info.tables {
                 let len = table.entity.size;
                 let mut v = Vec::with_capacity(len);
                 v.resize(len, 0);
                 tables.push(v);
             }
+
             // instantiate tables
             for table_element in &module.info.table_elements {
+                // TODO: We shouldn't assert here since we are returning a Result<Instance, ErrorKind>
                 assert!(
                     table_element.base.is_none(),
                     "globalvalue base not supported yet."
                 );
+
                 let base = 0;
 
                 let table = &mut tables[table_element.table_index.index()];
@@ -369,22 +352,24 @@ impl Instance {
         debug!("Instance - Instantiating memories");
         // Instantiate memories
         {
-            // Allocate the underlying memory and initialize it to all zeros.
-            let total_memories = module.info.memories.len();
-            if total_memories > 0 {
-                memories.reserve_exact(total_memories);
-                for memory in &module.info.memories {
-                    let memory = memory.entity;
-                    let v = LinearMemory::new(
-                        memory.pages_count as u32,
-                        memory.maximum.map(|m| m as u32),
-                    );
-                    memories.push(v);
-                }
-            } else {
-                memories.reserve_exact(1);
-                memories.push(LinearMemory::new(0, None));
+            // Reserve space for memories
+            memories.reserve_exact(imported_memories.len() + module.info.memories.len());
+
+            // Get imported memories
+            for memory in imported_memories {
+                memories.push(memory);
             }
+
+            // Get memories in module
+            for memory in &module.info.memories {
+                let memory = memory.entity;
+                let v = LinearMemory::new(
+                    memory.pages_count as u32,
+                    memory.maximum.map(|m| m as u32),
+                );
+                memories.push(v);
+            }
+
             for init in &module.info.data_initializers {
                 debug_assert!(init.base.is_none(), "globalvar base not supported yet");
                 let offset = init.offset;
@@ -395,6 +380,7 @@ impl Instance {
         }
 
         debug!("Instance - Instantiating globals");
+        // TODO: Fix globals import
         // Instantiate Globals
         {
             let globals_count = module.info.globals.len();
@@ -406,6 +392,7 @@ impl Instance {
             let globals_data = unsafe {
                 slice::from_raw_parts_mut(globals.as_mut_ptr() as *mut i64, globals_count)
             };
+
             for (i, global) in module.info.globals.iter().enumerate() {
                 let value: i64 = match global.entity.initializer {
                     GlobalInit::I32Const(n) => n as _,
@@ -439,9 +426,11 @@ impl Instance {
         // TODO: Refactor repetitive code
         let tables_pointer: Vec<BoundedSlice<usize>> =
             tables.iter().map(|table| table[..].into()).collect();
-        let memories_pointer: Vec<UncheckedSlice<u8>> =
-            memories.iter().map(|mem| mem[..].into()).collect();
-        let globals_pointer: UncheckedSlice<u8> = globals[..].into();
+        let memories_pointer: Vec<BoundedSlice<u8>> =
+            memories.iter().map(
+                |mem| BoundedSlice::new(&mem[..], mem.current as usize * LinearMemory::WASM_PAGE_SIZE),
+            ).collect();
+        let globals_pointer: GlobalsSlice = globals[..].into();
 
         let data_pointers = DataPointers {
             memories: memories_pointer[..].into(),
@@ -449,18 +438,16 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
-        let default_memory_bound = LinearMemory::WASM_PAGE_SIZE as i32;
+        // let mem = data_pointers.memories;
 
         Ok(Instance {
+            data_pointers,
             tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
             memories: Arc::new(memories.into_iter().collect()),
             globals,
             functions,
             import_functions,
             start_func,
-            data_pointers,
-            default_memory_bound,
-            // code_base: code_base,
         })
     }
 
@@ -488,37 +475,6 @@ impl Instance {
         }
     }
 
-    // TODO: To be removed.
-    // pub fn generate_context(&self) -> VmCtx {
-    //     let memories: Vec<UncheckedSlice<u8>> =
-    //         self.memories.iter().map(|mem| mem[..].into()).collect();
-    //     let tables: Vec<BoundedSlice<usize>> =
-    //         self.tables.iter().map(|table| table[..].into()).collect();
-    //     let globals: UncheckedSlice<u8> = self.globals[..].into();
-
-    //     // println!("GENERATING CONTEXT {:?}", self.globals);
-
-    //     // assert!(memories.len() >= 1, "modules must have at least one memory");
-    //     // the first memory has a space of `mem::size_of::<VmCtxData>()` rounded
-    //     // up to the 4KiB before it. We write the VmCtxData into that.
-    //     let instance = self.clone();
-    //     VmCtx {
-    //         globals: globals,
-    //         memories: memories[..].into(),
-    //         tables: tables[..].into(),
-    //         user_data: UserData {
-    //             // process,
-    //             instance: instance,
-    //         },
-    //         phantom: PhantomData,
-    //     }
-    //     // let main_heap_ptr = memories[0].as_mut_ptr() as *mut VmCtxData;
-    //     // unsafe {
-    //     //     main_heap_ptr.sub(1).write(data);
-    //     //     &*(main_heap_ptr as *const VmCtx)
-    //     // }
-    // }
-
     /// Returns a slice of the contents of allocated linear memory.
     pub fn inspect_memory(&self, memory_index: usize, address: usize, len: usize) -> &[u8] {
         &self
@@ -540,46 +496,6 @@ impl Instance {
     // }
 }
 
-impl Clone for Instance {
-    fn clone(&self) -> Instance {
-        // TODO: Refactor repetitive code
-        let tables_pointer: Vec<BoundedSlice<usize>> =
-            self.tables.iter().map(|table| table[..].into()).collect();
-        let memories_pointer: Vec<UncheckedSlice<u8>> =
-            self.memories.iter().map(|mem| mem[..].into()).collect();
-        let globals_pointer: UncheckedSlice<u8> = self.globals[..].into();
-
-        let data_pointers = DataPointers {
-            memories: memories_pointer[..].into(),
-            globals: globals_pointer,
-            tables: tables_pointer[..].into(),
-        };
-
-        let default_memory_bound = self.memories.get(0).unwrap().current as i32;
-
-        Instance {
-            tables: Arc::clone(&self.tables),
-            memories: Arc::clone(&self.memories),
-            globals: self.globals.clone(),
-            functions: self.functions.clone(),
-            start_func: self.start_func.clone(),
-            import_functions: self.import_functions.clone(),
-            data_pointers,
-            default_memory_bound,
-            // code_base: self.code_base,
-        }
-    }
-}
-
-/// TODO:
-///   Need to improve how memories are stored and grown.
-///   Dynamic memory is inefficient both for growing and for access
-///   Cranelift's dynamic heap assumes a _statically-known_ number of LinearMemories,
-///   because it expects a corresponding global variable for each LinearMemory
-///
-/// Reference:
-/// - https://cranelift.readthedocs.io/en/latest/ir.html?highlight=vmctx#heap-examples,
-///
 extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance) -> i32 {
     // TODO: Support for only one LinearMemory for now.
     debug_assert_eq!(
@@ -590,33 +506,16 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
     let old_mem_size = instance
         .memory_mut(memory_index as usize)
         .grow(size)
-        .unwrap_or(i32::max_value()); // Should be -1 ?
+        .unwrap_or(-1);
 
-    // Update the default_memory_bound
-    instance.default_memory_bound =
-        (instance.memories.get(0).unwrap().current as usize * LinearMemory::WASM_PAGE_SIZE) as i32;
+    if old_mem_size != -1 {
+        // Get new memory bytes
+        let new_mem_bytes = (old_mem_size as usize + size  as usize) * LinearMemory::WASM_PAGE_SIZE;
+        // Update data_pointer
+        instance.data_pointers.memories.get_unchecked_mut(memory_index  as usize).len = new_mem_bytes;
+    }
 
-    // The grown memory changed so data_pointers need to be updated as well.
-    // TODO: Refactor repetitive code
-    let tables_pointer: Vec<BoundedSlice<usize>> = instance
-        .tables
-        .iter()
-        .map(|table| table[..].into())
-        .collect();
-    let memories_pointer: Vec<UncheckedSlice<u8>> =
-        instance.memories.iter().map(|mem| mem[..].into()).collect();
-    let globals_pointer: UncheckedSlice<u8> = instance.globals[..].into();
-
-    let data_pointers = DataPointers {
-        memories: memories_pointer[..].into(),
-        globals: globals_pointer,
-        tables: tables_pointer[..].into(),
-    };
-
-    // Update data_pointers
-    instance.data_pointers = data_pointers;
-
-    return old_mem_size;
+    old_mem_size
 }
 
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {

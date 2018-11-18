@@ -79,7 +79,7 @@ This spectests are currently covered:
 - linking.wast
 - loop.wast ✅
 - memory.wast ✅
-- memory_grow.wast
+- memory_grow.wast ✅
 - memory_redundancy.wast ✅
 - memory_trap.wast
 - names.wast ✅
@@ -112,4 +112,41 @@ There are some cases that we decided to skip for now to fasten the time to relea
 - `SKIP_MUTABLE_GLOBALS`: Right now the WASM parser can't validate a module with imported/exported mut globals. We decided to skip the tests until Cranelift and wasmparser can handle this (original spec proposal: https://github.com/WebAssembly/mutable-global). Spectests affected:
   - `globals.wast`
 - `SKIP_CALL_INDIRECT_TYPE_MISMATCH`: we implemented traps in a fast way. We haven't covered yet the type mismatch on `call_indirect`. Specs affected:
+
   - `call_indirect.wast`
+
+- `SKIP_CALL_UNDEFINED_ELEMENT`
+  Tables are imported into every spec module, even for modules that don't expect it. We need to figure out a way to prevent import of objects that are not explicitly imported into the module.
+
+Currently cranelift_wasm::ModuleEnvironment does not provide `declare_table_import`, etc. so there is no meaningful way of fixing this yet.
+
+- `call_indirect.wast`
+
+- `SKIP_SHARED_TABLE` [elem.wast]
+  Currently sharing tables between instances/modules does not work. Below are some of the reasons it is hard to achieve.
+
+  - Rust naturally prevents such because of the possibility of race conditions
+  - ImportObject is just a wrapper, what we really care about is references to its content.
+  - Instance::new contains a mutation points, the part where after getting the object (memory or table) we push values to it
+    table[table_element_index] = func_addr
+  - Instance has its own created memories and tables and references to them must outlive Instance::new()
+  - Possible strategy
+
+    ```rust
+    // ImportObject should be passed by ref
+    Instance::new<'a>(..., &ImportObject);
+
+    // Add OwnedData to Instance struct
+    struct OwnedData;
+
+    // For parts where mutatation is really needed
+    fn get_mut(&import) -> &mut ImportObject {
+        unsafe { transmute::<&ImportObject, &mut ImportObject>(import) }
+    }
+    ```
+
+  - `elem.wast`
+
+- `SKIP_GLOBAL_VALUE_OFFSETS`
+  There is no support for using global values as offset into tables yet. I believe this is an issue from cranelift side as well, so we will have to wait for it to be supported.
+  - `elem.wast`

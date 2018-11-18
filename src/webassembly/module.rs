@@ -35,6 +35,7 @@ use cranelift_wasm::{
 
 use super::errors::ErrorKind;
 use super::memory::LinearMemory;
+use super::instance::Instance;
 
 /// Get the integer type used for representing pointers on this platform.
 fn native_pointer_type() -> ir::Type {
@@ -71,6 +72,7 @@ fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
 }
 
 /// A collection of names under which a given entity is exported.
+#[derive(Debug)]
 pub struct Exportable<T> {
     /// An entity.
     pub entity: T,
@@ -101,6 +103,7 @@ pub enum Export {
     Global(GlobalIndex),
 }
 
+/// TODO: Need to get rid of unused field
 /// The main state belonging to a `Module`. This is split out from
 /// `Module` to allow it to be borrowed separately from the
 /// `FuncTranslator` field.
@@ -116,20 +119,21 @@ pub struct ModuleInfo {
     /// Signatures as provided by `declare_signature`.
     pub signatures: Vec<ir::Signature>,
 
-    /// Module and field names of imported functions as provided by `declare_func_import`.
-    pub imported_funcs: Vec<(String, String)>,
-
     /// Functions, imported and local.
     pub functions: PrimaryMap<FuncIndex, Exportable<SignatureIndex>>,
 
     /// Function bodies.
     pub function_bodies: PrimaryMap<DefinedFuncIndex, ir::Function>,
 
+    /// Module and field names of imported functions as provided by `declare_func_import`.
+    pub imported_funcs: Vec<(String, String)>,
+
     /// Tables as provided by `declare_table`.
     pub tables: Vec<Exportable<Table>>,
 
     /// WebAssembly table initializers.
     pub table_elements: Vec<TableElements>,
+
     /// The base of tables.
     pub tables_base: Option<ir::GlobalValue>,
 
@@ -166,9 +170,9 @@ impl ModuleInfo {
         Self {
             config,
             signatures: Vec::new(),
-            imported_funcs: Vec::new(),
             functions: PrimaryMap::new(),
             function_bodies: PrimaryMap::new(),
+            imported_funcs: Vec::new(),
             tables: Vec::new(),
             memories: Vec::new(),
             globals: Vec::new(),
@@ -352,149 +356,130 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         self.target_config().pointer_bytes()
     }
 
+    // TODO: offsets should be based on the architecture the wasmer was compiled for.
+    //      e.g., BoundedSlice.len will be 32-bit (4 bytes) when wasmer is compiled for a 32-bit arch,
+    //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
+    //      be 8 bytes. That will definitely gove the wrong offset values
     fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
         assert_eq!(table_index.index(), 0, "Only one WebAssembly memory supported");
-        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        let instance = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_size = native_pointer_size();
 
-        // Given a instance, we want to retrieve instance.tables
-        // Create a table whose base address is stored at `instance+0`.
-        // 0 is the offset of the vmctx.tables pointer respect to vmctx pointer
+        // Load value at (instance + TABLES_OFFSET)
+        // which is the address of data_pointer.tables
         let base = func.create_global_value(ir::GlobalValueData::Load {
-            base: vmctx,
-            offset: offset32(native_pointer_size() as usize * 0),
-            global_type: native_pointer_type(),
+            base: instance,
+            offset: Offset32::new(Instance::TABLES_OFFSET as i32),
+            global_type: self.pointer_type(),
             readonly: true,
         });
 
-        // This will be 0 when the index is 0, not sure if the offset will work regardless
-        // let table_data_offset = table_index.index() * (ptr_size as usize) * 2 + ptr_size;
+        // Offset based on table_index
+        let table_data_offset = table_index.index() as i32 * ptr_size * 2;
 
-        // We get the pointer for our table index
-        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: base,
-            offset: offset32(0),
+        // Load value at the (base + table_data_offset)
+        // which is the address of data_pointer.tables[index].data
+        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base,
+            offset: Offset32::new(table_data_offset),
             global_type: native_pointer_type(),
             readonly: false,
         });
 
-        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: base,
-            offset: offset32(ptr_size as usize),
+        // Load value at the (base + table_data_offset)
+        // which is the value of data_pointer.tables[index].len
+        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base,
+            offset: Offset32::new(table_data_offset + ptr_size as i32),
             global_type: self.pointer_type(),
-            readonly: false
+            readonly: true,
         });
 
+        // Create table based on the data above
         let table = func.create_table(ir::TableData {
-            base_gv: base_gv,
+            base_gv,
             min_size: Imm64::new(0),
             bound_gv,
             element_size: Imm64::new(i64::from(self.pointer_bytes()) * 2),
             index_type: I64,
         });
-        // println!("FUNC {:?}", func);
+
         table
     }
 
+    // TODO: offsets should be based on the architecture the wasmer was compiled for.
+    //      e.g., BoundedSlice.len will be 32-bit (4 bytes) when wasmer is compiled for a 32-bit arch,
+    //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
+    //      be 8 bytes. That will definitely gove the wrong offset values
     fn make_heap(&mut self, func: &mut ir::Function, memory_index: MemoryIndex) -> ir::Heap {
-        assert_eq!(memory_index.index(), 0, "Only one WebAssembly memory supported");
-        // Create a static heap whose base address is stored at `instance+8`.
-        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        debug_assert_eq!(memory_index.index(), 0, "Only one WebAssembly memory supported");
+        let instance = func.create_global_value(ir::GlobalValueData::VMContext);
+        let ptr_size = native_pointer_size();
 
-        let heap_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-            base: vmctx,
-            offset: offset32(native_pointer_size() as usize * 1),
-            global_type: native_pointer_type(),
+        // Load value at (instance + MEMORIES_OFFSET)
+        // which is the address of data_pointer.memories
+        let base = func.create_global_value(ir::GlobalValueData::Load {
+            base: instance,
+            offset: Offset32::new(Instance::MEMORIES_OFFSET as i32),
+            global_type: self.pointer_type(),
             readonly: true,
         });
 
-        let pointer_bytes = self.pointer_bytes() as usize;
-        let memories_offset = memory_index.index() * pointer_bytes;
+        // Based on the index provided, we need to know the offset into memories array
+        // Each element in the memories array has a size of (ptr_size * 2)
+        let memory_data_offset = 0; // (memory_index as usize * ptr_size * 2) as i32;
 
-        // We de-reference the vm_context.memories addr
+        // Load value at the (base + memory_data_offset)
+        // which is the address of data_pointer.memories[index].data
         let heap_base = func.create_global_value(ir::GlobalValueData::Load {
-            base: heap_base_addr,
-            offset: offset32(memories_offset),
-            global_type: native_pointer_type(),
-            readonly: true,
+            base,
+            offset: Offset32::new(memory_data_offset),
+            global_type: self.pointer_type(),
+            readonly: true
         });
 
+        // Load value at the (base + memory_data_offset)
+        // which is the value of data_pointer.memories[index].len
         let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: vmctx,
-            offset: offset32(native_pointer_size() as usize * 3),
+            base,
+            offset: Offset32::new(memory_data_offset + ptr_size as i32),
             global_type: I32,
             readonly: false,
         });
 
-        func.create_heap(ir::HeapData {
+        // Create table based on the data above
+        let heap = func.create_heap(ir::HeapData {
             base: heap_base,
-            min_size: Imm64::new(0),
-            guard_size: Imm64::new(LinearMemory::DEFAULT_GUARD_SIZE as i64),
-            style: ir::HeapStyle::Dynamic { bound_gv },
-            index_type: I32,
-        })
+            min_size: 0.into(),
+            guard_size: (LinearMemory::DEFAULT_GUARD_SIZE as i64).into(),
+            style: ir::HeapStyle::Dynamic {
+                bound_gv,
+            },
+            index_type: I32
+        });
 
-        // if index == 0 {
-        //     let heap_base = self.main_memory_base.unwrap_or_else(|| {
-        //         let new_base = func.create_global_value(ir::GlobalValueData::VMContext {
-        //             offset: 0.into(),
-        //         });
-        //         self.main_memory_base = Some(new_base);
-        //         new_base
-        //     });
-
-        //     func.create_heap(ir::HeapData {
-        //         base: heap_base,
-        //         min_size: 0.into(),
-        //         guard_size: (WasmMemory::DEFAULT_GUARD_SIZE as i64).into(),
-        //         style: ir::HeapStyle::Static {
-        //             bound: (WasmMemory::DEFAULT_HEAP_SIZE as i64).into(),
-        //         },
-        //     })
-        // } else {
-        //     let memory_base = self.memory_base.unwrap_or_else(|| {
-        //         let memories_offset = self.ptr_size() as i32 * -2;
-        //         let new_base = func.create_global_value(ir::GlobalValueData::VMContext {
-        //             offset: memories_offset.into(),
-        //         });
-        //         self.memory_base = Some(new_base);
-        //         new_base
-        //     });
-
-        //     let memory_offset = (index - 1) * self.ptr_size();
-        //     let heap_base = func.create_global_value(ir::GlobalValueData::Deref {
-        //         base: memory_base,
-        //         offset: (memory_offset as i32).into(),
-        //     });
-
-        //     func.create_heap(ir::HeapData {
-        //         base: heap_base,
-        //         min_size: 0.into(),
-        //         guard_size: (WasmMemory::DEFAULT_GUARD_SIZE as i64).into(),
-        //         style: ir::HeapStyle::Static {
-        //             bound: (WasmMemory::DEFAULT_HEAP_SIZE as i64).into(),
-        //         },
-        //     })
-        // }
+        heap
     }
 
     fn make_global(&mut self, func: &mut ir::Function, global_index: GlobalIndex) -> GlobalVariable {
-        // Just create a dummy `vmctx` global.
-        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        let ptr_size = native_pointer_size();
+
+        let instance = func.create_global_value(ir::GlobalValueData::VMContext);
 
         let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-            base: vmctx,
-            offset: offset32(native_pointer_size() as usize * 2),
-            global_type: native_pointer_type(),
+            base: instance,
+            offset: Offset32::new(Instance::GLOBALS_OFFSET as i32),
+            global_type: self.pointer_type(),
             readonly: false,
         });
 
-        let offset = (global_index.index() * native_pointer_size() as usize) as i64;
+        let offset = global_index.index() as i64 * ptr_size as i64;
         let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
             base: globals_base_addr,
             offset: Imm64::new(offset),
             global_type: native_pointer_type(),
         });
+
         GlobalVariable::Memory {
             gv: iadd,
             ty: self.mod_info.globals[global_index.index()].entity.ty,
@@ -537,6 +522,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
 
+
         // The `callee` value is an index into a table of function pointers.
         // Apparently, that table is stored at absolute address 0 in this dummy environment.
         // TODO: Generate bounds checking code.
@@ -569,8 +555,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .CallIndirect(ir::Opcode::CallIndirect, INVALID, sig_ref, args)
             .0;
 
-        // println!("FUNC {:?}", pos.func);
-
         Ok(inst)
     }
 
@@ -588,7 +572,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .expect("Missing vmctx parameter");
 
         // println!("POINTER BYTES {}", self.pointer_bytes());
-        // println!("POINTER SIZE {}", self.ptr_size());
+        // println!("POINTER SIZE {}", native_pointer_size());
 
         // Build a value list for the call instruction containing the call_args and the vmctx
         // parameter.
@@ -757,8 +741,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
         offset: usize,
         elements: Vec<FuncIndex>,
     ) {
-        // NEW
-        // debug_assert!(base.is_none(), "global-value offsets not supported yet");
+        debug_assert!(base.is_none(), "global-value offsets not supported yet");
         self.info.table_elements.push(TableElements {
             table_index,
             base,

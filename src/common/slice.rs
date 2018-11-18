@@ -9,15 +9,19 @@ pub struct UncheckedSlice<T> {
 
 impl<T> UncheckedSlice<T> {
     #[inline]
-    unsafe fn get_unchecked(&self, index: usize) -> &T {
+    pub fn get_unchecked(&self, index: usize) -> &T {
         let ptr = self.ptr.as_ptr();
-        &*ptr.add(index)
+        unsafe {
+            &*ptr.add(index)
+        }
     }
 
     #[inline]
-    unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
+    pub fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         let ptr = self.ptr.as_ptr();
-        &mut *(ptr.add(index) as *mut _)
+        unsafe {
+            &mut *(ptr.add(index) as *mut _)
+        }
     }
 
     pub unsafe fn dangling() -> UncheckedSlice<T> {
@@ -43,15 +47,16 @@ impl<'a, T> From<&'a [T]> for UncheckedSlice<T> {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct BoundedSlice<T> {
-    data: UncheckedSlice<T>,
-    len: usize,
+    pub data: UncheckedSlice<T>,
+    pub len: usize,
 }
 
 impl<T> BoundedSlice<T> {
     pub fn get(&self, index: usize) -> Option<&T> {
         if index < self.len {
-            unsafe { Some(self.data.get_unchecked(index)) }
+            Some(self.data.get_unchecked(index))
         } else {
             None
         }
@@ -59,7 +64,7 @@ impl<T> BoundedSlice<T> {
 
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         if index < self.len {
-            unsafe { Some(self.data.get_unchecked_mut(index)) }
+            Some(self.data.get_unchecked_mut(index))
         } else {
             None
         }
@@ -68,6 +73,15 @@ impl<T> BoundedSlice<T> {
     #[inline]
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    // TODO: Needs refactor. Take LinearMemory as argument.
+    //      I've tried that but it gives cryptic error.
+    pub fn new(slice: &[T], size: usize) -> BoundedSlice<T> {
+        BoundedSlice {
+            data: slice.into(),
+            len: size,
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::webassembly::ImportObject;
+use crate::webassembly::{ImportObject, ImportValue};
 
 extern "C" fn print_i32(num: i32) {
     println!("{}", num);
@@ -10,9 +10,10 @@ static GLOBAL_I32: i32 = 666;
 
 pub fn spectest_importobject<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
-    import_object.set("spectest", "print_i32", print_i32 as *const u8);
-    import_object.set("spectest", "print", print as *const u8);
-    import_object.set("spectest", "global_i32", GLOBAL_I32 as *const u8);
+    import_object.set("spectest", "print_i32", ImportValue::Func(print_i32 as *const u8));
+    import_object.set("spectest", "print", ImportValue::Func(print as *const u8));
+    import_object.set("spectest", "global_i32", ImportValue::Func(GLOBAL_I32 as *const u8));
+    import_object.set("spectest", "table", ImportValue::Table(vec![0; 30]));
     return import_object;
 }
 

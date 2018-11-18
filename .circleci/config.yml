@@ -1,6 +1,26 @@
 version: 2
 jobs:
-  build:
+  # Job used for testing
+  test:
+    docker:
+      - image: circleci/rust:latest
+
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run: sudo apt-get install -y cmake
+      - run: make test
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+
+  test-and-build:
     docker:
       - image: circleci/rust:latest
 
@@ -33,7 +53,7 @@ jobs:
             - target/release/deps
           key: v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
 
-  build-macos:
+  test-and-build-macos:
     macos:
       xcode: "9.0"
 
@@ -106,8 +126,18 @@ workflows:
   version: 2
   main:
     jobs:
-      - build
-      - build-macos
+      - test:
+          filters:
+            branches:
+              ignore: master
+      - test-and-build:
+          filters:
+            branches:
+              only: master
+      - test-and-build-macos:
+          filters:
+            branches:
+              only: master
       # :
       #     filters:
       #       tags:
@@ -115,8 +145,8 @@ workflows:
 
       - publish-github-release:
           requires:
-            - build
-            - build-macos
+            - test-and-build
+            - test-and-build-macos
           # filters:
           #   branches:
           #     ignore: /.*/

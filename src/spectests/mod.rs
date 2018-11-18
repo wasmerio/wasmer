@@ -20,6 +20,7 @@ mod const_;
 mod conversions;
 mod custom;
 mod data;
+mod elem;
 mod endianness;
 mod exports;
 #[cfg(not(feature = "fast-tests"))]
@@ -57,6 +58,7 @@ mod labels;
 mod left_to_right;
 mod loop_;
 mod memory;
+mod memory_grow;
 mod memory_redundancy;
 mod nop;
 mod return_;

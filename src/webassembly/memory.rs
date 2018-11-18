@@ -12,8 +12,6 @@ const MAX_PAGES: u32 = 65536;
 
 /// A linear memory instance.
 ///
-/// This linear memory has a stable base address and at the same time allows
-/// for dynamical growing.
 pub struct LinearMemory {
     pub mmap: MmapMut,
     // The initial size of the WebAssembly Memory, in units of
@@ -25,7 +23,7 @@ pub struct LinearMemory {
     // front.  However, the engine may ignore or clamp this reservation
     // request.  In general, most WebAssembly modules shouldn't need
     // to set a maximum.
-    maximum: Option<u32>,
+    pub maximum: Option<u32>,
 }
 
 /// It holds the raw bytes of memory accessed by a WebAssembly Instance
@@ -33,7 +31,7 @@ impl LinearMemory {
     pub const WASM_PAGE_SIZE: usize = 1 << 16; // 64 KiB
     pub const DEFAULT_HEAP_SIZE: usize = 1 << 32; // 4 GiB
     pub const DEFAULT_GUARD_SIZE: usize = 1 << 31; // 2 GiB
-    pub const DEFAULT_SIZE: usize = Self::DEFAULT_HEAP_SIZE + Self::DEFAULT_GUARD_SIZE; // 8GiB
+    pub const DEFAULT_SIZE: usize = Self::DEFAULT_HEAP_SIZE + Self::DEFAULT_GUARD_SIZE; // 6 GiB
 
     /// Create a new linear memory instance with specified initial and maximum number of pages.
     ///
@@ -46,13 +44,9 @@ impl LinearMemory {
             initial, maximum
         );
 
-        let len: u64 = PAGE_SIZE as u64 * match maximum {
-            Some(val) => val as u64,
-            None => initial as u64,
-        };
-        let len = if len == 0 { PAGE_SIZE as u64 } else { len };
+        // TODO: Investigate if memory is zeroed out
+        let mmap = MmapMut::map_anon(LinearMemory::DEFAULT_HEAP_SIZE).unwrap();
 
-        let mmap = MmapMut::map_anon(len as usize).unwrap();
         debug!("LinearMemory instantiated");
         Self {
             mmap,
@@ -96,37 +90,12 @@ impl LinearMemory {
             return None;
         }
 
-        let prev_bytes = self.mmap.len();
+        let prev_bytes = (prev_pages * PAGE_SIZE) as usize;
         let new_bytes = (new_pages * PAGE_SIZE) as usize;
 
-        // Updating self.mmap if new_bytes > prev_bytes
+        // Updating self.current if new_bytes > prev_bytes
         if new_bytes > prev_bytes {
-            // If we have no maximum, this is a "dynamic" heap, and it's allowed
-            // to move.
-            let mut new_mmap = MmapMut::map_anon(new_bytes).unwrap();
-
-            // Copy old mem to new mem. Will a while loop be faster or is this going to be optimized?
-            // TODO: Consider static heap for efficiency.
-            for i in 0..prev_bytes {
-                unsafe {
-                    let new_mmap_index = new_mmap.get_unchecked_mut(i);
-                    let old_mmap_index = self.mmap.get_unchecked(i);
-                    *new_mmap_index = *old_mmap_index;
-                }
-            }
-
-            // Zero out the remaining mem region
-            // TODO: Check if memmap zeroes out everything by default. This is very inefficient!
-            for i in prev_bytes..new_bytes {
-                unsafe {
-                    let index = new_mmap.get_unchecked_mut(i);
-                    *index = 0;
-                }
-            }
-            // Update relevant fields
-            self.mmap = new_mmap;
             self.current = new_pages;
-            debug!("new memory = {:?}", self.mmap);
         }
 
         Some(prev_pages as i32)
@@ -152,6 +121,14 @@ impl fmt::Debug for LinearMemory {
             .field("current", &self.current)
             .field("maximum", &self.maximum)
             .finish()
+    }
+}
+
+// Not comparing based on memory content. That would be inefficient.
+impl PartialEq for LinearMemory {
+    fn eq(&self, other: &LinearMemory) -> bool {
+        self.current == other.current &&
+        self.maximum == other.maximum
     }
 }
 
