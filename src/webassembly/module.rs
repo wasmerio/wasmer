@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 use std::string::String;
 use std::vec::Vec;
-use target_lexicon::{PointerWidth, Triple};
 
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Imm64, Offset32};
@@ -12,13 +11,12 @@ use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
     self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature,
 };
-use cranelift_codegen::print_errors::pretty_verifier_error;
-use cranelift_codegen::settings::CallConv;
-use cranelift_codegen::{isa, settings, verifier};
+use cranelift_codegen::isa::{CallConv, TargetFrontendConfig};
 use cranelift_entity::{EntityRef, PrimaryMap};
 
 use cranelift_wasm::{
-    translate_module, // ReturnMode,
+    translate_module,
+    ReturnMode,
     DefinedFuncIndex,
     FuncEnvironment as FuncEnvironmentTrait,
     FuncIndex,
@@ -57,16 +55,16 @@ pub fn native_pointer_size() -> i32 {
     }
 }
 
-// /// Convert a TlsData offset into a `Offset32` for a global decl.
-// fn offset32(offset: usize) -> ir::immediates::Offset32 {
-//     assert!(offset <= i32::max_value() as usize);
-//     (offset as i32).into()
-// }
+/// Convert a TlsData offset into a `Offset32` for a global decl.
+fn offset32(offset: usize) -> ir::immediates::Offset32 {
+    assert!(offset <= i32::max_value() as usize);
+    (offset as i32).into()
+}
 
-// /// Convert a usize offset into a `Imm64` for an iadd_imm.
-// fn imm64(offset: usize) -> ir::immediates::Imm64 {
-//     (offset as i64).into()
-// }
+/// Convert a usize offset into a `Imm64` for an iadd_imm.
+fn imm64(offset: usize) -> ir::immediates::Imm64 {
+    (offset as i64).into()
+}
 
 /// Compute a `ir::ExternalName` for a given wasm function index.
 fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
@@ -110,11 +108,8 @@ pub enum Export {
 /// `Module` to allow it to be borrowed separately from the
 /// `FuncTranslator` field.
 pub struct ModuleInfo {
-    /// Target description.
-    pub triple: Triple,
-
-    /// Compilation setting flags.
-    pub flags: settings::Flags,
+    /// Target description relevant to frontends producing Cranelift IR.
+    config: TargetFrontendConfig,
 
     pub main_memory_base: Option<ir::GlobalValue>,
 
@@ -171,10 +166,9 @@ pub struct ModuleInfo {
 
 impl ModuleInfo {
     /// Allocates the data structures with the given flags.
-    pub fn with_triple_flags(triple: Triple, flags: settings::Flags) -> Self {
+    pub fn new(config: TargetFrontendConfig) -> Self {
         Self {
-            triple,
-            flags,
+            config,
             signatures: Vec::new(),
             functions: PrimaryMap::new(),
             function_bodies: PrimaryMap::new(),
@@ -247,17 +241,16 @@ pub struct Module {
     // return_mode: ReturnMode,
 }
 
+
 impl Module {
     /// Instantiate a Module given WASM bytecode
     pub fn from_bytes(
         buffer_source: Vec<u8>,
-        triple: Triple,
-        flags: Option<settings::Flags>,
+        config: TargetFrontendConfig,
     ) -> Result<Self, ErrorKind> {
         // let return_mode = ReturnMode::NormalReturns;
-        let flags = flags.unwrap_or_else(|| settings::Flags::new(settings::builder()));
         let mut module = Self {
-            info: ModuleInfo::with_triple_flags(triple, flags),
+            info: ModuleInfo::new(config),
             trans: FuncTranslator::new(),
             func_bytecode_sizes: Vec::new(),
             // return_mode,
@@ -298,15 +291,16 @@ impl Module {
     }
 
     pub fn verify(&self) {
-        let isa = isa::lookup(self.info.triple.clone())
-            .unwrap()
-            .finish(self.info.flags.clone());
+        unimplemented!();
+        // let isa = isa::lookup(self.info.triple.clone())
+        //     .unwrap()
+        //     .finish(self.info.flags.clone());
 
-        for func in self.info.function_bodies.values() {
-            verifier::verify_function(func, &*isa)
-                .map_err(|errors| panic!(pretty_verifier_error(func, Some(&*isa), None, errors)))
-                .unwrap();
-        }
+        // for func in self.info.function_bodies.values() {
+        //     verifier::verify_function(func, &*isa)
+        //         .map_err(|errors| panic!(pretty_verifier_error(func, Some(&*isa), None, errors)))
+        //         .unwrap();
+        // }
     }
 }
 
@@ -335,30 +329,31 @@ impl<'environment> FuncEnvironment<'environment> {
     // Create a signature for `sigidx` amended with a `vmctx` argument after the standard wasm
     // arguments.
     fn vmctx_sig(&self, sigidx: SignatureIndex) -> ir::Signature {
-        let mut sig = self.mod_info.signatures[sigidx].clone();
+        let mut sig = self.mod_info.signatures[sigidx.index()].clone();
         sig.params.push(ir::AbiParam::special(
             self.pointer_type(),
             ir::ArgumentPurpose::VMContext,
         ));
         sig
     }
-
-    fn ptr_size(&self) -> usize {
-        if self.triple().pointer_width().unwrap() == PointerWidth::U64 {
-            8
-        } else {
-            4
-        }
-    }
 }
 
 impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
-    fn triple(&self) -> &Triple {
-        &self.mod_info.triple
+    /// Get the information needed to produce Cranelift IR for the given target.
+    fn target_config(&self) -> TargetFrontendConfig {
+        self.mod_info.config
     }
 
-    fn flags(&self) -> &settings::Flags {
-        &self.mod_info.flags
+    /// Get the Cranelift integer type to use for native pointers.
+    ///
+    /// This returns `I64` for 64-bit architectures and `I32` for 32-bit architectures.
+    fn pointer_type(&self) -> ir::Type {
+        ir::Type::int(u16::from(self.target_config().pointer_bits())).unwrap()
+    }
+
+    /// Get the size of a native pointer, in bytes.
+    fn pointer_bytes(&self) -> u8 {
+        self.target_config().pointer_bytes()
     }
 
     // TODO: offsets should be based on the architecture the wasmer was compiled for.
@@ -366,19 +361,20 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
     //      be 8 bytes. That will definitely gove the wrong offset values
     fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
+        assert_eq!(table_index.index(), 0, "Only one WebAssembly memory supported");
         let instance = func.create_global_value(ir::GlobalValueData::VMContext);
-        let ptr_size = self.ptr_size();
-
+        let ptr_size = native_pointer_size();
         // Load value at (instance + TABLES_OFFSET)
         // which is the address of data_pointer.tables
         let base = func.create_global_value(ir::GlobalValueData::Load {
             base: instance,
             offset: Offset32::new(Instance::TABLES_OFFSET as i32),
             global_type: self.pointer_type(),
+            readonly: true,
         });
 
         // Offset based on table_index
-        let table_data_offset = (table_index as usize * ptr_size * 2) as i32;
+        let table_data_offset = table_index.index() as i32 * ptr_size * 2;
 
         // Load value at the (base + table_data_offset)
         // which is the address of data_pointer.tables[index].data
@@ -386,6 +382,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base,
             offset: Offset32::new(table_data_offset),
             global_type: native_pointer_type(),
+            readonly: false,
         });
 
         // Load value at the (base + table_data_offset)
@@ -394,6 +391,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base,
             offset: Offset32::new(table_data_offset + ptr_size as i32),
             global_type: self.pointer_type(),
+            readonly: false,
         });
 
         // Create table based on the data above
@@ -402,7 +400,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             min_size: Imm64::new(0),
             bound_gv,
             element_size: Imm64::new(i64::from(self.pointer_bytes())),
-            index_type: self.pointer_type(),
+            index_type: I64,
         });
 
         table
@@ -413,9 +411,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
     //      be 8 bytes. That will definitely gove the wrong offset values
     fn make_heap(&mut self, func: &mut ir::Function, memory_index: MemoryIndex) -> ir::Heap {
-        assert_eq!(memory_index, 0, "Only one WebAssembly memory supported");
+        debug_assert_eq!(memory_index.index(), 0, "Only one WebAssembly memory supported");
         let instance = func.create_global_value(ir::GlobalValueData::VMContext);
-        let ptr_size = self.ptr_size();
+        let ptr_size = native_pointer_size();
 
         // Load value at (instance + MEMORIES_OFFSET)
         // which is the address of data_pointer.memories
@@ -423,6 +421,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base: instance,
             offset: Offset32::new(Instance::MEMORIES_OFFSET as i32),
             global_type: self.pointer_type(),
+            readonly: true,
         });
 
         // Based on the index provided, we need to know the offset into memories array
@@ -435,6 +434,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base,
             offset: Offset32::new(memory_data_offset),
             global_type: self.pointer_type(),
+            readonly: true
         });
 
         // Load value at the (base + memory_data_offset)
@@ -443,6 +443,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base,
             offset: Offset32::new(memory_data_offset + ptr_size as i32),
             global_type: I32,
+            readonly: false,
         });
 
         // Create table based on the data above
@@ -459,8 +460,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         heap
     }
 
-    fn make_global(&mut self, func: &mut ir::Function, index: GlobalIndex) -> GlobalVariable {
-        let ptr_size = self.ptr_size();
+    fn make_global(&mut self, func: &mut ir::Function, global_index: GlobalIndex) -> GlobalVariable {
+        let ptr_size = native_pointer_size();
 
         let instance = func.create_global_value(ir::GlobalValueData::VMContext);
 
@@ -468,9 +469,10 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base: instance,
             offset: Offset32::new(Instance::GLOBALS_OFFSET as i32),
             global_type: self.pointer_type(),
+            readonly: false,
         });
 
-        let offset = (index * ptr_size) as i64;
+        let offset = global_index.index() as i64 * ptr_size as i64;
         let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
             base: globals_base_addr,
             offset: Imm64::new(offset),
@@ -479,7 +481,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         GlobalVariable::Memory {
             gv: iadd,
-            ty: self.mod_info.globals[index].entity.ty,
+            ty: self.mod_info.globals[global_index.index()].entity.ty,
         }
     }
 
@@ -523,18 +525,22 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // The `callee` value is an index into a table of function pointers.
         // Apparently, that table is stored at absolute address 0 in this dummy environment.
         // TODO: Generate bounds checking code.
-        let ptr = self.pointer_type();
+        let ptr = native_pointer_type();
         let callee_offset = if ptr == I32 {
             // pos.ins().imul_imm(callee, 4)
             callee
         } else {
-            let ext = pos.ins().uextend(I64, callee);
+            let ext = pos.ins().uextend(ptr, callee);
             ext
             // pos.ins().imul_imm(ext, 4)
         };
+        // let entry_size = native_pointer_size() as i64 * 2;
+        // let callee_scaled = pos.ins().imul_imm(callee_offset, entry_size);
+
         let entry_addr = pos
             .ins()
-            .table_addr(self.pointer_type(), table, callee_offset, 0);
+            .table_addr(ptr, table, callee_offset, 0);
+
         let mut mflags = ir::MemFlags::new();
         mflags.set_notrap();
         mflags.set_aligned();
@@ -569,7 +575,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .expect("Missing vmctx parameter");
 
         // println!("POINTER BYTES {}", self.pointer_bytes());
-        // println!("POINTER SIZE {}", self.ptr_size());
+        // println!("POINTER SIZE {}", native_pointer_size());
 
         // Build a value list for the call instruction containing the call_args and the vmctx
         // parameter.
@@ -583,11 +589,11 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn translate_memory_grow(
         &mut self,
         mut pos: FuncCursor,
-        index: MemoryIndex,
+        memory_index: MemoryIndex,
         _heap: ir::Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value> {
-        debug_assert_eq!(index, 0, "non-default memories not supported yet");
+        debug_assert_eq!(memory_index.index(), 0, "non-default memories not supported yet");
         let grow_mem_func = self.mod_info.grow_memory_extfunc.unwrap_or_else(|| {
             let sig_ref = pos.func.import_signature(Signature {
                 call_conv: CallConv::SystemV,
@@ -611,20 +617,20 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         });
 
         // self.mod_info.grow_memory_extfunc = Some(grow_mem_func);
-        let memory_index = pos.ins().iconst(I32, index as i64);
+        let memory_index_value = pos.ins().iconst(I32, imm64(memory_index.index()));
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
-        let call_inst = pos.ins().call(grow_mem_func, &[val, memory_index, vmctx]);
+        let call_inst = pos.ins().call(grow_mem_func, &[val, memory_index_value, vmctx]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     fn translate_memory_size(
         &mut self,
         mut pos: FuncCursor,
-        index: MemoryIndex,
+        memory_index: MemoryIndex,
         _heap: ir::Heap,
     ) -> WasmResult<ir::Value> {
-        debug_assert_eq!(index, 0, "non-default memories not supported yet");
+        debug_assert_eq!(memory_index.index(), 0, "non-default memories not supported yet");
         let cur_mem_func = self.mod_info.current_memory_extfunc.unwrap_or_else(|| {
             let sig_ref = pos.func.import_signature(Signature {
                 call_conv: CallConv::SystemV,
@@ -648,22 +654,23 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         // self.mod_info.current_memory_extfunc = cur_mem_func;
 
-        let memory_index = pos.ins().iconst(I32, index as i64);
+        let memory_index_value = pos.ins().iconst(I32, imm64(memory_index.index()));
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
-        let call_inst = pos.ins().call(cur_mem_func, &[memory_index, vmctx]);
+        let call_inst = pos.ins().call(cur_mem_func, &[memory_index_value, vmctx]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
         // Ok(pos.ins().iconst(I32, -1))
     }
 
-    // fn return_mode(&self) -> ReturnMode {
-    //     self.return_mode
-    // }
+    fn return_mode(&self) -> ReturnMode {
+        ReturnMode::NormalReturns
+        // ReturnMode::FallthroughReturn
+    }
 }
 
 impl<'data> ModuleEnvironment<'data> for Module {
-    fn flags(&self) -> &settings::Flags {
-        &self.info.flags
+    fn target_config(&self) -> &TargetFrontendConfig {
+        &self.info.config
     }
 
     fn get_func_name(&self, func_index: FuncIndex) -> ir::ExternalName {
@@ -687,7 +694,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn get_signature(&self, sig_index: SignatureIndex) -> &ir::Signature {
-        &self.info.signatures[sig_index]
+        &self.info.signatures[sig_index.index()]
     }
 
     fn declare_func_import(
@@ -724,7 +731,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn get_global(&self, global_index: GlobalIndex) -> &Global {
-        &self.info.globals[global_index].entity
+        &self.info.globals[global_index.index()].entity
     }
 
     fn declare_table(&mut self, table: Table) {
@@ -777,7 +784,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_table_export(&mut self, table_index: TableIndex, name: &'data str) {
-        self.info.tables[table_index]
+        self.info.tables[table_index.index()]
             .export_names
             .push(String::from(name));
         // We add to the exports to have O(1) retrieval
@@ -787,7 +794,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_memory_export(&mut self, memory_index: MemoryIndex, name: &'data str) {
-        self.info.memories[memory_index]
+        self.info.memories[memory_index.index()]
             .export_names
             .push(String::from(name));
         // We add to the exports to have O(1) retrieval
@@ -797,7 +804,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_global_export(&mut self, global_index: GlobalIndex, name: &'data str) {
-        self.info.globals[global_index]
+        self.info.globals[global_index.index()]
             .export_names
             .push(String::from(name));
         // We add to the exports to have O(1) retrieval

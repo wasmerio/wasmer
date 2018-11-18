@@ -20,13 +20,13 @@ include = [
 ]
 
 [dependencies]
-cranelift-native = "0.22.0"
+cranelift-native = "0.23.0"
 # cranelift-native = { path = "cranelift/lib/native" }
-cranelift-codegen = "0.22.0"
+cranelift-codegen = "0.23.0"
 # cranelift-codegen = { path = "cranelift/lib/codegen" }
-cranelift-entity = "0.22.0"
+cranelift-entity = "0.23.0"
 # cranelift-entity = { path = "cranelift/lib/entity" }
-cranelift-wasm = "0.22.0"
+cranelift-wasm = "0.23.0"
 # cranelift-wasm = { path = "cranelift/lib/wasm" }
 docopt = "1.0.0"
 serde = "1.0.55"
@@ -40,7 +40,7 @@ region = "0.3.0"
 memmap = "0.6.2"
 # spin = "0.4.10"
 log = "0.4.5"
-target-lexicon = { version = "0.0.3", default-features = false }
+target-lexicon = "0.2.0"
 # libc = "0.2"
 libc = { git = "https://github.com/rust-lang/libc" }
 nix = "0.11"
