@@ -364,7 +364,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         assert_eq!(table_index.index(), 0, "Only one WebAssembly memory supported");
         let instance = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_size = native_pointer_size();
-
         // Load value at (instance + TABLES_OFFSET)
         // which is the address of data_pointer.tables
         let base = func.create_global_value(ir::GlobalValueData::Load {
@@ -660,7 +659,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 
     fn return_mode(&self) -> ReturnMode {
-        ReturnMode::FallthroughReturn
+        ReturnMode::NormalReturns
+        // ReturnMode::FallthroughReturn
     }
 }
 
