@@ -106,318 +106,318 @@
 - [ ] <a name="__syscall345"></a>__syscall345 - _[sendmmsg](#sendmmsg)_
 
 ### SYSCALL NAMES
-- <a name="SYS_fstat"></a>SYS_fstat - _[__syscall197](#__syscall197)_
+- <a name="SYS_fstat"></a>SYS_fstat - _[__syscall197](#__syscall197)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="SYS_getdents"></a>SYS_getdents - _[__syscall220](#__syscall220)_
+- <a name="SYS_getdents"></a>SYS_getdents - _[__syscall220](#__syscall220)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="SYS_lstat"></a>SYS_lstat - _[__syscall196](#__syscall196)_
+- <a name="SYS_lstat"></a>SYS_lstat - _[__syscall196](#__syscall196)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="SYS_stat"></a>SYS_stat - _[__syscall195](#__syscall195)_
+- <a name="SYS_stat"></a>SYS_stat - _[__syscall195](#__syscall195)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="access"></a>access - _[__syscall33](#__syscall33)_
+- <a name="access"></a>access - _[__syscall33](#__syscall33)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="acct"></a>acct - _[__syscall51](#__syscall51)_
+- <a name="acct"></a>acct - _[__syscall51](#__syscall51)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="chdir"></a>chdir - _[__syscall12](#__syscall12)_
+- <a name="chdir"></a>chdir - _[__syscall12](#__syscall12)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="chmod"></a>chmod - _[__syscall15](#__syscall15)_
+- <a name="chmod"></a>chmod - _[__syscall15](#__syscall15)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="chown"></a>chown - _[__syscall212](#__syscall212)_
+- <a name="chown"></a>chown - _[__syscall212](#__syscall212)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="clock_nanosleep"></a>clock_nanosleep - _[__syscall265](#__syscall265)_
+- <a name="clock_nanosleep"></a>clock_nanosleep - _[__syscall265](#__syscall265)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="close"></a>close - _[__syscall6](#__syscall6)_
+- <a name="close"></a>close - _[__syscall6](#__syscall6)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="dup"></a>dup - _[__syscall330](#__syscall330)_
+- <a name="dup"></a>dup - _[__syscall330](#__syscall330)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="dup"></a>dup - _[__syscall41](#__syscall41)_
+- <a name="dup"></a>dup - _[__syscall41](#__syscall41)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="dup"></a>dup - _[__syscall63](#__syscall63)_
+- <a name="dup"></a>dup - _[__syscall63](#__syscall63)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="exit"></a>exit - _[__syscall1](#__syscall1)_
+- <a name="exit"></a>exit - _[__syscall1](#__syscall1)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="faccessat"></a>faccessat - _[__syscall307](#__syscall307)_
+- <a name="faccessat"></a>faccessat - _[__syscall307](#__syscall307)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fadvise"></a>fadvise - _[__syscall272](#__syscall272)_
+- <a name="fadvise"></a>fadvise - _[__syscall272](#__syscall272)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fallocate"></a>fallocate - _[__syscall324](#__syscall324)_
+- <a name="fallocate"></a>fallocate - _[__syscall324](#__syscall324)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fchdir"></a>fchdir - _[__syscall133](#__syscall133)_
+- <a name="fchdir"></a>fchdir - _[__syscall133](#__syscall133)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fchmod"></a>fchmod - _[__syscall94](#__syscall94)_
+- <a name="fchmod"></a>fchmod - _[__syscall94](#__syscall94)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fchmodat"></a>fchmodat - _[__syscall306](#__syscall306)_
+- <a name="fchmodat"></a>fchmodat - _[__syscall306](#__syscall306)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fchown"></a>fchown - _[__syscall207](#__syscall207)_
+- <a name="fchown"></a>fchown - _[__syscall207](#__syscall207)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fchownat"></a>fchownat - _[__syscall298](#__syscall298)_
+- <a name="fchownat"></a>fchownat - _[__syscall298](#__syscall298)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fcntl"></a>fcntl - _[__syscall221](#__syscall221)_
+- <a name="fcntl"></a>fcntl - _[__syscall221](#__syscall221)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fdatasync"></a>fdatasync - _[__syscall148](#__syscall148)_
+- <a name="fdatasync"></a>fdatasync - _[__syscall148](#__syscall148)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fstatat"></a>fstatat - _[__syscall300](#__syscall300)_
+- <a name="fstatat"></a>fstatat - _[__syscall300](#__syscall300)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fstatfs"></a>fstatfs - _[__syscall269](#__syscall269)_
+- <a name="fstatfs"></a>fstatfs - _[__syscall269](#__syscall269)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="fsync"></a>fsync - _[__syscall118](#__syscall118)_
+- <a name="fsync"></a>fsync - _[__syscall118](#__syscall118)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="ftruncate"></a>ftruncate - _[__syscall194](#__syscall194)_
+- <a name="ftruncate"></a>ftruncate - _[__syscall194](#__syscall194)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="futimesat"></a>futimesat - _[__syscall299](#__syscall299)_
+- <a name="futimesat"></a>futimesat - _[__syscall299](#__syscall299)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getcwd"></a>getcwd - _[__syscall183](#__syscall183)_
+- <a name="getcwd"></a>getcwd - _[__syscall183](#__syscall183)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getgid"></a>getgid - _[__syscall202](#__syscall202)_
+- <a name="getgid"></a>getgid - _[__syscall202](#__syscall202)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getgroups"></a>getgroups - _[__syscall205](#__syscall205)_
+- <a name="getgroups"></a>getgroups - _[__syscall205](#__syscall205)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getpgid"></a>getpgid - _[__syscall132](#__syscall132)_
+- <a name="getpgid"></a>getpgid - _[__syscall132](#__syscall132)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getpgrp"></a>getpgrp - _[__syscall65](#__syscall65)_
+- <a name="getpgrp"></a>getpgrp - _[__syscall65](#__syscall65)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getpid"></a>getpid - _[__syscall20](#__syscall20)_
+- <a name="getpid"></a>getpid - _[__syscall20](#__syscall20)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getppid"></a>getppid - _[__syscall64](#__syscall64)_
+- <a name="getppid"></a>getppid - _[__syscall64](#__syscall64)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getpriority"></a>getpriority - _[__syscall96](#__syscall96)_
+- <a name="getpriority"></a>getpriority - _[__syscall96](#__syscall96)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getresgid"></a>getresgid - _[__syscall211](#__syscall211)_
+- <a name="getresgid"></a>getresgid - _[__syscall211](#__syscall211)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getrusage"></a>getrusage - _[__syscall77](#__syscall77)_
+- <a name="getrusage"></a>getrusage - _[__syscall77](#__syscall77)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="getsid"></a>getsid - _[__syscall147](#__syscall147)_
+- <a name="getsid"></a>getsid - _[__syscall147](#__syscall147)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="ioctl"></a>ioctl - _[__syscall54](#__syscall54)_
+- <a name="ioctl"></a>ioctl - _[__syscall54](#__syscall54)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="lchown"></a>lchown - _[__syscall198](#__syscall198)_
+- <a name="lchown"></a>lchown - _[__syscall198](#__syscall198)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="link"></a>link - _[__syscall9](#__syscall9)_
+- <a name="link"></a>link - _[__syscall9](#__syscall9)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="linkat"></a>linkat - _[__syscall303](#__syscall303)_
+- <a name="linkat"></a>linkat - _[__syscall303](#__syscall303)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="llseek"></a>llseek - _[__syscall140](#__syscall140)_
+- <a name="llseek"></a>llseek - _[__syscall140](#__syscall140)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="madvise"></a>madvise - _[__syscall219](#__syscall219)_
+- <a name="madvise"></a>madvise - _[__syscall219](#__syscall219)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="mincore"></a>mincore - _[__syscall218](#__syscall218)_
+- <a name="mincore"></a>mincore - _[__syscall218](#__syscall218)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="mkdir"></a>mkdir - _[__syscall39](#__syscall39)_
+- <a name="mkdir"></a>mkdir - _[__syscall39](#__syscall39)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="mkdirat"></a>mkdirat - _[__syscall296](#__syscall296)_
+- <a name="mkdirat"></a>mkdirat - _[__syscall296](#__syscall296)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="mknod"></a>mknod - _[__syscall14](#__syscall14)_
+- <a name="mknod"></a>mknod - _[__syscall14](#__syscall14)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="mknodat"></a>mknodat - _[__syscall297](#__syscall297)_
+- <a name="mknodat"></a>mknodat - _[__syscall297](#__syscall297)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="mmap"></a>mmap - _[__syscall192](#__syscall192)_
+- <a name="mmap"></a>mmap - _[__syscall192](#__syscall192)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="mprotect"></a>mprotect - _[__syscall125](#__syscall125)_
+- <a name="mprotect"></a>mprotect - _[__syscall125](#__syscall125)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="mremap"></a>mremap - _[__syscall163](#__syscall163)_
+- <a name="mremap"></a>mremap - _[__syscall163](#__syscall163)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="msync"></a>msync - _[__syscall144](#__syscall144)_
+- <a name="msync"></a>msync - _[__syscall144](#__syscall144)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="munlockall"></a>munlockall - _[__syscall153](#__syscall153)_
+- <a name="munlockall"></a>munlockall - _[__syscall153](#__syscall153)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="munmap"></a>munmap - _[__syscall91](#__syscall91)_
+- <a name="munmap"></a>munmap - _[__syscall91](#__syscall91)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="newselect"></a>newselect - _[__syscall142](#__syscall142)_
+- <a name="newselect"></a>newselect - _[__syscall142](#__syscall142)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="nice"></a>nice - _[__syscall34](#__syscall34)_
+- <a name="nice"></a>nice - _[__syscall34](#__syscall34)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="open"></a>open - _[__syscall5](#__syscall5)_
+- <a name="open"></a>open - _[__syscall5](#__syscall5)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="openat"></a>openat - _[__syscall295](#__syscall295)_
+- <a name="openat"></a>openat - _[__syscall295](#__syscall295)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="pause"></a>pause - _[__syscall29](#__syscall29)_
+- <a name="pause"></a>pause - _[__syscall29](#__syscall29)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="pipe"></a>pipe - _[__syscall331](#__syscall331)_
+- <a name="pipe"></a>pipe - _[__syscall331](#__syscall331)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="pipe"></a>pipe - _[__syscall42](#__syscall42)_
+- <a name="pipe"></a>pipe - _[__syscall42](#__syscall42)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="poll"></a>poll - _[__syscall168](#__syscall168)_
+- <a name="poll"></a>poll - _[__syscall168](#__syscall168)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="pread"></a>pread - _[__syscall180](#__syscall180)_
+- <a name="pread"></a>pread - _[__syscall180](#__syscall180)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="preadv"></a>preadv - _[__syscall333](#__syscall333)_
+- <a name="preadv"></a>preadv - _[__syscall333](#__syscall333)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="prlimit"></a>prlimit - _[__syscall340](#__syscall340)_
+- <a name="prlimit"></a>prlimit - _[__syscall340](#__syscall340)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="pselect"></a>pselect - _[__syscall308](#__syscall308)_
+- <a name="pselect"></a>pselect - _[__syscall308](#__syscall308)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="pwrite"></a>pwrite - _[__syscall181](#__syscall181)_
+- <a name="pwrite"></a>pwrite - _[__syscall181](#__syscall181)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="pwritev"></a>pwritev - _[__syscall334](#__syscall334)_
+- <a name="pwritev"></a>pwritev - _[__syscall334](#__syscall334)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="read"></a>read - _[__syscall3](#__syscall3)_
+- <a name="read"></a>read - _[__syscall3](#__syscall3)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="readlink"></a>readlink - _[__syscall85](#__syscall85)_
+- <a name="readlink"></a>readlink - _[__syscall85](#__syscall85)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="readlinkat"></a>readlinkat - _[__syscall305](#__syscall305)_
+- <a name="readlinkat"></a>readlinkat - _[__syscall305](#__syscall305)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="readv"></a>readv - _[__syscall145](#__syscall145)_
+- <a name="readv"></a>readv - _[__syscall145](#__syscall145)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="recvmmsg"></a>recvmmsg - _[__syscall337](#__syscall337)_
+- <a name="recvmmsg"></a>recvmmsg - _[__syscall337](#__syscall337)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="rename"></a>rename - _[__syscall38](#__syscall38)_
+- <a name="rename"></a>rename - _[__syscall38](#__syscall38)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="renameat"></a>renameat - _[__syscall302](#__syscall302)_
+- <a name="renameat"></a>renameat - _[__syscall302](#__syscall302)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="rmdir"></a>rmdir - _[__syscall40](#__syscall40)_
+- <a name="rmdir"></a>rmdir - _[__syscall40](#__syscall40)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="rt_sigqueueinfo"></a>rt_sigqueueinfo - _[__syscall178](#__syscall178)_
+- <a name="rt_sigqueueinfo"></a>rt_sigqueueinfo - _[__syscall178](#__syscall178)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="sendmmsg"></a>sendmmsg - _[__syscall345](#__syscall345)_
+- <a name="sendmmsg"></a>sendmmsg - _[__syscall345](#__syscall345)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="setdomainname"></a>setdomainname - _[__syscall121](#__syscall121)_
+- <a name="setdomainname"></a>setdomainname - _[__syscall121](#__syscall121)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="setgid"></a>setgid - _[__syscall214](#__syscall214)_
+- <a name="setgid"></a>setgid - _[__syscall214](#__syscall214)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="setitimer"></a>setitimer - _[__syscall104](#__syscall104)_
+- <a name="setitimer"></a>setitimer - _[__syscall104](#__syscall104)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="setpgid"></a>setpgid - _[__syscall57](#__syscall57)_
+- <a name="setpgid"></a>setpgid - _[__syscall57](#__syscall57)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="setpriority"></a>setpriority - _[__syscall97](#__syscall97)_
+- <a name="setpriority"></a>setpriority - _[__syscall97](#__syscall97)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="setresgid"></a>setresgid - _[__syscall210](#__syscall210)_
+- <a name="setresgid"></a>setresgid - _[__syscall210](#__syscall210)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="setrlimit"></a>setrlimit - _[__syscall75](#__syscall75)_
+- <a name="setrlimit"></a>setrlimit - _[__syscall75](#__syscall75)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="setsid"></a>setsid - _[__syscall66](#__syscall66)_
+- <a name="setsid"></a>setsid - _[__syscall66](#__syscall66)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="socketcall"></a>socketcall - _[__syscall102](#__syscall102)_
+- <a name="socketcall"></a>socketcall - _[__syscall102](#__syscall102)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="statfs"></a>statfs - _[__syscall268](#__syscall268)_
+- <a name="statfs"></a>statfs - _[__syscall268](#__syscall268)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="symlink"></a>symlink - _[__syscall83](#__syscall83)_
+- <a name="symlink"></a>symlink - _[__syscall83](#__syscall83)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="symlinkat"></a>symlinkat - _[__syscall304](#__syscall304)_
+- <a name="symlinkat"></a>symlinkat - _[__syscall304](#__syscall304)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="sync"></a>sync - _[__syscall36](#__syscall36)_
+- <a name="sync"></a>sync - _[__syscall36](#__syscall36)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="truncate"></a>truncate - _[__syscall193](#__syscall193)_
+- <a name="truncate"></a>truncate - _[__syscall193](#__syscall193)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="ugetrlimit"></a>ugetrlimit - _[__syscall191](#__syscall191)_
+- <a name="ugetrlimit"></a>ugetrlimit - _[__syscall191](#__syscall191)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="umask"></a>umask - _[__syscall60](#__syscall60)_
+- <a name="umask"></a>umask - _[__syscall60](#__syscall60)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="uname"></a>uname - _[__syscall122](#__syscall122)_
+- <a name="uname"></a>uname - _[__syscall122](#__syscall122)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="unlink"></a>unlink - _[__syscall10](#__syscall10)_
+- <a name="unlink"></a>unlink - _[__syscall10](#__syscall10)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="unlinkat"></a>unlinkat - _[__syscall301](#__syscall301)_
+- <a name="unlinkat"></a>unlinkat - _[__syscall301](#__syscall301)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="utimensat"></a>utimensat - _[__syscall320](#__syscall320)_
+- <a name="utimensat"></a>utimensat - _[__syscall320](#__syscall320)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="wait"></a>wait - _[__syscall114](#__syscall114)_
+- <a name="wait"></a>wait - _[__syscall114](#__syscall114)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="write"></a>write - _[__syscall4](#__syscall4)_
+- <a name="write"></a>write - _[__syscall4](#__syscall4)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
-- <a name="writev"></a>writev - _[__syscall146](#__syscall146)_
+- <a name="writev"></a>writev - _[__syscall146](#__syscall146)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```c
 ```
