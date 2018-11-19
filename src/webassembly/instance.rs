@@ -120,9 +120,9 @@ pub struct InstanceOptions {
     pub isa: Box<TargetIsa>,
 }
 
-// extern fn mock_fn() -> i32 {
-//     return 0;
-// }
+extern fn mock_fn() -> i32 {
+    return 0;
+}
 
 impl Instance {
     pub const TABLES_OFFSET: usize = 0; // 0 on 64-bit | 0 on 32-bit
@@ -161,19 +161,19 @@ impl Instance {
             for (module, field) in module.info.imported_funcs.iter() {
                 let imported = import_object
                     .get(&module.as_str(), &field.as_str());
-                let function = match imported {
+                let function: &*const u8 = match imported {
                     Some(ImportValue::Func(f)) => f,
                     None => {
-                        // if options.mock_missing_imports {
-                        //     debug!("The import {}.{} is not provided, therefore will be mocked.", module, field);
-                        //     mock_fn as *const u8
-                        // }
-                        // else {
-                        return Err(ErrorKind::LinkError(format!(
-                            "Imported function {}.{} was not provided in the import_functions",
-                            module, field
-                        )));
-                        // }
+                        if options.mock_missing_imports {
+                            debug!("The import {}.{} is not provided, therefore will be mocked.", module, field);
+                            &(mock_fn as *const u8)
+                        }
+                        else {
+                            return Err(ErrorKind::LinkError(format!(
+                                "Imported function {}.{} was not provided in the import_functions",
+                                module, field
+                            )));
+                        }
                     },
                     other => panic!("Expected function import, received {:?}", other)
                 };
