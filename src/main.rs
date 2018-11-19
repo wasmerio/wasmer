@@ -76,7 +76,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
-    webassembly::utils::print_instance_offsets(&instance);
+    // webassembly::utils::print_instance_offsets(&instance);
 
     let func_index = instance
         .start_func
