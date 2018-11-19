@@ -8,14 +8,17 @@
 //! webassembly::instantiate_streaming() function.
 use cranelift_codegen::ir::{LibCall, Function};
 use cranelift_codegen::{binemit, Context};
+use cranelift_codegen::isa::TargetIsa;
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
-use cranelift_codegen::isa::TargetIsa;
+use rayon::prelude::*;
+
 use region;
 use std::iter::Iterator;
 use std::ptr::write_unaligned;
 use std::slice;
 use std::sync::Arc;
+use std::iter::FromIterator;
 use std::mem::size_of;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
@@ -215,20 +218,26 @@ impl Instance {
 
             debug!("Instance - Compiling functions");
             // Compile the functions (from cranelift IR to machine code)
-            module.info.function_bodies.values().map(|function_body| -> CompiledFunction {
+            let values: Vec<&Function> = Vec::from_iter(module.info.function_bodies.values());
+            // let isa: &TargetIsa = &*options.isa;
+            let compiled_funcs: Vec<CompiledFunction> = values.par_iter().map(|function_body| -> CompiledFunction {
+                // let r = *Arc::from_raw(isa_ptr);
                 compile_function(&*options.isa, function_body).unwrap()
-            }).for_each(|compiled_func| -> () {
-                let CompiledFunction {code_buf, reloc_sink, ..} = compiled_func;
-                protect_codebuf(&code_buf).unwrap();
+                // unimplemented!()
+            }).collect();
 
-                let func_offset = code_buf;
-                functions.push(func_offset);
+            for compiled_func in compiled_funcs.into_iter() {
+                let CompiledFunction {code_buf, reloc_sink, ..} = compiled_func;
+
+
+                // let func_offset = code_buf;
+                protect_codebuf(&code_buf).unwrap();
+                functions.push(code_buf);
 
                 // context_and_offsets.push(func_context);
                 relocations.push(reloc_sink.func_relocs);
-                ()
-            });
-            
+            }
+
             // compiled_funcs?;
 
             debug!("Instance - Relocating functions");
