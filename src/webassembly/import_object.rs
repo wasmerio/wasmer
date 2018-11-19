@@ -112,7 +112,7 @@ where
 #[derive(PartialEq, Debug)]
 pub enum ImportValue {
     Func(*const u8),
-    Global(u8),
+    Global(i64),
     Table(Vec<usize>),
     Memory(LinearMemory),
 }
