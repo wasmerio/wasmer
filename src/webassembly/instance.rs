@@ -117,6 +117,8 @@ pub struct DataPointers {
 pub struct InstanceOptions {
     // Shall we mock automatically the imported functions if they don't exist?
     pub mock_missing_imports: bool,
+    pub mock_missing_globals: bool,
+    pub mock_missing_tables: bool,
     pub isa: Box<TargetIsa>,
 }
 
@@ -321,7 +323,17 @@ impl Instance {
                             Some(ImportValue::Global(value)) => {
                                 *value
                             },
-                            _ => panic!("Imported global value was not provided {:?} ({}.{})", imported, module_name, field_name)
+                            None => {
+                                if options.mock_missing_globals {
+                                    0
+                                }
+                                else {
+                                    panic!("Imported global value was not provided ({}.{})", module_name, field_name)
+                                }
+                            },
+                            _ => {
+                                panic!("Expected global import, but received {:?} ({}.{})", imported, module_name, field_name)
+                            }
                         }
                     }
                 };
@@ -345,7 +357,20 @@ impl Instance {
                             Some(ImportValue::Table(t)) => {
                                 t.to_vec()
                             },
-                            _ => panic!("Imported table was not provided {:?} ({}.{})", imported, module_name, field_name)
+                            None => {
+                                if options.mock_missing_tables {
+                                    let len = table.entity.size;
+                                    let mut v = Vec::with_capacity(len);
+                                    v.resize(len, 0);
+                                    v
+                                }
+                                else {
+                                    panic!("Imported table value was not provided ({}.{})", module_name, field_name)
+                                }
+                            },
+                            _ => {
+                                panic!("Expected global table, but received {:?} ({}.{})", imported, module_name, field_name)
+                            }
                         }
                     },
                     None => {
