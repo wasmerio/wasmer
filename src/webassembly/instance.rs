@@ -6,7 +6,7 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiate_streaming() function.
-use cranelift_codegen::ir::LibCall;
+use cranelift_codegen::ir::{LibCall, Function};
 use cranelift_codegen::{binemit, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
@@ -125,6 +125,33 @@ extern fn mock_fn() -> i32 {
     return 0;
 }
 
+struct CompiledFunction {
+    code_buf: Vec<u8>,
+    reloc_sink: RelocSink,
+    trap_sink: binemit::NullTrapSink,
+}
+
+fn compile_function(isa: &TargetIsa, function_body: &Function) -> Result<CompiledFunction, ErrorKind>  {
+    let mut func_context = Context::for_function(function_body.to_owned());
+
+    let mut code_buf: Vec<u8> = Vec::new();
+    let mut reloc_sink = RelocSink::new();
+    let mut trap_sink = binemit::NullTrapSink {};
+
+    func_context
+        .compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
+        .map_err(|e| {
+            debug!("CompileError: {}", e.to_string());
+            ErrorKind::CompileError(e.to_string())
+        })?;
+
+    Ok(CompiledFunction {
+        code_buf,
+        reloc_sink,
+        trap_sink
+    })
+}
+
 impl Instance {
     pub const TABLES_OFFSET: usize = 0; // 0 on 64-bit | 0 on 32-bit
     pub const MEMORIES_OFFSET: usize = size_of::<TablesSlice>(); // 8 on 64-bit | 4 on 32-bit
@@ -188,32 +215,10 @@ impl Instance {
 
             debug!("Instance - Compiling functions");
             // Compile the functions (from cranelift IR to machine code)
-            for function_body in module.info.function_bodies.values() {
-                let mut func_context = Context::for_function(function_body.to_owned());
-                // func_context
-                //     .verify(&*isa)
-                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                // func_context
-                //     .verify_locations(&*isa)
-                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                // let code_size_offset = func_context
-                //     .compile(&*isa)
-                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                //     as usize;
-
-                let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink = RelocSink::new();
-                let mut trap_sink = binemit::NullTrapSink {};
-                // This will compile a cranelift ir::Func into a code buffer (stored in memory)
-                // and will push any inner function calls to the reloc sync.
-                // In case traps need to be triggered, they will go to trap_sink
-                func_context
-                    .compile_and_emit(&*options.isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
-                    .map_err(|e| {
-                        debug!("CompileError: {}", e.to_string());
-                        ErrorKind::CompileError(e.to_string())
-                    })?;
-                // We set this code_buf to be readable & executable
+            module.info.function_bodies.values().map(|function_body| -> CompiledFunction {
+                compile_function(&*options.isa, function_body).unwrap()
+            }).for_each(|compiled_func| -> () {
+                let CompiledFunction {code_buf, reloc_sink, ..} = compiled_func;
                 protect_codebuf(&code_buf).unwrap();
 
                 let func_offset = code_buf;
@@ -221,9 +226,10 @@ impl Instance {
 
                 // context_and_offsets.push(func_context);
                 relocations.push(reloc_sink.func_relocs);
-                // println!("FUNCTION RELOCATIONS {:?}", reloc_sink.func_relocs)
-                // total_size += code_size_offset;
-            }
+                ()
+            });
+            
+            // compiled_funcs?;
 
             debug!("Instance - Relocating functions");
             // For each of the functions used, we see what are the calls inside this functions
