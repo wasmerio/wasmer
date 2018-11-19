@@ -3,6 +3,7 @@ use crate::webassembly::{ImportObject, ImportValue};
 mod abort;
 mod printf;
 mod putchar;
+mod syscalls;
 
 pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
@@ -10,6 +11,10 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     import_object.set("env", "putchar", ImportValue::Func(putchar::putchar as *const u8));
     import_object.set("env", "abort", ImportValue::Func(abort::abort as *const u8));
     import_object.set("env", "_abort", ImportValue::Func(abort::abort as *const u8));
+    // SYSCALLS
+    import_object.set("env", "__syscall1", ImportValue::Func(syscalls::__syscall1 as *const u8));
+    import_object.set("env", "__syscall3", ImportValue::Func(syscalls::__syscall3 as *const u8));
+    import_object.set("env", "__syscall5", ImportValue::Func(syscalls::__syscall5 as *const u8));
     import_object
 }
 

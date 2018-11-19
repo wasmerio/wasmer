@@ -150,7 +150,7 @@
 ```
 - <a name="exit"></a>exit - _[__syscall1](#__syscall1)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```rust
-fn exit(error_code: usize)
+fn exit(status: c_int)
 ```
 - <a name="faccessat"></a>faccessat - _[__syscall307](#__syscall307)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```rust
@@ -289,7 +289,7 @@ fn exit(error_code: usize)
 ```
 - <a name="open"></a>open - _[__syscall5](#__syscall5)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```rust
-fn open(pathname: *const char, flags: usize, mode: usize) -> usize
+fn open(path: *const c_char, oflag: c_int, ...) -> c_int 
 ```
 - <a name="openat"></a>openat - _[__syscall295](#__syscall295)_ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#emscripten-syscalls)
 ```rust
