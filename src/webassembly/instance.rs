@@ -22,7 +22,7 @@ use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::import_object::{ImportObject, ImportValue};
 use super::memory::LinearMemory;
-use super::module::{Export, Exportable, Module};
+use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 use super::math_intrinsics;
 
@@ -305,7 +305,7 @@ impl Instance {
             };
 
             for (i, global) in module.info.globals.iter().enumerate() {
-                let Exportable {entity, import_name, ..} = global;
+                let ImportableExportable {entity, import_name, ..} = global;
                 let value: i64 = match entity.initializer {
                     GlobalInit::I32Const(n) => n as _,
                     GlobalInit::I64Const(n) => n,
