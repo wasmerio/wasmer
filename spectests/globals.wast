@@ -288,6 +288,12 @@
 )
 
 (assert_invalid
+  (module (global i32 (i32.const 0)) (global i64 (get_global 1)))
+  "unknown global"
+)
+
+
+(assert_invalid
   (module (global i32 (;empty instruction sequence;)))
   "type mismatch"
 )
@@ -302,10 +308,15 @@
   "unknown global"
 )
 
-;; SKIP_MUTABLE_GLOBALS
-;; (module
-;;   (import "spectest" "global_i32" (global i32))
-;; )
+(module
+  (import "spectest" "global_i32" (global i32))
+  (global i32 (get_global 0))
+  (func (export "get-0") (result i32) (get_global 0))
+  (func (export "get-0-ref") (result i32) (get_global 1))
+)
+
+(assert_return (invoke "get-0") (i32.const 666))
+(assert_return (invoke "get-0-ref") (i32.const 666))
 
 (assert_malformed
   (module binary

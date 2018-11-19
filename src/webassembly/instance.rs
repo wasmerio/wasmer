@@ -311,8 +311,8 @@ impl Instance {
                     GlobalInit::I64Const(n) => n,
                     GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
                     GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
-                    GlobalInit::GlobalRef(_global_index) => {
-                        unimplemented!("GlobalInit::GlobalRef is not yet supported")
+                    GlobalInit::GlobalRef(global_index) => {
+                        globals_data[global_index.index()]
                     }
                     GlobalInit::Import() => {
                         let (module_name, field_name) = import_name.as_ref().expect("Expected a import name for the global import");
