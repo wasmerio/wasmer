@@ -397,8 +397,8 @@ impl Instance {
                 let value: i64 = match global.entity.initializer {
                     GlobalInit::I32Const(n) => n as _,
                     GlobalInit::I64Const(n) => n,
-                    GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
-                    GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
+                    GlobalInit::F32Const(f) => f.to_bits() as _,
+                    GlobalInit::F64Const(f) => f.to_bits(),
                     GlobalInit::GlobalRef(_global_index) => {
                         unimplemented!("GlobalInit::GlobalRef is not yet supported")
                     }
