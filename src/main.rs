@@ -25,7 +25,7 @@ use structopt::StructOpt;
 #[macro_use]
 mod macros;
 pub mod common;
-pub mod linkers;
+pub mod apis;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
@@ -71,12 +71,12 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
     }
 
-    let import_object = linkers::generate_emscripten_env();
+    let import_object = apis::generate_emscripten_env();
     let webassembly::ResultObject { module, instance } =
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
-    webassembly::utils::print_instance_offsets(&instance);
+    // webassembly::utils::print_instance_offsets(&instance);
 
     let func_index = instance
         .start_func

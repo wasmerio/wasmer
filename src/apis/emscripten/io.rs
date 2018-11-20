@@ -2,6 +2,10 @@ use libc::printf as _printf;
 
 use crate::webassembly::Instance;
 
+/// putchar
+pub use libc::putchar;
+
+/// printf
 pub extern "C" fn printf(memory_offset: i32, extra: i32, instance: &Instance) -> i32 {
     let mem = &instance.memories[0];
     return unsafe {
