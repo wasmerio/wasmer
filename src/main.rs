@@ -13,6 +13,7 @@ extern crate wasmparser;
 #[macro_use]
 extern crate target_lexicon;
 extern crate nix;
+extern crate rayon;
 
 use std::fs::File;
 use std::io;
