@@ -1,3 +1,8 @@
+ifeq (test, $(firstword $(MAKECMDGOALS)))
+  runargs := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
+  $(eval $(runargs):;@true)
+endif
+
 .PHONY: spectests clean build install
 
 # This will re-generate the Rust test files based on spectests/*.wast
@@ -14,7 +19,7 @@ install:
 	cargo install --path .
 
 test:
-	cargo test -- --test-threads=1
+	cargo test -- --test-threads=1 $(runargs)
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
