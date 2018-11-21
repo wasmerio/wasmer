@@ -1,10 +1,12 @@
 use crate::webassembly::{ImportObject, ImportValue};
 
 // EMSCRIPTEN APIS
+mod env;
 mod memory;
 mod process;
 mod io;
 mod utils;
+mod syscalls;
 
 // SYSCALLS
 use super::host;
@@ -14,15 +16,13 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
     import_object.set("env", "printf", ImportValue::Func(io::printf as *const u8));
     import_object.set("env", "putchar", ImportValue::Func(io::putchar as *const u8));
-    // import_object.set("env", "")
-    // // EMSCRIPTEN SYSCALLS
-    import_object.set("env", "_getenv", ImportValue::Func(host::get_env as *const u8));
-    import_object.set("env", "___syscall1", ImportValue::Func(host::sys_exit as *const u8));
-    import_object.set("env", "___syscall3", ImportValue::Func(host::sys_read as *const u8));
-    import_object.set("env", "___syscall4", ImportValue::Func(host::sys_write as *const u8));
-    import_object.set("env", "___syscall5", ImportValue::Func(host::sys_open as *const u8));
-    import_object.set("env", "___syscall6", ImportValue::Func(host::sys_close as *const u8));
-    // // EMSCRIPTEN APIS
+    // Emscripten Env
+    import_object.set("env", "_getenv", ImportValue::Func(env::_getenv as *const u8));
+    // Emscripten syscalls
+    import_object.set("env", "___syscall3", ImportValue::Func(syscalls::___syscall3 as *const u8));
+    import_object.set("env", "___syscall4", ImportValue::Func(syscalls::___syscall4 as *const u8));
+    import_object.set("env", "___syscall5", ImportValue::Func(syscalls::___syscall5 as *const u8));
+    // Emscripten other APIs
     import_object.set("env", "abort", ImportValue::Func(process::em_abort as *const u8));
     import_object.set("env", "_abort", ImportValue::Func(process::_abort as *const u8));
     import_object.set("env", "abortOnCannotGrowMemory", ImportValue::Func(process::abort_on_cannot_grow_memory as *const u8));
