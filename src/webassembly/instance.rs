@@ -25,8 +25,7 @@ use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::import_object::{ImportObject, ImportValue};
 use super::memory::LinearMemory;
-use super::module::Export;
-use super::module::Module;
+use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 use super::math_intrinsics;
 
@@ -121,6 +120,8 @@ pub struct DataPointers {
 pub struct InstanceOptions {
     // Shall we mock automatically the imported functions if they don't exist?
     pub mock_missing_imports: bool,
+    pub mock_missing_globals: bool,
+    pub mock_missing_tables: bool,
     pub isa: Box<TargetIsa>,
 }
 
@@ -174,9 +175,6 @@ impl Instance {
 
         let mut functions: Vec<Vec<u8>> = Vec::new();
         let mut import_functions: Vec<*const u8> = Vec::new();
-
-        let mut imported_memories: Vec<LinearMemory> = Vec::new();
-        let mut imported_tables: Vec<Vec<usize>> = Vec::new();
 
         debug!("Instance - Instantiating functions");
         // Instantiate functions
@@ -310,45 +308,104 @@ impl Instance {
             }
         }
 
-        // Looping through and getting the imported objects
-        for (_key, value) in import_object.map {
-            match value {
-                ImportValue::Memory(value) =>
-                    imported_memories.push(value),
-                ImportValue::Table(value) =>
-                    imported_tables.push(value),
-                _ => (),
+        debug!("Instance - Instantiating globals");
+        // Instantiate Globals
+        let globals_data = {
+            let globals_count = module.info.globals.len();
+            // Allocate the underlying memory and initialize it to zeros
+            let globals_data_size = globals_count * 8;
+            globals.resize(globals_data_size, 0);
+
+            // cast the globals slice to a slice of i64.
+            let globals_data = unsafe {
+                slice::from_raw_parts_mut(globals.as_mut_ptr() as *mut i64, globals_count)
+            };
+
+            for (i, global) in module.info.globals.iter().enumerate() {
+                let ImportableExportable {entity, import_name, ..} = global;
+                let value: i64 = match entity.initializer {
+                    GlobalInit::I32Const(n) => n as _,
+                    GlobalInit::I64Const(n) => n,
+                    GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
+                    GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
+                    GlobalInit::GlobalRef(global_index) => {
+                        globals_data[global_index.index()]
+                    }
+                    GlobalInit::Import() => {
+                        let (module_name, field_name) = import_name.as_ref().expect("Expected a import name for the global import");
+                        let imported = import_object.get(&module_name.as_str(), &field_name.as_str());
+                        match imported {
+                            Some(ImportValue::Global(value)) => {
+                                *value
+                            },
+                            None => {
+                                if options.mock_missing_globals {
+                                    0
+                                }
+                                else {
+                                    panic!("Imported global value was not provided ({}.{})", module_name, field_name)
+                                }
+                            },
+                            _ => {
+                                panic!("Expected global import, but received {:?} ({}.{})", imported, module_name, field_name)
+                            }
+                        }
+                    }
+                };
+                globals_data[i] = value;
             }
-        }
+            globals_data
+        };
 
         debug!("Instance - Instantiating tables");
         // Instantiate tables
         {
             // Reserve space for tables
-            tables.reserve_exact(imported_tables.len() + module.info.tables.len());
-
-            // Get imported tables
-            for table in imported_tables {
-                tables.push(table);
-            }
+            tables.reserve_exact(module.info.tables.len());
 
             // Get tables in module
             for table in &module.info.tables {
-                let len = table.entity.size;
-                let mut v = Vec::with_capacity(len);
-                v.resize(len, 0);
-                tables.push(v);
+                let table: Vec<usize> = match table.import_name.as_ref() {
+                    Some((module_name, field_name)) => {
+                        let imported = import_object.get(&module_name.as_str(), &field_name.as_str());
+                        match imported {
+                            Some(ImportValue::Table(t)) => {
+                                t.to_vec()
+                            },
+                            None => {
+                                if options.mock_missing_tables {
+                                    let len = table.entity.size;
+                                    let mut v = Vec::with_capacity(len);
+                                    v.resize(len, 0);
+                                    v
+                                }
+                                else {
+                                    panic!("Imported table value was not provided ({}.{})", module_name, field_name)
+                                }
+                            },
+                            _ => {
+                                panic!("Expected global table, but received {:?} ({}.{})", imported, module_name, field_name)
+                            }
+                        }
+                    },
+                    None => {
+                        let len = table.entity.size;
+                        let mut v = Vec::with_capacity(len);
+                        v.resize(len, 0);
+                        v
+                    }
+                };
+                tables.push(table);
             }
 
             // instantiate tables
             for table_element in &module.info.table_elements {
-                // TODO: We shouldn't assert here since we are returning a Result<Instance, ErrorKind>
-                assert!(
-                    table_element.base.is_none(),
-                    "globalvalue base not supported yet."
-                );
-
-                let base = 0;
+                let base = match table_element.base {
+                    Some(global_index) => {
+                        globals_data[global_index.index()] as usize
+                    },
+                    None => 0
+                };
 
                 let table = &mut tables[table_element.table_index.index()];
                 for (i, func_index) in table_element.elements.iter().enumerate() {
@@ -358,6 +415,7 @@ impl Instance {
 
                     // let func_index = *elem_index - module.info.imported_funcs.len() as u32;
                     // let func_addr = functions[func_index.index()].as_ptr();
+                    println!("TABLE LENGTH: {}", table.len());
                     let func_addr = get_function_addr(&func_index, &import_functions, &functions);
                     table[base + table_element.offset + i] = func_addr as _;
                 }
@@ -368,12 +426,7 @@ impl Instance {
         // Instantiate memories
         {
             // Reserve space for memories
-            memories.reserve_exact(imported_memories.len() + module.info.memories.len());
-
-            // Get imported memories
-            for memory in imported_memories {
-                memories.push(memory);
-            }
+            memories.reserve_exact(module.info.memories.len());
 
             // Get memories in module
             for memory in &module.info.memories {
@@ -391,41 +444,6 @@ impl Instance {
                 let mem_mut = memories[init.memory_index.index()].as_mut();
                 let to_init = &mut mem_mut[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
-            }
-        }
-
-        debug!("Instance - Instantiating globals");
-        // TODO: Fix globals import
-        // Instantiate Globals
-        {
-            let globals_count = module.info.globals.len();
-            // Allocate the underlying memory and initialize it to zeros
-            let globals_data_size = globals_count * 8;
-            globals.resize(globals_data_size, 0);
-
-            // cast the globals slice to a slice of i64.
-            let globals_data = unsafe {
-                slice::from_raw_parts_mut(globals.as_mut_ptr() as *mut i64, globals_count)
-            };
-
-            for (i, global) in module.info.globals.iter().enumerate() {
-                let value: i64 = match global.entity.initializer {
-                    GlobalInit::I32Const(n) => n as _,
-                    GlobalInit::I64Const(n) => n,
-                    GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
-                    GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
-                    GlobalInit::GlobalRef(_global_index) => {
-                        unimplemented!("GlobalInit::GlobalRef is not yet supported")
-                    }
-                    GlobalInit::Import() => {
-                        // Right now (because there is no module/field fields on the Import
-                        // https://github.com/CraneStation/cranelift/blob/5cabce9b58ff960534d4017fad11f2e78c72ceab/lib/wasm/src/sections_translator.rs#L90-L99 )
-                        // It's impossible to know where to take the global from.
-                        // This should be fixed in Cranelift itself.
-                        unimplemented!("GlobalInit::Import is not yet supported")
-                    }
-                };
-                globals_data[i] = value;
             }
         }
 
