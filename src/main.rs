@@ -85,8 +85,8 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("Main function not found"),
         });
-    let main: fn(&webassembly::Instance) = get_instance_function!(instance, func_index);
-    main(&instance);
+    let main: extern fn(u32, u32, &webassembly::Instance) = get_instance_function!(instance, func_index);
+    main(0, 0, &instance);
     Ok(())
 }
 
