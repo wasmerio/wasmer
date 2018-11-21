@@ -79,7 +79,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     if apis::is_emscripten_module(&module) {
-        let func_index = match module.info.exports.get("main") {
+        let func_index = match module.info.exports.get("_main") {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("_main emscripten function not found"),
         };
