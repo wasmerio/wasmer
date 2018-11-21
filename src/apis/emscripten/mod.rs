@@ -4,9 +4,11 @@ use crate::webassembly::{ImportObject, ImportValue};
 mod memory;
 mod process;
 mod io;
+mod utils;
 
 // SYSCALLS
 use super::host;
+pub use self::utils::is_emscripten_module;
 
 pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
