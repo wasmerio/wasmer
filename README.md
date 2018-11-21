@@ -26,7 +26,7 @@ To build this project you will need Rust and Cargo.
 
 ```sh
 # checkout code and associated submodules
-git clone https://github.com/wafoundation/wasmer.git
+git clone --recursive https://github.com/wafoundation/wasmer.git
 cd wasmer
 
 # install tools

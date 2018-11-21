@@ -142,7 +142,7 @@ fn start_module_5(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 69
+// Line 53
 
 #[test]
 fn test_module_5() {
@@ -151,6 +151,54 @@ fn test_module_5() {
     start_module_5(&result_object);
 }
 fn create_module_6() -> ResultObject {
+    let module_str = "(module
+      (type (;0;) (func))
+      (import \"spectest\" \"global_i32\" (global (;0;) i32))
+      (func (;0;) (type 0))
+      (table (;0;) 1000 anyfunc)
+      (elem (;0;) (i32.const 0) 0))
+    ";
+    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
+    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
+}
+
+fn start_module_6(result_object: &ResultObject) {
+    result_object.instance.start();
+}
+
+// Line 60
+
+#[test]
+fn test_module_6() {
+    let result_object = create_module_6();
+    // We group the calls together
+    start_module_6(&result_object);
+}
+fn create_module_7() -> ResultObject {
+    let module_str = "(module
+      (type (;0;) (func))
+      (import \"spectest\" \"global_i32\" (global (;0;) i32))
+      (func (;0;) (type 0))
+      (table (;0;) 1000 anyfunc)
+      (elem (;0;) (get_global 0) 0))
+    ";
+    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
+    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
+}
+
+fn start_module_7(result_object: &ResultObject) {
+    result_object.instance.start();
+}
+
+// Line 67
+
+#[test]
+fn test_module_7() {
+    let result_object = create_module_7();
+    // We group the calls together
+    start_module_7(&result_object);
+}
+fn create_module_8() -> ResultObject {
     let module_str = "(module
       (type (;0;) (func (result i32)))
       (func (;0;) (type 0) (result i32)
@@ -173,13 +221,13 @@ fn create_module_6() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-fn start_module_6(result_object: &ResultObject) {
+fn start_module_8(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 83
-fn c6_l83_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c6_l83_action_invoke");
+// Line 81
+fn c8_l81_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c8_l81_action_invoke");
     let func_index = match result_object.module.info.exports.get("call-7") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -189,9 +237,9 @@ fn c6_l83_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 65 as i32);
 }
 
-// Line 84
-fn c7_l84_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c7_l84_action_invoke");
+// Line 82
+fn c9_l82_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c9_l82_action_invoke");
     let func_index = match result_object.module.info.exports.get("call-9") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -201,17 +249,17 @@ fn c7_l84_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 66 as i32);
 }
 
-// Line 88
+// Line 86
 
 #[test]
-fn test_module_6() {
-    let result_object = create_module_6();
+fn test_module_8() {
+    let result_object = create_module_8();
     // We group the calls together
-    start_module_6(&result_object);
-    c6_l83_action_invoke(&result_object);
-    c7_l84_action_invoke(&result_object);
+    start_module_8(&result_object);
+    c8_l81_action_invoke(&result_object);
+    c9_l82_action_invoke(&result_object);
 }
-fn create_module_7() -> ResultObject {
+fn create_module_9() -> ResultObject {
     let module_str = "(module
       (type (;0;) (func))
       (func (;0;) (type 0))
@@ -222,19 +270,19 @@ fn create_module_7() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-fn start_module_7(result_object: &ResultObject) {
+fn start_module_9(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 93
+// Line 91
 
 #[test]
-fn test_module_7() {
-    let result_object = create_module_7();
+fn test_module_9() {
+    let result_object = create_module_9();
     // We group the calls together
-    start_module_7(&result_object);
+    start_module_9(&result_object);
 }
-fn create_module_8() -> ResultObject {
+fn create_module_10() -> ResultObject {
     let module_str = "(module
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 10 anyfunc))
@@ -245,53 +293,11 @@ fn create_module_8() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-fn start_module_8(result_object: &ResultObject) {
-    result_object.instance.start();
-}
-
-// Line 99
-
-#[test]
-fn test_module_8() {
-    let result_object = create_module_8();
-    // We group the calls together
-    start_module_8(&result_object);
-}
-fn create_module_9() -> ResultObject {
-    let module_str = "(module
-      (table (;0;) 0 anyfunc)
-      (elem (;0;) (i32.const 0)))
-    ";
-    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
-}
-
-fn start_module_9(result_object: &ResultObject) {
-    result_object.instance.start();
-}
-
-// Line 103
-
-#[test]
-fn test_module_9() {
-    let result_object = create_module_9();
-    // We group the calls together
-    start_module_9(&result_object);
-}
-fn create_module_10() -> ResultObject {
-    let module_str = "(module
-      (import \"spectest\" \"table\" (table (;0;) 0 anyfunc))
-      (elem (;0;) (i32.const 0)))
-    ";
-    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
-}
-
 fn start_module_10(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 108
+// Line 97
 
 #[test]
 fn test_module_10() {
@@ -301,7 +307,7 @@ fn test_module_10() {
 }
 fn create_module_11() -> ResultObject {
     let module_str = "(module
-      (table (;0;) 0 0 anyfunc)
+      (table (;0;) 0 anyfunc)
       (elem (;0;) (i32.const 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
@@ -312,7 +318,7 @@ fn start_module_11(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 113
+// Line 101
 
 #[test]
 fn test_module_11() {
@@ -322,8 +328,8 @@ fn test_module_11() {
 }
 fn create_module_12() -> ResultObject {
     let module_str = "(module
-      (table (;0;) 20 anyfunc)
-      (elem (;0;) (i32.const 20)))
+      (import \"spectest\" \"table\" (table (;0;) 0 anyfunc))
+      (elem (;0;) (i32.const 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -333,7 +339,7 @@ fn start_module_12(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 118
+// Line 106
 
 #[test]
 fn test_module_12() {
@@ -343,10 +349,8 @@ fn test_module_12() {
 }
 fn create_module_13() -> ResultObject {
     let module_str = "(module
-      (type (;0;) (func))
-      (import \"spectest\" \"table\" (table (;0;) 0 anyfunc))
-      (func (;0;) (type 0))
-      (elem (;0;) (i32.const 0) 0))
+      (table (;0;) 0 0 anyfunc)
+      (elem (;0;) (i32.const 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -356,7 +360,7 @@ fn start_module_13(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 124
+// Line 111
 
 #[test]
 fn test_module_13() {
@@ -366,10 +370,8 @@ fn test_module_13() {
 }
 fn create_module_14() -> ResultObject {
     let module_str = "(module
-      (type (;0;) (func))
-      (import \"spectest\" \"table\" (table (;0;) 0 100 anyfunc))
-      (func (;0;) (type 0))
-      (elem (;0;) (i32.const 0) 0))
+      (table (;0;) 20 anyfunc)
+      (elem (;0;) (i32.const 20)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -379,7 +381,7 @@ fn start_module_14(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 130
+// Line 116
 
 #[test]
 fn test_module_14() {
@@ -392,7 +394,7 @@ fn create_module_15() -> ResultObject {
       (type (;0;) (func))
       (import \"spectest\" \"table\" (table (;0;) 0 anyfunc))
       (func (;0;) (type 0))
-      (elem (;0;) (i32.const 1) 0))
+      (elem (;0;) (i32.const 0) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -402,7 +404,7 @@ fn start_module_15(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 136
+// Line 122
 
 #[test]
 fn test_module_15() {
@@ -413,9 +415,9 @@ fn test_module_15() {
 fn create_module_16() -> ResultObject {
     let module_str = "(module
       (type (;0;) (func))
-      (import \"spectest\" \"table\" (table (;0;) 0 30 anyfunc))
+      (import \"spectest\" \"table\" (table (;0;) 0 100 anyfunc))
       (func (;0;) (type 0))
-      (elem (;0;) (i32.const 1) 0))
+      (elem (;0;) (i32.const 0) 0))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
@@ -425,79 +427,7 @@ fn start_module_16(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 145
-
-// Line 154
-
-// Line 163
-
-// Line 172
-
-// Line 180
-
-// Line 188
-
-// Line 197
-
-// Line 205
-
-// Line 214
-
-// Line 222
-
-// Line 231
-
-// Line 239
-
-// Line 250
-#[test]
-fn c30_l250_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 9, 7, 1, 0, 65, 0, 11, 1, 0, 10, 4, 1, 2, 0, 11];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 260
-#[test]
-fn c31_l260_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 6, 1, 0, 66, 0, 11, 0];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 268
-#[test]
-fn c32_l268_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 7, 1, 0, 65, 0, 104, 11, 0];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 276
-#[test]
-fn c33_l276_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 5, 1, 0, 1, 11, 0];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 284
-#[test]
-fn c34_l284_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 7, 1, 0, 1, 65, 0, 11, 0];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 292
-#[test]
-fn c35_l292_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 7, 1, 0, 65, 0, 1, 11, 0];
-    let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
-}
-
-// Line 307
+// Line 128
 
 #[test]
 fn test_module_16() {
@@ -506,6 +436,124 @@ fn test_module_16() {
     start_module_16(&result_object);
 }
 fn create_module_17() -> ResultObject {
+    let module_str = "(module
+      (type (;0;) (func))
+      (import \"spectest\" \"table\" (table (;0;) 0 anyfunc))
+      (func (;0;) (type 0))
+      (elem (;0;) (i32.const 1) 0))
+    ";
+    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
+    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
+}
+
+fn start_module_17(result_object: &ResultObject) {
+    result_object.instance.start();
+}
+
+// Line 134
+
+#[test]
+fn test_module_17() {
+    let result_object = create_module_17();
+    // We group the calls together
+    start_module_17(&result_object);
+}
+fn create_module_18() -> ResultObject {
+    let module_str = "(module
+      (type (;0;) (func))
+      (import \"spectest\" \"table\" (table (;0;) 0 30 anyfunc))
+      (func (;0;) (type 0))
+      (elem (;0;) (i32.const 1) 0))
+    ";
+    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
+    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
+}
+
+fn start_module_18(result_object: &ResultObject) {
+    result_object.instance.start();
+}
+
+// Line 143
+
+// Line 152
+
+// Line 161
+
+// Line 170
+
+// Line 178
+
+// Line 186
+
+// Line 195
+
+// Line 203
+
+// Line 212
+
+// Line 220
+
+// Line 229
+
+// Line 237
+
+// Line 248
+#[test]
+fn c32_l248_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 9, 7, 1, 0, 65, 0, 11, 1, 0, 10, 4, 1, 2, 0, 11];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 258
+#[test]
+fn c33_l258_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 6, 1, 0, 66, 0, 11, 0];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 266
+#[test]
+fn c34_l266_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 7, 1, 0, 65, 0, 104, 11, 0];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 274
+#[test]
+fn c35_l274_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 5, 1, 0, 1, 11, 0];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 282
+#[test]
+fn c36_l282_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 7, 1, 0, 1, 65, 0, 11, 0];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 290
+#[test]
+fn c37_l290_assert_invalid() {
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 4, 4, 1, 112, 0, 1, 9, 7, 1, 0, 65, 0, 1, 11, 0];
+    let compilation = compile(wasm_binary.to_vec());
+    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+}
+
+// Line 305
+
+#[test]
+fn test_module_18() {
+    let result_object = create_module_18();
+    // We group the calls together
+    start_module_18(&result_object);
+}
+fn create_module_19() -> ResultObject {
     let module_str = "(module
       (type (;0;) (func (result i32)))
       (func (;0;) (type 0) (result i32)
@@ -524,13 +572,13 @@ fn create_module_17() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-fn start_module_17(result_object: &ResultObject) {
+fn start_module_19(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 318
-fn c37_l318_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c37_l318_action_invoke");
+// Line 316
+fn c39_l316_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c39_l316_action_invoke");
     let func_index = match result_object.module.info.exports.get("call-overwritten") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -540,16 +588,16 @@ fn c37_l318_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 66 as i32);
 }
 
-// Line 320
+// Line 318
 
 #[test]
-fn test_module_17() {
-    let result_object = create_module_17();
+fn test_module_19() {
+    let result_object = create_module_19();
     // We group the calls together
-    start_module_17(&result_object);
-    c37_l318_action_invoke(&result_object);
+    start_module_19(&result_object);
+    c39_l316_action_invoke(&result_object);
 }
-fn create_module_18() -> ResultObject {
+fn create_module_20() -> ResultObject {
     let module_str = "(module
       (type (;0;) (func (result i32)))
       (import \"spectest\" \"table\" (table (;0;) 10 anyfunc))
@@ -568,13 +616,13 @@ fn create_module_18() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-fn start_module_18(result_object: &ResultObject) {
+fn start_module_20(result_object: &ResultObject) {
     result_object.instance.start();
 }
 
-// Line 331
-fn c39_l331_action_invoke(result_object: &ResultObject) {
-    println!("Executing function {}", "c39_l331_action_invoke");
+// Line 329
+fn c41_l329_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c41_l329_action_invoke");
     let func_index = match result_object.module.info.exports.get("call-overwritten-element") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
@@ -584,16 +632,16 @@ fn c39_l331_action_invoke(result_object: &ResultObject) {
     assert_eq!(result, 66 as i32);
 }
 
-// Line 335
+// Line 333
 
 #[test]
-fn test_module_18() {
-    let result_object = create_module_18();
+fn test_module_20() {
+    let result_object = create_module_20();
     // We group the calls together
-    start_module_18(&result_object);
-    c39_l331_action_invoke(&result_object);
+    start_module_20(&result_object);
+    c41_l329_action_invoke(&result_object);
 }
-fn create_module_19() -> ResultObject {
+fn create_module_21() -> ResultObject {
     let module_str = "(module
       (type (;0;) (func (result i32)))
       (func (;0;) (type 0) (result i32)
@@ -621,64 +669,55 @@ fn create_module_19() -> ResultObject {
     instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
 }
 
-fn start_module_19(result_object: &ResultObject) {
-    result_object.instance.start();
-}
-
-// Line 353
-
-// Line 360
-
-#[test]
-fn test_module_19() {
-    let result_object = create_module_19();
-    // We group the calls together
-    start_module_19(&result_object);
-}
-fn create_module_20() -> ResultObject {
-    let module_str = "(module
-      (type (;0;) (func (result i32)))
-      (import \"module1\" \"shared-table\" (table (;0;) 10 anyfunc))
-      (func (;0;) (type 0) (result i32)
-        i32.const 67)
-      (func (;1;) (type 0) (result i32)
-        i32.const 68)
-      (elem (;0;) (i32.const 7) 0)
-      (elem (;1;) (i32.const 8) 1))
-    ";
-    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
-}
-
-fn start_module_20(result_object: &ResultObject) {
-    result_object.instance.start();
-}
-
-// Line 374
-
-#[test]
-fn test_module_20() {
-    let result_object = create_module_20();
-    // We group the calls together
-    start_module_20(&result_object);
-}
-fn create_module_21() -> ResultObject {
-    let module_str = "(module
-      (type (;0;) (func (result i32)))
-      (import \"module1\" \"shared-table\" (table (;0;) 10 anyfunc))
-      (func (;0;) (type 0) (result i32)
-        i32.const 69)
-      (func (;1;) (type 0) (result i32)
-        i32.const 70)
-      (elem (;0;) (i32.const 8) 0)
-      (elem (;1;) (i32.const 9) 1))
-    ";
-    let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
-}
-
 fn start_module_21(result_object: &ResultObject) {
     result_object.instance.start();
+}
+
+// Line 351
+
+// Line 353
+fn c44_l353_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c44_l353_action_invoke");
+    let func_index = match result_object.module.info.exports.get("call-7") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
+    
+}
+
+#[test]
+fn c44_l353_assert_trap() {
+    let result_object = create_module_21();
+    let result = panic::catch_unwind(|| {
+        c44_l353_action_invoke(&result_object);
+    });
+    assert!(result.is_err());
+}
+
+// Line 354
+fn c45_l354_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c45_l354_action_invoke");
+    let func_index = match result_object.module.info.exports.get("call-8") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
+    assert_eq!(result, 65 as i32);
+}
+
+// Line 355
+fn c46_l355_action_invoke(result_object: &ResultObject) {
+    println!("Executing function {}", "c46_l355_action_invoke");
+    let func_index = match result_object.module.info.exports.get("call-9") {
+        Some(&Export::Function(index)) => index,
+        _ => panic!("Function not found"),
+    };
+    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(&result_object.instance);
+    assert_eq!(result, 66 as i32);
 }
 
 #[test]
@@ -686,4 +725,6 @@ fn test_module_21() {
     let result_object = create_module_21();
     // We group the calls together
     start_module_21(&result_object);
+    c45_l354_action_invoke(&result_object);
+    c46_l355_action_invoke(&result_object);
 }

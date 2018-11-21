@@ -58,6 +58,8 @@ pub fn instantiate(
         import_object,
         InstanceOptions {
             mock_missing_imports: true,
+            mock_missing_globals: true,
+            mock_missing_tables: true,
             isa: isa
         },
     )?;

@@ -50,21 +50,19 @@
   (elem (i32.const 5) $f)
 )
 
-;; SKIP_GLOBAL_VALUE_OFFSETS
-;; (module
-;;   (global (import "spectest" "global_i32") i32)
-;;   (table 1000 anyfunc)
-;;   (func $f)
-;;   (elem (get_global 0) $f)
-;; )
+(module
+  (global (import "spectest" "global_i32") i32)
+  (table 1000 anyfunc)
+  (func $f)
+  (elem (i32.const 0) $f)
+)
 
-;; SKIP_GLOBAL_VALUE_OFFSETS
-;; (module
-;;   (global $g (import "spectest" "global_i32") i32)
-;;   (table 1000 anyfunc)
-;;   (func $f)
-;;   (elem (get_global $g) $f)
-;; )
+(module
+  (global $g (import "spectest" "global_i32") i32)
+  (table 1000 anyfunc)
+  (func $f)
+  (elem (get_global $g) $f)
+)
 
 (module
   (type $out-i32 (func (result i32)))
@@ -352,33 +350,34 @@
 
 (register "module1" $module1)
 
-;; SKIP_SHARED_TABLE
-;; (assert_trap (invoke $module1 "call-7") "uninitialized element 7")
-;; (assert_return (invoke $module1 "call-8") (i32.const 65))
-;; (assert_return (invoke $module1 "call-9") (i32.const 66))
+(assert_trap (invoke $module1 "call-7") "uninitialized element 7")
+(assert_return (invoke $module1 "call-8") (i32.const 65))
+(assert_return (invoke $module1 "call-9") (i32.const 66))
 
-(module $module2
-  (type $out-i32 (func (result i32)))
-  (import "module1" "shared-table" (table 10 anyfunc))
-  (elem (i32.const 7) $const-i32-c)
-  (elem (i32.const 8) $const-i32-d)
-  (func $const-i32-c (type $out-i32) (i32.const 67))
-  (func $const-i32-d (type $out-i32) (i32.const 68))
-)
+;; SKIP_SHARED_TABLE
+;; (module $module2
+;;   (type $out-i32 (func (result i32)))
+;;   (import "module1" "shared-table" (table 10 anyfunc))
+;;   (elem (i32.const 7) $const-i32-c)
+;;   (elem (i32.const 8) $const-i32-d)
+;;   (func $const-i32-c (type $out-i32) (i32.const 67))
+;;   (func $const-i32-d (type $out-i32) (i32.const 68))
+;; )
 
 ;; SKIP_SHARED_TABLE
 ;; (assert_return (invoke $module1 "call-7") (i32.const 67))
 ;; (assert_return (invoke $module1 "call-8") (i32.const 68))
 ;; (assert_return (invoke $module1 "call-9") (i32.const 66))
 
-(module $module3
-  (type $out-i32 (func (result i32)))
-  (import "module1" "shared-table" (table 10 anyfunc))
-  (elem (i32.const 8) $const-i32-e)
-  (elem (i32.const 9) $const-i32-f)
-  (func $const-i32-e (type $out-i32) (i32.const 69))
-  (func $const-i32-f (type $out-i32) (i32.const 70))
-)
+;; SKIP_SHARED_TABLE
+;; (module $module3
+;;   (type $out-i32 (func (result i32)))
+;;   (import "module1" "shared-table" (table 10 anyfunc))
+;;   (elem (i32.const 8) $const-i32-e)
+;;   (elem (i32.const 9) $const-i32-f)
+;;   (func $const-i32-e (type $out-i32) (i32.const 69))
+;;   (func $const-i32-f (type $out-i32) (i32.const 70))
+;; )
 
 ;; SKIP_SHARED_TABLE
 ;; (assert_return (invoke $module1 "call-7") (i32.const 67))

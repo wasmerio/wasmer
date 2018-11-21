@@ -6,16 +6,19 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiate_streaming() function.
-use cranelift_codegen::ir::LibCall;
+use cranelift_codegen::ir::{LibCall, Function};
 use cranelift_codegen::{binemit, Context};
-use cranelift_entity::EntityRef;
-use cranelift_wasm::{FuncIndex, GlobalInit, GlobalIndex};
 use cranelift_codegen::isa::TargetIsa;
+use cranelift_entity::EntityRef;
+use cranelift_wasm::{FuncIndex, GlobalInit};
+use rayon::prelude::*;
+
 use region;
 use std::iter::Iterator;
 use std::ptr::write_unaligned;
 use std::slice;
 use std::sync::Arc;
+use std::iter::FromIterator;
 use std::mem::size_of;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
@@ -117,11 +120,40 @@ pub struct DataPointers {
 pub struct InstanceOptions {
     // Shall we mock automatically the imported functions if they don't exist?
     pub mock_missing_imports: bool,
+    pub mock_missing_globals: bool,
+    pub mock_missing_tables: bool,
     pub isa: Box<TargetIsa>,
 }
 
 extern fn mock_fn() -> i32 {
     return 0;
+}
+
+struct CompiledFunction {
+    code_buf: Vec<u8>,
+    reloc_sink: RelocSink,
+    trap_sink: binemit::NullTrapSink,
+}
+
+fn compile_function(isa: &TargetIsa, function_body: &Function) -> Result<CompiledFunction, ErrorKind>  {
+    let mut func_context = Context::for_function(function_body.to_owned());
+
+    let mut code_buf: Vec<u8> = Vec::new();
+    let mut reloc_sink = RelocSink::new();
+    let mut trap_sink = binemit::NullTrapSink {};
+
+    func_context
+        .compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
+        .map_err(|e| {
+            debug!("CompileError: {}", e.to_string());
+            ErrorKind::CompileError(e.to_string())
+        })?;
+
+    Ok(CompiledFunction {
+        code_buf,
+        reloc_sink,
+        trap_sink
+    })
 }
 
 impl Instance {
@@ -184,42 +216,27 @@ impl Instance {
 
             debug!("Instance - Compiling functions");
             // Compile the functions (from cranelift IR to machine code)
-            for function_body in module.info.function_bodies.values() {
-                let mut func_context = Context::for_function(function_body.to_owned());
-                // func_context
-                //     .verify(&*isa)
-                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                // func_context
-                //     .verify_locations(&*isa)
-                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                // let code_size_offset = func_context
-                //     .compile(&*isa)
-                //     .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-                //     as usize;
+            let values: Vec<&Function> = Vec::from_iter(module.info.function_bodies.values());
+            // let isa: &TargetIsa = &*options.isa;
+            let compiled_funcs: Vec<CompiledFunction> = values.par_iter().map(|function_body| -> CompiledFunction {
+                // let r = *Arc::from_raw(isa_ptr);
+                compile_function(&*options.isa, function_body).unwrap()
+                // unimplemented!()
+            }).collect();
 
-                let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink = RelocSink::new();
-                let mut trap_sink = binemit::NullTrapSink {};
-                // This will compile a cranelift ir::Func into a code buffer (stored in memory)
-                // and will push any inner function calls to the reloc sync.
-                // In case traps need to be triggered, they will go to trap_sink
-                func_context
-                    .compile_and_emit(&*options.isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
-                    .map_err(|e| {
-                        debug!("CompileError: {}", e.to_string());
-                        ErrorKind::CompileError(e.to_string())
-                    })?;
-                // We set this code_buf to be readable & executable
+            for compiled_func in compiled_funcs.into_iter() {
+                let CompiledFunction {code_buf, reloc_sink, ..} = compiled_func;
+
+
+                // let func_offset = code_buf;
                 protect_codebuf(&code_buf).unwrap();
-
-                let func_offset = code_buf;
-                functions.push(func_offset);
+                functions.push(code_buf);
 
                 // context_and_offsets.push(func_context);
                 relocations.push(reloc_sink.func_relocs);
-                // println!("FUNCTION RELOCATIONS {:?}", reloc_sink.func_relocs)
-                // total_size += code_size_offset;
             }
+
+            // compiled_funcs?;
 
             debug!("Instance - Relocating functions");
             // For each of the functions used, we see what are the calls inside this functions
@@ -311,8 +328,8 @@ impl Instance {
                     GlobalInit::I64Const(n) => n,
                     GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
                     GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
-                    GlobalInit::GlobalRef(_global_index) => {
-                        unimplemented!("GlobalInit::GlobalRef is not yet supported")
+                    GlobalInit::GlobalRef(global_index) => {
+                        globals_data[global_index.index()]
                     }
                     GlobalInit::Import() => {
                         let (module_name, field_name) = import_name.as_ref().expect("Expected a import name for the global import");
@@ -321,7 +338,17 @@ impl Instance {
                             Some(ImportValue::Global(value)) => {
                                 *value
                             },
-                            _ => panic!("Imported global value was not provided {:?} ({}.{})", imported, module_name, field_name)
+                            None => {
+                                if options.mock_missing_globals {
+                                    0
+                                }
+                                else {
+                                    panic!("Imported global value was not provided ({}.{})", module_name, field_name)
+                                }
+                            },
+                            _ => {
+                                panic!("Expected global import, but received {:?} ({}.{})", imported, module_name, field_name)
+                            }
                         }
                     }
                 };
@@ -345,7 +372,20 @@ impl Instance {
                             Some(ImportValue::Table(t)) => {
                                 t.to_vec()
                             },
-                            _ => panic!("Imported table was not provided {:?} ({}.{})", imported, module_name, field_name)
+                            None => {
+                                if options.mock_missing_tables {
+                                    let len = table.entity.size;
+                                    let mut v = Vec::with_capacity(len);
+                                    v.resize(len, 0);
+                                    v
+                                }
+                                else {
+                                    panic!("Imported table value was not provided ({}.{})", module_name, field_name)
+                                }
+                            },
+                            _ => {
+                                panic!("Expected global table, but received {:?} ({}.{})", imported, module_name, field_name)
+                            }
                         }
                     },
                     None => {

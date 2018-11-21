@@ -7,6 +7,12 @@ jobs:
 
     steps:
       - checkout
+      - run:
+          name: Pull submodules
+          command: |
+            # git pull --recurse-submodules
+            git submodule sync --recursive
+            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -26,6 +32,12 @@ jobs:
 
     steps:
       - checkout
+      - run:
+          name: Pull submodules
+          command: |
+            # git pull --recurse-submodules
+            git submodule sync --recursive
+            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -59,6 +71,12 @@ jobs:
 
     steps:
       - checkout
+      - run:
+          name: Pull submodules
+          command: |
+            # git pull --recurse-submodules
+            git submodule sync --recursive
+            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}

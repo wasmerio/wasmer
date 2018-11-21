@@ -13,6 +13,7 @@ extern crate wasmparser;
 #[macro_use]
 extern crate target_lexicon;
 extern crate nix;
+extern crate rayon;
 
 use std::fs::File;
 use std::io;
@@ -80,7 +81,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
 
     let func_index = instance
         .start_func
-        .unwrap_or_else(|| match module.info.exports.get("main") {
+        .unwrap_or_else(|| match module.info.exports.get("main").or(module.info.exports.get("_main")) {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("Main function not found"),
         });
