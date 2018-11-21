@@ -71,21 +71,25 @@ fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
     ir::ExternalName::user(0, func_index.index() as u32)
 }
 
-/// A collection of names under which a given entity is exported.
+/// A collection of names under which a given entity is imported/exported.
 #[derive(Debug)]
-pub struct Exportable<T> {
+pub struct ImportableExportable<T> {
     /// An entity.
     pub entity: T,
 
     /// Names under which the entity is exported.
     pub export_names: Vec<String>,
+
+    /// Names under which the entity is imported.
+    pub import_name: Option<(String, String)>,
 }
 
-impl<T> Exportable<T> {
-    pub fn new(entity: T) -> Self {
+impl<T> ImportableExportable<T> {
+    pub fn new(entity: T, import_name: Option<(String, String)>) -> Self {
         Self {
             entity,
             export_names: Vec::new(),
+            import_name: import_name
         }
     }
 }
@@ -120,7 +124,7 @@ pub struct ModuleInfo {
     pub signatures: Vec<ir::Signature>,
 
     /// Functions, imported and local.
-    pub functions: PrimaryMap<FuncIndex, Exportable<SignatureIndex>>,
+    pub functions: PrimaryMap<FuncIndex, ImportableExportable<SignatureIndex>>,
 
     /// Function bodies.
     pub function_bodies: PrimaryMap<DefinedFuncIndex, ir::Function>,
@@ -129,7 +133,7 @@ pub struct ModuleInfo {
     pub imported_funcs: Vec<(String, String)>,
 
     /// Tables as provided by `declare_table`.
-    pub tables: Vec<Exportable<Table>>,
+    pub tables: Vec<ImportableExportable<Table>>,
 
     /// WebAssembly table initializers.
     pub table_elements: Vec<TableElements>,
@@ -138,13 +142,13 @@ pub struct ModuleInfo {
     pub tables_base: Option<ir::GlobalValue>,
 
     /// Memories as provided by `declare_memory`.
-    pub memories: Vec<Exportable<Memory>>,
+    pub memories: Vec<ImportableExportable<Memory>>,
 
     /// The Cranelift global holding the base address of the globals vector.
     pub globals_base: Option<ir::GlobalValue>,
 
     /// Globals as provided by `declare_global`.
-    pub globals: Vec<Exportable<Global>>,
+    pub globals: Vec<ImportableExportable<Global>>,
 
     /// The start function.
     pub start_func: Option<FuncIndex>,
@@ -154,7 +158,7 @@ pub struct ModuleInfo {
 
     /// Exported entities
     /// We use this in order to have a O(1) allocation of the exports
-    /// rather than iterating through the Exportable elements.
+    /// rather than iterating through the ImportableExportable elements.
     pub exports: HashMap<String, Export>,
 
     /// The external function declaration for implementing wasm's `current_memory`.
@@ -708,7 +712,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
             self.info.imported_funcs.len(),
             "Imported functions must be declared first"
         );
-        self.info.functions.push(Exportable::new(sig_index));
+        self.info.functions.push(ImportableExportable::new(sig_index, None));
         self.info
             .imported_funcs
             .push((String::from(module), String::from(field)));
@@ -719,7 +723,7 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_func_type(&mut self, sig_index: SignatureIndex) {
-        self.info.functions.push(Exportable::new(sig_index));
+        self.info.functions.push(ImportableExportable::new(sig_index, None));
     }
 
     fn get_func_type(&self, func_index: FuncIndex) -> SignatureIndex {
@@ -727,7 +731,16 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_global(&mut self, global: Global) {
-        self.info.globals.push(Exportable::new(global));
+        self.info.globals.push(ImportableExportable::new(global, None));
+    }
+
+    fn declare_global_import(
+        &mut self,
+        global: Global,
+        module: &'data str,
+        field: &'data str,
+    ) {
+        self.info.globals.push(ImportableExportable::new(global, Some((String::from(module), String::from(field)))));
     }
 
     fn get_global(&self, global_index: GlobalIndex) -> &Global {
@@ -735,7 +748,16 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_table(&mut self, table: Table) {
-        self.info.tables.push(Exportable::new(table));
+        self.info.tables.push(ImportableExportable::new(table, None));
+    }
+
+    fn declare_table_import(
+        &mut self,
+        table: Table,
+        module: &'data str,
+        field: &'data str,
+    ) {
+        self.info.tables.push(ImportableExportable::new(table, Some((String::from(module), String::from(field)))));
     }
 
     fn declare_table_elements(
@@ -745,7 +767,6 @@ impl<'data> ModuleEnvironment<'data> for Module {
         offset: usize,
         elements: Vec<FuncIndex>,
     ) {
-        debug_assert!(base.is_none(), "global-value offsets not supported yet");
         self.info.table_elements.push(TableElements {
             table_index,
             base,
@@ -755,7 +776,16 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_memory(&mut self, memory: Memory) {
-        self.info.memories.push(Exportable::new(memory));
+        self.info.memories.push(ImportableExportable::new(memory, None));
+    }
+
+    fn declare_memory_import(
+        &mut self,
+        memory: Memory,
+        module: &'data str,
+        field: &'data str,
+    ) {
+        self.info.memories.push(ImportableExportable::new(memory, Some((String::from(module), String::from(field)))));
     }
 
     fn declare_data_initialization(

@@ -146,7 +146,3 @@ Currently cranelift_wasm::ModuleEnvironment does not provide `declare_table_impo
     ```
 
   - `elem.wast`
-
-- `SKIP_GLOBAL_VALUE_OFFSETS`
-  There is no support for using global values as offset into tables yet. I believe this is an issue from cranelift side as well, so we will have to wait for it to be supported.
-  - `elem.wast`
