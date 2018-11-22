@@ -18,7 +18,7 @@
 # - WASMER_ARCH (optional): use a specific value for ARCH (mostly for testing)
 #
 # You can install using this script:
-# $ curl https://raw.githubusercontent.com/WAFoundation/wasmer/master/install.sh | sh
+# $ curl https://raw.githubusercontent.com/wasmerio/wasmer/master/install.sh | sh
 
 set -e
 
@@ -32,7 +32,7 @@ white="\033[37m"
 bold="\e[1m"
 dim="\e[2m"
 
-RELEASES_URL="https://github.com/WAFoundation/wasmer/releases"
+RELEASES_URL="https://github.com/wasmerio/wasmer/releases"
 
 wasmer_download_json() {
     url="$2"
@@ -75,7 +75,7 @@ wasmer_download_file() {
 
     if [ "$code" == 404 ]; then
         printf "$red> Your architecture is not yet supported ($OS-$ARCH).$reset\n"
-        echo "> Please open an issue on the project if you would like to use wasmer in your project: https://github.com/WAFoundation/wasmer"
+        echo "> Please open an issue on the project if you would like to use wasmer in your project: https://github.com/wasmerio/wasmer"
         exit 1
     elif [ "$code" != 200 ]; then
         printf "$red>File download failed with code $code.$reset\n"
