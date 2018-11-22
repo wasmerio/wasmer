@@ -57,9 +57,9 @@ Wasmer is an open project guided by strong principles, aiming to be modular, fle
 
 Below are some of the goals (written with order) of this project:
 
-- [ ] It should be 100% compatible with the [WebAssembly Spectest](https://github.com/WAFoundation/wasmer/tree/master/spectests) (on the works)
-- [ ] It should be fast. We can achieve this by caching the function compilations
-- [ ] Support Emscripten calls
+- [x] It should be 100% compatible with the [WebAssembly Spectest](https://github.com/WAFoundation/wasmer/tree/master/spectests)
+- [x] It should be fast _partially achieved_
+- [ ] Support Emscripten calls _(on the works)_
 - [ ] Support Rust ABI calls
 
 ## License
