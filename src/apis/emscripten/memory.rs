@@ -1,17 +1,20 @@
-use libc::{
-    c_void,
-    size_t,
-    memcpy,
-};
+use libc::{c_void, memcpy, size_t};
 
-use crate::webassembly::{Instance};
+use crate::webassembly::Instance;
 
 /// emscripten: _emscripten_memcpy_big
-pub extern "C" fn _emscripten_memcpy_big(dest: u32, src: u32, len: u32, instance: &mut Instance) -> u32 {
+pub extern "C" fn _emscripten_memcpy_big(
+    dest: u32,
+    src: u32,
+    len: u32,
+    instance: &mut Instance,
+) -> u32 {
     debug!("emscripten::_emscripten_memcpy_big");
     let dest_addr = instance.memory_offset_addr(0, dest as usize) as *mut c_void;
     let src_addr = instance.memory_offset_addr(0, src as usize) as *mut c_void;
-    unsafe { memcpy(dest_addr, src_addr, len as size_t); }
+    unsafe {
+        memcpy(dest_addr, src_addr, len as size_t);
+    }
     dest
 }
 

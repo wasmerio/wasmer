@@ -1,23 +1,12 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
-
-use libc::{
-    c_int,
-    c_void,
-    size_t,
-    ssize_t,
-    exit,
-    read,
-    write,
-    open,
-    close,
-};
+use libc::{c_int, c_void, close, exit, open, read, size_t, ssize_t, write};
 use std::{mem, ptr};
 
-use std::os::raw::c_char;
 use std::ffi::CStr;
+use std::os::raw::c_char;
 
-use crate::webassembly::{Instance};
+use crate::webassembly::Instance;
 
 // A macro to retrieve variadic arguments given a varargs offset
 macro_rules! vararg {
@@ -57,7 +46,6 @@ pub extern "C" fn ___syscall5(which: c_int, varargs: c_int, instance: &mut Insta
     debug!("pathname: {}, flags: {}, mode: {}", pathname, flags, mode);
     -2
 }
-
 
 // sys_ioctl
 #[no_mangle]

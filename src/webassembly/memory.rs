@@ -132,8 +132,7 @@ impl fmt::Debug for LinearMemory {
 // Not comparing based on memory content. That would be inefficient.
 impl PartialEq for LinearMemory {
     fn eq(&self, other: &LinearMemory) -> bool {
-        self.current == other.current &&
-        self.maximum == other.maximum
+        self.current == other.current && self.maximum == other.maximum
     }
 }
 

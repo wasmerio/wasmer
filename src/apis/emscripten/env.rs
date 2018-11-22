@@ -1,20 +1,10 @@
-/// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-
-use libc::{
-    c_int,
-    c_void,
-    size_t,
-    ssize_t,
-    exit,
-    read,
-    open,
-    close,
-};
-use std::os::raw::c_char;
-use std::ffi::CStr;
 use super::super::host;
+/// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
+use libc::{c_int, c_void, close, exit, open, read, size_t, ssize_t};
+use std::ffi::CStr;
+use std::os::raw::c_char;
 
-use crate::webassembly::{Instance};
+use crate::webassembly::Instance;
 
 /// emscripten: _getenv
 pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {
@@ -27,8 +17,6 @@ pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {
         Ok(_) => {
             unimplemented!();
         }
-        Err(_) => {
-            0
-        }
+        Err(_) => 0,
     }
 }

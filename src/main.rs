@@ -25,8 +25,8 @@ use structopt::StructOpt;
 
 #[macro_use]
 mod macros;
-pub mod common;
 pub mod apis;
+pub mod common;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
@@ -83,17 +83,19 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("_main emscripten function not found"),
         };
-        let main: extern fn(u32, u32, &webassembly::Instance) = get_instance_function!(instance, func_index);
+        let main: extern "C" fn(u32, u32, &webassembly::Instance) =
+            get_instance_function!(instance, func_index);
         main(0, 0, &instance);
-    }
-    else {
-        let func_index = instance
-            .start_func
-            .unwrap_or_else(|| match module.info.exports.get("main") {
-                Some(&webassembly::Export::Function(index)) => index,
-                _ => panic!("Main function not found"),
-            });
-        let main: extern fn(&webassembly::Instance) = get_instance_function!(instance, func_index);
+    } else {
+        let func_index =
+            instance
+                .start_func
+                .unwrap_or_else(|| match module.info.exports.get("main") {
+                    Some(&webassembly::Export::Function(index)) => index,
+                    _ => panic!("Main function not found"),
+                });
+        let main: extern "C" fn(&webassembly::Instance) =
+            get_instance_function!(instance, func_index);
         main(&instance);
     }
 

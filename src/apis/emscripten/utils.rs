@@ -10,12 +10,11 @@ pub fn is_emscripten_module(module: &Module) -> bool {
     return false;
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::webassembly::instantiate;
-    use super::is_emscripten_module;
     use super::super::generate_emscripten_env;
+    use super::is_emscripten_module;
+    use crate::webassembly::instantiate;
 
     #[test]
     fn should_detect_emscripten_files() {

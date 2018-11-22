@@ -3,10 +3,10 @@
 //! or webassembly::Memory objects.
 // Code inspired from: https://stackoverflow.com/a/45795699/1072990
 // Adapted to the Webassembly use case
+use crate::webassembly::LinearMemory;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use crate::webassembly::LinearMemory;
 
 // We introduced the Pair and BorrowedPair types. We can't use (A, B)
 // directly due to the orphan rule E0210. This is fine since the map
@@ -75,8 +75,7 @@ impl<A: Eq + Hash, B: Eq + Hash> ImportObject<A, B> {
     }
 
     pub fn get(&self, a: &A, b: &B) -> Option<&ImportValue> {
-        self.map
-            .get(&BorrowedPair(a, b) as &KeyPair<A, B>)
+        self.map.get(&BorrowedPair(a, b) as &KeyPair<A, B>)
     }
 
     pub fn set(&mut self, a: A, b: B, v: ImportValue) {
@@ -127,6 +126,9 @@ mod tests {
         fn x() {}
         let mut import_object = ImportObject::new();
         import_object.set("abc", "def", ImportValue::Func(x as *const u8));
-        assert_eq!(*import_object.get(&"abc", &"def").unwrap(), ImportValue::Func(x as *const u8));
+        assert_eq!(
+            *import_object.get(&"abc", &"def").unwrap(),
+            ImportValue::Func(x as *const u8)
+        );
     }
 }

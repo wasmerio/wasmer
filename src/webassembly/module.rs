@@ -15,27 +15,14 @@ use cranelift_codegen::isa::{CallConv, TargetFrontendConfig};
 use cranelift_entity::{EntityRef, PrimaryMap};
 
 use cranelift_wasm::{
-    translate_module,
-    ReturnMode,
-    DefinedFuncIndex,
-    FuncEnvironment as FuncEnvironmentTrait,
-    FuncIndex,
-    FuncTranslator,
-    Global,
-    GlobalIndex,
-    GlobalVariable,
-    Memory,
-    MemoryIndex,
-    ModuleEnvironment,
-    SignatureIndex,
-    Table,
-    TableIndex,
-    WasmResult,
+    translate_module, DefinedFuncIndex, FuncEnvironment as FuncEnvironmentTrait, FuncIndex,
+    FuncTranslator, Global, GlobalIndex, GlobalVariable, Memory, MemoryIndex, ModuleEnvironment,
+    ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
 
 use super::errors::ErrorKind;
-use super::memory::LinearMemory;
 use super::instance::Instance;
+use super::memory::LinearMemory;
 
 /// Get the integer type used for representing pointers on this platform.
 fn native_pointer_type() -> ir::Type {
@@ -89,7 +76,7 @@ impl<T> ImportableExportable<T> {
         Self {
             entity,
             export_names: Vec::new(),
-            import_name: import_name
+            import_name: import_name,
         }
     }
 }
@@ -245,7 +232,6 @@ pub struct Module {
     // return_mode: ReturnMode,
 }
 
-
 impl Module {
     /// Instantiate a Module given WASM bytecode
     pub fn from_bytes(
@@ -365,7 +351,11 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
     //      be 8 bytes. That will definitely gove the wrong offset values
     fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
-        assert_eq!(table_index.index(), 0, "Only one WebAssembly memory supported");
+        assert_eq!(
+            table_index.index(),
+            0,
+            "Only one WebAssembly memory supported"
+        );
         let instance = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_size = native_pointer_size();
         // Load value at (instance + TABLES_OFFSET)
@@ -415,7 +405,11 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
     //      be 8 bytes. That will definitely gove the wrong offset values
     fn make_heap(&mut self, func: &mut ir::Function, memory_index: MemoryIndex) -> ir::Heap {
-        debug_assert_eq!(memory_index.index(), 0, "Only one WebAssembly memory supported");
+        debug_assert_eq!(
+            memory_index.index(),
+            0,
+            "Only one WebAssembly memory supported"
+        );
         let instance = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_size = native_pointer_size();
 
@@ -438,7 +432,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base,
             offset: Offset32::new(memory_data_offset),
             global_type: self.pointer_type(),
-            readonly: true
+            readonly: true,
         });
 
         // Load value at the (base + memory_data_offset)
@@ -455,16 +449,18 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base: heap_base,
             min_size: 0.into(),
             guard_size: (LinearMemory::DEFAULT_GUARD_SIZE as i64).into(),
-            style: ir::HeapStyle::Dynamic {
-                bound_gv,
-            },
-            index_type: I32
+            style: ir::HeapStyle::Dynamic { bound_gv },
+            index_type: I32,
         });
 
         heap
     }
 
-    fn make_global(&mut self, func: &mut ir::Function, global_index: GlobalIndex) -> GlobalVariable {
+    fn make_global(
+        &mut self,
+        func: &mut ir::Function,
+        global_index: GlobalIndex,
+    ) -> GlobalVariable {
         let ptr_size = native_pointer_size();
 
         let instance = func.create_global_value(ir::GlobalValueData::VMContext);
@@ -525,7 +521,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
 
-
         // The `callee` value is an index into a table of function pointers.
         // Apparently, that table is stored at absolute address 0 in this dummy environment.
         // TODO: Generate bounds checking code.
@@ -541,9 +536,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // let entry_size = native_pointer_size() as i64 * 2;
         // let callee_scaled = pos.ins().imul_imm(callee_offset, entry_size);
 
-        let entry_addr = pos
-            .ins()
-            .table_addr(ptr, table, callee_offset, 0);
+        let entry_addr = pos.ins().table_addr(ptr, table, callee_offset, 0);
 
         let mut mflags = ir::MemFlags::new();
         mflags.set_notrap();
@@ -597,7 +590,11 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         _heap: ir::Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value> {
-        debug_assert_eq!(memory_index.index(), 0, "non-default memories not supported yet");
+        debug_assert_eq!(
+            memory_index.index(),
+            0,
+            "non-default memories not supported yet"
+        );
         let grow_mem_func = self.mod_info.grow_memory_extfunc.unwrap_or_else(|| {
             let sig_ref = pos.func.import_signature(Signature {
                 call_conv: CallConv::SystemV,
@@ -624,7 +621,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         let memory_index_value = pos.ins().iconst(I32, imm64(memory_index.index()));
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
-        let call_inst = pos.ins().call(grow_mem_func, &[val, memory_index_value, vmctx]);
+        let call_inst = pos
+            .ins()
+            .call(grow_mem_func, &[val, memory_index_value, vmctx]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
@@ -634,7 +633,11 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         memory_index: MemoryIndex,
         _heap: ir::Heap,
     ) -> WasmResult<ir::Value> {
-        debug_assert_eq!(memory_index.index(), 0, "non-default memories not supported yet");
+        debug_assert_eq!(
+            memory_index.index(),
+            0,
+            "non-default memories not supported yet"
+        );
         let cur_mem_func = self.mod_info.current_memory_extfunc.unwrap_or_else(|| {
             let sig_ref = pos.func.import_signature(Signature {
                 call_conv: CallConv::SystemV,
@@ -712,7 +715,9 @@ impl<'data> ModuleEnvironment<'data> for Module {
             self.info.imported_funcs.len(),
             "Imported functions must be declared first"
         );
-        self.info.functions.push(ImportableExportable::new(sig_index, None));
+        self.info
+            .functions
+            .push(ImportableExportable::new(sig_index, None));
         self.info
             .imported_funcs
             .push((String::from(module), String::from(field)));
@@ -723,7 +728,9 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_func_type(&mut self, sig_index: SignatureIndex) {
-        self.info.functions.push(ImportableExportable::new(sig_index, None));
+        self.info
+            .functions
+            .push(ImportableExportable::new(sig_index, None));
     }
 
     fn get_func_type(&self, func_index: FuncIndex) -> SignatureIndex {
@@ -731,16 +738,16 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_global(&mut self, global: Global) {
-        self.info.globals.push(ImportableExportable::new(global, None));
+        self.info
+            .globals
+            .push(ImportableExportable::new(global, None));
     }
 
-    fn declare_global_import(
-        &mut self,
-        global: Global,
-        module: &'data str,
-        field: &'data str,
-    ) {
-        self.info.globals.push(ImportableExportable::new(global, Some((String::from(module), String::from(field)))));
+    fn declare_global_import(&mut self, global: Global, module: &'data str, field: &'data str) {
+        self.info.globals.push(ImportableExportable::new(
+            global,
+            Some((String::from(module), String::from(field))),
+        ));
     }
 
     fn get_global(&self, global_index: GlobalIndex) -> &Global {
@@ -748,16 +755,16 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_table(&mut self, table: Table) {
-        self.info.tables.push(ImportableExportable::new(table, None));
+        self.info
+            .tables
+            .push(ImportableExportable::new(table, None));
     }
 
-    fn declare_table_import(
-        &mut self,
-        table: Table,
-        module: &'data str,
-        field: &'data str,
-    ) {
-        self.info.tables.push(ImportableExportable::new(table, Some((String::from(module), String::from(field)))));
+    fn declare_table_import(&mut self, table: Table, module: &'data str, field: &'data str) {
+        self.info.tables.push(ImportableExportable::new(
+            table,
+            Some((String::from(module), String::from(field))),
+        ));
     }
 
     fn declare_table_elements(
@@ -776,16 +783,16 @@ impl<'data> ModuleEnvironment<'data> for Module {
     }
 
     fn declare_memory(&mut self, memory: Memory) {
-        self.info.memories.push(ImportableExportable::new(memory, None));
+        self.info
+            .memories
+            .push(ImportableExportable::new(memory, None));
     }
 
-    fn declare_memory_import(
-        &mut self,
-        memory: Memory,
-        module: &'data str,
-        field: &'data str,
-    ) {
-        self.info.memories.push(ImportableExportable::new(memory, Some((String::from(module), String::from(field)))));
+    fn declare_memory_import(&mut self, memory: Memory, module: &'data str, field: &'data str) {
+        self.info.memories.push(ImportableExportable::new(
+            memory,
+            Some((String::from(module), String::from(field))),
+        ));
     }
 
     fn declare_data_initialization(

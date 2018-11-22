@@ -1,5 +1,5 @@
-pub mod syscalls;
 pub mod env;
+pub mod syscalls;
 
-pub use self::syscalls::*;
 pub use self::env::*;
+pub use self::syscalls::*;
