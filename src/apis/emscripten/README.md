@@ -511,3 +511,12 @@
   ```rust
 
   ```
+
+### LEGEND &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+✅ - Implemented
+
+❗️ - Elevated privilege
+
+🔥 - Possible memory access violation
+
+📥 - Access to external memory
