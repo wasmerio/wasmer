@@ -25,8 +25,8 @@ use structopt::StructOpt;
 
 #[macro_use]
 mod macros;
+pub mod apis;
 pub mod common;
-pub mod linkers;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
@@ -71,22 +71,34 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         wasm_binary = wabt::wat2wasm(wasm_binary)
             .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
     }
-
-    let import_object = linkers::generate_emscripten_env();
+    // TODO: We should instantiate after compilation, so we provide the
+    // emscripten environment conditionally based on the module
+    let import_object = apis::generate_emscripten_env();
     let webassembly::ResultObject { module, instance } =
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
-    // webassembly::utils::print_instance_offsets(&instance);
-
-    let func_index = instance
-        .start_func
-        .unwrap_or_else(|| match module.info.exports.get("main").or(module.info.exports.get("_main")) {
+    if apis::is_emscripten_module(&module) {
+        let func_index = match module.info.exports.get("_main") {
             Some(&webassembly::Export::Function(index)) => index,
-            _ => panic!("Main function not found"),
-        });
-    let main: fn(&webassembly::Instance) = get_instance_function!(instance, func_index);
-    main(&instance);
+            _ => panic!("_main emscripten function not found"),
+        };
+        let main: extern "C" fn(u32, u32, &webassembly::Instance) =
+            get_instance_function!(instance, func_index);
+        main(0, 0, &instance);
+    } else {
+        let func_index =
+            instance
+                .start_func
+                .unwrap_or_else(|| match module.info.exports.get("main") {
+                    Some(&webassembly::Export::Function(index)) => index,
+                    _ => panic!("Main function not found"),
+                });
+        let main: extern "C" fn(&webassembly::Instance) =
+            get_instance_function!(instance, func_index);
+        main(&instance);
+    }
+
     Ok(())
 }
 

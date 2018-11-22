@@ -65,6 +65,11 @@ impl LinearMemory {
         self.current
     }
 
+    /// Returns the maximum number of wasm pages allowed.
+    pub fn maximum_size(&self) -> u32 {
+        self.maximum.unwrap_or(65536)
+    }
+
     /// Grow memory by the specified amount of pages.
     ///
     /// Returns `None` if memory can't be grown by the specified amount
@@ -127,8 +132,7 @@ impl fmt::Debug for LinearMemory {
 // Not comparing based on memory content. That would be inefficient.
 impl PartialEq for LinearMemory {
     fn eq(&self, other: &LinearMemory) -> bool {
-        self.current == other.current &&
-        self.maximum == other.maximum
+        self.current == other.current && self.maximum == other.maximum
     }
 }
 

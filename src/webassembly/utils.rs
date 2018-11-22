@@ -11,12 +11,10 @@ pub fn print_instance_offsets(instance: &Instance) {
     let instance_address = instance as *const _ as usize;
     let data_ptr = &instance.data_pointers;
 
-    let tables_pointer_address_ptr: *const usize =
-        unsafe { transmute(&data_ptr.tables) };
+    let tables_pointer_address_ptr: *const usize = unsafe { transmute(&data_ptr.tables) };
     let tables_pointer_address = tables_pointer_address_ptr as usize;
 
-    let memories_pointer_address_ptr: *const usize =
-        unsafe { transmute(&data_ptr.memories) };
+    let memories_pointer_address_ptr: *const usize = unsafe { transmute(&data_ptr.memories) };
     let memories_pointer_address = memories_pointer_address_ptr as usize;
 
     let memories_pointer_address_ptr_0: *const usize =
@@ -31,8 +29,7 @@ pub fn print_instance_offsets(instance: &Instance) {
         unsafe { transmute(&data_ptr.memories.get_unchecked(0).len) };
     let memories_pointer_address_0_len = memories_pointer_address_ptr_0_len as usize;
 
-    let globals_pointer_address_ptr: *const usize =
-        unsafe { transmute(&data_ptr.globals) };
+    let globals_pointer_address_ptr: *const usize = unsafe { transmute(&data_ptr.globals) };
     let globals_pointer_address = globals_pointer_address_ptr as usize;
 
     println!(
@@ -53,7 +50,6 @@ instance.data_pointers.globals \t- {:X} | offset - {:?}
         tables_pointer_address - instance_address,
         memories_pointer_address,
         memories_pointer_address - instance_address,
-
         memories_pointer_address_0,
         0,
         memories_pointer_address_0_data,
@@ -61,7 +57,6 @@ instance.data_pointers.globals \t- {:X} | offset - {:?}
         data_ptr.memories.get_unchecked(0).len,
         memories_pointer_address_0_len,
         memories_pointer_address_0_len - memories_pointer_address_0_data,
-
         globals_pointer_address,
         globals_pointer_address - instance_address,
     );

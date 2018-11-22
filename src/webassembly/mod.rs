@@ -1,19 +1,18 @@
 pub mod errors;
 pub mod import_object;
 pub mod instance;
+pub mod math_intrinsics;
 pub mod memory;
 pub mod module;
 pub mod relocation;
 pub mod utils;
-pub mod math_intrinsics;
 
+use cranelift_codegen::{isa, settings};
 use std::panic;
 use std::str::FromStr;
 use target_lexicon;
 use wasmparser;
 use wasmparser::WasmDecoder;
-use cranelift_codegen::{isa, settings};
-use cranelift_codegen::isa::TargetIsa;
 
 pub use self::errors::{Error, ErrorKind};
 pub use self::import_object::{ImportObject, ImportValue};
@@ -60,7 +59,7 @@ pub fn instantiate(
             mock_missing_imports: true,
             mock_missing_globals: true,
             mock_missing_tables: true,
-            isa: isa
+            isa: isa,
         },
     )?;
     debug!("webassembly - instance created");

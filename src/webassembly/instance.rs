@@ -6,28 +6,28 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiate_streaming() function.
-use cranelift_codegen::ir::{LibCall, Function};
-use cranelift_codegen::{binemit, Context};
+use cranelift_codegen::ir::{Function, LibCall};
 use cranelift_codegen::isa::TargetIsa;
+use cranelift_codegen::{binemit, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
 use rayon::prelude::*;
 
 use region;
+use std::iter::FromIterator;
 use std::iter::Iterator;
+use std::mem::size_of;
 use std::ptr::write_unaligned;
 use std::slice;
 use std::sync::Arc;
-use std::iter::FromIterator;
-use std::mem::size_of;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::import_object::{ImportObject, ImportValue};
+use super::math_intrinsics;
 use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
-use super::math_intrinsics;
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
 type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
@@ -114,7 +114,6 @@ pub struct DataPointers {
 
     // Pointer to globals
     pub globals: GlobalsSlice,
-
 }
 
 pub struct InstanceOptions {
@@ -125,7 +124,7 @@ pub struct InstanceOptions {
     pub isa: Box<TargetIsa>,
 }
 
-extern fn mock_fn() -> i32 {
+extern "C" fn mock_fn() -> i32 {
     return 0;
 }
 
@@ -135,7 +134,10 @@ struct CompiledFunction {
     trap_sink: binemit::NullTrapSink,
 }
 
-fn compile_function(isa: &TargetIsa, function_body: &Function) -> Result<CompiledFunction, ErrorKind>  {
+fn compile_function(
+    isa: &TargetIsa,
+    function_body: &Function,
+) -> Result<CompiledFunction, ErrorKind> {
     let mut func_context = Context::for_function(function_body.to_owned());
 
     let mut code_buf: Vec<u8> = Vec::new();
@@ -152,7 +154,7 @@ fn compile_function(isa: &TargetIsa, function_body: &Function) -> Result<Compile
     Ok(CompiledFunction {
         code_buf,
         reloc_sink,
-        trap_sink
+        trap_sink,
     })
 }
 
@@ -191,23 +193,24 @@ impl Instance {
             // We walk through the imported functions and set the relocations
             // for each of this functions to be an empty vector (as is defined outside of wasm)
             for (module, field) in module.info.imported_funcs.iter() {
-                let imported = import_object
-                    .get(&module.as_str(), &field.as_str());
+                let imported = import_object.get(&module.as_str(), &field.as_str());
                 let function: &*const u8 = match imported {
                     Some(ImportValue::Func(f)) => f,
                     None => {
                         if options.mock_missing_imports {
-                            debug!("The import {}.{} is not provided, therefore will be mocked.", module, field);
+                            debug!(
+                                "The import {}.{} is not provided, therefore will be mocked.",
+                                module, field
+                            );
                             &(mock_fn as *const u8)
-                        }
-                        else {
+                        } else {
                             return Err(ErrorKind::LinkError(format!(
                                 "Imported function {}.{} was not provided in the import_functions",
                                 module, field
                             )));
                         }
-                    },
-                    other => panic!("Expected function import, received {:?}", other)
+                    }
+                    other => panic!("Expected function import, received {:?}", other),
                 };
                 // println!("GET FUNC {:?}", function);
                 import_functions.push(*function);
@@ -218,15 +221,20 @@ impl Instance {
             // Compile the functions (from cranelift IR to machine code)
             let values: Vec<&Function> = Vec::from_iter(module.info.function_bodies.values());
             // let isa: &TargetIsa = &*options.isa;
-            let compiled_funcs: Vec<CompiledFunction> = values.par_iter().map(|function_body| -> CompiledFunction {
-                // let r = *Arc::from_raw(isa_ptr);
-                compile_function(&*options.isa, function_body).unwrap()
-                // unimplemented!()
-            }).collect();
+            let compiled_funcs: Vec<CompiledFunction> = values
+                .par_iter()
+                .map(|function_body| -> CompiledFunction {
+                    // let r = *Arc::from_raw(isa_ptr);
+                    compile_function(&*options.isa, function_body).unwrap()
+                    // unimplemented!()
+                }).collect();
 
             for compiled_func in compiled_funcs.into_iter() {
-                let CompiledFunction {code_buf, reloc_sink, ..} = compiled_func;
-
+                let CompiledFunction {
+                    code_buf,
+                    reloc_sink,
+                    ..
+                } = compiled_func;
 
                 // let func_offset = code_buf;
                 protect_codebuf(&code_buf).unwrap();
@@ -322,33 +330,39 @@ impl Instance {
             };
 
             for (i, global) in module.info.globals.iter().enumerate() {
-                let ImportableExportable {entity, import_name, ..} = global;
+                let ImportableExportable {
+                    entity,
+                    import_name,
+                    ..
+                } = global;
                 let value: i64 = match entity.initializer {
                     GlobalInit::I32Const(n) => n as _,
                     GlobalInit::I64Const(n) => n,
                     GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
                     GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
-                    GlobalInit::GlobalRef(global_index) => {
-                        globals_data[global_index.index()]
-                    }
+                    GlobalInit::GlobalRef(global_index) => globals_data[global_index.index()],
                     GlobalInit::Import() => {
-                        let (module_name, field_name) = import_name.as_ref().expect("Expected a import name for the global import");
-                        let imported = import_object.get(&module_name.as_str(), &field_name.as_str());
+                        let (module_name, field_name) = import_name
+                            .as_ref()
+                            .expect("Expected a import name for the global import");
+                        let imported =
+                            import_object.get(&module_name.as_str(), &field_name.as_str());
                         match imported {
-                            Some(ImportValue::Global(value)) => {
-                                *value
-                            },
+                            Some(ImportValue::Global(value)) => *value,
                             None => {
                                 if options.mock_missing_globals {
                                     0
+                                } else {
+                                    panic!(
+                                        "Imported global value was not provided ({}.{})",
+                                        module_name, field_name
+                                    )
                                 }
-                                else {
-                                    panic!("Imported global value was not provided ({}.{})", module_name, field_name)
-                                }
-                            },
-                            _ => {
-                                panic!("Expected global import, but received {:?} ({}.{})", imported, module_name, field_name)
                             }
+                            _ => panic!(
+                                "Expected global import, but received {:?} ({}.{})",
+                                imported, module_name, field_name
+                            ),
                         }
                     }
                 };
@@ -367,27 +381,29 @@ impl Instance {
             for table in &module.info.tables {
                 let table: Vec<usize> = match table.import_name.as_ref() {
                     Some((module_name, field_name)) => {
-                        let imported = import_object.get(&module_name.as_str(), &field_name.as_str());
+                        let imported =
+                            import_object.get(&module_name.as_str(), &field_name.as_str());
                         match imported {
-                            Some(ImportValue::Table(t)) => {
-                                t.to_vec()
-                            },
+                            Some(ImportValue::Table(t)) => t.to_vec(),
                             None => {
                                 if options.mock_missing_tables {
                                     let len = table.entity.size;
                                     let mut v = Vec::with_capacity(len);
                                     v.resize(len, 0);
                                     v
+                                } else {
+                                    panic!(
+                                        "Imported table value was not provided ({}.{})",
+                                        module_name, field_name
+                                    )
                                 }
-                                else {
-                                    panic!("Imported table value was not provided ({}.{})", module_name, field_name)
-                                }
-                            },
-                            _ => {
-                                panic!("Expected global table, but received {:?} ({}.{})", imported, module_name, field_name)
                             }
+                            _ => panic!(
+                                "Expected global table, but received {:?} ({}.{})",
+                                imported, module_name, field_name
+                            ),
                         }
-                    },
+                    }
                     None => {
                         let len = table.entity.size;
                         let mut v = Vec::with_capacity(len);
@@ -401,10 +417,8 @@ impl Instance {
             // instantiate tables
             for table_element in &module.info.table_elements {
                 let base = match table_element.base {
-                    Some(global_index) => {
-                        globals_data[global_index.index()] as usize
-                    },
-                    None => 0
+                    Some(global_index) => globals_data[global_index.index()] as usize,
+                    None => 0,
                 };
 
                 let table = &mut tables[table_element.table_index.index()];
@@ -415,7 +429,6 @@ impl Instance {
 
                     // let func_index = *elem_index - module.info.imported_funcs.len() as u32;
                     // let func_addr = functions[func_index.index()].as_ptr();
-                    println!("TABLE LENGTH: {}", table.len());
                     let func_addr = get_function_addr(&func_index, &import_functions, &functions);
                     table[base + table_element.offset + i] = func_addr as _;
                 }
@@ -431,10 +444,8 @@ impl Instance {
             // Get memories in module
             for memory in &module.info.memories {
                 let memory = memory.entity;
-                let v = LinearMemory::new(
-                    memory.pages_count as u32,
-                    memory.maximum.map(|m| m as u32),
-                );
+                let v =
+                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32));
                 memories.push(v);
             }
 
@@ -459,10 +470,14 @@ impl Instance {
         // TODO: Refactor repetitive code
         let tables_pointer: Vec<BoundedSlice<usize>> =
             tables.iter().map(|table| table[..].into()).collect();
-        let memories_pointer: Vec<BoundedSlice<u8>> =
-            memories.iter().map(
-                |mem| BoundedSlice::new(&mem[..], mem.current as usize * LinearMemory::WASM_PAGE_SIZE),
-            ).collect();
+        let memories_pointer: Vec<BoundedSlice<u8>> = memories
+            .iter()
+            .map(|mem| {
+                BoundedSlice::new(
+                    &mem[..],
+                    mem.current as usize * LinearMemory::WASM_PAGE_SIZE,
+                )
+            }).collect();
         let globals_pointer: GlobalsSlice = globals[..].into();
 
         let data_pointers = DataPointers {
@@ -517,6 +532,11 @@ impl Instance {
             .as_ref()[address..address + len]
     }
 
+    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
+        let mem = &self.memories[index];
+        unsafe { mem.mmap.as_ptr().offset(offset as isize) as *const usize }
+    }
+
     // Shows the value of a global variable.
     // pub fn inspect_global(&self, global_index: GlobalIndex, ty: ir::Type) -> &[u8] {
     //     let offset = global_index * 8;
@@ -529,6 +549,7 @@ impl Instance {
     // }
 }
 
+// TODO: Needs to be moved to more appropriate place
 extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance) -> i32 {
     // TODO: Support for only one LinearMemory for now.
     debug_assert_eq!(
@@ -543,9 +564,13 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
 
     if old_mem_size != -1 {
         // Get new memory bytes
-        let new_mem_bytes = (old_mem_size as usize + size  as usize) * LinearMemory::WASM_PAGE_SIZE;
+        let new_mem_bytes = (old_mem_size as usize + size as usize) * LinearMemory::WASM_PAGE_SIZE;
         // Update data_pointer
-        instance.data_pointers.memories.get_unchecked_mut(memory_index  as usize).len = new_mem_bytes;
+        instance
+            .data_pointers
+            .memories
+            .get_unchecked_mut(memory_index as usize)
+            .len = new_mem_bytes;
     }
 
     old_mem_size
