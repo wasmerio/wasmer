@@ -2,7 +2,7 @@ use crate::webassembly::module::Module;
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
-    for (module, field) in &module.info.imported_funcs {
+    for (module, _field) in &module.info.imported_funcs {
         if module == "env" {
             return true;
         }

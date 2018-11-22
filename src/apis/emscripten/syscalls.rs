@@ -1,10 +1,6 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
-use libc::{c_int, c_void, close, exit, open, read, size_t, ssize_t, write};
-use std::{mem, ptr};
-
-use std::ffi::CStr;
-use std::os::raw::c_char;
+use libc::{c_int, c_void, ssize_t, write};
 
 use crate::webassembly::Instance;
 
@@ -12,22 +8,22 @@ use crate::webassembly::Instance;
 macro_rules! vararg {
     ($name:ident, $type:ident, $instance:ident, $varargs:ident) => (
         let ($name, $varargs) = unsafe {
+            use std::ptr;
             let ptr = $instance.memory_offset_addr(0, $varargs as usize);
             let ret = ptr::read(ptr as *const $type);
             (ret, $varargs + 4)
-        }
+        };
     )
 }
 
 /// sys_read
-pub extern "C" fn ___syscall3(which: c_int, varargs: c_int, instance: &mut Instance) -> ssize_t {
+pub extern "C" fn ___syscall3(_which: c_int, _varargs: c_int, _instance: &mut Instance) -> ssize_t {
     debug!("emscripten::___syscall3");
     0
 }
 
 /// sys_write
-#[no_mangle]
-pub extern "C" fn ___syscall4(which: c_int, varargs: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall4(_which: c_int, varargs: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::___syscall4");
     vararg!(fd, i32, instance, varargs);
     vararg!(buf_ptr, u32, instance, varargs);
@@ -38,7 +34,7 @@ pub extern "C" fn ___syscall4(which: c_int, varargs: c_int, instance: &mut Insta
 }
 
 /// sys_open
-pub extern "C" fn ___syscall5(which: c_int, varargs: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall5(_which: c_int, varargs: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::___syscall5");
     vararg!(pathname, u32, instance, varargs);
     vararg!(flags, u32, instance, varargs);
@@ -48,8 +44,7 @@ pub extern "C" fn ___syscall5(which: c_int, varargs: c_int, instance: &mut Insta
 }
 
 // sys_ioctl
-#[no_mangle]
-pub extern "C" fn ___syscall54(which: c_int, varargs: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall54(_which: c_int, varargs: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::___syscall54");
     vararg!(stream, u32, instance, varargs);
     vararg!(op, u32, instance, varargs);
@@ -58,8 +53,7 @@ pub extern "C" fn ___syscall54(which: c_int, varargs: c_int, instance: &mut Inst
 }
 
 // sys_newuname
-#[no_mangle]
-pub extern "C" fn ___syscall122(which: c_int, varargs: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall122(_which: c_int, varargs: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::___syscall122");
     vararg!(buf, u32, instance, varargs);
     debug!("buf: {}", buf);

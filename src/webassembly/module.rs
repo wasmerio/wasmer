@@ -43,10 +43,10 @@ pub fn native_pointer_size() -> i32 {
 }
 
 /// Convert a TlsData offset into a `Offset32` for a global decl.
-fn offset32(offset: usize) -> ir::immediates::Offset32 {
-    assert!(offset <= i32::max_value() as usize);
-    (offset as i32).into()
-}
+// fn offset32(offset: usize) -> ir::immediates::Offset32 {
+//     assert!(offset <= i32::max_value() as usize);
+//     (offset as i32).into()
+// }
 
 /// Convert a usize offset into a `Imm64` for an iadd_imm.
 fn imm64(offset: usize) -> ir::immediates::Imm64 {

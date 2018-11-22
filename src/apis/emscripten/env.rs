@@ -1,6 +1,6 @@
 use super::super::host;
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{c_int, c_void, close, exit, open, read, size_t, ssize_t};
+use libc::{c_int};
 use std::ffi::CStr;
 use std::os::raw::c_char;
 

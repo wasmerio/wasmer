@@ -25,7 +25,7 @@ pub extern "C" fn get_total_memory(instance: &mut Instance) -> u32 {
 }
 
 /// emscripten: enlargeMemory
-pub extern "C" fn enlarge_memory(instance: &mut Instance) {
+pub extern "C" fn enlarge_memory(_instance: &mut Instance) {
     debug!("emscripten::enlarge_memory");
     // instance.memories[0].grow(100);
 }

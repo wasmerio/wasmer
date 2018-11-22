@@ -7,7 +7,6 @@ pub mod module;
 pub mod relocation;
 pub mod utils;
 
-use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::{isa, settings};
 use std::panic;
 use std::str::FromStr;
