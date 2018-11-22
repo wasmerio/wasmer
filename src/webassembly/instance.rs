@@ -415,7 +415,6 @@ impl Instance {
 
                     // let func_index = *elem_index - module.info.imported_funcs.len() as u32;
                     // let func_addr = functions[func_index.index()].as_ptr();
-                    println!("TABLE LENGTH: {}", table.len());
                     let func_addr = get_function_addr(&func_index, &import_functions, &functions);
                     table[base + table_element.offset + i] = func_addr as _;
                 }
