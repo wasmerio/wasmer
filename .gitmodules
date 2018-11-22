@@ -1,4 +1,4 @@
 [submodule "cranelift"]
 	path = cranelift
-	url = git@github.com:wasmerio/cranelift.git
+	url = https://github.com/wasmerio/cranelift.git
 	fetchrecursesubmodules = true
