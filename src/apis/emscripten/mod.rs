@@ -7,6 +7,7 @@ mod memory;
 mod process;
 mod syscalls;
 mod utils;
+mod varargs;
 
 // SYSCALLS
 pub use self::utils::is_emscripten_module;
