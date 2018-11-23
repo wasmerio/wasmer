@@ -42,8 +42,11 @@ jobs:
           keys:
             - v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
-      - run: make test
       - run:
+          name: Execute tests
+          command: make test
+      - run:
+          name: Make release build
           command: |
             make release
             mkdir -p artifacts
@@ -99,7 +102,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             make test
       - run:
-          name: Make build
+          name: Make release build
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
@@ -134,11 +137,17 @@ jobs:
           command: |
             # go get github.com/tcnksm/ghr
             # VERSION=$(git log -1 --pretty=%B)
+            # VERSION=$(./artifacts/ --version)
             VERSION=$(cat ./artifacts/version)
             rm ./artifacts/version
-            # VERSION=${CIRCLE_TAG}
-            # VERSION=$(./artifacts/ --version)
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
+            VERSION_TAG=${CIRCLE_TAG}
+            if [ "$VERSION" == "$VERSION_TAG" ]; then
+                echo "Versions match, publishing to Github"
+                ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
+            else
+                echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
+                exit 1
+            fi
 
 workflows:
   version: 2
@@ -165,8 +174,8 @@ workflows:
           requires:
             - test-and-build
             - test-and-build-macos
-          # filters:
-          #   branches:
-          #     ignore: /.*/
-          #   tags:
-          #     only: /^\d+\.\d+\.\d+$/
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
