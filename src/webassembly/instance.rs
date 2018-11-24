@@ -29,8 +29,6 @@ use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 
-use crate::apis::emscripten::{align_memory, static_alloc};
-
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
 type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
 type GlobalsSlice = UncheckedSlice<u8>;
@@ -98,9 +96,6 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
-
-    /// TODO: This should probably be passed as globals to the module.
-    pub emscripten_data: EmscriptenData,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
@@ -117,27 +112,6 @@ pub struct DataPointers {
 
     // Pointer to globals
     pub globals: GlobalsSlice,
-}
-
-#[derive(Debug)]
-#[repr(C)]
-pub struct EmscriptenData {
-    pub static_sealed: bool,
-
-    // global section
-    pub global_base: u32,
-    pub static_base: u32,
-    pub static_top: u32,
-
-    // stack
-    pub total_stack: u32,
-    pub stack_base: u32,
-    pub stack_max: u32,
-    pub stack_top: u32,
-
-    // heap
-    pub dynamic_base: u32,
-    pub dynamictop_ptr: u32,
 }
 
 pub struct InstanceOptions {
@@ -509,33 +483,6 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
-        // Emscripten runtime data
-        // TODO: Find a better implementation. Use global values.
-        let static_sealed = false;
-        let global_base = 1024;
-        let static_base = global_base;
-        let mut static_top = static_base + 5536;
-        let total_stack = 5242880;
-        let stack_base = align_memory(static_top, 16);
-        let stack_top = stack_base;
-        let stack_max = stack_base + total_stack;
-        let dynamic_base = align_memory(stack_max, 16);
-        let dynamictop_ptr = static_alloc(4, &mut static_top, &memories[0]);
-
-
-        let emscripten_data = EmscriptenData {
-            static_sealed,
-            global_base,
-            static_base,
-            static_top,
-            total_stack,
-            stack_base,
-            stack_top,
-            stack_max,
-            dynamic_base,
-            dynamictop_ptr,
-        };
-
         Ok(Instance {
             data_pointers,
             tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
@@ -544,7 +491,7 @@ impl Instance {
             functions,
             import_functions,
             start_func,
-            emscripten_data,
+            // emscripten_data,
         })
     }
 
