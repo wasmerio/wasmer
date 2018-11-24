@@ -5,7 +5,6 @@
     warnings,
     dead_code
 )]
-use std::panic;
 use wabt::wat2wasm;
 
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
@@ -83,9 +82,7 @@ fn c2_l15_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c2_l15_assert_trap() {
     let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c2_l15_action_invoke(&result_object);
-    });
+    let result = call_protected!(c2_l15_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -104,9 +101,7 @@ fn c3_l16_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c3_l16_assert_trap() {
     let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c3_l16_action_invoke(&result_object);
-    });
+    let result = call_protected!(c3_l16_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -125,9 +120,7 @@ fn c4_l17_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c4_l17_assert_trap() {
     let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c4_l17_action_invoke(&result_object);
-    });
+    let result = call_protected!(c4_l17_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -146,9 +139,7 @@ fn c5_l18_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c5_l18_assert_trap() {
     let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c5_l18_action_invoke(&result_object);
-    });
+    let result = call_protected!(c5_l18_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -227,9 +218,7 @@ fn c11_l24_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c11_l24_assert_trap() {
     let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c11_l24_action_invoke(&result_object);
-    });
+    let result = call_protected!(c11_l24_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -248,9 +237,7 @@ fn c12_l25_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c12_l25_assert_trap() {
     let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c12_l25_action_invoke(&result_object);
-    });
+    let result = call_protected!(c12_l25_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -1360,9 +1347,7 @@ fn c72_l286_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c72_l286_assert_trap() {
     let result_object = create_module_5();
-    let result = panic::catch_unwind(|| {
-        c72_l286_action_invoke(&result_object);
-    });
+    let result = call_protected!(c72_l286_action_invoke(&result_object));
     assert!(result.is_err());
 }
 

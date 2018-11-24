@@ -163,7 +163,6 @@ impl WastTestGenerator {
     warnings,
     dead_code
 )]
-use std::panic;
 use wabt::wat2wasm;
 
 use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, Instance, Export}};
@@ -511,9 +510,7 @@ fn {}_assert_malformed() {{
 #[test]
 fn {}() {{
     let result_object = create_module_{}();
-    let result = panic::catch_unwind(|| {{
-        {}(&result_object);
-    }});
+    let result = call_protected!({}(&result_object));
     assert!(result.is_err());
 }}\n",
                 trap_func_name,
