@@ -1,7 +1,11 @@
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
+<<<<<<< HEAD
 use crate::webassembly::{ImportObject, ImportValue, LinearMemory};
 use byteorder::{ByteOrder, LittleEndian};
 use std::mem;
+=======
+use crate::webassembly::{ImportObject, ImportValue};
+>>>>>>> Add some syscalls
 
 // EMSCRIPTEN APIS
 mod env;
@@ -159,6 +163,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "env",
         "___syscall140",
         ImportValue::Func(syscalls::___syscall140 as *const u8),
+<<<<<<< HEAD
     );
     import_object.set(
         "env",
@@ -172,6 +177,21 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+=======
+    );
+    import_object.set(
+        "env",
+        "___syscall145",
+        ImportValue::Func(syscalls::___syscall145 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall146",
+        ImportValue::Func(syscalls::___syscall146 as *const u8),
+    );
+    import_object.set(
+        "env",
+>>>>>>> Add some syscalls
         "___syscall221",
         ImportValue::Func(syscalls::___syscall221 as *const u8),
     );
@@ -220,8 +240,13 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+<<<<<<< HEAD
         "nullFunc_iii",
         ImportValue::Func(nullfunc::nullfunc_iii as *const u8),
+=======
+        "nullFunc_iiii",
+        ImportValue::Func(nullfunc::nullfunc_iiii as *const u8),
+>>>>>>> Add some syscalls
     );
     import_object.set(
         "env",

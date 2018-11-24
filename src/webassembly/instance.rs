@@ -30,6 +30,8 @@ use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 
+use crate::apis::emscripten::{align_memory, static_alloc};
+
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
 // TODO: this should be `type MemoriesSlice = UncheckedSlice<UncheckedSlice<u8>>;`, but that crashes for some reason.
 type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
@@ -98,6 +100,9 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
+
+    /// TODO: This should probably be passed as globals to the module.
+    pub emscripten_data: EmscriptenData,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
@@ -114,6 +119,27 @@ pub struct DataPointers {
 
     // Pointer to globals
     pub globals: GlobalsSlice,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct EmscriptenData {
+    pub static_sealed: bool,
+
+    // global section
+    pub global_base: u32,
+    pub static_base: u32,
+    pub static_top: u32,
+
+    // stack
+    pub total_stack: u32,
+    pub stack_base: u32,
+    pub stack_max: u32,
+    pub stack_top: u32,
+
+    // heap
+    pub dynamic_base: u32,
+    pub dynamictop_ptr: u32,
 }
 
 pub struct InstanceOptions {
@@ -502,7 +528,7 @@ impl Instance {
             functions,
             import_functions,
             start_func,
-            // emscripten_data,
+            emscripten_data,
         })
     }
 
