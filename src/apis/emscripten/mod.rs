@@ -161,8 +161,8 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
-        "nullFunc_iiii",
-        ImportValue::Func(nullfunc::nullfunc_iiii as *const u8),
+        "nullFunc_iii",
+        ImportValue::Func(nullfunc::nullfunc_iii as *const u8),
     );
     import_object.set(
         "env",
