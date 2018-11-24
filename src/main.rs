@@ -25,6 +25,8 @@ use structopt::StructOpt;
 
 #[macro_use]
 mod macros;
+#[macro_use]
+mod recovery;
 pub mod apis;
 pub mod common;
 pub mod sighandler;
@@ -85,7 +87,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         };
         let main: extern "C" fn(u32, u32, &webassembly::Instance) =
             get_instance_function!(instance, func_index);
-        main(0, 0, &instance);
+        return call_protected!(main(0, 0, &instance)).map_err(|err| format!("{}", err));
     } else {
         let func_index =
             instance
@@ -96,10 +98,8 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
                 });
         let main: extern "C" fn(&webassembly::Instance) =
             get_instance_function!(instance, func_index);
-        main(&instance);
+        return call_protected!(main(&instance)).map_err(|err| format!("{}", err));
     }
-
-    Ok(())
 }
 
 fn run(options: Run) {

@@ -4,12 +4,7 @@
 #[macro_export]
 macro_rules! get_instance_function {
     ($instance:expr, $func_index:expr) => {{
-        use crate::sighandler::install_sighandler;
         use std::mem;
-
-        unsafe {
-            install_sighandler();
-        };
         let func_addr = $instance.get_function_pointer($func_index);
         unsafe { mem::transmute(func_addr) }
     }};
