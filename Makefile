@@ -19,7 +19,7 @@ install:
 	cargo install --path .
 
 test:
-	cargo test -- --test-threads=1 $(runargs)
+	cargo test -- $(runargs)
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows

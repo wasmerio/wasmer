@@ -5,7 +5,6 @@
     warnings,
     dead_code
 )]
-use std::panic;
 use wabt::wat2wasm;
 
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
@@ -565,9 +564,7 @@ fn c26_l113_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c26_l113_assert_trap() {
     let result_object = create_module_7();
-    let result = panic::catch_unwind(|| {
-        c26_l113_action_invoke(&result_object);
-    });
+    let result = call_protected!(c26_l113_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -586,9 +583,7 @@ fn c27_l114_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c27_l114_assert_trap() {
     let result_object = create_module_7();
-    let result = panic::catch_unwind(|| {
-        c27_l114_action_invoke(&result_object);
-    });
+    let result = call_protected!(c27_l114_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -607,9 +602,7 @@ fn c28_l115_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c28_l115_assert_trap() {
     let result_object = create_module_7();
-    let result = panic::catch_unwind(|| {
-        c28_l115_action_invoke(&result_object);
-    });
+    let result = call_protected!(c28_l115_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -628,9 +621,7 @@ fn c29_l116_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c29_l116_assert_trap() {
     let result_object = create_module_7();
-    let result = panic::catch_unwind(|| {
-        c29_l116_action_invoke(&result_object);
-    });
+    let result = call_protected!(c29_l116_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -690,9 +681,7 @@ fn c31_l132_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c31_l132_assert_trap() {
     let result_object = create_module_8();
-    let result = panic::catch_unwind(|| {
-        c31_l132_action_invoke(&result_object);
-    });
+    let result = call_protected!(c31_l132_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -711,9 +700,7 @@ fn c32_l133_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c32_l133_assert_trap() {
     let result_object = create_module_8();
-    let result = panic::catch_unwind(|| {
-        c32_l133_action_invoke(&result_object);
-    });
+    let result = call_protected!(c32_l133_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -732,9 +719,7 @@ fn c33_l134_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c33_l134_assert_trap() {
     let result_object = create_module_8();
-    let result = panic::catch_unwind(|| {
-        c33_l134_action_invoke(&result_object);
-    });
+    let result = call_protected!(c33_l134_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -753,9 +738,7 @@ fn c34_l135_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c34_l135_assert_trap() {
     let result_object = create_module_8();
-    let result = panic::catch_unwind(|| {
-        c34_l135_action_invoke(&result_object);
-    });
+    let result = call_protected!(c34_l135_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -1030,9 +1013,7 @@ fn c47_l196_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c47_l196_assert_trap() {
     let result_object = create_module_12();
-    let result = panic::catch_unwind(|| {
-        c47_l196_action_invoke(&result_object);
-    });
+    let result = call_protected!(c47_l196_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -1051,9 +1032,7 @@ fn c48_l197_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c48_l197_assert_trap() {
     let result_object = create_module_12();
-    let result = panic::catch_unwind(|| {
-        c48_l197_action_invoke(&result_object);
-    });
+    let result = call_protected!(c48_l197_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -1072,9 +1051,7 @@ fn c49_l198_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c49_l198_assert_trap() {
     let result_object = create_module_12();
-    let result = panic::catch_unwind(|| {
-        c49_l198_action_invoke(&result_object);
-    });
+    let result = call_protected!(c49_l198_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -1093,9 +1070,7 @@ fn c50_l199_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c50_l199_assert_trap() {
     let result_object = create_module_12();
-    let result = panic::catch_unwind(|| {
-        c50_l199_action_invoke(&result_object);
-    });
+    let result = call_protected!(c50_l199_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -2015,9 +1990,7 @@ fn c106_l349_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c106_l349_assert_trap() {
     let result_object = create_module_19();
-    let result = panic::catch_unwind(|| {
-        c106_l349_action_invoke(&result_object);
-    });
+    let result = call_protected!(c106_l349_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -2036,9 +2009,7 @@ fn c107_l350_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c107_l350_assert_trap() {
     let result_object = create_module_19();
-    let result = panic::catch_unwind(|| {
-        c107_l350_action_invoke(&result_object);
-    });
+    let result = call_protected!(c107_l350_action_invoke(&result_object));
     assert!(result.is_err());
 }
 

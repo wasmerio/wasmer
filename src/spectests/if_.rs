@@ -5,7 +5,6 @@
     warnings,
     dead_code
 )]
-use std::panic;
 use wabt::wat2wasm;
 
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
@@ -1224,9 +1223,7 @@ fn c48_l440_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c48_l440_assert_trap() {
     let result_object = create_module_1();
-    let result = panic::catch_unwind(|| {
-        c48_l440_action_invoke(&result_object);
-    });
+    let result = call_protected!(c48_l440_action_invoke(&result_object));
     assert!(result.is_err());
 }
 

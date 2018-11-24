@@ -5,7 +5,6 @@
     warnings,
     dead_code
 )]
-use std::panic;
 use wabt::wat2wasm;
 
 use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
@@ -303,9 +302,7 @@ fn c20_l78_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c20_l78_assert_trap() {
     let result_object = create_module_2();
-    let result = panic::catch_unwind(|| {
-        c20_l78_action_invoke(&result_object);
-    });
+    let result = call_protected!(c20_l78_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -324,9 +321,7 @@ fn c21_l79_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c21_l79_assert_trap() {
     let result_object = create_module_2();
-    let result = panic::catch_unwind(|| {
-        c21_l79_action_invoke(&result_object);
-    });
+    let result = call_protected!(c21_l79_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -345,9 +340,7 @@ fn c22_l80_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c22_l80_assert_trap() {
     let result_object = create_module_2();
-    let result = panic::catch_unwind(|| {
-        c22_l80_action_invoke(&result_object);
-    });
+    let result = call_protected!(c22_l80_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -450,9 +443,7 @@ fn c30_l89_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c30_l89_assert_trap() {
     let result_object = create_module_2();
-    let result = panic::catch_unwind(|| {
-        c30_l89_action_invoke(&result_object);
-    });
+    let result = call_protected!(c30_l89_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -471,9 +462,7 @@ fn c31_l90_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c31_l90_assert_trap() {
     let result_object = create_module_2();
-    let result = panic::catch_unwind(|| {
-        c31_l90_action_invoke(&result_object);
-    });
+    let result = call_protected!(c31_l90_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
@@ -492,9 +481,7 @@ fn c32_l91_action_invoke(result_object: &ResultObject) {
 #[test]
 fn c32_l91_assert_trap() {
     let result_object = create_module_2();
-    let result = panic::catch_unwind(|| {
-        c32_l91_action_invoke(&result_object);
-    });
+    let result = call_protected!(c32_l91_action_invoke(&result_object));
     assert!(result.is_err());
 }
 
