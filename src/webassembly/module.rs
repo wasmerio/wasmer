@@ -401,9 +401,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 
     // TODO: offsets should be based on the architecture the wasmer was compiled for.
-    //      e.g., BoundedSlice.len will be 32-bit (4 bytes) when wasmer is compiled for a 32-bit arch,
-    //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
-    //      be 8 bytes. That will definitely gove the wrong offset values
     fn make_heap(&mut self, func: &mut ir::Function, memory_index: MemoryIndex) -> ir::Heap {
         debug_assert_eq!(
             memory_index.index(),
@@ -423,8 +420,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         });
 
         // Based on the index provided, we need to know the offset into memories array
-        // Each element in the memories array has a size of (ptr_size * 2)
-        let memory_data_offset = 0; // (memory_index as usize * ptr_size * 2) as i32;
+        let memory_data_offset = (memory_index.index() * ptr_size as usize) as i32;
 
         // Load value at the (base + memory_data_offset)
         // which is the address of data_pointer.memories[index].data
@@ -435,21 +431,14 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             readonly: true,
         });
 
-        // Load value at the (base + memory_data_offset)
-        // which is the value of data_pointer.memories[index].len
-        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base,
-            offset: Offset32::new(memory_data_offset + ptr_size as i32),
-            global_type: I32,
-            readonly: false,
-        });
-
         // Create table based on the data above
         let heap = func.create_heap(ir::HeapData {
             base: heap_base,
             min_size: 0.into(),
             guard_size: (LinearMemory::DEFAULT_GUARD_SIZE as i64).into(),
-            style: ir::HeapStyle::Dynamic { bound_gv },
+            style: ir::HeapStyle::Static {
+                bound: (LinearMemory::DEFAULT_HEAP_SIZE as i64).into(),
+            },
             index_type: I32,
         });
 

@@ -3,7 +3,7 @@ use std::mem;
 
 #[repr(transparent)]
 pub struct VarArgs {
-    pointer: u32, // assuming 32bit wasm
+    pub pointer: u32, // assuming 32bit wasm
 }
 
 impl VarArgs {

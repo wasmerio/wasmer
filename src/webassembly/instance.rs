@@ -30,7 +30,7 @@ use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
-type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
+type MemoriesSlice = UncheckedSlice<UncheckedSlice<u8>>;
 type GlobalsSlice = UncheckedSlice<u8>;
 
 pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
@@ -470,13 +470,10 @@ impl Instance {
         // TODO: Refactor repetitive code
         let tables_pointer: Vec<BoundedSlice<usize>> =
             tables.iter().map(|table| table[..].into()).collect();
-        let memories_pointer: Vec<BoundedSlice<u8>> = memories
+        let memories_pointer: Vec<UncheckedSlice<u8>> = memories
             .iter()
             .map(|mem| {
-                BoundedSlice::new(
-                    &mem[..],
-                    mem.current as usize * LinearMemory::WASM_PAGE_SIZE,
-                )
+                mem[..].into()
             }).collect();
         let globals_pointer: GlobalsSlice = globals[..].into();
 
@@ -533,8 +530,9 @@ impl Instance {
     }
 
     pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
-        let mem = &self.memories[index];
-        unsafe { mem.mmap.as_ptr().offset(offset as isize) as *const usize }
+        let memories: &[LinearMemory] = &self.memories[..];
+        let mem = &memories[index];
+        unsafe { mem[..].as_ptr().add(offset) as *const usize }
     }
 
     // Shows the value of a global variable.
@@ -562,21 +560,10 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
         .grow(size)
         .unwrap_or(-1);
 
-    if old_mem_size != -1 {
-        // Get new memory bytes
-        let new_mem_bytes = (old_mem_size as usize + size as usize) * LinearMemory::WASM_PAGE_SIZE;
-        // Update data_pointer
-        instance
-            .data_pointers
-            .memories
-            .get_unchecked_mut(memory_index as usize)
-            .len = new_mem_bytes;
-    }
-
     old_mem_size
 }
 
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
-    memory.current_size() as u32
+    memory.current_pages() as u32
 }
