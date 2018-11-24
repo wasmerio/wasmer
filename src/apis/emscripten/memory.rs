@@ -1,6 +1,6 @@
 use libc::{c_void, memcpy, size_t};
-
 use crate::webassembly::Instance;
+use super::process::abort_with_message;
 
 /// emscripten: _emscripten_memcpy_big
 pub extern "C" fn _emscripten_memcpy_big(
@@ -28,4 +28,10 @@ pub extern "C" fn get_total_memory(instance: &mut Instance) -> u32 {
 pub extern "C" fn enlarge_memory(_instance: &mut Instance) {
     debug!("emscripten::enlarge_memory");
     // instance.memories[0].grow(100);
+}
+
+/// emscripten: abortOnCannotGrowMemory
+pub extern "C" fn abort_on_cannot_grow_memory() {
+    debug!("emscripten::abort_on_cannot_grow_memory");
+    abort_with_message("Cannot enlarge memory arrays!");
 }

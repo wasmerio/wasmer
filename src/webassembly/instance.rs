@@ -29,6 +29,8 @@ use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 
+use crate::apis::emscripten::{align_memory, static_alloc};
+
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
 type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
 type GlobalsSlice = UncheckedSlice<u8>;
@@ -69,7 +71,6 @@ fn get_function_addr(
 /// An Instance of a WebAssembly module
 /// NOTE: There is an assumption that data_pointers is always the
 ///      first field
-#[repr(C)]
 #[derive(Debug)]
 #[repr(C)]
 pub struct Instance {
@@ -97,12 +98,14 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
+
+    /// TODO: This should probably be passed as globals to the module.
+    pub emscripten_data: EmscriptenData,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
 /// by Cranelift.
 /// NOTE: Rearranging the fields will break the memory arrangement model
-#[repr(C)]
 #[derive(Debug)]
 #[repr(C)]
 pub struct DataPointers {
@@ -114,6 +117,27 @@ pub struct DataPointers {
 
     // Pointer to globals
     pub globals: GlobalsSlice,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct EmscriptenData {
+    pub static_sealed: bool,
+
+    // global section
+    pub global_base: u32,
+    pub static_base: u32,
+    pub static_top: u32,
+
+    // stack
+    pub total_stack: u32,
+    pub stack_base: u32,
+    pub stack_max: u32,
+    pub stack_top: u32,
+
+    // heap
+    pub dynamic_base: u32,
+    pub dynamictop_ptr: u32,
 }
 
 pub struct InstanceOptions {
@@ -467,7 +491,6 @@ impl Instance {
                     _ => None,
                 });
 
-        // TODO: Refactor repetitive code
         let tables_pointer: Vec<BoundedSlice<usize>> =
             tables.iter().map(|table| table[..].into()).collect();
         let memories_pointer: Vec<BoundedSlice<u8>> = memories
@@ -486,7 +509,32 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
-        // let mem = data_pointers.memories;
+        // Emscripten runtime data
+        // TODO: Find a better implementation. Use global values.
+        let static_sealed = false;
+        let global_base = 1024;
+        let static_base = global_base;
+        let mut static_top = static_base + 5536;
+        let total_stack = 5242880;
+        let stack_base = align_memory(static_top, 16);
+        let stack_top = stack_base;
+        let stack_max = stack_base + total_stack;
+        let dynamic_base = align_memory(stack_max, 16);
+        let dynamictop_ptr = static_alloc(4, &mut static_top, &memories[0]);
+
+
+        let emscripten_data = EmscriptenData {
+            static_sealed,
+            global_base,
+            static_base,
+            static_top,
+            total_stack,
+            stack_base,
+            stack_top,
+            stack_max,
+            dynamic_base,
+            dynamictop_ptr,
+        };
 
         Ok(Instance {
             data_pointers,
@@ -496,6 +544,7 @@ impl Instance {
             functions,
             import_functions,
             start_func,
+            emscripten_data,
         })
     }
 
@@ -532,9 +581,8 @@ impl Instance {
             .as_ref()[address..address + len]
     }
 
-    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
-        let mem = &self.memories[index];
-        unsafe { mem.mmap.as_ptr().offset(offset as isize) as *const usize }
+    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const u8 {
+        &self.data_pointers.memories.get_unchecked(index)[offset] as *const u8
     }
 
     // Shows the value of a global variable.

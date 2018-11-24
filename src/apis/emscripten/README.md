@@ -520,3 +520,5 @@
 🔥 - Possible memory access violation
 
 📥 - Access to external memory
+
+📝 - External write to internal memory

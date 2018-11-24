@@ -7,9 +7,6 @@ use memmap::MmapMut;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-const PAGE_SIZE: u32 = 65536;
-const MAX_PAGES: u32 = 65536;
-
 /// A linear memory instance.
 ///
 pub struct LinearMemory {
@@ -28,6 +25,8 @@ pub struct LinearMemory {
 
 /// It holds the raw bytes of memory accessed by a WebAssembly Instance
 impl LinearMemory {
+    pub const PAGE_SIZE: u32 = 65536;
+    pub const MAX_PAGES: u32 = 65536;
     pub const WASM_PAGE_SIZE: usize = 1 << 16; // 64 KiB
     pub const DEFAULT_HEAP_SIZE: usize = 1 << 32; // 4 GiB
     pub const DEFAULT_GUARD_SIZE: usize = 1 << 31; // 2 GiB
@@ -37,8 +36,8 @@ impl LinearMemory {
     ///
     /// `maximum` cannot be set to more than `65536` pages.
     pub fn new(initial: u32, maximum: Option<u32>) -> Self {
-        assert!(initial <= MAX_PAGES);
-        assert!(maximum.is_none() || maximum.unwrap() <= MAX_PAGES);
+        assert!(initial <=  Self::MAX_PAGES);
+        assert!(maximum.is_none() || maximum.unwrap() <=  Self::MAX_PAGES);
         debug!(
             "Instantiate LinearMemory(initial={:?}, maximum={:?})",
             initial, maximum
@@ -95,8 +94,8 @@ impl LinearMemory {
             return None;
         }
 
-        let prev_bytes = (prev_pages * PAGE_SIZE) as usize;
-        let new_bytes = (new_pages * PAGE_SIZE) as usize;
+        let prev_bytes = (prev_pages * Self::PAGE_SIZE) as usize;
+        let new_bytes = (new_pages * Self::PAGE_SIZE) as usize;
 
         // Updating self.current if new_bytes > prev_bytes
         if new_bytes > prev_bytes {
