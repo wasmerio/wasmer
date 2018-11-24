@@ -31,6 +31,7 @@ use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
+// TODO: this should be `type MemoriesSlice = UncheckedSlice<UncheckedSlice<u8>>;`, but that crashes for some reason.
 type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
 type GlobalsSlice = UncheckedSlice<u8>;
 
@@ -454,8 +455,14 @@ impl Instance {
             for init in &module.info.data_initializers {
                 debug_assert!(init.base.is_none(), "globalvar base not supported yet");
                 let offset = init.offset;
-                let mem_mut = memories[init.memory_index.index()].as_mut();
-                let to_init = &mut mem_mut[offset..offset + init.data.len()];
+                let mem = &mut memories[init.memory_index.index()];
+                let end_of_init = offset + init.data.len();
+                if end_of_init > mem.current_size() {
+                    let grow_pages = (end_of_init / LinearMemory::WASM_PAGE_SIZE) + 1;
+                    mem.grow(grow_pages as u32)
+                        .expect("failed to grow memory for data initializers");
+                }
+                let to_init = &mut mem[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
         }
