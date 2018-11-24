@@ -27,6 +27,7 @@ use structopt::StructOpt;
 mod macros;
 pub mod apis;
 pub mod common;
+mod recovery;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
@@ -94,9 +95,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
                     Some(&webassembly::Export::Function(index)) => index,
                     _ => panic!("Main function not found"),
                 });
-        let main: extern "C" fn(&webassembly::Instance) =
-            get_instance_function!(instance, func_index);
-        main(&instance);
+        instance.start_func(func_index).unwrap();
     }
 
     Ok(())

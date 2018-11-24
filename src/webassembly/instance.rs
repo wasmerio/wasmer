@@ -22,6 +22,7 @@ use std::slice;
 use std::sync::Arc;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
+use super::super::recovery;
 use super::errors::ErrorKind;
 use super::import_object::{ImportObject, ImportValue};
 use super::math_intrinsics;
@@ -30,7 +31,7 @@ use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
-type MemoriesSlice = UncheckedSlice<UncheckedSlice<u8>>;
+type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
 type GlobalsSlice = UncheckedSlice<u8>;
 
 pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
@@ -227,7 +228,8 @@ impl Instance {
                     // let r = *Arc::from_raw(isa_ptr);
                     compile_function(&*options.isa, function_body).unwrap()
                     // unimplemented!()
-                }).collect();
+                })
+                .collect();
 
             for compiled_func in compiled_funcs.into_iter() {
                 let CompiledFunction {
@@ -470,11 +472,15 @@ impl Instance {
         // TODO: Refactor repetitive code
         let tables_pointer: Vec<BoundedSlice<usize>> =
             tables.iter().map(|table| table[..].into()).collect();
-        let memories_pointer: Vec<UncheckedSlice<u8>> = memories
+        let memories_pointer: Vec<BoundedSlice<u8>> = memories
             .iter()
             .map(|mem| {
-                mem[..].into()
-            }).collect();
+                BoundedSlice::new(
+                    &mem[..],
+                    mem.current_size(),
+                )
+            })
+            .collect();
         let globals_pointer: GlobalsSlice = globals[..].into();
 
         let data_pointers = DataPointers {
@@ -513,10 +519,16 @@ impl Instance {
         get_function_addr(&func_index, &self.import_functions, &self.functions)
     }
 
-    pub fn start(&self) {
+    pub fn start_func(&self, func_index: FuncIndex) -> Result<(), i32> {
+        let func: fn(&Instance) = get_instance_function!(&self, func_index);
+        unsafe { recovery::protected_call(func, self) }
+    }
+
+    pub fn start(&self) -> Result<(), i32> {
         if let Some(func_index) = self.start_func {
-            let func: fn(&Instance) = get_instance_function!(&self, func_index);
-            func(self)
+            self.start_func(func_index)
+        } else {
+            panic!("start func not found")
         }
     }
 
