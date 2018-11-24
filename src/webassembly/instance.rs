@@ -516,16 +516,13 @@ impl Instance {
         get_function_addr(&func_index, &self.import_functions, &self.functions)
     }
 
-    pub fn start_func(&self, func_index: FuncIndex) -> Result<(), i32> {
-        let func: fn(&Instance) = get_instance_function!(&self, func_index);
-        unsafe { recovery::protected_call(func, self) }
-    }
-
-    pub fn start(&self) -> Result<(), i32> {
+    pub fn start(&self) -> Result<(), ErrorKind> {
         if let Some(func_index) = self.start_func {
-            self.start_func(func_index)
-        } else {
-            panic!("start func not found")
+            let func: fn(&Instance) = get_instance_function!(&self, func_index);
+            call_protected!(func(self))
+        }
+        else {
+            Ok(())
         }
     }
 
