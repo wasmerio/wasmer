@@ -8,9 +8,8 @@ pub use libc::putchar;
 /// printf
 pub extern "C" fn printf(memory_offset: i32, extra: i32, instance: &Instance) -> i32 {
     debug!("emscripten::printf");
-    let mem = &instance.memories[0];
-    return unsafe {
-        let base_memory_offset = mem.mmap.as_ptr().offset(memory_offset as isize) as *const i8;
-        _printf(base_memory_offset, extra)
-    };
+    unsafe {
+        let addr = instance.memory_offset_addr(0, memory_offset as _) as _;
+        _printf(addr, extra)
+    }
 }
