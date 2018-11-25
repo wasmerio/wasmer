@@ -7,7 +7,7 @@ pub mod module;
 pub mod relocation;
 pub mod utils;
 
-use cranelift_codegen::{isa, settings};
+use cranelift_codegen::{isa, settings::{self, Configurable}};
 use std::panic;
 use std::str::FromStr;
 use target_lexicon;
@@ -47,7 +47,16 @@ pub fn instantiate(
     buffer_source: Vec<u8>,
     import_object: ImportObject<&str, &str>,
 ) -> Result<ResultObject, ErrorKind> {
-    let flags = settings::Flags::new(settings::builder());
+
+    let flags = {
+        let mut builder = settings::builder();
+        builder.set("opt_level", "best")
+            .unwrap();
+
+        let flags = settings::Flags::new(builder);
+        debug_assert_eq!(flags.opt_level(), settings::OptLevel::Best);
+        flags
+    };
     let isa = isa::lookup(triple!("x86_64")).unwrap().finish(flags);
 
     let module = compile(buffer_source)?;

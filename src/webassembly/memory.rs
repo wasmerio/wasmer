@@ -3,27 +3,27 @@
 //! webassembly::Instance.
 //! A memory created by Rust or in WebAssembly code will be accessible and
 //! mutable from both Rust and WebAssembly.
-use memmap::MmapMut;
-use std::fmt;
+use nix::sys::mman::{mmap, MapFlags, ProtFlags};
+use nix::libc::{c_void, mprotect, PROT_READ, PROT_WRITE};
+use std::slice;
 use std::ops::{Deref, DerefMut};
 
 const PAGE_SIZE: u32 = 65536;
 const MAX_PAGES: u32 = 65536;
 
 /// A linear memory instance.
-///
+//
+#[derive(Debug)]
 pub struct LinearMemory {
-    pub mmap: MmapMut,
-    // The initial size of the WebAssembly Memory, in units of
-    // WebAssembly pages.
-    pub current: u32,
+    base: *mut c_void, // The size will always be `LinearMemory::DEFAULT_SIZE`
+    current: u32, // current number of wasm pages
     // The maximum size the WebAssembly Memory is allowed to grow
     // to, in units of WebAssembly pages.  When present, the maximum
     // parameter acts as a hint to the engine to reserve memory up
     // front.  However, the engine may ignore or clamp this reservation
     // request.  In general, most WebAssembly modules shouldn't need
     // to set a maximum.
-    pub maximum: Option<u32>,
+    maximum: Option<u32>,
 }
 
 /// It holds the raw bytes of memory accessed by a WebAssembly Instance
@@ -45,11 +45,30 @@ impl LinearMemory {
         );
 
         // TODO: Investigate if memory is zeroed out
-        let mmap = MmapMut::map_anon(LinearMemory::DEFAULT_HEAP_SIZE).unwrap();
+        let base = unsafe {
+            mmap(
+                0 as _,
+                LinearMemory::DEFAULT_SIZE,
+                ProtFlags::PROT_NONE,
+                MapFlags::MAP_ANON | MapFlags::MAP_SHARED,
+                -1,
+                0,
+            ).unwrap()
+        };
+
+        if initial > 0 {
+            assert_eq!(unsafe {
+                mprotect(
+                    base,
+                    (initial * PAGE_SIZE) as _,
+                    PROT_READ | PROT_WRITE,
+                )
+            }, 0);
+        }
 
         debug!("LinearMemory instantiated");
         Self {
-            mmap,
+            base,
             current: initial,
             maximum,
         }
@@ -57,11 +76,15 @@ impl LinearMemory {
 
     /// Returns an base address of this linear memory.
     pub fn base_addr(&mut self) -> *mut u8 {
-        self.mmap.as_mut_ptr()
+        self.base as _
     }
 
     /// Returns a number of allocated wasm pages.
-    pub fn current_size(&self) -> u32 {
+    pub fn current_size(&self) -> usize {
+        (self.current * PAGE_SIZE) as _
+    }
+
+    pub fn current_pages(&self) -> u32 {
         self.current
     }
 
@@ -76,7 +99,10 @@ impl LinearMemory {
     /// of pages.
     pub fn grow(&mut self, add_pages: u32) -> Option<i32> {
         debug!("grow_memory called!");
-        debug!("old memory = {:?}", self.mmap);
+        if add_pages == 0 {
+            return Some(self.current as _);
+        }
+
         let prev_pages = self.current;
 
         let new_pages = match self.current.checked_add(add_pages) {
@@ -91,17 +117,22 @@ impl LinearMemory {
         // Wasm linear memories are never allowed to grow beyond what is
         // indexable. If the memory has no maximum, enforce the greatest
         // limit here.
-        } else if new_pages >= 65536 {
+        } else if new_pages >= MAX_PAGES {
             return None;
         }
 
         let prev_bytes = (prev_pages * PAGE_SIZE) as usize;
         let new_bytes = (new_pages * PAGE_SIZE) as usize;
 
-        // Updating self.current if new_bytes > prev_bytes
-        if new_bytes > prev_bytes {
-            self.current = new_pages;
+        unsafe {
+            assert_eq!(mprotect(
+                self.base.add(prev_bytes),
+                new_bytes - prev_bytes,
+                PROT_READ | PROT_WRITE,
+            ), 0);
         }
+
+        self.current = new_pages;
 
         Some(prev_pages as i32)
     }
@@ -119,16 +150,6 @@ impl LinearMemory {
     }
 }
 
-impl fmt::Debug for LinearMemory {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("LinearMemory")
-            .field("mmap", &self.mmap)
-            .field("current", &self.current)
-            .field("maximum", &self.maximum)
-            .finish()
-    }
-}
-
 // Not comparing based on memory content. That would be inefficient.
 impl PartialEq for LinearMemory {
     fn eq(&self, other: &LinearMemory) -> bool {
@@ -136,42 +157,20 @@ impl PartialEq for LinearMemory {
     }
 }
 
-impl AsRef<[u8]> for LinearMemory {
-    fn as_ref(&self) -> &[u8] {
-        &self.mmap
-    }
-}
-
-impl AsMut<[u8]> for LinearMemory {
-    fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.mmap
-    }
-}
 
 impl Deref for LinearMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        &*self.mmap
+        unsafe {
+            slice::from_raw_parts(self.base as _, (self.current * PAGE_SIZE) as _)
+        }
     }
 }
 
 impl DerefMut for LinearMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        &mut *self.mmap
+        unsafe {
+            slice::from_raw_parts_mut(self.base as _, (self.current * PAGE_SIZE) as _)
+        }
     }
 }
-
-// impl Clone for LinearMemory {
-//     fn clone(&self) -> LinearMemory {
-//         let mut mmap = MmapMut::map_anon(self.maximum.unwrap_or(self.current) as usize).unwrap();
-//         let mut base_mmap = &self.mmap;
-//         let to_init = &mut mmap[0..self.current as usize];
-//         to_init.copy_from_slice(&self.mmap);
-
-//         return LinearMemory {
-//             mmap: mmap,
-//             current: self.current,
-//             maximum: self.maximum,
-//         };
-//     }
-// }

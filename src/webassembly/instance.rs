@@ -31,6 +31,7 @@ use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
+// TODO: this should be `type MemoriesSlice = UncheckedSlice<UncheckedSlice<u8>>;`, but that crashes for some reason.
 type MemoriesSlice = UncheckedSlice<BoundedSlice<u8>>;
 type GlobalsSlice = UncheckedSlice<u8>;
 
@@ -454,8 +455,14 @@ impl Instance {
             for init in &module.info.data_initializers {
                 debug_assert!(init.base.is_none(), "globalvar base not supported yet");
                 let offset = init.offset;
-                let mem_mut = memories[init.memory_index.index()].as_mut();
-                let to_init = &mut mem_mut[offset..offset + init.data.len()];
+                let mem = &mut memories[init.memory_index.index()];
+                let end_of_init = offset + init.data.len();
+                if end_of_init > mem.current_size() {
+                    let grow_pages = (end_of_init / LinearMemory::WASM_PAGE_SIZE) + 1;
+                    mem.grow(grow_pages as u32)
+                        .expect("failed to grow memory for data initializers");
+                }
+                let to_init = &mut mem[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
         }
@@ -477,7 +484,7 @@ impl Instance {
             .map(|mem| {
                 BoundedSlice::new(
                     &mem[..],
-                    mem.current as usize * LinearMemory::WASM_PAGE_SIZE,
+                    mem.current_size(),
                 )
             })
             .collect();
@@ -539,8 +546,9 @@ impl Instance {
     }
 
     pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
-        let mem = &self.memories[index];
-        unsafe { mem.mmap.as_ptr().offset(offset as isize) as *const usize }
+        let memories: &[LinearMemory] = &self.memories[..];
+        let mem = &memories[index];
+        unsafe { mem[..].as_ptr().add(offset) as *const usize }
     }
 
     // Shows the value of a global variable.
@@ -568,21 +576,10 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
         .grow(size)
         .unwrap_or(-1);
 
-    if old_mem_size != -1 {
-        // Get new memory bytes
-        let new_mem_bytes = (old_mem_size as usize + size as usize) * LinearMemory::WASM_PAGE_SIZE;
-        // Update data_pointer
-        instance
-            .data_pointers
-            .memories
-            .get_unchecked_mut(memory_index as usize)
-            .len = new_mem_bytes;
-    }
-
     old_mem_size
 }
 
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
-    memory.current_size() as u32
+    memory.current_pages() as u32
 }
