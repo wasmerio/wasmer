@@ -18,7 +18,7 @@ use std::iter::FromIterator;
 use std::iter::Iterator;
 use std::mem::size_of;
 use std::ptr::write_unaligned;
-use std::slice;
+use std::{fmt, slice, mem};
 use std::sync::Arc;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
@@ -68,6 +68,20 @@ fn get_function_addr(
     func_pointer
 }
 
+pub struct EmscriptenData {
+    pub malloc: extern fn(i32, &mut Instance) -> u32,
+    pub free: extern fn(i32, &mut Instance),
+}
+
+impl fmt::Debug for EmscriptenData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("EmscriptenData")
+            .field("malloc", &(self.malloc as usize))
+            .field("free", &(self.free as usize))
+            .finish()
+    }
+}
+
 /// An Instance of a WebAssembly module
 /// NOTE: There is an assumption that data_pointers is always the
 ///      first field
@@ -98,6 +112,7 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
+    pub emscripten_data: EmscriptenData,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
@@ -494,6 +509,27 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
+        let emscripten_data = unsafe {
+            let malloc_index = if let Some(Export::Function(index)) = module.info.exports.get("_malloc") {
+                index
+            } else {
+                panic!("Unable to find _malloc export")
+            };
+            let malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
+
+            let free_index = if let Some(Export::Function(index)) = module.info.exports.get("_free") {
+                index
+            } else {
+                panic!("Unable to find _free export")
+            };
+            let free_addr = get_function_addr(&free_index, &import_functions, &functions);
+
+            EmscriptenData {
+                malloc: mem::transmute(malloc_addr),
+                free: mem::transmute(free_addr),
+            }
+        };
+
         Ok(Instance {
             data_pointers,
             tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
@@ -502,7 +538,7 @@ impl Instance {
             functions,
             import_functions,
             start_func,
-            // emscripten_data,
+            emscripten_data,
         })
     }
 

@@ -258,6 +258,19 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "nullFunc_viiii",
         ImportValue::Func(nullfunc::nullfunc_viiii as *const u8),
     );
+
+    // named syscalls
+    import_object.set(
+        "env",
+        "_getpwnam",
+        ImportValue::Func(env::_getpwnam as _),
+    );
+    // import_object.set(
+    //     "env",
+    //     "_getgrnam",
+    //     ImportValue::Func(env::_getgrnam as _),
+    // );
+
     import_object
 }
 
