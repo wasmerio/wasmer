@@ -58,7 +58,7 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
 macro_rules! mock_external {
     ($import:ident, $name:ident) => {{
         fn _mocked_fn() {
-            println!("emscripten::{} <mock>", stringify!($name));
+            debug!("emscripten::{} <mock>", stringify!($name));
             // return 0
         }
         $import.set(
