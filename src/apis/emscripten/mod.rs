@@ -290,6 +290,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_gettimeofday",
         ImportValue::Func(time::_gettimeofday as _),
     );
+    import_object.set(
+        "env",
+        "_clock_gettime",
+        ImportValue::Func(time::_clock_gettime as _),
+    );
     mock_external!(import_object, _waitpid);
     mock_external!(import_object, _utimes);
     mock_external!(import_object, _usleep);
@@ -324,7 +329,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, _exit);
     mock_external!(import_object, _execve);
     mock_external!(import_object, _endgrent);
-    mock_external!(import_object, _clock_gettime);
+    // mock_external!(import_object, _clock_gettime);
     mock_external!(import_object, ___syscall97);
     mock_external!(import_object, ___syscall91);
     mock_external!(import_object, ___syscall85);
