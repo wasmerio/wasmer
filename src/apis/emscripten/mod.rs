@@ -1,11 +1,7 @@
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
-<<<<<<< HEAD
 use crate::webassembly::{ImportObject, ImportValue, LinearMemory};
 use byteorder::{ByteOrder, LittleEndian};
 use std::mem;
-=======
-use crate::webassembly::{ImportObject, ImportValue};
->>>>>>> Add some syscalls
 
 // EMSCRIPTEN APIS
 mod env;
