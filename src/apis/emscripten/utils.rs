@@ -36,7 +36,7 @@ pub unsafe fn copy_terminated_array_of_cstrs(instance: &mut Instance, cstrs: *mu
         }
         counter
     };
-    println!("total_num: {}", total_num);
+    debug!("emscripten::copy_terminated_array_of_cstrs::total_num: {}", total_num);
     0
 }
 
