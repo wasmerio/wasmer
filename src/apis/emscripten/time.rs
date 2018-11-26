@@ -114,3 +114,9 @@ pub extern "C" fn _time(time_p: u32, instance: &mut Instance) -> time_t {
         time(time_p_addr)
     }
 }
+
+/// emscripten: _strftime
+pub extern "C" fn _strftime(s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_ptr: c_int, instance: &mut Instance) -> time_t {
+    debug!("emscripten::_strftime {} {} {} {}", s_ptr, maxsize, format_ptr, tm_ptr);
+    0
+}
