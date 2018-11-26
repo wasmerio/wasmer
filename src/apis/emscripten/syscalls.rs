@@ -11,7 +11,8 @@ use libc::{
     getsockname, getpeername,
     sendto, recvfrom, setsockopt,
     getsockopt, sendmsg, recvmsg,
-    msghdr, getpid, getppid, pid_t
+    msghdr, getpid, getppid, pid_t,
+    gid_t, getgid
 };
 
 use macros;
@@ -258,5 +259,24 @@ pub extern "C" fn ___syscall64() -> pid_t {
     debug!("emscripten::___syscall64");
     unsafe {
         getpid()
+    }
+}
+
+
+// sys_getgid
+pub extern "C" fn ___syscall201() -> gid_t {
+    debug!("emscripten::___syscall201");
+    unsafe {
+        // Maybe fix: Emscripten returns 0 always
+        getgid()
+    }
+}
+
+// sys_getgid32
+pub extern "C" fn ___syscall202() -> gid_t {
+    debug!("emscripten::___syscall202");
+    unsafe {
+        // Maybe fix: Emscripten returns 0 always
+        getgid()
     }
 }
