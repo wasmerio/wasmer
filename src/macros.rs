@@ -21,6 +21,6 @@ macro_rules! include_wast2wasm_bytes {
 
 #[macro_export]
 macro_rules! debug {
-    ($fmt:expr) => (if cfg!(debug_assertions) { println!(concat!("Wasmer::", $fmt)) });
-    ($fmt:expr, $($arg:tt)*) => (if cfg!(debug_assertions) { println!(concat!("Wasmer::", $fmt, "\n"), $($arg)*) });
+    ($fmt:expr) => (if cfg!(any(debug_assertions, feature="debug")) { println!(concat!("Wasmer::", $fmt)) });
+    ($fmt:expr, $($arg:tt)*) => (if cfg!(any(debug_assertions, feature="debug")) { println!(concat!("Wasmer::", $fmt, "\n"), $($arg)*) });
 }
