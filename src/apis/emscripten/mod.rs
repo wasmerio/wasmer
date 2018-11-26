@@ -57,9 +57,9 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
 
 macro_rules! mock_external {
     ($import:ident, $name:ident) => {{
-        fn _mocked_fn() -> i32 {
+        extern fn _mocked_fn() -> i32 {
             println!("emscripten::{} <mock>", stringify!($name));
-            0
+            -1
         }
         $import.set(
             "env",
@@ -293,7 +293,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     import_object.set(
         "env",
         "_clock_gettime",
-        ImportValue::Func(env::_clock_gettime as _),
+        ImportValue::Func(time::_clock_gettime as _),
     );
     import_object.set(
         "env",

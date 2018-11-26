@@ -8,7 +8,6 @@ use libc::{
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::{slice, mem};
-use std::time::SystemTime;
 
 use crate::webassembly::Instance;
 <<<<<<< HEAD
@@ -113,4 +112,8 @@ pub extern fn _localtime_r() -> u32 {
 
 pub extern fn _getpagesize() -> u32 {
     LinearMemory::PAGE_SIZE
+}
+
+pub extern fn _prlimit(pid: c_int, resource: c_int, new_limit: c_int, old_limit: c_int, instance: &mut Instance) -> c_int {
+    0
 }

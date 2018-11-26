@@ -1,5 +1,5 @@
-use libc::{gettimeofday, timeval, c_int, clock_gettime, clockid_t, timespec};
-use std::ptr;
+use libc::{timeval, c_int, clock_gettime as libc_clock_gettime, timespec};
+use std::time::SystemTime;
 
 use crate::webassembly::Instance;
 
