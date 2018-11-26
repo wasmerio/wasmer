@@ -12,7 +12,7 @@ use nix::sys::signal::{
 pub unsafe fn install_sighandler() {
     let sa = SigAction::new(
         SigHandler::Handler(signal_trap_handler),
-        SaFlags::empty(),
+        SaFlags::SA_ONSTACK,
         SigSet::empty(),
     );
     sigaction(SIGFPE, &sa).unwrap();
