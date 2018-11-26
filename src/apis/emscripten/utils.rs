@@ -1,9 +1,8 @@
 use crate::webassembly::module::Module;
+use crate::webassembly::Instance;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::{slice, mem};
-
-use crate::webassembly::Instance;
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -24,7 +23,6 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
         *loc = byte;
     }
-
     space_offset
 }
 

@@ -21,7 +21,8 @@ pub extern "C" fn _emscripten_memcpy_big(
 /// emscripten: getTotalMemory
 pub extern "C" fn get_total_memory(instance: &mut Instance) -> u32 {
     debug!("emscripten::get_total_memory");
-    instance.memories[0].current_pages()
+    // instance.memories[0].current_pages()
+    16777216
 }
 
 /// emscripten: enlargeMemory

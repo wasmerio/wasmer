@@ -1,12 +1,17 @@
 use super::super::host;
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{c_int, getpwnam as libc_getpwnam, passwd, getgrnam as libc_getgrnam, group};
+use libc::{
+    c_int, getpwnam as libc_getpwnam, passwd,
+    getgrnam as libc_getgrnam, group, clock_gettime as libc_clock_gettime, timespec,
+    // uname as libc_uname, utsname,
+};
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::{slice, mem};
 
 use crate::webassembly::Instance;
 use super::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
+use crate::webassembly::LinearMemory;
 
 /// emscripten: _getenv
 pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {
@@ -85,4 +90,27 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 
         group_struct_offset as c_int
     }
+}
+
+pub extern fn _getpid(_instance: &mut Instance) -> c_int {
+    0
+}
+pub extern fn _getppid(_instance: &mut Instance) -> c_int {
+    0
+}
+
+pub extern fn _uname(_buf: c_int, _instance: &mut Instance) -> c_int {
+    0
+}
+
+pub extern fn _localtime_r() -> u32 {
+    0
+}
+
+pub extern fn _getpagesize() -> u32 {
+    LinearMemory::PAGE_SIZE
+}
+
+pub extern fn _prlimit(pid: c_int, resource: c_int, new_limit: c_int, old_limit: c_int, instance: &mut Instance) -> c_int {
+    0
 }
