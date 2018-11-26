@@ -225,26 +225,30 @@ wasmer_install() {
   magenta2="${reset}\033[34m"
   magenta3="${reset}\033[34;2m"
 
-  printf "${reset}Installing Wasmer!$reset\n"
-  printf "
- ${magenta1}      ${magenta2}        ${magenta3}###${reset}                                 
- ${magenta1}      ${magenta2}        ${magenta3}#####${reset}                               
- ${magenta1}      ${magenta2}###     ${magenta3}######${reset}                   
- ${magenta1}      ${magenta2}######  ${magenta3}#############${reset}            
- ${magenta1}#     ${magenta2}####### ${magenta3}##############${reset}
- ${magenta1}##### ${magenta2}#############${magenta3}#########${reset}
- ${magenta1}######${magenta2}###############${magenta3}#######${reset}
- ${magenta1}############${magenta2}#########${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######${magenta3}    ###${reset}
- ${magenta1}##############${magenta2}#######                          
-    ${magenta1}###########${magenta2}    ###                          
-       ${magenta1}########${magenta2}                                 
-           ${magenta1}####${reset}                                    
+  if which wasmer >/dev/null; then
+    printf "${reset}Updating wasmer$reset\n"
+  else
+    printf "${reset}Installing Wasmer!$reset\n"
+    printf "
+  ${magenta1}      ${magenta2}        ${magenta3}###${reset}                                 
+  ${magenta1}      ${magenta2}        ${magenta3}#####${reset}                               
+  ${magenta1}      ${magenta2}###     ${magenta3}######${reset}                   
+  ${magenta1}      ${magenta2}######  ${magenta3}#############${reset}            
+  ${magenta1}#     ${magenta2}####### ${magenta3}##############${reset}
+  ${magenta1}##### ${magenta2}#############${magenta3}#########${reset}
+  ${magenta1}######${magenta2}###############${magenta3}#######${reset}
+  ${magenta1}############${magenta2}#########${magenta3}#######${reset}
+  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+  ${magenta1}##############${magenta2}#######${magenta3}    ###${reset}
+  ${magenta1}##############${magenta2}#######                          
+     ${magenta1}###########${magenta2}    ###                          
+        ${magenta1}########${magenta2}                                 
+            ${magenta1}####${reset}                                    
 
 "
+  fi
 #   if [ -d "$HOME/.wasmer" ]; then
 #     if which wasmer; then
 #       local latest_url
@@ -290,9 +294,41 @@ wasmer_install() {
 
 
 wasmer_reset() {
-  unset -f wasmer_install wasmer_reset wasmer_download_json wasmer_link wasmer_detect_profile wasmer_download_file wasmer_download wasmer_verify_or_quit
+  unset -f wasmer_install wasmer_compareversions wasmer_reset wasmer_download_json wasmer_link wasmer_detect_profile wasmer_download_file wasmer_download wasmer_verify_or_quit
 }
 
+# Example taken from
+# https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
+wasmer_compareversions () {
+    if [[ $1 == $2 ]]
+    then
+        return 0
+    fi
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+    do
+        ver1[i]=0
+    done
+    for ((i=0; i<${#ver1[@]}; i++))
+    do
+        if [[ -z ${ver2[i]} ]]
+        then
+            # fill empty fields in ver2 with zeros
+            ver2[i]=0
+        fi
+        if ((10#${ver1[i]} > 10#${ver2[i]}))
+        then
+            return 1
+        fi
+        if ((10#${ver1[i]} < 10#${ver2[i]}))
+        then
+            return 2
+        fi
+    done
+    return 0
+}
 
 wasmer_download() {
   # identify platform based on uname output
@@ -322,6 +358,25 @@ wasmer_download() {
       printf "\033[1A$cyan> Getting wasmer releases... ✓$reset\n"
   fi
 
+  if which wasmer >/dev/null; then
+    WASMER_VERSION=$(wasmer --version | sed 's/[a-z[:blank:]]//g')
+    wasmer_compareversions "$WASMER_VERSION" "$WASMER_RELEASE_TAG"
+    case $? in
+      # WASMER_VERSION = WASMER_RELEASE_TAG
+      0)
+        printf "You are already on the latest wasmer: ${WASMER_RELEASE_TAG}\n";
+        exit 0
+        ;;
+      # WASMER_VERSION > WASMER_RELEASE_TAG
+      1)
+        printf "You are already on a more recent version than the published one: ${WASMER_RELEASE_TAG}.\nExiting\n";
+        exit 0
+        ;;
+      # WASMER_VERSION < WASMER_RELEASE_TAG (we continue)
+      2)
+      ;;
+    esac
+  fi
   # fetch the real release data to make sure it exists before we attempt a download
   wasmer_download_json RELEASE_DATA "$RELEASES_URL/tag/$WASMER_RELEASE_TAG"
 

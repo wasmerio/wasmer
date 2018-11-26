@@ -29,6 +29,7 @@ mod macros;
 mod recovery;
 pub mod apis;
 pub mod common;
+mod update;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
@@ -41,6 +42,10 @@ enum CLIOptions {
     /// Run a WebAssembly file. Formats accepted: wasm, wast
     #[structopt(name = "run")]
     Run(Run),
+
+    /// Update wasmer to the latest version
+    #[structopt(name = "self-update")]
+    SelfUpdate,
 }
 
 #[derive(Debug, StructOpt)]
@@ -117,5 +122,6 @@ fn main() {
     let options = CLIOptions::from_args();
     match options {
         CLIOptions::Run(options) => run(options),
+        CLIOptions::SelfUpdate => update::self_update(),
     }
 }
