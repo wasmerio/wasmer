@@ -10,11 +10,8 @@ use std::os::raw::c_char;
 use std::{slice, mem};
 
 use crate::webassembly::Instance;
-<<<<<<< HEAD
 use super::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-=======
 use crate::webassembly::LinearMemory;
->>>>>>> Add a few more syscalls
 
 /// emscripten: _getenv
 pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {
