@@ -6,6 +6,7 @@ use std::os::raw::c_char;
 use std::{slice, mem};
 
 use crate::webassembly::Instance;
+use super::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
 
 /// emscripten: _getenv
 pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {
@@ -20,33 +21,6 @@ pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {
         }
         Err(_) => 0,
     }
-}
-
-unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
-    let s = CStr::from_ptr(cstr).to_str().unwrap();
-    let space_offset = (instance.emscripten_data.malloc)(s.len() as _, instance);
-    let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
-    let mut slice = slice::from_raw_parts_mut(raw_memory, s.len());
-    
-    for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
-        *loc = byte;
-    }
-
-    space_offset
-}
-
-unsafe fn copy_terminated_array_of_cstrs(instance: &mut Instance, cstrs: *mut *mut c_char) -> u32 {
-    let total_num = {
-        let mut ptr = cstrs;
-        let mut counter = 0;
-        while !(*ptr).is_null() {
-            counter += 1;
-            ptr = ptr.add(1);
-        }
-        counter
-    };
-    println!("total_num: {}", total_num);
-    0
 }
 
 pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
