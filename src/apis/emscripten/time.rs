@@ -1,18 +1,16 @@
 use libc::{
-    gettimeofday,
-    timeval,
     c_int,
-    clock_gettime,
+    c_long,
     clock_gettime as libc_clock_gettime,
-    clockid_t,
     timespec,
     tm,
     localtime,
     time_t,
     time
 };
-use std::{ptr, slice, mem};
+use std::{mem};
 use std::time::SystemTime;
+use super::utils::{copy_cstr_into_wasm};
 
 
 use crate::webassembly::Instance;
@@ -64,12 +62,46 @@ pub extern fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) 
 }
 
 /// emscripten: _localtime
-pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> *mut tm {
+pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
     debug!("emscripten::_localtime {}", time_p);
+
+    #[repr(C)]
+    struct GuestTm {
+        tm_sec: i32,
+        tm_min: i32,
+        tm_hour: i32,
+        tm_mday: i32,
+        tm_mon: i32,
+        tm_year: i32,
+        tm_wday: i32,
+        tm_yday: i32,
+        tm_isdst: i32,
+        tm_gmtoff: c_long,
+        tm_zone: u32,
+    }
 
     unsafe {
         let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
-        localtime(time_p_addr)
+        let tm_struct = &*localtime(time_p_addr);
+
+        // Webassembly allocation
+        let tm_struct_offset = (instance.emscripten_data.malloc)(mem::size_of::<GuestTm>() as _, instance);
+        let tm_struct_ptr = instance.memory_offset_addr(0, tm_struct_offset as _) as *mut GuestTm;
+
+        // Initializing
+        (*tm_struct_ptr).tm_sec = tm_struct.tm_sec;
+        (*tm_struct_ptr).tm_min = tm_struct.tm_min;
+        (*tm_struct_ptr).tm_hour = tm_struct.tm_hour;
+        (*tm_struct_ptr).tm_mday = tm_struct.tm_mday;
+        (*tm_struct_ptr).tm_mon = tm_struct.tm_mon;
+        (*tm_struct_ptr).tm_year = tm_struct.tm_year;
+        (*tm_struct_ptr).tm_wday = tm_struct.tm_wday;
+        (*tm_struct_ptr).tm_yday = tm_struct.tm_yday;
+        (*tm_struct_ptr).tm_isdst = tm_struct.tm_isdst;
+        (*tm_struct_ptr).tm_gmtoff = tm_struct.tm_gmtoff;
+        (*tm_struct_ptr).tm_zone = copy_cstr_into_wasm(instance, tm_struct.tm_zone);
+
+        tm_struct_offset as c_int
     }
 }
 
