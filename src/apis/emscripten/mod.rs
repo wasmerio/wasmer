@@ -57,9 +57,9 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
 
 macro_rules! mock_external {
     ($import:ident, $name:ident) => {{
-        fn _mocked_fn() {
+        fn _mocked_fn() -> i32 {
             println!("emscripten::{} <mock>", stringify!($name));
-            // return 0
+            0
         }
         $import.set(
             "env",
@@ -293,8 +293,34 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     import_object.set(
         "env",
         "_clock_gettime",
-        ImportValue::Func(time::_clock_gettime as _),
+        ImportValue::Func(env::_clock_gettime as _),
     );
+    import_object.set(
+        "env",
+        "___syscall20",
+        ImportValue::Func(env::_getpid as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall64",
+        ImportValue::Func(env::_getppid as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall122",
+        ImportValue::Func(env::_uname as _),
+    );
+    import_object.set(
+        "env",
+        "_localtime_r",
+        ImportValue::Func(env::_localtime_r as _),
+    );
+    import_object.set(
+        "env",
+        "_getpagesize",
+        ImportValue::Func(env::_getpagesize as _),
+    );
+
     mock_external!(import_object, _waitpid);
     mock_external!(import_object, _utimes);
     mock_external!(import_object, _usleep);
@@ -315,14 +341,14 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, _sched_yield);
     mock_external!(import_object, _raise);
     mock_external!(import_object, _mktime);
-    mock_external!(import_object, _localtime_r);
+    // mock_external!(import_object, _localtime_r);
     mock_external!(import_object, _localtime);
     mock_external!(import_object, _llvm_stacksave);
     mock_external!(import_object, _llvm_stackrestore);
     mock_external!(import_object, _kill);
     mock_external!(import_object, _gmtime_r);
     // mock_external!(import_object, _gettimeofday);
-    mock_external!(import_object, _getpagesize);
+    // mock_external!(import_object, _getpagesize);
     mock_external!(import_object, _getgrent);
     mock_external!(import_object, _getaddrinfo);
     mock_external!(import_object, _fork);
@@ -335,7 +361,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, ___syscall85);
     mock_external!(import_object, ___syscall75);
     mock_external!(import_object, ___syscall66);
-    mock_external!(import_object, ___syscall64);
+    // mock_external!(import_object, ___syscall64);
     mock_external!(import_object, ___syscall63);
     mock_external!(import_object, ___syscall60);
     mock_external!(import_object, ___syscall54);
@@ -364,9 +390,9 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     // mock_external!(import_object, ___syscall145);
     mock_external!(import_object, ___syscall142);
     mock_external!(import_object, ___syscall140);
-    mock_external!(import_object, ___syscall122);
+    // mock_external!(import_object, ___syscall122);
     mock_external!(import_object, ___syscall102);
-    mock_external!(import_object, ___syscall20);
+    // mock_external!(import_object, ___syscall20);
     mock_external!(import_object, ___syscall15);
     mock_external!(import_object, ___syscall10);
 
