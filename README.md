@@ -64,4 +64,4 @@ Below are some of the goals (written with order) of this project:
 
 ## License
 
-MIT/Apache-2.0
+Apache-2.0 WITH LLVM-exception

@@ -6,7 +6,7 @@ authors = ["Syrus Akbary <me@syrusakbary.com>"]
 repository = "https://github.com/wasmerio/wasmer"
 publish = true
 description = "High-Performance WebAssembly JIT interpreter"
-license = "MIT"
+license = "Apache-2.0 WITH LLVM-exception"
 build = "src/build_spectests.rs"
 include = [
     "examples/**/*",
