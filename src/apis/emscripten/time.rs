@@ -1,5 +1,16 @@
-use libc::{gettimeofday, timeval, c_int, clock_gettime, clockid_t, timespec};
-use std::ptr;
+use libc::{
+    gettimeofday,
+    timeval,
+    c_int,
+    clock_gettime,
+    clockid_t,
+    timespec,
+    tm,
+    localtime,
+    time_t,
+    time
+};
+use std::{ptr, slice, mem};
 
 use crate::webassembly::Instance;
 
@@ -28,5 +39,25 @@ pub extern "C" fn _clock_gettime(clk_id: clockid_t, tp_offset: c_int, instance: 
         let returned = clock_gettime(clk_id, tp);
         debug!("emscripten::clock_gettime(filled) {} {}", (*tp).tv_sec, (*tp).tv_nsec);
         returned
+    }
+}
+
+/// emscripten: _localtime
+pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> *mut tm {
+    debug!("emscripten::_localtime {}", time_p);
+
+    unsafe {
+        let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
+        localtime(time_p_addr)
+    }
+}
+
+/// emscripten: _time
+pub extern "C" fn _time(time_p: u32, instance: &mut Instance) -> time_t {
+    debug!("emscripten::_time {}", time_p);
+
+    unsafe {
+        let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
+        time(time_p_addr)
     }
 }

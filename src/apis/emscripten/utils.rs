@@ -1,4 +1,9 @@
 use crate::webassembly::module::Module;
+use std::ffi::CStr;
+use std::os::raw::c_char;
+use std::{slice, mem};
+
+use crate::webassembly::Instance;
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -8,6 +13,33 @@ pub fn is_emscripten_module(module: &Module) -> bool {
         }
     }
     return false;
+}
+
+pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
+    let s = CStr::from_ptr(cstr).to_str().unwrap();
+    let space_offset = (instance.emscripten_data.malloc)(s.len() as _, instance);
+    let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
+    let mut slice = slice::from_raw_parts_mut(raw_memory, s.len());
+
+    for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
+        *loc = byte;
+    }
+
+    space_offset
+}
+
+pub unsafe fn copy_terminated_array_of_cstrs(instance: &mut Instance, cstrs: *mut *mut c_char) -> u32 {
+    let total_num = {
+        let mut ptr = cstrs;
+        let mut counter = 0;
+        while !(*ptr).is_null() {
+            counter += 1;
+            ptr = ptr.add(1);
+        }
+        counter
+    };
+    println!("total_num: {}", total_num);
+    0
 }
 
 #[cfg(test)]
