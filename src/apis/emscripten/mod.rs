@@ -190,6 +190,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "___syscall221",
         ImportValue::Func(syscalls::___syscall221 as *const u8),
     );
+    import_object.set(
+        "env",
+        "___syscall20",
+        ImportValue::Func(syscalls::___syscall20 as *const u8),
+    );
     // Process
     import_object.set(
         "env",
@@ -295,6 +300,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_clock_gettime",
         ImportValue::Func(time::_clock_gettime as _),
     );
+
     mock_external!(import_object, _waitpid);
     mock_external!(import_object, _utimes);
     mock_external!(import_object, _usleep);
@@ -366,7 +372,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, ___syscall140);
     mock_external!(import_object, ___syscall122);
     mock_external!(import_object, ___syscall102);
-    mock_external!(import_object, ___syscall20);
+    // mock_external!(import_object, ___syscall20);
     mock_external!(import_object, ___syscall15);
     mock_external!(import_object, ___syscall10);
 
