@@ -454,6 +454,7 @@ impl Instance {
                 let to_init = &mut mem_mut[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
+            crate::apis::emscripten::emscripten_set_up_memory(&mut memories[0]);
         }
 
         let start_func: Option<FuncIndex> =

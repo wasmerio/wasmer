@@ -1,13 +1,8 @@
 
 use crate::webassembly::{LinearMemory, Instance};
 
-pub fn align_memory(size: u32, factor: u32) -> u32 {
-    assert!(factor != 0, "memory cannot be aligned by 0 offset!");
-    if size % factor == 1 {
-        (size) - (size % factor) + (factor)
-    } else {
-        size
-    }
+pub fn align_memory(ptr: u32) -> u32 {
+    (ptr + 15) & !15
 }
 
 // pub fn static_alloc(size: u32, instance: &mut Instance) -> u32 {

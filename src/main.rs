@@ -14,6 +14,7 @@ extern crate wasmparser;
 extern crate target_lexicon;
 extern crate nix;
 extern crate rayon;
+extern crate byteorder;
 
 use std::fs::File;
 use std::io;

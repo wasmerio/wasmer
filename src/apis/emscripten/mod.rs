@@ -1,5 +1,7 @@
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
-use crate::webassembly::{ImportObject, ImportValue};
+use crate::webassembly::{ImportObject, ImportValue, LinearMemory};
+use byteorder::{ByteOrder, LittleEndian};
+use std::mem;
 
 // EMSCRIPTEN APIS
 mod env;
@@ -16,6 +18,41 @@ mod nullfunc;
 
 pub use self::utils::is_emscripten_module;
 pub use self::storage::{align_memory, static_alloc};
+
+// TODO: Magic number - how is this calculated?
+const TOTAL_STACK: u32 = 5242880;
+// TODO: Magic number stolen from the generated JS - how is this calculated?
+const DYNAMICTOP_PTR_DIFF: u32 = 1088;
+
+const STATIC_BUMP: u32 = 215536; // TODO: make this variable
+
+fn stacktop(static_bump: u32) -> u32 {
+    align_memory(dynamictop_ptr(static_bump) + 4)
+}
+
+fn stack_max(static_bump: u32) -> u32 {
+    stacktop(static_bump) + TOTAL_STACK
+}
+
+fn dynamic_base(static_bump: u32) -> u32 {
+    align_memory(stack_max(static_bump))
+}
+
+fn dynamictop_ptr(static_bump: u32) -> u32 {
+    static_bump + DYNAMICTOP_PTR_DIFF
+}
+
+// fn static_alloc(size: usize, static_top: &mut size) -> usize {
+//     let ret = *static_top;
+//     *static_top = (*static_top + size + 15) & (-16 as usize);
+//     ret
+// }
+
+pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
+    let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
+    let mem = &mut memory[dynamictop_ptr..dynamictop_ptr+mem::size_of::<u32>()];
+    LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
+}
 
 pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
@@ -35,6 +72,28 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "global3",
         ImportValue::Global(67), // TODO
     );
+
+    import_object.set(
+        "env",
+        "STACKTOP",
+        ImportValue::Global(stacktop(STATIC_BUMP) as _),
+    );
+    import_object.set(
+        "env",
+        "STACK_MAX",
+        ImportValue::Global(stack_max(STATIC_BUMP) as _),
+    );
+    import_object.set(
+        "env",
+        "DYNAMICTOP_PTR",
+        ImportValue::Global(dynamictop_ptr(STATIC_BUMP) as _),
+    );
+    import_object.set(
+        "env",
+        "tableBase",
+        ImportValue::Global(0),
+    );
+
     // Print functions
     import_object.set("env", "printf", ImportValue::Func(io::printf as *const u8));
     import_object.set(

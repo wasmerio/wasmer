@@ -110,11 +110,11 @@ impl LinearMemory {
         let end = start + size as usize;
         let slice: &[u8] = &*self;
 
-        // if end <= self.mapped_size() {
-        Some(&slice[start..end])
-        // } else {
-        //     None
-        // }
+        if end <= self.current_size() as usize {
+            Some(&slice[start..end])
+        } else {
+            None
+        }
     }
 }
 
