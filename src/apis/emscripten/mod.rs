@@ -15,6 +15,7 @@ mod varargs;
 mod errno;
 mod storage;
 mod nullfunc;
+mod time;
 
 pub use self::utils::is_emscripten_module;
 pub use self::storage::{align_memory, static_alloc};
@@ -284,6 +285,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_getgrnam",
         ImportValue::Func(env::_getgrnam as _),
     );
+    import_object.set(
+        "env",
+        "_gettimeofday",
+        ImportValue::Func(time::_gettimeofday as _),
+    );
     mock_external!(import_object, _waitpid);
     mock_external!(import_object, _utimes);
     mock_external!(import_object, _usleep);
@@ -310,7 +316,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, _llvm_stackrestore);
     mock_external!(import_object, _kill);
     mock_external!(import_object, _gmtime_r);
-    mock_external!(import_object, _gettimeofday);
+    // mock_external!(import_object, _gettimeofday);
     mock_external!(import_object, _getpagesize);
     mock_external!(import_object, _getgrent);
     mock_external!(import_object, _getaddrinfo);

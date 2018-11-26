@@ -140,6 +140,7 @@ pub struct InstanceOptions {
 }
 
 extern "C" fn mock_fn() -> i32 {
+    println!("CALLING MOCKED FUNC");
     return 0;
 }
 
