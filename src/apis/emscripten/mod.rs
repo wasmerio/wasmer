@@ -59,7 +59,7 @@ macro_rules! mock_external {
     ($import:ident, $name:ident) => {{
         extern fn _mocked_fn() -> i32 {
             debug!("emscripten::{} <mock>", stringify!($name));
-            -1
+            0
         }
         $import.set(
             "env",
