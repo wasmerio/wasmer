@@ -331,6 +331,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+        "_strftime",
+        ImportValue::Func(time::_strftime as _),
+    );
+    import_object.set(
+        "env",
         "_localtime_r",
         ImportValue::Func(env::_localtime_r as _),
     );
@@ -345,7 +350,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, _usleep);
     // mock_external!(import_object, _time);
     mock_external!(import_object, _sysconf);
-    mock_external!(import_object, _strftime);
+    // mock_external!(import_object, _strftime);
     mock_external!(import_object, _sigsuspend);
     mock_external!(import_object, _sigprocmask);
     mock_external!(import_object, _sigemptyset);
