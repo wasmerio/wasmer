@@ -351,7 +351,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, _raise);
     mock_external!(import_object, _mktime);
     // mock_external!(import_object, _localtime_r);
-    mock_external!(import_object, _localtime);
+    // mock_external!(import_object, _localtime);
     mock_external!(import_object, _llvm_stacksave);
     mock_external!(import_object, _llvm_stackrestore);
     mock_external!(import_object, _kill);
