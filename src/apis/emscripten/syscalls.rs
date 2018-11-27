@@ -3,21 +3,21 @@
 use libc::{
     c_int, c_void, utsname, off_t,
     ssize_t, write, exit, read,
-    open, close, ioctl,
-    uname, fcntl, lseek, readv,
+    open, close, 
+    uname, lseek, readv,
     iovec, writev, socklen_t,
     sockaddr, socket, bind,
     connect, listen, accept,
     getsockname, getpeername,
-    sendto, recvfrom, setsockopt,
+    sendto, recvfrom, 
     getsockopt, sendmsg, recvmsg,
-    msghdr, getpid, getppid, pid_t,
+    msghdr, getpid, pid_t,
     gid_t, getgid, fstat, stat,
     pread, mkdir, chown,
+    // fcntl, ioctl, setsockopt, getppid
 };
 use crate::webassembly::Instance;
 use super::varargs::VarArgs;
-use std::{slice, mem};
 use super::utils::copy_stat_into_wasm;
 
 /// sys_exit
@@ -77,8 +77,8 @@ pub extern "C" fn ___syscall6(_which: c_int, mut varargs: VarArgs, instance: &mu
 /// sys_ioctl
 pub extern "C" fn ___syscall54(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
     debug!("emscripten::___syscall54");
-    // let fd: i32 = varargs.get(instance);
-    // let request: u32 = varargs.get(instance);
+    let _fd: i32 = varargs.get(instance);
+    let _request: u32 = varargs.get(instance);
     // debug!("fd: {}, op: {}", fd, request);
     // unsafe { ioctl(fd, request as _) }
     0
@@ -304,7 +304,7 @@ pub extern "C" fn ___syscall202() -> gid_t {
 }
 
 // sys_prlimit64
-pub extern "C" fn ___syscall340(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall340(_which: c_int, mut _varargs: VarArgs, _instance: &mut Instance) -> c_int {
     debug!("emscripten::___syscall340");
     // NOTE: Doesn't really matter. Wasm modules cannot exceed WASM_PAGE_SIZE anyway.
     0
@@ -398,7 +398,7 @@ pub extern "C" fn ___syscall212(_which: c_int, mut varargs: VarArgs, instance: &
 
 // sys_fcntl64
 pub extern "C" fn ___syscall221(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
-    let fd: i32 = varargs.get(instance);
+    let _fd: i32 = varargs.get(instance);
     let cmd: u32 = varargs.get(instance);
     match cmd {
         2 => 0,

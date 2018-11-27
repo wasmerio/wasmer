@@ -3,7 +3,7 @@ use libc::{
     c_long,
     clock_gettime as libc_clock_gettime,
     timespec,
-    tm,
+    // tm,
     localtime,
     time_t,
     time
@@ -116,7 +116,7 @@ pub extern "C" fn _time(time_p: u32, instance: &mut Instance) -> time_t {
 }
 
 /// emscripten: _strftime
-pub extern "C" fn _strftime(s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_ptr: c_int, instance: &mut Instance) -> time_t {
+pub extern "C" fn _strftime(s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_ptr: c_int, _instance: &mut Instance) -> time_t {
     debug!("emscripten::_strftime {} {} {} {}", s_ptr, maxsize, format_ptr, tm_ptr);
     0
 }

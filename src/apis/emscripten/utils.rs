@@ -2,7 +2,7 @@ use crate::webassembly::module::Module;
 use crate::webassembly::Instance;
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use std::{slice, mem};
+use std::slice;
 use libc::stat;
 use byteorder::{ByteOrder, LittleEndian};
 
@@ -20,7 +20,7 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let space_offset = (instance.emscripten_data.malloc)(s.len() as _, instance);
     let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
-    let mut slice = slice::from_raw_parts_mut(raw_memory, s.len());
+    let slice = slice::from_raw_parts_mut(raw_memory, s.len());
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
         *loc = byte;
@@ -28,7 +28,7 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     space_offset
 }
 
-pub unsafe fn copy_terminated_array_of_cstrs(instance: &mut Instance, cstrs: *mut *mut c_char) -> u32 {
+pub unsafe fn copy_terminated_array_of_cstrs(_instance: &mut Instance, cstrs: *mut *mut c_char) -> u32 {
     let total_num = {
         let mut ptr = cstrs;
         let mut counter = 0;
@@ -44,7 +44,7 @@ pub unsafe fn copy_terminated_array_of_cstrs(instance: &mut Instance, cstrs: *mu
 
 pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat) {
     let buf_ptr = instance.memory_offset_addr(0, buf as _) as *mut u8;
-    let mut buf = unsafe { slice::from_raw_parts_mut(buf_ptr, 76) };
+    let buf = slice::from_raw_parts_mut(buf_ptr, 76);
     
     LittleEndian::write_u32(&mut buf[..], stat.st_dev as _);
     LittleEndian::write_u32(&mut buf[4..], 0);

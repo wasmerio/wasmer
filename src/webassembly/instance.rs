@@ -22,7 +22,6 @@ use std::{fmt, slice, mem};
 use std::sync::Arc;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
-use super::super::recovery;
 use super::errors::ErrorKind;
 use super::import_object::{ImportObject, ImportValue};
 use super::math_intrinsics;
@@ -144,6 +143,7 @@ extern "C" fn mock_fn() -> i32 {
     return 0;
 }
 
+#[allow(dead_code)]
 struct CompiledFunction {
     code_buf: Vec<u8>,
     reloc_sink: RelocSink,

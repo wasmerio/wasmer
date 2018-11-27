@@ -1,17 +1,15 @@
 use super::super::host;
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 use libc::{
-    c_int, getpwnam as libc_getpwnam, passwd,
-    getgrnam as libc_getgrnam, group, clock_gettime as libc_clock_gettime, timespec,
-    // uname as libc_uname, utsname,
+    c_int, getpwnam as libc_getpwnam, 
+    getgrnam as libc_getgrnam,
 };
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use std::{slice, mem};
+use std::mem;
 
 use crate::webassembly::Instance;
 use super::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use crate::webassembly::LinearMemory;
 
 /// emscripten: _getenv
 pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {

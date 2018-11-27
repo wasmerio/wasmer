@@ -1,5 +1,5 @@
 
-use crate::webassembly::{LinearMemory, Instance};
+use crate::webassembly::LinearMemory;
 
 pub fn align_memory(ptr: u32) -> u32 {
     (ptr + 15) & !15

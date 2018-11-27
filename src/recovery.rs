@@ -5,9 +5,6 @@
 //! unless you have memory unsafety elsewhere in your code.
 
 use std::cell::UnsafeCell;
-use nix::sys::signal::{Signal, SIGFPE, SIGILL, SIGSEGV, SIGBUS};
-use super::webassembly::ErrorKind;
-use super::sighandler::install_sighandler;
 
 extern "C" {
     pub fn setjmp(env: *mut ::nix::libc::c_void) -> ::nix::libc::c_int;

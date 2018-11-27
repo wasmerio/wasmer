@@ -25,10 +25,6 @@ release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
-	# mkdir -p artifacts
-	# BINARY_NAME := $(./binary-name.sh)
-	# cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
-	# cp ./target/release/wasmer ./artifacts/${BINARY_NAME}
 
 debug-release:
 	cargo build --release --features "debug"
