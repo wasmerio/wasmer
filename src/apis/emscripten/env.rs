@@ -29,6 +29,8 @@ pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {
 }
 
 pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
+    debug!("emscripten::_getpwnam {}", name_ptr);
+
     #[repr(C)]
     struct GuestPasswd {
         pw_name: u32,
@@ -40,7 +42,6 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
         pw_shell: u32,
     }
 
-    debug!("emscripten::_getpwnam {}", name_ptr);
     let name = unsafe {
         let memory_name_ptr = instance.memory_offset_addr(0, name_ptr as usize) as *const c_char;
         CStr::from_ptr(memory_name_ptr)
@@ -64,6 +65,8 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 }
 
 pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
+    debug!("emscripten::_getgrnam {}", name_ptr);
+
     #[repr(C)]
     struct GuestGroup {
         gr_name: u32,
@@ -72,7 +75,6 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
         gr_mem: u32,
     }
 
-    debug!("emscripten::_getgrnam {}", name_ptr);
     let name = unsafe {
         let memory_name_ptr = instance.memory_offset_addr(0, name_ptr as usize) as *const c_char;
         CStr::from_ptr(memory_name_ptr)
@@ -93,13 +95,16 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 }
 
 pub extern fn _localtime_r() -> u32 {
+    debug!("emscripten::_localtime_r");
     0
 }
 
 pub extern fn _getpagesize() -> u32 {
+    debug!("emscripten::_getpagesize");
     LinearMemory::PAGE_SIZE
 }
 
 pub extern fn _prlimit(pid: c_int, resource: c_int, new_limit: c_int, old_limit: c_int, instance: &mut Instance) -> c_int {
+    debug!("emscripten::_prlimit {} {} {} {}", pid, resource, new_limit, old_limit);
     0
 }
