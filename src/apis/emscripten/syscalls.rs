@@ -12,10 +12,8 @@ use libc::{
     sendto, recvfrom, setsockopt,
     getsockopt, sendmsg, recvmsg,
     msghdr, getpid, getppid, pid_t,
-    gid_t, getgid
+    gid_t, getgid,
 };
-
-use macros;
 use crate::webassembly::Instance;
 use super::varargs::VarArgs;
 
@@ -214,7 +212,6 @@ pub extern "C" fn ___syscall102(_which: c_int, mut varargs: VarArgs, instance: &
             let option_len: u32 = varargs.get(instance);
             let value_addr = instance.memory_offset_addr(0, value as usize) as *const c_void;
             unsafe { setsockopt(socket, level, name, value_addr, option_len) }
-
         },
         15 => { // getsockopt (sockfd: c_int, level: c_int, optname: c_int, optval: *mut c_void, optlen: *mut socklen_t) -> c_int
             let socket: i32 = varargs.get(instance);
@@ -279,4 +276,11 @@ pub extern "C" fn ___syscall202() -> gid_t {
         // Maybe fix: Emscripten returns 0 always
         getgid()
     }
+}
+
+// sys_prlimit64
+pub extern "C" fn ___syscall340(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+    debug!("emscripten::___syscall340");
+    // NOTE: Doesn't really matter. Wasm modules cannot exceed WASM_PAGE_SIZE anyway.
+    0
 }
