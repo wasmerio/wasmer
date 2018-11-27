@@ -218,7 +218,7 @@ impl Instance {
                                 "The import {}.{} is not provided, therefore will be mocked.",
                                 module, field
                             );
-                            &(mock_fn as *const u8)
+                            &(mock_fn as _)
                         } else {
                             return Err(ErrorKind::LinkError(format!(
                                 "Imported function {}.{} was not provided in the import_functions",

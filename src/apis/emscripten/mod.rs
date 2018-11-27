@@ -102,28 +102,28 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     import_object.set("env", "tableBase", ImportValue::Global(0));
 
     // Print functions
-    import_object.set("env", "printf", ImportValue::Func(io::printf as *const u8));
+    import_object.set("env", "printf", ImportValue::Func(io::printf as _));
     import_object.set(
         "env",
         "putchar",
-        ImportValue::Func(io::putchar as *const u8),
+        ImportValue::Func(io::putchar as _),
     );
     // Lock
     import_object.set(
         "env",
         "___lock",
-        ImportValue::Func(lock::___lock as *const u8),
+        ImportValue::Func(lock::___lock as _),
     );
     import_object.set(
         "env",
         "___unlock",
-        ImportValue::Func(lock::___unlock as *const u8),
+        ImportValue::Func(lock::___unlock as _),
     );
     // Env
     import_object.set(
         "env",
         "_getenv",
-        ImportValue::Func(env::_getenv as *const u8),
+        ImportValue::Func(env::_getenv as _),
     );
     import_object.set("env", "_getpwnam", ImportValue::Func(env::_getpwnam as _));
     import_object.set("env", "_getgrnam", ImportValue::Func(env::_getgrnam as _));
@@ -131,212 +131,212 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     import_object.set(
         "env",
         "___setErrNo",
-        ImportValue::Func(errno::___seterrno as *const u8),
+        ImportValue::Func(errno::___seterrno as _),
     );
     // Syscalls
     import_object.set(
         "env",
         "___syscall1",
-        ImportValue::Func(syscalls::___syscall1 as *const u8),
+        ImportValue::Func(syscalls::___syscall1 as _),
     );
     import_object.set(
         "env",
         "___syscall3",
-        ImportValue::Func(syscalls::___syscall3 as *const u8),
+        ImportValue::Func(syscalls::___syscall3 as _),
     );
     import_object.set(
         "env",
         "___syscall4",
-        ImportValue::Func(syscalls::___syscall4 as *const u8),
+        ImportValue::Func(syscalls::___syscall4 as _),
     );
     import_object.set(
         "env",
         "___syscall5",
-        ImportValue::Func(syscalls::___syscall5 as *const u8),
+        ImportValue::Func(syscalls::___syscall5 as _),
     );
     import_object.set(
         "env",
         "___syscall6",
-        ImportValue::Func(syscalls::___syscall6 as *const u8),
+        ImportValue::Func(syscalls::___syscall6 as _),
     );
     import_object.set(
         "env",
         "___syscall54",
-        ImportValue::Func(syscalls::___syscall54 as *const u8),
+        ImportValue::Func(syscalls::___syscall54 as _),
     );
     import_object.set(
         "env",
         "___syscall140",
-        ImportValue::Func(syscalls::___syscall140 as *const u8),
+        ImportValue::Func(syscalls::___syscall140 as _),
     );
     import_object.set(
         "env",
         "___syscall145",
-        ImportValue::Func(syscalls::___syscall145 as *const u8),
+        ImportValue::Func(syscalls::___syscall145 as _),
     );
     import_object.set(
         "env",
         "___syscall146",
-        ImportValue::Func(syscalls::___syscall146 as *const u8),
+        ImportValue::Func(syscalls::___syscall146 as _),
     );
     import_object.set(
         "env",
         "___syscall221",
-        ImportValue::Func(syscalls::___syscall221 as *const u8),
+        ImportValue::Func(syscalls::___syscall221 as _),
     );
     import_object.set(
         "env",
         "___syscall20",
-        ImportValue::Func(syscalls::___syscall20 as *const u8),
+        ImportValue::Func(syscalls::___syscall20 as _),
     );
     import_object.set(
         "env",
         "___syscall64",
-        ImportValue::Func(syscalls::___syscall64 as *const u8),
+        ImportValue::Func(syscalls::___syscall64 as _),
     );
     import_object.set(
         "env",
         "___syscall122",
-        ImportValue::Func(syscalls::___syscall122 as *const u8),
+        ImportValue::Func(syscalls::___syscall122 as _),
     );
     import_object.set(
         "env",
         "___syscall201",
-        ImportValue::Func(syscalls::___syscall201 as *const u8),
+        ImportValue::Func(syscalls::___syscall201 as _),
     );
     import_object.set(
         "env",
         "___syscall202",
-        ImportValue::Func(syscalls::___syscall202 as *const u8),
+        ImportValue::Func(syscalls::___syscall202 as _),
     );
     import_object.set(
         "env",
         "___syscall340",
-        ImportValue::Func(syscalls::___syscall340 as *const u8),
+        ImportValue::Func(syscalls::___syscall340 as _),
     );
     import_object.set(
         "env",
         "___syscall197",
-        ImportValue::Func(syscalls::___syscall197 as *const u8),
+        ImportValue::Func(syscalls::___syscall197 as _),
     );
     import_object.set(
         "env",
         "___syscall180",
-        ImportValue::Func(syscalls::___syscall180 as *const u8),
+        ImportValue::Func(syscalls::___syscall180 as _),
     );
     import_object.set(
         "env",
         "___syscall39",
-        ImportValue::Func(syscalls::___syscall39 as *const u8),
+        ImportValue::Func(syscalls::___syscall39 as _),
     );
     import_object.set(
         "env",
         "___syscall195",
-        ImportValue::Func(syscalls::___syscall195 as *const u8),
+        ImportValue::Func(syscalls::___syscall195 as _),
     );
     import_object.set(
         "env",
         "___syscall212",
-        ImportValue::Func(syscalls::___syscall212 as *const u8),
+        ImportValue::Func(syscalls::___syscall212 as _),
     );
     import_object.set(
         "env",
         "___syscall221",
-        ImportValue::Func(syscalls::___syscall221 as *const u8),
+        ImportValue::Func(syscalls::___syscall221 as _),
     );
     import_object.set(
         "env",
         "___syscall102",
-        ImportValue::Func(syscalls::___syscall102 as *const u8),
+        ImportValue::Func(syscalls::___syscall102 as _),
     );
     import_object.set(
         "env",
         "___syscall54",
-        ImportValue::Func(syscalls::___syscall54 as *const u8),
+        ImportValue::Func(syscalls::___syscall54 as _),
     );
 
     // Process
     import_object.set(
         "env",
         "abort",
-        ImportValue::Func(process::em_abort as *const u8),
+        ImportValue::Func(process::em_abort as _),
     );
     import_object.set(
         "env",
         "_abort",
-        ImportValue::Func(process::_abort as *const u8),
+        ImportValue::Func(process::_abort as _),
     );
     import_object.set(
         "env",
         "abortStackOverflow",
-        ImportValue::Func(process::abort_stack_overflow as *const u8),
+        ImportValue::Func(process::abort_stack_overflow as _),
     );
     // Memory
     import_object.set(
         "env",
         "abortOnCannotGrowMemory",
-        ImportValue::Func(memory::abort_on_cannot_grow_memory as *const u8),
+        ImportValue::Func(memory::abort_on_cannot_grow_memory as _),
     );
     import_object.set(
         "env",
         "_emscripten_memcpy_big",
-        ImportValue::Func(memory::_emscripten_memcpy_big as *const u8),
+        ImportValue::Func(memory::_emscripten_memcpy_big as _),
     );
     import_object.set(
         "env",
         "enlargeMemory",
-        ImportValue::Func(memory::enlarge_memory as *const u8),
+        ImportValue::Func(memory::enlarge_memory as _),
     );
     import_object.set(
         "env",
         "getTotalMemory",
-        ImportValue::Func(memory::get_total_memory as *const u8),
+        ImportValue::Func(memory::get_total_memory as _),
     );
     // NullFuncs
     import_object.set(
         "env",
         "nullFunc_ii",
-        ImportValue::Func(nullfunc::nullfunc_ii as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_ii as _),
     );
     import_object.set(
         "env",
         "nullFunc_iii",
-        ImportValue::Func(nullfunc::nullfunc_iii as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_iii as _),
     );
     import_object.set(
         "env",
         "nullFunc_iiii",
-        ImportValue::Func(nullfunc::nullfunc_iiii as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_iiii as _),
     );
     import_object.set(
         "env",
         "nullFunc_iiiii",
-        ImportValue::Func(nullfunc::nullfunc_iiiii as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_iiiii as _),
     );
     import_object.set(
         "env",
         "nullFunc_iiiiii",
-        ImportValue::Func(nullfunc::nullfunc_iiiiii as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_iiiiii as _),
     );
     import_object.set(
         "env",
         "nullFunc_vi",
-        ImportValue::Func(nullfunc::nullfunc_vi as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_vi as _),
     );
     import_object.set(
         "env",
         "nullFunc_vii",
-        ImportValue::Func(nullfunc::nullfunc_vii as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_vii as _),
     );
     import_object.set(
         "env",
         "nullFunc_viii",
-        ImportValue::Func(nullfunc::nullfunc_viii as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_viii as _),
     );
     import_object.set(
         "env",
         "nullFunc_viiii",
-        ImportValue::Func(nullfunc::nullfunc_viiii as *const u8),
+        ImportValue::Func(nullfunc::nullfunc_viiii as _),
     );
     // Time
     import_object.set(

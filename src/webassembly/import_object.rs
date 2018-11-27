@@ -125,10 +125,10 @@ mod tests {
     fn test_import_object() {
         fn x() {}
         let mut import_object = ImportObject::new();
-        import_object.set("abc", "def", ImportValue::Func(x as *const u8));
+        import_object.set("abc", "def", ImportValue::Func(x as _));
         assert_eq!(
             *import_object.get(&"abc", &"def").unwrap(),
-            ImportValue::Func(x as *const u8)
+            ImportValue::Func(x as _)
         );
     }
 }
