@@ -1,24 +1,24 @@
+use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
 use crate::webassembly::{ImportObject, ImportValue, LinearMemory};
-use byteorder::{ByteOrder, LittleEndian};
 use std::mem;
 
 // EMSCRIPTEN APIS
 mod env;
+mod errno;
 mod io;
-mod memory;
-mod process;
-mod syscalls;
 mod lock;
+mod memory;
+mod nullfunc;
+mod process;
+mod storage;
+mod syscalls;
+mod time;
 mod utils;
 mod varargs;
-mod errno;
-mod storage;
-mod nullfunc;
-mod time;
 
-pub use self::utils::is_emscripten_module;
 pub use self::storage::{align_memory, static_alloc};
+pub use self::utils::is_emscripten_module;
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5242880;
@@ -51,21 +51,17 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
 
 pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
-    let mem = &mut memory[dynamictop_ptr..dynamictop_ptr+mem::size_of::<u32>()];
+    let mem = &mut memory[dynamictop_ptr..dynamictop_ptr + mem::size_of::<u32>()];
     LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
 }
 
 macro_rules! mock_external {
     ($import:ident, $name:ident) => {{
-        extern fn _mocked_fn() -> i32 {
+        extern "C" fn _mocked_fn() -> i32 {
             debug!("emscripten::{} <mock>", stringify!($name));
             -1
         }
-        $import.set(
-            "env",
-            stringify!($name),
-            ImportValue::Func(_mocked_fn as _),
-        );
+        $import.set("env", stringify!($name), ImportValue::Func(_mocked_fn as _));
     }};
 }
 
@@ -103,11 +99,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "DYNAMICTOP_PTR",
         ImportValue::Global(dynamictop_ptr(STATIC_BUMP) as _),
     );
-    import_object.set(
-        "env",
-        "tableBase",
-        ImportValue::Global(0),
-    );
+    import_object.set("env", "tableBase", ImportValue::Global(0));
 
     // Print functions
     import_object.set("env", "printf", ImportValue::Func(io::printf as *const u8));
@@ -133,16 +125,8 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_getenv",
         ImportValue::Func(env::_getenv as *const u8),
     );
-    import_object.set(
-        "env",
-        "_getpwnam",
-        ImportValue::Func(env::_getpwnam as _),
-    );
-    import_object.set(
-        "env",
-        "_getgrnam",
-        ImportValue::Func(env::_getgrnam as _),
-    );
+    import_object.set("env", "_getpwnam", ImportValue::Func(env::_getpwnam as _));
+    import_object.set("env", "_getgrnam", ImportValue::Func(env::_getgrnam as _));
     // Errno
     import_object.set(
         "env",
@@ -370,16 +354,8 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_localtime",
         ImportValue::Func(time::_localtime as _),
     );
-    import_object.set(
-        "env",
-        "_time",
-        ImportValue::Func(time::_time as _),
-    );
-    import_object.set(
-        "env",
-        "_strftime",
-        ImportValue::Func(time::_strftime as _),
-    );
+    import_object.set("env", "_time", ImportValue::Func(time::_time as _));
+    import_object.set("env", "_strftime", ImportValue::Func(time::_strftime as _));
     import_object.set(
         "env",
         "_localtime_r",

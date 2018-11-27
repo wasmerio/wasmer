@@ -26,38 +26,39 @@ thread_local! {
 /// the behavior of call_protected is undefined.
 #[macro_export]
 macro_rules! call_protected {
-    ($x:expr) => {unsafe {
-        use crate::webassembly::ErrorKind;
-        use crate::recovery::{SETJMP_BUFFER, setjmp};
-        use crate::sighandler::install_sighandler;
+    ($x:expr) => {
+        unsafe {
+            use crate::recovery::{setjmp, SETJMP_BUFFER};
+            use crate::sighandler::install_sighandler;
+            use crate::webassembly::ErrorKind;
 
-        use nix::sys::signal::{Signal, SIGFPE, SIGILL, SIGSEGV, SIGBUS};
+            use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 
-        let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
-        let prev_jmp_buf = *jmp_buf;
+            let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
+            let prev_jmp_buf = *jmp_buf;
 
-        install_sighandler();
+            install_sighandler();
 
-        let signum = setjmp(jmp_buf as *mut ::nix::libc::c_void);
-        if signum != 0 {
-            *jmp_buf = prev_jmp_buf;
-            let signal = match Signal::from_c_int(signum) {
-                Ok(SIGFPE) => "floating-point exception",
-                Ok(SIGILL) => "illegal instruction",
-                Ok(SIGSEGV) => "segmentation violation",
-                Ok(SIGBUS) => "bus error",
-                Err(_) => "error while getting the Signal",
-                _ => "unkown trapped signal",
-            };
-            Err(ErrorKind::RuntimeError(format!("trap - {}", signal)))
-        } else {
-            let ret = $x; // TODO: Switch stack?
-            *jmp_buf = prev_jmp_buf;
-            Ok(ret)
+            let signum = setjmp(jmp_buf as *mut ::nix::libc::c_void);
+            if signum != 0 {
+                *jmp_buf = prev_jmp_buf;
+                let signal = match Signal::from_c_int(signum) {
+                    Ok(SIGFPE) => "floating-point exception",
+                    Ok(SIGILL) => "illegal instruction",
+                    Ok(SIGSEGV) => "segmentation violation",
+                    Ok(SIGBUS) => "bus error",
+                    Err(_) => "error while getting the Signal",
+                    _ => "unkown trapped signal",
+                };
+                Err(ErrorKind::RuntimeError(format!("trap - {}", signal)))
+            } else {
+                let ret = $x; // TODO: Switch stack?
+                *jmp_buf = prev_jmp_buf;
+                Ok(ret)
+            }
         }
-    }}
+    };
 }
-
 
 /// Unwinds to last protected_call.
 pub unsafe fn do_unwind(signum: i32) -> ! {

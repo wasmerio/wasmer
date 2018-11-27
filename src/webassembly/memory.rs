@@ -3,17 +3,17 @@
 //! webassembly::Instance.
 //! A memory created by Rust or in WebAssembly code will be accessible and
 //! mutable from both Rust and WebAssembly.
-use nix::sys::mman::{mmap, MapFlags, ProtFlags};
 use nix::libc::{c_void, mprotect, PROT_READ, PROT_WRITE};
-use std::slice;
+use nix::sys::mman::{mmap, MapFlags, ProtFlags};
 use std::ops::{Deref, DerefMut};
+use std::slice;
 
 /// A linear memory instance.
 //
 #[derive(Debug)]
 pub struct LinearMemory {
     base: *mut c_void, // The size will always be `LinearMemory::DEFAULT_SIZE`
-    current: u32, // current number of wasm pages
+    current: u32,      // current number of wasm pages
     // The maximum size the WebAssembly Memory is allowed to grow
     // to, in units of WebAssembly pages.  When present, the maximum
     // parameter acts as a hint to the engine to reserve memory up
@@ -36,8 +36,8 @@ impl LinearMemory {
     ///
     /// `maximum` cannot be set to more than `65536` pages.
     pub fn new(initial: u32, maximum: Option<u32>) -> Self {
-        assert!(initial <=  Self::MAX_PAGES);
-        assert!(maximum.is_none() || maximum.unwrap() <=  Self::MAX_PAGES);
+        assert!(initial <= Self::MAX_PAGES);
+        assert!(maximum.is_none() || maximum.unwrap() <= Self::MAX_PAGES);
         debug!(
             "Instantiate LinearMemory(initial={:?}, maximum={:?})",
             initial, maximum
@@ -56,13 +56,16 @@ impl LinearMemory {
         };
 
         if initial > 0 {
-            assert_eq!(unsafe {
-                mprotect(
-                    base,
-                    (initial * Self::PAGE_SIZE) as _,
-                    PROT_READ | PROT_WRITE,
-                )
-            }, 0);
+            assert_eq!(
+                unsafe {
+                    mprotect(
+                        base,
+                        (initial * Self::PAGE_SIZE) as _,
+                        PROT_READ | PROT_WRITE,
+                    )
+                },
+                0
+            );
         }
 
         debug!("LinearMemory instantiated");
@@ -124,11 +127,14 @@ impl LinearMemory {
         let new_bytes = (new_pages * Self::PAGE_SIZE) as usize;
 
         unsafe {
-            assert_eq!(mprotect(
-                self.base.add(prev_bytes),
-                new_bytes - prev_bytes,
-                PROT_READ | PROT_WRITE,
-            ), 0);
+            assert_eq!(
+                mprotect(
+                    self.base.add(prev_bytes),
+                    new_bytes - prev_bytes,
+                    PROT_READ | PROT_WRITE,
+                ),
+                0
+            );
         }
 
         self.current = new_pages;
@@ -156,20 +162,15 @@ impl PartialEq for LinearMemory {
     }
 }
 
-
 impl Deref for LinearMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe {
-            slice::from_raw_parts(self.base as _, (self.current * Self::PAGE_SIZE) as _)
-        }
+        unsafe { slice::from_raw_parts(self.base as _, (self.current * Self::PAGE_SIZE) as _) }
     }
 }
 
 impl DerefMut for LinearMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe {
-            slice::from_raw_parts_mut(self.base as _, (self.current * Self::PAGE_SIZE) as _)
-        }
+        unsafe { slice::from_raw_parts_mut(self.base as _, (self.current * Self::PAGE_SIZE) as _) }
     }
 }

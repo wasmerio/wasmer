@@ -12,9 +12,9 @@ extern crate wabt;
 extern crate wasmparser;
 #[macro_use]
 extern crate target_lexicon;
+extern crate byteorder;
 extern crate nix;
 extern crate rayon;
-extern crate byteorder;
 
 use std::fs::File;
 use std::io;

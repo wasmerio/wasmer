@@ -18,8 +18,8 @@ use std::iter::FromIterator;
 use std::iter::Iterator;
 use std::mem::size_of;
 use std::ptr::write_unaligned;
-use std::{fmt, slice, mem};
 use std::sync::Arc;
+use std::{fmt, mem, slice};
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
@@ -68,8 +68,8 @@ fn get_function_addr(
 }
 
 pub struct EmscriptenData {
-    pub malloc: extern fn(i32, &mut Instance) -> u32,
-    pub free: extern fn(i32, &mut Instance),
+    pub malloc: extern "C" fn(i32, &mut Instance) -> u32,
+    pub free: extern "C" fn(i32, &mut Instance),
 }
 
 impl fmt::Debug for EmscriptenData {
@@ -243,8 +243,7 @@ impl Instance {
                     // let r = *Arc::from_raw(isa_ptr);
                     compile_function(&*options.isa, function_body).unwrap()
                     // unimplemented!()
-                })
-                .collect();
+                }).collect();
 
             for compiled_func in compiled_funcs.into_iter() {
                 let CompiledFunction {
@@ -495,12 +494,7 @@ impl Instance {
             tables.iter().map(|table| table[..].into()).collect();
         let memories_pointer: Vec<BoundedSlice<u8>> = memories
             .iter()
-            .map(|mem| {
-                BoundedSlice::new(
-                    &mem[..],
-                    mem.current_size(),
-                )
-            })
+            .map(|mem| BoundedSlice::new(&mem[..], mem.current_size()))
             .collect();
         let globals_pointer: GlobalsSlice = globals[..].into();
 
@@ -511,14 +505,16 @@ impl Instance {
         };
 
         let emscripten_data = unsafe {
-            let malloc_index = if let Some(Export::Function(index)) = module.info.exports.get("_malloc") {
-                index
-            } else {
-                panic!("Unable to find _malloc export")
-            };
+            let malloc_index =
+                if let Some(Export::Function(index)) = module.info.exports.get("_malloc") {
+                    index
+                } else {
+                    panic!("Unable to find _malloc export")
+                };
             let malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
 
-            let free_index = if let Some(Export::Function(index)) = module.info.exports.get("_free") {
+            let free_index = if let Some(Export::Function(index)) = module.info.exports.get("_free")
+            {
                 index
             } else {
                 panic!("Unable to find _free export")
@@ -564,8 +560,7 @@ impl Instance {
         if let Some(func_index) = self.start_func {
             let func: fn(&Instance) = get_instance_function!(&self, func_index);
             call_protected!(func(self))
-        }
-        else {
+        } else {
             Ok(())
         }
     }

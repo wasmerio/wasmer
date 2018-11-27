@@ -36,4 +36,3 @@ pub extern "C" fn nullfunc_viii(_x: u32, _instance: &Instance) {
 pub extern "C" fn nullfunc_viiii(_x: u32, _instance: &Instance) {
     abort_with_message("Invalid function pointer called with signature 'viiii'. Perhaps this is an invalid value (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an incorrect type, which will fail? (it is worth building your source files with -Werror (warnings are errors), as warnings can indicate undefined behavior which can cause this)");
 }
-

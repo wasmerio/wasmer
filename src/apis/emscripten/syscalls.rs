@@ -1,34 +1,66 @@
+use super::utils::copy_stat_into_wasm;
+use super::varargs::VarArgs;
+use crate::webassembly::Instance;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
-    c_int, c_void, utsname, off_t,
-    ssize_t, write, exit, read,
-    open, close, 
-    uname, lseek, readv,
-    iovec, writev, socklen_t,
-    sockaddr, socket, bind,
-    connect, listen, accept,
-    getsockname, getpeername,
-    sendto, recvfrom, 
-    getsockopt, sendmsg, recvmsg,
-    msghdr, getpid, pid_t,
-    gid_t, getgid, fstat, stat,
-    pread, mkdir, chown,
+    accept,
+    bind,
+    c_int,
+    c_void,
+    chown,
     // fcntl, ioctl, setsockopt, getppid
+    close,
+    connect,
+    exit,
+    fstat,
+    getgid,
+    getpeername,
+    getpid,
+    getsockname,
+    getsockopt,
+    gid_t,
+    iovec,
+    listen,
+    lseek,
+    mkdir,
+    msghdr,
+    off_t,
+    open,
+    pid_t,
+    pread,
+    read,
+    readv,
+    recvfrom,
+    recvmsg,
+    sendmsg,
+    sendto,
+    sockaddr,
+    socket,
+    socklen_t,
+    ssize_t,
+    stat,
+    uname,
+    utsname,
+    write,
+    writev,
 };
-use crate::webassembly::Instance;
-use super::varargs::VarArgs;
-use super::utils::copy_stat_into_wasm;
 
 /// sys_exit
 pub extern "C" fn ___syscall1(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) {
     debug!("emscripten::___syscall1");
     let status: i32 = varargs.get(instance);
-    unsafe { exit(status); }
+    unsafe {
+        exit(status);
+    }
 }
 
 /// sys_read
-pub extern "C" fn ___syscall3(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> ssize_t {
+pub extern "C" fn ___syscall3(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> ssize_t {
     debug!("emscripten::___syscall3");
     let fd: i32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
@@ -39,7 +71,11 @@ pub extern "C" fn ___syscall3(_which: c_int, mut varargs: VarArgs, instance: &mu
 }
 
 /// sys_write
-pub extern "C" fn ___syscall4(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall4(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall4");
     let fd: i32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
@@ -50,7 +86,11 @@ pub extern "C" fn ___syscall4(_which: c_int, mut varargs: VarArgs, instance: &mu
 }
 
 /// sys_open
-pub extern "C" fn ___syscall5(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall5(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall5");
     let pathname: u32 = varargs.get(instance);
     let flags: i32 = varargs.get(instance);
@@ -67,7 +107,11 @@ pub extern "C" fn ___syscall5(_which: c_int, mut varargs: VarArgs, instance: &mu
 }
 
 /// sys_close
-pub extern "C" fn ___syscall6(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall6(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall6");
     let fd: i32 = varargs.get(instance);
     debug!("fd: {}", fd);
@@ -75,7 +119,11 @@ pub extern "C" fn ___syscall6(_which: c_int, mut varargs: VarArgs, instance: &mu
 }
 
 /// sys_ioctl
-pub extern "C" fn ___syscall54(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall54(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall54");
     let _fd: i32 = varargs.get(instance);
     let _request: u32 = varargs.get(instance);
@@ -86,7 +134,11 @@ pub extern "C" fn ___syscall54(_which: c_int, mut varargs: VarArgs, instance: &m
 
 /// sys_uname
 // NOTE: Wondering if we should return custom utsname, like Emscripten.
-pub extern "C" fn ___syscall122(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall122(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall122");
     let buf: u32 = varargs.get(instance);
     debug!("buf: {}", buf);
@@ -95,7 +147,11 @@ pub extern "C" fn ___syscall122(_which: c_int, mut varargs: VarArgs, instance: &
 }
 
 /// sys_lseek
-pub extern "C" fn ___syscall140(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> off_t {
+pub extern "C" fn ___syscall140(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> off_t {
     debug!("emscripten::___syscall145");
     let fd: i32 = varargs.get(instance);
     let offset: i64 = varargs.get(instance);
@@ -105,7 +161,11 @@ pub extern "C" fn ___syscall140(_which: c_int, mut varargs: VarArgs, instance: &
 }
 
 /// sys_readv
-pub extern "C" fn ___syscall145(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> ssize_t {
+pub extern "C" fn ___syscall145(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> ssize_t {
     debug!("emscripten::___syscall145");
     let fd: i32 = varargs.get(instance);
     let iov: u32 = varargs.get(instance);
@@ -116,7 +176,11 @@ pub extern "C" fn ___syscall145(_which: c_int, mut varargs: VarArgs, instance: &
 }
 
 // sys_writev
-pub extern "C" fn ___syscall146(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> ssize_t {
+pub extern "C" fn ___syscall146(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> ssize_t {
     debug!("emscripten::___syscall145");
     let fd: i32 = varargs.get(instance);
     let iov: u32 = varargs.get(instance);
@@ -136,65 +200,80 @@ pub extern "C" fn ___syscall146(_which: c_int, mut varargs: VarArgs, instance: &
 // }
 
 // sys_socketcall
-pub extern "C" fn ___syscall102(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall102(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall102");
     let call: u32 = varargs.get(instance);
     let mut socket_varargs: VarArgs = varargs.get(instance);
     match call {
-        1 => { // socket (domain: c_int, ty: c_int, protocol: c_int) -> c_int
+        1 => {
+            // socket (domain: c_int, ty: c_int, protocol: c_int) -> c_int
             let domain: i32 = socket_varargs.get(instance);
             let ty: i32 = socket_varargs.get(instance);
             let protocol: i32 = socket_varargs.get(instance);
             let socket = unsafe { socket(domain, ty, protocol) };
             debug!("socket: {}", socket);
             socket
-        },
-        2 => { // bind (socket: c_int, address: *const sockaddr, address_len: socklen_t) -> c_int
+        }
+        2 => {
+            // bind (socket: c_int, address: *const sockaddr, address_len: socklen_t) -> c_int
             // TODO: Emscripten has a different signature.
             let socket: i32 = socket_varargs.get(instance);
             let address: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
             unsafe { bind(socket, address, address_len) }
-        },
-        3 => { // connect (socket: c_int, address: *const sockaddr, len: socklen_t) -> c_int
+        }
+        3 => {
+            // connect (socket: c_int, address: *const sockaddr, len: socklen_t) -> c_int
             // TODO: Emscripten has a different signature.
             let socket: i32 = socket_varargs.get(instance);
             let address: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
             unsafe { connect(socket, address, address_len) }
-        },
-        4 => { // listen (socket: c_int, backlog: c_int) -> c_int
+        }
+        4 => {
+            // listen (socket: c_int, backlog: c_int) -> c_int
             let socket: i32 = socket_varargs.get(instance);
             let backlog: i32 = socket_varargs.get(instance);
             unsafe { listen(socket, backlog) }
-        },
-        5 => { // accept (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
+        }
+        5 => {
+            // accept (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
             let socket: i32 = socket_varargs.get(instance);
             let address: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
-            let address_len_addr = instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
+            let address_len_addr =
+                instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
             unsafe { accept(socket, address, address_len_addr) }
-        },
-        6 => { // getsockname (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
+        }
+        6 => {
+            // getsockname (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
             let socket: i32 = socket_varargs.get(instance);
             let address: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
-            let address_len_addr = instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
+            let address_len_addr =
+                instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
             unsafe { getsockname(socket, address, address_len_addr) }
-        },
-        7 => { // getpeername (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
+        }
+        7 => {
+            // getpeername (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
             let socket: i32 = socket_varargs.get(instance);
             let address: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
-            let address_len_addr = instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
+            let address_len_addr =
+                instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
             unsafe { getpeername(socket, address, address_len_addr) }
-        },
-        11 => { // sendto (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
+        }
+        11 => {
+            // sendto (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
             let socket: i32 = socket_varargs.get(instance);
             let buf: u32 = socket_varargs.get(instance);
             let flags: usize = socket_varargs.get(instance);
@@ -204,8 +283,9 @@ pub extern "C" fn ___syscall102(_which: c_int, mut varargs: VarArgs, instance: &
             let buf_addr = instance.memory_offset_addr(0, buf as usize) as *mut c_void;
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
             unsafe { sendto(socket, buf_addr, flags, len, address, address_len) as i32 }
-        },
-        12 => { // recvfrom (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
+        }
+        12 => {
+            // recvfrom (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
             let socket: i32 = socket_varargs.get(instance);
             let buf: u32 = socket_varargs.get(instance);
             let flags: usize = socket_varargs.get(instance);
@@ -214,10 +294,12 @@ pub extern "C" fn ___syscall102(_which: c_int, mut varargs: VarArgs, instance: &
             let address_len: u32 = socket_varargs.get(instance);
             let buf_addr = instance.memory_offset_addr(0, buf as usize) as *mut c_void;
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
-            let address_len_addr = instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
+            let address_len_addr =
+                instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
             unsafe { recvfrom(socket, buf_addr, flags, len, address, address_len_addr) as i32 }
-        },
-        14 => { // setsockopt (socket: c_int, level: c_int, name: c_int, value: *const c_void, option_len: socklen_t) -> c_int
+        }
+        14 => {
+            // setsockopt (socket: c_int, level: c_int, name: c_int, value: *const c_void, option_len: socklen_t) -> c_int
             // let socket: i32 = socket_varargs.get(instance);
             // debug!("socket: {}", socket);
             // let level: i32 = socket_varargs.get(instance);
@@ -229,7 +311,7 @@ pub extern "C" fn ___syscall102(_which: c_int, mut varargs: VarArgs, instance: &
             // let option_len: u32 = socket_varargs.get(instance);
             // debug!("option_len: {}", option_len);
             // let value_addr = instance.memory_offset_addr(0, value as usize) as *const c_void;
-            
+
             // let ret = unsafe { setsockopt(socket, level, name, value_addr, option_len) };
             // debug!("ret: {}", ret);
             // if ret != 0 {
@@ -237,53 +319,53 @@ pub extern "C" fn ___syscall102(_which: c_int, mut varargs: VarArgs, instance: &
             // }
             // ret
             0
-        },
-        15 => { // getsockopt (sockfd: c_int, level: c_int, optname: c_int, optval: *mut c_void, optlen: *mut socklen_t) -> c_int
+        }
+        15 => {
+            // getsockopt (sockfd: c_int, level: c_int, optname: c_int, optval: *mut c_void, optlen: *mut socklen_t) -> c_int
             let socket: i32 = socket_varargs.get(instance);
             let level: i32 = socket_varargs.get(instance);
             let name: i32 = socket_varargs.get(instance);
             let value: u32 = socket_varargs.get(instance);
             let option_len: u32 = socket_varargs.get(instance);
             let value_addr = instance.memory_offset_addr(0, value as usize) as *mut c_void;
-            let option_len_addr = instance.memory_offset_addr(0, option_len as usize) as *mut socklen_t;
+            let option_len_addr =
+                instance.memory_offset_addr(0, option_len as usize) as *mut socklen_t;
             unsafe { getsockopt(socket, level, name, value_addr, option_len_addr) }
-        },
-        16 => { // sendmsg (fd: c_int, msg: *const msghdr, flags: c_int) -> ssize_t
+        }
+        16 => {
+            // sendmsg (fd: c_int, msg: *const msghdr, flags: c_int) -> ssize_t
             let socket: i32 = socket_varargs.get(instance);
             let msg: u32 = socket_varargs.get(instance);
             let flags: i32 = socket_varargs.get(instance);
             let msg_addr = instance.memory_offset_addr(0, msg as usize) as *const msghdr;
             unsafe { sendmsg(socket, msg_addr, flags) as i32 }
-        },
-        17 => { // recvmsg (fd: c_int, msg: *mut msghdr, flags: c_int) -> ssize_t
+        }
+        17 => {
+            // recvmsg (fd: c_int, msg: *mut msghdr, flags: c_int) -> ssize_t
             let socket: i32 = socket_varargs.get(instance);
             let msg: u32 = socket_varargs.get(instance);
             let flags: i32 = socket_varargs.get(instance);
             let msg_addr = instance.memory_offset_addr(0, msg as usize) as *mut msghdr;
             unsafe { recvmsg(socket, msg_addr, flags) as i32 }
-        },
-        _ => { // others
+        }
+        _ => {
+            // others
             -1
-        },
+        }
     }
 }
 
 // sys_getpid
 pub extern "C" fn ___syscall20() -> pid_t {
     debug!("emscripten::___syscall20");
-    unsafe {
-        getpid()
-    }
+    unsafe { getpid() }
 }
 
 // sys_getppid
 pub extern "C" fn ___syscall64() -> pid_t {
     debug!("emscripten::___syscall64");
-    unsafe {
-        getpid()
-    }
+    unsafe { getpid() }
 }
-
 
 // sys_getgid
 pub extern "C" fn ___syscall201() -> gid_t {
@@ -304,15 +386,22 @@ pub extern "C" fn ___syscall202() -> gid_t {
 }
 
 // sys_prlimit64
-pub extern "C" fn ___syscall340(_which: c_int, mut _varargs: VarArgs, _instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall340(
+    _which: c_int,
+    mut _varargs: VarArgs,
+    _instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall340");
     // NOTE: Doesn't really matter. Wasm modules cannot exceed WASM_PAGE_SIZE anyway.
     0
 }
 
-
 // sys_fstat64
-pub extern "C" fn ___syscall197(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall197(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall197");
     let fd: c_int = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
@@ -331,7 +420,11 @@ pub extern "C" fn ___syscall197(_which: c_int, mut varargs: VarArgs, instance: &
 }
 
 // sys_pread
-pub extern "C" fn ___syscall180(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall180(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall180");
     let fd: i32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
@@ -344,25 +437,29 @@ pub extern "C" fn ___syscall180(_which: c_int, mut varargs: VarArgs, instance: &
 
     let buf_ptr = instance.memory_offset_addr(0, buf as _) as _;
 
-    unsafe {
-        pread(fd, buf_ptr, count as _, offset) as _
-    }
+    unsafe { pread(fd, buf_ptr, count as _, offset) as _ }
 }
 
 // sys_mkdir
-pub extern "C" fn ___syscall39(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall39(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall39");
     let pathname: u32 = varargs.get(instance);
     let mode: u32 = varargs.get(instance);
     let pathname_addr = instance.memory_offset_addr(0, pathname as usize) as *const i8;
-    
-    unsafe {
-        mkdir(pathname_addr, mode as _)
-    }
+
+    unsafe { mkdir(pathname_addr, mode as _) }
 }
 
 // sys_stat64
-pub extern "C" fn ___syscall195(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall195(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall195");
     let pathname: u32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
@@ -382,7 +479,11 @@ pub extern "C" fn ___syscall195(_which: c_int, mut varargs: VarArgs, instance: &
 }
 
 // sys_chown
-pub extern "C" fn ___syscall212(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall212(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___syscall212");
 
     let pathname: u32 = varargs.get(instance);
@@ -391,13 +492,15 @@ pub extern "C" fn ___syscall212(_which: c_int, mut varargs: VarArgs, instance: &
 
     let pathname_addr = instance.memory_offset_addr(0, pathname as usize) as *const i8;
 
-    unsafe {
-        chown(pathname_addr, owner, group)
-    }
+    unsafe { chown(pathname_addr, owner, group) }
 }
 
 // sys_fcntl64
-pub extern "C" fn ___syscall221(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___syscall221(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
     let _fd: i32 = varargs.get(instance);
     let cmd: u32 = varargs.get(instance);
     match cmd {

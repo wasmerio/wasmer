@@ -1,10 +1,10 @@
+use byteorder::{ByteOrder, LittleEndian};
 use crate::webassembly::module::Module;
 use crate::webassembly::Instance;
+use libc::stat;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
-use libc::stat;
-use byteorder::{ByteOrder, LittleEndian};
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -28,7 +28,10 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     space_offset
 }
 
-pub unsafe fn copy_terminated_array_of_cstrs(_instance: &mut Instance, cstrs: *mut *mut c_char) -> u32 {
+pub unsafe fn copy_terminated_array_of_cstrs(
+    _instance: &mut Instance,
+    cstrs: *mut *mut c_char,
+) -> u32 {
     let total_num = {
         let mut ptr = cstrs;
         let mut counter = 0;
@@ -38,14 +41,17 @@ pub unsafe fn copy_terminated_array_of_cstrs(_instance: &mut Instance, cstrs: *m
         }
         counter
     };
-    debug!("emscripten::copy_terminated_array_of_cstrs::total_num: {}", total_num);
+    debug!(
+        "emscripten::copy_terminated_array_of_cstrs::total_num: {}",
+        total_num
+    );
     0
 }
 
 pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat) {
     let buf_ptr = instance.memory_offset_addr(0, buf as _) as *mut u8;
     let buf = slice::from_raw_parts_mut(buf_ptr, 76);
-    
+
     LittleEndian::write_u32(&mut buf[..], stat.st_dev as _);
     LittleEndian::write_u32(&mut buf[4..], 0);
     LittleEndian::write_u32(&mut buf[8..], stat.st_ino as _);

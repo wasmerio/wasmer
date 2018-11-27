@@ -1,6 +1,6 @@
-use libc::{c_void, memcpy, size_t};
-use crate::webassembly::Instance;
 use super::process::abort_with_message;
+use crate::webassembly::Instance;
+use libc::{c_void, memcpy, size_t};
 
 /// emscripten: _emscripten_memcpy_big
 pub extern "C" fn _emscripten_memcpy_big(

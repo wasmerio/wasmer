@@ -1,29 +1,31 @@
+use super::utils::copy_cstr_into_wasm;
 use libc::{
     c_int,
     c_long,
     clock_gettime as libc_clock_gettime,
-    timespec,
     // tm,
     localtime,
+    time,
     time_t,
-    time
+    timespec,
 };
-use std::{mem};
+use std::mem;
 use std::time::SystemTime;
-use super::utils::{copy_cstr_into_wasm};
-
 
 use crate::webassembly::Instance;
 
 /// emscripten: _gettimeofday
-pub extern fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
     #[repr(C)]
     struct GuestTimeVal {
         tv_sec: i32,
         tv_usec: i32,
     }
 
-    assert!(tz == 0, "the timezone argument of `_gettimeofday` must be null");
+    assert!(
+        tz == 0,
+        "the timezone argument of `_gettimeofday` must be null"
+    );
     unsafe {
         let now = SystemTime::now();
         let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
@@ -35,9 +37,8 @@ pub extern fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_
     0
 }
 
-
 /// emscripten: _clock_gettime
-pub extern fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
     #[repr(C)]
     struct GuestTimeSpec {
         tv_sec: i32,
@@ -85,7 +86,8 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
         let tm_struct = &*localtime(time_p_addr);
 
         // Webassembly allocation
-        let tm_struct_offset = (instance.emscripten_data.malloc)(mem::size_of::<GuestTm>() as _, instance);
+        let tm_struct_offset =
+            (instance.emscripten_data.malloc)(mem::size_of::<GuestTm>() as _, instance);
         let tm_struct_ptr = instance.memory_offset_addr(0, tm_struct_offset as _) as *mut GuestTm;
 
         // Initializing
@@ -116,7 +118,16 @@ pub extern "C" fn _time(time_p: u32, instance: &mut Instance) -> time_t {
 }
 
 /// emscripten: _strftime
-pub extern "C" fn _strftime(s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_ptr: c_int, _instance: &mut Instance) -> time_t {
-    debug!("emscripten::_strftime {} {} {} {}", s_ptr, maxsize, format_ptr, tm_ptr);
+pub extern "C" fn _strftime(
+    s_ptr: c_int,
+    maxsize: u32,
+    format_ptr: c_int,
+    tm_ptr: c_int,
+    _instance: &mut Instance,
+) -> time_t {
+    debug!(
+        "emscripten::_strftime {} {} {} {}",
+        s_ptr, maxsize, format_ptr, tm_ptr
+    );
     0
 }
