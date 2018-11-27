@@ -101,10 +101,5 @@ pub extern fn _localtime_r() -> u32 {
 
 pub extern fn _getpagesize() -> u32 {
     debug!("emscripten::_getpagesize");
-    LinearMemory::PAGE_SIZE
-}
-
-pub extern fn _prlimit(pid: c_int, resource: c_int, new_limit: c_int, old_limit: c_int, instance: &mut Instance) -> c_int {
-    debug!("emscripten::_prlimit {} {} {} {}", pid, resource, new_limit, old_limit);
-    0
+    16384
 }

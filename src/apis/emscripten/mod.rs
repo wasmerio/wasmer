@@ -59,7 +59,7 @@ macro_rules! mock_external {
     ($import:ident, $name:ident) => {{
         extern fn _mocked_fn() -> i32 {
             debug!("emscripten::{} <mock>", stringify!($name));
-            0
+            -1
         }
         $import.set(
             "env",
@@ -225,6 +225,52 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "___syscall202",
         ImportValue::Func(syscalls::___syscall202 as *const u8),
     );
+    import_object.set(
+        "env",
+        "___syscall340",
+        ImportValue::Func(syscalls::___syscall340 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall197",
+        ImportValue::Func(syscalls::___syscall197 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall180",
+        ImportValue::Func(syscalls::___syscall180 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall39",
+        ImportValue::Func(syscalls::___syscall39 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall195",
+        ImportValue::Func(syscalls::___syscall195 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall212",
+        ImportValue::Func(syscalls::___syscall212 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall221",
+        ImportValue::Func(syscalls::___syscall221 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall102",
+        ImportValue::Func(syscalls::___syscall102 as *const u8),
+    );
+    import_object.set(
+        "env",
+        "___syscall54",
+        ImportValue::Func(syscalls::___syscall54 as *const u8),
+    );
+
     // Process
     import_object.set(
         "env",
@@ -388,34 +434,34 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     // mock_external!(import_object, ___syscall64);
     mock_external!(import_object, ___syscall63);
     mock_external!(import_object, ___syscall60);
-    mock_external!(import_object, ___syscall54);
-    mock_external!(import_object, ___syscall39);
+    // mock_external!(import_object, ___syscall54);
+    // mock_external!(import_object, ___syscall39);
     mock_external!(import_object, ___syscall38);
-    mock_external!(import_object, ___syscall340);
+    // mock_external!(import_object, ___syscall340);
     mock_external!(import_object, ___syscall334);
     mock_external!(import_object, ___syscall300);
     mock_external!(import_object, ___syscall295);
     mock_external!(import_object, ___syscall272);
     mock_external!(import_object, ___syscall268);
-    mock_external!(import_object, ___syscall221);
+    // mock_external!(import_object, ___syscall221);
     mock_external!(import_object, ___syscall220);
-    mock_external!(import_object, ___syscall212);
+    // mock_external!(import_object, ___syscall212);
     // mock_external!(import_object, ___syscall201);
     mock_external!(import_object, ___syscall199);
-    mock_external!(import_object, ___syscall197);
+    // mock_external!(import_object, ___syscall197);
     mock_external!(import_object, ___syscall196);
-    mock_external!(import_object, ___syscall195);
+    // mock_external!(import_object, ___syscall195);
     mock_external!(import_object, ___syscall194);
     mock_external!(import_object, ___syscall191);
     mock_external!(import_object, ___syscall181);
-    mock_external!(import_object, ___syscall180);
+    // mock_external!(import_object, ___syscall180);
     mock_external!(import_object, ___syscall168);
     // mock_external!(import_object, ___syscall146);
     // mock_external!(import_object, ___syscall145);
     mock_external!(import_object, ___syscall142);
     mock_external!(import_object, ___syscall140);
     // mock_external!(import_object, ___syscall122);
-    mock_external!(import_object, ___syscall102);
+    // mock_external!(import_object, ___syscall102);
     // mock_external!(import_object, ___syscall20);
     mock_external!(import_object, ___syscall15);
     mock_external!(import_object, ___syscall10);
