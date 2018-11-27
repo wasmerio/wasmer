@@ -451,7 +451,8 @@ pub extern "C" fn ___syscall39(
     let mode: u32 = varargs.get(instance);
     let pathname_addr = instance.memory_offset_addr(0, pathname as usize) as *const i8;
 
-    unsafe { mkdir(pathname_addr, mode as _) }
+    unsafe { mkdir(pathname_addr, mode as _) };
+    0
 }
 
 // sys_stat64
@@ -507,4 +508,38 @@ pub extern "C" fn ___syscall221(
         2 => 0,
         _ => -1,
     }
+}
+
+// chdir
+pub extern "C" fn ___syscall12(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall12");
+    let path_addr: i32 = varargs.get(instance);
+    let path = unsafe {
+        let path_ptr = instance.memory_offset_addr(0, path_addr as usize) as *const i8;
+        let path = std::ffi::CStr::from_ptr(path_ptr).to_str().unwrap();
+        debug!("path: {}", path);
+        path
+    };
+    0
+}
+
+// mmap2
+pub extern "C" fn ___syscall192(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall192");
+    let addr: i32 = varargs.get(instance);
+    let len: i32 = varargs.get(instance);
+    let prot: i32 = varargs.get(instance);
+    let flags: i32 = varargs.get(instance);
+    let fd: i32 = varargs.get(instance);
+    let off: i32 = varargs.get(instance);
+    debug!("{} {} {} {} {} {}", addr, len, prot, flags, fd, off);
+    0
 }

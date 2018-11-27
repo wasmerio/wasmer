@@ -254,6 +254,16 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "___syscall54",
         ImportValue::Func(syscalls::___syscall54 as _),
     );
+    import_object.set(
+        "env",
+        "___syscall12",
+        ImportValue::Func(syscalls::___syscall12 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall192",
+        ImportValue::Func(syscalls::___syscall192 as _),
+    );
 
     // Process
     import_object.set(
