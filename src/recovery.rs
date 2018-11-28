@@ -4,9 +4,6 @@
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
 
-use super::sighandler::install_sighandler;
-use super::webassembly::ErrorKind;
-use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 use std::cell::UnsafeCell;
 
 extern "C" {
