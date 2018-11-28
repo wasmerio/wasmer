@@ -127,9 +127,13 @@ wasmer_detect_profile() {
 }
 
 wasmer_link() {
-  printf "$cyan> Adding to \$PATH...$reset\n"
+  printf "$cyan> Adding to bash profile...$reset\n"
   WASMER_PROFILE="$(wasmer_detect_profile)"
-  SOURCE_STR="\nexport PATH=\"\$HOME/.wasmer/bin:\$PATH\"\n"
+  LOAD_STR="\n# Wasmer\nexport WASMER_DIR=\"\$HOME/.wasmer\"\n[ -s \"\$WASMER_DIR/wasmer.sh\" ] && source \"\$WASMER_DIR/wasmer.sh\"  # This loads wasmer\n"
+  SOURCE_STR="# Wasmer config\nexport WASMER_DIR=\"\$HOME/.wasmer\"\nexport PATH=\"\$HOME/.wasmer/bin:\$PATH\"\n"
+
+  # We create the wasmer.sh file
+  echo "$SOURCE_STR" > "$HOME/.wasmer/wasmer.sh"
 
   if [ -z "${WASMER_PROFILE-}" ] ; then
     printf "${red}Profile not found. Tried:\n* ${WASMER_PROFILE} (as defined in \$PROFILE)\n* ~/.bashrc\n* ~/.bash_profile\n* ~/.zshrc\n* ~/.profile.\n"
@@ -139,24 +143,25 @@ wasmer_link() {
     printf "* Append the following lines to the correct file yourself:$reset\n"
     command printf "${SOURCE_STR}"
   else
-    if ! grep -q 'wasmer' "$WASMER_PROFILE"; then
-      if [[ $WASMER_PROFILE == *"fish"* ]]; then
-        command fish -c 'set -U fish_user_paths $fish_user_paths ~/.wasmer/bin'
-      else
-        command printf "$SOURCE_STR" >> "$WASMER_PROFILE"
-      fi
+    if ! grep -q 'wasmer.sh' "$WASMER_PROFILE"; then
+      # if [[ $WASMER_PROFILE == *"fish"* ]]; then
+      #   command fish -c 'set -U fish_user_paths $fish_user_paths ~/.wasmer/bin'
+      # else
+      command printf "$LOAD_STR" >> "$WASMER_PROFILE"
+      # fi
     fi
-    printf "\033[1A$cyan> Adding to \$PATH... ✓$reset\n"
+    printf "\033[1A$cyan> Adding to bash profile... ✓$reset\n"
     printf "${dim}Note: We've added the following to your $WASMER_PROFILE\n"
     echo "If this isn't the profile of your current shell then please add the following to your correct profile:"
-    printf "$SOURCE_STR$reset\n"
+    printf "$LOAD_STR$reset\n"
 
     version=`$HOME/.wasmer/bin/wasmer --version` || (
       printf "$red> wasmer was installed, but doesn't seem to be working :($reset\n"
       exit 1;
     )
 
-    printf "$green> Successfully installed $version!\n${reset}Please open another terminal where the \`${bold}wasmer$reset\` command will now be available.$reset\n"
+    printf "$green> Successfully installed $version!\n\n${reset}If you want to have the command available now please execute:\nsource $HOME/.wasmer/wasmer.sh$reset\n"
+    printf "\nOtherwise, wasmer will be available the next time you open the terminal.\n"
   fi
 }
 
@@ -225,26 +230,30 @@ wasmer_install() {
   magenta2="${reset}\033[34m"
   magenta3="${reset}\033[34;2m"
 
-  printf "${reset}Installing Wasmer!$reset\n"
-  printf "
- ${magenta1}      ${magenta2}        ${magenta3}###${reset}                                 
- ${magenta1}      ${magenta2}        ${magenta3}#####${reset}                               
- ${magenta1}      ${magenta2}###     ${magenta3}######${reset}                   
- ${magenta1}      ${magenta2}######  ${magenta3}#############${reset}            
- ${magenta1}#     ${magenta2}####### ${magenta3}##############${reset}
- ${magenta1}##### ${magenta2}#############${magenta3}#########${reset}
- ${magenta1}######${magenta2}###############${magenta3}#######${reset}
- ${magenta1}############${magenta2}#########${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
- ${magenta1}##############${magenta2}#######${magenta3}    ###${reset}
- ${magenta1}##############${magenta2}#######                          
-    ${magenta1}###########${magenta2}    ###                          
-       ${magenta1}########${magenta2}                                 
-           ${magenta1}####${reset}                                    
+  if which wasmer >/dev/null; then
+    printf "${reset}Updating wasmer$reset\n"
+  else
+    printf "${reset}Installing Wasmer!$reset\n"
+    printf "
+  ${magenta1}      ${magenta2}        ${magenta3}###${reset}                                 
+  ${magenta1}      ${magenta2}        ${magenta3}#####${reset}                               
+  ${magenta1}      ${magenta2}###     ${magenta3}######${reset}                   
+  ${magenta1}      ${magenta2}######  ${magenta3}#############${reset}            
+  ${magenta1}#     ${magenta2}####### ${magenta3}##############${reset}
+  ${magenta1}##### ${magenta2}#############${magenta3}#########${reset}
+  ${magenta1}######${magenta2}###############${magenta3}#######${reset}
+  ${magenta1}############${magenta2}#########${magenta3}#######${reset}
+  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+  ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
+  ${magenta1}##############${magenta2}#######${magenta3}    ###${reset}
+  ${magenta1}##############${magenta2}#######                          
+     ${magenta1}###########${magenta2}    ###                          
+        ${magenta1}########${magenta2}                                 
+            ${magenta1}####${reset}                                    
 
 "
+  fi
 #   if [ -d "$HOME/.wasmer" ]; then
 #     if which wasmer; then
 #       local latest_url
@@ -290,9 +299,45 @@ wasmer_install() {
 
 
 wasmer_reset() {
-  unset -f wasmer_install wasmer_reset wasmer_download_json wasmer_link wasmer_detect_profile wasmer_download_file wasmer_download wasmer_verify_or_quit
+  unset -f wasmer_install wasmer_compareversions wasmer_reset wasmer_download_json wasmer_link wasmer_detect_profile wasmer_download_file wasmer_download wasmer_verify_or_quit
 }
 
+# Example taken from
+# https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
+wasmer_compareversions () {
+    if [[ $1 == $2 ]]
+    then
+        echo "="
+        return 0
+    fi
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+    do
+        ver1[i]=0
+    done
+    for ((i=0; i<${#ver1[@]}; i++))
+    do
+        if [[ -z ${ver2[i]} ]]
+        then
+            # fill empty fields in ver2 with zeros
+            ver2[i]=0
+        fi
+        if ((10#${ver1[i]} > 10#${ver2[i]}))
+        then
+            echo ">"
+            return 0
+        fi
+        if ((10#${ver1[i]} < 10#${ver2[i]}))
+        then
+            echo "<"
+            return 0
+        fi
+    done
+    echo "="
+    return 0
+}
 
 wasmer_download() {
   # identify platform based on uname output
@@ -322,6 +367,26 @@ wasmer_download() {
       printf "\033[1A$cyan> Getting wasmer releases... ✓$reset\n"
   fi
 
+  if which wasmer >/dev/null; then
+    WASMER_VERSION=$(wasmer --version | sed 's/[a-z[:blank:]]//g')
+    WASMER_COMPARE=$(wasmer_compareversions $WASMER_VERSION $WASMER_RELEASE_TAG)
+    # printf "version: $WASMER_COMPARE\n"
+    case $WASMER_COMPARE in
+      # WASMER_VERSION = WASMER_RELEASE_TAG
+      "=")
+        printf "You are already on the latest release of wasmer: ${WASMER_RELEASE_TAG}\n";
+        exit 0
+        ;;
+      # WASMER_VERSION > WASMER_RELEASE_TAG
+      ">")
+        printf "You are on a more recent version ($WASMER_VERSION) than the published one (${WASMER_RELEASE_TAG})\n";
+        exit 0
+        ;;
+      # WASMER_VERSION < WASMER_RELEASE_TAG (we continue)
+      "<")
+      ;;
+    esac
+  fi
   # fetch the real release data to make sure it exists before we attempt a download
   wasmer_download_json RELEASE_DATA "$RELEASES_URL/tag/$WASMER_RELEASE_TAG"
 

@@ -5,6 +5,7 @@
 //! unless you have memory unsafety elsewhere in your code.
 
 use std::cell::{Cell, UnsafeCell};
+use std::sync::Once;
 use nix::libc::siginfo_t;
 
 extern "C" {
@@ -13,6 +14,7 @@ extern "C" {
 }
 
 const SETJMP_BUFFER_LEN: usize = 27;
+pub static SIGHANDLER_INIT: Once = Once::new();
 
 thread_local! {
     pub static SETJMP_BUFFER: UnsafeCell<[::nix::libc::c_int; SETJMP_BUFFER_LEN]> = UnsafeCell::new([0; SETJMP_BUFFER_LEN]);
@@ -30,16 +32,18 @@ thread_local! {
 macro_rules! call_protected {
     ($x:expr) => {
         unsafe {
-            use crate::recovery::{setjmp, SETJMP_BUFFER, CAUGHT_ADDRESS};
+            use crate::recovery::{setjmp, CAUGHT_ADDRESS, SETJMP_BUFFER, SIGHANDLER_INIT};
             use crate::sighandler::install_sighandler;
             use crate::webassembly::ErrorKind;
 
-            use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
+            use crate::nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 
             let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
             let prev_jmp_buf = *jmp_buf;
 
-            install_sighandler();
+            SIGHANDLER_INIT.call_once(|| {
+                install_sighandler();
+            });
 
             let signum = setjmp(jmp_buf as *mut ::nix::libc::c_void);
             if signum != 0 {
