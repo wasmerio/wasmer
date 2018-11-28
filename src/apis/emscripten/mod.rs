@@ -15,6 +15,7 @@ mod storage;
 mod syscalls;
 mod time;
 mod utils;
+mod signal;
 mod varargs;
 
 pub use self::storage::{align_memory, static_alloc};
@@ -291,27 +292,27 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "abortStackOverflow",
         ImportValue::Func(process::abort_stack_overflow as _),
     );
+    // Signal
     import_object.set(
         "env",
         "_sigemptyset",
-        ImportValue::Func(process::_sigemptyset as _),
+        ImportValue::Func(signal::_sigemptyset as _),
     );
     import_object.set(
         "env",
         "_sigaddset",
-        ImportValue::Func(process::_sigaddset as _),
+        ImportValue::Func(signal::_sigaddset as _),
     );
     import_object.set(
         "env",
         "_sigprocmask",
-        ImportValue::Func(process::_sigprocmask as _),
+        ImportValue::Func(signal::_sigprocmask as _),
     );
     import_object.set(
         "env",
         "_sigaction",
-        ImportValue::Func(process::_sigaction as _),
+        ImportValue::Func(signal::_sigaction as _),
     );
-    
     // Memory
     import_object.set(
         "env",
