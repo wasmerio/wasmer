@@ -86,8 +86,10 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
         let tm_struct = &*localtime(time_p_addr);
 
         // Webassembly allocation
-        let tm_struct_offset =
-            (instance.emscripten_data.as_ref().unwrap().malloc)(mem::size_of::<GuestTm>() as _, instance);
+        let tm_struct_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(
+            mem::size_of::<GuestTm>() as _,
+            instance,
+        );
         let tm_struct_ptr = instance.memory_offset_addr(0, tm_struct_offset as _) as *mut GuestTm;
 
         // Initializing

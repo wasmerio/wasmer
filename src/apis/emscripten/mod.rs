@@ -11,11 +11,11 @@ mod lock;
 mod memory;
 mod nullfunc;
 mod process;
+mod signal;
 mod storage;
 mod syscalls;
 mod time;
 mod utils;
-mod signal;
 mod varargs;
 
 pub use self::storage::{align_memory, static_alloc};
@@ -108,28 +108,12 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
 
     // Print functions
     import_object.set("env", "printf", ImportValue::Func(io::printf as _));
-    import_object.set(
-        "env",
-        "putchar",
-        ImportValue::Func(io::putchar as _),
-    );
+    import_object.set("env", "putchar", ImportValue::Func(io::putchar as _));
     // Lock
-    import_object.set(
-        "env",
-        "___lock",
-        ImportValue::Func(lock::___lock as _),
-    );
-    import_object.set(
-        "env",
-        "___unlock",
-        ImportValue::Func(lock::___unlock as _),
-    );
+    import_object.set("env", "___lock", ImportValue::Func(lock::___lock as _));
+    import_object.set("env", "___unlock", ImportValue::Func(lock::___unlock as _));
     // Env
-    import_object.set(
-        "env",
-        "_getenv",
-        ImportValue::Func(env::_getenv as _),
-    );
+    import_object.set("env", "_getenv", ImportValue::Func(env::_getenv as _));
     import_object.set("env", "_getpwnam", ImportValue::Func(env::_getpwnam as _));
     import_object.set("env", "_getgrnam", ImportValue::Func(env::_getgrnam as _));
     // Errno
@@ -281,16 +265,8 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
 
     // Process
-    import_object.set(
-        "env",
-        "abort",
-        ImportValue::Func(process::em_abort as _),
-    );
-    import_object.set(
-        "env",
-        "_abort",
-        ImportValue::Func(process::_abort as _),
-    );
+    import_object.set("env", "abort", ImportValue::Func(process::em_abort as _));
+    import_object.set("env", "_abort", ImportValue::Func(process::_abort as _));
     import_object.set(
         "env",
         "abortStackOverflow",

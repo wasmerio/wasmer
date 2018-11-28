@@ -516,20 +516,18 @@ impl Instance {
                 let free_export = module.info.exports.get("_free");
                 if malloc_export.is_none() || free_export.is_none() {
                     None
-                }
-                else {
+                } else {
                     let malloc_index = if let Some(Export::Function(malloc_index)) = malloc_export {
                         malloc_index
-                    }
-                    else {
+                    } else {
                         panic!("Expected malloc function")
                     };
-                    let malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
+                    let malloc_addr =
+                        get_function_addr(&malloc_index, &import_functions, &functions);
 
                     let free_index = if let Some(Export::Function(free_index)) = free_export {
                         free_index
-                    }
-                    else {
+                    } else {
                         panic!("Expected free export function")
                     };
                     let free_addr = get_function_addr(&free_index, &import_functions, &functions);

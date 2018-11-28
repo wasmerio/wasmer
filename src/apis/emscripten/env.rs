@@ -44,8 +44,10 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 
     unsafe {
         let passwd = &*libc_getpwnam(name.as_ptr());
-        let passwd_struct_offset =
-            (instance.emscripten_data.as_ref().unwrap().malloc)(mem::size_of::<GuestPasswd>() as _, instance);
+        let passwd_struct_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(
+            mem::size_of::<GuestPasswd>() as _,
+            instance,
+        );
 
         let passwd_struct_ptr =
             instance.memory_offset_addr(0, passwd_struct_offset as _) as *mut GuestPasswd;
@@ -79,8 +81,10 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 
     unsafe {
         let group = &*libc_getgrnam(name.as_ptr());
-        let group_struct_offset =
-            (instance.emscripten_data.as_ref().unwrap().malloc)(mem::size_of::<GuestGroup>() as _, instance);
+        let group_struct_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(
+            mem::size_of::<GuestGroup>() as _,
+            instance,
+        );
 
         let group_struct_ptr =
             instance.memory_offset_addr(0, group_struct_offset as _) as *mut GuestGroup;

@@ -12,6 +12,7 @@ use libc::{
     // fcntl, ioctl, setsockopt, getppid
     close,
     connect,
+    dup2,
     exit,
     fstat,
     getgid,
@@ -36,6 +37,7 @@ use libc::{
     recvmsg,
     sendmsg,
     sendto,
+    setsockopt,
     sockaddr,
     socket,
     socklen_t,
@@ -45,8 +47,6 @@ use libc::{
     utsname,
     write,
     writev,
-    setsockopt,
-    dup2,
 };
 
 /// exit
@@ -99,9 +99,12 @@ pub extern "C" fn ___syscall5(
     let flags: i32 = varargs.get(instance);
     let mode: u32 = varargs.get(instance);
     let pathname_addr = instance.memory_offset_addr(0, pathname as usize) as *const i8;
-    let path_str = unsafe {std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap()};
+    let path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
     let fd = unsafe { open(pathname_addr, flags, mode) };
-    debug!("=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}", pathname, flags, mode, fd, path_str);
+    debug!(
+        "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
+        pathname, flags, mode, fd, path_str
+    );
     fd
 }
 
@@ -211,7 +214,10 @@ pub extern "C" fn ___syscall102(
             let ty: i32 = socket_varargs.get(instance);
             let protocol: i32 = socket_varargs.get(instance);
             let socket = unsafe { socket(domain, ty, protocol) };
-            debug!("=> domain: {} (AF_INET/2), type: {} (SOCK_STREAM/1), protocol: {} = fd: {}", domain, ty, protocol, socket);
+            debug!(
+                "=> domain: {} (AF_INET/2), type: {} (SOCK_STREAM/1), protocol: {} = fd: {}",
+                domain, ty, protocol, socket
+            );
             socket
         }
         2 => {
@@ -224,7 +230,10 @@ pub extern "C" fn ___syscall102(
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
             let status = unsafe { bind(socket, address, address_len) };
 
-            debug!("=> socketfd: {}, address: {:?}, address_len: {} = status: {}", socket, address, address_len, status);
+            debug!(
+                "=> socketfd: {}, address: {:?}, address_len: {} = status: {}",
+                socket, address, address_len, status
+            );
             status
         }
         3 => {
@@ -243,7 +252,10 @@ pub extern "C" fn ___syscall102(
             let socket: i32 = socket_varargs.get(instance);
             let backlog: i32 = socket_varargs.get(instance);
             let status = unsafe { listen(socket, backlog) };
-            debug!("=> socketfd: {}, backlog: {} = status: {}", socket, backlog, status);
+            debug!(
+                "=> socketfd: {}, backlog: {} = status: {}",
+                socket, backlog, status
+            );
             status
         }
         5 => {
@@ -316,9 +328,11 @@ pub extern "C" fn ___syscall102(
             // setsockopt (socket: c_int, level: c_int, name: c_int, value: *const c_void, option_len: socklen_t) -> c_int
             let socket: i32 = socket_varargs.get(instance);
             // SOL_SOCKET = 0xffff in BSD
-            let level: i32 = 0xffff; let _: u32 = socket_varargs.get(instance);
+            let level: i32 = 0xffff;
+            let _: u32 = socket_varargs.get(instance);
             // SO_ACCEPTCONN = 0x4
-            let name: i32 = 0x4; let _: u32 = socket_varargs.get(instance);
+            let name: i32 = 0x4;
+            let _: u32 = socket_varargs.get(instance);
             let value: u32 = socket_varargs.get(instance);
             let option_len: u32 = socket_varargs.get(instance);
             let value_addr = instance.memory_offset_addr(0, value as usize) as *mut c_void; // Endian problem
@@ -394,7 +408,10 @@ pub extern "C" fn ___syscall192(
     let flags: i32 = varargs.get(instance);
     let fd: i32 = varargs.get(instance);
     let off: i32 = varargs.get(instance);
-    debug!("=> addr: {}, len: {}, prot: {}, flags: {}, fd: {}, off: {}", addr, len, prot, flags, fd, off);
+    debug!(
+        "=> addr: {}, len: {}, prot: {}, flags: {}, fd: {}, off: {}",
+        addr, len, prot, flags, fd, off
+    );
     0
 }
 
@@ -481,7 +498,10 @@ pub extern "C" fn ___syscall181(
 
     let buf_ptr = instance.memory_offset_addr(0, buf as _) as _;
     let status = unsafe { pwrite(fd, buf_ptr, count as _, offset) as _ };
-    debug!("=> fd: {}, buf: {}, count: {}, offset: {} = status:{}", fd, buf, count, offset, status);
+    debug!(
+        "=> fd: {}, buf: {}, count: {}, offset: {} = status:{}",
+        fd, buf, count, offset, status
+    );
     status
 }
 
@@ -559,7 +579,6 @@ pub extern "C" fn ___syscall202() -> gid_t {
     }
 }
 
-
 // chown
 pub extern "C" fn ___syscall212(
     _which: c_int,
@@ -582,7 +601,8 @@ pub extern "C" fn ___syscall221(
     _which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
-) -> c_int { // fcntl64
+) -> c_int {
+    // fcntl64
     let _fd: i32 = varargs.get(instance);
     let cmd: u32 = varargs.get(instance);
     match cmd {
@@ -613,7 +633,5 @@ pub extern "C" fn ___syscall63(
     let src: i32 = varargs.get(instance);
     let dst: i32 = varargs.get(instance);
 
-    unsafe {
-        dup2(src, dst)
-    }
+    unsafe { dup2(src, dst) }
 }

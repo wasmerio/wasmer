@@ -4,9 +4,9 @@
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
 
+use nix::libc::siginfo_t;
 use std::cell::{Cell, UnsafeCell};
 use std::sync::Once;
-use nix::libc::siginfo_t;
 
 extern "C" {
     pub fn setjmp(env: *mut ::nix::libc::c_void) -> ::nix::libc::c_int;
@@ -58,7 +58,10 @@ macro_rules! call_protected {
                     Err(_) => "error while getting the Signal",
                     _ => "unkown trapped signal",
                 };
-                Err(ErrorKind::RuntimeError(format!("trap at {:#x} - {}", addr, signal)))
+                Err(ErrorKind::RuntimeError(format!(
+                    "trap at {:#x} - {}",
+                    addr, signal
+                )))
             } else {
                 let ret = $x; // TODO: Switch stack?
                 *jmp_buf = prev_jmp_buf;
