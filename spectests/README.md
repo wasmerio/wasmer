@@ -99,7 +99,7 @@ This spectests are currently covered:
 - typecheck.wast ✅
 - unreachable.wast
 - unreached-invalid.wast
-- unwind.wast
+- unwind.wast ✅
 - utf8-custom-section-id.wast
 - utf8-import-field.wast
 - utf8-import-module.wast
