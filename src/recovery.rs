@@ -5,6 +5,7 @@
 //! unless you have memory unsafety elsewhere in your code.
 
 use std::cell::UnsafeCell;
+use std::sync::Once;
 
 extern "C" {
     pub fn setjmp(env: *mut ::nix::libc::c_void) -> ::nix::libc::c_int;
@@ -12,6 +13,7 @@ extern "C" {
 }
 
 const SETJMP_BUFFER_LEN: usize = 27;
+pub static SIGHANDLER_INIT: Once = Once::new();
 
 thread_local! {
     pub static SETJMP_BUFFER: UnsafeCell<[::nix::libc::c_int; SETJMP_BUFFER_LEN]> = UnsafeCell::new([0; SETJMP_BUFFER_LEN]);
@@ -28,7 +30,7 @@ thread_local! {
 macro_rules! call_protected {
     ($x:expr) => {
         unsafe {
-            use crate::recovery::{setjmp, SETJMP_BUFFER};
+            use crate::recovery::{setjmp, SETJMP_BUFFER, SIGHANDLER_INIT};
             use crate::sighandler::install_sighandler;
             use crate::webassembly::ErrorKind;
 
@@ -37,7 +39,9 @@ macro_rules! call_protected {
             let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
             let prev_jmp_buf = *jmp_buf;
 
-            install_sighandler();
+            SIGHANDLER_INIT.call_once(|| {
+                install_sighandler();
+            });
 
             let signum = setjmp(jmp_buf as *mut ::nix::libc::c_void);
             if signum != 0 {
