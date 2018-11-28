@@ -60,6 +60,7 @@ mod loop_;
 mod memory;
 mod memory_grow;
 mod memory_redundancy;
+mod memory_trap;
 mod nop;
 mod return_;
 mod select;

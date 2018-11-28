@@ -81,7 +81,7 @@ This spectests are currently covered:
 - memory.wast ✅
 - memory_grow.wast ✅
 - memory_redundancy.wast ✅
-- memory_trap.wast
+- memory_trap.wast ✅
 - names.wast ✅
 - nop.wast ✅
 - return.wast ✅
