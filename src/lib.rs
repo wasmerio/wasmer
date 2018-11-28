@@ -25,3 +25,4 @@ pub mod sighandler;
 #[cfg(test)]
 mod spectests;
 pub mod webassembly;
+pub mod update;
