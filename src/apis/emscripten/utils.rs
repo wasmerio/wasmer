@@ -18,7 +18,7 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 
 pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
-    let space_offset = (instance.emscripten_data.malloc)(s.len() as _, instance);
+    let space_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(s.len() as _, instance);
     let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
     let slice = slice::from_raw_parts_mut(raw_memory, s.len());
 

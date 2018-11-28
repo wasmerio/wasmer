@@ -111,7 +111,7 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
-    pub emscripten_data: EmscriptenData,
+    pub emscripten_data: Option<EmscriptenData>,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
@@ -135,6 +135,7 @@ pub struct InstanceOptions {
     pub mock_missing_imports: bool,
     pub mock_missing_globals: bool,
     pub mock_missing_tables: bool,
+    pub use_emscripten: bool,
     pub isa: Box<TargetIsa>,
 }
 
@@ -478,7 +479,11 @@ impl Instance {
                 let to_init = &mut mem[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
-            crate::apis::emscripten::emscripten_set_up_memory(&mut memories[0]);
+            if options.use_emscripten {
+                debug!("emscripten::setup memory");
+                crate::apis::emscripten::emscripten_set_up_memory(&mut memories[0]);
+                debug!("emscripten::finish setup memory");
+            }
         }
 
         let start_func: Option<FuncIndex> =
@@ -504,27 +509,39 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
-        let emscripten_data = unsafe {
-            let malloc_index =
-                if let Some(Export::Function(index)) = module.info.exports.get("_malloc") {
-                    index
-                } else {
-                    panic!("Unable to find _malloc export")
-                };
-            let malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
+        let emscripten_data = if options.use_emscripten {
+            unsafe {
+                debug!("emscripten::initiating data");
+                let malloc_export = module.info.exports.get("_malloc");
+                let free_export = module.info.exports.get("_free");
+                if malloc_export.is_none() || free_export.is_none() {
+                    None
+                }
+                else {
+                    let malloc_index = if let Some(Export::Function(malloc_index)) = malloc_export {
+                        malloc_index
+                    }
+                    else {
+                        panic!("Expected malloc function")
+                    };
+                    let malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
 
-            let free_index = if let Some(Export::Function(index)) = module.info.exports.get("_free")
-            {
-                index
-            } else {
-                panic!("Unable to find _free export")
-            };
-            let free_addr = get_function_addr(&free_index, &import_functions, &functions);
+                    let free_index = if let Some(Export::Function(free_index)) = free_export {
+                        free_index
+                    }
+                    else {
+                        panic!("Expected free export function")
+                    };
+                    let free_addr = get_function_addr(&free_index, &import_functions, &functions);
 
-            EmscriptenData {
-                malloc: mem::transmute(malloc_addr),
-                free: mem::transmute(free_addr),
+                    Some(EmscriptenData {
+                        malloc: mem::transmute(malloc_addr),
+                        free: mem::transmute(free_addr),
+                    })
+                }
             }
+        } else {
+            None
         };
 
         Ok(Instance {

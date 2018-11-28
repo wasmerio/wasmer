@@ -22,6 +22,7 @@ pub use self::import_object::{ImportObject, ImportValue};
 pub use self::instance::{Instance, InstanceOptions};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
+use crate::apis::is_emscripten_module;
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -69,6 +70,7 @@ pub fn instantiate(
             mock_missing_imports: true,
             mock_missing_globals: true,
             mock_missing_tables: true,
+            use_emscripten: is_emscripten_module(&module),
             isa: isa,
         },
     )?;
