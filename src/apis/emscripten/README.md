@@ -127,7 +127,7 @@
   ```rust
 
   ```
-- **dup** (\_\_\_syscall63) &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+- **dup2** (\_\_\_syscall63) &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
 
   ```

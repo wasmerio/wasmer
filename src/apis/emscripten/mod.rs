@@ -226,6 +226,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+        "___syscall181",
+        ImportValue::Func(syscalls::___syscall181 as _),
+    );
+    import_object.set(
+        "env",
         "___syscall39",
         ImportValue::Func(syscalls::___syscall39 as _),
     );
@@ -264,6 +269,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "___syscall192",
         ImportValue::Func(syscalls::___syscall192 as _),
     );
+    import_object.set(
+        "env",
+        "___syscall63",
+        ImportValue::Func(syscalls::___syscall63 as _),
+    );
 
     // Process
     import_object.set(
@@ -281,6 +291,27 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "abortStackOverflow",
         ImportValue::Func(process::abort_stack_overflow as _),
     );
+    import_object.set(
+        "env",
+        "_sigemptyset",
+        ImportValue::Func(process::_sigemptyset as _),
+    );
+    import_object.set(
+        "env",
+        "_sigaddset",
+        ImportValue::Func(process::_sigaddset as _),
+    );
+    import_object.set(
+        "env",
+        "_sigprocmask",
+        ImportValue::Func(process::_sigprocmask as _),
+    );
+    import_object.set(
+        "env",
+        "_sigaction",
+        ImportValue::Func(process::_sigaction as _),
+    );
+    
     // Memory
     import_object.set(
         "env",
@@ -384,10 +415,10 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, _sysconf);
     // mock_external!(import_object, _strftime);
     mock_external!(import_object, _sigsuspend);
-    mock_external!(import_object, _sigprocmask);
-    mock_external!(import_object, _sigemptyset);
-    mock_external!(import_object, _sigaddset);
-    mock_external!(import_object, _sigaction);
+    // mock_external!(import_object, _sigprocmask);
+    // mock_external!(import_object, _sigemptyset);
+    // mock_external!(import_object, _sigaddset);
+    // mock_external!(import_object, _sigaction);
     mock_external!(import_object, _setitimer);
     mock_external!(import_object, _setgroups);
     mock_external!(import_object, _setgrent);
@@ -418,7 +449,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, ___syscall75);
     mock_external!(import_object, ___syscall66);
     // mock_external!(import_object, ___syscall64);
-    mock_external!(import_object, ___syscall63);
+    // mock_external!(import_object, ___syscall63);
     mock_external!(import_object, ___syscall60);
     // mock_external!(import_object, ___syscall54);
     // mock_external!(import_object, ___syscall39);
@@ -439,7 +470,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     // mock_external!(import_object, ___syscall195);
     mock_external!(import_object, ___syscall194);
     mock_external!(import_object, ___syscall191);
-    mock_external!(import_object, ___syscall181);
+    // mock_external!(import_object, ___syscall181);
     // mock_external!(import_object, ___syscall180);
     mock_external!(import_object, ___syscall168);
     // mock_external!(import_object, ___syscall146);

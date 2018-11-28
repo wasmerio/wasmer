@@ -29,6 +29,7 @@ use libc::{
     open,
     pid_t,
     pread,
+    pwrite,
     read,
     readv,
     recvfrom,
@@ -49,6 +50,7 @@ use libc::{
     in_port_t,
     in_addr_t,
     c_char,
+    dup2,
 };
 
 /// sys_exit
@@ -470,6 +472,27 @@ pub extern "C" fn ___syscall180(
     unsafe { pread(fd, buf_ptr, count as _, offset) as _ }
 }
 
+// sys_pwrite
+pub extern "C" fn ___syscall181(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall181");
+    let fd: i32 = varargs.get(instance);
+    let buf: u32 = varargs.get(instance);
+    let count: u32 = varargs.get(instance);
+    {
+        let zero: u32 = varargs.get(instance);
+        assert_eq!(zero, 0);
+    }
+    let offset: i64 = varargs.get(instance);
+
+    let buf_ptr = instance.memory_offset_addr(0, buf as _) as _;
+
+    unsafe { pwrite(fd, buf_ptr, count as _, offset) as _ }
+}
+
 // sys_stat64
 pub extern "C" fn ___syscall195(
     _which: c_int,
@@ -587,3 +610,18 @@ pub extern "C" fn ___syscall340(
     0
 }
 
+// sys_dup2
+pub extern "C" fn ___syscall63(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall63");
+
+    let src: i32 = varargs.get(instance);
+    let dst: i32 = varargs.get(instance);
+    
+    unsafe {
+        dup2(src, dst)
+    }
+}

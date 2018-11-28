@@ -8,10 +8,11 @@ use super::recovery;
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
 };
+use nix::libc::{siginfo_t, c_void};
 
 pub unsafe fn install_sighandler() {
     let sa = SigAction::new(
-        SigHandler::Handler(signal_trap_handler),
+        SigHandler::SigAction(signal_trap_handler),
         SaFlags::SA_ONSTACK,
         SigSet::empty(),
     );
@@ -21,8 +22,8 @@ pub unsafe fn install_sighandler() {
     sigaction(SIGBUS, &sa).unwrap();
 }
 
-extern "C" fn signal_trap_handler(signum: ::nix::libc::c_int) {
+extern "C" fn signal_trap_handler(signum: ::nix::libc::c_int, siginfo: *mut siginfo_t, _ucontext: *mut c_void) {
     unsafe {
-        recovery::do_unwind(signum);
+        recovery::do_unwind(signum, siginfo);
     }
 }
