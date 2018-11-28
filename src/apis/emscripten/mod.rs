@@ -52,11 +52,13 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
 
 pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
-    // We avoid failures of setting the u32
-    if (dynamictop_ptr > memory.len()) {
+    let dynamictop_ptr_offset = dynamictop_ptr + mem::size_of::<u32>();
+
+    // We avoid failures of setting the u32 in our memory if it's out of bounds
+    if dynamictop_ptr_offset > memory.len() {
         return;
     }
-    let mem = &mut memory[dynamictop_ptr..dynamictop_ptr + mem::size_of::<u32>()];
+    let mem = &mut memory[dynamictop_ptr..dynamictop_ptr_offset];
     LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
 }
 

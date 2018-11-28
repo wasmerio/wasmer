@@ -128,7 +128,7 @@ pub extern "C" fn ___syscall12(
 ) -> c_int {
     debug!("emscripten::___syscall12 (chdir)");
     let path_addr: i32 = varargs.get(instance);
-    let path = unsafe {
+    let _path = unsafe {
         let path_ptr = instance.memory_offset_addr(0, path_addr as usize) as *const i8;
         let path = std::ffi::CStr::from_ptr(path_ptr).to_str().unwrap();
         debug!("=> path: {}", path);
@@ -177,8 +177,6 @@ pub extern "C" fn ___syscall54(
     // unsafe { ioctl(fd, request as _) }
     0
 }
-
-use std::mem::size_of;
 
 // socketcall
 pub extern "C" fn ___syscall102(

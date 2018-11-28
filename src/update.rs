@@ -1,5 +1,4 @@
 //! When wasmer self-update is executed, this is what gets executed
-use std::io;
 use std::process::{Command, Stdio};
 
 pub fn self_update() {
@@ -18,5 +17,5 @@ pub fn self_update() {
         .ok()
         .expect("Failed to execute.");
 
-    the_process.wait();
+    the_process.wait().unwrap();
 }

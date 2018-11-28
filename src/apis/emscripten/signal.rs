@@ -1,7 +1,7 @@
 // use super::varargs::VarArgs;
 use crate::webassembly::Instance;
 
-pub extern "C" fn _sigemptyset(set: u32, instance: &mut Instance) -> i32 {
+pub extern "C" fn _sigemptyset(_set: u32, _instance: &mut Instance) -> i32 {
     debug!("emscripten::_sigemptyset");
     // let set_addr = instance.memory_offset_addr(0, set as _) as *mut u32;
     // unsafe {
@@ -10,7 +10,7 @@ pub extern "C" fn _sigemptyset(set: u32, instance: &mut Instance) -> i32 {
     0
 }
 
-pub extern "C" fn _sigaction(_signum: u32, act: u32, oldact: u32) -> i32 {
+pub extern "C" fn _sigaction(_signum: u32, _act: u32, _oldact: u32) -> i32 {
     debug!("emscripten::_sigaction");
     0
 }
