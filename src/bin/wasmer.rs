@@ -1,19 +1,5 @@
-#[macro_use]
-extern crate error_chain;
-extern crate cranelift_codegen;
-extern crate cranelift_entity;
-extern crate cranelift_native;
-extern crate cranelift_wasm;
-extern crate libc;
-extern crate memmap;
-extern crate region;
 extern crate structopt;
-extern crate wabt;
-extern crate wasmparser;
-#[macro_use]
-extern crate target_lexicon;
-extern crate nix;
-extern crate rayon;
+extern crate wasmer;
 
 use std::fs::File;
 use std::io;
@@ -23,17 +9,7 @@ use std::process::exit;
 
 use structopt::StructOpt;
 
-#[macro_use]
-mod macros;
-#[macro_use]
-mod recovery;
-pub mod apis;
-pub mod common;
-mod update;
-pub mod sighandler;
-#[cfg(test)]
-mod spectests;
-pub mod webassembly;
+use wasmer::*;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]

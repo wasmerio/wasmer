@@ -22,7 +22,6 @@ use std::slice;
 use std::sync::Arc;
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
-use super::super::recovery;
 use super::errors::ErrorKind;
 use super::import_object::{ImportObject, ImportValue};
 use super::math_intrinsics;
@@ -481,12 +480,7 @@ impl Instance {
             tables.iter().map(|table| table[..].into()).collect();
         let memories_pointer: Vec<BoundedSlice<u8>> = memories
             .iter()
-            .map(|mem| {
-                BoundedSlice::new(
-                    &mem[..],
-                    mem.current_size(),
-                )
-            })
+            .map(|mem| BoundedSlice::new(&mem[..], mem.current_size()))
             .collect();
         let globals_pointer: GlobalsSlice = globals[..].into();
 
@@ -530,8 +524,7 @@ impl Instance {
         if let Some(func_index) = self.start_func {
             let func: fn(&Instance) = get_instance_function!(&self, func_index);
             call_protected!(func(self))
-        }
-        else {
+        } else {
             Ok(())
         }
     }
