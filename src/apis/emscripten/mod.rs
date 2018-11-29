@@ -265,6 +265,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "___syscall63",
         ImportValue::Func(syscalls::___syscall63 as _),
     );
+    import_object.set(
+        "env",
+        "___syscall142",
+        ImportValue::Func(syscalls::___syscall142 as _),
+    );
 
     // Process
     import_object.set("env", "abort", ImportValue::Func(process::em_abort as _));
@@ -458,7 +463,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, ___syscall168);
     // mock_external!(import_object, ___syscall146);
     // mock_external!(import_object, ___syscall145);
-    mock_external!(import_object, ___syscall142);
+    // mock_external!(import_object, ___syscall142);
     mock_external!(import_object, ___syscall140);
     // mock_external!(import_object, ___syscall122);
     // mock_external!(import_object, ___syscall102);

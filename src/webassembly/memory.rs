@@ -60,15 +60,18 @@ impl LinearMemory {
                 unsafe {
                     mprotect(
                         base,
-                        (initial * Self::PAGE_SIZE) as _,
+                        // (initial * Self::PAGE_SIZE) as _,
+                        Self::DEFAULT_HEAP_SIZE,
                         PROT_READ | PROT_WRITE,
                     )
                 },
                 0
             );
         }
-
+    
         debug!("LinearMemory instantiated");
+        debug!("  - usable: {:#x}..{:#x}", base as usize, (base as usize) + LinearMemory::DEFAULT_HEAP_SIZE);
+        debug!("  - guard: {:#x}..{:#x}", (base as usize) + LinearMemory::DEFAULT_HEAP_SIZE, (base as usize) + LinearMemory::DEFAULT_SIZE);
         Self {
             base,
             current: initial,
