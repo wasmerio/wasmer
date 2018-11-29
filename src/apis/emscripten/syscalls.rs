@@ -50,6 +50,7 @@ use libc::{
     utsname,
     write,
     writev,
+    select,
     FIONBIO,
 };
 
@@ -183,7 +184,9 @@ pub extern "C" fn ___syscall54(
         21537 => { // FIONBIO
             let argp: u32 = varargs.get(instance);
             let argp_ptr = instance.memory_offset_addr(0, argp as _);
-            unsafe { ioctl(fd, FIONBIO, argp_ptr) }
+            let ret = unsafe { ioctl(fd, FIONBIO, argp_ptr) };
+            debug!("ret: {}", ret);
+            ret
         },
         _ => unimplemented!(),
     }
@@ -276,7 +279,11 @@ pub extern "C" fn ___syscall102(
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
             let address_len_addr =
                 instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
-            unsafe { accept(socket, address, address_len_addr) }
+            let fd = unsafe { accept(socket, address, address_len_addr) };
+            debug!("fd: {}", fd);
+            // nix::unistd::write(fd, "Hello, World!".as_bytes()).unwrap();
+            // nix::unistd::fsync(fd).unwrap();
+            fd
         }
         6 => {
             debug!("socket: getsockname");
@@ -675,4 +682,27 @@ pub extern "C" fn ___syscall63(
     let dst: i32 = varargs.get(instance);
 
     unsafe { dup2(src, dst) }
+}
+
+// newselect
+pub extern "C" fn ___syscall142(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall142");
+
+    let nfds: i32 = varargs.get(instance);
+    let readfds: u32 = varargs.get(instance);
+    let writefds: u32 = varargs.get(instance);
+    let exceptfds: u32 = varargs.get(instance);
+    let _timeout: i32 = varargs.get(instance);
+
+    assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
+    assert!(exceptfds == 0, "`exceptfds` is not supporrted");
+
+    let readfds_ptr = instance.memory_offset_addr(0, readfds as _) as _;
+    let writefds_ptr = instance.memory_offset_addr(0, writefds as _) as _;
+    
+    unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
 }
