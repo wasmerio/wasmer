@@ -16,6 +16,7 @@ use crate::webassembly::Instance;
 
 /// emscripten: _gettimeofday
 pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
+    debug!("emscripten::_gettimeofday {} {}", tp, tz);
     #[repr(C)]
     struct GuestTimeVal {
         tv_sec: i32,
@@ -39,6 +40,7 @@ pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -
 
 /// emscripten: _clock_gettime
 pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+    debug!("emscripten::_clock_gettime {} {}", clk_id, tp);
     #[repr(C)]
     struct GuestTimeSpec {
         tv_sec: i32,

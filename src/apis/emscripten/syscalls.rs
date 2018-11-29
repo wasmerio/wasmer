@@ -626,6 +626,7 @@ pub extern "C" fn ___syscall221(
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
+    debug!("emscripten::___syscall221 (fcntl64)");
     // fcntl64
     let _fd: i32 = varargs.get(instance);
     let cmd: u32 = varargs.get(instance);
