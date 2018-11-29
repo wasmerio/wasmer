@@ -49,7 +49,7 @@ impl LinearMemory {
                 0 as _,
                 LinearMemory::DEFAULT_SIZE,
                 ProtFlags::PROT_NONE,
-                MapFlags::MAP_ANON | MapFlags::MAP_SHARED,
+                MapFlags::MAP_ANON | MapFlags::MAP_PRIVATE,
                 -1,
                 0,
             ).unwrap()

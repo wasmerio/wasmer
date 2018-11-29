@@ -1,6 +1,8 @@
 use super::utils::copy_stat_into_wasm;
 use super::varargs::VarArgs;
 use crate::webassembly::Instance;
+use byteorder::{ByteOrder, LittleEndian};
+use std::slice;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
@@ -9,7 +11,8 @@ use libc::{
     c_int,
     c_void,
     chown,
-    // fcntl, ioctl, setsockopt, getppid
+    ioctl,
+    // fcntl, setsockopt, getppid
     close,
     connect,
     dup2,
@@ -47,6 +50,7 @@ use libc::{
     utsname,
     write,
     writev,
+    FIONBIO,
 };
 
 /// exit
@@ -171,11 +175,18 @@ pub extern "C" fn ___syscall54(
     instance: &mut Instance,
 ) -> c_int {
     debug!("emscripten::___syscall54 (ioctl)");
-    let _fd: i32 = varargs.get(instance);
-    let _request: u32 = varargs.get(instance);
-    // debug!("fd: {}, op: {}", fd, request);
-    // unsafe { ioctl(fd, request as _) }
-    0
+    let fd: i32 = varargs.get(instance);
+    let request: u32 = varargs.get(instance);
+    debug!("fd: {}, op: {}", fd, request);
+
+    match request as _ {
+        21537 => { // FIONBIO
+            let argp: u32 = varargs.get(instance);
+            let argp_ptr = instance.memory_offset_addr(0, argp as _);
+            unsafe { ioctl(fd, FIONBIO, argp_ptr) }
+        },
+        _ => unimplemented!(),
+    }
 }
 
 // socketcall
@@ -401,7 +412,7 @@ pub extern "C" fn ___syscall192(
 ) -> c_int {
     debug!("emscripten::___syscall192 (mmap2)");
     let addr: i32 = varargs.get(instance);
-    let len: i32 = varargs.get(instance);
+    let len: u32 = varargs.get(instance);
     let prot: i32 = varargs.get(instance);
     let flags: i32 = varargs.get(instance);
     let fd: i32 = varargs.get(instance);
@@ -410,7 +421,22 @@ pub extern "C" fn ___syscall192(
         "=> addr: {}, len: {}, prot: {}, flags: {}, fd: {}, off: {}",
         addr, len, prot, flags, fd, off
     );
-    0
+    
+    let (memalign, memset) = {
+        let emscripten_data = &instance.emscripten_data.as_ref().unwrap();
+        (emscripten_data.memalign, emscripten_data.memset)
+    };
+
+    if fd == -1 {
+        let ptr = memalign(16384, len, instance);
+        if ptr == 0 {
+            return -1;
+        }
+        memset(ptr, 0, len, instance);
+        ptr as _
+    } else {
+        -1
+    }
 }
 
 /// lseek
@@ -612,11 +638,27 @@ pub extern "C" fn ___syscall221(
 // prlimit64
 pub extern "C" fn ___syscall340(
     _which: c_int,
-    mut _varargs: VarArgs,
-    _instance: &mut Instance,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
 ) -> c_int {
     debug!("emscripten::___syscall340 (prlimit64)");
     // NOTE: Doesn't really matter. Wasm modules cannot exceed WASM_PAGE_SIZE anyway.
+    let _pid: i32 = varargs.get(instance);
+    let _resource: i32 = varargs.get(instance);
+    let _new_limit: u32 = varargs.get(instance);
+    let old_limit: u32 = varargs.get(instance);
+
+    if old_limit != 0 {
+        // just report no limits
+        let buf_ptr = instance.memory_offset_addr(0, old_limit as _) as *mut u8;
+        let buf = unsafe { slice::from_raw_parts_mut(buf_ptr, 16) };
+
+        LittleEndian::write_i32(&mut buf[..], -1); // RLIM_INFINITY
+        LittleEndian::write_i32(&mut buf[4..], -1); // RLIM_INFINITY
+        LittleEndian::write_i32(&mut buf[8..], -1); // RLIM_INFINITY
+        LittleEndian::write_i32(&mut buf[12..], -1); // RLIM_INFINITY
+    }
+
     0
 }
 
