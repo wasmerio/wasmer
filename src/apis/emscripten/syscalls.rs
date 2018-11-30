@@ -188,7 +188,10 @@ pub extern "C" fn ___syscall54(
             debug!("ret: {}", ret);
             ret
         },
-        _ => unimplemented!(),
+        _ => {
+            debug!("emscripten::___syscall54 (ioctl) non implemented case {}", request);
+            0
+        }
     }
 }
 
