@@ -496,44 +496,20 @@ pub extern "C" fn ___syscall146(
     }
 
     debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
-    // let iov_addr = instance.memory_offset_addr(0, iov as usize) as *mut iovec;
-    let guest_iov_addr = instance.memory_offset_addr(0, iov as usize) as *mut GuestIovec;
-    // let mut ret: ssize_t = 0;
+    let mut ret = 0;
     unsafe {
-        // let ioc_base =
-        let iov_addr = iovec {
-            iov_base: (*guest_iov_addr).iov_base as _,
-            iov_len: (*guest_iov_addr).iov_len as _,
-        };
-        // let base = (*guest_iov_addr).iov_base;
-        // for i in 0..iovcnt {
-        //     // debug!("HEY");
-        //     // let ptr_addr = (base + i*8) as usize as *const c_void;
-        //     // let len = (base + i*8 + 4) as usize as *const usize;
-        //     let ptr_addr = instance.memory_offset_addr(0, (base + i*8) as usize) as *const c_void;
-        //     let len = instance.memory_offset_addr(0, (base + i*8 +4) as usize) as usize;
-
-        //     debug!("=> iov_addr: {:?}, {:?}", ptr_addr, len);
-        //     // unsafe {
-        //     let curr = write(fd, ptr_addr, len);
-        //     if curr < 0 {
-        //         return -1;
-        //     }
-        //     ret = ret + curr;
-        //     // }
-        // }
-        // ret
-        // for (var i = 0; i < iovcnt; i++) {
-        //   var ptr = HEAP32[(((iov)+(i*8))>>2)];
-        //   var len = HEAP32[(((iov)+(i*8 + 4))>>2)];
-
-        // let buf_addr = instance.memory_offset_addr(0, iov_addr.iov_base as usize) as *const c_void;
-
-        // write(fd, buf_addr, count as usize) as i32
-
-        // debug!("=> iov_addr: {:?}, {:?}", iov_addr.iov_base, iov_addr.iov_len);
-
-        writev(fd, &iov_addr, iovcnt)
+        for i in 0..iovcnt {
+            let guest_iov_addr = instance.memory_offset_addr(0, (iov + i*8) as usize) as *mut GuestIovec;
+            let iov_base = instance.memory_offset_addr(0, (*guest_iov_addr).iov_base as usize) as *const c_void;
+            let iov_len: usize = (*guest_iov_addr).iov_len as _;
+            // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
+            let curr = write(fd, iov_base, iov_len);
+            if curr < 0 {
+                return -1
+            }
+            ret = ret + curr;
+        }
+        return ret
     }
 }
 
