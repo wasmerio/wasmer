@@ -81,6 +81,8 @@ pub unsafe fn do_unwind(signum: i32, siginfo: *mut siginfo_t) -> ! {
     if *jmp_buf == [0; SETJMP_BUFFER_LEN] {
         ::std::process::abort();
     }
+    // We only target macos at the moment as other ones might not have si_addr field
+    #[cfg(target_os="macos")]
     CAUGHT_ADDRESS.with(|cell| cell.set((*siginfo).si_addr as _));
 
     longjmp(jmp_buf as *mut ::nix::libc::c_void, signum)
