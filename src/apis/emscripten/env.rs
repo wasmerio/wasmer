@@ -106,3 +106,7 @@ pub extern "C" fn _getpagesize() -> u32 {
     debug!("emscripten::_getpagesize");
     16384
 }
+
+pub extern "C" fn ___build_environment(environ: c_int) {
+    debug!("emscripten::___build_environment {}", environ);
+}
