@@ -468,6 +468,7 @@ impl Instance {
                 let memory = if options.use_emscripten {
                     // We use MAX_PAGES, so at the end the result is:
                     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
+                    // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
                     LinearMemory::new(LinearMemory::MAX_PAGES as u32, None)
                 }
                 else {
