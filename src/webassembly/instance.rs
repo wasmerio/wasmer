@@ -463,9 +463,17 @@ impl Instance {
             // Get memories in module
             for memory in &module.info.memories {
                 let memory = memory.entity;
-                let v =
-                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32));
-                memories.push(v);
+                // If we use emscripten, we set a fixed initial and maximum
+                debug!("Instance - init memory ({}, {:?})", memory.pages_count, memory.maximum);
+                let memory = if options.use_emscripten {
+                    // We use MAX_PAGES, so at the end the result is:
+                    // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
+                    LinearMemory::new(LinearMemory::MAX_PAGES as u32, None)
+                }
+                else {
+                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32))
+                };
+                memories.push(memory);
             }
 
             for init in &module.info.data_initializers {

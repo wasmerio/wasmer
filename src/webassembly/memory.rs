@@ -60,8 +60,8 @@ impl LinearMemory {
                 unsafe {
                     mprotect(
                         base,
-                        // (initial * Self::PAGE_SIZE) as _,
-                        Self::DEFAULT_HEAP_SIZE,
+                        initial as usize * Self::PAGE_SIZE as usize,
+                        // Self::DEFAULT_HEAP_SIZE,
                         PROT_READ | PROT_WRITE,
                     )
                 },
@@ -86,7 +86,7 @@ impl LinearMemory {
 
     /// Returns a number of allocated wasm pages.
     pub fn current_size(&self) -> usize {
-        (self.current * Self::PAGE_SIZE) as _
+        self.current as usize * Self::PAGE_SIZE as usize
     }
 
     pub fn current_pages(&self) -> u32 {
@@ -168,12 +168,12 @@ impl PartialEq for LinearMemory {
 impl Deref for LinearMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.base as _, (self.current * Self::PAGE_SIZE) as _) }
+        unsafe { slice::from_raw_parts(self.base as _, self.current as usize * Self::PAGE_SIZE as usize) }
     }
 }
 
 impl DerefMut for LinearMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.base as _, (self.current * Self::PAGE_SIZE) as _) }
+        unsafe { slice::from_raw_parts_mut(self.base as _, self.current as usize * Self::PAGE_SIZE as usize) }
     }
 }
