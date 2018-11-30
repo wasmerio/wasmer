@@ -189,7 +189,7 @@ pub extern "C" fn ___syscall54(
             ret
         },
         _ => {
-            debug!("emscripten::___syscall54 (ioctl) non implemented case {}", request);
+            debug!("emscripten::___syscall54 -> non implemented case {}", request);
             0
         }
     }
@@ -407,7 +407,7 @@ pub extern "C" fn ___syscall122(
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall122");
+    debug!("emscripten::___syscall122 (uname)");
     let buf: u32 = varargs.get(instance);
     debug!("=> buf: {}", buf);
     let buf_addr = instance.memory_offset_addr(0, buf as usize) as *mut utsname;
@@ -455,7 +455,7 @@ pub extern "C" fn ___syscall140(
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> off_t {
-    debug!("emscripten::___syscall145 (lseek)");
+    debug!("emscripten::___syscall140 (lseek)");
     let fd: i32 = varargs.get(instance);
     let offset: i64 = varargs.get(instance);
     let whence: i32 = varargs.get(instance);
@@ -484,7 +484,7 @@ pub extern "C" fn ___syscall146(
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> ssize_t {
-    debug!("emscripten::___syscall145 (writev)");
+    debug!("emscripten::___syscall146 (writev)");
     let fd: i32 = varargs.get(instance);
     let iov: u32 = varargs.get(instance);
     let iovcnt: i32 = varargs.get(instance);
@@ -693,7 +693,7 @@ pub extern "C" fn ___syscall142(
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall142");
+    debug!("emscripten::___syscall142 (newselect)");
 
     let nfds: i32 = varargs.get(instance);
     let readfds: u32 = varargs.get(instance);
