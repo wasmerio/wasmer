@@ -9,6 +9,8 @@
 
 Wasmer is a Standalone JIT-style WebAssembly runtime code built on [Cranelift](https://github.com/CraneStation/cranelift) code generator engine.
 
+_If you would like to see how Wasmer works under the hood, please visit our [ARCHITECTURE](https://github.com/wasmerio/wasmer/blob/master/ARCHITECTURE.md) document._
+
 ## Usage
 
 `wasmer` can execute both the standard binary format (`.wasm`) and the text
