@@ -52,6 +52,7 @@ use libc::{
     writev,
     select,
     FIONBIO,
+    setpgid,
 };
 
 /// exit
@@ -728,4 +729,18 @@ pub extern "C" fn ___syscall142(
     let writefds_ptr = instance.memory_offset_addr(0, writefds as _) as _;
     
     unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
+}
+
+// setpgid
+pub extern "C" fn ___syscall57(
+    _which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall57 (setpgid)");
+    let pid: i32 = varargs.get(instance);
+    let pgid: i32 = varargs.get(instance);
+    unsafe {
+        setpgid(pid, pgid)
+    }
 }
