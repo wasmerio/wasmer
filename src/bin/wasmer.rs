@@ -61,7 +61,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
-    if instance.emscripten_data.as_ref().is_some() {
+    if apis::emscripten::is_emscripten_module(&module) {
         // Emscripten __ATINIT__
         if let Some(&webassembly::Export::Function(environ_constructor_index)) = module.info.exports.get("___emscripten_environ_constructor") {
             debug!("emscripten::___emscripten_environ_constructor");
