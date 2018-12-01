@@ -28,3 +28,8 @@ pub extern "C" fn _sigprocmask() -> i32 {
     debug!("emscripten::_sigprocmask");
     0
 }
+
+pub extern "C" fn _signal(sig: u32, _instance: &mut Instance) -> i32 {
+    debug!("emscripten::_signal ({})", sig);
+    0
+}

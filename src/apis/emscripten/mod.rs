@@ -306,6 +306,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_sigaction",
         ImportValue::Func(signal::_sigaction as _),
     );
+    import_object.set(
+        "env",
+        "_signal",
+        ImportValue::Func(signal::_signal as _),
+    );
     // Memory
     import_object.set(
         "env",

@@ -53,6 +53,7 @@ use libc::{
     select,
     FIONBIO,
     setpgid,
+    chdir
 };
 
 /// exit
@@ -134,13 +135,13 @@ pub extern "C" fn ___syscall12(
 ) -> c_int {
     debug!("emscripten::___syscall12 (chdir)");
     let path_addr: i32 = varargs.get(instance);
-    let _path = unsafe {
+    unsafe {
         let path_ptr = instance.memory_offset_addr(0, path_addr as usize) as *const i8;
-        let path = std::ffi::CStr::from_ptr(path_ptr).to_str().unwrap();
-        debug!("=> path: {}", path);
-        path
-    };
-    0
+        let path = std::ffi::CStr::from_ptr(path_ptr);
+        let ret = chdir(path_ptr);
+        debug!("=> path: {:?}, ret: {}", path, ret);
+        ret
+    }
 }
 
 // getpid
