@@ -572,14 +572,14 @@ pub extern "C" fn ___syscall145(
             let guest_iov_addr = instance.memory_offset_addr(0, (iov + i*8) as usize) as *mut GuestIovec;
             let iov_base = instance.memory_offset_addr(0, (*guest_iov_addr).iov_base as usize) as *mut c_void;
             let iov_len: usize = (*guest_iov_addr).iov_len as _;
-            debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
+            // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = read(fd, iov_base, iov_len);
             if curr < 0 {
                 return -1
             }
             ret = ret + curr;
         }
-        debug!(" => ret: {}", ret);
+        // debug!(" => ret: {}", ret);
         return ret
     }
 }
@@ -615,7 +615,7 @@ pub extern "C" fn ___syscall146(
             }
             ret = ret + curr;
         }
-        debug!(" => ret: {}", ret);
+        // debug!(" => ret: {}", ret);
         return ret
     }
 }
