@@ -285,6 +285,9 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "abortStackOverflow",
         ImportValue::Func(process::abort_stack_overflow as _),
     );
+    import_object.set("env", "_fork", ImportValue::Func(process::_fork as _));
+    import_object.set("env", "_exit", ImportValue::Func(process::_exit as _));
+
     // Signal
     import_object.set(
         "env",
@@ -437,8 +440,8 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     // mock_external!(import_object, _getpagesize);
     mock_external!(import_object, _getgrent);
     mock_external!(import_object, _getaddrinfo);
-    mock_external!(import_object, _fork);
-    mock_external!(import_object, _exit);
+    // mock_external!(import_object, _fork);
+    // mock_external!(import_object, _exit);
     mock_external!(import_object, _execve);
     mock_external!(import_object, _endgrent);
     // mock_external!(import_object, _clock_gettime);

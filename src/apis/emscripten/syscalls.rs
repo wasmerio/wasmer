@@ -3,6 +3,7 @@ use super::varargs::VarArgs;
 use crate::webassembly::Instance;
 use byteorder::{ByteOrder, LittleEndian};
 use std::slice;
+use std::mem;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
@@ -53,8 +54,24 @@ use libc::{
     select,
     FIONBIO,
     setpgid,
-    chdir
+    chdir,
+    sa_family_t,
+    in_port_t,
+    in_addr_t,
+    sockaddr_in,
+    FIOCLEX,
+    SOL_SOCKET,
+    TIOCGWINSZ
 };
+// use std::sys::fd::FileDesc;
+
+// Another conditional constant for name resolution: Macos et iOS use
+// SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
+// Other platforms do otherwise.
+#[cfg(target_os = "darwin")]
+use libc::SO_NOSIGPIPE;
+#[cfg(not(target_os = "darwin"))]
+const SO_NOSIGPIPE: c_int = 0;
 
 /// exit
 pub extern "C" fn ___syscall1(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) {
@@ -77,7 +94,9 @@ pub extern "C" fn ___syscall3(
     let count: usize = varargs.get(instance);
     debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
     let buf_addr = instance.memory_offset_addr(0, buf as usize) as *mut c_void;
-    unsafe { read(fd, buf_addr, count) }
+    let ret = unsafe { read(fd, buf_addr, count) };
+    debug!("=> ret: {}", ret);
+    ret
 }
 
 /// write
@@ -181,12 +200,19 @@ pub extern "C" fn ___syscall54(
     let fd: i32 = varargs.get(instance);
     let request: u32 = varargs.get(instance);
     debug!("fd: {}, op: {}", fd, request);
-
+    // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
     match request as _ {
         21537 => { // FIONBIO
             let argp: u32 = varargs.get(instance);
             let argp_ptr = instance.memory_offset_addr(0, argp as _);
             let ret = unsafe { ioctl(fd, FIONBIO, argp_ptr) };
+            debug!("ret: {}", ret);
+            ret
+        },
+        21523 => { // TIOCGWINSZ
+            let argp: u32 = varargs.get(instance);
+            let argp_ptr = instance.memory_offset_addr(0, argp as _);
+            let ret = unsafe { ioctl(fd, TIOCGWINSZ, argp_ptr) };
             debug!("ret: {}", ret);
             ret
         },
@@ -207,19 +233,19 @@ pub extern "C" fn ___syscall102(
     let call: u32 = varargs.get(instance);
     let mut socket_varargs: VarArgs = varargs.get(instance);
 
-    // #[repr(C)]
-    // pub struct GuestSockaddrIn {
-    //     pub sin_family: sa_family_t, // u16
-    //     pub sin_port: in_port_t, // u16
-    //     pub sin_addr: GuestInAddr, // u32
-    //     pub sin_zero: [u8; 8], // u8 * 8
-    //     // 2 + 2 + 4 + 8 = 16
-    // }
+    #[repr(C)]
+    pub struct GuestSockaddrIn {
+        pub sin_family: sa_family_t, // u16
+        pub sin_port: in_port_t, // u16
+        pub sin_addr: GuestInAddr, // u32
+        pub sin_zero: [u8; 8], // u8 * 8
+        // 2 + 2 + 4 + 8 = 16
+    }
 
-    // #[repr(C)]
-    // pub struct GuestInAddr {
-    //     pub s_addr: in_addr_t, // u32
-    // }
+    #[repr(C)]
+    pub struct GuestInAddr {
+        pub s_addr: in_addr_t, // u32
+    }
 
     // debug!("GuestSockaddrIn = {}", size_of::<GuestSockaddrIn>());
 
@@ -230,12 +256,24 @@ pub extern "C" fn ___syscall102(
             let domain: i32 = socket_varargs.get(instance);
             let ty: i32 = socket_varargs.get(instance);
             let protocol: i32 = socket_varargs.get(instance);
-            let socket = unsafe { socket(domain, ty, protocol) };
+            let fd = unsafe { socket(domain, ty, protocol) };
+            // set_cloexec
+            unsafe {
+                ioctl(fd, FIOCLEX);
+            };
+            if cfg!(target_os = "darwin") {
+                type T = u32;
+                let payload = 1 as *const T as *const c_void;
+                unsafe {
+                    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, payload, mem::size_of::<T>() as socklen_t);
+                };
+            };
+
             debug!(
                 "=> domain: {} (AF_INET/2), type: {} (SOCK_STREAM/1), protocol: {} = fd: {}",
-                domain, ty, protocol, socket
+                domain, ty, protocol, fd
             );
-            socket
+            fd
         }
         2 => {
             debug!("socket: bind");
@@ -245,13 +283,32 @@ pub extern "C" fn ___syscall102(
             let address: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
-            let status = unsafe { bind(socket, address, address_len) };
+            // unsafe {
+            //     debug!(
+            //         "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
+            //         (*address).sin_family, (*address).sin_port, (*address).sin_addr.s_addr
+            //     );
+            // }
+            // we convert address as a sockaddr (even if this is incorrect), to bypass the type
+            // issue with libc bind
 
+            // Debug received address
+            unsafe {
+                let proper_address = address as *const GuestSockaddrIn;
+                debug!(
+                    "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
+                    (*proper_address).sin_family, (*proper_address).sin_port, (*proper_address).sin_addr.s_addr
+                );
+            }
+
+            let status = unsafe { bind(socket, address, address_len) };
+            // debug!("=> status: {}", status);
             debug!(
                 "=> socketfd: {}, address: {:?}, address_len: {} = status: {}",
                 socket, address, address_len, status
             );
             status
+            // -1
         }
         3 => {
             debug!("socket: connect");
@@ -282,9 +339,28 @@ pub extern "C" fn ___syscall102(
             let address: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
+
+
+            debug!("=> socket: {}, address: {:?}, address_len: {}", socket, address, address_len);
             let address_len_addr =
                 instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
+            // let mut address_len_addr: socklen_t = 0;
+
+
             let fd = unsafe { accept(socket, address, address_len_addr) };
+
+            // Debug received address
+            unsafe {
+                let proper_address = address as *const GuestSockaddrIn;
+                debug!(
+                    "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
+                    (*proper_address).sin_family, (*proper_address).sin_port, (*proper_address).sin_addr.s_addr
+                );
+            }
+            // set_cloexec
+            unsafe {
+                ioctl(fd, FIOCLEX);
+            };
             debug!("fd: {}", fd);
             // nix::unistd::write(fd, "Hello, World!".as_bytes()).unwrap();
             // nix::unistd::fsync(fd).unwrap();
@@ -472,12 +548,40 @@ pub extern "C" fn ___syscall145(
     instance: &mut Instance,
 ) -> ssize_t {
     debug!("emscripten::___syscall145 (readv)");
+    // let fd: i32 = varargs.get(instance);
+    // let iov: u32 = varargs.get(instance);
+    // let iovcnt: i32 = varargs.get(instance);
+    // debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
+    // let iov_addr = instance.memory_offset_addr(0, iov as usize) as *mut iovec;
+    // unsafe { readv(fd, iov_addr, iovcnt) }
+
     let fd: i32 = varargs.get(instance);
-    let iov: u32 = varargs.get(instance);
+    let iov: i32 = varargs.get(instance);
     let iovcnt: i32 = varargs.get(instance);
+
+    #[repr(C)]
+    struct GuestIovec {
+        iov_base: i32,
+        iov_len: i32,
+    }
+
     debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
-    let iov_addr = instance.memory_offset_addr(0, iov as usize) as *mut iovec;
-    unsafe { readv(fd, iov_addr, iovcnt) }
+    let mut ret = 0;
+    unsafe {
+        for i in 0..iovcnt {
+            let guest_iov_addr = instance.memory_offset_addr(0, (iov + i*8) as usize) as *mut GuestIovec;
+            let iov_base = instance.memory_offset_addr(0, (*guest_iov_addr).iov_base as usize) as *mut c_void;
+            let iov_len: usize = (*guest_iov_addr).iov_len as _;
+            debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
+            let curr = read(fd, iov_base, iov_len);
+            if curr < 0 {
+                return -1
+            }
+            ret = ret + curr;
+        }
+        debug!(" => ret: {}", ret);
+        return ret
+    }
 }
 
 // writev
@@ -511,6 +615,7 @@ pub extern "C" fn ___syscall146(
             }
             ret = ret + curr;
         }
+        debug!(" => ret: {}", ret);
         return ret
     }
 }

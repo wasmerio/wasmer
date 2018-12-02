@@ -1,4 +1,4 @@
-use libc::{abort, c_char};
+use libc::{abort, c_char, pid_t, c_int, fork, exit};
 
 use crate::webassembly::Instance;
 use std::ffi::CStr;
@@ -13,6 +13,21 @@ pub extern "C" fn _abort() {
     debug!("emscripten::_abort");
     unsafe {
         abort();
+    }
+}
+
+pub extern "C" fn _fork(_instance: &mut Instance) -> pid_t {
+    debug!("emscripten::_fork");
+    // unsafe {
+    //     fork()
+    // }
+    -1
+}
+
+pub extern "C" fn _exit(status: c_int, _instance: &mut Instance) -> ! {
+    debug!("emscripten::_exit");
+    unsafe {
+        exit(status)
     }
 }
 
