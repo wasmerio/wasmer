@@ -51,7 +51,9 @@ jobs:
             make release
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
+            GIT_VERSION=$(git describe --exact-match --tags)
             echo "${VERSION}" >> artifacts/version
+            echo "${GIT_VERSION}" >> artifacts/git_version
             cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
       - persist_to_workspace:
           root: .
@@ -141,7 +143,8 @@ jobs:
             VERSION=$(cat ./artifacts/version)
             rm ./artifacts/version
             # VERSION_TAG=${CIRCLE_TAG}
-            VERSION_TAG=$(git describe --exact-match --tags)
+            VERSION_TAG=$(cat ./artifacts/git_version)
+            # VERSION_TAG=$(git describe --exact-match --tags)
             if [ "$VERSION" == "$VERSION_TAG" ]; then
                 echo "Versions match, publishing to Github"
                 ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
