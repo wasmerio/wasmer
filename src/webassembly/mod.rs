@@ -7,7 +7,10 @@ pub mod module;
 pub mod relocation;
 pub mod utils;
 
-use cranelift_codegen::{isa, settings::{self, Configurable}};
+use cranelift_codegen::{
+    isa,
+    settings::{self, Configurable},
+};
 use std::panic;
 use std::str::FromStr;
 use target_lexicon;
@@ -19,6 +22,7 @@ pub use self::import_object::{ImportObject, ImportValue};
 pub use self::instance::{Instance, InstanceOptions};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
+use crate::apis::is_emscripten_module;
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -47,11 +51,9 @@ pub fn instantiate(
     buffer_source: Vec<u8>,
     import_object: ImportObject<&str, &str>,
 ) -> Result<ResultObject, ErrorKind> {
-
     let flags = {
         let mut builder = settings::builder();
-        builder.set("opt_level", "best")
-            .unwrap();
+        builder.set("opt_level", "best").unwrap();
 
         let flags = settings::Flags::new(builder);
         debug_assert_eq!(flags.opt_level(), settings::OptLevel::Best);
@@ -68,6 +70,7 @@ pub fn instantiate(
             mock_missing_imports: true,
             mock_missing_globals: true,
             mock_missing_tables: true,
+            use_emscripten: is_emscripten_module(&module),
             isa: isa,
         },
     )?;

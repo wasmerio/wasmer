@@ -5,12 +5,13 @@
 	(type $t4 (func (param i32 i32) (result i32)))
 	(func $putchar (import "env" "putchar") (type $t1))
 	(func $printf (import "env" "printf") (type $t4))
-	(func $sys_open (import "env" "___syscall5") (type $t2))
-	(func $sys_read (import "env" "___syscall3") (type $t2))
-	(func $sys_close (import "env" "___syscall6") (type $t3))
+	(func $sys_open (import "env" "sys_open") (type $t2))
+	(func $sys_read (import "env" "sys_read") (type $t2))
+	(func $sys_close (import "env" "sys_close") (type $t3))
+	(func $sys_exit (import "env" "sys_exit") (type $t1))
  	(memory 1)
  	(data $filename (i32.const 0) "/Users/xxxx/Desktop/hello.txt\00")
-	(func $main (export "main")
+	(func $main (export "_main")
         ;; declare variables
 		(local $string_buf_addr i32)
 		(local $string_buf_len i32)
@@ -39,5 +40,8 @@
 		;; print file content
 		(call $printf (get_local $string_buf_addr) (i32.const 0))
 		(drop) ;; ignoring errors
+
+		;; exit
+		(call $exit (i32.const 0))
 	)
 )

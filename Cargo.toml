@@ -43,8 +43,9 @@ log = "0.4.5"
 target-lexicon = "0.2.0"
 # libc = "0.2"
 libc = { git = "https://github.com/rust-lang/libc" }
-nix = "0.11"
+nix = "0.12.0"
 rayon = "1.0.3"
+byteorder = "1"
 
 [build-dependencies]
 wabt = "0.7.1"

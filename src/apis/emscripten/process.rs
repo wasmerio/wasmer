@@ -1,22 +1,14 @@
-use libc::{
-    // size_t,
-    // ssize_t,
-    abort,
-    // c_int,
-    // c_void,
-    c_char,
-};
+use libc::{abort, c_char, pid_t, c_int, fork, exit};
 
 use crate::webassembly::Instance;
 use std::ffi::CStr;
 
-extern "C" fn abort_with_message(message: &str) {
+pub extern "C" fn abort_with_message(message: &str) {
     debug!("emscripten::abort_with_message");
     println!("{}", message);
     _abort();
 }
 
-/// emscripten: _abort
 pub extern "C" fn _abort() {
     debug!("emscripten::_abort");
     unsafe {
@@ -24,7 +16,21 @@ pub extern "C" fn _abort() {
     }
 }
 
-/// emscripten: abort
+pub extern "C" fn _fork(_instance: &mut Instance) -> pid_t {
+    debug!("emscripten::_fork");
+    // unsafe {
+    //     fork()
+    // }
+    -1
+}
+
+pub extern "C" fn _exit(status: c_int, _instance: &mut Instance) -> ! {
+    debug!("emscripten::_exit");
+    unsafe {
+        exit(status)
+    }
+}
+
 pub extern "C" fn em_abort(message: u32, instance: &mut Instance) {
     debug!("emscripten::em_abort");
     let message_addr = instance.memory_offset_addr(0, message as usize) as *mut c_char;
@@ -37,8 +43,8 @@ pub extern "C" fn em_abort(message: u32, instance: &mut Instance) {
     }
 }
 
-/// emscripten: abortOnCannotGrowMemory
-pub extern "C" fn abort_on_cannot_grow_memory() {
-    debug!("emscripten::abort_on_cannot_grow_memory");
-    abort_with_message("Cannot enlarge memory arrays!");
+pub extern "C" fn abort_stack_overflow() {
+    debug!("emscripten::abort_stack_overflow");
+    // TODO: Message incomplete. Need to finish em runtime data first
+    abort_with_message("Stack overflow! Attempted to allocate some bytes on the stack");
 }

@@ -61,7 +61,15 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
-    if apis::is_emscripten_module(&module) {
+    if apis::emscripten::is_emscripten_module(&module) {
+        // Emscripten __ATINIT__
+        if let Some(&webassembly::Export::Function(environ_constructor_index)) = module.info.exports.get("___emscripten_environ_constructor") {
+            debug!("emscripten::___emscripten_environ_constructor");
+            let ___emscripten_environ_constructor: extern "C" fn(&webassembly::Instance) =
+                get_instance_function!(instance, environ_constructor_index);
+            call_protected!(___emscripten_environ_constructor(&instance)).map_err(|err| format!("{}", err))?;
+        };
+        // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
         let func_index = match module.info.exports.get("_main") {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("_main emscripten function not found"),
@@ -69,6 +77,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
         let main: extern "C" fn(u32, u32, &webassembly::Instance) =
             get_instance_function!(instance, func_index);
         return call_protected!(main(0, 0, &instance)).map_err(|err| format!("{}", err));
+        // TODO: We should implement emscripten __ATEXIT__
     } else {
         let func_index =
             instance

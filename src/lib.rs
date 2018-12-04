@@ -12,6 +12,7 @@ extern crate wabt;
 extern crate wasmparser;
 #[macro_use]
 extern crate target_lexicon;
+extern crate byteorder;
 pub extern crate nix; // re-exported for usage in macros
 extern crate rayon;
 
@@ -24,5 +25,5 @@ pub mod common;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
-pub mod webassembly;
 pub mod update;
+pub mod webassembly;

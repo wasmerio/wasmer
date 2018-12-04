@@ -18,8 +18,8 @@ use std::iter::FromIterator;
 use std::iter::Iterator;
 use std::mem::size_of;
 use std::ptr::write_unaligned;
-use std::slice;
 use std::sync::Arc;
+use std::{fmt, mem, slice};
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
@@ -67,10 +67,25 @@ fn get_function_addr(
     func_pointer
 }
 
+pub struct EmscriptenData {
+    pub malloc: extern "C" fn(i32, &mut Instance) -> u32,
+    pub free: extern "C" fn(i32, &mut Instance),
+    pub memalign: extern "C" fn (u32, u32, &mut Instance) -> u32,
+    pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
+}
+
+impl fmt::Debug for EmscriptenData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("EmscriptenData")
+            .field("malloc", &(self.malloc as usize))
+            .field("free", &(self.free as usize))
+            .finish()
+    }
+}
+
 /// An Instance of a WebAssembly module
 /// NOTE: There is an assumption that data_pointers is always the
 ///      first field
-#[repr(C)]
 #[derive(Debug)]
 #[repr(C)]
 pub struct Instance {
@@ -98,12 +113,12 @@ pub struct Instance {
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
+    pub emscripten_data: Option<EmscriptenData>,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
 /// by Cranelift.
 /// NOTE: Rearranging the fields will break the memory arrangement model
-#[repr(C)]
 #[derive(Debug)]
 #[repr(C)]
 pub struct DataPointers {
@@ -122,13 +137,16 @@ pub struct InstanceOptions {
     pub mock_missing_imports: bool,
     pub mock_missing_globals: bool,
     pub mock_missing_tables: bool,
+    pub use_emscripten: bool,
     pub isa: Box<TargetIsa>,
 }
 
 extern "C" fn mock_fn() -> i32 {
+    println!("CALLING MOCKED FUNC");
     return 0;
 }
 
+#[allow(dead_code)]
 struct CompiledFunction {
     code_buf: Vec<u8>,
     reloc_sink: RelocSink,
@@ -203,7 +221,7 @@ impl Instance {
                                 "The import {}.{} is not provided, therefore will be mocked.",
                                 module, field
                             );
-                            &(mock_fn as *const u8)
+                            &(mock_fn as _)
                         } else {
                             return Err(ErrorKind::LinkError(format!(
                                 "Imported function {}.{} was not provided in the import_functions",
@@ -228,8 +246,7 @@ impl Instance {
                     // let r = *Arc::from_raw(isa_ptr);
                     compile_function(&*options.isa, function_body).unwrap()
                     // unimplemented!()
-                })
-                .collect();
+                }).collect();
 
             for compiled_func in compiled_funcs.into_iter() {
                 let CompiledFunction {
@@ -446,9 +463,18 @@ impl Instance {
             // Get memories in module
             for memory in &module.info.memories {
                 let memory = memory.entity;
-                let v =
-                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32));
-                memories.push(v);
+                // If we use emscripten, we set a fixed initial and maximum
+                debug!("Instance - init memory ({}, {:?})", memory.pages_count, memory.maximum);
+                let memory = if options.use_emscripten {
+                    // We use MAX_PAGES, so at the end the result is:
+                    // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
+                    // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
+                    LinearMemory::new(LinearMemory::MAX_PAGES as u32, None)
+                }
+                else {
+                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32))
+                };
+                memories.push(memory);
             }
 
             for init in &module.info.data_initializers {
@@ -464,6 +490,11 @@ impl Instance {
                 let to_init = &mut mem[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
+            if options.use_emscripten {
+                debug!("emscripten::setup memory");
+                crate::apis::emscripten::emscripten_set_up_memory(&mut memories[0]);
+                debug!("emscripten::finish setup memory");
+            }
         }
 
         let start_func: Option<FuncIndex> =
@@ -475,7 +506,6 @@ impl Instance {
                     _ => None,
                 });
 
-        // TODO: Refactor repetitive code
         let tables_pointer: Vec<BoundedSlice<usize>> =
             tables.iter().map(|table| table[..].into()).collect();
         let memories_pointer: Vec<BoundedSlice<u8>> = memories
@@ -490,7 +520,33 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
-        // let mem = data_pointers.memories;
+        let emscripten_data = if options.use_emscripten {
+            unsafe {
+                debug!("emscripten::initiating data");
+                let malloc_export = module.info.exports.get("_malloc");
+                let free_export = module.info.exports.get("_free");
+                let memalign_export = module.info.exports.get("_memalign");
+                let memset_export = module.info.exports.get("_memset");
+
+                if let (Some(Export::Function(malloc_index)), Some(Export::Function(free_index)), Some(Export::Function(memalign_index)), Some(Export::Function(memset_index))) = (malloc_export, free_export, memalign_export, memset_export) {
+                    let malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
+                    let free_addr = get_function_addr(&free_index, &import_functions, &functions);
+                    let memalign_addr = get_function_addr(&memalign_index, &import_functions, &functions);
+                    let memset_addr = get_function_addr(&memset_index, &import_functions, &functions);
+                    
+                    Some(EmscriptenData {
+                        malloc: mem::transmute(malloc_addr),
+                        free: mem::transmute(free_addr),
+                        memalign: mem::transmute(memalign_addr),
+                        memset: mem::transmute(memset_addr),
+                    })
+                } else {
+                    None
+                }
+            }
+        } else {
+            None
+        };
 
         Ok(Instance {
             data_pointers,
@@ -500,6 +556,7 @@ impl Instance {
             functions,
             import_functions,
             start_func,
+            emscripten_data,
         })
     }
 
