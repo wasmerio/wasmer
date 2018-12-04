@@ -51,9 +51,9 @@ jobs:
             make release
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
-            GIT_VERSION=$(git describe --exact-match --tags)
+            # GIT_VERSION=$(git describe --exact-match --tags)
             echo "${VERSION}" >> artifacts/version
-            echo "${GIT_VERSION}" >> artifacts/git_version
+            echo "${CIRCLE_TAG}" >> artifacts/git_version
             cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
       - persist_to_workspace:
           root: .
