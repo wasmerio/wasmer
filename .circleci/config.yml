@@ -140,7 +140,8 @@ jobs:
             # VERSION=$(./artifacts/ --version)
             VERSION=$(cat ./artifacts/version)
             rm ./artifacts/version
-            VERSION_TAG=${CIRCLE_TAG}
+            # VERSION_TAG=${CIRCLE_TAG}
+            VERSION_TAG=$(git describe --exact-match --tags)
             if [ "$VERSION" == "$VERSION_TAG" ]; then
                 echo "Versions match, publishing to Github"
                 ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
@@ -175,7 +176,5 @@ workflows:
             - test-and-build
             - test-and-build-macos
           filters:
-            branches:
-              ignore: /.*/
             tags:
               only: /^\d+\.\d+\.\d+$/
