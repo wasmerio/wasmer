@@ -145,13 +145,13 @@ jobs:
             # VERSION_TAG=${CIRCLE_TAG}
             VERSION_TAG=$(cat ./artifacts/git_version)
             # VERSION_TAG=$(git describe --exact-match --tags)
-            if [ "$VERSION" == "$VERSION_TAG" ]; then
-                echo "Versions match, publishing to Github"
-                ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
-            else
-                echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
-                exit 1
-            fi
+            #if [ "$VERSION" == "$VERSION_TAG" ]; then
+            # echo "Versions match, publishing to Github"
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
+            #else
+            #    echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
+            #    exit 1
+            #fi
 
 workflows:
   version: 2
