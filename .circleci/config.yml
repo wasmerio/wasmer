@@ -175,7 +175,5 @@ workflows:
             - test-and-build
             - test-and-build-macos
           filters:
-            branches:
-              ignore: /.*/
             tags:
               only: /^\d+\.\d+\.\d+$/
