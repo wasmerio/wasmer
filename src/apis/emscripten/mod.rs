@@ -409,12 +409,17 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_getpagesize",
         ImportValue::Func(env::_getpagesize as _),
     );
+    import_object.set(
+        "env",
+        "_sysconf",
+        ImportValue::Func(env::_sysconf as _),
+    );
 
     mock_external!(import_object, _waitpid);
     mock_external!(import_object, _utimes);
     mock_external!(import_object, _usleep);
     // mock_external!(import_object, _time);
-    mock_external!(import_object, _sysconf);
+    // mock_external!(import_object, _sysconf);
     // mock_external!(import_object, _strftime);
     mock_external!(import_object, _sigsuspend);
     // mock_external!(import_object, _sigprocmask);

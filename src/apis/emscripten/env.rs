@@ -1,6 +1,6 @@
 use super::super::host;
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{c_int, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam};
+use libc::{c_int, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, c_long, sysconf};
 use std::ffi::CStr;
 use std::mem;
 use std::os::raw::c_char;
@@ -109,4 +109,12 @@ pub extern "C" fn _getpagesize() -> u32 {
 
 pub extern "C" fn ___build_environment(environ: c_int) {
     debug!("emscripten::___build_environment {}", environ);
+}
+
+pub extern "C" fn _sysconf(name: c_int, instance: &mut Instance) -> c_long {
+    debug!("emscripten::_sysconf {}", name);
+    // TODO: Implement like emscripten expects regarding memory/page size
+    unsafe {
+        sysconf(name)
+    }
 }
