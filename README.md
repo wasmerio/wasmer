@@ -7,9 +7,9 @@
 
 ## Introduction
 
-Wasmer is a Standalone JIT-style WebAssembly runtime code built on [Cranelift](https://github.com/CraneStation/cranelift) code generator engine.
+Wasmer is a Standalone JIT WebAssembly runtime, aiming to be fully compatible with Emscripten, Rust and Go.
 
-_If you would like to see how Wasmer works under the hood, please visit our [ARCHITECTURE](https://github.com/wasmerio/wasmer/blob/master/ARCHITECTURE.md) document._
+_If you would like to know how Wasmer works under the hood, please visit our [ARCHITECTURE](https://github.com/wasmerio/wasmer/blob/master/ARCHITECTURE.md) document._
 
 ## Usage
 
@@ -19,7 +19,7 @@ format defined by the WebAssembly reference interpreter (`.wat`).
 Once installed, you will be able to run:
 
 ```sh
-wasmer run my_wasm_file.wasm
+wasmer run nginx.wasm
 ```
 
 ## Building & Running
