@@ -74,6 +74,7 @@ pub struct EmscriptenData {
     pub free: extern "C" fn(i32, &mut Instance),
     pub memalign: extern "C" fn (u32, u32, &mut Instance) -> u32,
     pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
+    pub stack_alloc: extern "C" fn (u32, &mut Instance) -> u32,
 }
 
 impl fmt::Debug for EmscriptenData {
@@ -550,11 +551,13 @@ impl Instance {
                 let free_export = module.info.exports.get("_free");
                 let memalign_export = module.info.exports.get("_memalign");
                 let memset_export = module.info.exports.get("_memset");
+                let stack_alloc_export = module.info.exports.get("stackAlloc");
 
                 let mut malloc_addr = 0 as *const u8;
                 let mut free_addr = 0 as *const u8;
                 let mut memalign_addr = 0 as *const u8;
                 let mut memset_addr = 0 as *const u8;
+                let mut stack_alloc_addr = 0 as _;
 
                 if malloc_export.is_none() && free_export.is_none() && memalign_export.is_none() && memset_export.is_none() {
                     None
@@ -575,11 +578,16 @@ impl Instance {
                         memset_addr = get_function_addr(&memset_index, &import_functions, &functions);
                     }
 
+                    if let Some(Export::Function(stack_alloc_index)) = stack_alloc_export {
+                        stack_alloc_addr = get_function_addr(&stack_alloc_index, &import_functions, &functions);
+                    }
+
                     Some(EmscriptenData {
                         malloc: mem::transmute(malloc_addr),
                         free: mem::transmute(free_addr),
                         memalign: mem::transmute(memalign_addr),
                         memset: mem::transmute(memset_addr),
+                        stack_alloc: mem::transmute(stack_alloc_addr),
                     })
                 }
             }

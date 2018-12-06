@@ -68,7 +68,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     // TODO: We should instantiate after compilation, so we provide the
     // emscripten environment conditionally based on the module
     let import_object = apis::generate_emscripten_env();
-    let webassembly::ResultObject { module, instance } =
+    let webassembly::ResultObject { module, mut instance } =
         webassembly::instantiate(wasm_binary, import_object)
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
@@ -91,7 +91,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         let main: extern "C" fn(u32, u32, &webassembly::Instance) =
             get_instance_function!(instance, func_index);
 
-        let (argc, argv) = get_module_arguments(options, &instance);
+        let (argc, argv) = get_module_arguments(options, &mut instance);
 
         return call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err));
         // TODO: We should implement emscripten __ATEXIT__
@@ -128,7 +128,7 @@ fn main() {
     }
 }
 
-fn get_module_arguments(options: &Run, instance: &webassembly::Instance) -> (u32, u32) {
+fn get_module_arguments(options: &Run, instance: &mut webassembly::Instance) -> (u32, u32) {
     // Application Arguments
     let mut arg_values: Vec<String> = Vec::new();
     let mut arg_addrs: Vec<*const u8> = Vec::new();
@@ -153,7 +153,7 @@ fn get_module_arguments(options: &Run, instance: &webassembly::Instance) -> (u32
 
     // Copy the the arguments into the wasm memory and get offset
     let argv_offset =  unsafe {
-        copy_cstr_array_into_wasm(argc, argv, &instance)
+        copy_cstr_array_into_wasm(argc, argv, instance)
     };
 
     debug!("argc = {:?}", argc);

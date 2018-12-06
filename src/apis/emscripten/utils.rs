@@ -17,29 +17,40 @@ pub fn is_emscripten_module(module: &Module) -> bool {
     return false;
 }
 
-pub unsafe fn copy_cstr_into_wasm(instance: &Instance, cstr: *const c_char) -> u32 {
+pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
-    let space_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(s.len() as _, instance);
+    let cstr_len = s.len();
+    let space_offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)((cstr_len as u32) + 1, instance);
     let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
-    let slice = slice::from_raw_parts_mut(raw_memory, s.len());
+    let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
         *loc = byte;
     }
+    
+    *raw_memory.add(cstr_len) = 0;
+    
     space_offset
 }
 
-pub unsafe fn copy_cstr_array_into_wasm(array_count: u32, array: *mut *mut c_char, instance: &Instance) -> u32 {
-    let array_offset = (instance.emscripten_data.as_ref().unwrap().malloc)((array_count as usize * size_of::<u32>()) as _, instance);
+pub unsafe fn copy_cstr_array_into_wasm(array_count: u32, array: *mut *mut c_char, instance: &mut Instance) -> u32 {
+    let array_offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)((array_count as usize * size_of::<u32>()) as _, instance);
 
     let array_addr = instance.memory_offset_addr(0, array_offset as _) as *mut u32;
-    for i in 0..array_count {
-        let offset = copy_cstr_into_wasm(
-            instance,
-            *array.offset(i as isize)
-        );
-        *array_addr.offset(i as isize) = offset;
+    let array_slice = slice::from_raw_parts_mut(array_addr, array_count as usize);
+
+    for (i, ptr) in array_slice.iter_mut().enumerate() {
+        let offset = copy_cstr_into_wasm(instance, *array.add(i));
+        *ptr = offset;
     }
+
+    // for i in 0..array_count {
+    //     let offset = copy_cstr_into_wasm(
+    //         instance,
+    //         *array.offset(i as isize)
+    //     );
+    //     *array_addr.offset(i as isize) = offset;
+    // }
 
     // let first_arg_addr = instance.memory_offset_addr(0, *array_addr.offset(0) as _) as *const i8;
     // debug!("###### argv[0] = {:?}", CStr::from_ptr(first_arg_addr));
