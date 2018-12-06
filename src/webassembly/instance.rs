@@ -265,7 +265,7 @@ impl Instance {
                     func
                     // unimplemented!()
                 }).collect();
-            
+
             if let Some(ref progress_bar) = progress_bar_option {
                 progress_bar.set_style(ProgressStyle::default_bar()
                     .template(&format!("{} {{msg}}", style("[{elapsed_precise}]").bold().dim())));

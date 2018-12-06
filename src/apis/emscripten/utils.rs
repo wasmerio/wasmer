@@ -5,6 +5,7 @@ use libc::stat;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::slice;
+use std::mem::size_of;
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -29,7 +30,7 @@ pub unsafe fn copy_cstr_into_wasm(instance: &Instance, cstr: *const c_char) -> u
 }
 
 pub unsafe fn copy_cstr_array_into_wasm(array_count: u32, array: *mut *mut c_char, instance: &Instance) -> u32 {
-    let array_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(array_count as _, instance);
+    let array_offset = (instance.emscripten_data.as_ref().unwrap().malloc)((array_count as usize * size_of::<u32>()) as _, instance);
 
     let array_addr = instance.memory_offset_addr(0, array_offset as _) as *mut u32;
     for i in 0..array_count {
