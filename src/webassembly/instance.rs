@@ -12,6 +12,8 @@ use cranelift_codegen::{binemit, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
 use rayon::prelude::*;
+use indicatif::{ProgressBar, ProgressStyle};
+use console::style;
 
 use region;
 use std::iter::FromIterator;
@@ -240,13 +242,27 @@ impl Instance {
             // Compile the functions (from cranelift IR to machine code)
             let values: Vec<&Function> = Vec::from_iter(module.info.function_bodies.values());
             // let isa: &TargetIsa = &*options.isa;
+
+            let progress_bar = ProgressBar::new(module.info.functions.len() as u64);
+            progress_bar.set_message(&format!("{}", style("compiling").bold()));
+            progress_bar.set_style(ProgressStyle::default_bar()
+                .template(&format!("{{spinner:.green}} {} [{{bar:40.blue/green}}] {} {{msg:.blue}}", style("[{elapsed_precise}]").bold().dim(), style("{percent}%").bold().dim()))
+                .progress_chars("#>-"));
+
             let compiled_funcs: Vec<CompiledFunction> = values
                 .par_iter()
                 .map(|function_body| -> CompiledFunction {
                     // let r = *Arc::from_raw(isa_ptr);
-                    compile_function(&*options.isa, function_body).unwrap()
+                    let func = compile_function(&*options.isa, function_body).unwrap();
+                    progress_bar.inc(1);
+                    func
                     // unimplemented!()
                 }).collect();
+            
+            progress_bar.set_style(ProgressStyle::default_bar()
+                .template(&format!("{} {{msg:.blue}}", style("[{elapsed_precise}]").bold().dim())));
+                // .template("[{elapsed_precise}] {msg:.green}"));
+            progress_bar.finish_with_message(&format!("{}", style("compiled, running now").bold()));
 
             for compiled_func in compiled_funcs.into_iter() {
                 let CompiledFunction {
