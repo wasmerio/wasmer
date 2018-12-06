@@ -244,10 +244,9 @@ impl Instance {
             // let isa: &TargetIsa = &*options.isa;
 
             let progress_bar = ProgressBar::new(module.info.functions.len() as u64);
-            progress_bar.set_message(&format!("{}", style("compiling").bold()));
             progress_bar.set_style(ProgressStyle::default_bar()
-                .template(&format!("{{spinner:.green}} {} [{{bar:40.blue/green}}] {} {{msg:.blue}}", style("[{elapsed_precise}]").bold().dim(), style("{percent}%").bold().dim()))
-                .progress_chars("#>-"));
+                .template(&format!("{{spinner:.green}} {} [{{bar:40}}] {} {{msg}}", style("Compiling").bold(), style("{percent}%").bold().dim()))
+                .progress_chars("=> "));
 
             let compiled_funcs: Vec<CompiledFunction> = values
                 .par_iter()
@@ -260,9 +259,8 @@ impl Instance {
                 }).collect();
             
             progress_bar.set_style(ProgressStyle::default_bar()
-                .template(&format!("{} {{msg:.blue}}", style("[{elapsed_precise}]").bold().dim())));
-                // .template("[{elapsed_precise}] {msg:.green}"));
-            progress_bar.finish_with_message(&format!("{}", style("compiled, running now").bold()));
+                .template(&format!("{} {{msg}}", style("[{elapsed_precise}]").bold().dim())));
+            // progress_bar.finish_with_message(&format!("{}", style("compiled, running now").bold()));
 
             for compiled_func in compiled_funcs.into_iter() {
                 let CompiledFunction {
