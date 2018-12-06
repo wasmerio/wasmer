@@ -61,7 +61,8 @@ use libc::{
     sockaddr_in,
     FIOCLEX,
     SOL_SOCKET,
-    TIOCGWINSZ
+    TIOCGWINSZ,
+    c_char
 };
 // use std::sys::fd::FileDesc;
 
@@ -249,6 +250,11 @@ pub extern "C" fn ___syscall102(
 
     // debug!("GuestSockaddrIn = {}", size_of::<GuestSockaddrIn>());
 
+    pub struct LinuxSockAddr {
+        pub sa_family: u16,
+        pub sa_data: [c_char; 14],
+    }
+
     match call {
         1 => {
             debug!("socket: socket");
@@ -336,9 +342,9 @@ pub extern "C" fn ___syscall102(
             debug!("socket: accept");
             // accept (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
             let socket: i32 = socket_varargs.get(instance);
-            let address: u32 = socket_varargs.get(instance);
+            let address_addr: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
-            let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
+            let address = instance.memory_offset_addr(0, address_addr as usize) as *mut sockaddr;
 
 
             debug!("=> socket: {}, address: {:?}, address_len: {}", socket, address, address_len);
@@ -349,14 +355,23 @@ pub extern "C" fn ___syscall102(
 
             let fd = unsafe { accept(socket, address, address_len_addr) };
 
-            // Debug received address
-            unsafe {
-                let proper_address = address as *const GuestSockaddrIn;
-                debug!(
-                    "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
-                    (*proper_address).sin_family, (*proper_address).sin_port, (*proper_address).sin_addr.s_addr
-                );
-            }
+            unsafe { 
+                let address_linux = instance.memory_offset_addr(0, address_addr as usize) as *mut LinuxSockAddr;
+                (*address_linux).sa_family = (*address).sa_family as u16;
+                (*address_linux).sa_data = (*address).sa_data;
+            };
+            // // Debug received address
+            // unsafe {
+            //     let proper_address = address as *const GuestSockaddrIn;
+            //     debug!(
+            //         "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
+            //         (*proper_address).sin_family, (*proper_address).sin_port, (*proper_address).sin_addr.s_addr
+            //     );
+            //     debug!(
+            //         "=> address.sa_family: {:?}",
+            //         (*address).sa_family
+            //     );
+            // }
             // set_cloexec
             unsafe {
                 ioctl(fd, FIOCLEX);
