@@ -155,9 +155,3 @@ fn main() {
         CLIOptions::SelfUpdate => update::self_update(),
     }
 }
-
-
-
-fn get_args() {
-
-}
