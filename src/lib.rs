@@ -15,6 +15,8 @@ extern crate target_lexicon;
 extern crate byteorder;
 pub extern crate nix; // re-exported for usage in macros
 extern crate rayon;
+extern crate indicatif;
+extern crate console;
 
 #[macro_use]
 mod macros;
