@@ -7,6 +7,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 
+use apis::emscripten::copy_cstr_array_into_wasm;
 use structopt::StructOpt;
 
 use wasmer::*;
@@ -28,10 +29,16 @@ enum CLIOptions {
 struct Run {
     #[structopt(short = "d", long = "debug")]
     debug: bool,
+
     /// Input file
     #[structopt(parse(from_os_str))]
     path: PathBuf,
+
+    /// Application arguments
+    #[structopt(name = "--", raw(multiple="true"))]
+    args: Vec<String>,
 }
+
 
 /// Read the contents of a file
 fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
@@ -42,18 +49,22 @@ fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
 }
 
 /// Execute a WASM/WAT file
-fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
-    let mut wasm_binary: Vec<u8> = read_file_contents(&wasm_path).map_err(|err| {
+fn execute_wasm(options: &Run) -> Result<(), String> {
+    let wasm_path = &options.path;
+
+    let mut wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
         format!(
             "Can't read the file {}: {}",
             wasm_path.as_os_str().to_string_lossy(),
             err
         )
     })?;
+
     if !webassembly::utils::is_wasm_binary(&wasm_binary) {
         wasm_binary = wabt::wat2wasm(wasm_binary)
             .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
     }
+
     // TODO: We should instantiate after compilation, so we provide the
     // emscripten environment conditionally based on the module
     let import_object = apis::generate_emscripten_env();
@@ -62,6 +73,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     if apis::emscripten::is_emscripten_module(&module) {
+
         // Emscripten __ATINIT__
         if let Some(&webassembly::Export::Function(environ_constructor_index)) = module.info.exports.get("___emscripten_environ_constructor") {
             debug!("emscripten::___emscripten_environ_constructor");
@@ -69,14 +81,47 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
                 get_instance_function!(instance, environ_constructor_index);
             call_protected!(___emscripten_environ_constructor(&instance)).map_err(|err| format!("{}", err))?;
         };
+
         // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
         let func_index = match module.info.exports.get("_main") {
             Some(&webassembly::Export::Function(index)) => index,
             _ => panic!("_main emscripten function not found"),
         };
+
         let main: extern "C" fn(u32, u32, &webassembly::Instance) =
             get_instance_function!(instance, func_index);
-        return call_protected!(main(0, 0, &instance)).map_err(|err| format!("{}", err));
+
+        // Application Arguments
+        let mut arg_values: Vec<String> = Vec::new();
+        let mut arg_addrs: Vec<*const u8> = Vec::new();
+        let arg_length = options.args.len() + 1;
+
+        arg_values.reserve_exact(arg_length);
+        arg_addrs.reserve_exact(arg_length);
+
+        // Push name of wasm file
+        arg_values.push(format!("{}\0", options.path.to_str().unwrap()));
+        arg_addrs.push(arg_values[0].as_ptr());
+
+        // Push additional arguments
+        for (i, arg) in options.args.iter().enumerate() {
+            arg_values.push(format!("{}\0", arg));
+            arg_addrs.push(arg_values[i + 1].as_ptr());
+        }
+
+        // Get argument count and pointer to addresses
+        let argv = arg_addrs.as_ptr() as *mut *mut i8;
+        let argc = arg_length as u32;
+
+        // Copy the the arguments into the wasm memory and get offset
+        let argv_offset =  unsafe {
+            copy_cstr_array_into_wasm(argc, argv, &instance)
+        };
+
+        debug!("argc = {:?}", argc);
+        debug!("argv = {:?}", arg_addrs);
+
+        return call_protected!(main(argc, argv_offset, &instance)).map_err(|err| format!("{}", err));
         // TODO: We should implement emscripten __ATEXIT__
     } else {
         let func_index =
@@ -93,7 +138,7 @@ fn execute_wasm(wasm_path: PathBuf) -> Result<(), String> {
 }
 
 fn run(options: Run) {
-    match execute_wasm(options.path.clone()) {
+    match execute_wasm(&options) {
         Ok(()) => {}
         Err(message) => {
             // let name = options.path.as_os_str().to_string_lossy();
@@ -109,4 +154,10 @@ fn main() {
         CLIOptions::Run(options) => run(options),
         CLIOptions::SelfUpdate => update::self_update(),
     }
+}
+
+
+
+fn get_args() {
+
 }
