@@ -140,6 +140,7 @@ pub struct InstanceOptions {
     pub mock_missing_globals: bool,
     pub mock_missing_tables: bool,
     pub use_emscripten: bool,
+    pub show_progressbar: bool,
     pub isa: Box<TargetIsa>,
 }
 
@@ -243,24 +244,32 @@ impl Instance {
             let values: Vec<&Function> = Vec::from_iter(module.info.function_bodies.values());
             // let isa: &TargetIsa = &*options.isa;
 
-            let progress_bar = ProgressBar::new(module.info.functions.len() as u64);
-            progress_bar.set_style(ProgressStyle::default_bar()
-                .template(&format!("{{spinner:.green}} {} [{{bar:40}}] {} {{msg}}", style("Compiling").bold(), style("{percent}%").bold().dim()))
-                .progress_chars("=> "));
+            let progress_bar_option = if options.show_progressbar {
+                let progress_bar = ProgressBar::new(module.info.functions.len() as u64);
+                progress_bar.set_style(ProgressStyle::default_bar()
+                    .template(&format!("{{spinner:.green}} {} [{{bar:40}}] {} {{msg}}", style("Compiling").bold(), style("{percent}%").bold().dim()))
+                    .progress_chars("=> "));
+                Some(progress_bar)
+            } else {
+                None
+            };
 
             let compiled_funcs: Vec<CompiledFunction> = values
                 .par_iter()
                 .map(|function_body| -> CompiledFunction {
                     // let r = *Arc::from_raw(isa_ptr);
                     let func = compile_function(&*options.isa, function_body).unwrap();
-                    progress_bar.inc(1);
+                    if let Some(ref progress_bar) = progress_bar_option {
+                        progress_bar.inc(1);
+                    };
                     func
                     // unimplemented!()
                 }).collect();
             
-            progress_bar.set_style(ProgressStyle::default_bar()
-                .template(&format!("{} {{msg}}", style("[{elapsed_precise}]").bold().dim())));
-            // progress_bar.finish_with_message(&format!("{}", style("compiled, running now").bold()));
+            if let Some(ref progress_bar) = progress_bar_option {
+                progress_bar.set_style(ProgressStyle::default_bar()
+                    .template(&format!("{} {{msg}}", style("[{elapsed_precise}]").bold().dim())));
+            };
 
             for compiled_func in compiled_funcs.into_iter() {
                 let CompiledFunction {
