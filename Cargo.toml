@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Syrus Akbary <me@syrusakbary.com>"]
 # edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -46,6 +46,8 @@ libc = { git = "https://github.com/rust-lang/libc" }
 nix = "0.12.0"
 rayon = "1.0.3"
 byteorder = "1"
+indicatif = "0.10"
+console = "0.7.1"
 
 [build-dependencies]
 wabt = "0.7.1"
