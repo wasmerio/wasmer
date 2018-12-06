@@ -247,8 +247,8 @@ impl Instance {
             let progress_bar_option = if options.show_progressbar {
                 let progress_bar = ProgressBar::new(module.info.functions.len() as u64);
                 progress_bar.set_style(ProgressStyle::default_bar()
-                    .template(&format!("{{spinner:.green}} {} [{{bar:40}}] {} {{msg}}", style("Compiling").bold(), style("{percent}%").bold().dim()))
-                    .progress_chars("=> "));
+                    .template(&format!("{{spinner:.green}} {} [{{bar:40.blue/green}}] {} {{msg:.blue}}", style("[{elapsed_precise}]").bold().dim(), style("{percent}%").bold().dim()))
+                    .progress_chars("=>-"));
                 Some(progress_bar)
             } else {
                 None
@@ -268,7 +268,8 @@ impl Instance {
             
             if let Some(ref progress_bar) = progress_bar_option {
                 progress_bar.set_style(ProgressStyle::default_bar()
-                    .template(&format!("{} {{msg}}", style("[{elapsed_precise}]").bold().dim())));
+                    .template(&format!("{} {{msg:.blue}}", style("[{elapsed_precise}]").bold().dim())));
+                progress_bar.finish_with_message(&format!("{}", style("compiled, running now").bold()));
             };
 
             for compiled_func in compiled_funcs.into_iter() {
