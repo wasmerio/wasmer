@@ -7,7 +7,13 @@
 
 ## Introduction
 
-Wasmer is a Standalone JIT WebAssembly runtime, aiming to be fully compatible with Emscripten, Rust and Go.
+[Wasmer](https://wasmer.io/) is a Standalone JIT WebAssembly runtime, aiming to be fully compatible with Emscripten, Rust and Go.
+
+Install Wasmer with:
+
+```sh
+curl https://get.wasmer.io -sSfL | sh
+```
 
 _If you would like to know how Wasmer works under the hood, please visit our [ARCHITECTURE](https://github.com/wasmerio/wasmer/blob/master/ARCHITECTURE.md) document._
 
@@ -16,7 +22,7 @@ _If you would like to know how Wasmer works under the hood, please visit our [AR
 `wasmer` can execute both the standard binary format (`.wasm`) and the text
 format defined by the WebAssembly reference interpreter (`.wat`).
 
-Once installed, you will be able to run:
+Once installed, you will be able to run any wasm module (_including Nginx!_):
 
 ```sh
 wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
