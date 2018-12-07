@@ -19,7 +19,7 @@ format defined by the WebAssembly reference interpreter (`.wat`).
 Once installed, you will be able to run:
 
 ```sh
-wasmer run nginx.wasm
+wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 ```
 
 ## Building & Running
