@@ -74,7 +74,7 @@ pub struct EmscriptenData {
     pub free: extern "C" fn(i32, &mut Instance),
     pub memalign: extern "C" fn (u32, u32, &mut Instance) -> u32,
     pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
-    pub stack_alloc: extern "C" fn (u32, &mut Instance) -> u32,
+    pub stack_alloc: extern "C" fn (u32, &Instance) -> u32,
 }
 
 impl fmt::Debug for EmscriptenData {

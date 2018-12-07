@@ -20,7 +20,7 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
-    let space_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(cstr_len as _, instance);
+    let space_offset = (instance.emscripten_data.as_ref().unwrap().malloc)((cstr_len as i32) + 1, instance);
     let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
@@ -33,18 +33,8 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     space_offset
 }
 
-pub unsafe fn copy_cstr_into_wasm_stack(instance: &mut Instance, cstr: *const c_char) -> u32 {
-    let s = CStr::from_ptr(cstr).to_str().unwrap();
-    let cstr_len = s.len();
-    let space_offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)((cstr_len as u32) + 1, instance);
-    let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
-    let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
-
-    for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
-        *loc = byte;
-    }
-
-    *raw_memory.add(cstr_len) = 0;
+pub unsafe fn copy_cstr_array_into_wasm(array_count: u32, array: *mut *mut c_char, instance: &mut Instance) -> u32 {
+    let array_offset = (instance.emscripten_data.as_ref().unwrap().malloc)((array_count as usize * size_of::<u32>()) as _, instance);
 
     space_offset
 }
@@ -67,6 +57,25 @@ pub unsafe fn copy_cstr_array_into_wasm_stack(array_count: u32, array: *mut *mut
     // debug!("###### argv[0] = {:?}", CStr::from_ptr(arg_addr));
 
     array_offset
+}
+
+pub unsafe fn allocate_on_stack<'a, T: Copy>(count: u32, instance: &'a Instance) -> (u32, &'a mut [T]) {
+    let offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)(count * (size_of::<T>() as u32), instance);
+    let addr = instance.memory_offset_addr(0, offset as _) as *mut T;
+    let slice = slice::from_raw_parts_mut(addr, count as usize);
+
+    (offset, slice)
+}
+
+pub unsafe fn allocate_cstr_on_stack<'a>(s: &str, instance: &'a Instance) -> (u32, &'a [u8]) {
+    let (offset, slice) = allocate_on_stack((s.len() + 1) as u32, instance);
+
+    use std::iter;
+    for (byte, loc) in s.bytes().chain(iter::once(0)).zip(slice.iter_mut()) {
+        *loc = byte;
+    }
+
+    (offset, slice)
 }
 
 pub unsafe fn copy_terminated_array_of_cstrs(

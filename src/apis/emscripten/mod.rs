@@ -19,7 +19,7 @@ mod utils;
 mod varargs;
 
 pub use self::storage::{align_memory, static_alloc};
-pub use self::utils::{is_emscripten_module, copy_cstr_array_into_wasm_stack};
+pub use self::utils::{is_emscripten_module, copy_cstr_array_into_wasm, allocate_on_stack, allocate_cstr_on_stack};
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5242880;

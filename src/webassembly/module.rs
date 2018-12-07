@@ -9,7 +9,7 @@ use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Imm64, Offset32};
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
-    self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature,
+    self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature, TrapCode,
 };
 use cranelift_codegen::isa::{CallConv, TargetFrontendConfig};
 use cranelift_entity::{EntityRef, PrimaryMap};
@@ -531,6 +531,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         mflags.set_notrap();
         mflags.set_aligned();
         let func_ptr = pos.ins().load(ptr, mflags, entry_addr, 0);
+
+        pos.ins().trapz(func_ptr, TrapCode::IndirectCallToNull);
 
         // Build a value list for the indirect call instruction containing the callee, call_args,
         // and the vmctx parameter.
