@@ -97,7 +97,7 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
         let sec = if date.tm_sec < 10 {":0"} else {":"};
         let year = 1900 + date.tm_year;
 
-        let mut time_str = format!(
+        let time_str = format!(
             // NOTE: The 14 accompanying chars are needed for some reason
             "{} {}{}{}{}{}{}{}{}{} {}\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
             days[date.tm_wday as usize],
@@ -117,8 +117,9 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
         let time_str_ptr = time_str[0..26].as_ptr() as _;
         let time_str_offset = copy_cstr_into_wasm(instance, time_str_ptr);
 
-        let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
-        use std::ffi::CStr;
+        // let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
+        // use std::ffi::CStr;
+        // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
 
         // std::mem::forget(time_str);
         time_str_offset

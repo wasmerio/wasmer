@@ -46,11 +46,6 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
     static_bump + DYNAMICTOP_PTR_DIFF
 }
 
-
-pub fn statictop(static_bump: u32) -> u32 {
-    GLOBAL_BASE + 5520
-}
-
 pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
     let dynamictop_ptr_offset = dynamictop_ptr + mem::size_of::<u32>();
