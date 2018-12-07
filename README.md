@@ -15,9 +15,7 @@ Install Wasmer with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
-_If you would like to know how Wasmer works under the hood, please visit our [ARCHITECTURE](https://github.com/wasmerio/wasmer/blob/master/ARCHITECTURE.md) document._
-
-## Usage
+### Usage
 
 `wasmer` can execute both the standard binary format (`.wasm`) and the text
 format defined by the WebAssembly reference interpreter (`.wat`).
@@ -69,6 +67,11 @@ Below are some of the goals (written with order) of this project:
 - [x] It should be fast _(partially achieved)_
 - [ ] Support Emscripten calls _(on the works)_
 - [ ] Support Rust ABI calls
+
+
+## Architecture
+
+If you would like to know how Wasmer works under the hood, please visit our [ARCHITECTURE](https://github.com/wasmerio/wasmer/blob/master/ARCHITECTURE.md) document.
 
 ## License
 
