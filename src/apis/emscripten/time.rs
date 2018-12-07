@@ -68,29 +68,18 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
 
 #[repr(C)]
 struct guest_tm {
-    pub tm_sec: c_int, // 4 - 0
-    pub tm_min: c_int, // 4 - 4
-    pub tm_hour: c_int, // 4 - 8
-    pub tm_mday: c_int, // 4 - 12
-    pub tm_mon: c_int, // 4 - 16
-    pub tm_year: c_int, // 4 - 20
-    pub tm_wday: c_int, // 4 - 24
-    pub tm_yday: c_int, // 4 - 28
-    pub tm_isdst: c_int, // 4 - 32
-    pub tm_gmtoff: c_int, // 4 - 36
-    pub tm_zone: c_int, // 4 - 40
+    pub tm_sec: c_int, // 0
+    pub tm_min: c_int, // 4
+    pub tm_hour: c_int, // 8
+    pub tm_mday: c_int, // 12
+    pub tm_mon: c_int, // 16
+    pub tm_year: c_int, // 20
+    pub tm_wday: c_int, // 24
+    pub tm_yday: c_int, // 28
+    pub tm_isdst: c_int, // 32
+    pub tm_gmtoff: c_int, // 36
+    pub tm_zone: c_int, // 40
 }
-
-// #[repr(C)]
-// struct asctime_tm {
-//     pub tm_sec: c_int, // 4 - 0
-//     pub tm_min: c_int, // 4 - 4
-//     pub tm_hour: c_int, // 4 - 8
-//     pub tm_mday: c_int, // 4 - 12
-//     pub tm_mon: c_int, // 4 - 16
-//     pub tm_year: c_int, // 4 - 20
-//     pub tm_wday: c_int, // 4 - 24
-// }
 
 /// emscripten: _asctime
 pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
@@ -109,8 +98,8 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
         let year = 1900 + date.tm_year;
 
         let mut time_str = format!(
-            // "{} {}{}{}{}{}{}{}{}{} {}\0             \0\0",
-            "{} {}{}{}{}{}{}{}{}{} {}\0",
+            // NOTE: The 14 accompanying chars are needed for some reason
+            "{} {}{}{}{}{}{}{}{}{} {}\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
             days[date.tm_wday as usize],
             months[date.tm_mon as usize],
             day, date.tm_mday,
@@ -120,18 +109,16 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
             year
         );
 
-        let time_str_ptr = time_str.as_ptr() as _;
 
-        // TODO: asctime_r is specced to behave in an undefined manner if the algorithm would attempt
+        // NOTE: asctime_r is specced to behave in an undefined manner if the algorithm would attempt
         //      to write out more than 26 bytes (including the null terminator).
         //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
         //      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.
+        let time_str_ptr = time_str[0..26].as_ptr() as _;
         let time_str_offset = copy_cstr_into_wasm(instance, time_str_ptr);
 
         let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
         use std::ffi::CStr;
-        debug!("########## cstr = {:?}", CStr::from_ptr(c_str));
-        println!("Kaboom!");
 
         // std::mem::forget(time_str);
         time_str_offset
