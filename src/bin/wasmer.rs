@@ -7,7 +7,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 
-use apis::emscripten::copy_cstr_array_into_wasm;
+use apis::emscripten::copy_cstr_array_into_wasm_stack;
 use structopt::StructOpt;
 
 use wasmer::*;
@@ -88,12 +88,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             _ => panic!("_main emscripten function not found"),
         };
 
-        let main: extern "C" fn(u32, u32, u32, &webassembly::Instance) =
+        let main: extern "C" fn(u32, u32, &webassembly::Instance) =
             get_instance_function!(instance, func_index);
 
         let (argc, argv) = get_module_arguments(options, &mut instance);
 
-        return call_protected!(main(argc, argv, 0, &instance)).map_err(|err| format!("{}", err));
+        return call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err));
         // TODO: We should implement emscripten __ATEXIT__
     } else {
         let func_index =
@@ -153,7 +153,7 @@ fn get_module_arguments(options: &Run, instance: &mut webassembly::Instance) -> 
 
     // Copy the the arguments into the wasm memory and get offset
     let argv_offset =  unsafe {
-        copy_cstr_array_into_wasm(argc, argv, instance)
+        copy_cstr_array_into_wasm_stack(argc, argv, instance)
     };
 
     debug!("argc = {:?}", argc);
