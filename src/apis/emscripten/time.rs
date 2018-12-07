@@ -91,21 +91,17 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
         let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         let months = vec!["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-        let day = if date.tm_mday < 10 {"  "} else {" "};
-        let hour = if date.tm_hour < 10 {" 0"} else {" "};
-        let min = if date.tm_min < 10 {":0"} else {":"};
-        let sec = if date.tm_sec < 10 {":0"} else {":"};
         let year = 1900 + date.tm_year;
 
         let time_str = format!(
             // NOTE: The 14 accompanying chars are needed for some reason
-            "{} {}{}{}{}{}{}{}{}{} {}\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+            "{} {} {:2} {:02}:{:02}:{:02} {:4}\n\0\0\0\0\0\0\0\0\0\0\0\0\0",
             days[date.tm_wday as usize],
             months[date.tm_mon as usize],
-            day, date.tm_mday,
-            hour, date.tm_hour,
-            min, date.tm_min,
-            sec, date.tm_sec,
+            date.tm_mday,
+            date.tm_hour,
+            date.tm_min,
+            date.tm_sec,
             year
         );
 
