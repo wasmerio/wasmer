@@ -33,32 +33,6 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     space_offset
 }
 
-pub unsafe fn copy_cstr_array_into_wasm(array_count: u32, array: *mut *mut c_char, instance: &mut Instance) -> u32 {
-    let array_offset = (instance.emscripten_data.as_ref().unwrap().malloc)((array_count as usize * size_of::<u32>()) as _, instance);
-
-    space_offset
-}
-
-pub unsafe fn copy_cstr_array_into_wasm_stack(array_count: u32, array: *mut *mut c_char, instance: &mut Instance) -> u32 {
-    let array_offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)(((array_count as usize + 1) * size_of::<u32>()) as _, instance);
-    let array_addr = instance.memory_offset_addr(0, array_offset as _) as *mut u32;
-    let array_slice = slice::from_raw_parts_mut(array_addr, array_count as usize);
-
-    for (i, ptr) in array_slice.iter_mut().enumerate() {
-        let offset = copy_cstr_into_wasm(instance, *array.add(i));
-        *ptr = offset;
-    }
-
-    // println!("###### x = {:?}", *array_addr.add(array_count as usize));
-
-    *array_addr.add(array_count as usize) = 0;
-
-    // let arg_addr = instance.memory_offset_addr(0, *array_addr.offset(0) as _) as *const i8;
-    // debug!("###### argv[0] = {:?}", CStr::from_ptr(arg_addr));
-
-    array_offset
-}
-
 pub unsafe fn allocate_on_stack<'a, T: Copy>(count: u32, instance: &'a Instance) -> (u32, &'a mut [T]) {
     let offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)(count * (size_of::<T>() as u32), instance);
     let addr = instance.memory_offset_addr(0, offset as _) as *mut T;
