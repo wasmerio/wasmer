@@ -97,11 +97,6 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
     }
 }
 
-pub extern "C" fn _localtime_r() -> u32 {
-    debug!("emscripten::_localtime_r");
-    0
-}
-
 pub extern "C" fn _getpagesize() -> u32 {
     debug!("emscripten::_getpagesize");
     16384

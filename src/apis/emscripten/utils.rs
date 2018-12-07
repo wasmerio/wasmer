@@ -28,6 +28,8 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
         *loc = byte;
     }
 
+    // TODO: Appending null byte won't work, because there is CStr::from_ptr(cstr)
+    //      at the top that crashes when there is no null byte
     *raw_memory.add(cstr_len) = 0;
 
     space_offset

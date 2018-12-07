@@ -92,7 +92,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             get_instance_function!(instance, func_index);
 
         let (argc, argv) = store_module_arguments(options, &mut instance);
-
+    
+        // TODO: This assumes argc and argv are always passed.
         return call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err));
         // TODO: We should implement emscripten __ATEXIT__
     } else {
@@ -144,37 +145,3 @@ fn store_module_arguments(options: &Run, instance: &mut webassembly::Instance) -
 
     (argc as u32, argv_offset)
 }
-
-// fn get_module_arguments(options: &Run, instance: &mut webassembly::Instance) -> (u32, u32) {
-//     // Application Arguments
-//     let mut arg_values: Vec<String> = Vec::new();
-//     let mut arg_addrs: Vec<*const u8> = Vec::new();
-//     let arg_length = options.args.len() + 1;
-
-//     arg_values.reserve_exact(arg_length);
-//     arg_addrs.reserve_exact(arg_length);
-
-//     // Push name of wasm file
-//     arg_values.push(format!("{}\0", options.path.to_str().unwrap()));
-//     arg_addrs.push(arg_values[0].as_ptr());
-
-//     // Push additional arguments
-//     for (i, arg) in options.args.iter().enumerate() {
-//         arg_values.push(format!("{}\0", arg));
-//         arg_addrs.push(arg_values[i + 1].as_ptr());
-//     }
-
-//     // Get argument count and pointer to addresses
-//     let argv = arg_addrs.as_ptr() as *mut *mut i8;
-//     let argc = arg_length as u32;
-
-//     // Copy the the arguments into the wasm memory and get offset
-//     let argv_offset =  unsafe {
-//         copy_cstr_array_into_wasm(argc, argv, instance)
-//     };
-
-//     debug!("argc = {:?}", argc);
-//     debug!("argv = {:?}", arg_addrs);
-
-//     (argc, argv_offset)
-// }
