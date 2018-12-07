@@ -19,14 +19,14 @@ mod utils;
 mod varargs;
 
 pub use self::storage::{align_memory, static_alloc};
-pub use self::utils::is_emscripten_module;
+pub use self::utils::{is_emscripten_module, allocate_on_stack, allocate_cstr_on_stack};
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5242880;
-// TODO: Magic number stolen from the generated JS - how is this calculated?
+// TODO: Magic number - how is this calculated?
 const DYNAMICTOP_PTR_DIFF: u32 = 1088;
-
-const STATIC_BUMP: u32 = 215536; // TODO: make this variable
+// TODO: make this variable
+const STATIC_BUMP: u32 = 215536;
 
 fn stacktop(static_bump: u32) -> u32 {
     align_memory(dynamictop_ptr(static_bump) + 4)
@@ -54,10 +54,18 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
     let dynamictop_ptr_offset = dynamictop_ptr + mem::size_of::<u32>();
 
+    // println!("value = {:?}");
+
     // We avoid failures of setting the u32 in our memory if it's out of bounds
     if dynamictop_ptr_offset > memory.len() {
-        return;
+        return; // TODO: We should panic instead?
     }
+
+    // debug!("###### dynamic_base = {:?}", dynamic_base(STATIC_BUMP));
+    // debug!("###### dynamictop_ptr = {:?}", dynamictop_ptr);
+    // debug!("###### dynamictop_ptr_offset = {:?}", dynamictop_ptr_offset);
+
+
     let mem = &mut memory[dynamictop_ptr..dynamictop_ptr_offset];
     LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
 }
@@ -74,23 +82,7 @@ macro_rules! mock_external {
 
 pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
-    // Global
-    import_object.set(
-        "env",
-        "global1",
-        ImportValue::Global(24), // TODO
-    );
-    import_object.set(
-        "env",
-        "global2",
-        ImportValue::Global(50), // TODO
-    );
-    import_object.set(
-        "env",
-        "global3",
-        ImportValue::Global(67), // TODO
-    );
-
+    // Globals
     import_object.set(
         "env",
         "STACKTOP",
@@ -107,7 +99,6 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         ImportValue::Global(dynamictop_ptr(STATIC_BUMP) as _),
     );
     import_object.set("env", "tableBase", ImportValue::Global(0));
-
     // Print functions
     import_object.set("env", "printf", ImportValue::Func(io::printf as _));
     import_object.set("env", "putchar", ImportValue::Func(io::putchar as _));

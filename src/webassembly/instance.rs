@@ -70,10 +70,11 @@ fn get_function_addr(
 }
 
 pub struct EmscriptenData {
-    pub malloc: extern "C" fn(i32, &mut Instance) -> u32,
+    pub malloc: extern "C" fn(i32, &Instance) -> u32,
     pub free: extern "C" fn(i32, &mut Instance),
     pub memalign: extern "C" fn (u32, u32, &mut Instance) -> u32,
     pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
+    pub stack_alloc: extern "C" fn (u32, &Instance) -> u32,
 }
 
 impl fmt::Debug for EmscriptenData {
@@ -265,7 +266,7 @@ impl Instance {
                     func
                     // unimplemented!()
                 }).collect();
-            
+
             if let Some(ref progress_bar) = progress_bar_option {
                 progress_bar.set_style(ProgressStyle::default_bar()
                     .template(&format!("{} {{msg}}", style("[{elapsed_precise}]").bold().dim())));
@@ -550,21 +551,44 @@ impl Instance {
                 let free_export = module.info.exports.get("_free");
                 let memalign_export = module.info.exports.get("_memalign");
                 let memset_export = module.info.exports.get("_memset");
+                let stack_alloc_export = module.info.exports.get("stackAlloc");
 
-                if let (Some(Export::Function(malloc_index)), Some(Export::Function(free_index)), Some(Export::Function(memalign_index)), Some(Export::Function(memset_index))) = (malloc_export, free_export, memalign_export, memset_export) {
-                    let malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
-                    let free_addr = get_function_addr(&free_index, &import_functions, &functions);
-                    let memalign_addr = get_function_addr(&memalign_index, &import_functions, &functions);
-                    let memset_addr = get_function_addr(&memset_index, &import_functions, &functions);
-                    
+                let mut malloc_addr = 0 as *const u8;
+                let mut free_addr = 0 as *const u8;
+                let mut memalign_addr = 0 as *const u8;
+                let mut memset_addr = 0 as *const u8;
+                let mut stack_alloc_addr = 0 as _;
+
+                if malloc_export.is_none() && free_export.is_none() && memalign_export.is_none() && memset_export.is_none() {
+                    None
+                } else {
+                    if let Some(Export::Function(malloc_index)) = malloc_export {
+                        malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
+                    }
+
+                    if let Some(Export::Function(free_index)) = free_export {
+                        free_addr = get_function_addr(&free_index, &import_functions, &functions);
+                    }
+
+                    if let Some(Export::Function(memalign_index)) = memalign_export {
+                        memalign_addr = get_function_addr(&memalign_index, &import_functions, &functions);
+                    }
+
+                    if let Some(Export::Function(memset_index)) = memset_export {
+                        memset_addr = get_function_addr(&memset_index, &import_functions, &functions);
+                    }
+
+                    if let Some(Export::Function(stack_alloc_index)) = stack_alloc_export {
+                        stack_alloc_addr = get_function_addr(&stack_alloc_index, &import_functions, &functions);
+                    }
+
                     Some(EmscriptenData {
                         malloc: mem::transmute(malloc_addr),
                         free: mem::transmute(free_addr),
                         memalign: mem::transmute(memalign_addr),
                         memset: mem::transmute(memset_addr),
+                        stack_alloc: mem::transmute(stack_alloc_addr),
                     })
-                } else {
-                    None
                 }
             }
         } else {

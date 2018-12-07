@@ -524,7 +524,7 @@ pub extern "C" fn ___syscall192(
         "=> addr: {}, len: {}, prot: {}, flags: {}, fd: {}, off: {}",
         addr, len, prot, flags, fd, off
     );
-    
+
     let (memalign, memset) = {
         let emscripten_data = &instance.emscripten_data.as_ref().unwrap();
         (emscripten_data.memalign, emscripten_data.memset)
@@ -829,7 +829,7 @@ pub extern "C" fn ___syscall63(
     unsafe { dup2(src, dst) }
 }
 
-// newselect
+// select
 pub extern "C" fn ___syscall142(
     _which: c_int,
     mut varargs: VarArgs,
@@ -848,7 +848,7 @@ pub extern "C" fn ___syscall142(
 
     let readfds_ptr = instance.memory_offset_addr(0, readfds as _) as _;
     let writefds_ptr = instance.memory_offset_addr(0, writefds as _) as _;
-    
+
     unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
 }
 
