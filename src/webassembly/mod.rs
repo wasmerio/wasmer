@@ -72,7 +72,7 @@ pub fn instantiate(
             mock_missing_tables: true,
             use_emscripten: is_emscripten_module(&module),
             show_progressbar: true,
-            isa: isa,
+            isa,
         },
     )?;
     debug!("webassembly - instance created");
