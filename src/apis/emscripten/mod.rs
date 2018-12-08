@@ -22,11 +22,11 @@ pub use self::storage::{align_memory, static_alloc};
 pub use self::utils::{is_emscripten_module, allocate_on_stack, allocate_cstr_on_stack};
 
 // TODO: Magic number - how is this calculated?
-const TOTAL_STACK: u32 = 5242880;
+const TOTAL_STACK: u32 = 5_242_880;
 // TODO: Magic number - how is this calculated?
 const DYNAMICTOP_PTR_DIFF: u32 = 1088;
 // TODO: make this variable
-const STATIC_BUMP: u32 = 215536;
+const STATIC_BUMP: u32 = 215_536;
 
 fn stacktop(static_bump: u32) -> u32 {
     align_memory(dynamictop_ptr(static_bump) + 4)
