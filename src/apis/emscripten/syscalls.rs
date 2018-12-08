@@ -595,7 +595,7 @@ pub extern "C" fn ___syscall145(
             ret = ret + curr;
         }
         // debug!(" => ret: {}", ret);
-        return ret
+        ret
     }
 }
 
@@ -631,7 +631,7 @@ pub extern "C" fn ___syscall146(
             ret = ret + curr;
         }
         // debug!(" => ret: {}", ret);
-        return ret
+        ret
     }
 }
 

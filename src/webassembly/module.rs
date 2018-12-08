@@ -76,7 +76,7 @@ impl<T> ImportableExportable<T> {
         Self {
             entity,
             export_names: Vec::new(),
-            import_name: import_name,
+            import_name,
         }
     }
 }

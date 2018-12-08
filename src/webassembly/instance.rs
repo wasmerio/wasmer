@@ -45,7 +45,7 @@ pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
         )
     } {
         Err(err) => {
-            return Err(format!(
+            Err(format!(
                 "failed to give executable permission to code: {}",
                 err
             ))
@@ -147,7 +147,7 @@ pub struct InstanceOptions {
 
 extern "C" fn mock_fn() -> i32 {
     debug!("CALLING MOCKED FUNC");
-    return 0;
+    0
 }
 
 #[allow(dead_code)]
