@@ -14,7 +14,7 @@ pub fn is_emscripten_module(module: &Module) -> bool {
             return true;
         }
     }
-    return false;
+    false
 }
 
 pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
