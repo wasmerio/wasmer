@@ -592,7 +592,7 @@ pub extern "C" fn ___syscall145(
             if curr < 0 {
                 return -1
             }
-            ret = ret + curr;
+            ret += curr;
         }
         // debug!(" => ret: {}", ret);
         ret
@@ -628,7 +628,7 @@ pub extern "C" fn ___syscall146(
             if curr < 0 {
                 return -1
             }
-            ret = ret + curr;
+            ret += curr;
         }
         // debug!(" => ret: {}", ret);
         ret
