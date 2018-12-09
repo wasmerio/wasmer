@@ -61,12 +61,11 @@ fn get_function_addr(
 ) -> *const u8 {
     let index = func_index.index();
     let len = import_functions.len();
-    let func_pointer = if index < len {
+    if index < len {
         import_functions[index]
     } else {
         (functions[index - len]).as_ptr()
-    };
-    func_pointer
+    }
 }
 
 pub struct EmscriptenData {
@@ -668,12 +667,10 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
         "non-default memory_index (0) not supported yet"
     );
 
-    let old_mem_size = instance
+    instance
         .memory_mut(memory_index as usize)
         .grow(size)
-        .unwrap_or(-1);
-
-    old_mem_size
+        .unwrap_or(-1)
 }
 
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
