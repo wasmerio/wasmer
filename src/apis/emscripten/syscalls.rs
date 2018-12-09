@@ -25,7 +25,7 @@ use libc::{
     getsockname,
     getsockopt,
     gid_t,
-    iovec,
+    // iovec,
     listen,
     lseek,
     mkdir,
@@ -36,7 +36,7 @@ use libc::{
     pread,
     pwrite,
     read,
-    readv,
+    // readv,
     recvfrom,
     recvmsg,
     sendmsg,
@@ -50,7 +50,7 @@ use libc::{
     uname,
     utsname,
     write,
-    writev,
+    // writev,
     select,
     FIONBIO,
     setpgid,
@@ -58,7 +58,7 @@ use libc::{
     sa_family_t,
     in_port_t,
     in_addr_t,
-    sockaddr_in,
+    // sockaddr_in,
     FIOCLEX,
     SOL_SOCKET,
     TIOCGWINSZ,
@@ -592,7 +592,7 @@ pub extern "C" fn ___syscall145(
             if curr < 0 {
                 return -1
             }
-            ret = ret + curr;
+            ret += curr;
         }
         // debug!(" => ret: {}", ret);
         ret
@@ -628,7 +628,7 @@ pub extern "C" fn ___syscall146(
             if curr < 0 {
                 return -1
             }
-            ret = ret + curr;
+            ret += curr;
         }
         // debug!(" => ret: {}", ret);
         ret

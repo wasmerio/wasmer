@@ -389,15 +389,13 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         });
 
         // Create table based on the data above
-        let table = func.create_table(ir::TableData {
+        func.create_table(ir::TableData {
             base_gv,
             min_size: Imm64::new(0),
             bound_gv,
             element_size: Imm64::new(i64::from(self.pointer_bytes())),
             index_type: I64,
-        });
-
-        table
+        })
     }
 
     // TODO: offsets should be based on the architecture the wasmer was compiled for.
@@ -432,7 +430,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         });
 
         // Create table based on the data above
-        let heap = func.create_heap(ir::HeapData {
+        func.create_heap(ir::HeapData {
             base: heap_base,
             min_size: 0.into(),
             guard_size: (LinearMemory::DEFAULT_GUARD_SIZE as i64).into(),
@@ -440,9 +438,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
                 bound: (LinearMemory::DEFAULT_HEAP_SIZE as i64).into(),
             },
             index_type: I32,
-        });
-
-        heap
+        })
     }
 
     fn make_global(
@@ -518,8 +514,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             // pos.ins().imul_imm(callee, 4)
             callee
         } else {
-            let ext = pos.ins().uextend(ptr, callee);
-            ext
+            pos.ins().uextend(ptr, callee)
+            // let ext = pos.ins().uextend(ptr, callee);
             // pos.ins().imul_imm(ext, 4)
         };
         // let entry_size = native_pointer_size() as i64 * 2;
