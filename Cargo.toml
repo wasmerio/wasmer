@@ -2,7 +2,7 @@
 name = "wasmer"
 version = "0.1.2"
 authors = ["Syrus Akbary <me@syrusakbary.com>"]
-# edition = "2018"
+edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
 publish = true
 description = "High-Performance WebAssembly JIT interpreter"
