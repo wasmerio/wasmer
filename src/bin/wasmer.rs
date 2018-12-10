@@ -7,7 +7,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 
-use apis::emscripten::{allocate_on_stack, allocate_cstr_on_stack};
+use crate::apis::emscripten::{allocate_on_stack, allocate_cstr_on_stack};
 use structopt::StructOpt;
 
 use wasmer::*;
