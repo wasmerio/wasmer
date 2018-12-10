@@ -3,11 +3,14 @@ ifeq (test, $(firstword $(MAKECMDGOALS)))
   $(eval $(runargs):;@true)
 endif
 
-.PHONY: spectests clean build install
+.PHONY: spectests emtests clean build install
 
 # This will re-generate the Rust test files based on spectests/*.wast
 spectests:
 	WASM_GENERATE_SPECTESTS=1 cargo build
+
+emtests:
+	WASM_GENERATE_EMTESTS=1 cargo build
 
 # clean:
 #     rm -rf artifacts
