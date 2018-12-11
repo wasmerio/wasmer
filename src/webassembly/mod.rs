@@ -140,3 +140,96 @@ pub fn validate_or_error(bytes: &[u8]) -> Result<(), ErrorKind> {
         }
     }
 }
+
+
+use apis::emscripten::{allocate_on_stack, allocate_cstr_on_stack};
+
+fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) -> (u32, u32) {
+    let argc = args.len() + 1;
+
+    let (argv_offset, argv_slice): (_, &mut [u32]) = unsafe { allocate_on_stack(((argc + 1) * 4) as u32, instance) };
+    assert!(argv_slice.len() >= 1);
+
+    argv_slice[0] = unsafe { allocate_cstr_on_stack(path, instance).0 };
+
+    for (slot, arg) in argv_slice[1..argc].iter_mut().zip(args.iter()) {
+        *slot = unsafe { allocate_cstr_on_stack(&arg, instance).0 };
+    }
+
+    argv_slice[argc] = 0;
+
+    (argc as u32, argv_offset)
+}
+
+// fn get_module_arguments(options: &Run, instance: &mut webassembly::Instance) -> (u32, u32) {
+//     // Application Arguments
+//     let mut arg_values: Vec<String> = Vec::new();
+//     let mut arg_addrs: Vec<*const u8> = Vec::new();
+//     let arg_length = options.args.len() + 1;
+
+//     arg_values.reserve_exact(arg_length);
+//     arg_addrs.reserve_exact(arg_length);
+
+//     // Push name of wasm file
+//     arg_values.push(format!("{}\0", options.path.to_str().unwrap()));
+//     arg_addrs.push(arg_values[0].as_ptr());
+
+//     // Push additional arguments
+//     for (i, arg) in options.args.iter().enumerate() {
+//         arg_values.push(format!("{}\0", arg));
+//         arg_addrs.push(arg_values[i + 1].as_ptr());
+//     }
+
+//     // Get argument count and pointer to addresses
+//     let argv = arg_addrs.as_ptr() as *mut *mut i8;
+//     let argc = arg_length as u32;
+
+//     // Copy the the arguments into the wasm memory and get offset
+//     let argv_offset =  unsafe {
+//         copy_cstr_array_into_wasm(argc, argv, instance)
+//     };
+
+//     debug!("argc = {:?}", argc);
+//     debug!("argv = {:?}", arg_addrs);
+
+//     (argc, argv_offset)
+// }
+
+
+pub fn start_instance(module: &Module, instance: &mut Instance, path: &str, args: Vec<&str>) -> Result<(), String>  {
+    if is_emscripten_module(&module) {
+
+        // Emscripten __ATINIT__
+        if let Some(&Export::Function(environ_constructor_index)) = module.info.exports.get("___emscripten_environ_constructor") {
+            debug!("emscripten::___emscripten_environ_constructor");
+            let ___emscripten_environ_constructor: extern "C" fn(&Instance) =
+                get_instance_function!(instance, environ_constructor_index);
+            call_protected!(___emscripten_environ_constructor(&instance)).map_err(|err| format!("{}", err))?;
+        };
+
+        // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
+        let func_index = match module.info.exports.get("_main") {
+            Some(&Export::Function(index)) => index,
+            _ => panic!("_main emscripten function not found"),
+        };
+
+        let main: extern "C" fn(u32, u32, &Instance) =
+            get_instance_function!(instance, func_index);
+
+        let (argc, argv) = store_module_arguments(path, args, instance);
+
+        return call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err));
+        // TODO: We should implement emscripten __ATEXIT__
+    } else {
+        let func_index =
+            instance
+                .start_func
+                .unwrap_or_else(|| match module.info.exports.get("main") {
+                    Some(&Export::Function(index)) => index,
+                    _ => panic!("Main function not found"),
+                });
+        let main: extern "C" fn(&Instance) =
+            get_instance_function!(instance, func_index);
+        return call_protected!(main(&instance)).map_err(|err| format!("{}", err));
+    }
+}
