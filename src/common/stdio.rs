@@ -50,16 +50,13 @@ impl StdioCapturer {
         assert!(unsafe { libc::dup2(self.stdout_backup, libc::STDOUT_FILENO) } > -1);
         assert!(unsafe { libc::dup2(self.stderr_backup, libc::STDERR_FILENO) } > -1);
 
-        assert_eq!(unsafe { libc::close(self.stdout_backup) }, 0);
-        assert_eq!(unsafe { libc::close(self.stderr_backup) }, 0);
-
         let mut stdout_read = String::new();
         let mut stdout_file: File = unsafe { FromRawFd::from_raw_fd(self.stdout_reader) };
-        let x = stdout_file.read_to_string(&mut stdout_read).expect("failed to read from stdout file");
+        stdout_file.read_to_string(&mut stdout_read).expect("failed to read from stdout file");
 
         let mut stderr_read = String::new();
         let mut stderr_file: File = unsafe { FromRawFd::from_raw_fd(self.stderr_reader) };
-        let y = stderr_file.read_to_string(&mut stderr_read).expect("failed to read from stdout file");
+        stderr_file.read_to_string(&mut stderr_read).expect("failed to read from stdout file");
 
         (stdout_read, stderr_read)
     }
