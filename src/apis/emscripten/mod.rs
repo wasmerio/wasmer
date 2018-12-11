@@ -386,6 +386,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+        "_asctime_r",
+        ImportValue::Func(time::_asctime_r as _),
+    );
+    import_object.set(
+        "env",
         "_localtime",
         ImportValue::Func(time::_localtime as _),
     );

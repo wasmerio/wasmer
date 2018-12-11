@@ -90,7 +90,6 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
 
         let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         let months = vec!["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
         let year = 1900 + date.tm_year;
 
         let time_str = format!(
@@ -105,11 +104,6 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
             year
         );
 
-
-        // NOTE: asctime_r is specced to behave in an undefined manner if the algorithm would attempt
-        //      to write out more than 26 bytes (including the null terminator).
-        //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
-        //      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.
         let time_str_ptr = time_str[0..26].as_ptr() as _;
         let time_str_offset = copy_cstr_into_wasm(instance, time_str_ptr);
 
@@ -117,10 +111,65 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
 
-        // std::mem::forget(time_str);
         time_str_offset
     }
 }
+
+
+// TODO
+// fn asctime_fmt() -> *const c_char {
+
+// }
+
+// MOVE to utils.rs
+extern "C" fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &mut Instance) -> u32 {
+    let buf_addr = instance.memory_offset_addr(0, buf as _) as *mut c_char;
+
+    unsafe {
+        for i in 0..max {
+            *buf_addr.add(i as _) = *string.add(i as _);
+        }
+    }
+
+    buf
+}
+
+/// emscripten: _asctime_r
+pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u32 {
+    debug!("emscripten::_asctime {}", time);
+
+    unsafe {
+        let date = &*(instance.memory_offset_addr(0, time as _) as *mut guest_tm);
+
+        let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        let months = vec!["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        let year = 1900 + date.tm_year;
+
+        let time_str = format!(
+            // NOTE: The 14 accompanying chars are needed for some reason
+            "{} {} {:2} {:02}:{:02}:{:02} {:4}\n\0\0\0\0\0\0\0\0\0\0\0\0\0",
+            days[date.tm_wday as usize],
+            months[date.tm_mon as usize],
+            date.tm_mday,
+            date.tm_hour,
+            date.tm_min,
+            date.tm_sec,
+            year
+        );
+
+        // NOTE: asctime_r is specced to behave in an undefined manner if the algorithm would attempt
+        //      to write out more than 26 bytes (including the null terminator).
+        //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
+        //      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.
+        let time_str_ptr = time_str[0..26].as_ptr() as _;
+        write_to_buf(time_str_ptr, buf, 26, instance)
+
+        // let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
+        // use std::ffi::CStr;
+        // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
+    }
+}
+
 
 /// emscripten: _tvset
 pub extern "C" fn _tvset() {
@@ -157,7 +206,7 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
         (*tm_struct_ptr).tm_gmtoff = tm_struct.tm_gmtoff as i32;
         (*tm_struct_ptr).tm_zone = copy_cstr_into_wasm(instance, tm_struct.tm_zone) as i32;
 
-        tm_struct_offset as c_int
+        tm_struct_offset as _
     }
 }
 /// emscripten: _localtime_r
@@ -199,7 +248,8 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
         (*result_addr).tm_gmtoff = tm_struct.tm_gmtoff as _;
         (*result_addr).tm_zone = copy_cstr_into_wasm(instance, tm_struct.tm_zone) as _;
 
-        result as _
+        result;
+        0
     }
 }
 
