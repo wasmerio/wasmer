@@ -156,11 +156,11 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
         );
 
         let tm_struct_ptr = instance.memory_offset_addr(0, tm_struct_offset as _) as *mut guest_tm;
-        debug!(
-            ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
-            result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
-            result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
-        );
+        // debug!(
+        //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
+        //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
+        //     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
+        // );
 
         (*tm_struct_ptr).tm_sec = result_tm.tm_sec;
         (*tm_struct_ptr).tm_min = result_tm.tm_min;
