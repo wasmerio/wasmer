@@ -81,6 +81,11 @@ struct guest_tm {
     pub tm_zone: c_int, // 40
 }
 
+/// emscripten: _tvset
+pub extern "C" fn _tvset() {
+    debug!("emscripten::_tvset UNIMPLEMENTED");
+}
+
 /// formats time as a C string
 unsafe extern "C" fn fmt_time(time: u32, instance: &Instance) -> *const c_char {
     let date = &*(instance.memory_offset_addr(0, time as _) as *mut guest_tm);
@@ -90,7 +95,7 @@ unsafe extern "C" fn fmt_time(time: u32, instance: &Instance) -> *const c_char {
     let year = 1900 + date.tm_year;
 
     let time_str = format!(
-        // NOTE: The 14 accompanying chars are needed for some reason
+        // NOTE: TODO: Hack! The 14 accompanying chars are needed for some reason
         "{} {} {:2} {:02}:{:02}:{:02} {:4}\n\0\0\0\0\0\0\0\0\0\0\0\0\0",
         days[date.tm_wday as usize],
         months[date.tm_mon as usize],
@@ -120,27 +125,9 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
 
 /// emscripten: _asctime_r
 pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u32 {
-    debug!("emscripten::_asctime {}", time);
+    debug!("emscripten::_asctime_r {}", time);
 
     unsafe {
-        // let date = &*(instance.memory_offset_addr(0, time as _) as *mut guest_tm);
-
-        // let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        // let months = vec!["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        // let year = 1900 + date.tm_year;
-
-        // let time_str = format!(
-        //     // NOTE: The 14 accompanying chars are needed for some reason
-        //     "{} {} {:2} {:02}:{:02}:{:02} {:4}\n\0\0\0\0\0\0\0\0\0\0\0\0\0",
-        //     days[date.tm_wday as usize],
-        //     months[date.tm_mon as usize],
-        //     date.tm_mday,
-        //     date.tm_hour,
-        //     date.tm_min,
-        //     date.tm_sec,
-        //     year
-        // );
-
         // NOTE: asctime_r is specced to behave in an undefined manner if the algorithm would attempt
         //      to write out more than 26 bytes (including the null terminator).
         //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
@@ -152,11 +139,6 @@ pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u3
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }
-}
-
-/// emscripten: _tvset
-pub extern "C" fn _tvset() {
-    debug!("emscripten::_tvset UNIMPLEMENTED");
 }
 
 /// emscripten: _localtime
@@ -192,6 +174,7 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
         tm_struct_offset as _
     }
 }
+
 /// emscripten: _localtime_r
 pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance) -> c_int {
     debug!("emscripten::_localtime_r {}", time_p);
@@ -201,7 +184,6 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
 
     unsafe {
         let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
-        let result_addr = instance.memory_offset_addr(0, result as _) as *mut guest_tm;
 
         let mut result_tm = tm {
             tm_sec: (*result_addr).tm_sec,
@@ -217,22 +199,8 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
             tm_zone: instance.memory_offset_addr(0, (*result_addr).tm_zone as _) as _,
         };
 
-        let tm_struct = &*localtime_r(time_p_addr, &mut result_tm);
-
-        (*result_addr).tm_sec = tm_struct.tm_sec;
-        (*result_addr).tm_min = tm_struct.tm_min;
-        (*result_addr).tm_hour = tm_struct.tm_hour;
-        (*result_addr).tm_mday = tm_struct.tm_mday;
-        (*result_addr).tm_mon = tm_struct.tm_mon;
-        (*result_addr).tm_year = tm_struct.tm_year;
-        (*result_addr).tm_wday = tm_struct.tm_wday;
-        (*result_addr).tm_yday = tm_struct.tm_yday;
-        (*result_addr).tm_isdst = tm_struct.tm_isdst;
-        (*result_addr).tm_gmtoff = tm_struct.tm_gmtoff as _;
-        (*result_addr).tm_zone = copy_cstr_into_wasm(instance, tm_struct.tm_zone) as _;
-
-        result;
-        0
+        localtime_r(time_p_addr, &mut result_tm);
+        result as _
     }
 }
 
