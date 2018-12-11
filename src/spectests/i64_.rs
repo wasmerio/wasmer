@@ -164,7 +164,7 @@ fn create_module_1() -> ResultObject {
       (export \"ge_u\" (func 28)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject()).expect("WASM can't be instantiated")
+    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(result_object: &ResultObject) {

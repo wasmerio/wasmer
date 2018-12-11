@@ -223,7 +223,7 @@ fn test_module_{}() {{
                 "fn create_module_{}() -> ResultObject {{
     let module_str = \"{}\";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
-    instantiate(wasm_binary, spectest_importobject()).expect(\"WASM can't be instantiated\")
+    instantiate(wasm_binary, spectest_importobject(), None).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
                 // We do this to ident four spaces, so it looks aligned to the function body

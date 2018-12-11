@@ -22,7 +22,8 @@ install:
 	cargo install --path .
 
 test:
-	cargo test -- $(runargs)
+	# We use one thread so the emscripten stdouts doesn't collide
+	cargo test -- --test-threads=1 $(runargs) 
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows

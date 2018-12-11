@@ -24,6 +24,8 @@ pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
 use crate::apis::is_emscripten_module;
 
+use apis::emscripten::{allocate_on_stack, allocate_cstr_on_stack};
+
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
     /// This Module can be instantiated again
@@ -50,30 +52,25 @@ pub struct ResultObject {
 pub fn instantiate(
     buffer_source: Vec<u8>,
     import_object: ImportObject<&str, &str>,
+    options: Option<InstanceOptions>,
 ) -> Result<ResultObject, ErrorKind> {
-    let flags = {
-        let mut builder = settings::builder();
-        builder.set("opt_level", "best").unwrap();
-
-        let flags = settings::Flags::new(builder);
-        debug_assert_eq!(flags.opt_level(), settings::OptLevel::Best);
-        flags
-    };
-    let isa = isa::lookup(triple!("x86_64")).unwrap().finish(flags);
-
+    let isa = get_isa();
     let module = compile(buffer_source)?;
+
+    let options = options.unwrap_or_else(|| InstanceOptions {
+        mock_missing_imports: false,
+        mock_missing_globals: false,
+        mock_missing_tables: false,
+        use_emscripten: is_emscripten_module(&module),
+        show_progressbar: false,
+        isa: isa,
+    });
+
     debug!("webassembly - creating instance");
     let instance = Instance::new(
         &module,
         import_object,
-        InstanceOptions {
-            mock_missing_imports: true,
-            mock_missing_globals: true,
-            mock_missing_tables: true,
-            use_emscripten: is_emscripten_module(&module),
-            show_progressbar: true,
-            isa,
-        },
+        options,
     )?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
@@ -104,8 +101,7 @@ pub fn compile(buffer_source: Vec<u8>) -> Result<Module, ErrorKind> {
     debug!("webassembly - validating module");
     validate_or_error(&buffer_source)?;
 
-    let flags = settings::Flags::new(settings::builder());
-    let isa = isa::lookup(triple!("x86_64")).unwrap().finish(flags);
+    let isa = get_isa();
 
     debug!("webassembly - creating module");
     let module = Module::from_bytes(buffer_source, isa.frontend_config())?;
@@ -141,8 +137,17 @@ pub fn validate_or_error(bytes: &[u8]) -> Result<(), ErrorKind> {
     }
 }
 
+pub fn get_isa() -> Box<isa::TargetIsa> {
+    let flags = {
+        let mut builder = settings::builder();
+        builder.set("opt_level", "best").unwrap();
 
-use apis::emscripten::{allocate_on_stack, allocate_cstr_on_stack};
+        let flags = settings::Flags::new(builder);
+        debug_assert_eq!(flags.opt_level(), settings::OptLevel::Best);
+        flags
+    };
+    isa::lookup(triple!("x86_64")).unwrap().finish(flags)
+}
 
 fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) -> (u32, u32) {
     let argc = args.len() + 1;
