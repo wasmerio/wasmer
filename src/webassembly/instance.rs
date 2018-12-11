@@ -329,10 +329,17 @@ impl Instance {
                         RelocationType::LibCall(LibCall::NearestF64) => {
                             math_intrinsics::nearbyintf64 as isize
                         },
-                        _ => unimplemented!()
-                        // RelocationType::Intrinsic(name) => {
-                        //     get_abi_intrinsic(name)?
-                        // },
+                        RelocationType::LibCall(LibCall::Probestack) => {
+                            __rust_probestack as isize
+                        },
+                        RelocationType::LibCall(call) => {
+                            panic!("Unexpected libcall {}", call);
+                        },
+                        RelocationType::Intrinsic(ref name) => {
+                            panic!("Unexpected intrinsic {}", name);
+                            // get_abi_intrinsic(name)?
+                        },
+                        // _ => unimplemented!()
                     };
 
                     let func_addr =
@@ -676,4 +683,10 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_pages() as u32
+}
+
+/// A declaration for the stack probe function in Rust's standard library, for
+/// catching callstack overflow.
+extern "C" {
+    pub fn __rust_probestack();
 }
