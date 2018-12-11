@@ -174,7 +174,6 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
         tm_struct_offset as _
     }
 }
-
 /// emscripten: _localtime_r
 pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance) -> c_int {
     debug!("emscripten::_localtime_r {}", time_p);
@@ -184,6 +183,7 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
 
     unsafe {
         let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
+        let result_addr = instance.memory_offset_addr(0, result as _) as *mut guest_tm;
 
         let mut result_tm = tm {
             tm_sec: (*result_addr).tm_sec,
