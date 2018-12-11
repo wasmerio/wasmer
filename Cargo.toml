@@ -7,7 +7,7 @@ repository = "https://github.com/wasmerio/wasmer"
 publish = true
 description = "High-Performance WebAssembly JIT interpreter"
 license = "MIT"
-build = "src/build_spectests.rs"
+build = "build/mod.rs"
 include = [
     "examples/**/*",
     "src/**/*",
