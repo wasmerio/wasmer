@@ -64,23 +64,28 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
     }
 
-    // TODO: We should instantiate after compilation, so we provide the
-    // emscripten environment conditionally based on the module
-    let import_object = apis::generate_emscripten_env();
-
 
     let isa = webassembly::get_isa();
 
     debug!("webassembly - creating module");
     let module = webassembly::compile(wasm_binary).map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
+    let is_emscripten = apis::is_emscripten_module(&module);
+
     let instance_options = webassembly::InstanceOptions {
         mock_missing_imports: true,
         mock_missing_globals: true,
         mock_missing_tables: true,
-        use_emscripten: apis::is_emscripten_module(&module),
+        use_emscripten: is_emscripten,
         show_progressbar: true,
         isa: isa,
+    };
+
+    let import_object = if is_emscripten {
+        apis::generate_emscripten_env()
+    }
+    else {
+        webassembly::ImportObject::new()
     };
 
     debug!("webassembly - creating instance");
