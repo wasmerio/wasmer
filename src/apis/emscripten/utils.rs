@@ -17,6 +17,18 @@ pub fn is_emscripten_module(module: &Module) -> bool {
     false
 }
 
+pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &Instance) -> u32 {
+    let buf_addr = instance.memory_offset_addr(0, buf as _) as *mut c_char;
+
+    unsafe {
+        for i in 0..max {
+            *buf_addr.add(i as _) = *string.add(i as _);
+        }
+    }
+
+    buf
+}
+
 pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
@@ -28,6 +40,8 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
         *loc = byte;
     }
 
+    // TODO: Appending null byte won't work, because there is CStr::from_ptr(cstr)
+    //      at the top that crashes when there is no null byte
     *raw_memory.add(cstr_len) = 0;
 
     space_offset

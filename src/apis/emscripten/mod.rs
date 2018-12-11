@@ -18,7 +18,7 @@ mod time;
 mod utils;
 mod varargs;
 
-pub use self::storage::{align_memory, static_alloc};
+pub use self::storage::{align_memory};
 pub use self::utils::{is_emscripten_module, allocate_on_stack, allocate_cstr_on_stack};
 
 // TODO: Magic number - how is this calculated?
@@ -43,12 +43,6 @@ fn dynamic_base(static_bump: u32) -> u32 {
 fn dynamictop_ptr(static_bump: u32) -> u32 {
     static_bump + DYNAMICTOP_PTR_DIFF
 }
-
-// fn static_alloc(size: usize, static_top: &mut size) -> usize {
-//     let ret = *static_top;
-//     *static_top = (*static_top + size + 15) & (-16 as usize);
-//     ret
-// }
 
 pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
@@ -385,6 +379,16 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+        "_asctime",
+        ImportValue::Func(time::_asctime as _),
+    );
+    import_object.set(
+        "env",
+        "_asctime_r",
+        ImportValue::Func(time::_asctime_r as _),
+    );
+    import_object.set(
+        "env",
         "_localtime",
         ImportValue::Func(time::_localtime as _),
     );
@@ -393,7 +397,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     import_object.set(
         "env",
         "_localtime_r",
-        ImportValue::Func(env::_localtime_r as _),
+        ImportValue::Func(time::_localtime_r as _),
     );
     import_object.set(
         "env",
