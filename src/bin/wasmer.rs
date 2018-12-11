@@ -67,16 +67,28 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     // TODO: We should instantiate after compilation, so we provide the
     // emscripten environment conditionally based on the module
     let import_object = apis::generate_emscripten_env();
-    let webassembly::ResultObject { module, mut instance } =
-        webassembly::instantiate(wasm_binary, import_object, Some(webassembly::InstanceOptions {
-            mock_missing_imports: true,
-            mock_missing_globals: true,
-            mock_missing_tables: true,
-            use_emscripten: true,
-            show_progressbar: true,
-            isa: webassembly::get_isa(),
-        }))
-            .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
+
+
+    let isa = webassembly::get_isa();
+
+    debug!("webassembly - creating module");
+    let module = webassembly::compile(wasm_binary).map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
+
+    let instance_options = webassembly::InstanceOptions {
+        mock_missing_imports: true,
+        mock_missing_globals: true,
+        mock_missing_tables: true,
+        use_emscripten: apis::is_emscripten_module(&module),
+        show_progressbar: true,
+        isa: isa,
+    };
+
+    debug!("webassembly - creating instance");
+    let mut instance = webassembly::Instance::new(
+        &module,
+        import_object,
+        instance_options,
+    ).map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(&module, &mut instance, options.path.to_str().unwrap(), options.args.iter().map(|arg| arg.as_str()).collect())
 }
