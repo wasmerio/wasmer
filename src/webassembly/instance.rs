@@ -85,6 +85,12 @@ impl fmt::Debug for EmscriptenData {
     }
 }
 
+#[derive(PartialEq)]
+pub enum InstanceABI {
+    Emscripten,
+    None
+}
+
 /// An Instance of a WebAssembly module
 /// NOTE: There is an assumption that data_pointers is always the
 ///      first field
@@ -139,7 +145,7 @@ pub struct InstanceOptions {
     pub mock_missing_imports: bool,
     pub mock_missing_globals: bool,
     pub mock_missing_tables: bool,
-    pub use_emscripten: bool,
+    pub abi: InstanceABI,
     pub show_progressbar: bool,
     pub isa: Box<TargetIsa>,
 }
@@ -495,7 +501,7 @@ impl Instance {
                 let memory = memory.entity;
                 // If we use emscripten, we set a fixed initial and maximum
                 debug!("Instance - init memory ({}, {:?})", memory.pages_count, memory.maximum);
-                let memory = if options.use_emscripten {
+                let memory = if options.abi == InstanceABI::Emscripten {
                     // We use MAX_PAGES, so at the end the result is:
                     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
                     // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
@@ -520,7 +526,7 @@ impl Instance {
                 let to_init = &mut mem[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
-            if options.use_emscripten {
+            if options.abi == InstanceABI::Emscripten {
                 debug!("emscripten::setup memory");
                 crate::apis::emscripten::emscripten_set_up_memory(&mut memories[0]);
                 debug!("emscripten::finish setup memory");
@@ -550,7 +556,7 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
-        let emscripten_data = if options.use_emscripten {
+        let emscripten_data = if options.abi == InstanceABI::Emscripten {
             unsafe {
                 debug!("emscripten::initiating data");
                 let malloc_export = module.info.exports.get("_malloc");

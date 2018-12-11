@@ -70,22 +70,27 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     debug!("webassembly - creating module");
     let module = webassembly::compile(wasm_binary).map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
-    let is_emscripten = apis::is_emscripten_module(&module);
+    let abi = if apis::is_emscripten_module(&module) {
+        webassembly::InstanceABI::Emscripten
+    } else {
+        webassembly::InstanceABI::None
+    };
+
+
+    let import_object = if abi == webassembly::InstanceABI::Emscripten {
+        apis::generate_emscripten_env()
+    }
+    else {
+        webassembly::ImportObject::new()
+    };
 
     let instance_options = webassembly::InstanceOptions {
         mock_missing_imports: true,
         mock_missing_globals: true,
         mock_missing_tables: true,
-        use_emscripten: is_emscripten,
+        abi: abi,
         show_progressbar: true,
         isa: isa,
-    };
-
-    let import_object = if is_emscripten {
-        apis::generate_emscripten_env()
-    }
-    else {
-        webassembly::ImportObject::new()
     };
 
     debug!("webassembly - creating instance");
