@@ -149,27 +149,30 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
 
     unsafe {
         let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
-
-        let tm_struct = &*localtime(time_p_addr);
-
+        let result_tm = &*localtime(time_p_addr);
         let tm_struct_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(
             mem::size_of::<guest_tm>() as _,
             instance,
         );
 
         let tm_struct_ptr = instance.memory_offset_addr(0, tm_struct_offset as _) as *mut guest_tm;
+        debug!(
+            ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
+            result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
+            result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
+        );
 
-        (*tm_struct_ptr).tm_sec = tm_struct.tm_sec;
-        (*tm_struct_ptr).tm_min = tm_struct.tm_min;
-        (*tm_struct_ptr).tm_hour = tm_struct.tm_hour;
-        (*tm_struct_ptr).tm_mday = tm_struct.tm_mday;
-        (*tm_struct_ptr).tm_mon = tm_struct.tm_mon;
-        (*tm_struct_ptr).tm_year = tm_struct.tm_year;
-        (*tm_struct_ptr).tm_wday = tm_struct.tm_wday;
-        (*tm_struct_ptr).tm_yday = tm_struct.tm_yday;
-        (*tm_struct_ptr).tm_isdst = tm_struct.tm_isdst;
-        (*tm_struct_ptr).tm_gmtoff = tm_struct.tm_gmtoff as i32;
-        (*tm_struct_ptr).tm_zone = copy_cstr_into_wasm(instance, tm_struct.tm_zone) as i32;
+        (*tm_struct_ptr).tm_sec = result_tm.tm_sec;
+        (*tm_struct_ptr).tm_min = result_tm.tm_min;
+        (*tm_struct_ptr).tm_hour = result_tm.tm_hour;
+        (*tm_struct_ptr).tm_mday = result_tm.tm_mday;
+        (*tm_struct_ptr).tm_mon = result_tm.tm_mon;
+        (*tm_struct_ptr).tm_year = result_tm.tm_year;
+        (*tm_struct_ptr).tm_wday = result_tm.tm_wday;
+        (*tm_struct_ptr).tm_yday = result_tm.tm_yday;
+        (*tm_struct_ptr).tm_isdst = result_tm.tm_isdst;
+        (*tm_struct_ptr).tm_gmtoff = result_tm.tm_gmtoff as i32;
+        (*tm_struct_ptr).tm_zone = copy_cstr_into_wasm(instance, result_tm.tm_zone) as i32;
 
         tm_struct_offset as _
     }
@@ -200,6 +203,25 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
         };
 
         localtime_r(time_p_addr, &mut result_tm);
+        // let tm_struct = result_tm;
+        // debug!(
+        //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
+        //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
+        //     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
+        // );
+
+        (*result_addr).tm_sec = result_tm.tm_sec;
+        (*result_addr).tm_min = result_tm.tm_min;
+        (*result_addr).tm_hour = result_tm.tm_hour;
+        (*result_addr).tm_mday = result_tm.tm_mday;
+        (*result_addr).tm_mon = result_tm.tm_mon;
+        (*result_addr).tm_year = result_tm.tm_year;
+        (*result_addr).tm_wday = result_tm.tm_wday;
+        (*result_addr).tm_yday = result_tm.tm_yday;
+        (*result_addr).tm_isdst = result_tm.tm_isdst;
+        (*result_addr).tm_gmtoff = result_tm.tm_gmtoff as _;
+        (*result_addr).tm_zone = copy_cstr_into_wasm(instance, result_tm.tm_zone) as _;
+
         result as _
     }
 }
