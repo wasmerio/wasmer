@@ -106,7 +106,7 @@ pub extern "C" fn ___build_environment(environ: c_int) {
     debug!("emscripten::___build_environment {}", environ);
 }
 
-pub extern "C" fn _sysconf(name: c_int, instance: &mut Instance) -> c_long {
+pub extern "C" fn _sysconf(name: c_int, _instance: &mut Instance) -> c_long {
     debug!("emscripten::_sysconf {}", name);
     // TODO: Implement like emscripten expects regarding memory/page size
     unsafe {

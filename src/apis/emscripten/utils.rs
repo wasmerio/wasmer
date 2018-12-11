@@ -2,7 +2,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use crate::webassembly::module::Module;
 use crate::webassembly::Instance;
 use libc::stat;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
 use std::mem::size_of;
@@ -14,7 +14,7 @@ pub fn is_emscripten_module(module: &Module) -> bool {
             return true;
         }
     }
-    return false;
+    false
 }
 
 pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &Instance) -> u32 {
@@ -113,23 +113,20 @@ pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat
 
 #[cfg(test)]
 mod tests {
-    use super::super::generate_emscripten_env;
     use super::is_emscripten_module;
-    use crate::webassembly::instantiate;
+    use crate::webassembly::compile;
 
     #[test]
     fn should_detect_emscripten_files() {
         let wasm_bytes = include_wast2wasm_bytes!("tests/is_emscripten_true.wast");
-        let import_object = generate_emscripten_env();
-        let result_object = instantiate(wasm_bytes, import_object).expect("Not compiled properly");
-        assert!(is_emscripten_module(&result_object.module));
+        let module = compile(wasm_bytes).expect("Not compiled properly");
+        assert!(is_emscripten_module(&module));
     }
 
     #[test]
     fn should_detect_non_emscripten_files() {
         let wasm_bytes = include_wast2wasm_bytes!("tests/is_emscripten_false.wast");
-        let import_object = generate_emscripten_env();
-        let result_object = instantiate(wasm_bytes, import_object).expect("Not compiled properly");
-        assert!(!is_emscripten_module(&result_object.module));
+        let module = compile(wasm_bytes).expect("Not compiled properly");
+        assert!(!is_emscripten_module(&module));
     }
 }
