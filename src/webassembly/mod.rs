@@ -22,9 +22,8 @@ pub use self::import_object::{ImportObject, ImportValue};
 pub use self::instance::{Instance, InstanceOptions};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
-use crate::apis::is_emscripten_module;
 
-use apis::emscripten::{allocate_on_stack, allocate_cstr_on_stack};
+use crate::apis::emscripten::{is_emscripten_module, allocate_on_stack, allocate_cstr_on_stack};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
