@@ -1,4 +1,4 @@
-use libc::{abort, c_char, pid_t, c_int, fork, exit};
+use libc::{abort, c_char, pid_t, c_int, exit};
 
 use crate::webassembly::Instance;
 use std::ffi::CStr;

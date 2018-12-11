@@ -7,7 +7,6 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 
-use apis::emscripten::{allocate_on_stack, allocate_cstr_on_stack};
 use structopt::StructOpt;
 
 use wasmer::*;
@@ -65,49 +64,43 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
     }
 
-    // TODO: We should instantiate after compilation, so we provide the
-    // emscripten environment conditionally based on the module
-    let import_object = apis::generate_emscripten_env();
-    let webassembly::ResultObject { module, mut instance } =
-        webassembly::instantiate(wasm_binary, import_object)
-            .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
-    if apis::emscripten::is_emscripten_module(&module) {
+    let isa = webassembly::get_isa();
 
-        // Emscripten __ATINIT__
-        if let Some(&webassembly::Export::Function(environ_constructor_index)) = module.info.exports.get("___emscripten_environ_constructor") {
-            debug!("emscripten::___emscripten_environ_constructor");
-            let ___emscripten_environ_constructor: extern "C" fn(&webassembly::Instance) =
-                get_instance_function!(instance, environ_constructor_index);
-            call_protected!(___emscripten_environ_constructor(&instance)).map_err(|err| format!("{}", err))?;
-        };
+    debug!("webassembly - creating module");
+    let module = webassembly::compile(wasm_binary).map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
-        // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
-        let func_index = match module.info.exports.get("_main") {
-            Some(&webassembly::Export::Function(index)) => index,
-            _ => panic!("_main emscripten function not found"),
-        };
-
-        let main: extern "C" fn(u32, u32, &webassembly::Instance) =
-            get_instance_function!(instance, func_index);
-
-        let (argc, argv) = store_module_arguments(options, &mut instance);
-    
-        // TODO: This assumes argc and argv are always passed.
-        return call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err));
-        // TODO: We should implement emscripten __ATEXIT__
+    let abi = if apis::is_emscripten_module(&module) {
+        webassembly::InstanceABI::Emscripten
     } else {
-        let func_index =
-            instance
-                .start_func
-                .unwrap_or_else(|| match module.info.exports.get("main") {
-                    Some(&webassembly::Export::Function(index)) => index,
-                    _ => panic!("Main function not found"),
-                });
-        let main: extern "C" fn(&webassembly::Instance) =
-            get_instance_function!(instance, func_index);
-        return call_protected!(main(&instance)).map_err(|err| format!("{}", err));
+        webassembly::InstanceABI::None
+    };
+
+
+    let import_object = if abi == webassembly::InstanceABI::Emscripten {
+        apis::generate_emscripten_env()
     }
+    else {
+        webassembly::ImportObject::new()
+    };
+
+    let instance_options = webassembly::InstanceOptions {
+        mock_missing_imports: true,
+        mock_missing_globals: true,
+        mock_missing_tables: true,
+        abi: abi,
+        show_progressbar: true,
+        isa: isa,
+    };
+
+    debug!("webassembly - creating instance");
+    let mut instance = webassembly::Instance::new(
+        &module,
+        import_object,
+        instance_options,
+    ).map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
+
+    webassembly::start_instance(&module, &mut instance, options.path.to_str().unwrap(), options.args.iter().map(|arg| arg.as_str()).collect())
 }
 
 fn run(options: Run) {
@@ -127,21 +120,4 @@ fn main() {
         CLIOptions::Run(options) => run(options),
         CLIOptions::SelfUpdate => update::self_update(),
     }
-}
-
-fn store_module_arguments(options: &Run, instance: &mut webassembly::Instance) -> (u32, u32) {
-    let argc = options.args.len() + 1;
-
-    let (argv_offset, argv_slice): (_, &mut [u32]) = unsafe { allocate_on_stack(((argc + 1) * 4) as u32, instance) };
-    assert!(argv_slice.len() >= 1);
-
-    argv_slice[0] = unsafe { allocate_cstr_on_stack(options.path.to_str().unwrap(), instance).0 };
-
-    for (slot, arg) in argv_slice[1..argc].iter_mut().zip(options.args.iter()) {
-        *slot = unsafe { allocate_cstr_on_stack(&arg, instance).0 };
-    }
-
-    argv_slice[argc] = 0;
-
-    (argc as u32, argv_offset)
 }

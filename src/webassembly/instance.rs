@@ -45,7 +45,7 @@ pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
         )
     } {
         Err(err) => {
-            return Err(format!(
+            Err(format!(
                 "failed to give executable permission to code: {}",
                 err
             ))
@@ -61,12 +61,11 @@ fn get_function_addr(
 ) -> *const u8 {
     let index = func_index.index();
     let len = import_functions.len();
-    let func_pointer = if index < len {
+    if index < len {
         import_functions[index]
     } else {
         (functions[index - len]).as_ptr()
-    };
-    func_pointer
+    }
 }
 
 pub struct EmscriptenData {
@@ -84,6 +83,12 @@ impl fmt::Debug for EmscriptenData {
             .field("free", &(self.free as usize))
             .finish()
     }
+}
+
+#[derive(PartialEq)]
+pub enum InstanceABI {
+    Emscripten,
+    None
 }
 
 /// An Instance of a WebAssembly module
@@ -140,14 +145,14 @@ pub struct InstanceOptions {
     pub mock_missing_imports: bool,
     pub mock_missing_globals: bool,
     pub mock_missing_tables: bool,
-    pub use_emscripten: bool,
+    pub abi: InstanceABI,
     pub show_progressbar: bool,
     pub isa: Box<TargetIsa>,
 }
 
 extern "C" fn mock_fn() -> i32 {
     debug!("CALLING MOCKED FUNC");
-    return 0;
+    0
 }
 
 #[allow(dead_code)]
@@ -330,10 +335,17 @@ impl Instance {
                         RelocationType::LibCall(LibCall::NearestF64) => {
                             math_intrinsics::nearbyintf64 as isize
                         },
-                        _ => unimplemented!()
-                        // RelocationType::Intrinsic(name) => {
-                        //     get_abi_intrinsic(name)?
-                        // },
+                        RelocationType::LibCall(LibCall::Probestack) => {
+                            __rust_probestack as isize
+                        },
+                        RelocationType::LibCall(call) => {
+                            panic!("Unexpected libcall {}", call);
+                        },
+                        RelocationType::Intrinsic(ref name) => {
+                            panic!("Unexpected intrinsic {}", name);
+                            // get_abi_intrinsic(name)?
+                        },
+                        // _ => unimplemented!()
                     };
 
                     let func_addr =
@@ -489,7 +501,7 @@ impl Instance {
                 let memory = memory.entity;
                 // If we use emscripten, we set a fixed initial and maximum
                 debug!("Instance - init memory ({}, {:?})", memory.pages_count, memory.maximum);
-                let memory = if options.use_emscripten {
+                let memory = if options.abi == InstanceABI::Emscripten {
                     // We use MAX_PAGES, so at the end the result is:
                     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
                     // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
@@ -514,7 +526,7 @@ impl Instance {
                 let to_init = &mut mem[offset..offset + init.data.len()];
                 to_init.copy_from_slice(&init.data);
             }
-            if options.use_emscripten {
+            if options.abi == InstanceABI::Emscripten {
                 debug!("emscripten::setup memory");
                 crate::apis::emscripten::emscripten_set_up_memory(&mut memories[0]);
                 debug!("emscripten::finish setup memory");
@@ -544,7 +556,7 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
-        let emscripten_data = if options.use_emscripten {
+        let emscripten_data = if options.abi == InstanceABI::Emscripten {
             unsafe {
                 debug!("emscripten::initiating data");
                 let malloc_export = module.info.exports.get("_malloc");
@@ -668,15 +680,19 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
         "non-default memory_index (0) not supported yet"
     );
 
-    let old_mem_size = instance
+    instance
         .memory_mut(memory_index as usize)
         .grow(size)
-        .unwrap_or(-1);
-
-    old_mem_size
+        .unwrap_or(-1)
 }
 
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_pages() as u32
+}
+
+/// A declaration for the stack probe function in Rust's standard library, for
+/// catching callstack overflow.
+extern "C" {
+    pub fn __rust_probestack();
 }
