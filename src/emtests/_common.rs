@@ -16,9 +16,6 @@ macro_rules! assert_emscripten_output {
             isa: get_isa(),
         });
         let mut result_object = instantiate(wasm_bytes.to_vec(), import_object, options).expect("Not compiled properly");
-        // We use this as a way of hacking the stdout and remove the data that should be flushed
-        (StdioCapturer::new()).end();
-
         let capturer = StdioCapturer::new();
         start_instance(&result_object.module, &mut result_object.instance, $name, $args).unwrap();
         let output = capturer.end().0;

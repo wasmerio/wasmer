@@ -1,6 +1,6 @@
 use libc;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Read};
 use std::os::unix::io::FromRawFd;
 
 // A struct to hold the references to the base stdout and the captured one
