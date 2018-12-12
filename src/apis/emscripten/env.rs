@@ -5,7 +5,7 @@ use std::ffi::CStr;
 use std::mem;
 use std::os::raw::c_char;
 
-use super::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
+use super::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs, allocate_on_stack};
 use crate::webassembly::Instance;
 
 /// emscripten: _getenv
@@ -102,8 +102,27 @@ pub extern "C" fn _getpagesize() -> u32 {
     16384
 }
 
-pub extern "C" fn ___build_environment(environ: c_int) {
+pub extern "C" fn ___build_environment(environ: c_int, instance: &mut Instance) {
     debug!("emscripten::___build_environment {}", environ);
+    const MAX_ENV_VALUES: u32 = 64;
+    const TOTAL_ENV_SIZE: u32 = 1024;
+    let mut environment =
+        instance.memory_offset_addr(0, environ as _) as *mut c_int;
+    unsafe {
+        let (pool_offset, pool_slice): (u32, &mut [u8]) = allocate_on_stack(TOTAL_ENV_SIZE as u32, instance);
+        let (env_offset, env_slice): (u32, &mut [u8]) = allocate_on_stack((MAX_ENV_VALUES*4) as u32, instance);
+        let mut env_ptr =
+            instance.memory_offset_addr(0, env_offset as _) as *mut c_int;
+        let mut pool_ptr =
+            instance.memory_offset_addr(0, pool_offset as _) as *mut c_int;
+        *env_ptr = pool_offset as i32;
+        *environment = env_offset as i32;
+
+        // *env_ptr = 0;
+    };
+    // unsafe {
+    //     *env_ptr = 0;
+    // };
 }
 
 pub extern "C" fn _sysconf(name: c_int, _instance: &mut Instance) -> c_long {
