@@ -235,10 +235,10 @@ wasmer_install() {
   else
     printf "${reset}Installing Wasmer!$reset\n"
     printf "
-  ${magenta1}      ${magenta2}        ${magenta3}###${reset}                                 
-  ${magenta1}      ${magenta2}        ${magenta3}#####${reset}                               
-  ${magenta1}      ${magenta2}###     ${magenta3}######${reset}                   
-  ${magenta1}      ${magenta2}######  ${magenta3}#############${reset}            
+  ${magenta1}      ${magenta2}        ${magenta3}###${reset}
+  ${magenta1}      ${magenta2}        ${magenta3}#####${reset}
+  ${magenta1}      ${magenta2}###     ${magenta3}######${reset}
+  ${magenta1}      ${magenta2}######  ${magenta3}#############${reset}
   ${magenta1}#     ${magenta2}####### ${magenta3}##############${reset}
   ${magenta1}##### ${magenta2}#############${magenta3}#########${reset}
   ${magenta1}######${magenta2}###############${magenta3}#######${reset}
@@ -247,10 +247,10 @@ wasmer_install() {
   ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
   ${magenta1}##############${magenta2}#######${magenta3}#######${reset}
   ${magenta1}##############${magenta2}#######${magenta3}    ###${reset}
-  ${magenta1}##############${magenta2}#######                          
-     ${magenta1}###########${magenta2}    ###                          
-        ${magenta1}########${magenta2}                                 
-            ${magenta1}####${reset}                                    
+  ${magenta1}##############${magenta2}#######
+     ${magenta1}###########${magenta2}    ###
+        ${magenta1}########${magenta2}
+            ${magenta1}####${reset}
 
 "
   fi
@@ -304,39 +304,56 @@ wasmer_reset() {
 
 # Example taken from
 # https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
+# wasmer_compareversions () {
+#     if [[ $1 == $2 ]]
+#     then
+#         echo "="
+#         return 0
+#     fi
+#     local IFS=.
+#     local i ver1=($1) ver2=($2)
+#     # fill empty fields in ver1 with zeros
+#     for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+#     do
+#         ver1[i]=0
+#     done
+#     for ((i=0; i<${#ver1[@]}; i++))
+#     do
+#         if [[ -z ${ver2[i]} ]]
+#         then
+#             # fill empty fields in ver2 with zeros
+#             ver2[i]=0
+#         fi
+#         if ((10#${ver1[i]} > 10#${ver2[i]}))
+#         then
+#             echo ">"
+#             return 0
+#         fi
+#         if ((10#${ver1[i]} < 10#${ver2[i]}))
+#         then
+#             echo "<"
+#             return 0
+#         fi
+#     done
+#     echo "="
+#     return 0
+# }
+
+version() {
+    echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }';
+}
+
+# TODO: Does not support versions with characters in them yet. Won't work for wasmer_compareversions "1.4.5-rc4" "1.4.5-r5"
 wasmer_compareversions () {
-    if [[ $1 == $2 ]]
-    then
+    WASMER_VERSION=$(version $1)
+    WASMER_COMPARE=$(version $2)
+    if [ $WASMER_VERSION = $WASMER_COMPARE ]; then
         echo "="
-        return 0
+    elif [ $WASMER_VERSION -gt $WASMER_COMPARE ]; then
+        echo ">"
+    elif [ $WASMER_VERSION -lt $WASMER_COMPARE ]; then
+        echo "<"
     fi
-    local IFS=.
-    local i ver1=($1) ver2=($2)
-    # fill empty fields in ver1 with zeros
-    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
-    do
-        ver1[i]=0
-    done
-    for ((i=0; i<${#ver1[@]}; i++))
-    do
-        if [[ -z ${ver2[i]} ]]
-        then
-            # fill empty fields in ver2 with zeros
-            ver2[i]=0
-        fi
-        if ((10#${ver1[i]} > 10#${ver2[i]}))
-        then
-            echo ">"
-            return 0
-        fi
-        if ((10#${ver1[i]} < 10#${ver2[i]}))
-        then
-            echo "<"
-            return 0
-        fi
-    done
-    echo "="
-    return 0
 }
 
 wasmer_download() {
