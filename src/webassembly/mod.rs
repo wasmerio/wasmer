@@ -1,7 +1,7 @@
 pub mod errors;
 pub mod import_object;
 pub mod instance;
-pub mod math_intrinsics;
+pub mod libcalls;
 pub mod memory;
 pub mod module;
 pub mod relocation;

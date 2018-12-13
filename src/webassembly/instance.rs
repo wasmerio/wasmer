@@ -26,7 +26,7 @@ use std::{fmt, mem, slice};
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::import_object::{ImportObject, ImportValue};
-use super::math_intrinsics;
+use super::libcalls;
 use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
@@ -311,35 +311,21 @@ impl Instance {
                         RelocationType::GrowMemory => {
                             grow_memory as isize
                         },
-                        RelocationType::LibCall(LibCall::CeilF32) => {
-                            math_intrinsics::ceilf32 as isize
-                        },
-                        RelocationType::LibCall(LibCall::FloorF32) => {
-                            math_intrinsics::floorf32 as isize
-                        },
-                        RelocationType::LibCall(LibCall::TruncF32) => {
-                            math_intrinsics::truncf32 as isize
-                        },
-                        RelocationType::LibCall(LibCall::NearestF32) => {
-                            math_intrinsics::nearbyintf32 as isize
-                        },
-                        RelocationType::LibCall(LibCall::CeilF64) => {
-                            math_intrinsics::ceilf64 as isize
-                        },
-                        RelocationType::LibCall(LibCall::FloorF64) => {
-                            math_intrinsics::floorf64 as isize
-                        },
-                        RelocationType::LibCall(LibCall::TruncF64) => {
-                            math_intrinsics::truncf64 as isize
-                        },
-                        RelocationType::LibCall(LibCall::NearestF64) => {
-                            math_intrinsics::nearbyintf64 as isize
-                        },
-                        RelocationType::LibCall(LibCall::Probestack) => {
-                            __rust_probestack as isize
-                        },
-                        RelocationType::LibCall(call) => {
-                            panic!("Unexpected libcall {}", call);
+                        RelocationType::LibCall(libcall) => {
+                            match libcall {
+                                LibCall::CeilF32 => libcalls::ceilf32 as isize,
+                                LibCall::FloorF32 => libcalls::floorf32 as isize,
+                                LibCall::TruncF32 => libcalls::truncf32 as isize,
+                                LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
+                                LibCall::CeilF64 => libcalls::ceilf64 as isize,
+                                LibCall::FloorF64 => libcalls::floorf64 as isize,
+                                LibCall::TruncF64 => libcalls::truncf64 as isize,
+                                LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
+                                LibCall::Probestack => libcalls::__rust_probestack as isize,
+                                _ => {
+                                    panic!("Unexpected libcall {}", libcall);
+                                }
+                            }
                         },
                         RelocationType::Intrinsic(ref name) => {
                             panic!("Unexpected intrinsic {}", name);
@@ -689,10 +675,4 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_pages() as u32
-}
-
-/// A declaration for the stack probe function in Rust's standard library, for
-/// catching callstack overflow.
-extern "C" {
-    pub fn __rust_probestack();
 }
