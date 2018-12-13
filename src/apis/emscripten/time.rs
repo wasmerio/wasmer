@@ -66,6 +66,24 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
     0
 }
 
+/// emscripten: ___clock_gettime
+pub extern "C" fn ___clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+    debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
+    _clock_gettime(clk_id, tp, instance)
+}
+
+/// emscripten: _clock
+pub extern "C" fn _clock() -> c_int {
+    debug!("emscripten::_clock");
+    0 // TODO: unimplemented
+}
+
+/// emscripten: _difftime
+pub extern "C" fn _difftime(t0: u32, t1: u32) -> c_int {
+    debug!("emscripten::_difftime");
+    (t0 - t1) as _
+}
+
 #[repr(C)]
 struct guest_tm {
     pub tm_sec: c_int, // 0

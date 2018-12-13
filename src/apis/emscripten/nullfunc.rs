@@ -45,3 +45,13 @@ pub extern "C" fn nullfunc_viiii(_x: u32, _instance: &Instance) {
     debug!("emscripten::nullfunc_viiii");
     abort_with_message("Invalid function pointer called with signature 'viiii'. Perhaps this is an invalid value (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an incorrect type, which will fail? (it is worth building your source files with -Werror (warnings are errors), as warnings can indicate undefined behavior which can cause this)");
 }
+
+pub extern "C" fn nullfunc_viiiii(_x: u32, _instance: &Instance) {
+    debug!("emscripten::nullfunc_viiiii");
+    abort_with_message("Invalid function pointer called with signature 'viiiii'. Perhaps this is an invalid value (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an incorrect type, which will fail? (it is worth building your source files with -Werror (warnings are errors), as warnings can indicate undefined behavior which can cause this)");
+}
+
+pub extern "C" fn nullfunc_viiiiii(_x: u32, _instance: &Instance) {
+    debug!("emscripten::nullfunc_viiiiii");
+    abort_with_message("Invalid function pointer called with signature 'viiiiii'. Perhaps this is an invalid value (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an incorrect type, which will fail? (it is worth building your source files with -Werror (warnings are errors), as warnings can indicate undefined behavior which can cause this)");
+}

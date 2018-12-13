@@ -17,7 +17,7 @@ pub fn is_emscripten_module(module: &Module) -> bool {
     false
 }
 
-pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &Instance) -> u32 {
+pub fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &Instance) -> u32 {
     let buf_addr = instance.memory_offset_addr(0, buf as _) as *mut c_char;
 
     unsafe {

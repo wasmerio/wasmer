@@ -9,6 +9,8 @@ mod errno;
 mod io;
 mod lock;
 mod memory;
+mod math;
+mod exception;
 mod nullfunc;
 mod process;
 mod signal;
@@ -99,6 +101,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     // Lock
     import_object.set("env", "___lock", ImportValue::Func(lock::___lock as _));
     import_object.set("env", "___unlock", ImportValue::Func(lock::___unlock as _));
+    import_object.set("env", "___wait", ImportValue::Func(lock::___wait as _));
     // Env
     import_object.set("env", "_getenv", ImportValue::Func(env::_getenv as _));
     import_object.set("env", "_getpwnam", ImportValue::Func(env::_getpwnam as _));
@@ -138,13 +141,68 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+        "___syscall12",
+        ImportValue::Func(syscalls::___syscall12 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall20",
+        ImportValue::Func(syscalls::___syscall20 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall39",
+        ImportValue::Func(syscalls::___syscall39 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall40",
+        ImportValue::Func(syscalls::___syscall40 as _),
+    );
+    import_object.set(
+        "env",
         "___syscall54",
         ImportValue::Func(syscalls::___syscall54 as _),
     );
     import_object.set(
         "env",
+        "___syscall57",
+        ImportValue::Func(syscalls::___syscall57 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall63",
+        ImportValue::Func(syscalls::___syscall63 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall64",
+        ImportValue::Func(syscalls::___syscall64 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall102",
+        ImportValue::Func(syscalls::___syscall102 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall114",
+        ImportValue::Func(syscalls::___syscall114 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall122",
+        ImportValue::Func(syscalls::___syscall122 as _),
+    );
+    import_object.set(
+        "env",
         "___syscall140",
         ImportValue::Func(syscalls::___syscall140 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall142",
+        ImportValue::Func(syscalls::___syscall142 as _),
     );
     import_object.set(
         "env",
@@ -158,23 +216,28 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
-        "___syscall221",
-        ImportValue::Func(syscalls::___syscall221 as _),
+        "___syscall180",
+        ImportValue::Func(syscalls::___syscall180 as _),
     );
     import_object.set(
         "env",
-        "___syscall20",
-        ImportValue::Func(syscalls::___syscall20 as _),
+        "___syscall181",
+        ImportValue::Func(syscalls::___syscall181 as _),
     );
     import_object.set(
         "env",
-        "___syscall64",
-        ImportValue::Func(syscalls::___syscall64 as _),
+        "___syscall192",
+        ImportValue::Func(syscalls::___syscall192 as _),
     );
     import_object.set(
         "env",
-        "___syscall122",
-        ImportValue::Func(syscalls::___syscall122 as _),
+        "___syscall195",
+        ImportValue::Func(syscalls::___syscall195 as _),
+    );
+    import_object.set(
+        "env",
+        "___syscall197",
+        ImportValue::Func(syscalls::___syscall197 as _),
     );
     import_object.set(
         "env",
@@ -188,36 +251,6 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
-        "___syscall340",
-        ImportValue::Func(syscalls::___syscall340 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall197",
-        ImportValue::Func(syscalls::___syscall197 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall180",
-        ImportValue::Func(syscalls::___syscall180 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall181",
-        ImportValue::Func(syscalls::___syscall181 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall39",
-        ImportValue::Func(syscalls::___syscall39 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall195",
-        ImportValue::Func(syscalls::___syscall195 as _),
-    );
-    import_object.set(
-        "env",
         "___syscall212",
         ImportValue::Func(syscalls::___syscall212 as _),
     );
@@ -228,40 +261,14 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
-        "___syscall102",
-        ImportValue::Func(syscalls::___syscall102 as _),
+        "___syscall330",
+        ImportValue::Func(syscalls::___syscall330 as _),
     );
     import_object.set(
         "env",
-        "___syscall54",
-        ImportValue::Func(syscalls::___syscall54 as _),
+        "___syscall340",
+        ImportValue::Func(syscalls::___syscall340 as _),
     );
-    import_object.set(
-        "env",
-        "___syscall12",
-        ImportValue::Func(syscalls::___syscall12 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall192",
-        ImportValue::Func(syscalls::___syscall192 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall63",
-        ImportValue::Func(syscalls::___syscall63 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall142",
-        ImportValue::Func(syscalls::___syscall142 as _),
-    );
-    import_object.set(
-        "env",
-        "___syscall57",
-        ImportValue::Func(syscalls::___syscall57 as _),
-    );
-
     // Process
     import_object.set("env", "abort", ImportValue::Func(process::em_abort as _));
     import_object.set("env", "_abort", ImportValue::Func(process::_abort as _));
@@ -270,9 +277,15 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "abortStackOverflow",
         ImportValue::Func(process::abort_stack_overflow as _),
     );
+    import_object.set(
+        "env",
+        "_llvm_trap",
+        ImportValue::Func(process::_llvm_trap as _),
+    );
     import_object.set("env", "_fork", ImportValue::Func(process::_fork as _));
     import_object.set("env", "_exit", ImportValue::Func(process::_exit as _));
-
+    import_object.set("env", "_system", ImportValue::Func(process::_system as _));
+    import_object.set("env", "_popen", ImportValue::Func(process::_popen as _));
     // Signal
     import_object.set(
         "env",
@@ -320,6 +333,22 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "getTotalMemory",
         ImportValue::Func(memory::get_total_memory as _),
     );
+    import_object.set(
+        "env",
+        "___map_file",
+        ImportValue::Func(memory::___map_file as _),
+    );
+    // Exception
+    import_object.set(
+        "env",
+        "___cxa_allocate_exception",
+        ImportValue::Func(exception::___cxa_allocate_exception as _),
+    );
+    import_object.set(
+        "env",
+        "___cxa_allocate_exception",
+        ImportValue::Func(exception::___cxa_throw as _),
+    );
     // NullFuncs
     import_object.set(
         "env",
@@ -366,6 +395,16 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "nullFunc_viiii",
         ImportValue::Func(nullfunc::nullfunc_viiii as _),
     );
+    import_object.set(
+        "env",
+        "nullFunc_viiiii",
+        ImportValue::Func(nullfunc::nullfunc_viiiii as _),
+    );
+    import_object.set(
+        "env",
+        "nullFunc_viiiiii",
+        ImportValue::Func(nullfunc::nullfunc_viiiiii as _),
+    );
     // Time
     import_object.set(
         "env",
@@ -376,6 +415,21 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "env",
         "_clock_gettime",
         ImportValue::Func(time::_clock_gettime as _),
+    );
+    import_object.set(
+        "env",
+        "___clock_gettime",
+        ImportValue::Func(time::___clock_gettime as _),
+    );
+    import_object.set(
+        "env",
+        "_clock",
+        ImportValue::Func(time::_clock as _),
+    );
+    import_object.set(
+        "env",
+        "_difftime",
+        ImportValue::Func(time::_difftime as _),
     );
     import_object.set(
         "env",
@@ -409,6 +463,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_sysconf",
         ImportValue::Func(env::_sysconf as _),
     );
+    // Math
+    import_object.set("env", "_llvm_log10_f64", ImportValue::Func(math::_llvm_log10_f64 as _));
+    import_object.set("env", "_llvm_log2_f64", ImportValue::Func(math::_llvm_log2_f64 as _));
+    import_object.set("asm2wasm", "f64-rem", ImportValue::Func(math::f64_rem as _));
+
 
     mock_external!(import_object, _waitpid);
     mock_external!(import_object, _utimes);

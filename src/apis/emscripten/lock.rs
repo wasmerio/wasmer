@@ -10,3 +10,8 @@ pub extern "C" fn ___lock(_which: c_int, _varargs: c_int, _instance: &mut Instan
 pub extern "C" fn ___unlock(_which: c_int, _varargs: c_int, _instance: &mut Instance) {
     debug!("emscripten::___unlock");
 }
+
+// NOTE: Not implemented by Emscripten
+pub extern "C" fn ___wait(_which: c_int, _varargs: c_int, _instance: &mut Instance) {
+    debug!("emscripten::___wait");
+}
