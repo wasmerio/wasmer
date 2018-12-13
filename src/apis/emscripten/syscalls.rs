@@ -72,7 +72,7 @@ use libc::{
     F_GETFD,
 };
 
-// Linking to functions that are provided by rust libc
+// Linking to functions that are not provided by rust libc
 #[cfg(target_os = "macos")]
 #[link(name = "c")]
 extern {

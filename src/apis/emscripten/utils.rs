@@ -29,20 +29,25 @@ pub fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &Instan
     buf
 }
 
+/// This function expects nullbyte to be appended.
 pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
+    debug!("### 1!");
     let space_offset = (instance.emscripten_data.as_ref().unwrap().malloc)((cstr_len as i32) + 1, instance);
+    debug!("### 2!");
     let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
         *loc = byte;
     }
+    debug!("### KABOOM 10!");
 
     // TODO: Appending null byte won't work, because there is CStr::from_ptr(cstr)
     //      at the top that crashes when there is no null byte
     *raw_memory.add(cstr_len) = 0;
+    debug!("### KABOOM 15!");
 
     space_offset
 }

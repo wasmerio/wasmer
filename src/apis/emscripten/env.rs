@@ -8,16 +8,24 @@ use std::os::raw::c_char;
 use super::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
 use crate::webassembly::Instance;
 
-/// emscripten: _getenv
-pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> c_int {
+/// emscripten: _getenv // (name: *const char) -> *const c_char;
+pub extern "C" fn _getenv(name_ptr: c_int, instance: &mut Instance) -> u32 {
     debug!("emscripten::_getenv {}", name_ptr);
     let name = unsafe {
         let memory_name_ptr = instance.memory_offset_addr(0, name_ptr as usize) as *const c_char;
         CStr::from_ptr(memory_name_ptr).to_str().unwrap()
     };
     match host::get_env(name, instance) {
-        Ok(_) => {
-            unimplemented!();
+        Ok(env_value) => {
+            // Append null byte
+            let env_value = env_value + "\0";
+            let env_value_ptr = env_value.as_ptr() as *mut c_char;
+            let res = unsafe { copy_cstr_into_wasm(instance, env_value_ptr) };
+            // Test
+            let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
+            use std::ffi::CStr;
+            debug!("#### cstr = {:?}", unsafe { CStr::from_ptr(c_str) });
+            res
         }
         Err(_) => 0,
     }

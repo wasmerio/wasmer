@@ -349,6 +349,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "___cxa_allocate_exception",
         ImportValue::Func(exception::___cxa_throw as _),
     );
+    import_object.set(
+        "env",
+        "___cxa_throw",
+        ImportValue::Func(exception::___cxa_throw as _),
+    );
     // NullFuncs
     import_object.set(
         "env",
@@ -511,7 +516,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     mock_external!(import_object, ___syscall66);
     // mock_external!(import_object, ___syscall64);
     // mock_external!(import_object, ___syscall63);
-    mock_external!(import_object, ___syscall60);
+    // mock_external!(import_object, ___syscall60);
     // mock_external!(import_object, ___syscall54);
     // mock_external!(import_object, ___syscall39);
     mock_external!(import_object, ___syscall38);
@@ -543,6 +548,10 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     // mock_external!(import_object, ___syscall20);
     mock_external!(import_object, ___syscall15);
     mock_external!(import_object, ___syscall10);
+    mock_external!(import_object, _dlopen);
+    mock_external!(import_object, _dlclose);
+    mock_external!(import_object, _dlsym);
+    mock_external!(import_object, _dlerror);
 
     import_object
 }

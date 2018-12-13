@@ -135,7 +135,7 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
         let time_str_ptr = fmt_time(time, instance);
         copy_cstr_into_wasm(instance, time_str_ptr)
 
-        // let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
+        // let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }
@@ -153,7 +153,7 @@ pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u3
         let time_str_ptr = fmt_time(time, instance);
         write_to_buf(time_str_ptr, buf, 26, instance)
 
-        // let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
+        // let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }
