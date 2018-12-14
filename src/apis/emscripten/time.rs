@@ -1,7 +1,6 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
 use libc::{
     c_int,
-    c_long,
     clock_gettime as libc_clock_gettime,
     localtime,
     localtime_r,
