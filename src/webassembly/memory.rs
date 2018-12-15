@@ -51,18 +51,21 @@ impl LinearMemory {
             initial, maximum
         );
         
-        let offset_guard_size = LinearMemory::DEFAULT_SIZE as usize;
-        let mut mmap = Mmap::with_size(offset_guard_size).expect("Can't create mmap");
+        let offset_guard_size = LinearMemory::DEFAULT_GUARD_SIZE as usize;
 
-        let base = mmap.as_mut_ptr();
+        let accessible_bytes = initial as usize * Self::PAGE_SIZE as usize;
+        let inaccessible_bytes = Self::DEFAULT_HEAP_SIZE - accessible_bytes;
 
+        let mmap = Mmap::with_size(Self::DEFAULT_HEAP_SIZE).expect("Can't create mmap");
+        let base = mmap.as_ptr();
+
+        // Offset-guard pages should be inaccessible
         if initial != 0 {
             unsafe {
                 region::protect(
-                    base as _,
-                    initial as usize * Self::PAGE_SIZE as usize,
-                    region::Protection::Read | region::Protection::Write,
-                    // region::Protection::None,
+                    base.add(accessible_bytes),
+                    inaccessible_bytes,
+                    region::Protection::None,
                 )
             }
             .expect("unable to make memory inaccessible");
@@ -129,15 +132,17 @@ impl LinearMemory {
         let prev_bytes = (prev_pages * Self::PAGE_SIZE) as usize;
         let new_bytes = (new_pages * Self::PAGE_SIZE) as usize;
 
+        // if new_bytes > self.mmap.len() - self.offset_guard_size {
         unsafe {
             region::protect(
-                self.mmap.as_mut_ptr().add(prev_bytes) as _,
+                self.mmap.as_ptr().add(prev_bytes) as _,
                 new_bytes - prev_bytes,
                 region::Protection::Read | region::Protection::Write,
                 // region::Protection::None,
             )
         }
         .expect("unable to make memory inaccessible");
+        // };
         // if new_bytes > self.mmap.len() - self.offset_guard_size {
         //     // If we have no maximum, this is a "dynamic" heap, and it's allowed to move.
         //     assert!(self.maximum.is_none());

@@ -43,8 +43,8 @@ impl Mmap {
             libc::mmap(
                 ptr::null_mut(),
                 alloc_size,
-                // libc::PROT_READ | libc::PROT_WRITE,
-                libc::PROT_NONE,
+                libc::PROT_READ | libc::PROT_WRITE,
+                // libc::PROT_NONE,
                 libc::MAP_PRIVATE | libc::MAP_ANON,
                 -1,
                 0,
