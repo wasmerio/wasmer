@@ -26,6 +26,8 @@ pub struct LinearMemory {
     // to set a maximum.
     maximum: Option<u32>,
 
+    // The size of the extra guard pages after the end.
+    // Is used to optimize loads and stores with constant offsets.
     offset_guard_size: usize,
 }
 
