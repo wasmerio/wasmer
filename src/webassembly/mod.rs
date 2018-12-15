@@ -231,7 +231,7 @@ pub fn start_instance(
         let (argc, argv) = store_module_arguments(path, args, instance);
 
         call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err))
-        // TODO: We should implement emscripten __ATEXIT__
+    // TODO: We should implement emscripten __ATEXIT__
     } else {
         let func_index =
             instance
@@ -240,8 +240,7 @@ pub fn start_instance(
                     Some(&Export::Function(index)) => index,
                     _ => panic!("Main function not found"),
                 });
-        let main: extern "C" fn(&Instance) =
-            get_instance_function!(instance, func_index);
+        let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
         call_protected!(main(&instance)).map_err(|err| format!("{}", err))
     }
 }
