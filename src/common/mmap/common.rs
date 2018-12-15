@@ -1,4 +1,3 @@
-
 /// Round `size` up to the nearest multiple of `page_size`.
 pub fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
     (size + (page_size - 1)) & !(page_size - 1)

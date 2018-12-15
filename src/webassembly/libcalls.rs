@@ -40,7 +40,6 @@ pub extern "C" fn nearbyintf64(x: f64) -> f64 {
     x.round()
 }
 
-
 /// A declaration for the stack probe function in Rust's standard library, for
 /// catching callstack overflow.
 extern "C" {

@@ -11,7 +11,6 @@ use winapi::um::winnt::{MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, MEM_RELEASE};
 
 use super::common::round_up_to_page_size;
 
-
 /// A simple struct consisting of a page-aligned pointer to page-aligned
 /// and initially-zeroed memory and a length.
 #[derive(Debug)]

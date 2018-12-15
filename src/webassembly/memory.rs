@@ -3,9 +3,9 @@
 //! webassembly::Instance.
 //! A memory created by Rust or in WebAssembly code will be accessible and
 //! mutable from both Rust and WebAssembly.
+use region;
 use std::ops::{Deref, DerefMut};
 use std::slice;
-use region;
 
 use crate::common::mmap::Mmap;
 
@@ -65,10 +65,18 @@ impl LinearMemory {
             }
             .expect("unable to make memory inaccessible");
         }
-    
+
         debug!("LinearMemory instantiated");
-        debug!("  - usable: {:#x}..{:#x}", base as usize, (base as usize) + LinearMemory::DEFAULT_HEAP_SIZE);
-        debug!("  - guard: {:#x}..{:#x}", (base as usize) + LinearMemory::DEFAULT_HEAP_SIZE, (base as usize) + LinearMemory::DEFAULT_SIZE);
+        debug!(
+            "  - usable: {:#x}..{:#x}",
+            base as usize,
+            (base as usize) + LinearMemory::DEFAULT_HEAP_SIZE
+        );
+        debug!(
+            "  - guard: {:#x}..{:#x}",
+            (base as usize) + LinearMemory::DEFAULT_HEAP_SIZE,
+            (base as usize) + LinearMemory::DEFAULT_SIZE
+        );
         Self {
             mmap,
             current: initial,
@@ -178,12 +186,22 @@ impl PartialEq for LinearMemory {
 impl Deref for LinearMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.mmap.as_ptr() as _, self.current as usize * Self::PAGE_SIZE as usize) }
+        unsafe {
+            slice::from_raw_parts(
+                self.mmap.as_ptr() as _,
+                self.current as usize * Self::PAGE_SIZE as usize,
+            )
+        }
     }
 }
 
 impl DerefMut for LinearMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.mmap.as_mut_ptr() as _, self.current as usize * Self::PAGE_SIZE as usize) }
+        unsafe {
+            slice::from_raw_parts_mut(
+                self.mmap.as_mut_ptr() as _,
+                self.current as usize * Self::PAGE_SIZE as usize,
+            )
+        }
     }
 }

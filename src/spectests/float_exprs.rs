@@ -7,12 +7,8 @@
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
-use super::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use super::_common::{spectest_importobject, NaNCheck};
+use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 6
 fn create_module_1() -> ResultObject {
@@ -41,7 +37,8 @@ fn c1_l11_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000015967133604096234 as f64, 87633521608271230000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 42896576204898460000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -13992561434270632000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -53,7 +50,8 @@ fn c2_l12_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(8341016642481988.0 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003223424965918293 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000023310835741659086 as f64, &result_object.instance);
     assert_eq!(result, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000026886641288847496 as f64);
 }
@@ -65,7 +63,8 @@ fn c3_l13_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030119045290520013 as f64, 52699336439236750000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.00000000000000000000000000000006654454781339856 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000015872537009936566 as f64);
 }
@@ -77,9 +76,18 @@ fn c4_l14_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000000000000000031413936116780743 as f64, -0.0000000000000000000000000000007262766035707377 as f64, 0.000000000000000000000000000000000000000000000000000000000000000004619684894228461 as f64, &result_object.instance);
-    assert_eq!(result, -0.00000000000000000000000000000000000000000000000000228152068276836 as f64);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000000000000000031413936116780743 as f64,
+        -0.0000000000000000000000000000007262766035707377 as f64,
+        0.000000000000000000000000000000000000000000000000000000000000000004619684894228461 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.00000000000000000000000000000000000000000000000000228152068276836 as f64
+    );
 }
 
 // Line 15
@@ -89,7 +97,8 @@ fn c5_l15_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016080464217402378 as f64, -382103410226833000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.00000000000000010541980504151345 as f64, &result_object.instance);
     assert_eq!(result, 0.00006144400215510552 as f64);
 }
@@ -141,8 +150,14 @@ fn c7_l26_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(35184304000000000000000000000000000000.0 as f32, 0.00000021584361 as f32, 259340640000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        35184304000000000000000000000000000000.0 as f32,
+        0.00000021584361 as f32,
+        259340640000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 266934960000000000000000000000000.0 as f32);
 }
 
@@ -153,8 +168,14 @@ fn c8_l27_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000071753243 as f32, -0.000000000000001225534 as f32, 0.0000000000000000000000000041316436 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000071753243 as f32,
+        -0.000000000000001225534 as f32,
+        0.0000000000000000000000000041316436 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000000000000000000000087894724 as f32);
 }
 
@@ -165,8 +186,14 @@ fn c9_l28_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(231063440000.0 as f32, 0.00020773262 as f32, 1797.6421 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        231063440000.0 as f32,
+        0.00020773262 as f32,
+        1797.6421 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 48001210.0 as f32);
 }
 
@@ -177,8 +204,14 @@ fn c10_l29_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0045542703 as f32, -7265493.5 as f32, -2.3964283 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0045542703 as f32,
+        -7265493.5 as f32,
+        -2.3964283 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -33091.414 as f32);
 }
 
@@ -189,8 +222,14 @@ fn c11_l30_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(98881730000000000000000000000000000000.0 as f32, -0.0000000000000000000008570631 as f32, -21579143000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        98881730000000000000000000000000000000.0 as f32,
+        -0.0000000000000000000008570631 as f32,
+        -21579143000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -84747910000000000.0 as f32);
 }
 
@@ -201,7 +240,8 @@ fn c12_l31_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(789084284375179200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 4215020052117360000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -1336601081131744700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 1989405000320312800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -213,7 +253,8 @@ fn c13_l32_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(5586822348009285500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.0000000000000000000000000000000000000007397302005677334 as f64, 36567834172040920000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 4132741216029240700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -225,9 +266,14 @@ fn c14_l33_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014260477822274587 as f64, -31087632036599860000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 343269235523777630000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, -4433244872049653000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
+    assert_eq!(
+        result,
+        -4433244872049653000000000000000000000000000000000000000000000000000000000000000000000000.0
+            as f64
+    );
 }
 
 // Line 34
@@ -237,7 +283,8 @@ fn c15_l34_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000809034701735478 as f64, -24874417850667450000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 49484765138510810.0 as f64, &result_object.instance);
     assert_eq!(result, 250727437405094720.0 as f64);
 }
@@ -249,7 +296,8 @@ fn c16_l35_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(6723256985364377.0 as f64, 285456566692879460000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -5593839470050757000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 1919197856036028600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -298,11 +346,17 @@ fn start_module_3(result_object: &ResultObject) {
 // Line 47
 fn c18_l47_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c18_l47_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -310,35 +364,59 @@ fn c18_l47_action_invoke(result_object: &ResultObject) {
 // Line 48
 fn c19_l48_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c19_l48_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
 
 // Line 49
 fn c20_l49_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c20_l49_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_zero") {
+    println!(
+        "Executing function {}",
+        "c20_l49_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 50
 fn c21_l50_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c21_l50_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_zero") {
+    println!(
+        "Executing function {}",
+        "c21_l50_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -381,11 +459,17 @@ fn start_module_4(result_object: &ResultObject) {
 // Line 61
 fn c23_l61_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c23_l61_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_sub") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_zero_sub")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -393,35 +477,59 @@ fn c23_l61_action_invoke(result_object: &ResultObject) {
 // Line 62
 fn c24_l62_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c24_l62_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_sub") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_zero_sub")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
 
 // Line 63
 fn c25_l63_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c25_l63_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_sub") {
+    println!(
+        "Executing function {}",
+        "c25_l63_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_zero_sub")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 64
 fn c26_l64_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c26_l64_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_sub") {
+    println!(
+        "Executing function {}",
+        "c26_l64_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_zero_sub")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -463,24 +571,42 @@ fn start_module_5(result_object: &ResultObject) {
 
 // Line 75
 fn c28_l75_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c28_l75_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sub_zero") {
+    println!(
+        "Executing function {}",
+        "c28_l75_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sub_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 76
 fn c29_l76_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c29_l76_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sub_zero") {
+    println!(
+        "Executing function {}",
+        "c29_l76_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sub_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -521,11 +647,17 @@ fn start_module_6(result_object: &ResultObject) {
 // Line 87
 fn c31_l87_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c31_l87_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -533,11 +665,17 @@ fn c31_l87_action_invoke(result_object: &ResultObject) {
 // Line 88
 fn c32_l88_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c32_l88_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -545,23 +683,38 @@ fn c32_l88_action_invoke(result_object: &ResultObject) {
 // Line 89
 fn c33_l89_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c33_l89_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
 
 // Line 90
 fn c34_l90_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c34_l90_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_zero") {
+    println!(
+        "Executing function {}",
+        "c34_l90_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -569,11 +722,17 @@ fn c34_l90_assert_return_arithmetic_nan(result_object: &ResultObject) {
 // Line 91
 fn c35_l91_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c35_l91_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -581,11 +740,17 @@ fn c35_l91_action_invoke(result_object: &ResultObject) {
 // Line 92
 fn c36_l92_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c36_l92_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -593,23 +758,38 @@ fn c36_l92_action_invoke(result_object: &ResultObject) {
 // Line 93
 fn c37_l93_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c37_l93_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
 
 // Line 94
 fn c38_l94_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c38_l94_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_zero") {
+    println!(
+        "Executing function {}",
+        "c38_l94_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -655,24 +835,32 @@ fn start_module_7(result_object: &ResultObject) {
 
 // Line 106
 fn c40_l106_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c40_l106_assert_return_arithmetic_nan");
+    println!(
+        "Executing function {}",
+        "c40_l106_assert_return_arithmetic_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_one") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 107
 fn c41_l107_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c41_l107_assert_return_arithmetic_nan");
+    println!(
+        "Executing function {}",
+        "c41_l107_assert_return_arithmetic_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_one") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -712,96 +900,168 @@ fn start_module_8(result_object: &ResultObject) {
 
 // Line 118
 fn c43_l118_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c43_l118_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_div") {
+    println!(
+        "Executing function {}",
+        "c43_l118_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_zero_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 119
 fn c44_l119_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c44_l119_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_div") {
+    println!(
+        "Executing function {}",
+        "c44_l119_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_zero_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 120
 fn c45_l120_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c45_l120_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_div") {
+    println!(
+        "Executing function {}",
+        "c45_l120_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_zero_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2143289344), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 121
 fn c46_l121_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c46_l121_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_zero_div") {
+    println!(
+        "Executing function {}",
+        "c46_l121_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_zero_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 122
 fn c47_l122_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c47_l122_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_div") {
+    println!(
+        "Executing function {}",
+        "c47_l122_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_zero_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 123
 fn c48_l123_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c48_l123_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_div") {
+    println!(
+        "Executing function {}",
+        "c48_l123_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_zero_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 124
 fn c49_l124_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c49_l124_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_div") {
+    println!(
+        "Executing function {}",
+        "c49_l124_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_zero_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9221120237041090560), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 125
 fn c50_l125_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c50_l125_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_zero_div") {
+    println!(
+        "Executing function {}",
+        "c50_l125_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_zero_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -847,24 +1107,32 @@ fn start_module_9(result_object: &ResultObject) {
 
 // Line 136
 fn c52_l136_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c52_l136_assert_return_arithmetic_nan");
+    println!(
+        "Executing function {}",
+        "c52_l136_assert_return_arithmetic_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f32.no_fold_div_one") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 137
 fn c53_l137_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c53_l137_assert_return_arithmetic_nan");
+    println!(
+        "Executing function {}",
+        "c53_l137_assert_return_arithmetic_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f64.no_fold_div_one") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -904,24 +1172,42 @@ fn start_module_10(result_object: &ResultObject) {
 
 // Line 148
 fn c55_l148_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c55_l148_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg1") {
+    println!(
+        "Executing function {}",
+        "c55_l148_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg1")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 149
 fn c56_l149_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c56_l149_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg1") {
+    println!(
+        "Executing function {}",
+        "c56_l149_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg1")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -961,24 +1247,42 @@ fn start_module_11(result_object: &ResultObject) {
 
 // Line 160
 fn c58_l160_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c58_l160_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_neg0_sub") {
+    println!(
+        "Executing function {}",
+        "c58_l160_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_neg0_sub")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 161
 fn c59_l161_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c59_l161_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_neg0_sub") {
+    println!(
+        "Executing function {}",
+        "c59_l161_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_neg0_sub")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -1018,24 +1322,42 @@ fn start_module_12(result_object: &ResultObject) {
 
 // Line 172
 fn c61_l172_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c61_l172_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_neg1_mul") {
+    println!(
+        "Executing function {}",
+        "c61_l172_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_neg1_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 173
 fn c62_l173_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c62_l173_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_neg1_mul") {
+    println!(
+        "Executing function {}",
+        "c62_l173_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_neg1_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -1080,7 +1402,8 @@ fn c64_l184_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2143289344), &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -1092,7 +1415,8 @@ fn c65_l185_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9221120237041090560), &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -1137,7 +1461,8 @@ fn c67_l196_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2143289344), &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -1149,7 +1474,8 @@ fn c68_l197_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9221120237041090560), &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -1189,48 +1515,84 @@ fn start_module_15(result_object: &ResultObject) {
 
 // Line 208
 fn c70_l208_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c70_l208_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sub_self") {
+    println!(
+        "Executing function {}",
+        "c70_l208_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sub_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::INFINITY, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 209
 fn c71_l209_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c71_l209_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sub_self") {
+    println!(
+        "Executing function {}",
+        "c71_l209_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sub_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2143289344), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 210
 fn c72_l210_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c72_l210_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sub_self") {
+    println!(
+        "Executing function {}",
+        "c72_l210_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sub_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::INFINITY, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 211
 fn c73_l211_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c73_l211_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sub_self") {
+    println!(
+        "Executing function {}",
+        "c73_l211_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sub_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9221120237041090560), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -1272,96 +1634,168 @@ fn start_module_16(result_object: &ResultObject) {
 
 // Line 222
 fn c75_l222_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c75_l222_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_self") {
+    println!(
+        "Executing function {}",
+        "c75_l222_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::INFINITY, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 223
 fn c76_l223_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c76_l223_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_self") {
+    println!(
+        "Executing function {}",
+        "c76_l223_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2143289344), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 224
 fn c77_l224_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c77_l224_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_self") {
+    println!(
+        "Executing function {}",
+        "c77_l224_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 225
 fn c78_l225_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c78_l225_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_self") {
+    println!(
+        "Executing function {}",
+        "c78_l225_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 226
 fn c79_l226_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c79_l226_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_self") {
+    println!(
+        "Executing function {}",
+        "c79_l226_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::INFINITY, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 227
 fn c80_l227_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c80_l227_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_self") {
+    println!(
+        "Executing function {}",
+        "c80_l227_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9221120237041090560), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 228
 fn c81_l228_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c81_l228_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_self") {
+    println!(
+        "Executing function {}",
+        "c81_l228_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 229
 fn c82_l229_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c82_l229_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_self") {
+    println!(
+        "Executing function {}",
+        "c82_l229_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_self")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -1412,7 +1846,8 @@ fn c84_l240_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1361679000000000.0 as f32, &result_object.instance);
     assert_eq!(result, -453892980000000.0 as f32);
 }
@@ -1424,8 +1859,12 @@ fn c85_l241_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-18736880000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -18736880000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -6245626600000000000000000000.0 as f32);
 }
 
@@ -1436,8 +1875,12 @@ fn c86_l242_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000000012045131 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000000012045131 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000000000000000000000000040150435 as f32);
 }
 
@@ -1448,9 +1891,16 @@ fn c87_l243_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000000000000000000005281346 as f32, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000000000017604486 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000000000000000000005281346 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000000000017604486 as f32
+    );
 }
 
 // Line 244
@@ -1460,7 +1910,8 @@ fn c88_l244_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000025495563 as f32, &result_object.instance);
     assert_eq!(result, -0.000000000000000008498521 as f32);
 }
@@ -1472,7 +1923,8 @@ fn c89_l245_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-29563579573969634000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -9854526524656545000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -1484,9 +1936,16 @@ fn c90_l246_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000000000009291150921449772 as f64, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000000000000000000000003097050307149924 as f64);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000000000000000000000000000000009291150921449772 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000000000000000000000003097050307149924 as f64
+    );
 }
 
 // Line 247
@@ -1496,7 +1955,8 @@ fn c91_l247_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000013808061543557006 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004602687181185669 as f64);
 }
@@ -1508,7 +1968,8 @@ fn c92_l248_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1378076163468349000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -459358721156116300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -1520,7 +1981,8 @@ fn c93_l249_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(86324008088313660000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 28774669362771220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -1581,8 +2043,14 @@ fn c95_l260_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1435111700000.0 as f32, -853617640000000.0 as f32, 1113849300000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -1435111700000.0 as f32,
+        -853617640000000.0 as f32,
+        1113849300000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -952399900000000000000000000000000.0 as f32);
 }
 
@@ -1593,8 +2061,14 @@ fn c96_l261_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.026666632 as f32, 0.048412822 as f32, -0.002813697 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.026666632 as f32,
+        0.048412822 as f32,
+        -0.002813697 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000611872 as f32);
 }
 
@@ -1605,8 +2079,14 @@ fn c97_l262_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000046619777 as f32, 0.00000000000000000010478377 as f32, 14469202000000000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000046619777 as f32,
+        0.00000000000000000010478377 as f32,
+        14469202000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -6745508000000000000000000.0 as f32);
 }
 
@@ -1617,8 +2097,14 @@ fn c98_l263_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000010689046 as f32, 0.00000000000000000000000010694433 as f32, 568307000000000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000010689046 as f32,
+        0.00000000000000000000000010694433 as f32,
+        568307000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -60746540000000000.0 as f32);
 }
 
@@ -1629,8 +2115,14 @@ fn c99_l264_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000063545994 as f32, 0.0000000000000000000007524625 as f32, 1626770.3 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000000063545994 as f32,
+        0.0000000000000000000007524625 as f32,
+        1626770.3 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000012239803 as f32);
 }
 
@@ -1641,7 +2133,8 @@ fn c100_l265_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000028390554709988774 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001473981250649641 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000029001229846550766 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008233610026197336 as f64);
 }
@@ -1653,7 +2146,8 @@ fn c101_l266_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006461015505916123 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000023923242802975938 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000015300738798561604 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -1665,9 +2159,13 @@ fn c102_l267_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002939056292080733 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000002146156743463356 as f64, -2510967223130241600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, 538892923853642600000000000000000000000000000000000000000000.0 as f64);
+    assert_eq!(
+        result,
+        538892923853642600000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 268
@@ -1677,7 +2175,8 @@ fn c103_l268_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000017785466771708878 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000009328516775403213 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000012121009044876735 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001130710359943689 as f64);
 }
@@ -1689,9 +2188,13 @@ fn c104_l269_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000015194859063177362 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000883589921438065 as f64, -1735830019469195800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, -0.0000000000000000000000000015337619131701908 as f64);
+    assert_eq!(
+        result,
+        -0.0000000000000000000000000015337619131701908 as f64
+    );
 }
 
 // Line 273
@@ -1746,8 +2249,14 @@ fn c106_l280_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1435111700000.0 as f32, -853617640000000.0 as f32, 1113849300000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -1435111700000.0 as f32,
+        -853617640000000.0 as f32,
+        1113849300000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -952400000000000000000000000000000.0 as f32);
 }
 
@@ -1758,8 +2267,14 @@ fn c107_l281_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.026666632 as f32, 0.048412822 as f32, -0.002813697 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.026666632 as f32,
+        0.048412822 as f32,
+        -0.002813697 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000061187195 as f32);
 }
 
@@ -1770,8 +2285,14 @@ fn c108_l282_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000046619777 as f32, 0.00000000000000000010478377 as f32, 14469202000000000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000046619777 as f32,
+        0.00000000000000000010478377 as f32,
+        14469202000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -6745508500000000000000000.0 as f32);
 }
 
@@ -1782,8 +2303,14 @@ fn c109_l283_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000010689046 as f32, 0.00000000000000000000000010694433 as f32, 568307000000000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000010689046 as f32,
+        0.00000000000000000000000010694433 as f32,
+        568307000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -60746536000000000.0 as f32);
 }
 
@@ -1794,8 +2321,14 @@ fn c110_l284_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000063545994 as f32, 0.0000000000000000000007524625 as f32, 1626770.3 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000000063545994 as f32,
+        0.0000000000000000000007524625 as f32,
+        1626770.3 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000012239802 as f32);
 }
 
@@ -1806,7 +2339,8 @@ fn c111_l285_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000028390554709988774 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001473981250649641 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000029001229846550766 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008233610026197337 as f64);
 }
@@ -1818,7 +2352,8 @@ fn c112_l286_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006461015505916123 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000023923242802975938 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000015300738798561604 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -1830,9 +2365,13 @@ fn c113_l287_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002939056292080733 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000002146156743463356 as f64, -2510967223130241600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, 538892923853642500000000000000000000000000000000000000000000.0 as f64);
+    assert_eq!(
+        result,
+        538892923853642500000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 288
@@ -1842,7 +2381,8 @@ fn c114_l288_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000017785466771708878 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000009328516775403213 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000012121009044876735 as f64, &result_object.instance);
     assert_eq!(result, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011307103599436889 as f64);
 }
@@ -1854,9 +2394,13 @@ fn c115_l289_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000015194859063177362 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000883589921438065 as f64, -1735830019469195800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, -0.0000000000000000000000000015337619131701907 as f64);
+    assert_eq!(
+        result,
+        -0.0000000000000000000000000015337619131701907 as f64
+    );
 }
 
 // Line 293
@@ -1907,71 +2451,132 @@ fn start_module_20(result_object: &ResultObject) {
 // Line 300
 fn c117_l300_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c117_l300_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000000000000000002831349 as f32, -0.00000000000000000007270787 as f32, 0.000000000000000000000000000000000016406605 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000000000000000002831349 as f32,
+        -0.00000000000000000007270787 as f32,
+        0.000000000000000000000000000000000016406605 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000000000012547468 as f32);
 }
 
 // Line 301
 fn c118_l301_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c118_l301_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-3145897700000000000000000000.0 as f32, -0.000000000000000000000000000000000040864003 as f32, -9245928300000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -3145897700000000000000000000.0 as f32,
+        -0.000000000000000000000000000000000040864003 as f32,
+        -9245928300000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0 as f32);
 }
 
 // Line 302
 fn c119_l302_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c119_l302_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-93157.43 as f32, -0.00000081292654 as f32, -0.00000000000000000000000000000000000015469397 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -93157.43 as f32,
+        -0.00000081292654 as f32,
+        -0.00000000000000000000000000000000000015469397 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -489548120000000000000000000000000000.0 as f32);
 }
 
 // Line 303
 fn c120_l303_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c120_l303_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000000000008899643 as f32, 17887725000000000000000.0 as f32, 514680230000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000000000008899643 as f32,
+        17887725000000000000000.0 as f32,
+        514680230000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000000000000000000000000003093073 as f32);
 }
 
 // Line 304
 fn c121_l304_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c121_l304_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(9222036000000000000000000000000000.0 as f32, 33330492.0 as f32, -3253108800000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        9222036000000000000000000000000000.0 as f32,
+        33330492.0 as f32,
+        -3253108800000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -94486550000000000000.0 as f32);
 }
 
 // Line 305
 fn c122_l305_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c122_l305_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005698811412550059 as f64, -0.0000000000000000000000000000000000018313439132919336 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009543270551003098 as f64, &result_object.instance);
     assert_eq!(result, -1093596114413331000000000000000.0 as f64);
 }
@@ -1979,11 +2584,17 @@ fn c122_l305_action_invoke(result_object: &ResultObject) {
 // Line 306
 fn c123_l306_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c123_l306_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(357289288425507550000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003952760844538651 as f64, -1450781241254900800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -1991,11 +2602,17 @@ fn c123_l306_action_invoke(result_object: &ResultObject) {
 // Line 307
 fn c124_l307_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c124_l307_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009124278383497107 as f64, 55561345277147970000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025090826940306507 as f64, &result_object.instance);
     assert_eq!(result, f64::INFINITY);
 }
@@ -2003,23 +2620,38 @@ fn c124_l307_action_invoke(result_object: &ResultObject) {
 // Line 308
 fn c125_l308_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c125_l308_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4492093000352015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -12087878984017852000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -596613380626062300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, -91013507803376260000000000000000000000000000000000000000000000000000000000000.0 as f64);
+    assert_eq!(
+        result,
+        -91013507803376260000000000000000000000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 309
 fn c126_l309_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c126_l309_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_div_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_div_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007470269158630455 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007568026329781282 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001055389683973521 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005356807494101561 as f64);
 }
@@ -2072,71 +2704,132 @@ fn start_module_21(result_object: &ResultObject) {
 // Line 320
 fn c128_l320_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c128_l320_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000000000000000002831349 as f32, -0.00000000000000000007270787 as f32, 0.000000000000000000000000000000000016406605 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000000000000000002831349 as f32,
+        -0.00000000000000000007270787 as f32,
+        0.000000000000000000000000000000000016406605 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 321
 fn c129_l321_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c129_l321_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-3145897700000000000000000000.0 as f32, -0.000000000000000000000000000000000040864003 as f32, -9245928300000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -3145897700000000000000000000.0 as f32,
+        -0.000000000000000000000000000000000040864003 as f32,
+        -9245928300000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000000000000000000000000000013903848 as f32);
 }
 
 // Line 322
 fn c130_l322_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c130_l322_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-93157.43 as f32, -0.00000081292654 as f32, -0.00000000000000000000000000000000000015469397 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -93157.43 as f32,
+        -0.00000081292654 as f32,
+        -0.00000000000000000000000000000000000015469397 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -489548160000000000000000000000000000.0 as f32);
 }
 
 // Line 323
 fn c131_l323_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c131_l323_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000000000008899643 as f32, 17887725000000000000000.0 as f32, 514680230000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000000000008899643 as f32,
+        17887725000000000000000.0 as f32,
+        514680230000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000000000000000000000000030930732 as f32);
 }
 
 // Line 324
 fn c132_l324_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c132_l324_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(9222036000000000000000000000000000.0 as f32, 33330492.0 as f32, -3253108800000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        9222036000000000000000000000000000.0 as f32,
+        33330492.0 as f32,
+        -3253108800000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 325
 fn c133_l325_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c133_l325_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005698811412550059 as f64, -0.0000000000000000000000000000000000018313439132919336 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009543270551003098 as f64, &result_object.instance);
     assert_eq!(result, -1093596114413331100000000000000.0 as f64);
 }
@@ -2144,11 +2837,17 @@ fn c133_l325_action_invoke(result_object: &ResultObject) {
 // Line 326
 fn c134_l326_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c134_l326_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(357289288425507550000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003952760844538651 as f64, -1450781241254900800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009734611044734945 as f64);
 }
@@ -2156,11 +2855,17 @@ fn c134_l326_action_invoke(result_object: &ResultObject) {
 // Line 327
 fn c135_l327_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c135_l327_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009124278383497107 as f64, 55561345277147970000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025090826940306507 as f64, &result_object.instance);
     assert_eq!(result, 20204881364667663000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -2168,11 +2873,17 @@ fn c135_l327_action_invoke(result_object: &ResultObject) {
 // Line 328
 fn c136_l328_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c136_l328_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4492093000352015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -12087878984017852000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -596613380626062300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, f64::NEG_INFINITY);
 }
@@ -2180,11 +2891,17 @@ fn c136_l328_action_invoke(result_object: &ResultObject) {
 // Line 329
 fn c137_l329_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c137_l329_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_regroup_mul_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_regroup_mul_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007470269158630455 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007568026329781282 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001055389683973521 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -2241,71 +2958,137 @@ fn start_module_22(result_object: &ResultObject) {
 // Line 340
 fn c139_l340_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c139_l340_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-24154321000000.0 as f32, 26125812000.0 as f32, -238608080000000.0 as f32, -2478953500000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -24154321000000.0 as f32,
+        26125812000.0 as f32,
+        -238608080000000.0 as f32,
+        -2478953500000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -265215220000000.0 as f32);
 }
 
 // Line 341
 fn c140_l341_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c140_l341_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0036181053 as f32, -0.00985944 as f32, 0.063375376 as f32, -0.011150199 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0036181053 as f32,
+        -0.00985944 as f32,
+        0.063375376 as f32,
+        -0.011150199 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.04598384 as f32);
 }
 
 // Line 342
 fn c141_l342_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c141_l342_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-34206968000.0 as f32, -3770877200000.0 as f32, 30868425000000.0 as f32, 421132080000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -34206968000.0 as f32,
+        -3770877200000.0 as f32,
+        30868425000000.0 as f32,
+        421132080000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 27484470000000.0 as f32);
 }
 
 // Line 343
 fn c142_l343_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c142_l343_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(153506400000000.0 as f32, 925114700000000.0 as f32, -36021854000.0 as f32, 2450846000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        153506400000000.0 as f32,
+        925114700000000.0 as f32,
+        -36021854000.0 as f32,
+        2450846000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 3529431000000000.0 as f32);
 }
 
 // Line 344
 fn c143_l344_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c143_l344_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(470600300000000000000000000000000.0 as f32, -396552040000000000000000000000000.0 as f32, 48066940000000000000000000000000.0 as f32, -35644073000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        470600300000000000000000000000000.0 as f32,
+        -396552040000000000000000000000000.0 as f32,
+        48066940000000000000000000000000.0 as f32,
+        -35644073000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 122079560000000000000000000000000.0 as f32);
 }
 
 // Line 345
 fn c144_l345_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c144_l345_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-20704652927717020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 1594689704376369700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 451106636559416130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -1374333509186863300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -921652887575998600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -2313,11 +3096,17 @@ fn c144_l345_action_invoke(result_object: &ResultObject) {
 // Line 346
 fn c145_l346_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c145_l346_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003485747658213531 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000031210957391311754 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000683008546431621 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002617177347131095 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022324206697150536 as f64);
 }
@@ -2325,11 +3114,17 @@ fn c145_l346_action_invoke(result_object: &ResultObject) {
 // Line 347
 fn c146_l347_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c146_l347_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-5412584921122726300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 597603656170379500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -355830077793396300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 373627259957625440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -5768414998318146000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -2337,11 +3132,17 @@ fn c146_l347_action_invoke(result_object: &ResultObject) {
 // Line 348
 fn c147_l348_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c147_l348_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006469047714189599 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064286584974746 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000021277698072285604 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000008768287273189493 as f64, &result_object.instance);
     assert_eq!(result, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000006640517465960996 as f64);
 }
@@ -2349,11 +3150,17 @@ fn c147_l348_action_invoke(result_object: &ResultObject) {
 // Line 349
 fn c148_l349_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c148_l349_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-16422137086414828000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -88032137939790710000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 449957059782857850000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -114091267166274390000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 319443655442136560000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -2410,71 +3217,137 @@ fn start_module_23(result_object: &ResultObject) {
 // Line 360
 fn c150_l360_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c150_l360_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000000000000000000000001904515 as f32, 0.00000000022548861 as f32, -6964322000000000000000000000000.0 as f32, 0.000000000000000026902832 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000000000000000000000001904515 as f32,
+        0.00000000022548861 as f32,
+        -6964322000000000000000000000000.0 as f32,
+        0.000000000000000026902832 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00000000000000000000000000000078764173 as f32);
 }
 
 // Line 361
 fn c151_l361_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c151_l361_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000018733125 as f32, -7565904000000000000000000000000.0 as f32, -0.000000000000000000000000000000000000030807684 as f32, -1592759200000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000018733125 as f32,
+        -7565904000000000000000000000000.0 as f32,
+        -0.000000000000000000000000000000000000030807684 as f32,
+        -1592759200000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0069547286 as f32);
 }
 
 // Line 362
 fn c152_l362_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c152_l362_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000000000050355575 as f32, -56466884000000000.0 as f32, -0.0000000000011740512 as f32, 84984730000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000000000050355575 as f32,
+        -56466884000000000.0 as f32,
+        -0.0000000000011740512 as f32,
+        84984730000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 28370654000000.0 as f32);
 }
 
 // Line 363
 fn c153_l363_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c153_l363_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000046394946 as f32, 254449360000000000000000.0 as f32, -72460980000000000.0 as f32, -962511040000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000046394946 as f32,
+        254449360000000000000000.0 as f32,
+        -72460980000000000.0 as f32,
+        -962511040000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 823345100000000000000000000.0 as f32);
 }
 
 // Line 364
 fn c154_l364_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c154_l364_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000000019420536 as f32, 0.0000000000000023200355 as f32, -9.772748 as f32, 864066000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000000019420536 as f32,
+        0.0000000000000023200355 as f32,
+        -9.772748 as f32,
+        864066000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000000035113616 as f32);
 }
 
 // Line 365
 fn c155_l365_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c155_l365_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003109868654414946 as f64, -20713190487745434000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007162612845524978 as f64, -88478253295969090000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 40822261813278614000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -2482,11 +3355,17 @@ fn c155_l365_action_invoke(result_object: &ResultObject) {
 // Line 366
 fn c156_l366_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c156_l366_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(60442716412956810000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006700545015107397 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000031469664275798185 as f64, -6401677295640561500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008159057447560471 as f64);
 }
@@ -2494,11 +3373,17 @@ fn c156_l366_action_invoke(result_object: &ResultObject) {
 // Line 367
 fn c157_l367_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c157_l367_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002216807720454268 as f64, -1802234186536721600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007500283778521931 as f64, -414412152433956900000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001241793627299937 as f64);
 }
@@ -2506,11 +3391,17 @@ fn c157_l367_action_invoke(result_object: &ResultObject) {
 // Line 368
 fn c158_l368_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c158_l368_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(24318065966298720000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006508014075793436 as f64, 17596421287233897000000000000000000000000000000000000000000000000000.0 as f64, -0.0000001416141401305358 as f64, &result_object.instance);
     assert_eq!(result, -3943741918531223000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -2518,11 +3409,17 @@ fn c158_l368_action_invoke(result_object: &ResultObject) {
 // Line 369
 fn c159_l369_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c159_l369_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_reassociate_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_reassociate_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000003849767156964772 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070008754943224875 as f64, -2536887825218386500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006101114518858449 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004171548126376117 as f64);
 }
@@ -2575,7 +3472,8 @@ fn c161_l380_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, &result_object.instance);
     assert_eq!(result, f32::INFINITY);
 }
@@ -2587,7 +3485,8 @@ fn c162_l381_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f32, &result_object.instance);
     assert_eq!(result, f32::NEG_INFINITY);
 }
@@ -2599,7 +3498,8 @@ fn c163_l382_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::INFINITY, &result_object.instance);
     assert_eq!(result, f32::INFINITY);
 }
@@ -2611,55 +3511,72 @@ fn c164_l383_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::NEG_INFINITY, &result_object.instance);
     assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 384
 fn c165_l384_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c165_l384_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c165_l384_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f32.no_fold_div_0") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 385
 fn c166_l385_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c166_l385_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c166_l385_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f32.no_fold_div_0") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 386
 fn c167_l386_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c167_l386_assert_return_arithmetic_nan");
+    println!(
+        "Executing function {}",
+        "c167_l386_assert_return_arithmetic_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f32.no_fold_div_0") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 387
 fn c168_l387_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c168_l387_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c168_l387_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f32.no_fold_div_0") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2143289344), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -2671,7 +3588,8 @@ fn c169_l388_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f64, &result_object.instance);
     assert_eq!(result, f64::INFINITY);
 }
@@ -2683,7 +3601,8 @@ fn c170_l389_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f64, &result_object.instance);
     assert_eq!(result, f64::NEG_INFINITY);
 }
@@ -2695,7 +3614,8 @@ fn c171_l390_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::INFINITY, &result_object.instance);
     assert_eq!(result, f64::INFINITY);
 }
@@ -2707,55 +3627,72 @@ fn c172_l391_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::NEG_INFINITY, &result_object.instance);
     assert_eq!(result, f64::NEG_INFINITY);
 }
 
 // Line 392
 fn c173_l392_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c173_l392_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c173_l392_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f64.no_fold_div_0") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 393
 fn c174_l393_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c174_l393_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c174_l393_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f64.no_fold_div_0") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 394
 fn c175_l394_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c175_l394_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c175_l394_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f64.no_fold_div_0") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9221120237041090560), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 395
 fn c176_l395_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c176_l395_assert_return_arithmetic_nan");
+    println!(
+        "Executing function {}",
+        "c176_l395_assert_return_arithmetic_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f64.no_fold_div_0") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -2810,11 +3747,17 @@ fn start_module_25(result_object: &ResultObject) {
 // Line 406
 fn c178_l406_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c178_l406_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, &result_object.instance);
     assert_eq!(result, f32::NEG_INFINITY);
 }
@@ -2822,11 +3765,17 @@ fn c178_l406_action_invoke(result_object: &ResultObject) {
 // Line 407
 fn c179_l407_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c179_l407_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f32, &result_object.instance);
     assert_eq!(result, f32::INFINITY);
 }
@@ -2834,11 +3783,17 @@ fn c179_l407_action_invoke(result_object: &ResultObject) {
 // Line 408
 fn c180_l408_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c180_l408_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::INFINITY, &result_object.instance);
     assert_eq!(result, f32::NEG_INFINITY);
 }
@@ -2846,59 +3801,101 @@ fn c180_l408_action_invoke(result_object: &ResultObject) {
 // Line 409
 fn c181_l409_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c181_l409_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::NEG_INFINITY, &result_object.instance);
     assert_eq!(result, f32::INFINITY);
 }
 
 // Line 410
 fn c182_l410_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c182_l410_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+    println!(
+        "Executing function {}",
+        "c182_l410_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 411
 fn c183_l411_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c183_l411_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+    println!(
+        "Executing function {}",
+        "c183_l411_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 412
 fn c184_l412_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c184_l412_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+    println!(
+        "Executing function {}",
+        "c184_l412_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 413
 fn c185_l413_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c185_l413_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg0") {
+    println!(
+        "Executing function {}",
+        "c185_l413_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2143289344), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -2906,11 +3903,17 @@ fn c185_l413_assert_return_canonical_nan(result_object: &ResultObject) {
 // Line 414
 fn c186_l414_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c186_l414_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f64, &result_object.instance);
     assert_eq!(result, f64::NEG_INFINITY);
 }
@@ -2918,11 +3921,17 @@ fn c186_l414_action_invoke(result_object: &ResultObject) {
 // Line 415
 fn c187_l415_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c187_l415_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.0 as f64, &result_object.instance);
     assert_eq!(result, f64::INFINITY);
 }
@@ -2930,11 +3939,17 @@ fn c187_l415_action_invoke(result_object: &ResultObject) {
 // Line 416
 fn c188_l416_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c188_l416_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::INFINITY, &result_object.instance);
     assert_eq!(result, f64::NEG_INFINITY);
 }
@@ -2942,59 +3957,101 @@ fn c188_l416_action_invoke(result_object: &ResultObject) {
 // Line 417
 fn c189_l417_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c189_l417_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::NEG_INFINITY, &result_object.instance);
     assert_eq!(result, f64::INFINITY);
 }
 
 // Line 418
 fn c190_l418_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c190_l418_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+    println!(
+        "Executing function {}",
+        "c190_l418_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 419
 fn c191_l419_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c191_l419_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+    println!(
+        "Executing function {}",
+        "c191_l419_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 420
 fn c192_l420_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c192_l420_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+    println!(
+        "Executing function {}",
+        "c192_l420_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9221120237041090560), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 421
 fn c193_l421_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c193_l421_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg0") {
+    println!(
+        "Executing function {}",
+        "c193_l421_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg0")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -3059,47 +4116,83 @@ fn start_module_26(result_object: &ResultObject) {
 // Line 434
 fn c195_l434_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c195_l434_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000000000000072854914 as f32, 0.0000000000000000000042365796 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000000000000072854914 as f32,
+        0.0000000000000000000042365796 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000042366535 as f32);
 }
 
 // Line 435
 fn c196_l435_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c196_l435_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000007470285 as f32, -0.000000000000000000000000000000007453745 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000007470285 as f32,
+        -0.000000000000000000000000000000007453745 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000007468044 as f32);
 }
 
 // Line 436
 fn c197_l436_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c197_l436_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000000000000770895 as f32, -0.0000000000000000000032627214 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000000000000770895 as f32,
+        -0.0000000000000000000032627214 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000032627695 as f32);
 }
 
 // Line 437
 fn c198_l437_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c198_l437_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-35.42818 as f32, 174209.48 as f32, &result_object.instance);
     assert_eq!(result, 174209.5 as f32);
 }
@@ -3107,23 +4200,39 @@ fn c198_l437_action_invoke(result_object: &ResultObject) {
 // Line 438
 fn c199_l438_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c199_l438_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000020628143 as f32, -0.00000000000000000000046344753 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000020628143 as f32,
+        -0.00000000000000000000046344753 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000463032 as f32);
 }
 
 // Line 439
 fn c200_l439_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c200_l439_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003863640258986321 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000019133014752624014 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000019120893753235554 as f64);
 }
@@ -3131,11 +4240,17 @@ fn c200_l439_action_invoke(result_object: &ResultObject) {
 // Line 440
 fn c201_l440_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c201_l440_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(138561238950329770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -2828038515930043000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 2828038519324483400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -3143,11 +4258,17 @@ fn c201_l440_action_invoke(result_object: &ResultObject) {
 // Line 441
 fn c202_l441_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c202_l441_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006502729096641792 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004544399933151275 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006668276248455232 as f64);
 }
@@ -3155,11 +4276,17 @@ fn c202_l441_action_invoke(result_object: &ResultObject) {
 // Line 442
 fn c203_l442_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c203_l442_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022340232024202604 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003435929714143315 as f64, &result_object.instance);
     assert_eq!(result, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022340232023799234 as f64);
 }
@@ -3167,11 +4294,17 @@ fn c203_l442_action_invoke(result_object: &ResultObject) {
 // Line 443
 fn c204_l443_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c204_l443_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_to_hypot") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_to_hypot")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002797963998630554 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001906867996862016 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000019068679968620105 as f64);
 }
@@ -3214,11 +4347,17 @@ fn start_module_27(result_object: &ResultObject) {
 // Line 452
 fn c206_l452_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c206_l452_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0011329757 as f32, &result_object.instance);
     assert_eq!(result, -882.6315 as f32);
 }
@@ -3226,35 +4365,62 @@ fn c206_l452_action_invoke(result_object: &ResultObject) {
 // Line 453
 fn c207_l453_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c207_l453_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(323753010000000000000000000000000000000.0 as f32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000003088774 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        323753010000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000003088774 as f32
+    );
 }
 
 // Line 454
 fn c208_l454_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c208_l454_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000001272599 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000001272599 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -7857934600000000000000000000.0 as f32);
 }
 
 // Line 455
 fn c209_l455_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c209_l455_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(103020680000000000000000.0 as f32, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000009706789 as f32);
 }
@@ -3262,12 +4428,21 @@ fn c209_l455_action_invoke(result_object: &ResultObject) {
 // Line 456
 fn c210_l456_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c210_l456_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000000028443763 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000000028443763 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -3515709300000000000000000.0 as f32);
 }
 
@@ -3312,11 +4487,17 @@ fn start_module_28(result_object: &ResultObject) {
 // Line 467
 fn c212_l467_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c212_l467_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000016117865 as f32, &result_object.instance);
     assert_eq!(result, 2490842.5 as f32);
 }
@@ -3324,11 +4505,17 @@ fn c212_l467_action_invoke(result_object: &ResultObject) {
 // Line 468
 fn c213_l468_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c213_l468_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0074491366 as f32, &result_object.instance);
     assert_eq!(result, 11.58636 as f32);
 }
@@ -3336,11 +4523,17 @@ fn c213_l468_action_invoke(result_object: &ResultObject) {
 // Line 469
 fn c214_l469_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c214_l469_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000002339817 as f32, &result_object.instance);
     assert_eq!(result, 6537460000.0 as f32);
 }
@@ -3348,11 +4541,17 @@ fn c214_l469_action_invoke(result_object: &ResultObject) {
 // Line 470
 fn c215_l470_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c215_l470_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000011123504 as f32, &result_object.instance);
     assert_eq!(result, 2998328.3 as f32);
 }
@@ -3360,23 +4559,38 @@ fn c215_l470_action_invoke(result_object: &ResultObject) {
 // Line 471
 fn c216_l471_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c216_l471_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000017653063 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000017653063 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 7526446300000.0 as f32);
 }
 
 // Line 473
 fn c217_l473_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c217_l473_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fuse_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fuse_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4472459252766337000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014952947335898096 as f64);
 }
@@ -3384,35 +4598,59 @@ fn c217_l473_action_invoke(result_object: &ResultObject) {
 // Line 474
 fn c218_l474_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c218_l474_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fuse_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fuse_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4752392260007119000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000000000000014505872638954843 as f64);
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000000000000014505872638954843 as f64
+    );
 }
 
 // Line 475
 fn c219_l475_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c219_l475_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fuse_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fuse_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(29014415885392436000000000000000.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        29014415885392436000000000000000.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000000018564920084793608 as f64);
 }
 
 // Line 476
 fn c220_l476_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c220_l476_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fuse_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fuse_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1396612507697477800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000026758516751072132 as f64);
 }
@@ -3420,12 +4658,21 @@ fn c220_l476_action_invoke(result_object: &ResultObject) {
 // Line 477
 fn c221_l477_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c221_l477_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fuse_reciprocal_sqrt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fuse_reciprocal_sqrt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(151596415440704430000000000000000000000000000.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        151596415440704430000000000000000000000000000.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000000000000008121860649480894 as f64);
 }
 
@@ -3468,11 +4715,17 @@ fn start_module_29(result_object: &ResultObject) {
 // Line 486
 fn c223_l486_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c223_l486_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_sqrt_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_sqrt_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1895057100000000000.0 as f32, &result_object.instance);
     assert_eq!(result, 0.00000000072642176 as f32);
 }
@@ -3480,11 +4733,17 @@ fn c223_l486_action_invoke(result_object: &ResultObject) {
 // Line 487
 fn c224_l487_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c224_l487_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_sqrt_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_sqrt_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.002565894 as f32, &result_object.instance);
     assert_eq!(result, 19.741522 as f32);
 }
@@ -3492,11 +4751,17 @@ fn c224_l487_action_invoke(result_object: &ResultObject) {
 // Line 488
 fn c225_l488_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c225_l488_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_sqrt_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_sqrt_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(632654500000000000000.0 as f32, &result_object.instance);
     assert_eq!(result, 0.000000000039757284 as f32);
 }
@@ -3504,11 +4769,17 @@ fn c225_l488_action_invoke(result_object: &ResultObject) {
 // Line 489
 fn c226_l489_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c226_l489_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_sqrt_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_sqrt_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(14153.539 as f32, &result_object.instance);
     assert_eq!(result, 0.008405576 as f32);
 }
@@ -3516,12 +4787,21 @@ fn c226_l489_action_invoke(result_object: &ResultObject) {
 // Line 490
 fn c227_l490_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c227_l490_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_approximate_sqrt_reciprocal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_approximate_sqrt_reciprocal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(26173730000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        26173730000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000000019546418 as f32);
 }
 
@@ -3578,7 +4858,8 @@ fn c229_l505_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(16777216 as i32, &result_object.instance);
     assert_eq!(result, 16777216 as i32);
 }
@@ -3590,7 +4871,8 @@ fn c230_l506_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(16777217 as i32, &result_object.instance);
     assert_eq!(result, 16777216 as i32);
 }
@@ -3602,7 +4884,8 @@ fn c231_l507_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-268435440 as i32, &result_object.instance);
     assert_eq!(result, -268435440 as i32);
 }
@@ -3614,7 +4897,8 @@ fn c232_l509_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(16777216 as i32, &result_object.instance);
     assert_eq!(result, 16777216 as i32);
 }
@@ -3626,7 +4910,8 @@ fn c233_l510_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(16777217 as i32, &result_object.instance);
     assert_eq!(result, 16777216 as i32);
 }
@@ -3638,7 +4923,8 @@ fn c234_l511_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-268435440 as i32, &result_object.instance);
     assert_eq!(result, -268435456 as i32);
 }
@@ -3650,7 +4936,8 @@ fn c235_l513_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9007199254740992 as i64, &result_object.instance);
     assert_eq!(result, 9007199254740992 as i64);
 }
@@ -3662,7 +4949,8 @@ fn c236_l514_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9007199254740993 as i64, &result_object.instance);
     assert_eq!(result, 9007199254740992 as i64);
 }
@@ -3674,7 +4962,8 @@ fn c237_l515_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1152921504606845952 as i64, &result_object.instance);
     assert_eq!(result, -1152921504606845952 as i64);
 }
@@ -3686,7 +4975,8 @@ fn c238_l517_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9007199254740992 as i64, &result_object.instance);
     assert_eq!(result, 9007199254740992 as i64);
 }
@@ -3698,7 +4988,8 @@ fn c239_l518_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9007199254740993 as i64, &result_object.instance);
     assert_eq!(result, 9007199254740992 as i64);
 }
@@ -3710,7 +5001,8 @@ fn c240_l519_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1152921504606845952 as i64, &result_object.instance);
     assert_eq!(result, -1152921504606846976 as i64);
 }
@@ -3769,8 +5061,13 @@ fn c242_l530_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000012138282 as f32, -0.000000020946384 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000012138282 as f32,
+        -0.000000020946384 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000012434498 as f32);
 }
 
@@ -3781,8 +5078,13 @@ fn c243_l531_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000019768197 as f32, 0.0000037154566 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000019768197 as f32,
+        0.0000037154566 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00000019768208 as f32);
 }
 
@@ -3793,8 +5095,13 @@ fn c244_l532_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-9596213000000000000000000.0 as f32, -3538041400000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -9596213000000000000000000.0 as f32,
+        -3538041400000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -9671407000000000000000000.0 as f32);
 }
 
@@ -3805,8 +5112,13 @@ fn c245_l533_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000005054346 as f32, 0.000000000000000024572656 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000005054346 as f32,
+        0.000000000000000024572656 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000000049630837 as f32);
 }
 
@@ -3817,8 +5129,13 @@ fn c246_l534_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000000000033693147 as f32, -0.000000000000000000000000071014917 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000000000033693147 as f32,
+        -0.000000000000000000000000071014917 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000000000000000000000000000000006162976 as f32);
 }
 
@@ -3829,7 +5146,8 @@ fn c247_l536_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008445702651973109 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001110684389828854 as f64, &result_object.instance);
     assert_eq!(result, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008445702651873978 as f64);
 }
@@ -3841,7 +5159,8 @@ fn c248_l537_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008198798715927055 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004624035606110903 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008198798715897085 as f64);
 }
@@ -3853,8 +5172,13 @@ fn c249_l538_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000013604511322066714 as f64, -0.1751431740707098 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000013604511322066714 as f64,
+        -0.1751431740707098 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000000013604511406306585 as f64);
 }
 
@@ -3865,7 +5189,8 @@ fn c250_l539_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003944335437865966 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001663809741322667 as f64, &result_object.instance);
     assert_eq!(result, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000039443355500325104 as f64);
 }
@@ -3877,7 +5202,8 @@ fn c251_l540_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005078309818866 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010790431644461104 as f64, &result_object.instance);
     assert_eq!(result, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000507831047937567 as f64);
 }
@@ -3934,7 +5260,8 @@ fn c253_l551_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-676.47437 as f32, 403.0368 as f32, &result_object.instance);
     assert_eq!(result, -676.4744 as f32);
 }
@@ -3946,8 +5273,13 @@ fn c254_l552_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000000000006305943 as f32, 0.0000000000000000000000000000367186 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000000000006305943 as f32,
+        0.0000000000000000000000000000367186 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00000000000000000000000000000000063194576 as f32);
 }
 
@@ -3958,8 +5290,13 @@ fn c255_l553_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(83184800.0 as f32, 46216217000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        83184800.0 as f32,
+        46216217000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 83185660.0 as f32);
 }
 
@@ -3970,8 +5307,13 @@ fn c256_l554_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000002211957 as f32, -0.00000001043793 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000002211957 as f32,
+        -0.00000001043793 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000022115643 as f32);
 }
 
@@ -3982,7 +5324,8 @@ fn c257_l555_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.14944395 as f32, -27393.65 as f32, &result_object.instance);
     assert_eq!(result, 0.15039063 as f32);
 }
@@ -3994,9 +5337,17 @@ fn c258_l557_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(90365982617946240000000000000000000000000000000000000000000000000000000000000.0 as f64, -958186427535552000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, 90365982617946280000000000000000000000000000000000000000000000000000000000000.0 as f64);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        90365982617946240000000000000000000000000000000000000000000000000000000000000.0 as f64,
+        -958186427535552000000000000000000000000000000000000000000000000000000000000000.0 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        90365982617946280000000000000000000000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 558
@@ -4006,7 +5357,8 @@ fn c259_l558_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044230403564658815 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000026713491049366576 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004423040356647721 as f64);
 }
@@ -4018,9 +5370,13 @@ fn c260_l559_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4095348452776429000000000000000000000000000000000000000000000000000000000000.0 as f64, -4050190019576568700000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, 4070815637249397500000000000000000000000000000000000000000000000000000000000.0 as f64);
+    assert_eq!(
+        result,
+        4070815637249397500000000000000000000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 560
@@ -4030,8 +5386,13 @@ fn c261_l560_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000024008889207554433 as f64, -0.00017253797929188484 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000024008889207554433 as f64,
+        -0.00017253797929188484 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000002400888920756506 as f64);
 }
 
@@ -4042,7 +5403,8 @@ fn c262_l561_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000043367542918305866 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000039597706708227122 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004336754291830597 as f64);
 }
@@ -4099,8 +5461,13 @@ fn c264_l572_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-32476715000000000.0 as f32, 0.000000000000010121375 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -32476715000000000.0 as f32,
+        0.000000000000010121375 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -32476713000000000.0 as f32);
 }
 
@@ -4111,8 +5478,13 @@ fn c265_l573_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000015561163 as f32, 0.000000000000000000000000000000015799828 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000015561163 as f32,
+        0.000000000000000000000000000000015799828 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000000015561145 as f32);
 }
 
@@ -4123,8 +5495,13 @@ fn c266_l574_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000676311 as f32, -441324000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000676311 as f32,
+        -441324000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000000000000067631096 as f32);
 }
 
@@ -4135,8 +5512,13 @@ fn c267_l575_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(7505613700000000.0 as f32, -2160384100000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        7505613700000000.0 as f32,
+        -2160384100000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 7505613000000000.0 as f32);
 }
 
@@ -4147,8 +5529,13 @@ fn c268_l576_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000002362576 as f32, -0.000000000010808759 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000002362576 as f32,
+        -0.000000000010808759 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00000000000000000000000000023625765 as f32);
 }
 
@@ -4159,7 +5546,8 @@ fn c269_l578_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000013532103713575586 as f64, -0.00000000000000000000000000000000000000000000000000000000000003347836467564916 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000013532103713672434 as f64);
 }
@@ -4171,7 +5559,8 @@ fn c270_l579_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(77662174313180845000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 195959155606939530000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 77662174313180850000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -4183,9 +5572,13 @@ fn c271_l580_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-718011781190294800000000000000000000000000000000000000000000000000000000.0 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009320036042623636 as f64, &result_object.instance);
-    assert_eq!(result, -718011781190294750000000000000000000000000000000000000000000000000000000.0 as f64);
+    assert_eq!(
+        result,
+        -718011781190294750000000000000000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 581
@@ -4195,9 +5588,13 @@ fn c272_l581_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000017260010724693063 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003568792428129926 as f64, &result_object.instance);
-    assert_eq!(result, 0.00000000000000000000000000000000000000000000000001661286799244216 as f64);
+    assert_eq!(
+        result,
+        0.00000000000000000000000000000000000000000000000001661286799244216 as f64
+    );
 }
 
 // Line 582
@@ -4207,7 +5604,8 @@ fn c273_l582_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-9145223045828962000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005562094034342845 as f64, &result_object.instance);
     assert_eq!(result, -9145223045828963000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -4264,8 +5662,13 @@ fn c275_l593_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-511517980000.0 as f32, 986062200.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -511517980000.0 as f32,
+        986062200.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -511517950000.0 as f32);
 }
 
@@ -4276,8 +5679,13 @@ fn c276_l594_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000024944853 as f32, -0.0000041539834 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000024944853 as f32,
+        -0.0000041539834 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00000000000000024944856 as f32);
 }
 
@@ -4288,9 +5696,17 @@ fn c277_l595_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000020827855 as f32, -235.19847 as f32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000020828013 as f32);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000000000020827855 as f32,
+        -235.19847 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000020828013 as f32
+    );
 }
 
 // Line 596
@@ -4300,8 +5716,13 @@ fn c278_l596_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000062499487 as f32, -696312600000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000062499487 as f32,
+        -696312600000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00000000000000000000006249919 as f32);
 }
 
@@ -4312,8 +5733,13 @@ fn c279_l597_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000000000000000000000000058353514 as f32, 212781120.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000000000000000000000000058353514 as f32,
+        212781120.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000000000005835352 as f32);
 }
 
@@ -4324,7 +5750,8 @@ fn c280_l599_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000035984644259935362 as f64, -28812263298033320000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000035985034356565485 as f64);
 }
@@ -4336,7 +5763,8 @@ fn c281_l600_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000017486367047479447 as f64, 0.00000000000000016508738454798636 as f64, &result_object.instance);
     assert_eq!(result, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001748636704747945 as f64);
 }
@@ -4348,9 +5776,13 @@ fn c282_l601_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000000000000000003140341989542684 as f64, 942829809081919600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000000000000000031403419895426836 as f64);
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000000000000000031403419895426836 as f64
+    );
 }
 
 // Line 602
@@ -4360,7 +5792,8 @@ fn c283_l602_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000003919745428533519 as f64, -21314747179654705000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000039197454285335185 as f64);
 }
@@ -4372,7 +5805,8 @@ fn c284_l603_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-5734160003788982000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 6350805843612229000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -5734160003788981000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -4425,23 +5859,41 @@ fn start_module_35(result_object: &ResultObject) {
 // Line 614
 fn c286_l614_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c286_l614_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div2_mul2") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div2_mul2")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000023509886 as f32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000023509887 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000000000023509886 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000023509887 as f32
+    );
 }
 
 // Line 615
 fn c287_l615_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c287_l615_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div2_mul2") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div2_mul2")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044501477170144023 as f64, &result_object.instance);
     assert_eq!(result, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004450147717014403 as f64);
 }
@@ -4476,60 +5928,111 @@ fn start_module_36(result_object: &ResultObject) {
 // Line 624
 fn c289_l624_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c289_l624_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_demote_promote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_demote_promote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000000000000000000000017176297220569481 as f64, &result_object.instance);
-    assert_eq!(result, -0.00000000000000000000000000000000000000017176275796615013 as f64);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000000000000000000000017176297220569481 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.00000000000000000000000000000000000000017176275796615013 as f64
+    );
 }
 
 // Line 625
 fn c290_l625_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c290_l625_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_demote_promote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_demote_promote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000028464775573304055 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000000028464775573304055 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00000000000000000000000002846477619188087 as f64);
 }
 
 // Line 626
 fn c291_l626_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c291_l626_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_demote_promote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_demote_promote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(208970699699909230000000000000000.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        208970699699909230000000000000000.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 208970700445326000000000000000000.0 as f64);
 }
 
 // Line 627
 fn c292_l627_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c292_l627_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_demote_promote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_demote_promote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000047074160416121775 as f64, &result_object.instance);
-    assert_eq!(result, -0.0000000000000000000000000047074161331556024 as f64);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000047074160416121775 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.0000000000000000000000000047074161331556024 as f64
+    );
 }
 
 // Line 628
 fn c293_l628_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c293_l628_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_demote_promote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_demote_promote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(23359451497950880000000000000000.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        23359451497950880000000000000000.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 23359452224542198000000000000000.0 as f64);
 }
 
@@ -4565,12 +6068,21 @@ fn start_module_37(result_object: &ResultObject) {
 
 // Line 638
 fn c295_l638_assert_return_arithmetic_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c295_l638_assert_return_arithmetic_nan");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    println!(
+        "Executing function {}",
+        "c295_l638_assert_return_arithmetic_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -4578,11 +6090,17 @@ fn c295_l638_assert_return_arithmetic_nan(result_object: &ResultObject) {
 // Line 639
 fn c296_l639_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c296_l639_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -4590,11 +6108,17 @@ fn c296_l639_action_invoke(result_object: &ResultObject) {
 // Line 640
 fn c297_l640_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c297_l640_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -4602,107 +6126,203 @@ fn c297_l640_action_invoke(result_object: &ResultObject) {
 // Line 641
 fn c298_l641_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c298_l641_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000000000001 as f32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000000000001 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000000000000000001 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000000000001 as f32
+    );
 }
 
 // Line 642
 fn c299_l642_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c299_l642_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000001 as f32, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000000000000000001 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000000000000000000000000001 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000000000000000001 as f32
+    );
 }
 
 // Line 643
 fn c300_l643_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c300_l643_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754942 as f32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000011754942 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000000000011754942 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000011754942 as f32
+    );
 }
 
 // Line 644
 fn c301_l644_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c301_l644_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754942 as f32, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000000000011754942 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000000000000000000011754942 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000000000011754942 as f32
+    );
 }
 
 // Line 645
 fn c302_l645_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c302_l645_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000011754944 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000000000011754944 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000011754944 as f32
+    );
 }
 
 // Line 646
 fn c303_l646_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c303_l646_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000011754944 as f32, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000000000011754944 as f32);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000000000000000000011754944 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000000000011754944 as f32
+    );
 }
 
 // Line 647
 fn c304_l647_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c304_l647_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(340282350000000000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        340282350000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 340282350000000000000000000000000000000.0 as f32);
 }
 
 // Line 648
 fn c305_l648_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c305_l648_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-340282350000000000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -340282350000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -340282350000000000000000000000000000000.0 as f32);
 }
 
 // Line 649
 fn c306_l649_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c306_l649_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::INFINITY, &result_object.instance);
     assert_eq!(result, f32::INFINITY);
 }
@@ -4710,11 +6330,17 @@ fn c306_l649_action_invoke(result_object: &ResultObject) {
 // Line 650
 fn c307_l650_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c307_l650_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::NEG_INFINITY, &result_object.instance);
     assert_eq!(result, f32::NEG_INFINITY);
 }
@@ -4774,8 +6400,13 @@ fn c309_l661_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000000000000000004941266527909197 as f64, 0.0000000000000000000000000000000000018767183 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000000000000000004941266527909197 as f64,
+        0.0000000000000000000000000000000000018767183 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000000000049412667 as f32);
 }
 
@@ -4786,8 +6417,13 @@ fn c310_l662_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(140851523637.69385 as f64, 401096440000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        140851523637.69385 as f64,
+        401096440000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 541947950000.0 as f32);
 }
 
@@ -4798,8 +6434,13 @@ fn c311_l663_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000000000000000000000000000000020831160914192852 as f64, -0.0000000000000000000000000000000000006050095 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000000000000000000000000000000020831160914192852 as f64,
+        -0.0000000000000000000000000000000000006050095 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000000000000000000014781066 as f32);
 }
 
@@ -4810,8 +6451,13 @@ fn c312_l664_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000010032827553674626 as f64, 0.0000000019312918 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000010032827553674626 as f64,
+        0.0000000019312918 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000010013515 as f32);
 }
 
@@ -4822,68 +6468,123 @@ fn c313_l665_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000013840207035752711 as f64, -0.0000000000005202814 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000013840207035752711 as f64,
+        -0.0000000000005202814 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000013840212 as f32);
 }
 
 // Line 667
 fn c314_l667_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c314_l667_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_demote_mixed_add_commuted") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_demote_mixed_add_commuted")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f64, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000000000000000000000000000000018767183 as f32, 0.00000000000000000000000000004941266527909197 as f64, &result_object.instance);
+    let invoke_fn: fn(f32, f64, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000000000000000000000000000000018767183 as f32,
+        0.00000000000000000000000000004941266527909197 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000000000049412667 as f32);
 }
 
 // Line 668
 fn c315_l668_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c315_l668_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_demote_mixed_add_commuted") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_demote_mixed_add_commuted")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f64, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(401096440000.0 as f32, 140851523637.69385 as f64, &result_object.instance);
+    let invoke_fn: fn(f32, f64, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        401096440000.0 as f32,
+        140851523637.69385 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 541947950000.0 as f32);
 }
 
 // Line 669
 fn c316_l669_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c316_l669_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_demote_mixed_add_commuted") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_demote_mixed_add_commuted")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f64, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000000000000006050095 as f32, 0.0000000000000000000000000000000000020831160914192852 as f64, &result_object.instance);
+    let invoke_fn: fn(f32, f64, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000000000000006050095 as f32,
+        0.0000000000000000000000000000000000020831160914192852 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000000000000000000014781066 as f32);
 }
 
 // Line 670
 fn c317_l670_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c317_l670_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_demote_mixed_add_commuted") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_demote_mixed_add_commuted")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f64, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000019312918 as f32, -0.0000010032827553674626 as f64, &result_object.instance);
+    let invoke_fn: fn(f32, f64, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000019312918 as f32,
+        -0.0000010032827553674626 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000010013515 as f32);
 }
 
 // Line 671
 fn c318_l671_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c318_l671_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_demote_mixed_add_commuted") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_demote_mixed_add_commuted")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f64, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000005202814 as f32, -0.0000013840207035752711 as f64, &result_object.instance);
+    let invoke_fn: fn(f32, f64, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000005202814 as f32,
+        -0.0000013840207035752711 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000013840212 as f32);
 }
 
@@ -4931,8 +6632,13 @@ fn c320_l680_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(7869935327202668000000000.0 as f64, 4086347000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        7869935327202668000000000.0 as f64,
+        4086347000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 7869931000000000000000000.0 as f32);
 }
 
@@ -4943,8 +6649,13 @@ fn c321_l681_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1535841968.9056544 as f64, 239897.28 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -1535841968.9056544 as f64,
+        239897.28 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -1536081900.0 as f32);
 }
 
@@ -4955,8 +6666,13 @@ fn c322_l682_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-102.19459272722602 as f64, 0.00039426138 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -102.19459272722602 as f64,
+        0.00039426138 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -102.194984 as f32);
 }
 
@@ -4967,8 +6683,13 @@ fn c323_l683_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000005645470375565188 as f64, 0.0000000000000000000005851077 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000005645470375565188 as f64,
+        0.0000000000000000000005851077 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000000005645412 as f32);
 }
 
@@ -4979,8 +6700,13 @@ fn c324_l684_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(27090.388466832894 as f64, 63120.89 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        27090.388466832894 as f64,
+        63120.89 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -36030.504 as f32);
 }
 
@@ -5093,11 +6819,17 @@ fn start_module_40(result_object: &ResultObject) {
 // Line 723
 fn c326_l723_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c326_l723_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i32.no_fold_trunc_s_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i32.no_fold_trunc_s_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -5105,11 +6837,17 @@ fn c326_l723_action_invoke(result_object: &ResultObject) {
 // Line 724
 fn c327_l724_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c327_l724_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i32.no_fold_trunc_s_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i32.no_fold_trunc_s_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.5 as f32, &result_object.instance);
     assert_eq!(result, -1.0 as f32);
 }
@@ -5117,11 +6855,17 @@ fn c327_l724_action_invoke(result_object: &ResultObject) {
 // Line 725
 fn c328_l725_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c328_l725_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i32.no_fold_trunc_u_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i32.no_fold_trunc_u_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -5129,11 +6873,17 @@ fn c328_l725_action_invoke(result_object: &ResultObject) {
 // Line 726
 fn c329_l726_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c329_l726_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i32.no_fold_trunc_u_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i32.no_fold_trunc_u_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -5141,11 +6891,17 @@ fn c329_l726_action_invoke(result_object: &ResultObject) {
 // Line 727
 fn c330_l727_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c330_l727_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i32.no_fold_trunc_s_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i32.no_fold_trunc_s_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -5153,11 +6909,17 @@ fn c330_l727_action_invoke(result_object: &ResultObject) {
 // Line 728
 fn c331_l728_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c331_l728_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i32.no_fold_trunc_s_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i32.no_fold_trunc_s_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.5 as f32, &result_object.instance);
     assert_eq!(result, 4294967300.0 as f32);
 }
@@ -5165,11 +6927,17 @@ fn c331_l728_action_invoke(result_object: &ResultObject) {
 // Line 729
 fn c332_l729_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c332_l729_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i32.no_fold_trunc_u_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i32.no_fold_trunc_u_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -5177,11 +6945,17 @@ fn c332_l729_action_invoke(result_object: &ResultObject) {
 // Line 730
 fn c333_l730_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c333_l730_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i32.no_fold_trunc_u_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i32.no_fold_trunc_u_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -5189,11 +6963,17 @@ fn c333_l730_action_invoke(result_object: &ResultObject) {
 // Line 732
 fn c334_l732_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c334_l732_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i32.no_fold_trunc_s_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i32.no_fold_trunc_s_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -5201,11 +6981,17 @@ fn c334_l732_action_invoke(result_object: &ResultObject) {
 // Line 733
 fn c335_l733_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c335_l733_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i32.no_fold_trunc_s_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i32.no_fold_trunc_s_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.5 as f64, &result_object.instance);
     assert_eq!(result, -1.0 as f64);
 }
@@ -5213,11 +6999,17 @@ fn c335_l733_action_invoke(result_object: &ResultObject) {
 // Line 734
 fn c336_l734_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c336_l734_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i32.no_fold_trunc_u_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i32.no_fold_trunc_u_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -5225,11 +7017,17 @@ fn c336_l734_action_invoke(result_object: &ResultObject) {
 // Line 735
 fn c337_l735_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c337_l735_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i32.no_fold_trunc_u_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i32.no_fold_trunc_u_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -5237,11 +7035,17 @@ fn c337_l735_action_invoke(result_object: &ResultObject) {
 // Line 736
 fn c338_l736_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c338_l736_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i32.no_fold_trunc_s_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i32.no_fold_trunc_s_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -5249,11 +7053,17 @@ fn c338_l736_action_invoke(result_object: &ResultObject) {
 // Line 737
 fn c339_l737_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c339_l737_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i32.no_fold_trunc_s_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i32.no_fold_trunc_s_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.5 as f64, &result_object.instance);
     assert_eq!(result, 4294967295.0 as f64);
 }
@@ -5261,11 +7071,17 @@ fn c339_l737_action_invoke(result_object: &ResultObject) {
 // Line 738
 fn c340_l738_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c340_l738_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i32.no_fold_trunc_u_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i32.no_fold_trunc_u_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -5273,11 +7089,17 @@ fn c340_l738_action_invoke(result_object: &ResultObject) {
 // Line 739
 fn c341_l739_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c341_l739_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i32.no_fold_trunc_u_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i32.no_fold_trunc_u_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -5285,11 +7107,17 @@ fn c341_l739_action_invoke(result_object: &ResultObject) {
 // Line 741
 fn c342_l741_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c342_l741_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i64.no_fold_trunc_s_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i64.no_fold_trunc_s_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -5297,11 +7125,17 @@ fn c342_l741_action_invoke(result_object: &ResultObject) {
 // Line 742
 fn c343_l742_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c343_l742_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i64.no_fold_trunc_s_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i64.no_fold_trunc_s_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.5 as f32, &result_object.instance);
     assert_eq!(result, -1.0 as f32);
 }
@@ -5309,11 +7143,17 @@ fn c343_l742_action_invoke(result_object: &ResultObject) {
 // Line 743
 fn c344_l743_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c344_l743_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i64.no_fold_trunc_u_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i64.no_fold_trunc_u_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -5321,11 +7161,17 @@ fn c344_l743_action_invoke(result_object: &ResultObject) {
 // Line 744
 fn c345_l744_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c345_l744_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i64.no_fold_trunc_u_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i64.no_fold_trunc_u_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -5333,11 +7179,17 @@ fn c345_l744_action_invoke(result_object: &ResultObject) {
 // Line 745
 fn c346_l745_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c346_l745_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i64.no_fold_trunc_s_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i64.no_fold_trunc_s_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -5345,11 +7197,17 @@ fn c346_l745_action_invoke(result_object: &ResultObject) {
 // Line 746
 fn c347_l746_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c347_l746_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i64.no_fold_trunc_s_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i64.no_fold_trunc_s_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.5 as f32, &result_object.instance);
     assert_eq!(result, 18446744000000000000.0 as f32);
 }
@@ -5357,11 +7215,17 @@ fn c347_l746_action_invoke(result_object: &ResultObject) {
 // Line 747
 fn c348_l747_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c348_l747_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i64.no_fold_trunc_u_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i64.no_fold_trunc_u_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -5369,11 +7233,17 @@ fn c348_l747_action_invoke(result_object: &ResultObject) {
 // Line 748
 fn c349_l748_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c349_l748_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.i64.no_fold_trunc_u_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.i64.no_fold_trunc_u_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -5381,11 +7251,17 @@ fn c349_l748_action_invoke(result_object: &ResultObject) {
 // Line 750
 fn c350_l750_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c350_l750_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i64.no_fold_trunc_s_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i64.no_fold_trunc_s_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -5393,11 +7269,17 @@ fn c350_l750_action_invoke(result_object: &ResultObject) {
 // Line 751
 fn c351_l751_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c351_l751_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i64.no_fold_trunc_s_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i64.no_fold_trunc_s_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.5 as f64, &result_object.instance);
     assert_eq!(result, -1.0 as f64);
 }
@@ -5405,11 +7287,17 @@ fn c351_l751_action_invoke(result_object: &ResultObject) {
 // Line 752
 fn c352_l752_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c352_l752_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i64.no_fold_trunc_u_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i64.no_fold_trunc_u_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -5417,11 +7305,17 @@ fn c352_l752_action_invoke(result_object: &ResultObject) {
 // Line 753
 fn c353_l753_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c353_l753_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i64.no_fold_trunc_u_convert_s") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i64.no_fold_trunc_u_convert_s")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -5429,11 +7323,17 @@ fn c353_l753_action_invoke(result_object: &ResultObject) {
 // Line 754
 fn c354_l754_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c354_l754_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i64.no_fold_trunc_s_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i64.no_fold_trunc_s_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -5441,11 +7341,17 @@ fn c354_l754_action_invoke(result_object: &ResultObject) {
 // Line 755
 fn c355_l755_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c355_l755_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i64.no_fold_trunc_s_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i64.no_fold_trunc_s_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1.5 as f64, &result_object.instance);
     assert_eq!(result, 18446744073709552000.0 as f64);
 }
@@ -5453,11 +7359,17 @@ fn c355_l755_action_invoke(result_object: &ResultObject) {
 // Line 756
 fn c356_l756_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c356_l756_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i64.no_fold_trunc_u_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i64.no_fold_trunc_u_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.5 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -5465,11 +7377,17 @@ fn c356_l756_action_invoke(result_object: &ResultObject) {
 // Line 757
 fn c357_l757_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c357_l757_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.i64.no_fold_trunc_u_convert_u") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.i64.no_fold_trunc_u_convert_u")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.5 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -5565,9 +7483,9 @@ fn c359_l784_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 15.1 as f32, &result_object.instance);
-    
 }
 
 // Line 785
@@ -5577,9 +7495,9 @@ fn c360_l785_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4 as i32, 15.2 as f32, &result_object.instance);
-    
 }
 
 // Line 786
@@ -5589,9 +7507,9 @@ fn c361_l786_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(8 as i32, 15.3 as f32, &result_object.instance);
-    
 }
 
 // Line 787
@@ -5601,9 +7519,9 @@ fn c362_l787_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(12 as i32, 15.4 as f32, &result_object.instance);
-    
 }
 
 // Line 788
@@ -5613,7 +7531,8 @@ fn c363_l788_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, &result_object.instance);
     assert_eq!(result, 15.1 as f32);
 }
@@ -5625,7 +7544,8 @@ fn c364_l789_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4 as i32, &result_object.instance);
     assert_eq!(result, 15.2 as f32);
 }
@@ -5637,7 +7557,8 @@ fn c365_l790_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(8 as i32, &result_object.instance);
     assert_eq!(result, 15.3 as f32);
 }
@@ -5649,7 +7570,8 @@ fn c366_l791_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(12 as i32, &result_object.instance);
     assert_eq!(result, 15.4 as f32);
 }
@@ -5661,9 +7583,9 @@ fn c367_l792_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(16 as i32, 3.0 as f32, &result_object.instance);
-    
 }
 
 // Line 793
@@ -5673,7 +7595,8 @@ fn c368_l793_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, &result_object.instance);
     assert_eq!(result, 5.0333333 as f32);
 }
@@ -5685,7 +7608,8 @@ fn c369_l794_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4 as i32, &result_object.instance);
     assert_eq!(result, 5.0666666 as f32);
 }
@@ -5697,7 +7621,8 @@ fn c370_l795_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(8 as i32, &result_object.instance);
     assert_eq!(result, 5.1 as f32);
 }
@@ -5709,7 +7634,8 @@ fn c371_l796_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(12 as i32, &result_object.instance);
     assert_eq!(result, 5.133333 as f32);
 }
@@ -5786,9 +7712,9 @@ fn c373_l819_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 15.1 as f64, &result_object.instance);
-    
 }
 
 // Line 820
@@ -5798,9 +7724,9 @@ fn c374_l820_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(8 as i32, 15.2 as f64, &result_object.instance);
-    
 }
 
 // Line 821
@@ -5810,9 +7736,9 @@ fn c375_l821_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(16 as i32, 15.3 as f64, &result_object.instance);
-    
 }
 
 // Line 822
@@ -5822,9 +7748,9 @@ fn c376_l822_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(24 as i32, 15.4 as f64, &result_object.instance);
-    
 }
 
 // Line 823
@@ -5834,7 +7760,8 @@ fn c377_l823_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, &result_object.instance);
     assert_eq!(result, 15.1 as f64);
 }
@@ -5846,7 +7773,8 @@ fn c378_l824_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(8 as i32, &result_object.instance);
     assert_eq!(result, 15.2 as f64);
 }
@@ -5858,7 +7786,8 @@ fn c379_l825_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(16 as i32, &result_object.instance);
     assert_eq!(result, 15.3 as f64);
 }
@@ -5870,7 +7799,8 @@ fn c380_l826_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(24 as i32, &result_object.instance);
     assert_eq!(result, 15.4 as f64);
 }
@@ -5882,9 +7812,9 @@ fn c381_l827_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(32 as i32, 3.0 as f64, &result_object.instance);
-    
 }
 
 // Line 828
@@ -5894,7 +7824,8 @@ fn c382_l828_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, &result_object.instance);
     assert_eq!(result, 5.033333333333333 as f64);
 }
@@ -5906,7 +7837,8 @@ fn c383_l829_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(8 as i32, &result_object.instance);
     assert_eq!(result, 5.066666666666666 as f64);
 }
@@ -5918,7 +7850,8 @@ fn c384_l830_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(16 as i32, &result_object.instance);
     assert_eq!(result, 5.1000000000000005 as f64);
 }
@@ -5930,7 +7863,8 @@ fn c385_l831_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(24 as i32, &result_object.instance);
     assert_eq!(result, 5.133333333333334 as f64);
 }
@@ -6024,7 +7958,8 @@ fn c387_l847_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6036,7 +7971,8 @@ fn c388_l848_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6048,7 +7984,8 @@ fn c389_l849_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6060,8 +7997,13 @@ fn c390_l850_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -6072,7 +8014,8 @@ fn c391_l851_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6084,7 +8027,8 @@ fn c392_l852_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6096,7 +8040,8 @@ fn c393_l853_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6108,8 +8053,13 @@ fn c394_l854_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -6120,7 +8070,8 @@ fn c395_l855_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6132,7 +8083,8 @@ fn c396_l856_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6144,7 +8096,8 @@ fn c397_l857_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6156,8 +8109,13 @@ fn c398_l858_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -6168,7 +8126,8 @@ fn c399_l859_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6180,7 +8139,8 @@ fn c400_l860_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, 2.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6192,7 +8152,8 @@ fn c401_l861_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6204,8 +8165,13 @@ fn c402_l862_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -6216,7 +8182,8 @@ fn c403_l863_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f64, 2.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6228,7 +8195,8 @@ fn c404_l864_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, 2.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6240,7 +8208,8 @@ fn c405_l865_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, 3.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6252,8 +8221,13 @@ fn c406_l866_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -6264,7 +8238,8 @@ fn c407_l867_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f64, 2.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6276,7 +8251,8 @@ fn c408_l868_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, 2.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6288,7 +8264,8 @@ fn c409_l869_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, 3.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6300,8 +8277,13 @@ fn c410_l870_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -6312,7 +8294,8 @@ fn c411_l871_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f64, 2.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6324,7 +8307,8 @@ fn c412_l872_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, 2.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6336,7 +8320,8 @@ fn c413_l873_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, 3.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6348,8 +8333,13 @@ fn c414_l874_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -6360,7 +8350,8 @@ fn c415_l875_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f64, 2.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6372,7 +8363,8 @@ fn c416_l876_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, 2.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -6384,7 +8376,8 @@ fn c417_l877_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, 3.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -6396,8 +8389,13 @@ fn c418_l878_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -6521,36 +8519,65 @@ fn start_module_44(result_object: &ResultObject) {
 // Line 894
 fn c420_l894_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c420_l894_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 895
 fn c421_l895_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c421_l895_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 896
 fn c422_l896_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c422_l896_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -6558,11 +8585,17 @@ fn c422_l896_action_invoke(result_object: &ResultObject) {
 // Line 897
 fn c423_l897_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c423_l897_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -6570,36 +8603,65 @@ fn c423_l897_action_invoke(result_object: &ResultObject) {
 // Line 898
 fn c424_l898_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c424_l898_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 899
 fn c425_l899_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c425_l899_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 900
 fn c426_l900_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c426_l900_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -6607,11 +8669,17 @@ fn c426_l900_action_invoke(result_object: &ResultObject) {
 // Line 901
 fn c427_l901_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c427_l901_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -6619,36 +8687,65 @@ fn c427_l901_action_invoke(result_object: &ResultObject) {
 // Line 902
 fn c428_l902_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c428_l902_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 903
 fn c429_l903_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c429_l903_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 904
 fn c430_l904_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c430_l904_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -6656,11 +8753,17 @@ fn c430_l904_action_invoke(result_object: &ResultObject) {
 // Line 905
 fn c431_l905_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c431_l905_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -6668,36 +8771,65 @@ fn c431_l905_action_invoke(result_object: &ResultObject) {
 // Line 906
 fn c432_l906_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c432_l906_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 907
 fn c433_l907_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c433_l907_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 908
 fn c434_l908_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c434_l908_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -6705,11 +8837,17 @@ fn c434_l908_action_invoke(result_object: &ResultObject) {
 // Line 909
 fn c435_l909_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c435_l909_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -6717,36 +8855,65 @@ fn c435_l909_action_invoke(result_object: &ResultObject) {
 // Line 910
 fn c436_l910_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c436_l910_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 911
 fn c437_l911_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c437_l911_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
 // Line 912
 fn c438_l912_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c438_l912_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -6754,11 +8921,17 @@ fn c438_l912_action_invoke(result_object: &ResultObject) {
 // Line 913
 fn c439_l913_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c439_l913_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -6766,36 +8939,65 @@ fn c439_l913_action_invoke(result_object: &ResultObject) {
 // Line 914
 fn c440_l914_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c440_l914_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 915
 fn c441_l915_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c441_l915_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
 // Line 916
 fn c442_l916_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c442_l916_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -6803,11 +9005,17 @@ fn c442_l916_action_invoke(result_object: &ResultObject) {
 // Line 917
 fn c443_l917_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c443_l917_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -6815,36 +9023,65 @@ fn c443_l917_action_invoke(result_object: &ResultObject) {
 // Line 918
 fn c444_l918_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c444_l918_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 919
 fn c445_l919_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c445_l919_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
 // Line 920
 fn c446_l920_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c446_l920_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -6852,11 +9089,17 @@ fn c446_l920_action_invoke(result_object: &ResultObject) {
 // Line 921
 fn c447_l921_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c447_l921_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -6864,36 +9107,65 @@ fn c447_l921_action_invoke(result_object: &ResultObject) {
 // Line 922
 fn c448_l922_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c448_l922_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 923
 fn c449_l923_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c449_l923_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
 // Line 924
 fn c450_l924_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c450_l924_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -6901,11 +9173,17 @@ fn c450_l924_action_invoke(result_object: &ResultObject) {
 // Line 925
 fn c451_l925_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c451_l925_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_select") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_select")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -7050,10 +9328,18 @@ fn c453_l973_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 974
@@ -7063,8 +9349,13 @@ fn c454_l974_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -7075,7 +9366,8 @@ fn c455_l975_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -7087,7 +9379,8 @@ fn c456_l976_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -7099,10 +9392,18 @@ fn c457_l977_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 978
@@ -7112,8 +9413,13 @@ fn c458_l978_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -7124,7 +9430,8 @@ fn c459_l979_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -7136,7 +9443,8 @@ fn c460_l980_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -7148,10 +9456,18 @@ fn c461_l981_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 982
@@ -7161,8 +9477,13 @@ fn c462_l982_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -7173,7 +9494,8 @@ fn c463_l983_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -7185,7 +9507,8 @@ fn c464_l984_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -7197,10 +9520,18 @@ fn c465_l985_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 986
@@ -7210,8 +9541,13 @@ fn c466_l986_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
@@ -7222,7 +9558,8 @@ fn c467_l987_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -7234,7 +9571,8 @@ fn c468_l988_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -7246,10 +9584,18 @@ fn c469_l989_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 990
@@ -7259,8 +9605,13 @@ fn c470_l990_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
@@ -7271,7 +9622,8 @@ fn c471_l991_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -7283,7 +9635,8 @@ fn c472_l992_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -7295,10 +9648,18 @@ fn c473_l993_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 994
@@ -7308,8 +9669,13 @@ fn c474_l994_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
@@ -7320,7 +9686,8 @@ fn c475_l995_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -7332,7 +9699,8 @@ fn c476_l996_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -7344,10 +9712,18 @@ fn c477_l997_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 998
@@ -7357,8 +9733,13 @@ fn c478_l998_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
@@ -7369,7 +9750,8 @@ fn c479_l999_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -7381,7 +9763,8 @@ fn c480_l1000_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -7393,10 +9776,18 @@ fn c481_l1001_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 1002
@@ -7406,8 +9797,13 @@ fn c482_l1002_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
@@ -7418,7 +9814,8 @@ fn c483_l1003_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -7430,7 +9827,8 @@ fn c484_l1004_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -7563,37 +9961,61 @@ fn start_module_46(result_object: &ResultObject) {
 // Line 1020
 fn c486_l1020_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c486_l1020_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2141192192)).is_sign_positive()
+    );
 }
 
 // Line 1021
 fn c487_l1021_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c487_l1021_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(4290772992), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(4290772992)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(4290772992)).is_sign_positive()
+    );
 }
 
 // Line 1022
 fn c488_l1022_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c488_l1022_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -7601,11 +10023,17 @@ fn c488_l1022_action_invoke(result_object: &ResultObject) {
 // Line 1023
 fn c489_l1023_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c489_l1023_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -7613,37 +10041,61 @@ fn c489_l1023_action_invoke(result_object: &ResultObject) {
 // Line 1024
 fn c490_l1024_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c490_l1024_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2141192192)).is_sign_positive()
+    );
 }
 
 // Line 1025
 fn c491_l1025_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c491_l1025_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(4290772992), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(4290772992)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(4290772992)).is_sign_positive()
+    );
 }
 
 // Line 1026
 fn c492_l1026_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c492_l1026_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -7651,11 +10103,17 @@ fn c492_l1026_action_invoke(result_object: &ResultObject) {
 // Line 1027
 fn c493_l1027_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c493_l1027_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -7663,37 +10121,61 @@ fn c493_l1027_action_invoke(result_object: &ResultObject) {
 // Line 1028
 fn c494_l1028_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c494_l1028_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(4288675840)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(4288675840)).is_sign_positive()
+    );
 }
 
 // Line 1029
 fn c495_l1029_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c495_l1029_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(4290772992), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 1030
 fn c496_l1030_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c496_l1030_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -7701,11 +10183,17 @@ fn c496_l1030_action_invoke(result_object: &ResultObject) {
 // Line 1031
 fn c497_l1031_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c497_l1031_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -7713,37 +10201,61 @@ fn c497_l1031_action_invoke(result_object: &ResultObject) {
 // Line 1032
 fn c498_l1032_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c498_l1032_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(4288675840)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(4288675840)).is_sign_positive()
+    );
 }
 
 // Line 1033
 fn c499_l1033_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c499_l1033_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(4290772992), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 1034
 fn c500_l1034_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c500_l1034_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -7751,11 +10263,17 @@ fn c500_l1034_action_invoke(result_object: &ResultObject) {
 // Line 1035
 fn c501_l1035_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c501_l1035_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -7763,37 +10281,64 @@ fn c501_l1035_action_invoke(result_object: &ResultObject) {
 // Line 1036
 fn c502_l1036_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c502_l1036_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9219994337134247936)).is_sign_positive()
+    );
 }
 
 // Line 1037
 fn c503_l1037_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c503_l1037_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(18444492273895866368), &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(18444492273895866368),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(18444492273895866368)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(18444492273895866368)).is_sign_positive()
+    );
 }
 
 // Line 1038
 fn c504_l1038_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c504_l1038_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -7801,11 +10346,17 @@ fn c504_l1038_action_invoke(result_object: &ResultObject) {
 // Line 1039
 fn c505_l1039_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c505_l1039_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -7813,37 +10364,64 @@ fn c505_l1039_action_invoke(result_object: &ResultObject) {
 // Line 1040
 fn c506_l1040_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c506_l1040_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9219994337134247936)).is_sign_positive()
+    );
 }
 
 // Line 1041
 fn c507_l1041_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c507_l1041_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(18444492273895866368), &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(18444492273895866368),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(18444492273895866368)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(18444492273895866368)).is_sign_positive()
+    );
 }
 
 // Line 1042
 fn c508_l1042_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c508_l1042_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -7851,11 +10429,17 @@ fn c508_l1042_action_invoke(result_object: &ResultObject) {
 // Line 1043
 fn c509_l1043_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c509_l1043_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -7863,37 +10447,64 @@ fn c509_l1043_action_invoke(result_object: &ResultObject) {
 // Line 1044
 fn c510_l1044_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c510_l1044_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(18443366373989023744)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(18443366373989023744)).is_sign_positive()
+    );
 }
 
 // Line 1045
 fn c511_l1045_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c511_l1045_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(18444492273895866368), &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(18444492273895866368),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 1046
 fn c512_l1046_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c512_l1046_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -7901,11 +10512,17 @@ fn c512_l1046_action_invoke(result_object: &ResultObject) {
 // Line 1047
 fn c513_l1047_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c513_l1047_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -7913,37 +10530,64 @@ fn c513_l1047_action_invoke(result_object: &ResultObject) {
 // Line 1048
 fn c514_l1048_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c514_l1048_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(18443366373989023744)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(18443366373989023744)).is_sign_positive()
+    );
 }
 
 // Line 1049
 fn c515_l1049_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c515_l1049_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(18444492273895866368), &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(18444492273895866368),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 1050
 fn c516_l1050_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c516_l1050_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -7951,11 +10595,17 @@ fn c516_l1050_action_invoke(result_object: &ResultObject) {
 // Line 1051
 fn c517_l1051_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c517_l1051_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_select_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_select_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -8104,37 +10754,61 @@ fn start_module_47(result_object: &ResultObject) {
 // Line 1099
 fn c519_l1099_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c519_l1099_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2141192192)).is_sign_positive()
+    );
 }
 
 // Line 1100
 fn c520_l1100_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c520_l1100_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(4290772992), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(4290772992)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(4290772992)).is_sign_positive()
+    );
 }
 
 // Line 1101
 fn c521_l1101_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c521_l1101_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -8142,11 +10816,17 @@ fn c521_l1101_action_invoke(result_object: &ResultObject) {
 // Line 1102
 fn c522_l1102_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c522_l1102_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_lt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_lt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -8154,37 +10834,61 @@ fn c522_l1102_action_invoke(result_object: &ResultObject) {
 // Line 1103
 fn c523_l1103_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c523_l1103_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2141192192)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2141192192)).is_sign_positive()
+    );
 }
 
 // Line 1104
 fn c524_l1104_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c524_l1104_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(4290772992), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(4290772992)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(4290772992)).is_sign_positive()
+    );
 }
 
 // Line 1105
 fn c525_l1105_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c525_l1105_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -8192,11 +10896,17 @@ fn c525_l1105_action_invoke(result_object: &ResultObject) {
 // Line 1106
 fn c526_l1106_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c526_l1106_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_le_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_le_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -8204,37 +10914,61 @@ fn c526_l1106_action_invoke(result_object: &ResultObject) {
 // Line 1107
 fn c527_l1107_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c527_l1107_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(4288675840)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(4288675840)).is_sign_positive()
+    );
 }
 
 // Line 1108
 fn c528_l1108_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c528_l1108_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(4290772992), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 1109
 fn c529_l1109_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c529_l1109_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -8242,11 +10976,17 @@ fn c529_l1109_action_invoke(result_object: &ResultObject) {
 // Line 1110
 fn c530_l1110_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c530_l1110_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_gt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_gt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -8254,37 +10994,61 @@ fn c530_l1110_action_invoke(result_object: &ResultObject) {
 // Line 1111
 fn c531_l1111_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c531_l1111_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(2141192192), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(4288675840)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(4288675840)).is_sign_positive()
+    );
 }
 
 // Line 1112
 fn c532_l1112_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c532_l1112_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::from_bits(4290772992), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f32::from_bits(2143289344)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f32::from_bits(2143289344)).is_sign_positive()
+    );
 }
 
 // Line 1113
 fn c533_l1113_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c533_l1113_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -8292,11 +11056,17 @@ fn c533_l1113_action_invoke(result_object: &ResultObject) {
 // Line 1114
 fn c534_l1114_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c534_l1114_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_ge_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_ge_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -8304,37 +11074,64 @@ fn c534_l1114_action_invoke(result_object: &ResultObject) {
 // Line 1115
 fn c535_l1115_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c535_l1115_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9219994337134247936)).is_sign_positive()
+    );
 }
 
 // Line 1116
 fn c536_l1116_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c536_l1116_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(18444492273895866368), &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(18444492273895866368),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(18444492273895866368)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(18444492273895866368)).is_sign_positive()
+    );
 }
 
 // Line 1117
 fn c537_l1117_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c537_l1117_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -8342,11 +11139,17 @@ fn c537_l1117_action_invoke(result_object: &ResultObject) {
 // Line 1118
 fn c538_l1118_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c538_l1118_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_lt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_lt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -8354,37 +11157,64 @@ fn c538_l1118_action_invoke(result_object: &ResultObject) {
 // Line 1119
 fn c539_l1119_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c539_l1119_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9219994337134247936)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9219994337134247936)).is_sign_positive()
+    );
 }
 
 // Line 1120
 fn c540_l1120_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c540_l1120_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(18444492273895866368), &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(18444492273895866368),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(18444492273895866368)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(18444492273895866368)).is_sign_positive()
+    );
 }
 
 // Line 1121
 fn c541_l1121_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c541_l1121_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -8392,11 +11222,17 @@ fn c541_l1121_action_invoke(result_object: &ResultObject) {
 // Line 1122
 fn c542_l1122_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c542_l1122_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_le_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_le_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -8404,37 +11240,64 @@ fn c542_l1122_action_invoke(result_object: &ResultObject) {
 // Line 1123
 fn c543_l1123_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c543_l1123_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(18443366373989023744)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(18443366373989023744)).is_sign_positive()
+    );
 }
 
 // Line 1124
 fn c544_l1124_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c544_l1124_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(18444492273895866368), &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(18444492273895866368),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 1125
 fn c545_l1125_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c545_l1125_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -8442,11 +11305,17 @@ fn c545_l1125_action_invoke(result_object: &ResultObject) {
 // Line 1126
 fn c546_l1126_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c546_l1126_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_gt_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_gt_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -8454,37 +11323,64 @@ fn c546_l1126_action_invoke(result_object: &ResultObject) {
 // Line 1127
 fn c547_l1127_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c547_l1127_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::from_bits(9219994337134247936), &result_object.instance);
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(18443366373989023744)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(18443366373989023744)).is_sign_positive()
+    );
 }
 
 // Line 1128
 fn c548_l1128_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c548_l1128_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(18444492273895866368), &result_object.instance);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(18444492273895866368),
+        &result_object.instance,
+    );
     assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), (f64::from_bits(9221120237041090560)).is_sign_positive());
+    assert_eq!(
+        result.is_sign_positive(),
+        (f64::from_bits(9221120237041090560)).is_sign_positive()
+    );
 }
 
 // Line 1129
 fn c549_l1129_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c549_l1129_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -8492,11 +11388,17 @@ fn c549_l1129_action_invoke(result_object: &ResultObject) {
 // Line 1130
 fn c550_l1130_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c550_l1130_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_ge_if_to_abs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_ge_if_to_abs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -8575,11 +11477,17 @@ fn start_module_48(result_object: &ResultObject) {
 // Line 1144
 fn c552_l1144_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c552_l1144_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.incorrect_correction") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.incorrect_correction")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0.00000011920929 as f32);
 }
@@ -8587,11 +11495,17 @@ fn c552_l1144_action_invoke(result_object: &ResultObject) {
 // Line 1145
 fn c553_l1145_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c553_l1145_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.incorrect_correction") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.incorrect_correction")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -0.0000000000000002220446049250313 as f64);
 }
@@ -8664,7 +11578,8 @@ fn c555_l1167_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -466.92685 as f32);
 }
@@ -8736,7 +11651,8 @@ fn c557_l1186_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -466.926956301738 as f64);
 }
@@ -8776,7 +11692,8 @@ fn c559_l1197_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -8817,7 +11734,8 @@ fn c561_l1208_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(33554434 as i32, &result_object.instance);
     assert_eq!(result, 25165824.0 as f32);
 }
@@ -8861,7 +11779,8 @@ fn c563_l1220_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-25034805 as i32, 14942208 as i32, &result_object.instance);
     assert_eq!(result, -10092596.0 as f32);
 }
@@ -8919,7 +11838,8 @@ fn c565_l1244_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004450147717014403 as f64, 0.9999999999999999 as f64, 2.0 as f64, 0.5 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044501477170144023 as f64);
 }
@@ -8931,9 +11851,18 @@ fn c566_l1245_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000005551115123125783 as f64, 0.9999999999999999 as f64, 0.00000000000000005551115123125783 as f64, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000006162975822039155 as f64);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000005551115123125783 as f64,
+        0.9999999999999999 as f64,
+        0.00000000000000005551115123125783 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000006162975822039155 as f64
+    );
 }
 
 // Line 1246
@@ -8943,9 +11872,18 @@ fn c567_l1246_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000023509887 as f32, 0.5 as f32, 1.0 as f32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000011754944 as f32);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000000000023509887 as f32,
+        0.5 as f32,
+        1.0 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000011754944 as f32
+    );
 }
 
 // Line 1251
@@ -8983,7 +11921,8 @@ fn c569_l1257_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(96.0 as f32, &result_object.instance);
     assert_eq!(result, 0.010416667 as f32);
 }
@@ -9029,7 +11968,8 @@ fn c571_l1272_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -9041,7 +11981,8 @@ fn c572_l1273_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -9086,11 +12027,17 @@ fn start_module_57(result_object: &ResultObject) {
 // Line 1285
 fn c574_l1285_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c574_l1285_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-70435790000000000000.0 as f32, &result_object.instance);
     assert_eq!(result, -70435784000000000000.0 as f32);
 }
@@ -9098,35 +12045,59 @@ fn c574_l1285_action_invoke(result_object: &ResultObject) {
 // Line 1286
 fn c575_l1286_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c575_l1286_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000012466101 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000012466101 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000000124661 as f32);
 }
 
 // Line 1287
 fn c576_l1287_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c576_l1287_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000097184545 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000097184545 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000000000009718455 as f32);
 }
 
 // Line 1288
 fn c577_l1288_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c577_l1288_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-30.400759 as f32, &result_object.instance);
     assert_eq!(result, -30.40076 as f32);
 }
@@ -9134,11 +12105,17 @@ fn c577_l1288_action_invoke(result_object: &ResultObject) {
 // Line 1289
 fn c578_l1289_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c578_l1289_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2331659200000000000000.0 as f32, &result_object.instance);
     assert_eq!(result, 2331659000000000000000.0 as f32);
 }
@@ -9146,11 +12123,17 @@ fn c578_l1289_action_invoke(result_object: &ResultObject) {
 // Line 1291
 fn c579_l1291_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c579_l1291_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -9158,11 +12141,17 @@ fn c579_l1291_action_invoke(result_object: &ResultObject) {
 // Line 1292
 fn c580_l1292_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c580_l1292_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -9170,11 +12159,17 @@ fn c580_l1292_action_invoke(result_object: &ResultObject) {
 // Line 1293
 fn c581_l1293_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c581_l1293_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::NEG_INFINITY, &result_object.instance);
     assert_eq!(result, f32::NEG_INFINITY);
 }
@@ -9182,11 +12177,17 @@ fn c581_l1293_action_invoke(result_object: &ResultObject) {
 // Line 1294
 fn c582_l1294_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c582_l1294_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::INFINITY, &result_object.instance);
     assert_eq!(result, f32::INFINITY);
 }
@@ -9194,23 +12195,41 @@ fn c582_l1294_action_invoke(result_object: &ResultObject) {
 // Line 1296
 fn c583_l1296_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c583_l1296_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-657971534362886860000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, -657971534362886900000000000000000000000000000.0 as f64);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -657971534362886860000000000000000000000000000.0 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -657971534362886900000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 1297
 fn c584_l1297_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c584_l1297_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-144246931868576430000.0 as f64, &result_object.instance);
     assert_eq!(result, -144246931868576420000.0 as f64);
 }
@@ -9218,23 +12237,41 @@ fn c584_l1297_action_invoke(result_object: &ResultObject) {
 // Line 1298
 fn c585_l1298_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c585_l1298_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(184994689206231350000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, 184994689206231330000000000000000000000000000000000.0 as f64);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        184994689206231350000000000000000000000000000000000.0 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        184994689206231330000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 1299
 fn c586_l1299_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c586_l1299_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005779584288006583 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005779584288006582 as f64);
 }
@@ -9242,11 +12279,17 @@ fn c586_l1299_action_invoke(result_object: &ResultObject) {
 // Line 1300
 fn c587_l1300_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c587_l1300_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(51501178696141640000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 51501178696141634000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -9254,11 +12297,17 @@ fn c587_l1300_action_invoke(result_object: &ResultObject) {
 // Line 1302
 fn c588_l1302_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c588_l1302_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -9266,11 +12315,17 @@ fn c588_l1302_action_invoke(result_object: &ResultObject) {
 // Line 1303
 fn c589_l1303_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c589_l1303_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -9278,11 +12333,17 @@ fn c589_l1303_action_invoke(result_object: &ResultObject) {
 // Line 1304
 fn c590_l1304_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c590_l1304_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::NEG_INFINITY, &result_object.instance);
     assert_eq!(result, f64::NEG_INFINITY);
 }
@@ -9290,11 +12351,17 @@ fn c590_l1304_action_invoke(result_object: &ResultObject) {
 // Line 1305
 fn c591_l1305_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c591_l1305_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_recip_recip") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_recip_recip")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::INFINITY, &result_object.instance);
     assert_eq!(result, f64::INFINITY);
 }
@@ -9359,47 +12426,83 @@ fn start_module_58(result_object: &ResultObject) {
 // Line 1319
 fn c593_l1319_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c593_l1319_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000053711865 as f32, 0.00000000000000009744328 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000053711865 as f32,
+        0.00000000000000009744328 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000000000000000000000000000000006610229 as f32);
 }
 
 // Line 1320
 fn c594_l1320_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c594_l1320_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-19756732.0 as f32, 32770204.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -19756732.0 as f32,
+        32770204.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -683557800000000.0 as f32);
 }
 
 // Line 1321
 fn c595_l1321_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c595_l1321_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(52314150000000.0 as f32, -145309980000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        52314150000000.0 as f32,
+        -145309980000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -18378221000000000000000000000.0 as f32);
 }
 
 // Line 1322
 fn c596_l1322_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c596_l1322_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(195260.38 as f32, -227.75723 as f32, &result_object.instance);
     assert_eq!(result, 38126563000.0 as f32);
 }
@@ -9407,11 +12510,17 @@ fn c596_l1322_action_invoke(result_object: &ResultObject) {
 // Line 1323
 fn c597_l1323_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c597_l1323_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-237.48706 as f32, -972341.5 as f32, &result_object.instance);
     assert_eq!(result, -945447960000.0 as f32);
 }
@@ -9419,11 +12528,17 @@ fn c597_l1323_action_invoke(result_object: &ResultObject) {
 // Line 1325
 fn c598_l1325_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c598_l1325_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009639720335949767 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008019175443606207 as f64, &result_object.instance);
     assert_eq!(result, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006430717386609473 as f64);
 }
@@ -9431,11 +12546,17 @@ fn c598_l1325_action_invoke(result_object: &ResultObject) {
 // Line 1326
 fn c599_l1326_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c599_l1326_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005166066590392027 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001494333315888213 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000026688244016362468 as f64);
 }
@@ -9443,11 +12564,17 @@ fn c599_l1326_action_invoke(result_object: &ResultObject) {
 // Line 1327
 fn c600_l1327_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c600_l1327_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002866135870517635 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012114355254268516 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014675678175314036 as f64);
 }
@@ -9455,25 +12582,48 @@ fn c600_l1327_action_invoke(result_object: &ResultObject) {
 // Line 1328
 fn c601_l1328_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c601_l1328_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1292099281007814900000000000000000000000000000000000000.0 as f64, 662717187728034000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -1292099281007814900000000000000000000000000000000000000.0 as f64,
+        662717187728034000000000000000000000000000000000000000000.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, -439192401389602300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
 
 // Line 1329
 fn c602_l1329_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c602_l1329_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(26242795689010570000000000000000000.0 as f64, -1625023398605080200000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, 688684325575149100000000000000000000000000000000000000000000000000000.0 as f64);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        26242795689010570000000000000000000.0 as f64,
+        -1625023398605080200000000000.0 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        688684325575149100000000000000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 1333
@@ -9528,71 +12678,127 @@ fn start_module_59(result_object: &ResultObject) {
 // Line 1343
 fn c604_l1343_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c604_l1343_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000022102996 as f32, 0.0000000000031465275 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000022102996 as f32,
+        0.0000000000031465275 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0000000000000000000000099001476 as f32);
 }
 
 // Line 1344
 fn c605_l1344_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c605_l1344_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-3289460800000.0 as f32, -15941539000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -3289460800000.0 as f32,
+        -15941539000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 10820299000000000000000000.0 as f32);
 }
 
 // Line 1345
 fn c606_l1345_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c606_l1345_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00036497542 as f32, -0.00016153714 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00036497542 as f32,
+        -0.00016153714 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000107112804 as f32);
 }
 
 // Line 1346
 fn c607_l1346_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c607_l1346_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000065383266 as f32, -0.000000000000027412773 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000065383266 as f32,
+        -0.000000000000027412773 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000000003523511 as f32);
 }
 
 // Line 1347
 fn c608_l1347_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c608_l1347_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3609682000000000.0 as f32, -5260104400000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        3609682000000000.0 as f32,
+        -5260104400000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -14638896000000000000000000000000.0 as f32);
 }
 
 // Line 1349
 fn c609_l1349_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c609_l1349_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(213640454349895100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -292858755839442800000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 45642243734743850000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -9600,11 +12806,17 @@ fn c609_l1349_action_invoke(result_object: &ResultObject) {
 // Line 1350
 fn c610_l1350_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c610_l1350_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1229017115924435800000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -8222158919016600000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -67603897289562710000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -9612,36 +12824,68 @@ fn c610_l1350_action_invoke(result_object: &ResultObject) {
 // Line 1351
 fn c611_l1351_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c611_l1351_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(5477733829752.252 as f64, -970738900948.5906 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        5477733829752.252 as f64,
+        -970738900948.5906 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 29063233895797397000000000.0 as f64);
 }
 
 // Line 1352
 fn c612_l1352_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c612_l1352_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-10689141744923551000000000000000000000000000000000000000.0 as f64, -173378393593738040000000000000000000000000000000000.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -10689141744923551000000000000000000000000000000000000000.0 as f64,
+        -173378393593738040000000000000000000000000000000000.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 114257751213007240000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
 
 // Line 1353
 fn c613_l1353_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c613_l1353_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_algebraic_factoring") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_algebraic_factoring")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000010295699877022106 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000000008952274637805908 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000000000000000000000000000000000000000000000000000000000000010295699877022106
+            as f64,
+        -0.000000000000000000000000000000000000000000000000000000000000000000000008952274637805908
+            as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025858214767010105 as f64);
 }
 
@@ -9736,7 +12980,8 @@ fn c615_l1391_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 16 as i32, 32 as i32, &result_object.instance);
     assert_eq!(result, ());
 }
@@ -9748,9 +12993,13 @@ fn c616_l1392_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(32 as i32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000000000003 as f32);
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000000000003 as f32
+    );
 }
 
 // Line 1393
@@ -9760,7 +13009,8 @@ fn c617_l1393_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(36 as i32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -9772,9 +13022,13 @@ fn c618_l1394_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(40 as i32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000000000001 as f32);
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000000000001 as f32
+    );
 }
 
 // Line 1395
@@ -9784,9 +13038,13 @@ fn c619_l1395_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(44 as i32, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000000000000000001 as f32);
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000000000000000001 as f32
+    );
 }
 
 // Line 1397
@@ -9875,7 +13133,8 @@ fn c621_l1430_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 32 as i32, 64 as i32, &result_object.instance);
     assert_eq!(result, ());
 }
@@ -9887,7 +13146,8 @@ fn c622_l1431_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(64 as i32, &result_object.instance);
     assert_eq!(result, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001 as f64);
 }
@@ -9899,7 +13159,8 @@ fn c623_l1432_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(72 as i32, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -9911,7 +13172,8 @@ fn c624_l1433_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(80 as i32, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005 as f64);
 }
@@ -9923,7 +13185,8 @@ fn c625_l1434_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(88 as i32, &result_object.instance);
     assert_eq!(result, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005 as f64);
 }
@@ -10017,7 +13280,8 @@ fn c627_l1530_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 256 as i32, &result_object.instance);
     assert_eq!(result, -21558138000000000000000000000000.0 as f32);
 }
@@ -10029,7 +13293,8 @@ fn c628_l1531_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 256 as i32, &result_object.instance);
     assert_eq!(result, -16487540000000000000000000000000.0 as f32);
 }
@@ -10120,7 +13385,8 @@ fn c630_l1581_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 256 as i32, &result_object.instance);
     assert_eq!(result, 4996401743142033000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -10132,7 +13398,8 @@ fn c631_l1582_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 256 as i32, &result_object.instance);
     assert_eq!(result, 4996401743297957600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -10179,7 +13446,8 @@ fn c633_l1594_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -10191,7 +13459,8 @@ fn c634_l1595_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -10203,7 +13472,8 @@ fn c635_l1596_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -10215,7 +13485,8 @@ fn c636_l1597_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -10227,7 +13498,8 @@ fn c637_l1599_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -10239,7 +13511,8 @@ fn c638_l1600_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -10251,7 +13524,8 @@ fn c639_l1601_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -10263,7 +13537,8 @@ fn c640_l1602_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -10316,7 +13591,8 @@ fn c642_l1614_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -10328,7 +13604,8 @@ fn c643_l1615_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -10340,7 +13617,8 @@ fn c644_l1616_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -10352,7 +13630,8 @@ fn c645_l1617_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -10364,7 +13643,8 @@ fn c646_l1619_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -10376,7 +13656,8 @@ fn c647_l1620_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -10388,7 +13669,8 @@ fn c648_l1621_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -10400,7 +13682,8 @@ fn c649_l1622_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -10451,11 +13734,17 @@ fn start_module_66(result_object: &ResultObject) {
 // Line 1634
 fn c651_l1634_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c651_l1634_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_neg_neg") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_neg_neg")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -10463,11 +13752,17 @@ fn c651_l1634_action_invoke(result_object: &ResultObject) {
 // Line 1635
 fn c652_l1635_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c652_l1635_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_neg_neg") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_neg_neg")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, -0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -10475,11 +13770,17 @@ fn c652_l1635_action_invoke(result_object: &ResultObject) {
 // Line 1636
 fn c653_l1636_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c653_l1636_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_neg_neg") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_neg_neg")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -10487,11 +13788,17 @@ fn c653_l1636_action_invoke(result_object: &ResultObject) {
 // Line 1637
 fn c654_l1637_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c654_l1637_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_neg_neg") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_neg_neg")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, 0.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -10499,11 +13806,17 @@ fn c654_l1637_action_invoke(result_object: &ResultObject) {
 // Line 1639
 fn c655_l1639_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c655_l1639_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_neg_neg") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_neg_neg")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -10511,11 +13824,17 @@ fn c655_l1639_action_invoke(result_object: &ResultObject) {
 // Line 1640
 fn c656_l1640_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c656_l1640_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_neg_neg") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_neg_neg")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, -0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -10523,11 +13842,17 @@ fn c656_l1640_action_invoke(result_object: &ResultObject) {
 // Line 1641
 fn c657_l1641_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c657_l1641_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_neg_neg") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_neg_neg")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -10535,11 +13860,17 @@ fn c657_l1641_action_invoke(result_object: &ResultObject) {
 // Line 1642
 fn c658_l1642_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c658_l1642_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_neg_neg") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_neg_neg")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, 0.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -10592,7 +13923,8 @@ fn c660_l1654_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -10604,31 +13936,40 @@ fn c661_l1655_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 1656
 fn c662_l1656_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c662_l1656_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c662_l1656_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f32.no_fold_add_neg") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::INFINITY, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 1657
 fn c663_l1657_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c663_l1657_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c663_l1657_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f32.no_fold_add_neg") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::NEG_INFINITY, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -10640,7 +13981,8 @@ fn c664_l1659_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -10652,31 +13994,40 @@ fn c665_l1660_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
 
 // Line 1661
 fn c666_l1661_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c666_l1661_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c666_l1661_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f64.no_fold_add_neg") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::INFINITY, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
 
 // Line 1662
 fn c667_l1662_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c667_l1662_assert_return_canonical_nan");
+    println!(
+        "Executing function {}",
+        "c667_l1662_assert_return_canonical_nan"
+    );
     let func_index = match result_object.module.info.exports.get("f64.no_fold_add_neg") {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::NEG_INFINITY, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -10739,47 +14090,80 @@ fn start_module_68(result_object: &ResultObject) {
 // Line 1680
 fn c669_l1680_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c669_l1680_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-855513700000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -855513700000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -5133083000000000000000000000000.0 as f32);
 }
 
 // Line 1681
 fn c670_l1681_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c670_l1681_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000001209506 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000001209506 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00000000000000000000007257036 as f32);
 }
 
 // Line 1682
 fn c671_l1682_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c671_l1682_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000006642689 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000006642689 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000039856134 as f32);
 }
 
 // Line 1683
 fn c672_l1683_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c672_l1683_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000006147346 as f32, &result_object.instance);
     assert_eq!(result, -0.0000000036884074 as f32);
 }
@@ -10787,11 +14171,17 @@ fn c672_l1683_action_invoke(result_object: &ResultObject) {
 // Line 1684
 fn c673_l1684_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c673_l1684_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1209858100000000000000000.0 as f32, &result_object.instance);
     assert_eq!(result, -7259148300000000000000000.0 as f32);
 }
@@ -10799,11 +14189,17 @@ fn c673_l1684_action_invoke(result_object: &ResultObject) {
 // Line 1686
 fn c674_l1686_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c674_l1686_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-351704490602771400000.0 as f64, &result_object.instance);
     assert_eq!(result, -2110226943616628600000.0 as f64);
 }
@@ -10811,11 +14207,17 @@ fn c674_l1686_action_invoke(result_object: &ResultObject) {
 // Line 1687
 fn c675_l1687_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c675_l1687_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014824294109868734 as f64, &result_object.instance);
     assert_eq!(result, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008894576465921239 as f64);
 }
@@ -10823,23 +14225,43 @@ fn c675_l1687_action_invoke(result_object: &ResultObject) {
 // Line 1688
 fn c676_l1688_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c676_l1688_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-7484567838781003000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, -44907407032686014000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -7484567838781003000000000000000000000000000000000000000000000000000000000000000000.0
+            as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -44907407032686014000000000000000000000000000000000000000000000000000000000000000000.0
+            as f64
+    );
 }
 
 // Line 1689
 fn c677_l1689_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c677_l1689_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(17277868192936067000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 103667209157616410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -10847,13 +14269,25 @@ fn c677_l1689_action_invoke(result_object: &ResultObject) {
 // Line 1690
 fn c678_l1690_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c678_l1690_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_6x_via_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_6x_via_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-43116397525195610000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, -258698385151173640000000000000000000000000000000000000000000000000000000.0 as f64);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -43116397525195610000000000000000000000000000000000000000000000000000000.0 as f64,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -258698385151173640000000000000000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 1695
@@ -10908,8 +14342,14 @@ fn c680_l1703_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-593847530000000000000000.0 as f32, -0.000030265672 as f32, -1584.8682 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -593847530000000000000000.0 as f32,
+        -0.000030265672 as f32,
+        -1584.8682 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -12380309000000000000000000.0 as f32);
 }
 
@@ -10920,8 +14360,14 @@ fn c681_l1704_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000000000000000015438962 as f32, 2533429300000000000000000000000000.0 as f32, -0.00000000000000000000000000000000026844783 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000000000000000015438962 as f32,
+        2533429300000000000000000000000000.0 as f32,
+        -0.00000000000000000000000000000000026844783 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0 as f32);
 }
 
@@ -10932,8 +14378,14 @@ fn c682_l1705_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(13417423000000.0 as f32, 0.000000000000000000000000000000029339205 as f32, 76386374000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        13417423000000.0 as f32,
+        0.000000000000000000000000000000029339205 as f32,
+        76386374000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, f32::INFINITY);
 }
 
@@ -10944,8 +14396,14 @@ fn c683_l1706_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00010776529 as f32, -34220943000000000000000000000000000000.0 as f32, -0.00000000000016562324 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00010776529 as f32,
+        -34220943000000000000000000000000000000.0 as f32,
+        -0.00000000000016562324 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000000000000000000000000000019011327 as f32);
 }
 
@@ -10956,9 +14414,18 @@ fn c684_l1707_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(130582500000000.0 as f32, 96245350000000000.0 as f32, -41461545000000000000000000000000000000.0 as f32, &result_object.instance);
-    assert_eq!(result, -0.000000000000000000000000000000000000000032723 as f32);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        130582500000000.0 as f32,
+        96245350000000000.0 as f32,
+        -41461545000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.000000000000000000000000000000000000000032723 as f32
+    );
 }
 
 // Line 1709
@@ -10968,7 +14435,8 @@ fn c685_l1709_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(477762874671014340000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 102786720420404010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000718999894988884 as f64, &result_object.instance);
     assert_eq!(result, -64646730118787990000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -10980,7 +14448,8 @@ fn c686_l1710_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-21790236783875714000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.0000000028324436844616576 as f64, 186110768259868700000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -41336068079920670000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -10992,7 +14461,8 @@ fn c687_l1711_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-7.287619347826683 as f64, -13467607316739855000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 2462719007013688000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000219725454 as f64);
 }
@@ -11004,7 +14474,8 @@ fn c688_l1712_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-286552397862963300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010211980370639414 as f64, 28764586483324010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, f64::NEG_INFINITY);
 }
@@ -11016,9 +14487,13 @@ fn c689_l1713_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009525735602663874 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000050233948816631796 as f64, -0.0000000000000000000000000000000000000000028304570228221077 as f64, &result_object.instance);
-    assert_eq!(result, 0.00000000000000000000000000000000000000000000006699534674970116 as f64);
+    assert_eq!(
+        result,
+        0.00000000000000000000000000000000000000000000006699534674970116 as f64
+    );
 }
 
 // Line 1719
@@ -11073,71 +14548,137 @@ fn start_module_70(result_object: &ResultObject) {
 // Line 1727
 fn c691_l1727_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c691_l1727_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000000000027234733 as f32, 0.0000000000000000000000000003897843 as f32, 0.000000000000000000000000004847123 as f32, -25.357775 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000000000027234733 as f32,
+        0.0000000000000000000000000003897843 as f32,
+        0.000000000000000000000000004847123 as f32,
+        -25.357775 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000000000000000013355855 as f32);
 }
 
 // Line 1728
 fn c692_l1728_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c692_l1728_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-5372844000000000000000000000000.0 as f32, 38340910.0 as f32, 0.000014973162 as f32, 0.19213825 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -5372844000000000000000000000000.0 as f32,
+        38340910.0 as f32,
+        0.000014973162 as f32,
+        0.19213825 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -10920475000000000000.0 as f32);
 }
 
 // Line 1729
 fn c693_l1729_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c693_l1729_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-16085042000.0 as f32, -1092920200000.0 as f32, -869606000.0 as f32, -1201.206 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -16085042000.0 as f32,
+        -1092920200000.0 as f32,
+        -869606000.0 as f32,
+        -1201.206 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 10654.639 as f32);
 }
 
 // Line 1730
 fn c694_l1730_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c694_l1730_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-1271223140000000000000000000000000.0 as f32, 0.00000000010768114 as f32, 0.000018576271 as f32, 492686200000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -1271223140000000000000000000000000.0 as f32,
+        0.00000000010768114 as f32,
+        0.000018576271 as f32,
+        492686200000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1731
 fn c695_l1731_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c695_l1731_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000013783864 as f32, -0.000000000000000000065046285 as f32, 0.00000000000000000000000000068167684 as f32, 0.000000000022892627 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000013783864 as f32,
+        -0.000000000000000000065046285 as f32,
+        0.00000000000000000000000000068167684 as f32,
+        0.000000000022892627 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.000000000000063100295 as f32);
 }
 
 // Line 1733
 fn c696_l1733_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c696_l1733_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003466499805233369 as f64, -0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004045567512248635 as f64, -646234107060759200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 100455895333540740000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -55.12215321310017 as f64);
 }
@@ -11145,11 +14686,17 @@ fn c696_l1733_action_invoke(result_object: &ResultObject) {
 // Line 1734
 fn c697_l1734_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c697_l1734_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-50548839076363250000000000000000000.0 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022223781649976275 as f64, -15029790371100852000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -699412375953812100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, f64::NEG_INFINITY);
 }
@@ -11157,11 +14704,17 @@ fn c697_l1734_action_invoke(result_object: &ResultObject) {
 // Line 1735
 fn c698_l1735_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c698_l1735_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-836111653634494700000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -10029528876067567000000000000000000000000000000000000000000.0 as f64, -0.0000000000000000000000000000000000000000012867801766038772 as f64, -42230277746883753000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002540178100556387 as f64);
 }
@@ -11169,11 +14722,17 @@ fn c698_l1735_action_invoke(result_object: &ResultObject) {
 // Line 1736
 fn c699_l1736_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c699_l1736_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1202003211641119300000000000000000000000.0 as f64, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004667409771338769 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010888652376540085 as f64, 18334948666517216000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -11181,11 +14740,17 @@ fn c699_l1736_action_invoke(result_object: &ResultObject) {
 // Line 1737
 fn c700_l1737_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c700_l1737_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000006331839568840419 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000005544474241905778 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000027822472480359097 as f64, -14419321081893022000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, -0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022035374770746518 as f64);
 }
@@ -11242,71 +14807,135 @@ fn start_module_71(result_object: &ResultObject) {
 // Line 1749
 fn c702_l1749_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c702_l1749_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(377.3689 as f32, -0.040118184 as f32, -136292990000000000000000000000000000000.0 as f32, &result_object.instance);
-    assert_eq!(result, -0.0000000000000000000000000000000000027685121 as f32);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        377.3689 as f32,
+        -0.040118184 as f32,
+        -136292990000000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        -0.0000000000000000000000000000000000027685121 as f32
+    );
 }
 
 // Line 1750
 fn c703_l1750_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c703_l1750_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000018234023 as f32, -0.0000000000000033970288 as f32, -170996700000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000018234023 as f32,
+        -0.0000000000000033970288 as f32,
+        -170996700000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000000000019867115 as f32);
 }
 
 // Line 1751
 fn c704_l1751_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c704_l1751_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.000000000000019672638 as f32, 0.00000000000000000006414099 as f32, -541989070000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.000000000000019672638 as f32,
+        0.00000000000000000006414099 as f32,
+        -541989070000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000000000036296997 as f32);
 }
 
 // Line 1752
 fn c705_l1752_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c705_l1752_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000000004038506 as f32, 0.000000000000000000000000000003848228 as f32, -345237200000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000000004038506 as f32,
+        0.000000000000000000000000000003848228 as f32,
+        -345237200000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 1753
 fn c706_l1753_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c706_l1753_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0010934415 as f32, 0.20703124 as f32, 0.00000000000000000000000000000000000013509784 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0010934415 as f32,
+        0.20703124 as f32,
+        0.00000000000000000000000000000000000013509784 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 1540547700000000000000000000000000000.0 as f32);
 }
 
 // Line 1755
 fn c707_l1755_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c707_l1755_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4917019432143760000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 68132156322019020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 26125410100237784000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024196801752520584 as f64);
 }
@@ -11314,11 +14943,17 @@ fn c707_l1755_action_invoke(result_object: &ResultObject) {
 // Line 1756
 fn c708_l1756_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c708_l1756_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-10206467953224550.0 as f64, 63.422616671746226 as f64, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016024747869814892 as f64, &result_object.instance);
     assert_eq!(result, 6369190976445851000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -11326,11 +14961,17 @@ fn c708_l1756_action_invoke(result_object: &ResultObject) {
 // Line 1757
 fn c709_l1757_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c709_l1757_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000015270569633109837 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025755503329232514 as f64, 58826939164214920000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -11338,11 +14979,17 @@ fn c709_l1757_action_invoke(result_object: &ResultObject) {
 // Line 1758
 fn c710_l1758_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c710_l1758_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(26667964874394640000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, -2131569252493657800000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.000000000000000000000000000000000000012377004518680012 as f64, &result_object.instance);
     assert_eq!(result, -172217969324625340000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -11350,11 +14997,17 @@ fn c710_l1758_action_invoke(result_object: &ResultObject) {
 // Line 1759
 fn c711_l1759_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c711_l1759_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_divs") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_divs")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012952888377288216 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005808769259900048 as f64, 0.0000000000000000000016745741699443756 as f64, &result_object.instance);
     assert_eq!(result, -0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007735034106987796 as f64);
 }
@@ -11405,11 +15058,17 @@ fn start_module_72(result_object: &ResultObject) {
 // Line 1771
 fn c713_l1771_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c713_l1771_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000001846 as f32, &result_object.instance);
     assert_eq!(result, 0.00000000000000000001846001 as f32);
 }
@@ -11417,59 +15076,101 @@ fn c713_l1771_action_invoke(result_object: &ResultObject) {
 // Line 1772
 fn c714_l1772_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c714_l1772_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000017907473 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000017907473 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000000000000017952678 as f32);
 }
 
 // Line 1773
 fn c715_l1773_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c715_l1773_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.00000000000000000000079120785 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.00000000000000000000079120785 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.000000000000000000000791442 as f32);
 }
 
 // Line 1774
 fn c716_l1774_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c716_l1774_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000018012938 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000018012938 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 1775
 fn c717_l1775_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c717_l1775_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(610501970000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        610501970000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, f32::INFINITY);
 }
 
 // Line 1777
 fn c718_l1777_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c718_l1777_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006209297167747496 as f64, &result_object.instance);
     assert_eq!(result, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006209299542179727 as f64);
 }
@@ -11477,11 +15178,17 @@ fn c718_l1777_action_invoke(result_object: &ResultObject) {
 // Line 1778
 fn c719_l1778_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c719_l1778_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024211175303738945 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024211175303738937 as f64);
 }
@@ -11489,11 +15196,17 @@ fn c719_l1778_action_invoke(result_object: &ResultObject) {
 // Line 1779
 fn c720_l1779_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c720_l1779_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016460687611875645 as f64, &result_object.instance);
     assert_eq!(result, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016460687611532367 as f64);
 }
@@ -11501,11 +15214,17 @@ fn c720_l1779_action_invoke(result_object: &ResultObject) {
 // Line 1780
 fn c721_l1780_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c721_l1780_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003797811613378828 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -11513,11 +15232,17 @@ fn c721_l1780_action_invoke(result_object: &ResultObject) {
 // Line 1781
 fn c722_l1781_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c722_l1781_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sqrt_square") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sqrt_square")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(815808428460559200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, f64::INFINITY);
 }
@@ -11569,72 +15294,134 @@ fn start_module_73(result_object: &ResultObject) {
 
 // Line 1793
 fn c724_l1793_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c724_l1793_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrts") {
+    println!(
+        "Executing function {}",
+        "c724_l1793_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000043885047 as f32, -0.00000000000000000000000011867334 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000000000043885047 as f32,
+        -0.00000000000000000000000011867334 as f32,
+        &result_object.instance,
+    );
     assert!(result.is_quiet_nan())
 }
 
 // Line 1794
 fn c725_l1794_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c725_l1794_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000000000000000025365908 as f32, 0.00000000041320675 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000000000000000025365908 as f32,
+        0.00000000041320675 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000000000032374932 as f32);
 }
 
 // Line 1795
 fn c726_l1795_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c726_l1795_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000000000000000000000042144832 as f32, 97.249115 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000000000000000000000042144832 as f32,
+        97.249115 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000000064019905 as f32);
 }
 
 // Line 1796
 fn c727_l1796_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c727_l1796_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3724076300000000000000000000000.0 as f32, 0.002944908 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        3724076300000000000000000000000.0 as f32,
+        0.002944908 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 104723750000000.0 as f32);
 }
 
 // Line 1797
 fn c728_l1797_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c728_l1797_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000001866056 as f32, 0.002111261 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000001866056 as f32,
+        0.002111261 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.00000000019848755 as f32);
 }
 
 // Line 1799
 fn c729_l1799_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c729_l1799_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrts") {
+    println!(
+        "Executing function {}",
+        "c729_l1799_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012742064369772862 as f64, -0.006829962938197246 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -11642,11 +15429,17 @@ fn c729_l1799_assert_return_canonical_nan(result_object: &ResultObject) {
 // Line 1800
 fn c730_l1800_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c730_l1800_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000037082569269527534 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000047183002857015043 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041829020688865954 as f64);
 }
@@ -11654,11 +15447,17 @@ fn c730_l1800_action_invoke(result_object: &ResultObject) {
 // Line 1801
 fn c731_l1801_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c731_l1801_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000002329359505918655 as f64, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020743399642806364 as f64, &result_object.instance);
     assert_eq!(result, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000021981545701574452 as f64);
 }
@@ -11666,11 +15465,17 @@ fn c731_l1801_action_invoke(result_object: &ResultObject) {
 // Line 1802
 fn c732_l1802_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c732_l1802_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010541899336289437 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000598123819872803 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002511047809129887 as f64);
 }
@@ -11678,13 +15483,22 @@ fn c732_l1802_action_invoke(result_object: &ResultObject) {
 // Line 1803
 fn c733_l1803_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c733_l1803_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(25589482.717358638 as f64, 39138912071199020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
-    assert_eq!(result, 1000771959050695500000000000000000000000000000000000000000000000000000000000000000.0 as f64);
+    assert_eq!(
+        result,
+        1000771959050695500000000000000000000000000000000000000000000000000000000000000000.0 as f64
+    );
 }
 
 // Line 1807
@@ -11734,72 +15548,134 @@ fn start_module_74(result_object: &ResultObject) {
 
 // Line 1815
 fn c735_l1815_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c735_l1815_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_sqrts") {
+    println!(
+        "Executing function {}",
+        "c735_l1815_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-58545012.0 as f32, -0.000000000000000006443773 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -58545012.0 as f32,
+        -0.000000000000000006443773 as f32,
+        &result_object.instance,
+    );
     assert!(result.is_quiet_nan())
 }
 
 // Line 1816
 fn c736_l1816_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c736_l1816_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(7407384000.0 as f32, 209778930.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        7407384000.0 as f32,
+        209778930.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 5.9422584 as f32);
 }
 
 // Line 1817
 fn c737_l1817_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c737_l1817_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0000000000000000000000000000000000013764126 as f32, 54692.9 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0000000000000000000000000000000000013764126 as f32,
+        54692.9 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000050165927 as f32);
 }
 
 // Line 1818
 fn c738_l1818_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c738_l1818_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(979288960000000000.0 as f32, 0.0000000012643552 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        979288960000000000.0 as f32,
+        0.0000000012643552 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 27830490000000.0 as f32);
 }
 
 // Line 1819
 fn c739_l1819_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c739_l1819_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000000000000000000000029141283 as f32, 0.00000000000000000000000000000017928174 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000000000000000000000029141283 as f32,
+        0.00000000000000000000000000000017928174 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.04031682 as f32);
 }
 
 // Line 1821
 fn c740_l1821_assert_return_canonical_nan(result_object: &ResultObject) {
-    println!("Executing function {}", "c740_l1821_assert_return_canonical_nan");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_sqrts") {
+    println!(
+        "Executing function {}",
+        "c740_l1821_assert_return_canonical_nan"
+    );
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012206137319883022 as f64, -0.000000000000000000000000000000000000000000000000000000008209583449676083 as f64, &result_object.instance);
     assert!(result.is_quiet_nan())
 }
@@ -11807,11 +15683,17 @@ fn c740_l1821_assert_return_canonical_nan(result_object: &ResultObject) {
 // Line 1822
 fn c741_l1822_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c741_l1822_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000033818852462305824 as f64, 7655783976315048000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000021017671425665687 as f64);
 }
@@ -11819,11 +15701,17 @@ fn c741_l1822_action_invoke(result_object: &ResultObject) {
 // Line 1823
 fn c742_l1823_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c742_l1823_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(45963335670647510000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.0000000000000000000000000000000023932467846883046 as f64, &result_object.instance);
     assert_eq!(result, 138583660172663150000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -11831,11 +15719,17 @@ fn c742_l1823_action_invoke(result_object: &ResultObject) {
 // Line 1824
 fn c743_l1824_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c743_l1824_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000025327340978668086 as f64, 4475305129961258000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000023789399141325018 as f64);
 }
@@ -11843,11 +15737,17 @@ fn c743_l1824_action_invoke(result_object: &ResultObject) {
 // Line 1825
 fn c744_l1825_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c744_l1825_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_sqrts") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_sqrts")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005103070160197939 as f64, 460157669098082500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010530826009924495 as f64);
 }
@@ -11902,59 +15802,105 @@ fn start_module_75(result_object: &ResultObject) {
 // Line 1837
 fn c746_l1837_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c746_l1837_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-4728556800000000000000000.0 as f32, 8677282000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -4728556800000000000000000.0 as f32,
+        8677282000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, f32::NEG_INFINITY);
 }
 
 // Line 1838
 fn c747_l1838_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c747_l1838_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-0.0000000000000000000000000000000000011776882 as f32, 0.000000000000000000000000000009805153 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -0.0000000000000000000000000000000000011776882 as f32,
+        0.000000000000000000000000000009805153 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.0 as f32);
 }
 
 // Line 1839
 fn c748_l1839_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c748_l1839_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(816717060.0 as f32, 0.000000000000000000000000000000000000003323171 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        816717060.0 as f32,
+        0.000000000000000000000000000000000000003323171 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 14167568000000000000000000000.0 as f32);
 }
 
 // Line 1840
 fn c749_l1840_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c749_l1840_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-11932267000000.0 as f32, 8637067000000000000000000000000000.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -11932267000000.0 as f32,
+        8637067000000000000000000000000000.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, -0.00012839255 as f32);
 }
 
 // Line 1841
 fn c750_l1841_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c750_l1841_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-401.0235 as f32, 134.33022 as f32, &result_object.instance);
     assert_eq!(result, -34.600548 as f32);
 }
@@ -11962,11 +15908,17 @@ fn c750_l1841_action_invoke(result_object: &ResultObject) {
 // Line 1843
 fn c751_l1843_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c751_l1843_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1468134622910490500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 2466074582285183000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, f64::INFINITY);
 }
@@ -11974,11 +15926,17 @@ fn c751_l1843_action_invoke(result_object: &ResultObject) {
 // Line 1844
 fn c752_l1844_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c752_l1844_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000017254022016758028 as f64, 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000055835540747130025 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }
@@ -11986,11 +15944,17 @@ fn c752_l1844_action_invoke(result_object: &ResultObject) {
 // Line 1845
 fn c753_l1845_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c753_l1845_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000016812810256029166 as f64, 7362783602442129000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006196112486187196 as f64);
 }
@@ -11998,11 +15962,17 @@ fn c753_l1845_action_invoke(result_object: &ResultObject) {
 // Line 1846
 fn c754_l1846_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c754_l1846_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-10605483729939836000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, 0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000622591783694072 as f64, &result_object.instance);
     assert_eq!(result, -42503900822233765000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64);
 }
@@ -12010,11 +15980,17 @@ fn c754_l1846_action_invoke(result_object: &ResultObject) {
 // Line 1847
 fn c755_l1847_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c755_l1847_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_mul_sqrt_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_mul_sqrt_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(26336349695373093000000000000000.0 as f64, 30791413285853300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004746142447510695 as f64);
 }
@@ -12067,23 +16043,43 @@ fn start_module_76(result_object: &ResultObject) {
 // Line 1860
 fn c757_l1860_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c757_l1860_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_flush_intermediate_subnormal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_flush_intermediate_subnormal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.000000000000000000000000000000000000011754944 as f32, 0.00000011920929 as f32, 8388608.0 as f32, &result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000011754944 as f32);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.000000000000000000000000000000000000011754944 as f32,
+        0.00000011920929 as f32,
+        8388608.0 as f32,
+        &result_object.instance,
+    );
+    assert_eq!(
+        result,
+        0.000000000000000000000000000000000000011754944 as f32
+    );
 }
 
 // Line 1861
 fn c758_l1861_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c758_l1861_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_flush_intermediate_subnormal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_flush_intermediate_subnormal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014 as f64, 0.0000000000000002220446049250313 as f64, 4503599627370496.0 as f64, &result_object.instance);
     assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014 as f64);
 }
@@ -12167,7 +16163,8 @@ fn c760_l1889_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::NEG_INFINITY, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -12179,7 +16176,8 @@ fn c761_l1890_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::NEG_INFINITY, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -12191,7 +16189,8 @@ fn c762_l1891_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f32::NEG_INFINITY, 3.0 as f32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -12203,7 +16202,8 @@ fn c763_l1893_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -12215,7 +16215,8 @@ fn c764_l1894_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -12227,7 +16228,8 @@ fn c765_l1895_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -12239,7 +16241,8 @@ fn c766_l1897_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::NEG_INFINITY, 3.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -12251,7 +16254,8 @@ fn c767_l1898_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::NEG_INFINITY, 3.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -12263,7 +16267,8 @@ fn c768_l1899_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(f64::NEG_INFINITY, 3.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -12275,7 +16280,8 @@ fn c769_l1901_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, 1.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -12287,7 +16293,8 @@ fn c770_l1902_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, 1.0 as f64, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -12299,7 +16306,8 @@ fn c771_l1903_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, 1.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -12311,8 +16319,13 @@ fn c772_l1905_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000000000000000000000000000023860049081905093 as f64, 1221.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f64, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000000000000000000000000000023860049081905093 as f64,
+        1221.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0000000000000000000000000000000000002913312 as f32);
 }
 
@@ -12367,24 +16380,46 @@ fn start_module_78(result_object: &ResultObject) {
 // Line 1918
 fn c774_l1918_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c774_l1918_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_extended_precision_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_extended_precision_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3.0 as f32, 7.0 as f32, 0.42857143 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        3.0 as f32,
+        7.0 as f32,
+        0.42857143 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
 // Line 1919
 fn c775_l1919_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c775_l1919_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_extended_precision_div") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_extended_precision_div")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3.0 as f64, 7.0 as f64, 0.42857142857142855 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        3.0 as f64,
+        7.0 as f64,
+        0.42857142857142855 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -12432,11 +16467,17 @@ fn start_module_79(result_object: &ResultObject) {
 // Line 1934
 fn c777_l1934_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c777_l1934_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_distribute_exact") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_distribute_exact")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -12444,11 +16485,17 @@ fn c777_l1934_action_invoke(result_object: &ResultObject) {
 // Line 1935
 fn c778_l1935_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c778_l1935_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_distribute_exact") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_distribute_exact")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -12575,7 +16622,8 @@ fn c780_l1972_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, &result_object.instance);
     assert_eq!(result, 1.4142135 as f32);
 }
@@ -12587,8 +16635,15 @@ fn c781_l1973_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3.0 as f32, 5.0 as f32, 3.1415927 as f32, 7.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        3.0 as f32,
+        5.0 as f32,
+        3.1415927 as f32,
+        7.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 1.4142201 as f32);
 }
 
@@ -12599,7 +16654,8 @@ fn c782_l1974_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f32, &result_object.instance);
     assert_eq!(result, 1.7320508 as f32);
 }
@@ -12611,8 +16667,14 @@ fn c783_l1975_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, 2.7182817 as f32, 3.1415927 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f32,
+        2.7182817 as f32,
+        3.1415927 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 1.7305119 as f32);
 }
 
@@ -12623,7 +16685,8 @@ fn c784_l1976_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(5.0 as f32, &result_object.instance);
     assert_eq!(result, 2.236068 as f32);
 }
@@ -12635,20 +16698,38 @@ fn c785_l1977_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f32, 2.7182817 as f32, 3.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f32,
+        2.7182817 as f32,
+        3.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 2.2357588 as f32);
 }
 
 // Line 1978
 fn c786_l1978_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c786_l1978_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.xkcd_better_sqrt_5") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.xkcd_better_sqrt_5")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(13.0 as f32, 4.0 as f32, 3.1415927 as f32, 24.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        13.0 as f32,
+        4.0 as f32,
+        3.1415927 as f32,
+        24.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 2.236068 as f32);
 }
 
@@ -12659,7 +16740,8 @@ fn c787_l1980_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, &result_object.instance);
     assert_eq!(result, 1.4142135623730951 as f64);
 }
@@ -12671,8 +16753,15 @@ fn c788_l1981_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3.0 as f64, 5.0 as f64, 3.141592653589793 as f64, 7.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        3.0 as f64,
+        5.0 as f64,
+        3.141592653589793 as f64,
+        7.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 1.4142200580539208 as f64);
 }
 
@@ -12683,7 +16772,8 @@ fn c789_l1982_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f64, &result_object.instance);
     assert_eq!(result, 1.7320508075688772 as f64);
 }
@@ -12695,8 +16785,14 @@ fn c790_l1983_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, 2.718281828459045 as f64, 3.141592653589793 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f64,
+        2.718281828459045 as f64,
+        3.141592653589793 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 1.7305119588645301 as f64);
 }
 
@@ -12707,7 +16803,8 @@ fn c791_l1984_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(5.0 as f64, &result_object.instance);
     assert_eq!(result, 2.23606797749979 as f64);
 }
@@ -12719,20 +16816,38 @@ fn c792_l1985_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2.0 as f64, 2.718281828459045 as f64, 3.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2.0 as f64,
+        2.718281828459045 as f64,
+        3.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 2.2357588823428847 as f64);
 }
 
 // Line 1986
 fn c793_l1986_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c793_l1986_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.xkcd_better_sqrt_5") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.xkcd_better_sqrt_5")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(13.0 as f64, 4.0 as f64, 3.141592653589793 as f64, 24.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        13.0 as f64,
+        4.0 as f64,
+        3.141592653589793 as f64,
+        24.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 2.2360678094452893 as f64);
 }
 
@@ -12844,7 +16959,8 @@ fn c795_l2069_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 2.0 as f32);
 }
@@ -12856,7 +16972,8 @@ fn c796_l2070_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f64, 1.0 as f64, &result_object.instance);
     assert_eq!(result, 2.0 as f64);
 }
@@ -12905,24 +17022,44 @@ fn start_module_82(result_object: &ResultObject) {
 // Line 2083
 fn c798_l2083_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c798_l2083_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sub1_mul_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sub1_mul_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000023283064 as f32, 1.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000023283064 as f32,
+        1.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f32);
 }
 
 // Line 2084
 fn c799_l2084_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c799_l2084_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sub1_mul_add") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sub1_mul_add")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.00000000000000000005421010862427522 as f64, 1.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.00000000000000000005421010862427522 as f64,
+        1.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 0.0 as f64);
 }
 
@@ -12988,48 +17125,92 @@ fn start_module_83(result_object: &ResultObject) {
 // Line 2103
 fn c801_l2103_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c801_l2103_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_le_monotonicity") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_le_monotonicity")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, 0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2104
 fn c802_l2104_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c802_l2104_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_add_le_monotonicity") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_add_le_monotonicity")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::INFINITY,
+        f32::NEG_INFINITY,
+        f32::INFINITY,
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2105
 fn c803_l2105_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c803_l2105_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_le_monotonicity") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_le_monotonicity")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, 0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2106
 fn c804_l2106_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c804_l2106_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_add_le_monotonicity") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_add_le_monotonicity")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::INFINITY, f64::NEG_INFINITY, f64::INFINITY, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::INFINITY,
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
@@ -13113,8 +17294,13 @@ fn c806_l2136_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -13125,8 +17311,13 @@ fn c807_l2137_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -13137,8 +17328,13 @@ fn c808_l2138_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -13149,8 +17345,13 @@ fn c809_l2139_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f32::from_bits(2143289344), 0.0 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f32::from_bits(2143289344),
+        0.0 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -13161,8 +17362,13 @@ fn c810_l2140_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -13173,8 +17379,13 @@ fn c811_l2141_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -13185,8 +17396,13 @@ fn c812_l2142_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -13197,8 +17413,13 @@ fn c813_l2143_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(f64::from_bits(9221120237041090560), 0.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        f64::from_bits(9221120237041090560),
+        0.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 1 as i32);
 }
 
@@ -13260,7 +17481,8 @@ fn c815_l2157_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -0.00000011920929 as f32);
 }
@@ -13272,7 +17494,8 @@ fn c816_l2158_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0.0000000000000002220446049250313 as f64);
 }
@@ -13343,7 +17566,8 @@ fn c818_l2212_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0.00000011920929 as f32);
 }
@@ -13355,7 +17579,8 @@ fn c819_l2213_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0.0000000000000002220446049250313 as f64);
 }
@@ -13458,96 +17683,176 @@ fn start_module_87(result_object: &ResultObject) {
 // Line 2238
 fn c821_l2238_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c821_l2238_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_trichotomy_lt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_trichotomy_lt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2239
 fn c822_l2239_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c822_l2239_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_trichotomy_le") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_trichotomy_le")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2240
 fn c823_l2240_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c823_l2240_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_trichotomy_gt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_trichotomy_gt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2241
 fn c824_l2241_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c824_l2241_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_trichotomy_ge") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_trichotomy_ge")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f32, f32::from_bits(2143289344), &result_object.instance);
+    let invoke_fn: fn(f32, f32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f32,
+        f32::from_bits(2143289344),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2242
 fn c825_l2242_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c825_l2242_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_trichotomy_lt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_trichotomy_lt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2243
 fn c826_l2243_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c826_l2243_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_trichotomy_le") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_trichotomy_le")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2244
 fn c827_l2244_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c827_l2244_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_trichotomy_gt") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_trichotomy_gt")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
 // Line 2245
 fn c828_l2245_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c828_l2245_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_trichotomy_ge") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_trichotomy_ge")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(0.0 as f64, f64::from_bits(9221120237041090560), &result_object.instance);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        0.0 as f64,
+        f64::from_bits(9221120237041090560),
+        &result_object.instance,
+    );
     assert_eq!(result, 0 as i32);
 }
 
@@ -13754,23 +18059,39 @@ fn start_module_88(result_object: &ResultObject) {
 // Line 2329
 fn c830_l2329_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c830_l2329_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.arithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.arithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2139107856 as i32, 2139107856 as i32, &result_object.instance);
+    let invoke_fn: fn(i32, i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2139107856 as i32,
+        2139107856 as i32,
+        &result_object.instance,
+    );
     assert_eq!(result, 2143289344 as i32);
 }
 
 // Line 2330
 fn c831_l2330_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c831_l2330_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 0 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -13778,23 +18099,39 @@ fn c831_l2330_action_invoke(result_object: &ResultObject) {
 // Line 2331
 fn c832_l2331_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c832_l2331_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2143289344 as i32, 2143289344 as i32, &result_object.instance);
+    let invoke_fn: fn(i32, i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        2143289344 as i32,
+        2143289344 as i32,
+        &result_object.instance,
+    );
     assert_eq!(result, 2143289344 as i32);
 }
 
 // Line 2332
 fn c833_l2332_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c833_l2332_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4194304 as i32, 2143289344 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -13802,11 +18139,17 @@ fn c833_l2332_action_invoke(result_object: &ResultObject) {
 // Line 2333
 fn c834_l2333_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c834_l2333_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2143289344 as i32, -4194304 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -13814,11 +18157,17 @@ fn c834_l2333_action_invoke(result_object: &ResultObject) {
 // Line 2334
 fn c835_l2334_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c835_l2334_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4194304 as i32, -4194304 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -13826,11 +18175,17 @@ fn c835_l2334_action_invoke(result_object: &ResultObject) {
 // Line 2335
 fn c836_l2335_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c836_l2335_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.nonarithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.nonarithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2143302160 as i32, &result_object.instance);
     assert_eq!(result, -4181488 as i32);
 }
@@ -13838,11 +18193,17 @@ fn c836_l2335_action_invoke(result_object: &ResultObject) {
 // Line 2336
 fn c837_l2336_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c837_l2336_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.nonarithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.nonarithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4181488 as i32, &result_object.instance);
     assert_eq!(result, 2143302160 as i32);
 }
@@ -13850,11 +18211,17 @@ fn c837_l2336_action_invoke(result_object: &ResultObject) {
 // Line 2337
 fn c838_l2337_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c838_l2337_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.nonarithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.nonarithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2139107856 as i32, &result_object.instance);
     assert_eq!(result, -8375792 as i32);
 }
@@ -13862,11 +18229,17 @@ fn c838_l2337_action_invoke(result_object: &ResultObject) {
 // Line 2338
 fn c839_l2338_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c839_l2338_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.nonarithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.nonarithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-8375792 as i32, &result_object.instance);
     assert_eq!(result, 2139107856 as i32);
 }
@@ -13874,23 +18247,39 @@ fn c839_l2338_action_invoke(result_object: &ResultObject) {
 // Line 2339
 fn c840_l2339_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c840_l2339_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.arithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.arithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(9218868437227418128 as i64, 9218868437227418128 as i64, &result_object.instance);
+    let invoke_fn: fn(i64, i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        9218868437227418128 as i64,
+        9218868437227418128 as i64,
+        &result_object.instance,
+    );
     assert_eq!(result, 9221120237041090560 as i64);
 }
 
 // Line 2340
 fn c841_l2340_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c841_l2340_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i64, 0 as i64, &result_object.instance);
     assert_eq!(result, 9221120237041090560 as i64);
 }
@@ -13898,59 +18287,105 @@ fn c841_l2340_action_invoke(result_object: &ResultObject) {
 // Line 2341
 fn c842_l2341_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c842_l2341_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(9221120237041090560 as i64, 9221120237041090560 as i64, &result_object.instance);
+    let invoke_fn: fn(i64, i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        9221120237041090560 as i64,
+        9221120237041090560 as i64,
+        &result_object.instance,
+    );
     assert_eq!(result, 9221120237041090560 as i64);
 }
 
 // Line 2342
 fn c843_l2342_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c843_l2342_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-2251799813685248 as i64, 9221120237041090560 as i64, &result_object.instance);
+    let invoke_fn: fn(i64, i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -2251799813685248 as i64,
+        9221120237041090560 as i64,
+        &result_object.instance,
+    );
     assert_eq!(result, 9221120237041090560 as i64);
 }
 
 // Line 2343
 fn c844_l2343_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c844_l2343_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(9221120237041090560 as i64, -2251799813685248 as i64, &result_object.instance);
+    let invoke_fn: fn(i64, i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        9221120237041090560 as i64,
+        -2251799813685248 as i64,
+        &result_object.instance,
+    );
     assert_eq!(result, 9221120237041090560 as i64);
 }
 
 // Line 2344
 fn c845_l2344_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c845_l2344_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.canonical_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.canonical_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(-2251799813685248 as i64, -2251799813685248 as i64, &result_object.instance);
+    let invoke_fn: fn(i64, i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        -2251799813685248 as i64,
+        -2251799813685248 as i64,
+        &result_object.instance,
+    );
     assert_eq!(result, 9221120237041090560 as i64);
 }
 
 // Line 2345
 fn c846_l2345_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c846_l2345_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.nonarithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.nonarithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9221120237041103376 as i64, &result_object.instance);
     assert_eq!(result, -2251799813672432 as i64);
 }
@@ -13958,11 +18393,17 @@ fn c846_l2345_action_invoke(result_object: &ResultObject) {
 // Line 2346
 fn c847_l2346_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c847_l2346_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.nonarithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.nonarithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2251799813672432 as i64, &result_object.instance);
     assert_eq!(result, 9221120237041103376 as i64);
 }
@@ -13970,11 +18411,17 @@ fn c847_l2346_action_invoke(result_object: &ResultObject) {
 // Line 2347
 fn c848_l2347_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c848_l2347_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.nonarithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.nonarithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9218868437227418128 as i64, &result_object.instance);
     assert_eq!(result, -4503599627357680 as i64);
 }
@@ -13982,11 +18429,17 @@ fn c848_l2347_action_invoke(result_object: &ResultObject) {
 // Line 2348
 fn c849_l2348_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c849_l2348_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.nonarithmetic_nan_bitpattern") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.nonarithmetic_nan_bitpattern")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4503599627357680 as i64, &result_object.instance);
     assert_eq!(result, 9218868437227418128 as i64);
 }
@@ -13994,11 +18447,17 @@ fn c849_l2348_action_invoke(result_object: &ResultObject) {
 // Line 2349
 fn c850_l2349_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c850_l2349_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_sub_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_sub_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2141192192 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -14006,11 +18465,17 @@ fn c850_l2349_action_invoke(result_object: &ResultObject) {
 // Line 2350
 fn c851_l2350_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c851_l2350_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_neg0_sub") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_neg0_sub")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2141192192 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -14022,7 +18487,8 @@ fn c852_l2351_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2141192192 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -14030,11 +18496,17 @@ fn c852_l2351_action_invoke(result_object: &ResultObject) {
 // Line 2352
 fn c853_l2352_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c853_l2352_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_neg1_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_neg1_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2141192192 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -14046,7 +18518,8 @@ fn c854_l2353_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2141192192 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -14054,11 +18527,17 @@ fn c854_l2353_action_invoke(result_object: &ResultObject) {
 // Line 2354
 fn c855_l2354_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c855_l2354_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_div_neg1") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_div_neg1")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2141192192 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -14066,11 +18545,17 @@ fn c855_l2354_action_invoke(result_object: &ResultObject) {
 // Line 2355
 fn c856_l2355_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c856_l2355_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_sub_zero") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_sub_zero")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9219994337134247936 as i64, &result_object.instance);
     assert_eq!(result, 9221120237041090560 as i64);
 }
@@ -14078,11 +18563,17 @@ fn c856_l2355_action_invoke(result_object: &ResultObject) {
 // Line 2356
 fn c857_l2356_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c857_l2356_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_neg0_sub") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_neg0_sub")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9219994337134247936 as i64, &result_object.instance);
     assert_eq!(result, 9221120237041090560 as i64);
 }
@@ -14094,7 +18585,8 @@ fn c858_l2357_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9219994337134247936 as i64, &result_object.instance);
     assert_eq!(result, 9221120237041090560 as i64);
 }
@@ -14102,11 +18594,17 @@ fn c858_l2357_action_invoke(result_object: &ResultObject) {
 // Line 2358
 fn c859_l2358_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c859_l2358_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_neg1_mul") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_neg1_mul")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9219994337134247936 as i64, &result_object.instance);
     assert_eq!(result, 9221120237041090560 as i64);
 }
@@ -14118,7 +18616,8 @@ fn c860_l2359_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9219994337134247936 as i64, &result_object.instance);
     assert_eq!(result, 9221120237041090560 as i64);
 }
@@ -14126,11 +18625,17 @@ fn c860_l2359_action_invoke(result_object: &ResultObject) {
 // Line 2360
 fn c861_l2360_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c861_l2360_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_div_neg1") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_div_neg1")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i64, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i64, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(9219994337134247936 as i64, &result_object.instance);
     assert_eq!(result, 9221120237041090560 as i64);
 }
@@ -14138,11 +18643,17 @@ fn c861_l2360_action_invoke(result_object: &ResultObject) {
 // Line 2361
 fn c862_l2361_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c862_l2361_action_invoke");
-    let func_index = match result_object.module.info.exports.get("no_fold_promote_demote") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("no_fold_promote_demote")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2141192192 as i32, &result_object.instance);
     assert_eq!(result, 2143289344 as i32);
 }
@@ -14241,20 +18752,47 @@ fn c864_l2389_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(32000000.0 as f64, 1.0 as f64, -1.0 as f64, 80000000.0 as f64, 40000000.0 as f64, 1.0 as f64, -1.0 as f64, -16000000.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, f64, f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        32000000.0 as f64,
+        1.0 as f64,
+        -1.0 as f64,
+        80000000.0 as f64,
+        40000000.0 as f64,
+        1.0 as f64,
+        -1.0 as f64,
+        -16000000.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 2.0 as f64);
 }
 
 // Line 2393
 fn c865_l2393_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c865_l2393_action_invoke");
-    let func_index = match result_object.module.info.exports.get("with_binary_sum_collapse") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("with_binary_sum_collapse")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, f64, f64, f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(32000000.0 as f64, 1.0 as f64, -1.0 as f64, 80000000.0 as f64, 40000000.0 as f64, 1.0 as f64, -1.0 as f64, -16000000.0 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, f64, f64, f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        32000000.0 as f64,
+        1.0 as f64,
+        -1.0 as f64,
+        80000000.0 as f64,
+        40000000.0 as f64,
+        1.0 as f64,
+        -1.0 as f64,
+        -16000000.0 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 2.0 as f64);
 }
 
@@ -14308,7 +18846,8 @@ fn c867_l2411_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, 1.0 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -14320,7 +18859,8 @@ fn c868_l2412_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.1 as f32, 1.1 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -14332,7 +18872,8 @@ fn c869_l2413_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.1999999 as f32, 1.1999999 as f32, &result_object.instance);
     assert_eq!(result, 0.0 as f32);
 }
@@ -14344,7 +18885,8 @@ fn c870_l2414_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f64, 1.0 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -14356,7 +18898,8 @@ fn c871_l2415_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.1 as f64, 1.1 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -14368,7 +18911,8 @@ fn c872_l2416_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.2 as f64, 1.2 as f64, &result_object.instance);
     assert_eq!(result, 0.0 as f64);
 }
@@ -14417,24 +18961,46 @@ fn start_module_91(result_object: &ResultObject) {
 // Line 2430
 fn c874_l2430_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c874_l2430_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.division_by_small_number") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.division_by_small_number")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(112000000.0 as f32, 100000.0 as f32, 0.0009 as f32, &result_object.instance);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        112000000.0 as f32,
+        100000.0 as f32,
+        0.0009 as f32,
+        &result_object.instance,
+    );
     assert_eq!(result, 888888.0 as f32);
 }
 
 // Line 2431
 fn c875_l2431_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c875_l2431_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.division_by_small_number") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.division_by_small_number")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(112000000.0 as f64, 100000.0 as f64, 0.0009 as f64, &result_object.instance);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
+    let result = invoke_fn(
+        112000000.0 as f64,
+        100000.0 as f64,
+        0.0009 as f64,
+        &result_object.instance,
+    );
     assert_eq!(result, 888888.8888888806 as f64);
 }
 
@@ -14484,7 +19050,8 @@ fn c877_l2443_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.5 as f32, 1.0 as f32, 5.0 as f32, &result_object.instance);
     assert_eq!(result, 1.618034 as f32);
 }
@@ -14496,7 +19063,8 @@ fn c878_l2444_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.5 as f64, 1.0 as f64, 5.0 as f64, &result_object.instance);
     assert_eq!(result, 1.618033988749895 as f64);
 }
@@ -14555,7 +19123,8 @@ fn c880_l2462_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f32, &result_object.instance);
     assert_eq!(result, 1.0 as f32);
 }
@@ -14567,7 +19136,8 @@ fn c881_l2463_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f32, &result_object.instance);
     assert_eq!(result, 1.618034 as f32);
 }
@@ -14579,7 +19149,8 @@ fn c882_l2464_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f32, &result_object.instance);
     assert_eq!(result, 2.4142137 as f32);
 }
@@ -14591,7 +19162,8 @@ fn c883_l2465_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f32, &result_object.instance);
     assert_eq!(result, 3.3027756 as f32);
 }
@@ -14603,7 +19175,8 @@ fn c884_l2466_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4.0 as f32, &result_object.instance);
     assert_eq!(result, 4.236068 as f32);
 }
@@ -14615,7 +19188,8 @@ fn c885_l2467_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(5.0 as f32, &result_object.instance);
     assert_eq!(result, 5.192582 as f32);
 }
@@ -14627,7 +19201,8 @@ fn c886_l2468_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0.0 as f64, &result_object.instance);
     assert_eq!(result, 1.0 as f64);
 }
@@ -14639,7 +19214,8 @@ fn c887_l2469_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(1.0 as f64, &result_object.instance);
     assert_eq!(result, 1.618033988749895 as f64);
 }
@@ -14651,7 +19227,8 @@ fn c888_l2470_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(2.0 as f64, &result_object.instance);
     assert_eq!(result, 2.414213562373095 as f64);
 }
@@ -14663,7 +19240,8 @@ fn c889_l2471_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(3.0 as f64, &result_object.instance);
     assert_eq!(result, 3.302775637731995 as f64);
 }
@@ -14675,7 +19253,8 @@ fn c890_l2472_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4.0 as f64, &result_object.instance);
     assert_eq!(result, 4.23606797749979 as f64);
 }
@@ -14687,7 +19266,8 @@ fn c891_l2473_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(5.0 as f64, &result_object.instance);
     assert_eq!(result, 5.192582403567252 as f64);
 }
@@ -14738,7 +19318,8 @@ fn c893_l2483_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(4.0 as f64, 10.0 as f64, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -14833,7 +19414,8 @@ fn c895_l2553_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(10 as i32, &result_object.instance);
     assert_eq!(result, 6.283185307179583 as f64);
 }
@@ -14845,7 +19427,8 @@ fn c896_l2554_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(11 as i32, &result_object.instance);
     assert_eq!(result, 6.283185307179586 as f64);
 }
@@ -14896,11 +19479,17 @@ fn start_module_96(result_object: &ResultObject) {
 // Line 2569
 fn c898_l2569_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c898_l2569_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.no_fold_conditional_inc") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f32.no_fold_conditional_inc")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f32, f32, &Instance) -> f32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f32, f32, &Instance) -> f32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f32, -1.0 as f32, &result_object.instance);
     assert_eq!(result, -0.0 as f32);
 }
@@ -14908,11 +19497,17 @@ fn c898_l2569_action_invoke(result_object: &ResultObject) {
 // Line 2570
 fn c899_l2570_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c899_l2570_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.no_fold_conditional_inc") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("f64.no_fold_conditional_inc")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(f64, f64, &Instance) -> f64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(f64, f64, &Instance) -> f64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-0.0 as f64, -1.0 as f64, &result_object.instance);
     assert_eq!(result, -0.0 as f64);
 }

@@ -48,7 +48,7 @@ instance.data_pointers.globals \t- {:X} | offset - {:?}
         memories_pointer_address_0,
         0,
         memories_pointer_address_0_data,
-        memories_pointer_address_0_data - memories_pointer_address_0_data,
+        memories_pointer_address_0_data - instance_address,
         globals_pointer_address,
         globals_pointer_address - instance_address,
     );
