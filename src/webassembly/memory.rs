@@ -93,7 +93,7 @@ impl LinearMemory {
 
     /// Returns the maximum number of wasm pages allowed.
     pub fn maximum_size(&self) -> u32 {
-        self.maximum.unwrap_or(65536)
+        self.maximum.unwrap_or(Self::MAX_PAGES)
     }
 
     /// Grow memory by the specified amount of pages.
