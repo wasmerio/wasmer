@@ -35,7 +35,6 @@ pub struct LinearMemory {
 impl LinearMemory {
     pub const PAGE_SIZE: u32 = 65536;
     pub const MAX_PAGES: u32 = 65536;
-    pub const WASM_PAGE_SIZE: usize = 1 << 16; // 64 KiB
     pub const DEFAULT_HEAP_SIZE: usize = 1 << 32; // 4 GiB
     pub const DEFAULT_GUARD_SIZE: usize = 1 << 31; // 2 GiB
     pub const DEFAULT_SIZE: usize = Self::DEFAULT_HEAP_SIZE + Self::DEFAULT_GUARD_SIZE; // 6 GiB
@@ -50,22 +49,18 @@ impl LinearMemory {
             "Instantiate LinearMemory(initial={:?}, maximum={:?})",
             initial, maximum
         );
-        
-        let offset_guard_size = LinearMemory::DEFAULT_GUARD_SIZE as usize;
 
-        let accessible_bytes = initial as usize * Self::PAGE_SIZE as usize;
-        let inaccessible_bytes = Self::DEFAULT_HEAP_SIZE - accessible_bytes;
+        let mut mmap = Mmap::with_size(Self::DEFAULT_SIZE).expect("Can't create mmap");
 
-        let mmap = Mmap::with_size(Self::DEFAULT_HEAP_SIZE).expect("Can't create mmap");
-        let base = mmap.as_ptr();
+        let base = mmap.as_mut_ptr();
 
-        // Offset-guard pages should be inaccessible
+        // map initial pages as readwrite since the inital mmap is mapped as not accessible.
         if initial != 0 {
             unsafe {
                 region::protect(
-                    base.add(accessible_bytes),
-                    inaccessible_bytes,
-                    region::Protection::None,
+                    base,
+                    initial as usize * Self::PAGE_SIZE as usize,
+                    region::Protection::ReadWrite,
                 )
             }
             .expect("unable to make memory inaccessible");
@@ -77,7 +72,7 @@ impl LinearMemory {
         Self {
             mmap,
             current: initial,
-            offset_guard_size,
+            offset_guard_size: LinearMemory::DEFAULT_GUARD_SIZE,
             maximum,
         }
     }
@@ -137,8 +132,7 @@ impl LinearMemory {
             region::protect(
                 self.mmap.as_ptr().add(prev_bytes) as _,
                 new_bytes - prev_bytes,
-                region::Protection::Read | region::Protection::Write,
-                // region::Protection::None,
+                region::Protection::ReadWrite,
             )
         }
         .expect("unable to make memory inaccessible");
