@@ -7,7 +7,7 @@ use std::ptr;
 use std::slice;
 use std::string::String;
 use winapi::um::memoryapi::{VirtualAlloc, VirtualFree};
-use winapi::um::winnt::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE};
+use winapi::um::winnt::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_NOACCESS};
 
 use super::common::round_up_to_page_size;
 
@@ -39,7 +39,7 @@ impl Mmap {
                 ptr::null_mut(),
                 size,
                 MEM_COMMIT | MEM_RESERVE,
-                PAGE_READWRITE,
+                PAGE_NOACCESS,
             )
         };
         if !ptr.is_null() {

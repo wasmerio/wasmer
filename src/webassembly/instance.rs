@@ -509,7 +509,7 @@ impl Instance {
                 let mem = &mut memories[init.memory_index.index()];
                 let end_of_init = offset + init.data.len();
                 if end_of_init > mem.current_size() {
-                    let grow_pages = (end_of_init / LinearMemory::WASM_PAGE_SIZE) + 1;
+                    let grow_pages = (end_of_init / LinearMemory::PAGE_SIZE as usize) + 1;
                     mem.grow(grow_pages as u32)
                         .expect("failed to grow memory for data initializers");
                 }

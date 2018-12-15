@@ -35,7 +35,6 @@ pub struct LinearMemory {
 impl LinearMemory {
     pub const PAGE_SIZE: u32 = 65536;
     pub const MAX_PAGES: u32 = 65536;
-    pub const WASM_PAGE_SIZE: usize = 1 << 16; // 64 KiB
     pub const DEFAULT_HEAP_SIZE: usize = 1 << 32; // 4 GiB
     pub const DEFAULT_GUARD_SIZE: usize = 1 << 31; // 2 GiB
     pub const DEFAULT_SIZE: usize = Self::DEFAULT_HEAP_SIZE + Self::DEFAULT_GUARD_SIZE; // 6 GiB
@@ -51,18 +50,17 @@ impl LinearMemory {
             initial, maximum
         );
 
-        let offset_guard_size = LinearMemory::DEFAULT_SIZE as usize;
-        let mut mmap = Mmap::with_size(offset_guard_size).expect("Can't create mmap");
+        let mut mmap = Mmap::with_size(Self::DEFAULT_SIZE).expect("Can't create mmap");
 
         let base = mmap.as_mut_ptr();
 
+        // map initial pages as readwrite since the inital mmap is mapped as not accessible.
         if initial != 0 {
             unsafe {
                 region::protect(
-                    base as _,
+                    base,
                     initial as usize * Self::PAGE_SIZE as usize,
-                    region::Protection::Read | region::Protection::Write,
-                    // region::Protection::None,
+                    region::Protection::ReadWrite,
                 )
             }
             .expect("unable to make memory inaccessible");
@@ -82,7 +80,7 @@ impl LinearMemory {
         Self {
             mmap,
             current: initial,
-            offset_guard_size,
+            offset_guard_size: LinearMemory::DEFAULT_GUARD_SIZE,
             maximum,
         }
     }
@@ -137,15 +135,16 @@ impl LinearMemory {
         let prev_bytes = (prev_pages * Self::PAGE_SIZE) as usize;
         let new_bytes = (new_pages * Self::PAGE_SIZE) as usize;
 
+        // if new_bytes > self.mmap.len() - self.offset_guard_size {
         unsafe {
             region::protect(
-                self.mmap.as_mut_ptr().add(prev_bytes) as _,
+                self.mmap.as_ptr().add(prev_bytes) as _,
                 new_bytes - prev_bytes,
-                region::Protection::Read | region::Protection::Write,
-                // region::Protection::None,
+                region::Protection::ReadWrite,
             )
         }
         .expect("unable to make memory inaccessible");
+        // };
         // if new_bytes > self.mmap.len() - self.offset_guard_size {
         //     // If we have no maximum, this is a "dynamic" heap, and it's allowed to move.
         //     assert!(self.maximum.is_none());
