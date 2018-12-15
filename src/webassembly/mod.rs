@@ -66,9 +66,9 @@ pub fn instantiate(
         mock_missing_imports: false,
         mock_missing_globals: false,
         mock_missing_tables: false,
-        abi: abi,
+        abi,
         show_progressbar: false,
-        isa: isa,
+        isa,
     });
 
     debug!("webassembly - creating instance");
@@ -155,7 +155,7 @@ fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) 
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
         unsafe { allocate_on_stack(((argc + 1) * 4) as u32, instance) };
-    assert!(argv_slice.len() >= 1);
+    assert!(!argv_slice.is_empty());
 
     argv_slice[0] = unsafe { allocate_cstr_on_stack(path, instance).0 };
 
@@ -230,7 +230,7 @@ pub fn start_instance(
 
         let (argc, argv) = store_module_arguments(path, args, instance);
 
-        return call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err));
+        call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err))
     // TODO: We should implement emscripten __ATEXIT__
     } else {
         let func_index =
@@ -241,6 +241,6 @@ pub fn start_instance(
                     _ => panic!("Main function not found"),
                 });
         let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
-        return call_protected!(main(&instance)).map_err(|err| format!("{}", err));
+        call_protected!(main(&instance)).map_err(|err| format!("{}", err))
     }
 }
