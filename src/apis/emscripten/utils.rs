@@ -20,10 +20,8 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &Instance) -> u32 {
     let buf_addr = instance.memory_offset_addr(0, buf as _) as *mut c_char;
 
-    unsafe {
-        for i in 0..max {
-            *buf_addr.add(i as _) = *string.add(i as _);
-        }
+    for i in 0..max {
+        *buf_addr.add(i as _) = *string.add(i as _);
     }
 
     buf
