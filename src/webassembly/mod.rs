@@ -67,9 +67,9 @@ pub fn instantiate(
         mock_missing_imports: false,
         mock_missing_globals: false,
         mock_missing_tables: false,
-        abi: abi,
+        abi,
         show_progressbar: false,
-        isa: isa,
+        isa,
     });
 
     debug!("webassembly - creating instance");
