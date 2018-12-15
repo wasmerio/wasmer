@@ -229,7 +229,7 @@ pub fn start_instance(module: &Module, instance: &mut Instance, path: &str, args
 
         let (argc, argv) = store_module_arguments(path, args, instance);
 
-        return call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err));
+        call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err))
         // TODO: We should implement emscripten __ATEXIT__
     } else {
         let func_index =
@@ -241,6 +241,6 @@ pub fn start_instance(module: &Module, instance: &mut Instance, path: &str, args
                 });
         let main: extern "C" fn(&Instance) =
             get_instance_function!(instance, func_index);
-        return call_protected!(main(&instance)).map_err(|err| format!("{}", err));
+        call_protected!(main(&instance)).map_err(|err| format!("{}", err))
     }
 }
