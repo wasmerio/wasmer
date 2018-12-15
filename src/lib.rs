@@ -5,7 +5,6 @@ extern crate cranelift_entity;
 extern crate cranelift_native;
 extern crate cranelift_wasm;
 extern crate libc;
-extern crate memmap;
 extern crate region;
 extern crate structopt;
 extern crate wabt;
@@ -17,6 +16,8 @@ pub extern crate nix; // re-exported for usage in macros
 extern crate rayon;
 extern crate indicatif;
 extern crate console;
+#[cfg(windows)]
+extern crate winapi;
 
 #[macro_use]
 mod macros;
