@@ -7,12 +7,8 @@
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
-use super::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use super::_common::{spectest_importobject, NaNCheck};
+use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 5
 fn create_module_1() -> ResultObject {
@@ -461,47 +457,75 @@ fn start_module_19(result_object: &ResultObject) {
 fn c33_l289_assert_invalid() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 11, 6, 1, 0, 65, 0, 11, 0];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is invalid"
+    );
 }
 
 // Line 298
 #[test]
 fn c34_l298_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 6, 1, 0, 66, 0, 11, 0];
+    let wasm_binary = [
+        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 6, 1, 0, 66, 0, 11, 0,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is invalid"
+    );
 }
 
 // Line 306
 #[test]
 fn c35_l306_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 104, 11, 0];
+    let wasm_binary = [
+        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 104, 11, 0,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is invalid"
+    );
 }
 
 // Line 314
 #[test]
 fn c36_l314_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 5, 1, 0, 1, 11, 0];
+    let wasm_binary = [
+        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 5, 1, 0, 1, 11, 0,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is invalid"
+    );
 }
 
 // Line 322
 #[test]
 fn c37_l322_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 1, 65, 0, 11, 0];
+    let wasm_binary = [
+        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 1, 65, 0, 11, 0,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is invalid"
+    );
 }
 
 // Line 330
 #[test]
 fn c38_l330_assert_invalid() {
-    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 1, 11, 0];
+    let wasm_binary = [
+        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 1, 11, 0,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is invalid");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is invalid"
+    );
 }
 
 #[test]
