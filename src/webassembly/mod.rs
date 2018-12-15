@@ -159,7 +159,7 @@ fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) 
     let argc = args.len() + 1;
 
     let (argv_offset, argv_slice): (_, &mut [u32]) = unsafe { allocate_on_stack(((argc + 1) * 4) as u32, instance) };
-    assert!(argv_slice.len() >= 1);
+    assert!(!argv_slice.is_empty());
 
     argv_slice[0] = unsafe { allocate_cstr_on_stack(path, instance).0 };
 
