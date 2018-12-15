@@ -7,12 +7,8 @@
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
-use super::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use super::_common::{spectest_importobject, NaNCheck};
+use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 1
 fn create_module_1() -> ResultObject {
@@ -151,7 +147,8 @@ fn c1_l37_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 195940365 as i32);
 }
@@ -163,7 +160,8 @@ fn c2_l38_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -1 as i32);
 }
@@ -175,7 +173,8 @@ fn c3_l39_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 2147483647 as i32);
 }
@@ -187,7 +186,8 @@ fn c4_l40_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -2147483647 as i32);
 }
@@ -199,7 +199,8 @@ fn c5_l41_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -2147483648 as i32);
 }
@@ -211,7 +212,8 @@ fn c6_l42_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -2147483648 as i32);
 }
@@ -223,7 +225,8 @@ fn c7_l43_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -2147483647 as i32);
 }
@@ -235,7 +238,8 @@ fn c8_l44_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -247,7 +251,8 @@ fn c9_l45_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 10 as i32);
 }
@@ -255,11 +260,17 @@ fn c9_l45_action_invoke(result_object: &ResultObject) {
 // Line 46
 fn c10_l46_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c10_l46_action_invoke");
-    let func_index = match result_object.module.info.exports.get("i32.unsigned_decimal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("i32.unsigned_decimal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -1 as i32);
 }
@@ -271,7 +282,8 @@ fn c11_l47_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 42 as i32);
 }
@@ -283,7 +295,8 @@ fn c12_l49_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 913028331277281902 as i64);
 }
@@ -295,7 +308,8 @@ fn c13_l50_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -1 as i64);
 }
@@ -307,7 +321,8 @@ fn c14_l51_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 9223372036854775807 as i64);
 }
@@ -319,7 +334,8 @@ fn c15_l52_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -9223372036854775807 as i64);
 }
@@ -331,7 +347,8 @@ fn c16_l53_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -9223372036854775808 as i64);
 }
@@ -343,7 +360,8 @@ fn c17_l54_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -9223372036854775808 as i64);
 }
@@ -355,7 +373,8 @@ fn c18_l55_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -9223372036854775807 as i64);
 }
@@ -367,7 +386,8 @@ fn c19_l56_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 0 as i64);
 }
@@ -379,7 +399,8 @@ fn c20_l57_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 10 as i64);
 }
@@ -387,11 +408,17 @@ fn c20_l57_action_invoke(result_object: &ResultObject) {
 // Line 58
 fn c21_l58_action_invoke(result_object: &ResultObject) {
     println!("Executing function {}", "c21_l58_action_invoke");
-    let func_index = match result_object.module.info.exports.get("i64.unsigned_decimal") {
+    let func_index = match result_object
+        .module
+        .info
+        .exports
+        .get("i64.unsigned_decimal")
+    {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, -1 as i64);
 }
@@ -403,7 +430,8 @@ fn c22_l59_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 42 as i64);
 }
@@ -415,7 +443,8 @@ fn c23_l61_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1000000 as i32);
 }
@@ -427,7 +456,8 @@ fn c24_l62_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1000 as i32);
 }
@@ -439,7 +469,8 @@ fn c25_l63_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 168755353 as i32);
 }
@@ -451,7 +482,8 @@ fn c26_l64_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 109071 as i32);
 }
@@ -463,7 +495,8 @@ fn c27_l66_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1000000 as i64);
 }
@@ -475,7 +508,8 @@ fn c28_l67_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 1000 as i64);
 }
@@ -487,7 +521,8 @@ fn c29_l68_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 3078696982321561 as i64);
 }
@@ -499,7 +534,8 @@ fn c30_l69_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(&Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(&Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(&result_object.instance);
     assert_eq!(result, 109071 as i64);
 }
@@ -507,161 +543,281 @@ fn c30_l69_action_invoke(result_object: &ResultObject) {
 // Line 72
 #[test]
 fn c31_l72_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 76
 #[test]
 fn c32_l76_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 43, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 43, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 80
 #[test]
 fn c33_l80_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 45, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 45, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 84
 #[test]
 fn c34_l84_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 57, 57, 95, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 57, 57, 95, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 88
 #[test]
 fn c35_l88_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 92
 #[test]
 fn c36_l92_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 96
 #[test]
 fn c37_l96_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 100
 #[test]
 fn c38_l100_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 104
 #[test]
 fn c39_l104_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 48, 48, 95, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 48, 48, 95, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 108
 #[test]
 fn c40_l108_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 113
 #[test]
 fn c41_l113_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 117
 #[test]
 fn c42_l117_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 43, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 43, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 121
 #[test]
 fn c43_l121_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 45, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 45, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 125
 #[test]
 fn c44_l125_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 57, 57, 95, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 57, 57, 95, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 129
 #[test]
 fn c45_l129_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 133
 #[test]
 fn c46_l133_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 137
 #[test]
 fn c47_l137_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 141
 #[test]
 fn c48_l141_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 145
 #[test]
 fn c49_l145_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 48, 48, 95, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 48, 48, 95, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 149
 #[test]
 fn c50_l149_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41,
+    ];
     let compilation = compile(wasm_binary.to_vec());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 #[test]

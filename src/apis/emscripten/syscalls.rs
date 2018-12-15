@@ -2,17 +2,17 @@ use super::utils::copy_stat_into_wasm;
 use super::varargs::VarArgs;
 use crate::webassembly::Instance;
 use byteorder::{ByteOrder, LittleEndian};
-use std::slice;
-use std::mem;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
     accept,
     bind,
+    // ENOTTY,
+    c_char,
     c_int,
     c_void,
+    chdir,
     chown,
-    ioctl,
     // fcntl, setsockopt, getppid
     close,
     connect,
@@ -25,6 +25,9 @@ use libc::{
     getsockname,
     getsockopt,
     gid_t,
+    in_addr_t,
+    in_port_t,
+    ioctl,
     // iovec,
     listen,
     lseek,
@@ -39,8 +42,12 @@ use libc::{
     // readv,
     recvfrom,
     recvmsg,
+    sa_family_t,
+    // writev,
+    select,
     sendmsg,
     sendto,
+    setpgid,
     setsockopt,
     sockaddr,
     socket,
@@ -50,21 +57,14 @@ use libc::{
     uname,
     utsname,
     write,
-    // writev,
-    select,
-    FIONBIO,
-    setpgid,
-    chdir,
-    sa_family_t,
-    in_port_t,
-    in_addr_t,
     // sockaddr_in,
     FIOCLEX,
+    FIONBIO,
     SOL_SOCKET,
     TIOCGWINSZ,
-    // ENOTTY,
-    c_char
 };
+use std::mem;
+use std::slice;
 // use std::sys::fd::FileDesc;
 
 // Another conditional constant for name resolution: Macos et iOS use
@@ -204,15 +204,17 @@ pub extern "C" fn ___syscall54(
     debug!("fd: {}, op: {}", fd, request);
     // Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html
     match request as _ {
-        21537 => { // FIONBIO
+        21537 => {
+            // FIONBIO
             let argp: u32 = varargs.get(instance);
             let argp_ptr = instance.memory_offset_addr(0, argp as _);
             let ret = unsafe { ioctl(fd, FIONBIO, argp_ptr) };
             debug!("ret(FIONBIO): {}", ret);
             ret
             // 0
-        },
-        21523 => { // TIOCGWINSZ
+        }
+        21523 => {
+            // TIOCGWINSZ
             let argp: u32 = varargs.get(instance);
             let argp_ptr = instance.memory_offset_addr(0, argp as _);
             let ret = unsafe { ioctl(fd, TIOCGWINSZ, argp_ptr) };
@@ -222,13 +224,15 @@ pub extern "C" fn ___syscall54(
             // when the capturer is active, ioctl returns -1 instead of 0
             if ret == -1 {
                 0
-            }
-            else {
+            } else {
                 ret
             }
-        },
+        }
         _ => {
-            debug!("emscripten::___syscall54 -> non implemented case {}", request);
+            debug!(
+                "emscripten::___syscall54 -> non implemented case {}",
+                request
+            );
             0
         }
     }
@@ -247,10 +251,10 @@ pub extern "C" fn ___syscall102(
     #[repr(C)]
     pub struct GuestSockaddrIn {
         pub sin_family: sa_family_t, // u16
-        pub sin_port: in_port_t, // u16
-        pub sin_addr: GuestInAddr, // u32
-        pub sin_zero: [u8; 8], // u8 * 8
-        // 2 + 2 + 4 + 8 = 16
+        pub sin_port: in_port_t,     // u16
+        pub sin_addr: GuestInAddr,   // u32
+        pub sin_zero: [u8; 8],       // u8 * 8
+                                     // 2 + 2 + 4 + 8 = 16
     }
 
     #[repr(C)]
@@ -281,7 +285,13 @@ pub extern "C" fn ___syscall102(
                 type T = u32;
                 let payload = 1 as *const T as *const c_void;
                 unsafe {
-                    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, payload, mem::size_of::<T>() as socklen_t);
+                    setsockopt(
+                        fd,
+                        SOL_SOCKET,
+                        SO_NOSIGPIPE,
+                        payload,
+                        mem::size_of::<T>() as socklen_t,
+                    );
                 };
             };
 
@@ -356,17 +366,19 @@ pub extern "C" fn ___syscall102(
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address_addr as usize) as *mut sockaddr;
 
-
-            debug!("=> socket: {}, address: {:?}, address_len: {}", socket, address, address_len);
+            debug!(
+                "=> socket: {}, address: {:?}, address_len: {}",
+                socket, address, address_len
+            );
             let address_len_addr =
                 instance.memory_offset_addr(0, address_len as usize) as *mut socklen_t;
             // let mut address_len_addr: socklen_t = 0;
 
-
             let fd = unsafe { accept(socket, address, address_len_addr) };
 
-            unsafe { 
-                let address_linux = instance.memory_offset_addr(0, address_addr as usize) as *mut LinuxSockAddr;
+            unsafe {
+                let address_linux =
+                    instance.memory_offset_addr(0, address_addr as usize) as *mut LinuxSockAddr;
                 (*address_linux).sa_family = (*address).sa_family as u16;
                 (*address_linux).sa_data = (*address).sa_data;
             };
@@ -594,13 +606,15 @@ pub extern "C" fn ___syscall145(
     let mut ret = 0;
     unsafe {
         for i in 0..iovcnt {
-            let guest_iov_addr = instance.memory_offset_addr(0, (iov + i*8) as usize) as *mut GuestIovec;
-            let iov_base = instance.memory_offset_addr(0, (*guest_iov_addr).iov_base as usize) as *mut c_void;
+            let guest_iov_addr =
+                instance.memory_offset_addr(0, (iov + i * 8) as usize) as *mut GuestIovec;
+            let iov_base =
+                instance.memory_offset_addr(0, (*guest_iov_addr).iov_base as usize) as *mut c_void;
             let iov_len: usize = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = read(fd, iov_base, iov_len);
             if curr < 0 {
-                return -1
+                return -1;
             }
             ret += curr;
         }
@@ -630,13 +644,15 @@ pub extern "C" fn ___syscall146(
     let mut ret = 0;
     unsafe {
         for i in 0..iovcnt {
-            let guest_iov_addr = instance.memory_offset_addr(0, (iov + i*8) as usize) as *mut GuestIovec;
-            let iov_base = instance.memory_offset_addr(0, (*guest_iov_addr).iov_base as usize) as *const c_void;
+            let guest_iov_addr =
+                instance.memory_offset_addr(0, (iov + i * 8) as usize) as *mut GuestIovec;
+            let iov_base = instance.memory_offset_addr(0, (*guest_iov_addr).iov_base as usize)
+                as *const c_void;
             let iov_len: usize = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = write(fd, iov_base, iov_len);
             if curr < 0 {
-                return -1
+                return -1;
             }
             ret += curr;
         }
@@ -871,7 +887,5 @@ pub extern "C" fn ___syscall57(
     debug!("emscripten::___syscall57 (setpgid)");
     let pid: i32 = varargs.get(instance);
     let pgid: i32 = varargs.get(instance);
-    unsafe {
-        setpgid(pid, pgid)
-    }
+    unsafe { setpgid(pid, pgid) }
 }

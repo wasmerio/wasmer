@@ -12,7 +12,11 @@ pub fn spectest_importobject<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     let mut import_object = ImportObject::new();
     import_object.set("spectest", "print_i32", ImportValue::Func(print_i32 as _));
     import_object.set("spectest", "print", ImportValue::Func(print as _));
-    import_object.set("spectest", "global_i32", ImportValue::Global(GLOBAL_I32 as _));
+    import_object.set(
+        "spectest",
+        "global_i32",
+        ImportValue::Global(GLOBAL_I32 as _),
+    );
     import_object.set("spectest", "table", ImportValue::Table(vec![0; 30]));
     return import_object;
 }

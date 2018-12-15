@@ -10,7 +10,12 @@ pub extern "C" fn _sigemptyset(set: u32, instance: &mut Instance) -> i32 {
     0
 }
 
-pub extern "C" fn _sigaction(_signum: u32, _act: u32, _oldact: u32, _instance: &mut Instance) -> i32 {
+pub extern "C" fn _sigaction(
+    _signum: u32,
+    _act: u32,
+    _oldact: u32,
+    _instance: &mut Instance,
+) -> i32 {
     debug!("emscripten::_sigaction");
     0
 }
