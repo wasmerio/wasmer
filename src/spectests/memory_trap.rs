@@ -7,12 +7,8 @@
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
-use super::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use super::_common::{spectest_importobject, NaNCheck};
+use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 1
 fn create_module_1() -> ResultObject {
@@ -58,7 +54,8 @@ fn c1_l21_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, 42 as i32, &result_object.instance);
     assert_eq!(result, ());
 }
@@ -70,7 +67,8 @@ fn c2_l22_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, &result_object.instance);
     assert_eq!(result, 42 as i32);
 }
@@ -82,9 +80,9 @@ fn c3_l23_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, 13 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -103,7 +101,6 @@ fn c4_l24_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -120,9 +117,9 @@ fn c5_l25_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, 13 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -141,7 +138,6 @@ fn c6_l26_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -158,9 +154,9 @@ fn c7_l27_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 13 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -179,7 +175,6 @@ fn c8_l28_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -196,9 +191,9 @@ fn c9_l29_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, 13 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -217,7 +212,6 @@ fn c10_l30_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -234,9 +228,9 @@ fn c11_l31_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2147483648 as i32, 13 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -255,7 +249,6 @@ fn c12_l32_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2147483648 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -272,7 +265,8 @@ fn c13_l33_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65537 as i32, &result_object.instance);
     assert_eq!(result, -1 as i32);
 }
@@ -418,9 +412,9 @@ fn c15_l111_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -437,9 +431,9 @@ fn c16_l112_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -456,9 +450,9 @@ fn c17_l113_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -475,9 +469,9 @@ fn c18_l114_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -494,9 +488,9 @@ fn c19_l115_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -513,9 +507,9 @@ fn c20_l116_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -532,9 +526,9 @@ fn c21_l117_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -551,9 +545,9 @@ fn c22_l118_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -570,9 +564,9 @@ fn c23_l119_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -589,9 +583,9 @@ fn c24_l120_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -608,9 +602,9 @@ fn c25_l121_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -627,9 +621,9 @@ fn c26_l122_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -646,9 +640,9 @@ fn c27_l123_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65532 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -665,9 +659,9 @@ fn c28_l124_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65531 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -684,9 +678,9 @@ fn c29_l125_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65530 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -703,9 +697,9 @@ fn c30_l126_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65529 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -722,9 +716,9 @@ fn c31_l127_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -741,9 +735,9 @@ fn c32_l128_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -760,9 +754,9 @@ fn c33_l129_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -779,9 +773,9 @@ fn c34_l130_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -798,9 +792,9 @@ fn c35_l131_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-5 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -817,9 +811,9 @@ fn c36_l132_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -836,9 +830,9 @@ fn c37_l133_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-7 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -855,9 +849,9 @@ fn c38_l134_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-8 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -874,9 +868,9 @@ fn c39_l135_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0.0 as f32, &result_object.instance);
-    
 }
 
 #[test]
@@ -893,9 +887,9 @@ fn c40_l136_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, 0.0 as f32, &result_object.instance);
-    
 }
 
 #[test]
@@ -912,9 +906,9 @@ fn c41_l137_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, 0.0 as f32, &result_object.instance);
-    
 }
 
 #[test]
@@ -931,9 +925,9 @@ fn c42_l138_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, 0.0 as f32, &result_object.instance);
-    
 }
 
 #[test]
@@ -950,9 +944,9 @@ fn c43_l139_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0.0 as f32, &result_object.instance);
-    
 }
 
 #[test]
@@ -969,9 +963,9 @@ fn c44_l140_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, 0.0 as f32, &result_object.instance);
-    
 }
 
 #[test]
@@ -988,9 +982,9 @@ fn c45_l141_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, 0.0 as f32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1007,9 +1001,9 @@ fn c46_l142_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, 0.0 as f32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1026,9 +1020,9 @@ fn c47_l143_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1045,9 +1039,9 @@ fn c48_l144_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1064,9 +1058,9 @@ fn c49_l145_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1083,9 +1077,9 @@ fn c50_l146_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1102,9 +1096,9 @@ fn c51_l147_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65532 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1121,9 +1115,9 @@ fn c52_l148_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65531 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1140,9 +1134,9 @@ fn c53_l149_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65530 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1159,9 +1153,9 @@ fn c54_l150_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65529 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1178,9 +1172,9 @@ fn c55_l151_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1197,9 +1191,9 @@ fn c56_l152_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1216,9 +1210,9 @@ fn c57_l153_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1235,9 +1229,9 @@ fn c58_l154_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1254,9 +1248,9 @@ fn c59_l155_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-5 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1273,9 +1267,9 @@ fn c60_l156_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1292,9 +1286,9 @@ fn c61_l157_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-7 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1311,9 +1305,9 @@ fn c62_l158_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, f64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, f64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-8 as i32, 0.0 as f64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1330,9 +1324,9 @@ fn c63_l159_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1349,9 +1343,9 @@ fn c64_l160_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1368,9 +1362,9 @@ fn c65_l161_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1387,9 +1381,9 @@ fn c66_l162_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1406,9 +1400,9 @@ fn c67_l163_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1425,9 +1419,9 @@ fn c68_l164_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i32, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i32, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, 0 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1444,9 +1438,9 @@ fn c69_l165_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1463,9 +1457,9 @@ fn c70_l166_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1482,9 +1476,9 @@ fn c71_l167_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1501,9 +1495,9 @@ fn c72_l168_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1520,9 +1514,9 @@ fn c73_l169_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1539,9 +1533,9 @@ fn c74_l170_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1558,9 +1552,9 @@ fn c75_l171_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1577,9 +1571,9 @@ fn c76_l172_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1596,9 +1590,9 @@ fn c77_l173_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1615,9 +1609,9 @@ fn c78_l174_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1634,9 +1628,9 @@ fn c79_l175_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1653,9 +1647,9 @@ fn c80_l176_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1672,9 +1666,9 @@ fn c81_l177_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1691,9 +1685,9 @@ fn c82_l178_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, i64, &Instance) = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, i64, &Instance) =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, 0 as i64, &result_object.instance);
-    
 }
 
 #[test]
@@ -1712,7 +1706,6 @@ fn c83_l179_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1731,7 +1724,6 @@ fn c84_l180_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1750,7 +1742,6 @@ fn c85_l181_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1769,7 +1760,6 @@ fn c86_l182_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1788,7 +1778,6 @@ fn c87_l183_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1807,7 +1796,6 @@ fn c88_l184_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1826,7 +1814,6 @@ fn c89_l185_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1845,7 +1832,6 @@ fn c90_l186_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1864,7 +1850,6 @@ fn c91_l187_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1883,7 +1868,6 @@ fn c92_l188_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1902,7 +1886,6 @@ fn c93_l189_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1921,7 +1904,6 @@ fn c94_l190_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1940,7 +1922,6 @@ fn c95_l191_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65532 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1959,7 +1940,6 @@ fn c96_l192_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65531 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1978,7 +1958,6 @@ fn c97_l193_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65530 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -1997,7 +1976,6 @@ fn c98_l194_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65529 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2016,7 +1994,6 @@ fn c99_l195_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2035,7 +2012,6 @@ fn c100_l196_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2054,7 +2030,6 @@ fn c101_l197_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2073,7 +2048,6 @@ fn c102_l198_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2092,7 +2066,6 @@ fn c103_l199_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-5 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2111,7 +2084,6 @@ fn c104_l200_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2130,7 +2102,6 @@ fn c105_l201_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-7 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2149,7 +2120,6 @@ fn c106_l202_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-8 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2168,7 +2138,6 @@ fn c107_l203_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2187,7 +2156,6 @@ fn c108_l204_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2206,7 +2174,6 @@ fn c109_l205_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2225,7 +2192,6 @@ fn c110_l206_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2244,7 +2210,6 @@ fn c111_l207_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2263,7 +2228,6 @@ fn c112_l208_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2282,7 +2246,6 @@ fn c113_l209_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2301,7 +2264,6 @@ fn c114_l210_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2320,7 +2282,6 @@ fn c115_l211_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2339,7 +2300,6 @@ fn c116_l212_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2358,7 +2318,6 @@ fn c117_l213_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2377,7 +2336,6 @@ fn c118_l214_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2396,7 +2354,6 @@ fn c119_l215_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65532 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2415,7 +2372,6 @@ fn c120_l216_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65531 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2434,7 +2390,6 @@ fn c121_l217_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65530 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2453,7 +2408,6 @@ fn c122_l218_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65529 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2472,7 +2426,6 @@ fn c123_l219_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2491,7 +2444,6 @@ fn c124_l220_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2510,7 +2462,6 @@ fn c125_l221_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2529,7 +2480,6 @@ fn c126_l222_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2548,7 +2498,6 @@ fn c127_l223_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-5 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2567,7 +2516,6 @@ fn c128_l224_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-6 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2586,7 +2534,6 @@ fn c129_l225_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-7 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2605,7 +2552,6 @@ fn c130_l226_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-8 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2624,7 +2570,6 @@ fn c131_l227_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2643,7 +2588,6 @@ fn c132_l228_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2662,7 +2606,6 @@ fn c133_l229_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2681,7 +2624,6 @@ fn c134_l230_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2700,7 +2642,6 @@ fn c135_l231_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2719,7 +2660,6 @@ fn c136_l232_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2738,7 +2678,6 @@ fn c137_l233_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2757,7 +2696,6 @@ fn c138_l234_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2776,7 +2714,6 @@ fn c139_l235_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2795,7 +2732,6 @@ fn c140_l236_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2814,7 +2750,6 @@ fn c141_l237_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2833,7 +2768,6 @@ fn c142_l238_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2852,7 +2786,6 @@ fn c143_l239_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2871,7 +2804,6 @@ fn c144_l240_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2890,7 +2822,6 @@ fn c145_l241_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2909,7 +2840,6 @@ fn c146_l242_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2928,7 +2858,6 @@ fn c147_l243_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2947,7 +2876,6 @@ fn c148_l244_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2966,7 +2894,6 @@ fn c149_l245_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -2985,7 +2912,6 @@ fn c150_l246_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3004,7 +2930,6 @@ fn c151_l247_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3023,7 +2948,6 @@ fn c152_l248_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3042,7 +2966,6 @@ fn c153_l249_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3061,7 +2984,6 @@ fn c154_l250_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3080,7 +3002,6 @@ fn c155_l251_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3099,7 +3020,6 @@ fn c156_l252_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3118,7 +3038,6 @@ fn c157_l253_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3137,7 +3056,6 @@ fn c158_l254_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3156,7 +3074,6 @@ fn c159_l255_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3175,7 +3092,6 @@ fn c160_l256_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3194,7 +3110,6 @@ fn c161_l257_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3213,7 +3128,6 @@ fn c162_l258_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3232,7 +3146,6 @@ fn c163_l259_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65536 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3251,7 +3164,6 @@ fn c164_l260_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65535 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3270,7 +3182,6 @@ fn c165_l261_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65534 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3289,7 +3200,6 @@ fn c166_l262_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65533 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3308,7 +3218,6 @@ fn c167_l263_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-1 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3327,7 +3236,6 @@ fn c168_l264_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-2 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3346,7 +3254,6 @@ fn c169_l265_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-3 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3365,7 +3272,6 @@ fn c170_l266_action_invoke(result_object: &ResultObject) {
     };
     let invoke_fn: fn(i32, &Instance) = get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(-4 as i32, &result_object.instance);
-    
 }
 
 #[test]
@@ -3382,7 +3288,8 @@ fn c171_l269_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(65528 as i32, &result_object.instance);
     assert_eq!(result, 7523094288207667809 as i64);
 }
@@ -3394,7 +3301,8 @@ fn c172_l270_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i64 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i64 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(0 as i32, &result_object.instance);
     assert_eq!(result, 7523094288207667809 as i64);
 }

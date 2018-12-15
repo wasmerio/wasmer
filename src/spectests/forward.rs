@@ -7,12 +7,8 @@
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance, Export};
-use super::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use super::_common::{spectest_importobject, NaNCheck};
+use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 1
 fn create_module_1() -> ResultObject {
@@ -60,7 +56,8 @@ fn c1_l17_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(13 as i32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }
@@ -72,7 +69,8 @@ fn c2_l18_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(20 as i32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -84,7 +82,8 @@ fn c3_l19_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(13 as i32, &result_object.instance);
     assert_eq!(result, 1 as i32);
 }
@@ -96,7 +95,8 @@ fn c4_l20_action_invoke(result_object: &ResultObject) {
         Some(&Export::Function(index)) => index,
         _ => panic!("Function not found"),
     };
-    let invoke_fn: fn(i32, &Instance) -> i32 = get_instance_function!(result_object.instance, func_index);
+    let invoke_fn: fn(i32, &Instance) -> i32 =
+        get_instance_function!(result_object.instance, func_index);
     let result = invoke_fn(20 as i32, &result_object.instance);
     assert_eq!(result, 0 as i32);
 }

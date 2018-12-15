@@ -12,10 +12,10 @@ extern crate wasmparser;
 #[macro_use]
 extern crate target_lexicon;
 extern crate byteorder;
+extern crate console;
+extern crate indicatif;
 pub extern crate nix; // re-exported for usage in macros
 extern crate rayon;
-extern crate indicatif;
-extern crate console;
 #[cfg(windows)]
 extern crate winapi;
 
@@ -25,10 +25,10 @@ mod macros;
 pub mod recovery;
 pub mod apis;
 pub mod common;
+#[cfg(test)]
+mod emtests;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
-#[cfg(test)]
-mod emtests;
 pub mod update;
 pub mod webassembly;

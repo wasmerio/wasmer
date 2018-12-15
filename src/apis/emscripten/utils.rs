@@ -1,11 +1,11 @@
-use byteorder::{ByteOrder, LittleEndian};
 use crate::webassembly::module::Module;
 use crate::webassembly::Instance;
+use byteorder::{ByteOrder, LittleEndian};
 use libc::stat;
 use std::ffi::CStr;
+use std::mem::size_of;
 use std::os::raw::c_char;
 use std::slice;
-use std::mem::size_of;
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -30,7 +30,8 @@ pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: 
 pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
-    let space_offset = (instance.emscripten_data.as_ref().unwrap().malloc)((cstr_len as i32) + 1, instance);
+    let space_offset =
+        (instance.emscripten_data.as_ref().unwrap().malloc)((cstr_len as i32) + 1, instance);
     let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
@@ -45,8 +46,14 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     space_offset
 }
 
-pub unsafe fn allocate_on_stack<'a, T: Copy>(count: u32, instance: &'a Instance) -> (u32, &'a mut [T]) {
-    let offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)(count * (size_of::<T>() as u32), instance);
+pub unsafe fn allocate_on_stack<'a, T: Copy>(
+    count: u32,
+    instance: &'a Instance,
+) -> (u32, &'a mut [T]) {
+    let offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)(
+        count * (size_of::<T>() as u32),
+        instance,
+    );
     let addr = instance.memory_offset_addr(0, offset as _) as *mut T;
     let slice = slice::from_raw_parts_mut(addr, count as usize);
 

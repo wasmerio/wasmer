@@ -7,10 +7,9 @@ use std::ptr;
 use std::slice;
 use std::string::String;
 use winapi::um::memoryapi::{VirtualAlloc, VirtualFree};
-use winapi::um::winnt::{MEM_COMMIT, MEM_RESERVE, PAGE_READWRITE, MEM_RELEASE};
+use winapi::um::winnt::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE};
 
 use super::common::round_up_to_page_size;
-
 
 /// A simple struct consisting of a page-aligned pointer to page-aligned
 /// and initially-zeroed memory and a length.

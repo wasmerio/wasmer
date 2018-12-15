@@ -1,6 +1,6 @@
 use libc;
 use std::fs::File;
-use std::io::{Read};
+use std::io::Read;
 use std::os::unix::io::FromRawFd;
 
 // A struct to hold the references to the base stdout and the captured one
@@ -22,7 +22,6 @@ impl StdioCapturer {
     }
 
     pub fn new() -> Self {
-
         let stdout_backup = unsafe { libc::dup(libc::STDOUT_FILENO) };
         let stderr_backup = unsafe { libc::dup(libc::STDERR_FILENO) };
 
@@ -45,7 +44,7 @@ impl StdioCapturer {
             stdout_backup,
             stderr_backup,
             stdout_reader,
-            stderr_reader
+            stderr_reader,
         }
     }
 
@@ -61,11 +60,15 @@ impl StdioCapturer {
 
         let mut stdout_read = String::new();
         let mut stdout_file: File = unsafe { FromRawFd::from_raw_fd(self.stdout_reader) };
-        stdout_file.read_to_string(&mut stdout_read).expect("failed to read from stdout file");
+        stdout_file
+            .read_to_string(&mut stdout_read)
+            .expect("failed to read from stdout file");
 
         let mut stderr_read = String::new();
         let mut stderr_file: File = unsafe { FromRawFd::from_raw_fd(self.stderr_reader) };
-        stderr_file.read_to_string(&mut stderr_read).expect("failed to read from stdout file");
+        stderr_file
+            .read_to_string(&mut stderr_read)
+            .expect("failed to read from stdout file");
 
         (stdout_read, stderr_read)
     }
