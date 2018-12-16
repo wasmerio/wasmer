@@ -15,3 +15,15 @@ Force sign or space:  3.14 -3.14   3.14  -3.14
 Width trick:    10
 A string %
 Null string:  (null)
+inf
+INF
+-inf
+-INF
+nan
+NAN
+       nan
+nan       
+       nan
+nan       
+       inf
+-inf      
