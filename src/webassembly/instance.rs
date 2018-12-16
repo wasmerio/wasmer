@@ -394,6 +394,10 @@ impl Instance {
                             Some(ImportValue::Global(value)) => *value,
                             None => {
                                 if options.mock_missing_globals {
+                                    debug!(
+                                        "The Imported global {}.{} is not provided, therefore will be mocked.",
+                                        module_name, field_name
+                                    );
                                     0
                                 } else {
                                     panic!(
@@ -430,6 +434,10 @@ impl Instance {
                             Some(ImportValue::Table(t)) => t.to_vec(),
                             None => {
                                 if options.mock_missing_tables {
+                                    debug!(
+                                        "The Imported table {}.{} is not provided, therefore will be mocked.",
+                                        module_name, field_name
+                                    );
                                     let len = table.entity.size;
                                     let mut v = Vec::with_capacity(len);
                                     v.resize(len, 0);
