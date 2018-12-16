@@ -91,6 +91,16 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "DYNAMICTOP_PTR",
         ImportValue::Global(dynamictop_ptr(STATIC_BUMP) as _),
     );
+    import_object.set(
+        "global",
+        "Infinity",
+        ImportValue::Global(std::f64::INFINITY.to_bits() as _),
+    );
+    import_object.set(
+        "global",
+        "NaN",
+        ImportValue::Global(std::f64::NAN.to_bits() as _),
+    );
     import_object.set("env", "tableBase", ImportValue::Global(0));
     // Print functions
     import_object.set("env", "printf", ImportValue::Func(io::printf as _));
