@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 
-int main( int argc, char * argv [] ) {
+int main() {
   int x;
   printf("ab%gc%nd\n", 1.23f, &x);
   printf("n=%d\n", x);

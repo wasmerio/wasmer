@@ -11,6 +11,7 @@ use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
 };
+use cranelift_wasm::ModuleEnvironment;
 use std::panic;
 use std::str::FromStr;
 use target_lexicon;
@@ -226,11 +227,26 @@ pub fn start_instance(
             _ => panic!("_main emscripten function not found"),
         };
 
-        let main: extern "C" fn(u32, u32, &Instance) = get_instance_function!(instance, func_index);
-
-        let (argc, argv) = store_module_arguments(path, args, instance);
-
-        call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err))
+        let sig_index = module.get_func_type(func_index);
+        let signature = module.get_signature(sig_index);
+        let num_params = signature.params.len();
+        match num_params {
+            2 => {
+                let main: extern "C" fn(u32, u32, &Instance) =
+                    get_instance_function!(instance, func_index);
+                let (argc, argv) = store_module_arguments(path, args, instance);
+                call_protected!(main(argc, argv, &instance))
+            }
+            0 => {
+                let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
+                call_protected!(main(&instance))
+            }
+            _ => panic!(
+                "The emscripten main function has received an incorrect number of params {}",
+                num_params
+            ),
+        }
+        .map_err(|err| format!("{}", err))
     // TODO: We should implement emscripten __ATEXIT__
     } else {
         let func_index =
