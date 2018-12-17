@@ -6,6 +6,8 @@ pub mod memory;
 pub mod module;
 pub mod relocation;
 pub mod utils;
+pub mod vmcontext;
+pub mod vmoffsets;
 
 use cranelift_codegen::{
     isa,
