@@ -25,12 +25,12 @@ pub extern "C" fn _fork(_instance: &mut Instance) -> pid_t {
 }
 
 pub extern "C" fn _exit(status: c_int, _instance: &mut Instance) -> ! {
-    debug!("emscripten::_exit");
+    debug!("emscripten::_exit {}", status);
     unsafe { exit(status) }
 }
 
 pub extern "C" fn em_abort(message: u32, instance: &mut Instance) {
-    debug!("emscripten::em_abort");
+    debug!("emscripten::em_abort {}", message);
     let message_addr = instance.memory_offset_addr(0, message as usize) as *mut c_char;
     unsafe {
         let message = CStr::from_ptr(message_addr)

@@ -119,7 +119,7 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
 
 /// emscripten: _asctime_r
 pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u32 {
-    debug!("emscripten::_asctime_r {}", time);
+    debug!("emscripten::_asctime_r {}, {}", time, buf);
 
     unsafe {
         // NOTE: asctime_r is specced to behave in an undefined manner if the algorithm would attempt
