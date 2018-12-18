@@ -132,12 +132,12 @@ impl EmscriptenData {
             call_protected!(___emscripten_environ_constructor(&instance))
                 .map_err(|err| format!("{}", err))?;
         };
-        Ok(())
         // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
+        Ok(())
     }
 
     // Emscripten __ATEXIT__
-    pub fn atexit(&self, module: &Module, instance: &Instance) -> Result<(), String> {
+    pub fn atexit(&self, _module: &Module, _instance: &Instance) -> Result<(), String> {
         debug!("emscripten::atexit");
         use libc::fflush;
         use std::ptr;
