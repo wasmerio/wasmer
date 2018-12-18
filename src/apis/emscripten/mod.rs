@@ -357,6 +357,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+        "nullFunc_v",
+        ImportValue::Func(nullfunc::nullfunc_v as _),
+    );
+    import_object.set(
+        "env",
         "nullFunc_vi",
         ImportValue::Func(nullfunc::nullfunc_vi as _),
     );
