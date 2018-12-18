@@ -4,15 +4,14 @@ use cranelift_wasm::{
     DefinedTableIndex, DefinedFuncIndex, DefinedMemoryIndex, DefinedGlobalIndex,
     SignatureIndex,
 };
-use crate::webassembly::vmoffsets::VMOffsets;
 
 #[repr(C)]
-pub struct VMContext {
+pub struct VmCtx {
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
-    imported_functions: *const *const VMFunctionBody,
+    imported_funcs: *const *const Function,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    imported_tables: *mut VMTableImport,
+    imported_tables: *mut ImportedTable,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
     imported_memories: *mut VMMemoryImport,
@@ -33,121 +32,129 @@ pub struct VMContext {
     signature_ids: *mut VMSharedSigIndex,
 }
 
-/// Used to provide type safety for passing around function pointers.
-/// The typesystem ensures this cannot be dereferenced.
-pub enum VMFunctionBody { }
+/// Used to provide type safety (ish) for passing around function pointers.
+/// The typesystem ensures this cannot be dereferenced since an
+/// empty enum cannot actually exist.
+pub enum Function { }
 
 /// Definition of a table used by the VM. (obviously)
 #[repr(C)]
-pub struct VMTableDefinition {
+pub struct LocalTable {
     /// pointer to the elements in the table.
     pub base: *mut u8,
     /// Number of elements in the table (NOT necessarily the size of the table in bytes!).
     pub current_elements: usize,
 }
 
-impl VMTableDefinition {
-    pub fn offset_base(offsets: &VMOffsets) -> u8 {
+impl LocalTable {
+    pub fn offset_base(offsets: &Offsets) -> u8 {
         0 * offsets.ptr_size
     }
 
-    pub fn offset_current_elements(offsets: &VMOffsets) -> u8 {
+    pub fn offset_current_elements(offsets: &Offsets) -> u8 {
         1 * offsets.ptr_size
     }
 }
 
 #[repr(C)]
-pub struct VMTableImport {
+pub struct ImportedTable {
     /// A pointer to the table definition.
-    pub table: *mut VMTableDefinition,
+    pub table: *mut LocalTable,
     /// A pointer to the vmcontext that owns this table definition.
-    pub vmctx: *mut VMContext,
+    pub vmctx: *mut VmCtx,
 }
 
-impl VMTableImport {
-    pub fn offset_table(offsets: &VMOffsets) -> u8 {
+impl ImportedTable {
+    pub fn offset_table(offsets: &Offsets) -> u8 {
         0 * offsets.ptr_size
     }
 
-    pub fn offset_vmctx(offsets: &VMOffsets) -> u8 {
+    pub fn offset_vmctx(offsets: &Offsets) -> u8 {
         1 * offsets.ptr_size
     }
 }
 
 /// Definition of a memory used by the VM.
 #[repr(C)]
-pub struct VMMemoryDefinition {
+pub struct LocalMemory {
     /// Pointer to the bottom of linear memory.
     pub base: *mut u8,
     /// Current logical size of this linear memory in bytes.
     pub size: usize,
 }
 
-impl VMMemoryDefinition {
-    pub fn offset_base(offsets: &VMOffsets) -> u8 {
+impl LocalMemory {
+    pub fn offset_base(offsets: &Offsets) -> u8 {
         0 * offsets.ptr_size
     }
 
-    pub fn offset_size(offsets: &VMOffsets) -> u8 {
+    pub fn offset_size(offsets: &Offsets) -> u8 {
         1 * offsets.ptr_size
     }
 }
 
 #[repr(C)]
-pub struct VMMemoryImport {
+pub struct ImportedMemory {
     /// A pointer to the memory definition.
-    pub memory: *mut VMMemoryDefinition,
-    /// A pointer to the vmcontext that owns this memory definition.
-    pub vmctx: *mut VMContext,
+    pub memory: *mut LocalMemory,
 }
 
-impl VMMemoryImport {
-    pub fn offset_memory(offsets: &VMOffsets) -> u8 {
+impl ImportedMemory {
+    pub fn offset_memory(offsets: &Offsets) -> u8 {
         0 * offsets.ptr_size
-    }
-
-    pub fn offset_vmctx(offsets: &VMOffsets) -> u8 {
-        1 * offsets.ptr_size
     }
 }
 
 /// Definition of a global used by the VM.
 #[repr(C, align(8))]
-pub struct VMGlobalDefinition {
+pub struct LocalGlobal {
     pub data: [u8; 8],
 }
 
 #[repr(C)]
-pub struct VMGlobalImport {
-    pub globals: *mut VMGlobalDefinition,
+pub struct ImportedGlobal {
+    pub globals: *mut LocalGlobal,
 }
 
-impl VMGlobalImport {
-    pub fn offset_globals(offsets: &VMOffsets) -> u8 {
+impl ImportedGlobal {
+    pub fn offset_globals(offsets: &Offsets) -> u8 {
         0 * offsets.ptr_size
     }
 }
 
 #[repr(C)]
-pub struct VMSharedSigIndex(u32);
+pub struct SigId(u32);
 
 #[repr(C)]
-pub struct VMCallerCheckedAnyfunc {
+pub struct CallerCheckedAnyfunc {
     pub func: *const VMFunctionBody,
-    pub type_index: VMSharedSigIndex,
-    pub vmctx: *mut VMContext,
+    pub sig: SigId,
+    pub vmctx: *mut VmCtx,
 }
 
 impl VMCallerCheckedAnyfunc {
-    pub fn offset_func(offsets: &VMOffsets) -> u8 {
+    pub fn offset_func(offsets: &Offsets) -> u8 {
         0 * offsets.ptr_size
     }
 
-    pub fn offset_type_index(offsets: &VMOffsets) -> u8 {
+    pub fn offset_type_index(offsets: &Offsets) -> u8 {
         1 * offsets.ptr_size
     }
 
-    pub fn offset_vmctx(offsets: &VMOffsets) -> u8 {
+    pub fn offset_vmctx(offsets: &Offsets) -> u8 {
         2 * offsets.ptr_size
+    }
+}
+
+#[derive(Copy, Clone, )]
+pub struct Offsets {
+    ptr_size: u8,
+}
+
+impl Offsets {
+    pub fn new(ptr_size: u8) -> Self {
+        Self {
+            ptr_size,
+        }
     }
 }

@@ -383,8 +383,8 @@ impl Instance {
                     GlobalInit::I64Const(n) => n,
                     GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
                     GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
-                    GlobalInit::GlobalRef(global_index) => globals_data[global_index.index()],
-                    GlobalInit::Import() => {
+                    GlobalInit::GetGlobal(global_index) => globals_data[global_index.index()],
+                    GlobalInit::Import => {
                         let (module_name, field_name) = import_name
                             .as_ref()
                             .expect("Expected a import name for the global import");
@@ -394,6 +394,10 @@ impl Instance {
                             Some(ImportValue::Global(value)) => *value,
                             None => {
                                 if options.mock_missing_globals {
+                                    debug!(
+                                        "The Imported global {}.{} is not provided, therefore will be mocked.",
+                                        module_name, field_name
+                                    );
                                     0
                                 } else {
                                     panic!(
@@ -430,7 +434,11 @@ impl Instance {
                             Some(ImportValue::Table(t)) => t.to_vec(),
                             None => {
                                 if options.mock_missing_tables {
-                                    let len = table.entity.size;
+                                    debug!(
+                                        "The Imported table {}.{} is not provided, therefore will be mocked.",
+                                        module_name, field_name
+                                    );
+                                    let len = table.entity.minimum as usize;
                                     let mut v = Vec::with_capacity(len);
                                     v.resize(len, 0);
                                     v
@@ -448,7 +456,7 @@ impl Instance {
                         }
                     }
                     None => {
-                        let len = table.entity.size;
+                        let len = table.entity.minimum as usize;
                         let mut v = Vec::with_capacity(len);
                         v.resize(len, 0);
                         v
@@ -490,15 +498,15 @@ impl Instance {
                 // If we use emscripten, we set a fixed initial and maximum
                 debug!(
                     "Instance - init memory ({}, {:?})",
-                    memory.pages_count, memory.maximum
+                    memory.minimum, memory.maximum
                 );
                 let memory = if options.abi == InstanceABI::Emscripten {
                     // We use MAX_PAGES, so at the end the result is:
                     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
                     // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
-                    LinearMemory::new(LinearMemory::MAX_PAGES as u32, None)
+                    LinearMemory::new(LinearMemory::MAX_PAGES, None)
                 } else {
-                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32))
+                    LinearMemory::new(memory.minimum, memory.maximum.map(|m| m as u32))
                 };
                 memories.push(memory);
             }
