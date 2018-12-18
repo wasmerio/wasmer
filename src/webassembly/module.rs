@@ -6,7 +6,7 @@ use std::string::String;
 use std::vec::Vec;
 
 use cranelift_codegen::cursor::FuncCursor;
-use cranelift_codegen::ir::immediates::{Imm64, Offset32};
+use cranelift_codegen::ir::immediates::{Imm64, Uimm64, Offset32};
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
     self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature,
@@ -392,9 +392,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // Create table based on the data above
         func.create_table(ir::TableData {
             base_gv,
-            min_size: Imm64::new(0),
+            min_size: Uimm64::new(0),
             bound_gv,
-            element_size: Imm64::new(i64::from(self.pointer_bytes())),
+            element_size: Uimm64::new(u64::from(self.pointer_bytes())),
             index_type: I64,
         })
     }
@@ -434,9 +434,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         func.create_heap(ir::HeapData {
             base: heap_base,
             min_size: 0.into(),
-            guard_size: (LinearMemory::DEFAULT_GUARD_SIZE as i64).into(),
+            offset_guard_size: Uimm64::new(LinearMemory::DEFAULT_GUARD_SIZE as u64),
             style: ir::HeapStyle::Static {
-                bound: (LinearMemory::DEFAULT_HEAP_SIZE as i64).into(),
+                bound: Uimm64::new(LinearMemory::DEFAULT_HEAP_SIZE as u64),
             },
             index_type: I32,
         })
@@ -458,15 +458,16 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             readonly: false,
         });
 
-        let offset = global_index.index() as i64 * ptr_size as i64;
-        let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
-            base: globals_base_addr,
-            offset: Imm64::new(offset),
-            global_type: native_pointer_type(),
-        });
+        let offset = global_index.index() * ptr_size as usize;
+        // let iadd = func.create_global_value(ir::GlobalValueData::IAddImm {
+        //     base: globals_base_addr,
+        //     offset: Imm64::new(offset),
+        //     global_type: native_pointer_type(),
+        // });
 
         GlobalVariable::Memory {
-            gv: iadd,
+            gv: globals_base_addr,
+            offset: (offset as i32).into(),
             ty: self.mod_info.globals[global_index.index()].entity.ty,
         }
     }
@@ -664,12 +665,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 }
 
 impl<'data> ModuleEnvironment<'data> for Module {
-    fn target_config(&self) -> &TargetFrontendConfig {
-        &self.info.config
-    }
-
-    fn get_func_name(&self, func_index: FuncIndex) -> ir::ExternalName {
-        get_func_name(func_index)
+    fn target_config(&self) -> TargetFrontendConfig {
+        self.info.config
     }
 
     fn declare_signature(&mut self, sig: &ir::Signature) {
