@@ -1,43 +1,74 @@
 
+use crate::common::slice::IndexedSlice;
 use cranelift_wasm::{
-    TableIndex, FuncIndex, MemoryIndex, GlobalIndex,
-    DefinedTableIndex, DefinedFuncIndex, DefinedMemoryIndex, DefinedGlobalIndex,
+    TableIndex, MemoryIndex, GlobalIndex, FuncIndex,
+    DefinedTableIndex, DefinedMemoryIndex, DefinedGlobalIndex,
     SignatureIndex,
 };
 
 #[repr(C)]
 pub struct VmCtx {
-    /// A pointer to an array of imported functions, indexed by `FuncIndex`.
-    imported_funcs: *const *const Function,
-
-    /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    imported_tables: *mut ImportedTable,
-
-    /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-    imported_memories: *mut VMMemoryImport,
-
-    /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-    imported_globals: *mut VMGlobalImport,
-
     /// A pointer to an array of locally-defined tables, indexed by `DefinedTableIndex`.
-    tables: *mut VMTableDefinition,
+    tables: IndexedSlice<LocalTable, DefinedTableIndex>,
 
     /// A pointer to an array of locally-defined memories, indexed by `DefinedMemoryIndex`.
-    memories: *mut VMMemoryDefinition,
+    memories: IndexedSlice<LocalMemory, DefinedMemoryIndex>,
 
-    /// A pointer to an array of locally-defined globals, indexed by ``DefinedGlobalIndex`.
-    globals: *mut VMGlobalDefinition,
+    /// A pointer to an array of locally-defined globals, indexed by `DefinedGlobalIndex`.
+    globals: IndexedSlice<LocalGlobal, DefinedGlobalIndex>,
+
+    /// A pointer to an array of imported functions, indexed by `FuncIndex`.
+    imported_funcs: IndexedSlice<ImportedFunc, FuncIndex>,
+
+    /// A pointer to an array of imported tables, indexed by `TableIndex`.
+    imported_tables: IndexedSlice<ImportedTable, TableIndex>,
+
+    /// A pointer to an array of imported memories, indexed by `MemoryIndex,
+    imported_memories: IndexedSlice<ImportedMemory, MemoryIndex>,
+
+    /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
+    imported_globals: IndexedSlice<ImportedGlobal, GlobalIndex>,
 
     /// Signature identifiers for signature-checked indirect calls.
-    signature_ids: *mut VMSharedSigIndex,
+    signature_ids: IndexedSlice<SigId, SignatureIndex>,
+}
+
+#[derive(Copy, Clone)]
+pub struct Offsets {
+    ptr_size: u8,
+}
+
+impl Offsets {
+    pub fn new(ptr_size: u8) -> Self {
+        Self { ptr_size }
+    }
 }
 
 /// Used to provide type safety (ish) for passing around function pointers.
 /// The typesystem ensures this cannot be dereferenced since an
 /// empty enum cannot actually exist.
-pub enum Function { }
+pub enum Func {}
+
+/// An imported function, which contains the vmctx that owns this function.
+#[derive(Debug)]
+#[repr(C)]
+pub struct ImportedFunc {
+    pub func: *const Func,
+    pub vmctx: *mut VmCtx,
+}
+
+impl ImportedFunc {
+    pub fn offset_func(offsets: &Offsets) -> u8 {
+        0 * offsets.ptr_size
+    }
+
+    pub fn offset_vmctx(offsets: &Offsets) -> u8 {
+        1 * offsets.ptr_size
+    }
+}
 
 /// Definition of a table used by the VM. (obviously)
+#[derive(Debug)]
 #[repr(C)]
 pub struct LocalTable {
     /// pointer to the elements in the table.
@@ -56,6 +87,7 @@ impl LocalTable {
     }
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct ImportedTable {
     /// A pointer to the table definition.
@@ -75,6 +107,7 @@ impl ImportedTable {
 }
 
 /// Definition of a memory used by the VM.
+#[derive(Debug)]
 #[repr(C)]
 pub struct LocalMemory {
     /// Pointer to the bottom of linear memory.
@@ -93,6 +126,7 @@ impl LocalMemory {
     }
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct ImportedMemory {
     /// A pointer to the memory definition.
@@ -106,11 +140,13 @@ impl ImportedMemory {
 }
 
 /// Definition of a global used by the VM.
-#[repr(C, align(8))]
+#[derive(Debug)]
+#[repr(C)]
 pub struct LocalGlobal {
     pub data: [u8; 8],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct ImportedGlobal {
     pub globals: *mut LocalGlobal,
@@ -122,39 +158,27 @@ impl ImportedGlobal {
     }
 }
 
-#[repr(C)]
+#[derive(Debug)]
+#[repr(transparent)]
 pub struct SigId(u32);
 
+#[derive(Debug)]
 #[repr(C)]
-pub struct CallerCheckedAnyfunc {
-    pub func: *const VMFunctionBody,
-    pub sig: SigId,
-    pub vmctx: *mut VmCtx,
+pub struct CallerVerifiedAnyFunc {
+    pub func_data: ImportedFunc,
+    pub sig_id: SigId,
 }
 
-impl VMCallerCheckedAnyfunc {
+impl CallerVerifiedAnyFunc {
     pub fn offset_func(offsets: &Offsets) -> u8 {
         0 * offsets.ptr_size
     }
 
-    pub fn offset_type_index(offsets: &Offsets) -> u8 {
+    pub fn offset_vmctx(offsets: &Offsets) -> u8 {
         1 * offsets.ptr_size
     }
 
-    pub fn offset_vmctx(offsets: &Offsets) -> u8 {
+    pub fn offset_sig_id(offsets: &Offsets) -> u8 {
         2 * offsets.ptr_size
-    }
-}
-
-#[derive(Copy, Clone, )]
-pub struct Offsets {
-    ptr_size: u8,
-}
-
-impl Offsets {
-    pub fn new(ptr_size: u8) -> Self {
-        Self {
-            ptr_size,
-        }
     }
 }

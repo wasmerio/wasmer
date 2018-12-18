@@ -1,5 +1,7 @@
 use std::ops::{Index, IndexMut};
 use std::ptr::NonNull;
+use std::marker::PhantomData;
+use cranelift_entity::EntityRef;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
@@ -102,5 +104,44 @@ impl<'a, T> From<&'a [T]> for BoundedSlice<T> {
             data: slice.into(),
             len: slice.len(),
         }
+    }
+}
+
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct IndexedSlice<T, I> {
+    ptr: NonNull<T>,
+    _phantom: PhantomData<I>,
+}
+
+impl<T, I> IndexedSlice<T, I> {
+    pub fn new(ptr: *mut T) -> Self {
+        Self {
+            ptr: NonNull::new(ptr).unwrap(),
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn as_ptr(&self) -> *const T {
+        self.ptr.as_ptr()
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut T {
+        self.ptr.as_ptr()
+    }
+}
+
+impl<T, I: EntityRef> Index<I> for IndexedSlice<T, I> {
+    type Output = T;
+    fn index(&self, index: I) -> &T {
+        let ptr = self.as_ptr();
+        unsafe { &*ptr.add(index.index()) }
+    }
+}
+
+impl<T, I: EntityRef> IndexMut<I> for IndexedSlice<T, I> {
+    fn index_mut(&mut self, index: I) -> &mut T {
+        let ptr = self.as_mut_ptr();
+        unsafe { &mut *ptr.add(index.index()) }
     }
 }
