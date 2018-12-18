@@ -9,7 +9,10 @@ pub extern "C" fn _emscripten_memcpy_big(
     len: u32,
     instance: &mut Instance,
 ) -> u32 {
-    debug!("emscripten::_emscripten_memcpy_big");
+    debug!(
+        "emscripten::_emscripten_memcpy_big {}, {}, {}",
+        dest, src, len
+    );
     let dest_addr = instance.memory_offset_addr(0, dest as usize) as *mut c_void;
     let src_addr = instance.memory_offset_addr(0, src as usize) as *mut c_void;
     unsafe {

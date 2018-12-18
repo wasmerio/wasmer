@@ -7,17 +7,13 @@ jobs:
 
     steps:
       - checkout
-      - run:
-          name: Pull submodules
-          command: |
-            # git pull --recurse-submodules
-            git submodule sync --recursive
-            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
       - run: make test
+      - run: rustup component add rustfmt
+      - run: make lint
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -32,12 +28,6 @@ jobs:
 
     steps:
       - checkout
-      - run:
-          name: Pull submodules
-          command: |
-            # git pull --recurse-submodules
-            git submodule sync --recursive
-            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -45,6 +35,10 @@ jobs:
       - run:
           name: Execute tests
           command: make test
+      - run: rustup component add rustfmt
+      - run:
+          name: Execute lints
+          command: make lint
       - run:
           name: Make release build
           command: |
@@ -76,12 +70,6 @@ jobs:
 
     steps:
       - checkout
-      - run:
-          name: Pull submodules
-          command: |
-            # git pull --recurse-submodules
-            git submodule sync --recursive
-            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -97,12 +85,14 @@ jobs:
             curl https://sh.rustup.rs -sSf | sh -s -- -y
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
+            rustup component add rustfmt
       - run:
           name: Execute tests
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             make test
+            make lint
       - run:
           name: Make release build
           command: |

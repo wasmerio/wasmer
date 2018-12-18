@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 
-int main( int argc, char * argv [] ) {
+int main() {
   int x;
   printf("ab%gc%nd\n", 1.23f, &x);
   printf("n=%d\n", x);
@@ -27,19 +27,19 @@ int main( int argc, char * argv [] ) {
   printf("Width trick: %*d\n", 5, 10);
   printf("%s %%\n", "A string");
   printf("Null string: %7s\n", NULL);
-//   printf("Null pointer: %p\n", NULL);
-//   printf("%lf\n", INFINITY);
-//   printf("%lF\n", INFINITY);
-//   printf("%lf\n", -INFINITY);
-//   printf("%lF\n", -INFINITY);
-//   printf("%lf\n", NAN);
-//   printf("%lF\n", NAN);
-//   printf("%10f\n", NAN);
-//   printf("%-10f\n", NAN);
-//   printf("%010.2f\n", NAN);
-//   printf("%-010.2f\n", NAN);
-//   printf("%10.f\n", INFINITY);
-//   printf("%-10.f\n", -INFINITY);
+//  printf("Null pointer: %p\n", NULL);
+  printf("%lf\n", INFINITY);
+  printf("%lF\n", INFINITY);
+  printf("%lf\n", -INFINITY);
+  printf("%lF\n", -INFINITY);
+  printf("%lf\n", NAN);
+  printf("%lF\n", NAN);
+  printf("%10f\n", NAN);
+  printf("%-10f\n", NAN);
+  printf("%010.2f\n", NAN);
+  printf("%-010.2f\n", NAN);
+  printf("%10.f\n", INFINITY);
+  printf("%-10.f\n", -INFINITY);
 //   printf("--rest--\n");
 //   printf("in%%3.5valid\n", 0);
 //   printf("%.f\n", 0.0f);

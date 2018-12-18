@@ -15,29 +15,30 @@ include = [
     "Cargo.toml",
     "LICENSE",
     "Makefile",
-    "README.md",
+    "/README.md",
     "rustfmt.toml"
 ]
 
 [dependencies]
-# cranelift-native = "0.23.0"
-cranelift-native = { path = "cranelift/lib/native" }
-# cranelift-codegen = "0.23.0"
-cranelift-codegen = { path = "cranelift/lib/codegen" }
-# cranelift-entity = "0.23.0"
-cranelift-entity = { path = "cranelift/lib/entity" }
-# cranelift-wasm = "0.23.0"
-cranelift-wasm = { path = "cranelift/lib/wasm" }
+cranelift-native = "0.26.0"
+# cranelift-native = { path = "cranelift/lib/native" }
+cranelift-codegen = "0.26.0"
+# cranelift-codegen = { path = "cranelift/lib/codegen" }
+cranelift-entity = "0.26.0"
+# cranelift-entity = { path = "cranelift/lib/entity" }
+cranelift-wasm = "0.26.0"
+# cranelift-wasm = { path = "cranelift/lib/wasm" }
 docopt = "1.0.0"
 serde = "1.0.55"
 serde_derive = "1.0.55"
 tempdir = "0.3.7"
 error-chain = "0.12.0"
+errno = "0.2.4"
 structopt = "0.2.11"
-wabt = "0.7.1"
+wabt = "0.7.2"
 wasmparser = "0.20.0"
+winapi = "0.3.6"
 region = "0.3.0"
-memmap = "0.6.2"
 # spin = "0.4.10"
 log = "0.4.5"
 target-lexicon = "0.2.0"
@@ -50,8 +51,7 @@ indicatif = "0.10"
 console = "0.7.1"
 
 [build-dependencies]
-wabt = "0.7.1"
-
+wabt = "0.7.2"
 # [dev-dependencies]
 # libffi = "0.6.4"
 # maplit = "1.0.1"

@@ -6,14 +6,14 @@
 //! synchronously instantiate a given webassembly::Module object. However, the
 //! primary way to get an Instance is through the asynchronous
 //! webassembly::instantiate_streaming() function.
+use console::style;
 use cranelift_codegen::ir::{Function, LibCall};
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::{binemit, Context};
 use cranelift_entity::EntityRef;
 use cranelift_wasm::{FuncIndex, GlobalInit};
-use rayon::prelude::*;
 use indicatif::{ProgressBar, ProgressStyle};
-use console::style;
+use rayon::prelude::*;
 
 use region;
 use std::iter::FromIterator;
@@ -26,7 +26,7 @@ use std::{fmt, mem, slice};
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
 use super::errors::ErrorKind;
 use super::import_object::{ImportObject, ImportValue};
-use super::math_intrinsics;
+use super::libcalls;
 use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
@@ -44,12 +44,10 @@ pub fn protect_codebuf(code_buf: &Vec<u8>) -> Result<(), String> {
             region::Protection::ReadWriteExecute,
         )
     } {
-        Err(err) => {
-            Err(format!(
-                "failed to give executable permission to code: {}",
-                err
-            ))
-        }
+        Err(err) => Err(format!(
+            "failed to give executable permission to code: {}",
+            err
+        )),
         Ok(()) => Ok(()),
     }
 }
@@ -71,9 +69,9 @@ fn get_function_addr(
 pub struct EmscriptenData {
     pub malloc: extern "C" fn(i32, &Instance) -> u32,
     pub free: extern "C" fn(i32, &mut Instance),
-    pub memalign: extern "C" fn (u32, u32, &mut Instance) -> u32,
+    pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
     pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
-    pub stack_alloc: extern "C" fn (u32, &Instance) -> u32,
+    pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
 }
 
 impl fmt::Debug for EmscriptenData {
@@ -88,7 +86,7 @@ impl fmt::Debug for EmscriptenData {
 #[derive(PartialEq)]
 pub enum InstanceABI {
     Emscripten,
-    None
+    None,
 }
 
 /// An Instance of a WebAssembly module
@@ -252,9 +250,15 @@ impl Instance {
 
             let progress_bar_option = if options.show_progressbar {
                 let progress_bar = ProgressBar::new(module.info.functions.len() as u64);
-                progress_bar.set_style(ProgressStyle::default_bar()
-                    .template(&format!("{{spinner:.green}} {} [{{bar:40}}] {} {{msg}}", style("Compiling").bold(), style("{percent}%").bold().dim()))
-                    .progress_chars("=> "));
+                progress_bar.set_style(
+                    ProgressStyle::default_bar()
+                        .template(&format!(
+                            "{{spinner:.green}} {} [{{bar:40}}] {} {{msg}}",
+                            style("Compiling").bold(),
+                            style("{percent}%").bold().dim()
+                        ))
+                        .progress_chars("=> "),
+                );
                 Some(progress_bar)
             } else {
                 None
@@ -270,11 +274,14 @@ impl Instance {
                     };
                     func
                     // unimplemented!()
-                }).collect();
+                })
+                .collect();
 
             if let Some(ref progress_bar) = progress_bar_option {
-                progress_bar.set_style(ProgressStyle::default_bar()
-                    .template(&format!("{} {{msg}}", style("[{elapsed_precise}]").bold().dim())));
+                progress_bar.set_style(ProgressStyle::default_bar().template(&format!(
+                    "{} {{msg}}",
+                    style("[{elapsed_precise}]").bold().dim()
+                )));
             };
 
             for compiled_func in compiled_funcs.into_iter() {
@@ -302,50 +309,31 @@ impl Instance {
             for (i, function_relocs) in relocations.iter().enumerate() {
                 for ref reloc in function_relocs {
                     let target_func_address: isize = match reloc.target {
-                        RelocationType::Normal(func_index) => {
-                            get_function_addr(&FuncIndex::new(func_index as usize), &import_functions, &functions) as isize
-                        },
-                        RelocationType::CurrentMemory => {
-                            current_memory as isize
-                        },
-                        RelocationType::GrowMemory => {
-                            grow_memory as isize
-                        },
-                        RelocationType::LibCall(LibCall::CeilF32) => {
-                            math_intrinsics::ceilf32 as isize
-                        },
-                        RelocationType::LibCall(LibCall::FloorF32) => {
-                            math_intrinsics::floorf32 as isize
-                        },
-                        RelocationType::LibCall(LibCall::TruncF32) => {
-                            math_intrinsics::truncf32 as isize
-                        },
-                        RelocationType::LibCall(LibCall::NearestF32) => {
-                            math_intrinsics::nearbyintf32 as isize
-                        },
-                        RelocationType::LibCall(LibCall::CeilF64) => {
-                            math_intrinsics::ceilf64 as isize
-                        },
-                        RelocationType::LibCall(LibCall::FloorF64) => {
-                            math_intrinsics::floorf64 as isize
-                        },
-                        RelocationType::LibCall(LibCall::TruncF64) => {
-                            math_intrinsics::truncf64 as isize
-                        },
-                        RelocationType::LibCall(LibCall::NearestF64) => {
-                            math_intrinsics::nearbyintf64 as isize
-                        },
-                        RelocationType::LibCall(LibCall::Probestack) => {
-                            __rust_probestack as isize
-                        },
-                        RelocationType::LibCall(call) => {
-                            panic!("Unexpected libcall {}", call);
+                        RelocationType::Normal(func_index) => get_function_addr(
+                            &FuncIndex::new(func_index as usize),
+                            &import_functions,
+                            &functions,
+                        ) as isize,
+                        RelocationType::CurrentMemory => current_memory as isize,
+                        RelocationType::GrowMemory => grow_memory as isize,
+                        RelocationType::LibCall(libcall) => match libcall {
+                            LibCall::CeilF32 => libcalls::ceilf32 as isize,
+                            LibCall::FloorF32 => libcalls::floorf32 as isize,
+                            LibCall::TruncF32 => libcalls::truncf32 as isize,
+                            LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
+                            LibCall::CeilF64 => libcalls::ceilf64 as isize,
+                            LibCall::FloorF64 => libcalls::floorf64 as isize,
+                            LibCall::TruncF64 => libcalls::truncf64 as isize,
+                            LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
+                            LibCall::Probestack => libcalls::__rust_probestack as isize,
+                            _ => {
+                                panic!("Unexpected libcall {}", libcall);
+                            }
                         },
                         RelocationType::Intrinsic(ref name) => {
                             panic!("Unexpected intrinsic {}", name);
                             // get_abi_intrinsic(name)?
-                        },
-                        // _ => unimplemented!()
+                        } // _ => unimplemented!()
                     };
 
                     let func_addr =
@@ -395,8 +383,8 @@ impl Instance {
                     GlobalInit::I64Const(n) => n,
                     GlobalInit::F32Const(f) => f as _, // unsafe { mem::transmute(f as f64) },
                     GlobalInit::F64Const(f) => f as _, // unsafe { mem::transmute(f) },
-                    GlobalInit::GlobalRef(global_index) => globals_data[global_index.index()],
-                    GlobalInit::Import() => {
+                    GlobalInit::GetGlobal(global_index) => globals_data[global_index.index()],
+                    GlobalInit::Import => {
                         let (module_name, field_name) = import_name
                             .as_ref()
                             .expect("Expected a import name for the global import");
@@ -406,6 +394,10 @@ impl Instance {
                             Some(ImportValue::Global(value)) => *value,
                             None => {
                                 if options.mock_missing_globals {
+                                    debug!(
+                                        "The Imported global {}.{} is not provided, therefore will be mocked.",
+                                        module_name, field_name
+                                    );
                                     0
                                 } else {
                                     panic!(
@@ -442,7 +434,11 @@ impl Instance {
                             Some(ImportValue::Table(t)) => t.to_vec(),
                             None => {
                                 if options.mock_missing_tables {
-                                    let len = table.entity.size;
+                                    debug!(
+                                        "The Imported table {}.{} is not provided, therefore will be mocked.",
+                                        module_name, field_name
+                                    );
+                                    let len = table.entity.minimum as usize;
                                     let mut v = Vec::with_capacity(len);
                                     v.resize(len, 0);
                                     v
@@ -460,7 +456,7 @@ impl Instance {
                         }
                     }
                     None => {
-                        let len = table.entity.size;
+                        let len = table.entity.minimum as usize;
                         let mut v = Vec::with_capacity(len);
                         v.resize(len, 0);
                         v
@@ -500,15 +496,17 @@ impl Instance {
             for memory in &module.info.memories {
                 let memory = memory.entity;
                 // If we use emscripten, we set a fixed initial and maximum
-                debug!("Instance - init memory ({}, {:?})", memory.pages_count, memory.maximum);
+                debug!(
+                    "Instance - init memory ({}, {:?})",
+                    memory.minimum, memory.maximum
+                );
                 let memory = if options.abi == InstanceABI::Emscripten {
                     // We use MAX_PAGES, so at the end the result is:
                     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
                     // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
-                    LinearMemory::new(LinearMemory::MAX_PAGES as u32, None)
-                }
-                else {
-                    LinearMemory::new(memory.pages_count as u32, memory.maximum.map(|m| m as u32))
+                    LinearMemory::new(LinearMemory::MAX_PAGES, None)
+                } else {
+                    LinearMemory::new(memory.minimum, memory.maximum.map(|m| m as u32))
                 };
                 memories.push(memory);
             }
@@ -519,7 +517,7 @@ impl Instance {
                 let mem = &mut memories[init.memory_index.index()];
                 let end_of_init = offset + init.data.len();
                 if end_of_init > mem.current_size() {
-                    let grow_pages = (end_of_init / LinearMemory::WASM_PAGE_SIZE) + 1;
+                    let grow_pages = (end_of_init / LinearMemory::PAGE_SIZE as usize) + 1;
                     mem.grow(grow_pages as u32)
                         .expect("failed to grow memory for data initializers");
                 }
@@ -571,11 +569,16 @@ impl Instance {
                 let mut memset_addr = 0 as *const u8;
                 let mut stack_alloc_addr = 0 as _;
 
-                if malloc_export.is_none() && free_export.is_none() && memalign_export.is_none() && memset_export.is_none() {
+                if malloc_export.is_none()
+                    && free_export.is_none()
+                    && memalign_export.is_none()
+                    && memset_export.is_none()
+                {
                     None
                 } else {
                     if let Some(Export::Function(malloc_index)) = malloc_export {
-                        malloc_addr = get_function_addr(&malloc_index, &import_functions, &functions);
+                        malloc_addr =
+                            get_function_addr(&malloc_index, &import_functions, &functions);
                     }
 
                     if let Some(Export::Function(free_index)) = free_export {
@@ -583,15 +586,18 @@ impl Instance {
                     }
 
                     if let Some(Export::Function(memalign_index)) = memalign_export {
-                        memalign_addr = get_function_addr(&memalign_index, &import_functions, &functions);
+                        memalign_addr =
+                            get_function_addr(&memalign_index, &import_functions, &functions);
                     }
 
                     if let Some(Export::Function(memset_index)) = memset_export {
-                        memset_addr = get_function_addr(&memset_index, &import_functions, &functions);
+                        memset_addr =
+                            get_function_addr(&memset_index, &import_functions, &functions);
                     }
 
                     if let Some(Export::Function(stack_alloc_index)) = stack_alloc_export {
-                        stack_alloc_addr = get_function_addr(&stack_alloc_index, &import_functions, &functions);
+                        stack_alloc_addr =
+                            get_function_addr(&stack_alloc_index, &import_functions, &functions);
                     }
 
                     Some(EmscriptenData {
@@ -689,10 +695,4 @@ extern "C" fn grow_memory(size: u32, memory_index: u32, instance: &mut Instance)
 extern "C" fn current_memory(memory_index: u32, instance: &mut Instance) -> u32 {
     let memory = &instance.memories[memory_index as usize];
     memory.current_pages() as u32
-}
-
-/// A declaration for the stack probe function in Rust's standard library, for
-/// catching callstack overflow.
-extern "C" {
-    pub fn __rust_probestack();
 }

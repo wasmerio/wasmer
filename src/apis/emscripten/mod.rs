@@ -1,6 +1,6 @@
-use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
 use crate::webassembly::{ImportObject, ImportValue, LinearMemory};
+use byteorder::{ByteOrder, LittleEndian};
 use std::mem;
 
 // EMSCRIPTEN APIS
@@ -20,8 +20,8 @@ mod time;
 mod utils;
 mod varargs;
 
-pub use self::storage::{align_memory};
-pub use self::utils::{is_emscripten_module, allocate_on_stack, allocate_cstr_on_stack};
+pub use self::storage::align_memory;
+pub use self::utils::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
@@ -61,7 +61,6 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     // debug!("###### dynamictop_ptr = {:?}", dynamictop_ptr);
     // debug!("###### dynamictop_ptr_offset = {:?}", dynamictop_ptr_offset);
 
-
     let mem = &mut memory[dynamictop_ptr..dynamictop_ptr_offset];
     LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
 }
@@ -94,6 +93,16 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "DYNAMICTOP_PTR",
         ImportValue::Global(dynamictop_ptr(STATIC_BUMP) as _),
     );
+    import_object.set(
+        "global",
+        "Infinity",
+        ImportValue::Global(std::f64::INFINITY.to_bits() as _),
+    );
+    import_object.set(
+        "global",
+        "NaN",
+        ImportValue::Global(std::f64::NAN.to_bits() as _),
+    );
     import_object.set("env", "tableBase", ImportValue::Global(0));
     // Print functions
     import_object.set("env", "printf", ImportValue::Func(io::printf as _));
@@ -106,7 +115,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     import_object.set("env", "_getenv", ImportValue::Func(env::_getenv as _));
     import_object.set("env", "_getpwnam", ImportValue::Func(env::_getpwnam as _));
     import_object.set("env", "_getgrnam", ImportValue::Func(env::_getgrnam as _));
-    import_object.set("env", "___buildEnvironment", ImportValue::Func(env::___build_environment as _));
+    import_object.set(
+        "env",
+        "___buildEnvironment",
+        ImportValue::Func(env::___build_environment as _),
+    );
     // Errno
     import_object.set(
         "env",
@@ -307,11 +320,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_sigaction",
         ImportValue::Func(signal::_sigaction as _),
     );
-    import_object.set(
-        "env",
-        "_signal",
-        ImportValue::Func(signal::_signal as _),
-    );
+    import_object.set("env", "_signal", ImportValue::Func(signal::_signal as _));
     // Memory
     import_object.set(
         "env",
@@ -382,6 +391,11 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set(
         "env",
+        "nullFunc_v",
+        ImportValue::Func(nullfunc::nullfunc_v as _),
+    );
+    import_object.set(
+        "env",
         "nullFunc_vi",
         ImportValue::Func(nullfunc::nullfunc_vi as _),
     );
@@ -436,11 +450,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_difftime",
         ImportValue::Func(time::_difftime as _),
     );
-    import_object.set(
-        "env",
-        "_asctime",
-        ImportValue::Func(time::_asctime as _),
-    );
+    import_object.set("env", "_asctime", ImportValue::Func(time::_asctime as _));
     import_object.set(
         "env",
         "_asctime_r",
@@ -463,11 +473,7 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "_getpagesize",
         ImportValue::Func(env::_getpagesize as _),
     );
-    import_object.set(
-        "env",
-        "_sysconf",
-        ImportValue::Func(env::_sysconf as _),
-    );
+    import_object.set("env", "_sysconf", ImportValue::Func(env::_sysconf as _));
     // Math
     import_object.set("env", "_llvm_log10_f64", ImportValue::Func(math::_llvm_log10_f64 as _));
     import_object.set("env", "_llvm_log2_f64", ImportValue::Func(math::_llvm_log2_f64 as _));

@@ -1,16 +1,19 @@
 pub mod errors;
 pub mod import_object;
 pub mod instance;
-pub mod math_intrinsics;
+pub mod libcalls;
 pub mod memory;
 pub mod module;
 pub mod relocation;
 pub mod utils;
+pub mod vmcontext;
+pub mod vmoffsets;
 
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
 };
+use cranelift_wasm::ModuleEnvironment;
 use std::panic;
 use std::str::FromStr;
 use target_lexicon;
@@ -19,11 +22,11 @@ use wasmparser::WasmDecoder;
 
 pub use self::errors::{Error, ErrorKind};
 pub use self::import_object::{ImportObject, ImportValue};
-pub use self::instance::{Instance, InstanceOptions, InstanceABI};
+pub use self::instance::{Instance, InstanceABI, InstanceOptions};
 pub use self::memory::LinearMemory;
 pub use self::module::{Export, Module, ModuleInfo};
 
-use crate::apis::emscripten::{is_emscripten_module, allocate_on_stack, allocate_cstr_on_stack};
+use crate::apis::emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -58,8 +61,7 @@ pub fn instantiate(
 
     let abi = if is_emscripten_module(&module) {
         InstanceABI::Emscripten
-    }
-    else {
+    } else {
         InstanceABI::None
     };
 
@@ -67,17 +69,13 @@ pub fn instantiate(
         mock_missing_imports: false,
         mock_missing_globals: false,
         mock_missing_tables: false,
-        abi: abi,
+        abi,
         show_progressbar: false,
-        isa: isa,
+        isa,
     });
 
     debug!("webassembly - creating instance");
-    let instance = Instance::new(
-        &module,
-        import_object,
-        options,
-    )?;
+    let instance = Instance::new(&module, import_object, options)?;
     debug!("webassembly - instance created");
     Ok(ResultObject { module, instance })
 }
@@ -136,7 +134,7 @@ pub fn validate_or_error(bytes: &[u8]) -> Result<(), ErrorKind> {
                 return Err(ErrorKind::CompileError(format!(
                     "Validation error: {}",
                     err.message
-                )))
+                )));
             }
             _ => (),
         }
@@ -158,8 +156,9 @@ pub fn get_isa() -> Box<isa::TargetIsa> {
 fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) -> (u32, u32) {
     let argc = args.len() + 1;
 
-    let (argv_offset, argv_slice): (_, &mut [u32]) = unsafe { allocate_on_stack(((argc + 1) * 4) as u32, instance) };
-    assert!(argv_slice.len() >= 1);
+    let (argv_offset, argv_slice): (_, &mut [u32]) =
+        unsafe { allocate_on_stack(((argc + 1) * 4) as u32, instance) };
+    assert!(!argv_slice.is_empty());
 
     argv_slice[0] = unsafe { allocate_cstr_on_stack(path, instance).0 };
 
@@ -206,16 +205,22 @@ fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) 
 //     (argc, argv_offset)
 // }
 
-
-pub fn start_instance(module: &Module, instance: &mut Instance, path: &str, args: Vec<&str>) -> Result<(), String>  {
+pub fn start_instance(
+    module: &Module,
+    instance: &mut Instance,
+    path: &str,
+    args: Vec<&str>,
+) -> Result<(), String> {
     if is_emscripten_module(&module) {
-
         // Emscripten __ATINIT__
-        if let Some(&Export::Function(environ_constructor_index)) = module.info.exports.get("___emscripten_environ_constructor") {
+        if let Some(&Export::Function(environ_constructor_index)) =
+            module.info.exports.get("___emscripten_environ_constructor")
+        {
             debug!("emscripten::___emscripten_environ_constructor");
             let ___emscripten_environ_constructor: extern "C" fn(&Instance) =
                 get_instance_function!(instance, environ_constructor_index);
-            call_protected!(___emscripten_environ_constructor(&instance)).map_err(|err| format!("{}", err))?;
+            call_protected!(___emscripten_environ_constructor(&instance))
+                .map_err(|err| format!("{}", err))?;
         };
 
         // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
@@ -224,13 +229,27 @@ pub fn start_instance(module: &Module, instance: &mut Instance, path: &str, args
             _ => panic!("_main emscripten function not found"),
         };
 
-        let main: extern "C" fn(u32, u32, &Instance) =
-            get_instance_function!(instance, func_index);
-
-        let (argc, argv) = store_module_arguments(path, args, instance);
-
-        return call_protected!(main(argc, argv, &instance)).map_err(|err| format!("{}", err));
-        // TODO: We should implement emscripten __ATEXIT__
+        let sig_index = module.get_func_type(func_index);
+        let signature = module.get_signature(sig_index);
+        let num_params = signature.params.len();
+        match num_params {
+            2 => {
+                let main: extern "C" fn(u32, u32, &Instance) =
+                    get_instance_function!(instance, func_index);
+                let (argc, argv) = store_module_arguments(path, args, instance);
+                call_protected!(main(argc, argv, &instance))
+            }
+            0 => {
+                let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
+                call_protected!(main(&instance))
+            }
+            _ => panic!(
+                "The emscripten main function has received an incorrect number of params {}",
+                num_params
+            ),
+        }
+        .map_err(|err| format!("{}", err))
+    // TODO: We should implement emscripten __ATEXIT__
     } else {
         let func_index =
             instance
@@ -239,8 +258,7 @@ pub fn start_instance(module: &Module, instance: &mut Instance, path: &str, args
                     Some(&Export::Function(index)) => index,
                     _ => panic!("Main function not found"),
                 });
-        let main: extern "C" fn(&Instance) =
-            get_instance_function!(instance, func_index);
-        return call_protected!(main(&instance)).map_err(|err| format!("{}", err));
+        let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
+        call_protected!(main(&instance)).map_err(|err| format!("{}", err))
     }
 }
