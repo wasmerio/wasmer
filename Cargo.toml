@@ -35,7 +35,7 @@ tempdir = "0.3.7"
 error-chain = "0.12.0"
 errno = "0.2.4"
 structopt = "0.2.11"
-wabt = "0.7.1"
+wabt = "0.7.2"
 wasmparser = "0.20.0"
 winapi = "0.3.6"
 region = "0.3.0"
@@ -51,8 +51,7 @@ indicatif = "0.10"
 console = "0.7.1"
 
 [build-dependencies]
-wabt = "0.7.1"
-
+wabt = "0.7.2"
 # [dev-dependencies]
 # libffi = "0.6.4"
 # maplit = "1.0.1"
