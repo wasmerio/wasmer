@@ -1,6 +1,6 @@
 use super::super::host;
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{c_int, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, c_long, sysconf};
+use libc::{c_int, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, c_long, sysconf, getenv};
 use std::ffi::CStr;
 use std::mem;
 use std::os::raw::c_char;
@@ -8,29 +8,19 @@ use std::os::raw::c_char;
 use super::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
 use crate::webassembly::Instance;
 
-#[no_mangle]
+// #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
 pub extern "C" fn _getenv(name: c_int, instance: &mut Instance) -> u32 {
-    debug!("emscripten::_getenv {}", name);
-    let name = unsafe {
-        let name_addr = instance.memory_offset_addr(0, name as usize) as *const c_char;
-        CStr::from_ptr(name_addr).to_str().unwrap()
-    };
-    match host::get_env(name, instance) {
-        Ok(env_value) => {
-            // Append null byte
-            let env_value = env_value + "\0";
-            let env_value_ptr = env_value.as_ptr() as *mut c_char;
-            let res = unsafe { copy_cstr_into_wasm(instance, env_value_ptr) };
-            // Test
-            let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
-            use std::ffi::CStr;
-            debug!("#### cstr = {:?}", unsafe { CStr::from_ptr(c_str) });
-            debug!("res = {}", res);
-            res
-        }
-        Err(_) => 0,
-    }
+    debug!("emscripten::_getenv");
+
+    let name_addr = instance.memory_offset_addr(0, name as usize) as *const c_char;
+
+    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
+
+    let c_str = unsafe { getenv(name_addr) };
+    if c_str.is_null() { return 0; }
+
+    unsafe { copy_cstr_into_wasm(instance, c_str) }
 }
 
 pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {

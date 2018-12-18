@@ -1,4 +1,5 @@
 use crate::webassembly::Instance;
+use super::process::_abort;
 
 /// emscripten: ___cxa_allocate_exception
 pub extern "C" fn ___cxa_allocate_exception(size: u32, instance: &mut Instance) -> u32 {
@@ -10,5 +11,5 @@ pub extern "C" fn ___cxa_allocate_exception(size: u32, instance: &mut Instance) 
 /// TODO: We don't have support for exceptions yet
 pub extern "C" fn ___cxa_throw(ptr: u32, ty: u32, destructor: u32, instance: &mut Instance) {
     debug!("emscripten::___cxa_throw");
-    debug!("unimplmeneted yet!");
+    _abort();
 }
