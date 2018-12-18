@@ -6,6 +6,8 @@ pub mod memory;
 pub mod module;
 pub mod relocation;
 pub mod utils;
+pub mod vmcontext;
+pub mod vmoffsets;
 
 use cranelift_codegen::{
     isa,
@@ -132,7 +134,7 @@ pub fn validate_or_error(bytes: &[u8]) -> Result<(), ErrorKind> {
                 return Err(ErrorKind::CompileError(format!(
                     "Validation error: {}",
                     err.message
-                )))
+                )));
             }
             _ => (),
         }
