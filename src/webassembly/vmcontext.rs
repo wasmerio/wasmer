@@ -1,10 +1,8 @@
-
-use cranelift_wasm::{
-    TableIndex, FuncIndex, MemoryIndex, GlobalIndex,
-    DefinedTableIndex, DefinedFuncIndex, DefinedMemoryIndex, DefinedGlobalIndex,
-    SignatureIndex,
-};
 use crate::webassembly::vmoffsets::VMOffsets;
+use cranelift_wasm::{
+    DefinedFuncIndex, DefinedGlobalIndex, DefinedMemoryIndex, DefinedTableIndex, FuncIndex,
+    GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
+};
 
 #[repr(C)]
 pub struct VMContext {
@@ -35,7 +33,7 @@ pub struct VMContext {
 
 /// Used to provide type safety for passing around function pointers.
 /// The typesystem ensures this cannot be dereferenced.
-pub enum VMFunctionBody { }
+pub enum VMFunctionBody {}
 
 /// Definition of a table used by the VM. (obviously)
 #[repr(C)]

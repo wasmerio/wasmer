@@ -134,7 +134,7 @@ pub fn validate_or_error(bytes: &[u8]) -> Result<(), ErrorKind> {
                 return Err(ErrorKind::CompileError(format!(
                     "Validation error: {}",
                     err.message
-                )))
+                )));
             }
             _ => (),
         }
