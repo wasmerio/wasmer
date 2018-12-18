@@ -1,5 +1,5 @@
-use crate::webassembly::Instance;
 use super::process::_abort;
+use crate::webassembly::Instance;
 
 /// emscripten: ___cxa_allocate_exception
 pub extern "C" fn ___cxa_allocate_exception(size: u32, instance: &mut Instance) -> u32 {

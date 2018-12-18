@@ -6,11 +6,11 @@ use std::mem;
 // EMSCRIPTEN APIS
 mod env;
 mod errno;
+mod exception;
 mod io;
 mod lock;
-mod memory;
 mod math;
-mod exception;
+mod memory;
 mod nullfunc;
 mod process;
 mod signal;
@@ -440,16 +440,8 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         "___clock_gettime",
         ImportValue::Func(time::___clock_gettime as _),
     );
-    import_object.set(
-        "env",
-        "_clock",
-        ImportValue::Func(time::_clock as _),
-    );
-    import_object.set(
-        "env",
-        "_difftime",
-        ImportValue::Func(time::_difftime as _),
-    );
+    import_object.set("env", "_clock", ImportValue::Func(time::_clock as _));
+    import_object.set("env", "_difftime", ImportValue::Func(time::_difftime as _));
     import_object.set("env", "_asctime", ImportValue::Func(time::_asctime as _));
     import_object.set(
         "env",
@@ -475,10 +467,17 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     );
     import_object.set("env", "_sysconf", ImportValue::Func(env::_sysconf as _));
     // Math
-    import_object.set("env", "_llvm_log10_f64", ImportValue::Func(math::_llvm_log10_f64 as _));
-    import_object.set("env", "_llvm_log2_f64", ImportValue::Func(math::_llvm_log2_f64 as _));
+    import_object.set(
+        "env",
+        "_llvm_log10_f64",
+        ImportValue::Func(math::_llvm_log10_f64 as _),
+    );
+    import_object.set(
+        "env",
+        "_llvm_log2_f64",
+        ImportValue::Func(math::_llvm_log2_f64 as _),
+    );
     import_object.set("asm2wasm", "f64-rem", ImportValue::Func(math::f64_rem as _));
-
 
     mock_external!(import_object, _waitpid);
     mock_external!(import_object, _utimes);

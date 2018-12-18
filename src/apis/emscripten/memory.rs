@@ -1,6 +1,6 @@
 use super::process::abort_with_message;
 use crate::webassembly::Instance;
-use libc::{c_void, memcpy, size_t, c_int};
+use libc::{c_int, c_void, memcpy, size_t};
 
 /// emscripten: _emscripten_memcpy_big
 pub extern "C" fn _emscripten_memcpy_big(
@@ -46,4 +46,3 @@ pub extern "C" fn ___map_file() -> c_int {
     // NOTE: TODO: Em returns -1 here as well. May need to implement properly
     -1
 }
-

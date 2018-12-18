@@ -1,6 +1,6 @@
 use super::super::host;
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{c_int, c_long, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, sysconf, getenv};
+use libc::{c_int, c_long, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, sysconf};
 use std::ffi::CStr;
 use std::mem;
 use std::os::raw::c_char;
@@ -18,7 +18,9 @@ pub extern "C" fn _getenv(name: c_int, instance: &mut Instance) -> u32 {
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
     let c_str = unsafe { getenv(name_addr) };
-    if c_str.is_null() { return 0; }
+    if c_str.is_null() {
+        return 0;
+    }
 
     unsafe { copy_cstr_into_wasm(instance, c_str) }
 }

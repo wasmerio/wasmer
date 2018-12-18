@@ -18,6 +18,7 @@ use libc::{
     connect,
     dup2,
     exit,
+    fcntl,
     fstat,
     getgid,
     getpeername,
@@ -42,6 +43,9 @@ use libc::{
     // readv,
     recvfrom,
     recvmsg,
+    rmdir,
+    // ENOTTY,
+    rusage,
     sa_family_t,
     // writev,
     select,
@@ -57,18 +61,14 @@ use libc::{
     uname,
     utsname,
     write,
+    EINVAL,
     // sockaddr_in,
     FIOCLEX,
     FIONBIO,
+    F_GETFD,
+    F_SETFD,
     SOL_SOCKET,
     TIOCGWINSZ,
-    // ENOTTY,
-    rusage,
-    rmdir,
-    EINVAL,
-    fcntl,
-    F_SETFD,
-    F_GETFD,
 };
 
 use std::mem;
@@ -78,7 +78,7 @@ use std::slice;
 // Linking to functions that are not provided by rust libc
 #[cfg(target_os = "macos")]
 #[link(name = "c")]
-extern {
+extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
 }
 
@@ -266,9 +266,7 @@ pub extern "C" fn ___syscall57(
     debug!("emscripten::___syscall57 (setpgid) {}", which);
     let pid: i32 = varargs.get(instance);
     let pgid: i32 = varargs.get(instance);
-    unsafe {
-        setpgid(pid, pgid)
-    }
+    unsafe { setpgid(pid, pgid) }
 }
 
 // dup2
@@ -930,7 +928,7 @@ pub extern "C" fn ___syscall330(
     let res = unsafe { dup2(oldfd, newfd) };
 
     // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
-    let mut old_flags = unsafe { fcntl (newfd, F_GETFD, 0) };
+    let mut old_flags = unsafe { fcntl(newfd, F_GETFD, 0) };
 
     if old_flags > 0 {
         old_flags |= flags;
@@ -938,7 +936,9 @@ pub extern "C" fn ___syscall330(
         old_flags &= !flags;
     }
 
-    unsafe { fcntl (newfd, F_SETFD, old_flags); }
+    unsafe {
+        fcntl(newfd, F_SETFD, old_flags);
+    }
 
     debug!(
         "=> oldfd: {}, newfd: {}, flags: {} = pid: {}",

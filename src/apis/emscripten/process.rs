@@ -63,5 +63,7 @@ pub extern "C" fn _popen() -> c_int {
     debug!("emscripten::_popen");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Missing function: popen");
-    unsafe { abort(); }
+    unsafe {
+        abort();
+    }
 }
