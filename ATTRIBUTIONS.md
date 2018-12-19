@@ -9,7 +9,6 @@ This are the different project that we used as inspiration:
 
 - [Nebulet](https://github.com/nebulet/nebulet): as the base for creating a great Rust WebAssembly runtime
 - [WAVM](https://github.com/wavm/wavm): for their great integration and testing framework
-- [wasmjit](https://github.com/rianhunter/wasmjit): we didn't took any code inspiration, but their effort pushed us forward at a faster pace.
 - [greenwasm](https://github.com/Kimundi/greenwasm): for their [spectests framework](https://github.com/Kimundi/greenwasm/tree/master/greenwasm-spectest)
 - [wasmtime](/wasmtime): on their [mmap implementation](https://github.com/CraneStation/wasmtime/blob/3f24098edc81cd9bf0f877fb7fba018cad0f039e/lib/runtime/src/mmap.rs).
 - [stackoverflow](https://stackoverflow.com/a/45795699/1072990): to create an efficient HashMap with pair keys.
