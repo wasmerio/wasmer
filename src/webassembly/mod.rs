@@ -7,6 +7,8 @@ pub mod module;
 pub mod relocation;
 pub mod utils;
 pub mod vm;
+pub mod table;
+pub mod backing;
 
 use cranelift_codegen::{
     isa,

@@ -20,7 +20,6 @@ use std::iter::FromIterator;
 use std::iter::Iterator;
 use std::mem::size_of;
 use std::ptr::write_unaligned;
-use std::sync::Arc;
 use std::{fmt, mem, slice};
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
@@ -30,6 +29,8 @@ use super::libcalls;
 use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
+use super::vm;
+use super::backing::{Backing, ImportsBacking};
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
 // TODO: this should be `type MemoriesSlice = UncheckedSlice<UncheckedSlice<u8>>;`, but that crashes for some reason.
@@ -98,22 +99,12 @@ pub struct Instance {
     // C-like pointers to data (heaps, globals, tables)
     pub data_pointers: DataPointers,
 
-    /// WebAssembly table data
-    // pub tables: Arc<Vec<RwLock<Vec<usize>>>>,
-    pub tables: Arc<Vec<Vec<usize>>>,
-
-    /// WebAssembly linear memory data
-    pub memories: Arc<Vec<LinearMemory>>,
-
-    /// WebAssembly global variable data
-    pub globals: Vec<u8>,
-
     /// Webassembly functions
-    // functions: Vec<usize>,
-    functions: Vec<Vec<u8>>,
+    finalized_funcs: Box<[*const vm::Func]>,
 
-    /// Imported functions
-    import_functions: Vec<*const u8>,
+    backing: Backing,
+
+    imports: ImportsBacking,
 
     /// The module start function
     pub start_func: Option<FuncIndex>,
@@ -421,114 +412,13 @@ impl Instance {
         debug!("Instance - Instantiating tables");
         // Instantiate tables
         {
-            // Reserve space for tables
-            tables.reserve_exact(module.info.tables.len());
-
-            // Get tables in module
-            for table in &module.info.tables {
-                let table: Vec<usize> = match table.import_name.as_ref() {
-                    Some((module_name, field_name)) => {
-                        let imported =
-                            import_object.get(&module_name.as_str(), &field_name.as_str());
-                        match imported {
-                            Some(ImportValue::Table(t)) => t.to_vec(),
-                            None => {
-                                if options.mock_missing_tables {
-                                    debug!(
-                                        "The Imported table {}.{} is not provided, therefore will be mocked.",
-                                        module_name, field_name
-                                    );
-                                    let len = table.entity.minimum as usize;
-                                    let mut v = Vec::with_capacity(len);
-                                    v.resize(len, 0);
-                                    v
-                                } else {
-                                    panic!(
-                                        "Imported table value was not provided ({}.{})",
-                                        module_name, field_name
-                                    )
-                                }
-                            }
-                            _ => panic!(
-                                "Expected global table, but received {:?} ({}.{})",
-                                imported, module_name, field_name
-                            ),
-                        }
-                    }
-                    None => {
-                        let len = table.entity.minimum as usize;
-                        let mut v = Vec::with_capacity(len);
-                        v.resize(len, 0);
-                        v
-                    }
-                };
-                tables.push(table);
-            }
-
-            // instantiate tables
-            for table_element in &module.info.table_elements {
-                let base = match table_element.base {
-                    Some(global_index) => globals_data[global_index.index()] as usize,
-                    None => 0,
-                };
-
-                let table = &mut tables[table_element.table_index.index()];
-                for (i, func_index) in table_element.elements.iter().enumerate() {
-                    // since the table just contains functions in the MVP
-                    // we get the address of the specified function indexes
-                    // to populate the table.
-
-                    // let func_index = *elem_index - module.info.imported_funcs.len() as u32;
-                    // let func_addr = functions[func_index.index()].as_ptr();
-                    let func_addr = get_function_addr(&func_index, &import_functions, &functions);
-                    table[base + table_element.offset + i] = func_addr as _;
-                }
-            }
+            
         }
 
         debug!("Instance - Instantiating memories");
         // Instantiate memories
         {
-            // Reserve space for memories
-            memories.reserve_exact(module.info.memories.len());
-
-            // Get memories in module
-            for memory in &module.info.memories {
-                let memory = memory.entity;
-                // If we use emscripten, we set a fixed initial and maximum
-                debug!(
-                    "Instance - init memory ({}, {:?})",
-                    memory.minimum, memory.maximum
-                );
-                let memory = if options.abi == InstanceABI::Emscripten {
-                    // We use MAX_PAGES, so at the end the result is:
-                    // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
-                    // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
-                    LinearMemory::new(LinearMemory::MAX_PAGES, None)
-                } else {
-                    LinearMemory::new(memory.minimum, memory.maximum.map(|m| m as u32))
-                };
-                memories.push(memory);
-            }
-
-            for init in &module.info.data_initializers {
-                debug_assert!(init.base.is_none(), "globalvar base not supported yet");
-                let offset = init.offset;
-                let mem = &mut memories[init.memory_index.index()];
-                let end_of_init = offset + init.data.len();
-                if end_of_init > mem.current_size() {
-                    let grow_pages = (end_of_init / LinearMemory::PAGE_SIZE as usize) + 1;
-                    mem.grow(grow_pages as u32)
-                        .expect("failed to grow memory for data initializers");
-                }
-                let to_init = &mut mem[offset..offset + init.data.len()];
-                to_init.copy_from_slice(&init.data);
-            }
-            if options.abi == InstanceABI::Emscripten {
-                debug!("emscripten::setup memory");
-                crate::apis::emscripten::emscripten_set_up_memory(&mut memories[0]);
-                debug!("emscripten::finish setup memory");
-            }
+            
         }
 
         let start_func: Option<FuncIndex> =
@@ -615,8 +505,8 @@ impl Instance {
 
         Ok(Instance {
             data_pointers,
-            tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
-            memories: Arc::new(memories.into_iter().collect()),
+            tables: tables.into_iter().collect(),
+            memories: memories.into_iter().collect(),
             globals,
             functions,
             import_functions,
@@ -626,16 +516,9 @@ impl Instance {
     }
 
     pub fn memory_mut(&mut self, memory_index: usize) -> &mut LinearMemory {
-        let memories = Arc::get_mut(&mut self.memories).unwrap_or_else(|| {
-            panic!("Can't get memories as a mutable pointer (there might exist more mutable pointers to the memories)")
-        });
-        memories
+        self.memories
             .get_mut(memory_index)
             .unwrap_or_else(|| panic!("no memory for index {}", memory_index))
-    }
-
-    pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
-        self.memories.clone()
     }
 
     pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {

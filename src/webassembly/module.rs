@@ -199,7 +199,7 @@ pub struct DataInitializer {
 #[derive(Clone, Debug)]
 pub enum TableElement {
     /// A element that, if called, produces a trap.
-    Trap(),
+    Trap,
     /// A function.
     Function(FuncIndex),
 }

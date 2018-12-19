@@ -8,6 +8,7 @@ use std::ops::{Deref, DerefMut};
 use std::slice;
 
 use crate::common::mmap::Mmap;
+use super::vm::LocalMemory;
 
 /// A linear memory instance.
 #[derive(Debug)]
@@ -102,6 +103,13 @@ impl LinearMemory {
     /// Returns the maximum number of wasm pages allowed.
     pub fn maximum_size(&self) -> u32 {
         self.maximum.unwrap_or(Self::MAX_PAGES)
+    }
+
+    pub fn into_vm_memory(&mut self) -> LocalMemory {
+        LocalMemory {
+            base: self.base(),
+            size: self.current_size(),
+        }
     }
 
     /// Grow memory by the specified amount of pages.

@@ -18,6 +18,8 @@ pub extern crate nix; // re-exported for usage in macros
 extern crate rayon;
 #[cfg(windows)]
 extern crate winapi;
+#[cfg_attr(test, macro_use)]
+extern crate field_offset;
 
 #[macro_use]
 mod macros;
