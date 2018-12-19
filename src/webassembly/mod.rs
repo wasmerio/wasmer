@@ -14,7 +14,6 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use cranelift_wasm::ModuleEnvironment;
-use std::io::{self, Write};
 use std::panic;
 use std::str::FromStr;
 use target_lexicon;

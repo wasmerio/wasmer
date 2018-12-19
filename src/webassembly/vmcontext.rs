@@ -1,8 +1,4 @@
 use crate::webassembly::vmoffsets::VMOffsets;
-use cranelift_wasm::{
-    DefinedFuncIndex, DefinedGlobalIndex, DefinedMemoryIndex, DefinedTableIndex, FuncIndex,
-    GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
-};
 
 #[repr(C)]
 pub struct VMContext {
