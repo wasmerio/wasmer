@@ -82,6 +82,9 @@ extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
 }
 
+#[cfg(not(target_os = "macos"))]
+use libc::wait4;
+
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
 // Other platforms do otherwise.
