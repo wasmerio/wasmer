@@ -8,6 +8,7 @@ mod env;
 mod errno;
 mod exception;
 mod io;
+mod jmp;
 mod lock;
 mod math;
 mod memory;
@@ -478,6 +479,9 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
         ImportValue::Func(math::_llvm_log2_f64 as _),
     );
     import_object.set("asm2wasm", "f64-rem", ImportValue::Func(math::f64_rem as _));
+
+    import_object.set("env", "__setjmp", ImportValue::Func(jmp::__setjmp as _));
+    import_object.set("env", "__longjmp", ImportValue::Func(jmp::__longjmp as _));
 
     mock_external!(import_object, _waitpid);
     mock_external!(import_object, _utimes);
