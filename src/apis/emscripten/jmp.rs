@@ -1,12 +1,8 @@
-use libc::{c_void, c_int};
 use crate::webassembly::Instance;
-
+use libc::{c_int, c_void};
 
 /// setjmp
-pub extern "C" fn __setjmp(
-    env_addr: u32,
-    instance: &mut Instance,
-) -> c_int {
+pub extern "C" fn __setjmp(env_addr: u32, instance: &mut Instance) -> c_int {
     debug!("emscripten::__setjmp (setjmp)");
     unsafe {
         let env = instance.memory_offset_addr(0, env_addr as usize) as *mut c_void;
@@ -14,13 +10,8 @@ pub extern "C" fn __setjmp(
     }
 }
 
-
 /// longjmp
-pub extern "C" fn __longjmp(
-    env_addr: u32,
-    val: c_int,
-    instance: &mut Instance,
-) -> ! {
+pub extern "C" fn __longjmp(env_addr: u32, val: c_int, instance: &mut Instance) -> ! {
     debug!("emscripten::__longjmp (longjmp) {}", val);
     unsafe {
         let env = instance.memory_offset_addr(0, env_addr as usize) as *mut c_void;
