@@ -2,10 +2,10 @@
 
 Wasmer is a community effort.
 In order to build the best WebAssembly runtime it's our duty to see how other runtimes are approaching the same space
-and get inspired from them on the things that they got right, so wasmer and it's community can benefit from a solid
+and get inspired from them on the things that they got right, so wasmer and its community can benefit from a solid
 foundation.
 
-This are the different project that we used as inspiration:
+These are the different project that we used as inspiration:
 
 - [Nebulet](https://github.com/nebulet/nebulet): as the base for creating a great Rust WebAssembly runtime
 - [WAVM](https://github.com/wavm/wavm): for their great integration and testing framework
