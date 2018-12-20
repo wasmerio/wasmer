@@ -1,4 +1,3 @@
-use super::super::host;
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 use libc::{c_int, c_long, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, sysconf};
 use std::ffi::CStr;
