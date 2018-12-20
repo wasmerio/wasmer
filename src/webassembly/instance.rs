@@ -15,7 +15,9 @@ use cranelift_wasm::{FuncIndex, GlobalInit};
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 
+use libc::c_int;
 use region;
+use std::cell::UnsafeCell;
 use std::iter::FromIterator;
 use std::iter::Iterator;
 use std::mem::size_of;
@@ -72,6 +74,7 @@ pub struct EmscriptenData {
     pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
     pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
     pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
+    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
 }
 
 impl EmscriptenData {
@@ -116,6 +119,7 @@ impl EmscriptenData {
                 memalign: mem::transmute(memalign_addr),
                 memset: mem::transmute(memset_addr),
                 stack_alloc: mem::transmute(stack_alloc_addr),
+                jumps: Vec::new(),
             }
         }
     }

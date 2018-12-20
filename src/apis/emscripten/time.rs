@@ -58,6 +58,24 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
     0
 }
 
+/// emscripten: ___clock_gettime
+pub extern "C" fn ___clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+    debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
+    _clock_gettime(clk_id, tp, instance)
+}
+
+/// emscripten: _clock
+pub extern "C" fn _clock() -> c_int {
+    debug!("emscripten::_clock");
+    0 // TODO: unimplemented
+}
+
+/// emscripten: _difftime
+pub extern "C" fn _difftime(t0: u32, t1: u32) -> c_int {
+    debug!("emscripten::_difftime");
+    (t0 - t1) as _
+}
+
 #[repr(C)]
 struct guest_tm {
     pub tm_sec: c_int,    // 0
@@ -111,7 +129,7 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
         let time_str_ptr = fmt_time(time, instance);
         copy_cstr_into_wasm(instance, time_str_ptr)
 
-        // let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
+        // let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }
@@ -129,7 +147,7 @@ pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u3
         let time_str_ptr = fmt_time(time, instance);
         write_to_buf(time_str_ptr, buf, 26, instance)
 
-        // let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
+        // let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }

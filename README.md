@@ -76,3 +76,5 @@ If you would like to know how Wasmer works under the hood, please visit our [ARC
 ## License
 
 MIT/Apache-2.0
+
+<small>[Attributions](./ATTRIBUTIONS.md)</small>.
