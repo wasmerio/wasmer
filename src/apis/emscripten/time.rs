@@ -5,14 +5,8 @@ use libc::{
 };
 use std::mem;
 use std::time::SystemTime;
-use winapi::um::profileapi::QueryPerformanceCounter;
-use winapi::um::winnt::LARGE_INTEGER;
 
 use crate::webassembly::Instance;
-use winapi::um::profileapi::QueryPerformanceFrequency;
-use winapi::shared::minwindef::LPFILETIME;
-use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
-use winapi::shared::ntdef::NULL;
 
 /// emscripten: _gettimeofday
 pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
@@ -273,6 +267,10 @@ fn cross_platform_clock_gettime(clk_id: c_int, ts: &mut timespec) -> c_int {
     #[cfg(not(target_os = "windows"))]
     unsafe { libc_clock_gettime(clk_id as _, &mut ts) }
     #[cfg(target_os = "windows")] {
+        use winapi::shared::minwindef::LPFILETIME;
+        use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
+        use winapi::shared::ntdef::NULL;
+
         let mut filetime: LPFILETIME = NULL as LPFILETIME;
         unsafe { GetSystemTimeAsFileTime(filetime as LPFILETIME) };
         let time = filetime as i64;
