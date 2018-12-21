@@ -271,7 +271,7 @@ pub extern "C" fn _strftime(
 
 fn cross_platform_clock_gettime(clk_id: c_int, ts: &mut timespec) -> c_int {
     #[cfg(not(target_os = "windows"))]
-    unsafe { libc_clock_gettime(clk_id as _, &mut timespec) }
+    unsafe { libc_clock_gettime(clk_id as _, &mut ts) }
     #[cfg(target_os = "windows")] {
         let mut filetime: LPFILETIME = NULL as LPFILETIME;
         unsafe { GetSystemTimeAsFileTime(filetime as LPFILETIME) };
