@@ -1,7 +1,7 @@
+use crate::common::file_descriptor::FileDescriptor;
 use libc;
-use std::fs::File;
+use std::io::BufReader;
 use std::io::Read;
-use std::os::unix::io::FromRawFd;
 
 // A struct to hold the references to the base stdout and the captured one
 pub struct StdioCapturer {
@@ -17,7 +17,15 @@ pub struct StdioCapturer {
 impl StdioCapturer {
     fn pipe() -> (libc::c_int, libc::c_int) {
         let mut fds = [0; 2];
+
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            unsafe { libc::pipe(fds.as_mut_ptr(), 1000, libc::O_TEXT) },
+            0
+        );
+
         (fds[0], fds[1])
     }
 
@@ -27,9 +35,6 @@ impl StdioCapturer {
 
         let (stdout_reader, stdout_writer) = Self::pipe();
         let (stderr_reader, stderr_writer) = Self::pipe();
-
-        // std::io::stdout().flush().unwrap();
-        // std::io::stderr().flush().unwrap();
 
         assert!(unsafe { libc::dup2(stdout_writer, libc::STDOUT_FILENO) } > -1);
         assert!(unsafe { libc::dup2(stderr_writer, libc::STDERR_FILENO) } > -1);
@@ -48,28 +53,23 @@ impl StdioCapturer {
         }
     }
 
-    pub fn end(self) -> (String, String) {
+    pub fn end(self) -> Result<(String, String), std::io::Error> {
         // The Stdio passed into the Command took over (and closed) std{out, err}
         // so we should restore them as they were.
 
         assert!(unsafe { libc::dup2(self.stdout_backup, libc::STDOUT_FILENO) } > -1);
         assert!(unsafe { libc::dup2(self.stderr_backup, libc::STDERR_FILENO) } > -1);
 
-        // assert_eq!(unsafe { libc::close(self.stdout_backup) }, 0);
-        // assert_eq!(unsafe { libc::close(self.stderr_backup) }, 0);
+        let fd = FileDescriptor::new(self.stdout_reader);
+        let mut reader = BufReader::new(fd);
+        let mut stdout_read = "".to_string();
+        let _ = reader.read_to_string(&mut stdout_read)?;
 
-        let mut stdout_read = String::new();
-        let mut stdout_file: File = unsafe { FromRawFd::from_raw_fd(self.stdout_reader) };
-        stdout_file
-            .read_to_string(&mut stdout_read)
-            .expect("failed to read from stdout file");
+        let fd = FileDescriptor::new(self.stderr_reader);
+        let mut reader = BufReader::new(fd);
+        let mut stderr_read = "".to_string();
+        let _ = reader.read_to_string(&mut stderr_read)?;
 
-        let mut stderr_read = String::new();
-        let mut stderr_file: File = unsafe { FromRawFd::from_raw_fd(self.stderr_reader) };
-        stderr_file
-            .read_to_string(&mut stderr_read)
-            .expect("failed to read from stdout file");
-
-        (stdout_read, stderr_read)
+        Ok((stdout_read, stderr_read))
     }
 }
