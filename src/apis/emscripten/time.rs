@@ -5,8 +5,14 @@ use libc::{
 };
 use std::mem;
 use std::time::SystemTime;
+use winapi::um::profileapi::QueryPerformanceCounter;
+use winapi::um::winnt::LARGE_INTEGER;
 
 use crate::webassembly::Instance;
+use winapi::um::profileapi::QueryPerformanceFrequency;
+use winapi::shared::minwindef::LPFILETIME;
+use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
+use winapi::shared::ntdef::NULL;
 
 /// emscripten: _gettimeofday
 pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
@@ -46,7 +52,7 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
             tv_sec: 0,
             tv_nsec: 0,
         };
-        let ret = libc_clock_gettime(clk_id as _, &mut timespec);
+        let ret = cross_platform_clock_gettime(clk_id as _, &mut timespec);
         if ret != 0 {
             return ret;
         }
@@ -261,4 +267,17 @@ pub extern "C" fn _strftime(
         s_ptr, maxsize, format_ptr, tm_ptr
     );
     0
+}
+
+fn cross_platform_clock_gettime(clk_id: c_int, ts: &mut timespec) -> c_int {
+    #[cfg(not(target_os = "windows"))]
+    unsafe { libc_clock_gettime(clk_id as _, &mut timespec) }
+    #[cfg(target_os = "windows")] {
+        let mut filetime: LPFILETIME = NULL as LPFILETIME;
+        unsafe { GetSystemTimeAsFileTime(filetime as LPFILETIME) };
+        let time = filetime as i64;
+        ts.tv_sec = time / 10000000i64; // seconds
+        ts.tv_nsec = time % 10000000i64 *100; // nano-seconds
+        0
+    }
 }
