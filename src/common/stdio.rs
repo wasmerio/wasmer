@@ -1,7 +1,7 @@
+use crate::common::file_descriptor::FileDescriptor;
 use libc;
 use std::io::BufReader;
 use std::io::Read;
-use crate::common::file_descriptor::FileDescriptor;
 
 // A struct to hold the references to the base stdout and the captured one
 pub struct StdioCapturer {
@@ -21,7 +21,10 @@ impl StdioCapturer {
         #[cfg(not(target_os = "windows"))]
         assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
         #[cfg(target_os = "windows")]
-        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr(), 1000, libc::O_TEXT) }, 0);
+        assert_eq!(
+            unsafe { libc::pipe(fds.as_mut_ptr(), 1000, libc::O_TEXT) },
+            0
+        );
 
         (fds[0], fds[1])
     }
