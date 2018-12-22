@@ -5,7 +5,7 @@ int main()
     printf("INIT\n");
     const char* UNEXISTENT_ENVVAR = getenv("UNEXISTENT_ENVVAR");
     printf("UNEXISTENT_ENVVAR = %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
-    printf("Setting UNEXISTENT_ENVVAR=SET (via putenv)\n");
+    printf("Setting UNEXISTENT_ENVVAR=PUTENV (via putenv)\n");
     putenv("UNEXISTENT_ENVVAR=PUTENV");
     UNEXISTENT_ENVVAR = getenv("UNEXISTENT_ENVVAR");
     printf("UNEXISTENT_ENVVAR = %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
