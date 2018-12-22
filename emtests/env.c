@@ -4,10 +4,22 @@ int main()
 {   
     printf("INIT\n");
     const char* UNEXISTENT_ENVVAR = getenv("UNEXISTENT_ENVVAR");
-    printf("get UNEXISTENT_ENVVAR: %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
-    printf("set UNEXISTENT_ENVVAR = SET\n");
-    putenv("UNEXISTENT_ENVVAR=SET");
+    printf("UNEXISTENT_ENVVAR = %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
+    printf("Setting UNEXISTENT_ENVVAR=SET (via putenv)\n");
+    putenv("UNEXISTENT_ENVVAR=PUTENV");
     UNEXISTENT_ENVVAR = getenv("UNEXISTENT_ENVVAR");
-    printf("get UNEXISTENT_ENVVAR: %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
+    printf("UNEXISTENT_ENVVAR = %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
+    printf("Setting UNEXISTENT_ENVVAR=SETENV (via setenv, overwrite)\n");
+    setenv("UNEXISTENT_ENVVAR", "SETENV", 1);
+    UNEXISTENT_ENVVAR = getenv("UNEXISTENT_ENVVAR");
+    printf("UNEXISTENT_ENVVAR = %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
+    printf("Setting UNEXISTENT_ENVVAR=SETENV_NEW (via setenv, NO overwrite)\n");
+    setenv("UNEXISTENT_ENVVAR", "SETENV_NEW", 0);
+    UNEXISTENT_ENVVAR = getenv("UNEXISTENT_ENVVAR");
+    printf("UNEXISTENT_ENVVAR = %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
+    printf("Unsetting UNEXISTENT_ENVVAR\n");
+    unsetenv("UNEXISTENT_ENVVAR");
+    UNEXISTENT_ENVVAR = getenv("UNEXISTENT_ENVVAR");
+    printf("UNEXISTENT_ENVVAR = %s\n",(UNEXISTENT_ENVVAR!=NULL)? UNEXISTENT_ENVVAR : "[NULL]");
     printf("END\n");
 }

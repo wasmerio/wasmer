@@ -114,6 +114,9 @@ pub fn generate_emscripten_env<'a, 'b>() -> ImportObject<&'a str, &'b str> {
     import_object.set("env", "___wait", ImportValue::Func(lock::___wait as _));
     // Env
     import_object.set("env", "_getenv", ImportValue::Func(env::_getenv as _));
+    import_object.set("env", "_setenv", ImportValue::Func(env::_setenv as _));
+    import_object.set("env", "_putenv", ImportValue::Func(env::_putenv as _));
+    import_object.set("env", "_unsetenv", ImportValue::Func(env::_unsetenv as _));
     import_object.set("env", "_getpwnam", ImportValue::Func(env::_getpwnam as _));
     import_object.set("env", "_getgrnam", ImportValue::Func(env::_getgrnam as _));
     import_object.set(
