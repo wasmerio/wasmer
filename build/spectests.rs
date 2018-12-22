@@ -205,7 +205,8 @@ fn test_module_{}() {{
                     module,
                     module,
                     calls.join("\n    ")
-                ).as_str(),
+                )
+                .as_str(),
             );
         }
         self.module_calls.remove(&module);
@@ -231,7 +232,8 @@ fn test_module_{}() {{
                     .replace("\n", "\n    ")
                     .replace("\\", "\\\\")
                     .replace("\"", "\\\""),
-            ).as_str(),
+            )
+            .as_str(),
         );
 
         // We set the start call to the module
@@ -242,7 +244,8 @@ fn test_module_{}() {{
     result_object.instance.start();
 }}\n",
                 start_module_call
-            ).as_str(),
+            )
+            .as_str(),
         );
         self.module_calls
             .entry(self.last_module)
@@ -267,7 +270,8 @@ fn {}_assert_invalid() {{
                 // We do this to ident four spaces back
                 // String::from_utf8_lossy(&wasm_binary),
                 // wast_string.replace("\n", "\n    "),
-            ).as_str(),
+            )
+            .as_str(),
         );
     }
 
@@ -309,7 +313,8 @@ fn {}_assert_invalid() {{
                         func_return,
                         args_values.join(", "),
                         assertion,
-                    ).as_str(),
+                    )
+                    .as_str(),
                 );
                 self.module_calls
                     .entry(self.last_module)
@@ -366,7 +371,8 @@ fn {}_assert_invalid() {{
                         func_return,
                         args_values.join(", "),
                         assertion,
-                    ).as_str(),
+                    )
+                    .as_str(),
                 );
                 self.module_calls
                     .entry(self.last_module)
@@ -396,7 +402,8 @@ fn {}_assert_malformed() {{
                 // We do this to ident four spaces back
                 // String::from_utf8_lossy(&wasm_binary),
                 // wast_string.replace("\n", "\n    "),
-            ).as_str(),
+            )
+            .as_str(),
         );
     }
 
@@ -460,7 +467,8 @@ fn {}_assert_malformed() {{
                         func_return,
                         args_values.join(", "),
                         assertion,
-                    ).as_str(),
+                    )
+                    .as_str(),
                 );
                 Some(func_name)
                 // let mut module_calls = self.module_calls.get(&self.last_module).unwrap();
@@ -513,7 +521,8 @@ fn {}() {{
                 trap_func_name,
                 self.last_module,
                 action_fn_name.unwrap(),
-            ).as_str(),
+            )
+            .as_str(),
         );
 
         // We don't group trap calls as they may cause memory faults

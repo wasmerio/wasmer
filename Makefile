@@ -3,7 +3,7 @@ ifeq (test, $(firstword $(MAKECMDGOALS)))
   $(eval $(runargs):;@true)
 endif
 
-.PHONY: spectests emtests clean build install
+.PHONY: spectests emtests clean build install lint precommit
 
 # This will re-generate the Rust test files based on spectests/*.wast
 spectests:
@@ -20,6 +20,11 @@ build:
 
 install:
 	cargo install --path .
+
+lint:
+	cargo fmt -- --check
+
+precommit: lint test
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide

@@ -34,10 +34,9 @@ struct Run {
     path: PathBuf,
 
     /// Application arguments
-    #[structopt(name = "--", raw(multiple="true"))]
+    #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
 }
-
 
 /// Read the contents of a file
 fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
@@ -64,11 +63,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
     }
 
-
     let isa = webassembly::get_isa();
 
     debug!("webassembly - creating module");
-    let module = webassembly::compile(wasm_binary).map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
+    let module = webassembly::compile(wasm_binary)
+        .map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
     let abi = if apis::is_emscripten_module(&module) {
         webassembly::InstanceABI::Emscripten
@@ -76,11 +75,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         webassembly::InstanceABI::None
     };
 
-
     let import_object = if abi == webassembly::InstanceABI::Emscripten {
         apis::generate_emscripten_env()
-    }
-    else {
+    } else {
         webassembly::ImportObject::new()
     };
 
@@ -94,13 +91,15 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     debug!("webassembly - creating instance");
-    let mut instance = webassembly::Instance::new(
-        &module,
-        import_object,
-        instance_options,
-    ).map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
+    let mut instance = webassembly::Instance::new(&module, import_object, instance_options)
+        .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
-    webassembly::start_instance(&module, &mut instance, options.path.to_str().unwrap(), options.args.iter().map(|arg| arg.as_str()).collect())
+    webassembly::start_instance(
+        &module,
+        &mut instance,
+        options.path.to_str().unwrap(),
+        options.args.iter().map(|arg| arg.as_str()).collect(),
+    )
 }
 
 fn run(options: Run) {

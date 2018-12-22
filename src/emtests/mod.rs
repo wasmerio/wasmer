@@ -5,5 +5,5 @@
 #[macro_use]
 mod _common;
 mod env;
-mod puts;
 mod printf;
+mod puts;

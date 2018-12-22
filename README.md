@@ -31,8 +31,8 @@ wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 To build this project you will need Rust and Cargo.
 
 ```sh
-# checkout code and associated submodules
-git clone --recursive https://github.com/wasmerio/wasmer.git
+# checkout code
+git clone https://github.com/wasmerio/wasmer.git
 cd wasmer
 
 # install tools
@@ -76,3 +76,5 @@ If you would like to know how Wasmer works under the hood, please visit our [ARC
 ## License
 
 MIT/Apache-2.0
+
+<small>[Attributions](./ATTRIBUTIONS.md)</small>.

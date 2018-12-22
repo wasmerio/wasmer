@@ -1,15 +1,7 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
 use libc::{
-    c_int,
-    c_long,
-    clock_gettime as libc_clock_gettime,
-    localtime,
-    localtime_r,
-    tm,
-    time,
-    time_t,
-    timespec,
-    c_char,
+    c_char, c_int, clock_gettime as libc_clock_gettime, localtime, localtime_r, time, time_t,
+    timespec, tm,
 };
 use std::mem;
 use std::time::SystemTime;
@@ -66,19 +58,37 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
     0
 }
 
+/// emscripten: ___clock_gettime
+pub extern "C" fn ___clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+    debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
+    _clock_gettime(clk_id, tp, instance)
+}
+
+/// emscripten: _clock
+pub extern "C" fn _clock() -> c_int {
+    debug!("emscripten::_clock");
+    0 // TODO: unimplemented
+}
+
+/// emscripten: _difftime
+pub extern "C" fn _difftime(t0: u32, t1: u32) -> c_int {
+    debug!("emscripten::_difftime");
+    (t0 - t1) as _
+}
+
 #[repr(C)]
 struct guest_tm {
-    pub tm_sec: c_int, // 0
-    pub tm_min: c_int, // 4
-    pub tm_hour: c_int, // 8
-    pub tm_mday: c_int, // 12
-    pub tm_mon: c_int, // 16
-    pub tm_year: c_int, // 20
-    pub tm_wday: c_int, // 24
-    pub tm_yday: c_int, // 28
-    pub tm_isdst: c_int, // 32
+    pub tm_sec: c_int,    // 0
+    pub tm_min: c_int,    // 4
+    pub tm_hour: c_int,   // 8
+    pub tm_mday: c_int,   // 12
+    pub tm_mon: c_int,    // 16
+    pub tm_year: c_int,   // 20
+    pub tm_wday: c_int,   // 24
+    pub tm_yday: c_int,   // 28
+    pub tm_isdst: c_int,  // 32
     pub tm_gmtoff: c_int, // 36
-    pub tm_zone: c_int, // 40
+    pub tm_zone: c_int,   // 40
 }
 
 /// emscripten: _tvset
@@ -91,7 +101,9 @@ unsafe extern "C" fn fmt_time(time: u32, instance: &Instance) -> *const c_char {
     let date = &*(instance.memory_offset_addr(0, time as _) as *mut guest_tm);
 
     let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    let months = vec!["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let months = vec![
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
     let year = 1900 + date.tm_year;
 
     let time_str = format!(
@@ -117,7 +129,7 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
         let time_str_ptr = fmt_time(time, instance);
         copy_cstr_into_wasm(instance, time_str_ptr)
 
-        // let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
+        // let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }
@@ -125,7 +137,7 @@ pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
 
 /// emscripten: _asctime_r
 pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u32 {
-    debug!("emscripten::_asctime_r {}", time);
+    debug!("emscripten::_asctime_r {}, {}", time, buf);
 
     unsafe {
         // NOTE: asctime_r is specced to behave in an undefined manner if the algorithm would attempt
@@ -135,7 +147,7 @@ pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u3
         let time_str_ptr = fmt_time(time, instance);
         write_to_buf(time_str_ptr, buf, 26, instance)
 
-        // let c_str = instance.memory_offset_addr(0, time_str_offset as _) as *mut i8;
+        // let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }

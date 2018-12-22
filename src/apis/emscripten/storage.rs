@@ -1,9 +1,8 @@
-use crate::webassembly::LinearMemory;
+// use crate::webassembly::LinearMemory;
 
 pub fn align_memory(ptr: u32) -> u32 {
     (ptr + 15) & !15
 }
-
 
 // pub fn static_alloc(size: u32, static_top: &mut u32, memory: &LinearMemory) -> u32 {
 //     let old_static_top = *static_top;
