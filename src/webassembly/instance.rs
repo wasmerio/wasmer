@@ -30,7 +30,7 @@ use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
 use super::vm;
-use super::backing::{Backing, ImportsBacking};
+use super::backing::{LocalBacking, ImportsBacking};
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
 // TODO: this should be `type MemoriesSlice = UncheckedSlice<UncheckedSlice<u8>>;`, but that crashes for some reason.
@@ -96,13 +96,14 @@ pub enum InstanceABI {
 #[derive(Debug)]
 #[repr(C)]
 pub struct Instance {
+    pub vmctx: vm::Ctx,
     // C-like pointers to data (heaps, globals, tables)
     pub data_pointers: DataPointers,
 
     /// Webassembly functions
     finalized_funcs: Box<[*const vm::Func]>,
 
-    backing: Backing,
+    backing: LocalBacking,
 
     imports: ImportsBacking,
 
@@ -111,6 +112,14 @@ pub struct Instance {
     // Region start memory location
     // code_base: *const (),
     pub emscripten_data: Option<EmscriptenData>,
+}
+
+impl Instance {
+    /// Shortcut for converting from a `vm::Ctx` pointer to a reference to the `Instance`.
+    /// This works because of the `vm::Ctx` is the first field of the `Instance`.
+    pub unsafe fn from_vmctx<'a>(ctx: *mut vm::Ctx) -> &'a mut Instance {
+        &mut *(ctx as *mut Instance)
+    }
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed

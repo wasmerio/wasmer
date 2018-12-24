@@ -34,3 +34,4 @@ pub mod sighandler;
 mod spectests;
 pub mod update;
 pub mod webassembly;
+pub mod runtime;

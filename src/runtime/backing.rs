@@ -1,13 +1,20 @@
 use super::vm;
-use super::module::Module;
+use crate::module::Module;
 use super::table::{TableBacking, TableScheme};
 use super::memory::LinearMemory;
 use super::instance::{InstanceOptions, InstanceABI};
-use super::ImportObject;
-use cranelift_entity::EntityRef;
+use std::mem;
+
+use crate::runtime::{
+    vm,
+    module::Module,
+    table::TableBacking,
+    types::{Val, GlobalInit},
+};
+
 
 #[derive(Debug)]
-pub struct Backing {
+pub struct LocalBacking {
     memories: Box<[LinearMemory]>,
     tables: Box<[TableBacking]>,
 
@@ -16,47 +23,48 @@ pub struct Backing {
     vm_globals: Box<[vm::LocalGlobal]>,
 }
 
-impl Backing {
-    pub fn new(module: &Module, options: &InstanceOptions, imports: &ImportObject) -> Self {
-        let memories = Backing::generate_memories(module, options);
-        let tables = Backing::generate_tables(module, options);
+impl LocalBacking {
+    pub fn new(module: &Module, imports: &ImportBacking, options: &InstanceOptions) -> Self {
+        let mut memories = Self::generate_memories(module, options);
+        let mut tables = Self::generate_tables(module, options);
+        let globals = Self::generate_globals(module);
 
-        Backing {
+        Self {
             memories,
             tables,
 
-            vm_memories: Backing::finalize_memories(module, &memories, options),
-            vm_tables: Backing::finalize_tables(module, &tables, options, imports),
-            vm_globals: Backing::generate_globals(module),
+            vm_memories: Self::finalize_memories(module, &mut memories[..], options),
+            vm_tables: Self::finalize_tables(module, &mut tables[..], options),
+            vm_globals: Self::finalize_globals(module, imports, globals),
         }
     }
 
     fn generate_memories(module: &Module, options: &InstanceOptions) -> Box<[LinearMemory]> {
-        let memories = Vec::with_capacity(module.info.memories.len());
+        let mut memories = Vec::with_capacity(module.memories.len());
 
-        for mem in &module.info.memories {
-            let memory = mem.entity;
+        for (_, mem) in &module.memories {
             // If we use emscripten, we set a fixed initial and maximum
             debug!(
                 "Instance - init memory ({}, {:?})",
-                memory.minimum, memory.maximum
+                memory.min, memory.max
             );
-            let memory = if options.abi == InstanceABI::Emscripten {
-                // We use MAX_PAGES, so at the end the result is:
-                // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
-                // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
-                LinearMemory::new(LinearMemory::MAX_PAGES, None)
-            } else {
-                LinearMemory::new(memory.minimum, memory.maximum.map(|m| m as u32))
-            };
+            // let memory = if options.abi == InstanceABI::Emscripten {
+            //     // We use MAX_PAGES, so at the end the result is:
+            //     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
+            //     // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
+            //     LinearMemory::new(LinearMemory::MAX_PAGES, None)
+            // } else {
+            //     LinearMemory::new(memory.minimum, memory.maximum.map(|m| m as u32))
+            // };
+            let memory = LinearMemory::new(mem);
             memories.push(memory);
         }
 
         memories.into_boxed_slice()
     }
 
-    fn finalize_memories(module: &Module, memories: &[LinearMemory], options: &InstanceOptions) -> Box<[vm::LocalMemory]> {
-        for init in &module.info.data_initializers {
+    fn finalize_memories(module: &Module, memories: &mut [LinearMemory], options: &InstanceOptions) -> Box<[vm::LocalMemory]> {
+        for init in &module.data_initializers {
             debug_assert!(init.base.is_none(), "globalvar base not supported yet");
             let offset = init.offset;
             let mem: &mut LinearMemory = &mut memories[init.memory_index.index()];
@@ -76,33 +84,42 @@ impl Backing {
             debug!("emscripten::finish setup memory");
         }
 
-        memories.iter().map(|mem| mem.into_vm_memory()).collect::<Vec<_>>().into_boxed_slice()
+        memories.iter_mut().map(|mem| mem.into_vm_memory()).collect::<Vec<_>>().into_boxed_slice()
     }
 
     fn generate_tables(module: &Module, options: &InstanceOptions) -> Box<[TableBacking]> {
-        let mut tables = Vec::with_capacity(module.info.tables.len());
+        let mut tables = Vec::with_capacity(module.tables.len());
 
-        for table in &module.info.tables {
-             let scheme = TableScheme::from_table(table.entity);
-             let table_backing = TableBacking::new(&scheme);
-             tables.push(table_backing);
+        for table in &module.tables {
+            let table_backing = TableBacking::new(table);
+            tables.push(table_backing);
         }
 
         tables.into_boxed_slice()
     }
 
-    fn finalize_tables(module: &Module, tables: &[TableBacking], options: &InstanceOptions, imports: &ImportObject) -> Box<[vm::LocalTable]> {
+    fn finalize_tables(module: &Module, tables: &[TableBacking], options: &InstanceOptions) -> Box<[vm::LocalTable]> {
         tables.iter().map(|table| table.into_vm_table()).collect::<Vec<_>>().into_boxed_slice()
     }
 
     fn generate_globals(module: &Module) -> Box<[vm::LocalGlobal]> {
-        let mut globals = Vec::with_capacity(module.info.globals.len());
-
-        for global in module.info.globals.iter().map(|mem| mem.entity) {
-            
-        }
+        let mut globals = vec![vm::LocalGlobal::null(); module.globals.len()];
 
         globals.into_boxed_slice()
+    }
+
+    fn finalize_globals(module: &Module, imports: &ImportBacking, globals: Box<[vm::LocalGlobal]>) -> Box<[vm::LocalGlobal]> {
+        for (to, from) in globals.iter_mut().zip(module.globals.iter()) {
+            *to = match from.init {
+                GlobalInit::Val(Val::I32(x)) => x as u64,
+                GlobalInit::Val(Val::I64(x)) => x as u64,
+                GlobalInit::Val(Val::F32(x)) => x as u64,
+                GlobalInit::Val(Val::F64(x)) => x,
+                GlobalInit::GetGlobal(index) => unsafe { (*imports.globals[index.index()].global).data },
+            };
+        }
+
+        globals
     }
 
     // fn generate_tables(module: &Module, _options: &InstanceOptions) -> (Box<[TableBacking]>, Box<[vm::LocalTable]>) {
@@ -174,7 +191,7 @@ impl Backing {
 }
 
 #[derive(Debug)]
-pub struct ImportsBacking {
+pub struct ImportBacking {
     functions: Box<[vm::ImportedFunc]>,
     memories: Box<[vm::ImportedMemory]>,
     tables: Box<[vm::ImportedTable]>,

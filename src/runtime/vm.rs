@@ -1,40 +1,38 @@
 use std::{ptr, mem};
-use crate::common::slice::IndexedSlice;
-use cranelift_wasm::{
-    TableIndex, MemoryIndex, GlobalIndex, FuncIndex,
-    DefinedTableIndex, DefinedMemoryIndex, DefinedGlobalIndex,
+use crate::runtime::types::{
+    MemoryIndex, TableIndex, GlobalIndex, FuncIndex,
     SignatureIndex,
 };
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct VmCtx {
+pub struct Ctx<'a> {
     /// A pointer to an array of locally-defined memories, indexed by `DefinedMemoryIndex`.
-    pub(in crate::webassembly) memories: IndexedSlice<LocalMemory, DefinedMemoryIndex>,
+    pub memories: *mut LocalMemory,
 
     /// A pointer to an array of locally-defined tables, indexed by `DefinedTableIndex`.
-    pub(in crate::webassembly) tables: IndexedSlice<LocalTable, DefinedTableIndex>,
+    pub tables: *mut LocalTable,
 
     /// A pointer to an array of locally-defined globals, indexed by `DefinedGlobalIndex`.
-    pub(in crate::webassembly) globals: IndexedSlice<LocalGlobal, DefinedGlobalIndex>,
+    pub globals: *mut LocalGlobal,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-    pub(in crate::webassembly) imported_memories: IndexedSlice<ImportedMemory, MemoryIndex>,
+    pub imported_memories: *mut ImportedMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    pub(in crate::webassembly) imported_tables: IndexedSlice<ImportedTable, TableIndex>,
+    pub imported_tables: *mut ImportedTable,
 
     /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-    pub(in crate::webassembly) imported_globals: IndexedSlice<ImportedGlobal, GlobalIndex>,
+    pub imported_globals: *mut ImportedGlobal,
     
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
-    pub(in crate::webassembly) imported_funcs: IndexedSlice<ImportedFunc, FuncIndex>,
+    pub imported_funcs: *mut ImportedFunc,
 
     /// Signature identifiers for signature-checked indirect calls.
-    pub(in crate::webassembly) sig_ids: IndexedSlice<SigId, SignatureIndex>,
+    pub sig_ids: *mut SigId,
 }
 
-impl VmCtx {
+impl Ctx {
     pub fn new(
         memories: *mut LocalMemory,
         tables: *mut LocalTable,
@@ -46,14 +44,14 @@ impl VmCtx {
         sig_ids: *mut SigId,
     ) -> Self {
         Self {
-            memories: IndexedSlice::new(memories),
-            tables: IndexedSlice::new(tables),
-            globals: IndexedSlice::new(globals),
-            imported_memories: IndexedSlice::new(imported_memories),
-            imported_tables: IndexedSlice::new(imported_tables),
-            imported_globals: IndexedSlice::new(imported_globals),
-            imported_funcs: IndexedSlice::new(imported_funcs),
-            sig_ids: IndexedSlice::new(sig_ids),
+            memories,
+            tables,
+            globals,
+            imported_memories,
+            imported_tables,
+            imported_globals,
+            imported_funcs,
+            sig_ids,
         }
     }
 
@@ -100,7 +98,7 @@ pub enum Func {}
 #[repr(C)]
 pub struct ImportedFunc {
     pub func: *const Func,
-    pub vmctx: *mut VmCtx,
+    pub vmctx: *mut Ctx,
 }
 
 impl ImportedFunc {
@@ -139,7 +137,7 @@ pub struct ImportedTable {
     /// A pointer to the table definition.
     pub table: *mut LocalTable,
     /// A pointer to the vmcontext that owns this table definition.
-    pub vmctx: *mut VmCtx,
+    pub vmctx: *mut Ctx,
 }
 
 impl ImportedTable {
@@ -156,9 +154,9 @@ impl ImportedTable {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct LocalMemory {
-    /// Pointer to the bottom of linear memory.
+    /// Pointer to the bottom of this linear memory.
     pub base: *mut u8,
-    /// Current logical size of this linear memory in bytes.
+    /// Current size of this linear memory in bytes.
     pub size: usize,
 }
 
@@ -189,12 +187,18 @@ impl ImportedMemory {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct LocalGlobal {
-    pub data: [u8; 8],
+    pub data: u64,
 }
 
 impl LocalGlobal {
     pub fn offset_data() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn null() -> Self {
+        Self {
+            data: 0,
+        }
     }
 }
 
@@ -217,12 +221,12 @@ pub struct SigId(u32);
 /// Caller-checked anyfunc
 #[derive(Debug, Clone)]
 #[repr(C)]
-pub struct CCAnyfunc {
+pub struct Anyfunc {
     pub func_data: ImportedFunc,
     pub sig_id: SigId,
 }
 
-impl CCAnyfunc {
+impl Anyfunc {
     pub fn null() -> Self {
         Self {
             func_data: ImportedFunc {
@@ -249,7 +253,7 @@ impl CCAnyfunc {
 #[cfg(test)]
 mod vm_offset_tests {
     use super::{
-        VmCtx,
+        Ctx,
         ImportedFunc,
         LocalTable,
         ImportedTable,
@@ -257,49 +261,49 @@ mod vm_offset_tests {
         ImportedMemory,
         LocalGlobal,
         ImportedGlobal,
-        CCAnyfunc,
+        Anyfunc,
     };
 
     #[test]
     fn vmctx() {
         assert_eq!(
-            VmCtx::offset_memories() as usize,
-            offset_of!(VmCtx => memories).get_byte_offset(),
+            Ctx::offset_memories() as usize,
+            offset_of!(Ctx => memories).get_byte_offset(),
         );
 
         assert_eq!(
-            VmCtx::offset_tables() as usize,
-            offset_of!(VmCtx => tables).get_byte_offset(),
+            Ctx::offset_tables() as usize,
+            offset_of!(Ctx => tables).get_byte_offset(),
         );
 
         assert_eq!(
-            VmCtx::offset_globals() as usize,
-            offset_of!(VmCtx => globals).get_byte_offset(),
+            Ctx::offset_globals() as usize,
+            offset_of!(Ctx => globals).get_byte_offset(),
         );
 
         assert_eq!(
-            VmCtx::offset_imported_memories() as usize,
-            offset_of!(VmCtx => imported_memories).get_byte_offset(),
+            Ctx::offset_imported_memories() as usize,
+            offset_of!(Ctx => imported_memories).get_byte_offset(),
         );
 
         assert_eq!(
-            VmCtx::offset_imported_tables() as usize,
-            offset_of!(VmCtx => imported_tables).get_byte_offset(),
+            Ctx::offset_imported_tables() as usize,
+            offset_of!(Ctx => imported_tables).get_byte_offset(),
         );
 
         assert_eq!(
-            VmCtx::offset_imported_globals() as usize,
-            offset_of!(VmCtx => imported_globals).get_byte_offset(),
+            Ctx::offset_imported_globals() as usize,
+            offset_of!(Ctx => imported_globals).get_byte_offset(),
         );
 
         assert_eq!(
-            VmCtx::offset_imported_funcs() as usize,
-            offset_of!(VmCtx => imported_funcs).get_byte_offset(),
+            Ctx::offset_imported_funcs() as usize,
+            offset_of!(Ctx => imported_funcs).get_byte_offset(),
         );
 
         assert_eq!(
-            VmCtx::offset_sig_ids() as usize,
-            offset_of!(VmCtx => sig_ids).get_byte_offset(),
+            Ctx::offset_sig_ids() as usize,
+            offset_of!(Ctx => sig_ids).get_byte_offset(),
         );
     }
 
@@ -382,18 +386,18 @@ mod vm_offset_tests {
     #[test]
     fn cc_anyfunc() {
         assert_eq!(
-            CCAnyfunc::offset_func() as usize,
-            offset_of!(CCAnyfunc => func_data: ImportedFunc => func).get_byte_offset(),
+            Anyfunc::offset_func() as usize,
+            offset_of!(Anyfunc => func_data: ImportedFunc => func).get_byte_offset(),
         );
 
         assert_eq!(
-            CCAnyfunc::offset_vmctx() as usize,
-            offset_of!(CCAnyfunc => func_data: ImportedFunc => vmctx).get_byte_offset(),
+            Anyfunc::offset_vmctx() as usize,
+            offset_of!(Anyfunc => func_data: ImportedFunc => vmctx).get_byte_offset(),
         );
 
         assert_eq!(
-            CCAnyfunc::offset_sig_id() as usize,
-            offset_of!(CCAnyfunc => sig_id).get_byte_offset(),
+            Anyfunc::offset_sig_id() as usize,
+            offset_of!(Anyfunc => sig_id).get_byte_offset(),
         );
     }
 }
