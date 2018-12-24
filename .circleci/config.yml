@@ -118,6 +118,28 @@ jobs:
             - target/release/deps
           key: v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
+  test-rust-nightly:
+    docker:
+      - image: circleci/rust:latest
+
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run: sudo apt-get install -y cmake
+      - run: rustup default nightly
+      - run: make test
+      - run: rustup component add rustfmt
+      - run: make lint
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+
   publish-github-release:
     docker:
       - image: cibuilds/github
@@ -157,6 +179,10 @@ workflows:
             branches:
               only: master
       - test-and-build-macos:
+          filters:
+            branches:
+              only: master
+      - test-rust-nightly:
           filters:
             branches:
               only: master
