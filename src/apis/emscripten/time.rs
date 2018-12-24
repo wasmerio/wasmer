@@ -205,7 +205,7 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
         //        (*result_addr).tm_gmtoff = result_tm.tm_gmtoff as _;
         //        (*result_addr).tm_zone = copy_cstr_into_wasm(instance, result_tm.tm_zone) as _;
     }
-    0
+    result as _
 }
 
 /// emscripten: _time
