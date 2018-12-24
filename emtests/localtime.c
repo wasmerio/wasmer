@@ -10,9 +10,8 @@ int main (int argc, char *argv[]) {
     time( &rawtime );
 
     info = localtime( &rawtime );
-
-    printf("Almost!\n");
-    printf("Current local time and date: %s\n", asctime(info));
+//    printf("Almost!\n");
+//    printf("Current local time and date: %s\n", asctime(info));
     printf("Done!\n");
 
     return(0);
