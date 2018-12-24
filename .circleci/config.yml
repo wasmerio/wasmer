@@ -126,19 +126,17 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
       - run: sudo apt-get install -y cmake
       - run: rustup default nightly
       - run: make test
-      - run: rustup component add rustfmt
-      - run: make lint
       - save_cache:
           paths:
             - /usr/local/cargo/registry
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
 
   publish-github-release:
     docker:
