@@ -15,7 +15,7 @@ const TESTS: [&str; 4] = [
     "emtests/env.c",
     "emtests/puts.c",
     "emtests/printf.c",
-    "emtests/localtime.c"
+    "emtests/localtime.c",
 ];
 
 pub fn compile(file: &str) -> String {
