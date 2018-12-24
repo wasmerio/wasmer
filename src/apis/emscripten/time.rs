@@ -2,8 +2,8 @@ use super::utils::{copy_cstr_into_wasm, write_to_buf};
 use libc::{
     c_char, c_int,
 //    clock_gettime as libc_clock_gettime, localtime, localtime_r,
-    time,
- time_t,
+//    time,
+    time_t,
 //    timespec, tm,
 };
 use std::mem;
@@ -307,9 +307,13 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
 pub extern "C" fn _time(time_p: u32, instance: &mut Instance) -> time_t {
     debug!("emscripten::_time {}", time_p);
 
+    let now = SystemTime::now();
+    let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+
     unsafe {
         let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
-        time(time_p_addr)
+        *time_p_addr = since_epoch.as_secs() as _;
+        since_epoch.as_secs() as _
     }
 }
 
