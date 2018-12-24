@@ -199,6 +199,10 @@ pub struct Instance {
     // Region start memory location
     // code_base: *const (),
     pub emscripten_data: Option<EmscriptenData>,
+
+    // Workarounds to prevent use after free issue
+    memories_pointer: Vec<BoundedSlice<u8>>,
+    tables_pointer: Vec<BoundedSlice<usize>>,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
@@ -642,6 +646,8 @@ impl Instance {
             import_functions,
             start_func,
             emscripten_data: None,
+            memories_pointer,
+            tables_pointer,
         };
 
         if options.abi == InstanceABI::Emscripten {
