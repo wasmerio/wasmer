@@ -11,17 +11,13 @@ impl<T> UncheckedSlice<T> {
     #[inline]
     pub fn get_unchecked(&self, index: usize) -> &T {
         let ptr = self.ptr.as_ptr();
-        unsafe {
-            &*ptr.add(index)
-        }
+        unsafe { &*ptr.add(index) }
     }
 
     #[inline]
     pub fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         let ptr = self.ptr.as_ptr();
-        unsafe {
-            &mut *(ptr.add(index) as *mut _)
-        }
+        unsafe { &mut *(ptr.add(index) as *mut _) }
     }
 
     pub unsafe fn dangling() -> UncheckedSlice<T> {
