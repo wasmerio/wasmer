@@ -25,6 +25,17 @@ pub enum Val {
     F64(u64),
 }
 
+impl Val {
+    pub fn ty(&self) -> Type {
+        match self {
+            Val::I32(_) => Type::I32,
+            Val::I64(_) => Type::I64,
+            Val::F32(_) => Type::F32,
+            Val::F64(_) => Type::F64,
+        }
+    }
+}
+
 impl From<i32> for Val {
     fn from(n: i32) -> Self {
         Self::I32(n)
@@ -105,8 +116,8 @@ impl Memory {
 }
 
 /// A wasm func.
-#[derive(Debug)]
-pub struct Func {
+#[derive(Debug, PartialEq, Eq)]
+pub struct FuncSig {
     pub params: Vec<Type>,
     pub returns: Vec<Type>,
 }

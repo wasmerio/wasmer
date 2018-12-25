@@ -1,7 +1,7 @@
 use crate::runtime::types::{
     Map,
     FuncIndex, MemoryIndex, TableIndex, GlobalIndex,
-    Memory, Globals, GlobalDesc, Func, Table,
+    Memory, Globals, GlobalDesc, FuncSig, Table,
 };
 use crate::runtime::backend::FuncResolver;
 
@@ -13,7 +13,7 @@ pub struct Module {
     pub globals: Map<Global, GlobalIndex>,
     pub tables: Map<Table, TableIndex>,
     
-    pub imported_functions: Map<(ImportName, Func), FuncIndex>,
+    pub imported_functions: Map<ImportName, FuncIndex>,
     pub imported_memories: Map<(ImportName, Memory), MemoryIndex>,
     pub imported_tables: Map<(ImportName, Table), TableIndex>,
     pub imported_globals: Map<(ImportName, GlobalDesc), GlobalIndex>,
@@ -23,7 +23,7 @@ pub struct Module {
     pub data_initializers: Vec<DataInitializer>,
     pub start_func: FuncIndex,
 
-    pub signatures: Map<Func, FuncIndex>,
+    pub signatures: Map<FuncSig, FuncIndex>,
 }
 
 pub type ModuleName = Vec<u8>;

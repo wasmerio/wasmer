@@ -1,19 +1,22 @@
 use std::{ptr, mem};
-use crate::runtime::types::{
-    MemoryIndex, TableIndex, GlobalIndex, FuncIndex,
-    SignatureIndex,
+use crate::runtime::{
+    types::{
+        MemoryIndex, TableIndex, GlobalIndex, FuncIndex,
+        SignatureIndex,
+    },
+    backing::{LocalBacking, ImportBacking},
 };
 
 #[derive(Debug)]
 #[repr(C)]
 pub struct Ctx<'a> {
-    /// A pointer to an array of locally-defined memories, indexed by `DefinedMemoryIndex`.
+    /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
     pub memories: *mut LocalMemory,
 
-    /// A pointer to an array of locally-defined tables, indexed by `DefinedTableIndex`.
+    /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
     pub tables: *mut LocalTable,
 
-    /// A pointer to an array of locally-defined globals, indexed by `DefinedGlobalIndex`.
+    /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
     pub globals: *mut LocalGlobal,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
@@ -34,23 +37,19 @@ pub struct Ctx<'a> {
 
 impl Ctx {
     pub fn new(
-        memories: *mut LocalMemory,
-        tables: *mut LocalTable,
-        globals: *mut LocalGlobal,
-        imported_memories: *mut ImportedMemory,
-        imported_tables: *mut ImportedTable,
-        imported_globals: *mut ImportedGlobal,
-        imported_funcs: *mut ImportedFunc,
+        local_backing: &mut LocalBacking,
+        import_backing: &mut ImportBacking,
         sig_ids: *mut SigId,
     ) -> Self {
         Self {
-            memories,
-            tables,
-            globals,
-            imported_memories,
-            imported_tables,
-            imported_globals,
-            imported_funcs,
+            memories: local_backing.vm_memories.as_mut_ptr(),
+            tables: local_backing.vm_tables.as_mut_ptr(),
+            globals: local_backing.vm_globals.as_mut_ptr(),
+
+            imported_memories: import_backing.memories.as_mut_ptr(),
+            imported_tables: import_backing.tables.as_mut_ptr(),
+            imported_funcs: import_backing.functions.as_mut_ptr(),
+            
             sig_ids,
         }
     }
@@ -98,16 +97,11 @@ pub enum Func {}
 #[repr(C)]
 pub struct ImportedFunc {
     pub func: *const Func,
-    pub vmctx: *mut Ctx,
 }
 
 impl ImportedFunc {
     pub fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn offset_vmctx() -> u8 {
-        1 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -205,11 +199,11 @@ impl LocalGlobal {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedGlobal {
-    pub global: *mut LocalGlobal,
+    pub global: LocalGlobal,
 }
 
 impl ImportedGlobal {
-    pub fn offset_global() -> u8 {
+    pub fn offset_data() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 }
@@ -314,10 +308,10 @@ mod vm_offset_tests {
             offset_of!(ImportedFunc => func).get_byte_offset(),
         );
 
-        assert_eq!(
-            ImportedFunc::offset_vmctx() as usize,
-            offset_of!(ImportedFunc => vmctx).get_byte_offset(),
-        );
+        // assert_eq!(
+        //     ImportedFunc::offset_vmctx() as usize,
+        //     offset_of!(ImportedFunc => vmctx).get_byte_offset(),
+        // );
     }
 
     #[test]
@@ -378,8 +372,8 @@ mod vm_offset_tests {
     #[test]
     fn imported_global() {
         assert_eq!(
-            ImportedGlobal::offset_global() as usize,
-            offset_of!(ImportedGlobal => global).get_byte_offset(),
+            ImportedGlobal::offset_data() as usize,
+            offset_of!(ImportedGlobal => global: LocalGlobal => data).get_byte_offset(),
         );
     }
 

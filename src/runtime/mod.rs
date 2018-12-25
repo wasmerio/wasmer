@@ -1,9 +1,20 @@
 
 pub mod vm;
-pub mod backing;
-pub mod types;
-pub mod memory;
-pub mod backend;
-pub mod module;
-pub mod instance;
-pub mod table;
+mod backing;
+mod types;
+mod memory;
+mod backend;
+mod module;
+mod instance;
+mod table;
+mod sig_registry;
+
+pub use backend::Compiler;
+pub use instance::{Instance, Imports, Import};
+pub use module::{ModuleName, ItemName, Module};
+
+/// Compile a webassembly module using the provided compiler and linked with the provided imports.
+pub fn compile(compiler: &dyn Compiler, wasm: &[u8], imports: &Imports) -> Result<Box<Instance>, String> {
+    let module = compiler.compile(wasm)?;
+    Instance::new(module, imports)
+}

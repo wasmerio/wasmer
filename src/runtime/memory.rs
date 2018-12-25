@@ -239,8 +239,3 @@ impl DerefMut for LinearMemory {
         }
     }
 }
-
-fn round_up_to_page_size(size: usize) -> usize {
-    let page_size = region::page::size();
-    (size + (page_size - 1)) & !(page_size - 1)
-}
