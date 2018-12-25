@@ -20,6 +20,7 @@ use std::iter::FromIterator;
 use std::iter::Iterator;
 use std::mem::size_of;
 use std::ptr::write_unaligned;
+use std::sync::Arc;
 use std::{fmt, mem, slice};
 
 use super::super::common::slice::{BoundedSlice, UncheckedSlice};
@@ -29,8 +30,6 @@ use super::libcalls;
 use super::memory::LinearMemory;
 use super::module::{Export, ImportableExportable, Module};
 use super::relocation::{Reloc, RelocSink, RelocationType};
-use super::vm;
-use super::backing::{LocalBacking, ImportsBacking};
 
 type TablesSlice = UncheckedSlice<BoundedSlice<usize>>;
 // TODO: this should be `type MemoriesSlice = UncheckedSlice<UncheckedSlice<u8>>;`, but that crashes for some reason.
@@ -75,6 +74,81 @@ pub struct EmscriptenData {
     pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
 }
 
+impl EmscriptenData {
+    pub fn new(module: &Module, instance: &Instance) -> Self {
+        unsafe {
+            debug!("emscripten::new");
+            let malloc_export = module.info.exports.get("_malloc");
+            let free_export = module.info.exports.get("_free");
+            let memalign_export = module.info.exports.get("_memalign");
+            let memset_export = module.info.exports.get("_memset");
+            let stack_alloc_export = module.info.exports.get("stackAlloc");
+
+            let mut malloc_addr = 0 as *const u8;
+            let mut free_addr = 0 as *const u8;
+            let mut memalign_addr = 0 as *const u8;
+            let mut memset_addr = 0 as *const u8;
+            let mut stack_alloc_addr = 0 as _;
+
+            if let Some(Export::Function(malloc_index)) = malloc_export {
+                malloc_addr = instance.get_function_pointer(*malloc_index);
+            }
+
+            if let Some(Export::Function(free_index)) = free_export {
+                free_addr = instance.get_function_pointer(*free_index);
+            }
+
+            if let Some(Export::Function(memalign_index)) = memalign_export {
+                memalign_addr = instance.get_function_pointer(*memalign_index);
+            }
+
+            if let Some(Export::Function(memset_index)) = memset_export {
+                memset_addr = instance.get_function_pointer(*memset_index);
+            }
+
+            if let Some(Export::Function(stack_alloc_index)) = stack_alloc_export {
+                stack_alloc_addr = instance.get_function_pointer(*stack_alloc_index);
+            }
+
+            EmscriptenData {
+                malloc: mem::transmute(malloc_addr),
+                free: mem::transmute(free_addr),
+                memalign: mem::transmute(memalign_addr),
+                memset: mem::transmute(memset_addr),
+                stack_alloc: mem::transmute(stack_alloc_addr),
+            }
+        }
+    }
+
+    // Emscripten __ATINIT__
+    pub fn atinit(&self, module: &Module, instance: &Instance) -> Result<(), String> {
+        debug!("emscripten::atinit");
+        if let Some(&Export::Function(environ_constructor_index)) =
+            module.info.exports.get("___emscripten_environ_constructor")
+        {
+            debug!("emscripten::___emscripten_environ_constructor");
+            let ___emscripten_environ_constructor: extern "C" fn(&Instance) =
+                get_instance_function!(instance, environ_constructor_index);
+            call_protected!(___emscripten_environ_constructor(&instance))
+                .map_err(|err| format!("{}", err))?;
+        };
+        // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
+        Ok(())
+    }
+
+    // Emscripten __ATEXIT__
+    pub fn atexit(&self, _module: &Module, _instance: &Instance) -> Result<(), String> {
+        debug!("emscripten::atexit");
+        use libc::fflush;
+        use std::ptr;
+        // Flush all open streams
+        unsafe {
+            fflush(ptr::null_mut());
+        };
+        Ok(())
+    }
+}
+
 impl fmt::Debug for EmscriptenData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("EmscriptenData")
@@ -96,30 +170,31 @@ pub enum InstanceABI {
 #[derive(Debug)]
 #[repr(C)]
 pub struct Instance {
-    pub vmctx: vm::Ctx,
     // C-like pointers to data (heaps, globals, tables)
     pub data_pointers: DataPointers,
 
+    /// WebAssembly table data
+    // pub tables: Arc<Vec<RwLock<Vec<usize>>>>,
+    pub tables: Arc<Vec<Vec<usize>>>,
+
+    /// WebAssembly linear memory data
+    pub memories: Arc<Vec<LinearMemory>>,
+
+    /// WebAssembly global variable data
+    pub globals: Vec<u8>,
+
     /// Webassembly functions
-    finalized_funcs: Box<[*const vm::Func]>,
+    // functions: Vec<usize>,
+    functions: Vec<Vec<u8>>,
 
-    backing: LocalBacking,
-
-    imports: ImportsBacking,
+    /// Imported functions
+    import_functions: Vec<*const u8>,
 
     /// The module start function
     pub start_func: Option<FuncIndex>,
     // Region start memory location
     // code_base: *const (),
     pub emscripten_data: Option<EmscriptenData>,
-}
-
-impl Instance {
-    /// Shortcut for converting from a `vm::Ctx` pointer to a reference to the `Instance`.
-    /// This works because of the `vm::Ctx` is the first field of the `Instance`.
-    pub unsafe fn from_vmctx<'a>(ctx: *mut vm::Ctx) -> &'a mut Instance {
-        &mut *(ctx as *mut Instance)
-    }
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
@@ -421,13 +496,114 @@ impl Instance {
         debug!("Instance - Instantiating tables");
         // Instantiate tables
         {
-            
+            // Reserve space for tables
+            tables.reserve_exact(module.info.tables.len());
+
+            // Get tables in module
+            for table in &module.info.tables {
+                let table: Vec<usize> = match table.import_name.as_ref() {
+                    Some((module_name, field_name)) => {
+                        let imported =
+                            import_object.get(&module_name.as_str(), &field_name.as_str());
+                        match imported {
+                            Some(ImportValue::Table(t)) => t.to_vec(),
+                            None => {
+                                if options.mock_missing_tables {
+                                    debug!(
+                                        "The Imported table {}.{} is not provided, therefore will be mocked.",
+                                        module_name, field_name
+                                    );
+                                    let len = table.entity.minimum as usize;
+                                    let mut v = Vec::with_capacity(len);
+                                    v.resize(len, 0);
+                                    v
+                                } else {
+                                    panic!(
+                                        "Imported table value was not provided ({}.{})",
+                                        module_name, field_name
+                                    )
+                                }
+                            }
+                            _ => panic!(
+                                "Expected global table, but received {:?} ({}.{})",
+                                imported, module_name, field_name
+                            ),
+                        }
+                    }
+                    None => {
+                        let len = table.entity.minimum as usize;
+                        let mut v = Vec::with_capacity(len);
+                        v.resize(len, 0);
+                        v
+                    }
+                };
+                tables.push(table);
+            }
+
+            // instantiate tables
+            for table_element in &module.info.table_elements {
+                let base = match table_element.base {
+                    Some(global_index) => globals_data[global_index.index()] as usize,
+                    None => 0,
+                };
+
+                let table = &mut tables[table_element.table_index.index()];
+                for (i, func_index) in table_element.elements.iter().enumerate() {
+                    // since the table just contains functions in the MVP
+                    // we get the address of the specified function indexes
+                    // to populate the table.
+
+                    // let func_index = *elem_index - module.info.imported_funcs.len() as u32;
+                    // let func_addr = functions[func_index.index()].as_ptr();
+                    let func_addr = get_function_addr(&func_index, &import_functions, &functions);
+                    table[base + table_element.offset + i] = func_addr as _;
+                }
+            }
         }
 
         debug!("Instance - Instantiating memories");
         // Instantiate memories
         {
-            
+            // Reserve space for memories
+            memories.reserve_exact(module.info.memories.len());
+
+            // Get memories in module
+            for memory in &module.info.memories {
+                let memory = memory.entity;
+                // If we use emscripten, we set a fixed initial and maximum
+                debug!(
+                    "Instance - init memory ({}, {:?})",
+                    memory.minimum, memory.maximum
+                );
+                let memory = if options.abi == InstanceABI::Emscripten {
+                    // We use MAX_PAGES, so at the end the result is:
+                    // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
+                    // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
+                    LinearMemory::new(LinearMemory::MAX_PAGES, None)
+                } else {
+                    LinearMemory::new(memory.minimum, memory.maximum.map(|m| m as u32))
+                };
+                memories.push(memory);
+            }
+
+            for init in &module.info.data_initializers {
+                debug_assert!(init.base.is_none(), "globalvar base not supported yet");
+                let offset = init.offset;
+                let mem = &mut memories[init.memory_index.index()];
+                let end_of_init = offset + init.data.len();
+                if end_of_init > mem.current_size() {
+                    let grow_pages = (end_of_init / LinearMemory::PAGE_SIZE as usize) + 1;
+                    mem.grow(grow_pages as u32)
+                        .expect("failed to grow memory for data initializers");
+                }
+                let to_init = &mut mem[offset..offset + init.data.len()];
+                to_init.copy_from_slice(&init.data);
+            }
+            if options.abi == InstanceABI::Emscripten {
+                debug!("emscripten::setup memory");
+                crate::apis::emscripten::emscripten_set_up_memory(&mut memories[0]);
+                debug!("emscripten::finish setup memory");
+            }
         }
 
         let start_func: Option<FuncIndex> =
@@ -453,81 +629,35 @@ impl Instance {
             tables: tables_pointer[..].into(),
         };
 
-        let emscripten_data = if options.abi == InstanceABI::Emscripten {
-            unsafe {
-                debug!("emscripten::initiating data");
-                let malloc_export = module.info.exports.get("_malloc");
-                let free_export = module.info.exports.get("_free");
-                let memalign_export = module.info.exports.get("_memalign");
-                let memset_export = module.info.exports.get("_memset");
-                let stack_alloc_export = module.info.exports.get("stackAlloc");
-
-                let mut malloc_addr = 0 as *const u8;
-                let mut free_addr = 0 as *const u8;
-                let mut memalign_addr = 0 as *const u8;
-                let mut memset_addr = 0 as *const u8;
-                let mut stack_alloc_addr = 0 as _;
-
-                if malloc_export.is_none()
-                    && free_export.is_none()
-                    && memalign_export.is_none()
-                    && memset_export.is_none()
-                {
-                    None
-                } else {
-                    if let Some(Export::Function(malloc_index)) = malloc_export {
-                        malloc_addr =
-                            get_function_addr(&malloc_index, &import_functions, &functions);
-                    }
-
-                    if let Some(Export::Function(free_index)) = free_export {
-                        free_addr = get_function_addr(&free_index, &import_functions, &functions);
-                    }
-
-                    if let Some(Export::Function(memalign_index)) = memalign_export {
-                        memalign_addr =
-                            get_function_addr(&memalign_index, &import_functions, &functions);
-                    }
-
-                    if let Some(Export::Function(memset_index)) = memset_export {
-                        memset_addr =
-                            get_function_addr(&memset_index, &import_functions, &functions);
-                    }
-
-                    if let Some(Export::Function(stack_alloc_index)) = stack_alloc_export {
-                        stack_alloc_addr =
-                            get_function_addr(&stack_alloc_index, &import_functions, &functions);
-                    }
-
-                    Some(EmscriptenData {
-                        malloc: mem::transmute(malloc_addr),
-                        free: mem::transmute(free_addr),
-                        memalign: mem::transmute(memalign_addr),
-                        memset: mem::transmute(memset_addr),
-                        stack_alloc: mem::transmute(stack_alloc_addr),
-                    })
-                }
-            }
-        } else {
-            None
-        };
-
-        Ok(Instance {
+        let mut instance = Instance {
             data_pointers,
-            tables: tables.into_iter().collect(),
-            memories: memories.into_iter().collect(),
+            tables: Arc::new(tables.into_iter().collect()), // tables.into_iter().map(|table| RwLock::new(table)).collect()),
+            memories: Arc::new(memories.into_iter().collect()),
             globals,
             functions,
             import_functions,
             start_func,
-            emscripten_data,
-        })
+            emscripten_data: None,
+        };
+
+        if options.abi == InstanceABI::Emscripten {
+            instance.emscripten_data = Some(EmscriptenData::new(module, &instance));
+        }
+
+        Ok(instance)
     }
 
     pub fn memory_mut(&mut self, memory_index: usize) -> &mut LinearMemory {
-        self.memories
+        let memories = Arc::get_mut(&mut self.memories).unwrap_or_else(|| {
+            panic!("Can't get memories as a mutable pointer (there might exist more mutable pointers to the memories)")
+        });
+        memories
             .get_mut(memory_index)
             .unwrap_or_else(|| panic!("no memory for index {}", memory_index))
+    }
+
+    pub fn memories(&self) -> Arc<Vec<LinearMemory>> {
+        self.memories.clone()
     }
 
     pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {

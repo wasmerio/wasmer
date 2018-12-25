@@ -6,15 +6,15 @@ pub mod memory;
 pub mod module;
 pub mod relocation;
 pub mod utils;
-pub mod vm;
-pub mod table;
-pub mod backing;
+pub mod vmcontext;
+pub mod vmoffsets;
 
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
 };
 use cranelift_wasm::ModuleEnvironment;
+use std::io::{self, Write};
 use std::panic;
 use std::str::FromStr;
 use target_lexicon;
@@ -154,7 +154,7 @@ pub fn get_isa() -> Box<isa::TargetIsa> {
     isa::lookup(triple!("x86_64")).unwrap().finish(flags)
 }
 
-fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) -> (u32, u32) {
+fn store_module_arguments(path: &str, args: Vec<&str>, instance: &Instance) -> (u32, u32) {
     let argc = args.len() + 1;
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
@@ -212,19 +212,9 @@ pub fn start_instance(
     path: &str,
     args: Vec<&str>,
 ) -> Result<(), String> {
-    if is_emscripten_module(&module) {
-        // Emscripten __ATINIT__
-        if let Some(&Export::Function(environ_constructor_index)) =
-            module.info.exports.get("___emscripten_environ_constructor")
-        {
-            debug!("emscripten::___emscripten_environ_constructor");
-            let ___emscripten_environ_constructor: extern "C" fn(&Instance) =
-                get_instance_function!(instance, environ_constructor_index);
-            call_protected!(___emscripten_environ_constructor(&instance))
-                .map_err(|err| format!("{}", err))?;
-        };
+    if let Some(ref emscripten_data) = &instance.emscripten_data {
+        emscripten_data.atinit(module, instance)?;
 
-        // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
         let func_index = match module.info.exports.get("_main") {
             Some(&Export::Function(index)) => index,
             _ => panic!("_main emscripten function not found"),
@@ -233,7 +223,7 @@ pub fn start_instance(
         let sig_index = module.get_func_type(func_index);
         let signature = module.get_signature(sig_index);
         let num_params = signature.params.len();
-        match num_params {
+        let result = match num_params {
             2 => {
                 let main: extern "C" fn(u32, u32, &Instance) =
                     get_instance_function!(instance, func_index);
@@ -249,8 +239,11 @@ pub fn start_instance(
                 num_params
             ),
         }
-        .map_err(|err| format!("{}", err))
-    // TODO: We should implement emscripten __ATEXIT__
+        .map_err(|err| format!("{}", err));
+
+        emscripten_data.atexit(module, instance)?;
+
+        result
     } else {
         let func_index =
             instance

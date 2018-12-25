@@ -6,7 +6,7 @@ use std::string::String;
 use std::vec::Vec;
 
 use cranelift_codegen::cursor::FuncCursor;
-use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
+use cranelift_codegen::ir::immediates::{Imm64, Offset32, Uimm64};
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
     self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature,
@@ -199,7 +199,7 @@ pub struct DataInitializer {
 #[derive(Clone, Debug)]
 pub enum TableElement {
     /// A element that, if called, produces a trap.
-    Trap,
+    Trap(),
     /// A function.
     Function(FuncIndex),
 }
