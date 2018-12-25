@@ -2,11 +2,10 @@ use crate::runtime::{
     vm,
     module::Module,
     table::TableBacking,
-    types::{Val, GlobalInit},
+    types::{Val, GlobalInit, MapIndex},
     memory::LinearMemory,
     instance::{Imports, Import},
 };
-use std::{ptr, mem};
 
 
 #[derive(Debug)]
@@ -14,9 +13,9 @@ pub struct LocalBacking {
     memories: Box<[LinearMemory]>,
     tables: Box<[TableBacking]>,
 
-    vm_memories: Box<[vm::LocalMemory]>,
-    vm_tables: Box<[vm::LocalTable]>,
-    vm_globals: Box<[vm::LocalGlobal]>,
+    pub vm_memories: Box<[vm::LocalMemory]>,
+    pub vm_tables: Box<[vm::LocalTable]>,
+    pub vm_globals: Box<[vm::LocalGlobal]>,
 }
 
 impl LocalBacking {
@@ -29,8 +28,8 @@ impl LocalBacking {
             memories,
             tables,
 
-            vm_memories: Self::finalize_memories(module, &mut memories[..], options),
-            vm_tables: Self::finalize_tables(module, &mut tables[..], options),
+            vm_memories: Self::finalize_memories(module, &mut memories[..]),
+            vm_tables: Self::finalize_tables(module, &mut tables[..]),
             vm_globals: Self::finalize_globals(module, imports, globals),
         }
     }
@@ -42,7 +41,7 @@ impl LocalBacking {
             // If we use emscripten, we set a fixed initial and maximum
             debug!(
                 "Instance - init memory ({}, {:?})",
-                memory.min, memory.max
+                mem.min, mem.max
             );
             // let memory = if options.abi == InstanceABI::Emscripten {
             //     // We use MAX_PAGES, so at the end the result is:
@@ -80,7 +79,7 @@ impl LocalBacking {
     fn generate_tables(module: &Module) -> Box<[TableBacking]> {
         let mut tables = Vec::with_capacity(module.tables.len());
 
-        for table in &module.tables {
+        for (_, table) in &module.tables {
             let table_backing = TableBacking::new(table);
             tables.push(table_backing);
         }
@@ -99,13 +98,13 @@ impl LocalBacking {
     }
 
     fn finalize_globals(module: &Module, imports: &ImportBacking, globals: Box<[vm::LocalGlobal]>) -> Box<[vm::LocalGlobal]> {
-        for (to, from) in globals.iter_mut().zip(module.globals.iter()) {
-            *to = match from.init {
+        for (to, (_, from)) in globals.iter_mut().zip(module.globals.into_iter()) {
+            to.data = match from.init {
                 GlobalInit::Val(Val::I32(x)) => x as u64,
                 GlobalInit::Val(Val::I64(x)) => x as u64,
                 GlobalInit::Val(Val::F32(x)) => x as u64,
                 GlobalInit::Val(Val::F64(x)) => x,
-                GlobalInit::GetGlobal(index) => unsafe { (*imports.globals[index.index()].global).data },
+                GlobalInit::GetGlobal(index) => unsafe { (imports.globals[index.index()].global).data },
             };
         }
 
@@ -182,10 +181,10 @@ impl LocalBacking {
 
 #[derive(Debug)]
 pub struct ImportBacking {
-    functions: Box<[vm::ImportedFunc]>,
-    memories: Box<[vm::ImportedMemory]>,
-    tables: Box<[vm::ImportedTable]>,
-    globals: Box<[vm::ImportedGlobal]>,
+    pub functions: Box<[vm::ImportedFunc]>,
+    pub memories: Box<[vm::ImportedMemory]>,
+    pub tables: Box<[vm::ImportedTable]>,
+    pub globals: Box<[vm::ImportedGlobal]>,
 }
 
 impl ImportBacking {
@@ -195,42 +194,43 @@ impl ImportBacking {
 
         let mut functions = Vec::with_capacity(module.imported_functions.len());
         for (index, (mod_name, item_name)) in &module.imported_functions {
-            let expected_sig = module.signatures[index];
+            let expected_sig_index = module.signature_assoc[index];
+            let expected_sig = module.signatures[expected_sig_index];
             let import = imports.get(mod_name, item_name);
-            if let Import::Func(func, signature) = import {
-                if expected_sig == signature {
+            if let Some(Import::Func(func, signature)) = import {
+                if &expected_sig == signature {
                     functions.push(vm::ImportedFunc {
-                        func,
-                        vmctx: ptr::null_mut(),
+                        func: *func,
+                        // vmctx: ptr::null_mut(),
                     });
                 } else {
-                    return Err(format!("unexpected signature for {}:{}", mod_name, item_name));
+                    return Err(format!("unexpected signature for {:?}:{:?}", mod_name, item_name));
                 }
             } else {
-                return Err(format!("incorrect type for {}:{}", mod_name, item_name));
+                return Err(format!("incorrect type for {:?}:{:?}", mod_name, item_name));
             }
         }
 
         let mut globals = Vec::with_capacity(module.imported_globals.len());
         for (_, ((mod_name, item_name), global_desc)) in &module.imported_globals {
             let import = imports.get(mod_name, item_name);
-            if let Import::Global(val) = import {
+            if let Some(Import::Global(val)) = import {
                 if val.ty() == global_desc.ty {
                     globals.push(vm::ImportedGlobal {
                         global: vm::LocalGlobal {
                             data: match val {
-                                Val::I32(n) => n as u64,
-                                Val::I64(n) => n as u64,
-                                Val::F32(n) => n as u64,
-                                Val::F64(n) => n,
+                                Val::I32(n) => *n as u64,
+                                Val::I64(n) => *n as u64,
+                                Val::F32(n) => *n as u64,
+                                Val::F64(n) => *n,
                             },
                         },
                     });
                 } else {
-                    return Err(format!("unexpected global type for {}:{}", mod_name, item_name));
+                    return Err(format!("unexpected global type for {:?}:{:?}", mod_name, item_name));
                 }
             } else {
-                return Err(format!("incorrect type for {}:{}", mod_name, item_name));
+                return Err(format!("incorrect type for {:?}:{:?}", mod_name, item_name));
             }
         }
 

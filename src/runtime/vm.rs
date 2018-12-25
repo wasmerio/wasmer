@@ -1,15 +1,16 @@
 use std::{ptr, mem};
 use crate::runtime::{
-    types::{
-        MemoryIndex, TableIndex, GlobalIndex, FuncIndex,
-        SignatureIndex,
-    },
+    // types::{
+    //     MemoryIndex, TableIndex, GlobalIndex, FuncIndex,
+    //     SigIndex,
+    // },
     backing::{LocalBacking, ImportBacking},
+    sig_registry::SigRegistry,
 };
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct Ctx<'a> {
+pub struct Ctx {
     /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
     pub memories: *mut LocalMemory,
 
@@ -32,14 +33,14 @@ pub struct Ctx<'a> {
     pub imported_funcs: *mut ImportedFunc,
 
     /// Signature identifiers for signature-checked indirect calls.
-    pub sig_ids: *mut SigId,
+    pub signatures: *const SigId,
 }
 
 impl Ctx {
     pub fn new(
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
-        sig_ids: *mut SigId,
+        sig_registry: &SigRegistry,
     ) -> Self {
         Self {
             memories: local_backing.vm_memories.as_mut_ptr(),
@@ -48,9 +49,10 @@ impl Ctx {
 
             imported_memories: import_backing.memories.as_mut_ptr(),
             imported_tables: import_backing.tables.as_mut_ptr(),
+            imported_globals: import_backing.globals.as_mut_ptr(),
             imported_funcs: import_backing.functions.as_mut_ptr(),
-            
-            sig_ids,
+
+            signatures: sig_registry.into_vm_signatures(),
         }
     }
 
@@ -82,7 +84,7 @@ impl Ctx {
         6 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_sig_ids() -> u8 {
+    pub fn offset_signatures() -> u8 {
         7 * (mem::size_of::<usize>() as u8)
     }
 }
@@ -210,7 +212,7 @@ impl ImportedGlobal {
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-pub struct SigId(u32);
+pub struct SigId(pub u32);
 
 /// Caller-checked anyfunc
 #[derive(Debug, Clone)]
@@ -225,7 +227,6 @@ impl Anyfunc {
         Self {
             func_data: ImportedFunc {
                 func: ptr::null(),
-                vmctx: ptr::null_mut(),
             },
             sig_id: SigId(u32::max_value()),
         }
@@ -235,9 +236,9 @@ impl Anyfunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_vmctx() -> u8 {
-        1 * (mem::size_of::<usize>() as u8)
-    }
+    // pub fn offset_vmctx() -> u8 {
+    //     1 * (mem::size_of::<usize>() as u8)
+    // }
 
     pub fn offset_sig_id() -> u8 {
         2 * (mem::size_of::<usize>() as u8)
@@ -296,8 +297,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            Ctx::offset_sig_ids() as usize,
-            offset_of!(Ctx => sig_ids).get_byte_offset(),
+            Ctx::offset_signatures() as usize,
+            offset_of!(Ctx => signatures).get_byte_offset(),
         );
     }
 
@@ -384,10 +385,10 @@ mod vm_offset_tests {
             offset_of!(Anyfunc => func_data: ImportedFunc => func).get_byte_offset(),
         );
 
-        assert_eq!(
-            Anyfunc::offset_vmctx() as usize,
-            offset_of!(Anyfunc => func_data: ImportedFunc => vmctx).get_byte_offset(),
-        );
+        // assert_eq!(
+        //     Anyfunc::offset_vmctx() as usize,
+        //     offset_of!(Anyfunc => func_data: ImportedFunc => vmctx).get_byte_offset(),
+        // );
 
         assert_eq!(
             Anyfunc::offset_sig_id() as usize,

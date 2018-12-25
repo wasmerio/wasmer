@@ -1,7 +1,7 @@
 use super::vm;
 use crate::runtime::types::{ElementType, Table};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 enum TableElements {
     /// This is intended to be a caller-checked Anyfunc.
     Anyfunc(Box<[vm::Anyfunc]>),
@@ -18,7 +18,7 @@ impl TableBacking {
         match table.ty {
             ElementType::Anyfunc => {
                 Self {
-                    elements: TableElements::Anyfunc(vec![vm::Anyfunc::null(); table.min].into_boxed_slice()),
+                    elements: TableElements::Anyfunc(vec![vm::Anyfunc::null(); table.min as usize].into_boxed_slice()),
                     max: table.max,
                 }
             }

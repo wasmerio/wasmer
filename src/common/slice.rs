@@ -1,7 +1,5 @@
 use std::ops::{Index, IndexMut};
 use std::ptr::NonNull;
-use std::marker::PhantomData;
-use crate::runtime::types::MapIndex;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
@@ -104,42 +102,5 @@ impl<'a, T> From<&'a [T]> for BoundedSlice<T> {
             data: slice.into(),
             len: slice.len(),
         }
-    }
-}
-
-#[derive(Debug)]
-#[repr(transparent)]
-pub struct IndexedSlice<'a, T, I> {
-    ptr: NonNull<T>,
-    _phantom: PhantomData<I>,
-}
-
-impl<'a, T: 'a, I> IndexedSlice<T, I>
-where
-    I: MapIndex,
-{
-    pub(crate) fn new(ptr: *mut T) -> Self {
-        Self {
-            ptr: NonNull::new(ptr).unwrap(),
-            _phantom: PhantomData,
-        }
-    }
-
-    pub unsafe fn get(&self, index: I) -> &T {
-        let ptr = self.as_ptr();
-        &*ptr.add(index.index())
-    }
-
-    pub unsafe fn get_mut(&mut self, index: I) -> &mut T {
-        let ptr = self.as_mut_ptr();
-        &mut *ptr.add(index.index())
-    }
-
-    pub fn as_ptr(&self) -> *const T {
-        self.ptr.as_ptr()
-    }
-
-    pub fn as_mut_ptr(&mut self) -> *mut T {
-        self.ptr.as_ptr()
     }
 }

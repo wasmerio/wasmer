@@ -1,12 +1,11 @@
 use crate::runtime::types::{
     Map,
-    FuncIndex, MemoryIndex, TableIndex, GlobalIndex,
-    Memory, Globals, GlobalDesc, FuncSig, Table,
+    FuncIndex, MemoryIndex, TableIndex, GlobalIndex, SigIndex,
+    Memory, Global, GlobalDesc, FuncSig, Table,
 };
 use crate::runtime::backend::FuncResolver;
 
 /// This is used to instantiate a new webassembly module.
-#[derive(Debug)]
 pub struct Module {
     pub functions: Box<dyn FuncResolver>,
     pub memories: Map<Memory, MemoryIndex>,
@@ -23,7 +22,8 @@ pub struct Module {
     pub data_initializers: Vec<DataInitializer>,
     pub start_func: FuncIndex,
 
-    pub signatures: Map<FuncSig, FuncIndex>,
+    pub signature_assoc: Map<SigIndex, FuncIndex>,
+    pub signatures: Map<FuncSig, SigIndex>,
 }
 
 pub type ModuleName = Vec<u8>;

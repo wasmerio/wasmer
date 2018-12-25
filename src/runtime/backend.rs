@@ -1,5 +1,4 @@
-use crate::runtime::module::Module;
-use crate::runtime::types::FuncIndex;
+
 use crate::runtime::{
     vm,
     module::Module,
@@ -12,5 +11,5 @@ pub trait Compiler {
 }
 
 pub trait FuncResolver {
-    pub fn resolve(&self, index: FuncIndex) -> Option<*const vm::Func>;
+    fn resolve(&self, index: FuncIndex) -> Option<*const vm::Func>;
 }

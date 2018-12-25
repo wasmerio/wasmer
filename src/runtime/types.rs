@@ -1,7 +1,10 @@
 use std::marker::PhantomData;
-use std::{slice, iter};
+use std::{
+    slice, iter,
+    ops::{Index, IndexMut},
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     /// The `i32` type.
     I32,
@@ -38,25 +41,25 @@ impl Val {
 
 impl From<i32> for Val {
     fn from(n: i32) -> Self {
-        Self::I32(n)
+        Val::I32(n)
     }
 }
 
 impl From<i64> for Val {
     fn from(n: i64) -> Self {
-        Self::I64(n)
+        Val::I64(n)
     }
 }
 
 impl From<f32> for Val {
     fn from(n: f32) -> Self {
-        Self::F32(n.to_bits())
+        Val::F32(n.to_bits())
     }
 }
 
 impl From<f64> for Val {
     fn from(n: f64) -> Self {
-        Self::I64(n.to_bits())
+        Val::F64(n.to_bits())
     }
 }
 
@@ -116,7 +119,7 @@ impl Memory {
 }
 
 /// A wasm func.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct FuncSig {
     pub params: Vec<Type>,
     pub returns: Vec<Type>,
@@ -137,7 +140,10 @@ where
     _marker: PhantomData<I>,
 }
 
-impl Map {
+impl<T, I> Map<T, I>
+where
+    I: MapIndex,
+{
     pub fn new() -> Self {
         Self {
             elems: Vec::new(),
@@ -164,6 +170,10 @@ impl Map {
         let len = self.len();
         self.elems.push(value);
         I::new(len)
+    }
+
+    pub fn as_ptr(&self) -> *const T {
+        self.elems.as_ptr()
     }
 }
 
@@ -206,13 +216,13 @@ where
     type IntoIter = IterMut<'a, T, I>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.elems.iter_mut())
+        IterMut::new(self.elems.iter_mut())
     }
 }
 
 pub struct Iter<'a, T: 'a, I: MapIndex> {
-    enumerated: iter::Enumerate<slice::Iter<'A, T>>,
-    _marker: PhantomData,
+    enumerated: iter::Enumerate<slice::Iter<'a, T>>,
+    _marker: PhantomData<I>,
 }
 
 impl<'a, T: 'a, I: MapIndex> Iter<'a, T, I> {
@@ -227,18 +237,18 @@ impl<'a, T: 'a, I: MapIndex> Iter<'a, T, I> {
 impl<'a, T: 'a, I: MapIndex> Iterator for Iter<'a, T, I> {
     type Item = (I, &'a T);
 
-    fn next(&mut self) -> Self::Item {
-        self.enumerated.next().map(|i, v| (I::new(i), v))
+    fn next(&mut self) -> Option<Self::Item> {
+        self.enumerated.next().map(|(i, v)| (I::new(i), v))
     }
 }
 
 pub struct IterMut<'a, T: 'a, I: MapIndex> {
-    enumerated: iter::Enumerate<slice::Iter<'A, T>>,
-    _marker: PhantomData,
+    enumerated: iter::Enumerate<slice::IterMut<'a, T>>,
+    _marker: PhantomData<I>,
 }
 
 impl<'a, T: 'a, I: MapIndex> IterMut<'a, T, I> {
-    fn new(iter: slice::Iter<'a, T>) -> Self {
+    fn new(iter: slice::IterMut<'a, T>) -> Self {
         Self {
             enumerated: iter.enumerate(),
             _marker: PhantomData,
@@ -249,8 +259,8 @@ impl<'a, T: 'a, I: MapIndex> IterMut<'a, T, I> {
 impl<'a, T: 'a, I: MapIndex> Iterator for IterMut<'a, T, I> {
     type Item = (I, &'a mut T);
 
-    fn next(&mut self) -> Self::Item {
-        self.enumerated.next().map(|i, v| (I::new(i), v))
+    fn next(&mut self) -> Option<Self::Item> {
+        self.enumerated.next().map(|(i, v)| (I::new(i), v))
     }
 }
 
@@ -268,7 +278,7 @@ macro_rules! define_map_index {
             }
         }
     };
-    ($($ty:ident),*) => {
+    ($($ty:ident,)*) => {
         $(
             define_map_index!($ty);
         )*
@@ -277,5 +287,5 @@ macro_rules! define_map_index {
 
 define_map_index![
     FuncIndex, MemoryIndex, GlobalIndex, TableIndex,
-    SignatureIndex,
+    SigIndex,
 ];

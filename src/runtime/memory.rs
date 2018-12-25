@@ -10,7 +10,7 @@ use std::slice;
 use crate::common::mmap::Mmap;
 use crate::runtime::{
     vm::LocalMemory,
-    types::{Memory, Map, FuncIndex},
+    types::Memory,
 };
 
 /// A linear memory instance.
@@ -62,7 +62,7 @@ impl LinearMemory {
             assert!(!mem.shared, "shared memories must have a maximum size.");
 
             (mem.min as usize * Self::PAGE_SIZE as usize, mem.min, 0, false)
-        }
+        };
 
         let mut mmap = Mmap::with_size(mmap_size).unwrap();
 
@@ -103,7 +103,7 @@ impl LinearMemory {
 
     /// Returns the maximum number of wasm pages allowed.
     pub fn maximum_size(&self) -> u32 {
-        self.maximum.unwrap_or(Self::MAX_PAGES)
+        self.max.unwrap_or(Self::MAX_PAGES)
     }
 
     pub fn into_vm_memory(&mut self) -> LocalMemory {
@@ -131,7 +131,7 @@ impl LinearMemory {
             None => return None,
         };
 
-        if let Some(val) = self.maximum {
+        if let Some(val) = self.max {
             if new_pages > val {
                 return None;
             }
@@ -147,7 +147,7 @@ impl LinearMemory {
 
         if new_bytes > self.mmap.len() - self.offset_guard_size {
             let mmap_size = new_bytes.checked_add(self.offset_guard_size)?;
-            let mut new_mmap = Mmap::with_size(request_bytes).ok()?;
+            let mut new_mmap = Mmap::with_size(mmap_size).ok()?;
 
             unsafe {
                 region::protect(
@@ -158,7 +158,7 @@ impl LinearMemory {
             }
 
             let copy_size = self.mmap.len() - self.offset_guard_size;
-            new_mmap.as_mut_slice()[..copy_size].copy_from_slice(self.mmap.as_slice()[..copy_size]);
+            new_mmap.as_mut_slice()[..copy_size].copy_from_slice(&self.mmap.as_slice()[..copy_size]);
 
             self.mmap = new_mmap;
         }
@@ -182,7 +182,7 @@ impl LinearMemory {
             None => return None,
         };
 
-        if let Some(val) = self.maximum {
+        if let Some(val) = self.max {
             if new_pages > val {
                 return None;
             }
@@ -213,7 +213,7 @@ impl LinearMemory {
 // Not comparing based on memory content. That would be inefficient.
 impl PartialEq for LinearMemory {
     fn eq(&self, other: &LinearMemory) -> bool {
-        self.current == other.current && self.maximum == other.maximum
+        self.current == other.current && self.max == other.max
     }
 }
 
