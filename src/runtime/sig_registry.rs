@@ -22,11 +22,11 @@ impl SigRegistry {
         self.signatures.as_ptr()
     }
 
-    pub fn register(&mut self, signature: FuncSig, sig_index: SigIndex) {
+    pub fn register(&mut self, signature: FuncSig) {
         let index = self.sig_set.len();
-        let vm_sig_id = *self.sig_set.entry(signature).or_insert_with(|| {
+        let vm_sig_id = self.sig_set.entry(signature).or_insert_with(|| {
             vm::SigId(index as u32)
         });
-        self.signatures.push(vm_sig_id);
+        self.signatures.push(*vm_sig_id);
     }
 }

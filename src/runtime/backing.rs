@@ -24,13 +24,17 @@ impl LocalBacking {
         let mut tables = Self::generate_tables(module);
         let globals = Self::generate_globals(module);
 
+        let vm_memories = Self::finalize_memories(module, &mut memories[..]);
+        let vm_tables = Self::finalize_tables(module, &mut tables[..]);
+        let vm_globals = Self::finalize_globals(module, imports, globals);
+
         Self {
             memories,
             tables,
 
-            vm_memories: Self::finalize_memories(module, &mut memories[..]),
-            vm_tables: Self::finalize_tables(module, &mut tables[..]),
-            vm_globals: Self::finalize_globals(module, imports, globals),
+            vm_memories,
+            vm_tables,
+            vm_globals,
         }
     }
 
@@ -60,15 +64,16 @@ impl LocalBacking {
 
     fn finalize_memories(module: &Module, memories: &mut [LinearMemory]) -> Box<[vm::LocalMemory]> {
         for init in &module.data_initializers {
-            debug_assert!(init.base.is_none(), "globalvar base not supported yet");
+            assert!(init.base.is_none(), "globalvar base not supported yet");
+            assert!(init.offset + init.data.len() <= memories[init.memory_index.index()].current_size());
             let offset = init.offset;
             let mem: &mut LinearMemory = &mut memories[init.memory_index.index()];
             let end_of_init = offset + init.data.len();
-            if end_of_init > mem.current_size() {
-                let grow_pages = (end_of_init / LinearMemory::PAGE_SIZE as usize) + 1;
-                mem.grow(grow_pages as u32)
-                    .expect("failed to grow memory for data initializers");
-            }
+            // if end_of_init > mem.current_size() {
+            //     let grow_pages = (end_of_init / LinearMemory::PAGE_SIZE as usize) + 1;
+            //     mem.grow(grow_pages as u32)
+            //         .expect("failed to grow memory for data initializers");
+            // }
             let to_init = &mut mem[offset..offset + init.data.len()];
             to_init.copy_from_slice(&init.data);
         }
@@ -87,24 +92,26 @@ impl LocalBacking {
         tables.into_boxed_slice()
     }
 
-    fn finalize_tables(module: &Module, tables: &[TableBacking]) -> Box<[vm::LocalTable]> {
-        tables.iter().map(|table| table.into_vm_table()).collect::<Vec<_>>().into_boxed_slice()
+    // TODO: Actually finish this
+    fn finalize_tables(module: &Module, tables: &mut [TableBacking]) -> Box<[vm::LocalTable]> {
+        tables.iter_mut().map(|table| table.into_vm_table()).collect::<Vec<_>>().into_boxed_slice()
     }
 
+    // TODO: Actually finish this
     fn generate_globals(module: &Module) -> Box<[vm::LocalGlobal]> {
         let mut globals = vec![vm::LocalGlobal::null(); module.globals.len()];
 
         globals.into_boxed_slice()
     }
 
-    fn finalize_globals(module: &Module, imports: &ImportBacking, globals: Box<[vm::LocalGlobal]>) -> Box<[vm::LocalGlobal]> {
+    fn finalize_globals(module: &Module, imports: &ImportBacking, mut globals: Box<[vm::LocalGlobal]>) -> Box<[vm::LocalGlobal]> {
         for (to, (_, from)) in globals.iter_mut().zip(module.globals.into_iter()) {
             to.data = match from.init {
                 GlobalInit::Val(Val::I32(x)) => x as u64,
                 GlobalInit::Val(Val::I64(x)) => x as u64,
                 GlobalInit::Val(Val::F32(x)) => x as u64,
                 GlobalInit::Val(Val::F64(x)) => x,
-                GlobalInit::GetGlobal(index) => unsafe { (imports.globals[index.index()].global).data },
+                GlobalInit::GetGlobal(index) => (imports.globals[index.index()].global).data,
             };
         }
 
@@ -195,10 +202,10 @@ impl ImportBacking {
         let mut functions = Vec::with_capacity(module.imported_functions.len());
         for (index, (mod_name, item_name)) in &module.imported_functions {
             let expected_sig_index = module.signature_assoc[index];
-            let expected_sig = module.signatures[expected_sig_index];
+            let expected_sig = &module.signatures[expected_sig_index];
             let import = imports.get(mod_name, item_name);
             if let Some(Import::Func(func, signature)) = import {
-                if &expected_sig == signature {
+                if expected_sig == signature {
                     functions.push(vm::ImportedFunc {
                         func: *func,
                         // vmctx: ptr::null_mut(),

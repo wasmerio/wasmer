@@ -210,7 +210,7 @@ impl ImportedGlobal {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
 pub struct SigId(pub u32);
 

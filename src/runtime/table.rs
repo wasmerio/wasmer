@@ -2,7 +2,7 @@ use super::vm;
 use crate::runtime::types::{ElementType, Table};
 
 #[derive(Debug, Clone)]
-enum TableElements {
+pub enum TableElements {
     /// This is intended to be a caller-checked Anyfunc.
     Anyfunc(Box<[vm::Anyfunc]>),
 }
@@ -27,7 +27,7 @@ impl TableBacking {
 
     pub fn into_vm_table(&mut self) -> vm::LocalTable {
         match self.elements {
-            TableElements::Anyfunc(funcs) => {
+            TableElements::Anyfunc(ref mut funcs) => {
                 vm::LocalTable {
                     base: funcs.as_mut_ptr() as *mut u8,
                     current_elements: funcs.len(),
