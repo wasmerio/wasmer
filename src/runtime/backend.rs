@@ -1,9 +1,4 @@
-
-use crate::runtime::{
-    vm,
-    module::Module,
-    types::FuncIndex,
-};
+use crate::runtime::{module::Module, types::FuncIndex, vm};
 use std::sync::Arc;
 
 pub trait Compiler {

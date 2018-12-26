@@ -1,12 +1,12 @@
-use std::{ptr, mem};
 use crate::runtime::{
     // types::{
     //     MemoryIndex, TableIndex, GlobalIndex, FuncIndex,
     //     SigIndex,
     // },
-    backing::{LocalBacking, ImportBacking},
+    backing::{ImportBacking, LocalBacking},
     sig_registry::SigRegistry,
 };
+use std::{mem, ptr};
 
 #[derive(Debug)]
 #[repr(C)]
@@ -28,7 +28,7 @@ pub struct Ctx {
 
     /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
     pub imported_globals: *mut ImportedGlobal,
-    
+
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub imported_funcs: *mut ImportedFunc,
 
@@ -192,9 +192,7 @@ impl LocalGlobal {
     }
 
     pub fn null() -> Self {
-        Self {
-            data: 0,
-        }
+        Self { data: 0 }
     }
 }
 
@@ -225,9 +223,7 @@ pub struct Anyfunc {
 impl Anyfunc {
     pub fn null() -> Self {
         Self {
-            func_data: ImportedFunc {
-                func: ptr::null(),
-            },
+            func_data: ImportedFunc { func: ptr::null() },
             sig_id: SigId(u32::max_value()),
         }
     }
@@ -248,15 +244,8 @@ impl Anyfunc {
 #[cfg(test)]
 mod vm_offset_tests {
     use super::{
-        Ctx,
-        ImportedFunc,
-        LocalTable,
-        ImportedTable,
-        LocalMemory,
-        ImportedMemory,
-        LocalGlobal,
-        ImportedGlobal,
-        Anyfunc,
+        Anyfunc, Ctx, ImportedFunc, ImportedGlobal, ImportedMemory, ImportedTable, LocalGlobal,
+        LocalMemory, LocalTable,
     };
 
     #[test]

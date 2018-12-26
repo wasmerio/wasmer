@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 use std::{
-    slice, iter,
+    iter,
     ops::{Index, IndexMut},
+    slice,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -198,7 +199,7 @@ where
 
 impl<'a, T, I> IntoIterator for &'a Map<T, I>
 where
-    I: MapIndex
+    I: MapIndex,
 {
     type Item = (I, &'a T);
     type IntoIter = Iter<'a, T, I>;
@@ -210,7 +211,7 @@ where
 
 impl<'a, T, I> IntoIterator for &'a mut Map<T, I>
 where
-    I: MapIndex
+    I: MapIndex,
 {
     type Item = (I, &'a mut T);
     type IntoIter = IterMut<'a, T, I>;
@@ -285,7 +286,4 @@ macro_rules! define_map_index {
     };
 }
 
-define_map_index![
-    FuncIndex, MemoryIndex, GlobalIndex, TableIndex,
-    SigIndex,
-];
+define_map_index![FuncIndex, MemoryIndex, GlobalIndex, TableIndex, SigIndex,];

@@ -16,22 +16,20 @@ pub struct TableBacking {
 impl TableBacking {
     pub fn new(table: &Table) -> Self {
         match table.ty {
-            ElementType::Anyfunc => {
-                Self {
-                    elements: TableElements::Anyfunc(vec![vm::Anyfunc::null(); table.min as usize].into_boxed_slice()),
-                    max: table.max,
-                }
-            }
+            ElementType::Anyfunc => Self {
+                elements: TableElements::Anyfunc(
+                    vec![vm::Anyfunc::null(); table.min as usize].into_boxed_slice(),
+                ),
+                max: table.max,
+            },
         }
     }
 
     pub fn into_vm_table(&mut self) -> vm::LocalTable {
         match self.elements {
-            TableElements::Anyfunc(ref mut funcs) => {
-                vm::LocalTable {
-                    base: funcs.as_mut_ptr() as *mut u8,
-                    current_elements: funcs.len(),
-                }
+            TableElements::Anyfunc(ref mut funcs) => vm::LocalTable {
+                base: funcs.as_mut_ptr() as *mut u8,
+                current_elements: funcs.len(),
             },
         }
     }

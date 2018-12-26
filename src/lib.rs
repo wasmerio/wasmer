@@ -13,13 +13,13 @@ extern crate wasmparser;
 extern crate target_lexicon;
 extern crate byteorder;
 extern crate console;
+#[cfg_attr(test, macro_use)]
+extern crate field_offset;
 extern crate indicatif;
 pub extern crate nix; // re-exported for usage in macros
 extern crate rayon;
 #[cfg(windows)]
 extern crate winapi;
-#[cfg_attr(test, macro_use)]
-extern crate field_offset;
 
 #[macro_use]
 mod macros;
@@ -27,12 +27,12 @@ mod macros;
 pub mod recovery;
 pub mod apis;
 pub mod common;
+pub mod compilers;
 #[cfg(test)]
 mod emtests;
+pub mod runtime;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
 pub mod update;
 pub mod webassembly;
-pub mod runtime;
-pub mod compilers;

@@ -1,9 +1,8 @@
-
-use hashbrown::HashMap;
 use crate::runtime::{
-    types::{Map, SigIndex, FuncSig},
+    types::{FuncSig, Map, SigIndex},
     vm,
 };
+use hashbrown::HashMap;
 
 pub struct SigRegistry {
     sig_set: HashMap<FuncSig, vm::SigId>,
@@ -24,9 +23,10 @@ impl SigRegistry {
 
     pub fn register(&mut self, signature: FuncSig) {
         let index = self.sig_set.len();
-        let vm_sig_id = self.sig_set.entry(signature).or_insert_with(|| {
-            vm::SigId(index as u32)
-        });
+        let vm_sig_id = self
+            .sig_set
+            .entry(signature)
+            .or_insert_with(|| vm::SigId(index as u32));
         self.signatures.push(*vm_sig_id);
     }
 }

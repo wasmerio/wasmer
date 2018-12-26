@@ -1,14 +1,14 @@
 use crate::runtime::{
-    vm,
-    backing::{LocalBacking, ImportBacking},
-    module::{Module, ModuleName, ItemName},
-    types::{Val, Memory, Table, FuncSig},
-    table::TableBacking,
+    backing::{ImportBacking, LocalBacking},
     memory::LinearMemory,
+    module::{ItemName, Module, ModuleName},
     sig_registry::SigRegistry,
+    table::TableBacking,
+    types::{FuncSig, Memory, Table, Val},
+    vm,
 };
-use std::sync::Arc;
 use hashbrown::HashMap;
+use std::sync::Arc;
 
 pub struct Instance {
     pub vmctx: vm::Ctx,
@@ -29,7 +29,7 @@ impl Instance {
         let sig_registry = SigRegistry::new();
 
         let vmctx = vm::Ctx::new(&mut backing, &mut import_backing, &sig_registry);
-        
+
         Ok(Box::new(Instance {
             vmctx,
             backing,
@@ -60,7 +60,10 @@ impl Imports {
     }
 
     pub fn add(&mut self, module: ModuleName, name: ItemName, import: Import) {
-        self.map.entry(module).or_insert(HashMap::new()).insert(name, import);
+        self.map
+            .entry(module)
+            .or_insert(HashMap::new())
+            .insert(name, import);
     }
 
     pub fn get(&self, module: &[u8], name: &[u8]) -> Option<&Import> {

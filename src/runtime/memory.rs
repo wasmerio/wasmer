@@ -8,10 +8,7 @@ use std::ops::{Deref, DerefMut};
 use std::slice;
 
 use crate::common::mmap::Mmap;
-use crate::runtime::{
-    vm::LocalMemory,
-    types::Memory,
-};
+use crate::runtime::{types::Memory, vm::LocalMemory};
 
 /// A linear memory instance.
 #[derive(Debug)]
@@ -54,15 +51,21 @@ impl LinearMemory {
         assert!(mem.max.is_none() || mem.max.unwrap() <= Self::MAX_PAGES);
         debug!("Instantiate LinearMemory(mem: {:?})", mem);
 
-        let (mmap_size, initial_pages, offset_guard_size, requires_signal_catch) = if mem.is_static_heap() {
-            (Self::DEFAULT_SIZE, mem.min, Self::DEFAULT_GUARD_SIZE, true)
+        let (mmap_size, initial_pages, offset_guard_size, requires_signal_catch) =
+            if mem.is_static_heap() {
+                (Self::DEFAULT_SIZE, mem.min, Self::DEFAULT_GUARD_SIZE, true)
             // This is a static heap
-        } else {
-            // this is a dynamic heap
-            assert!(!mem.shared, "shared memories must have a maximum size.");
+            } else {
+                // this is a dynamic heap
+                assert!(!mem.shared, "shared memories must have a maximum size.");
 
-            (mem.min as usize * Self::PAGE_SIZE as usize, mem.min, 0, false)
-        };
+                (
+                    mem.min as usize * Self::PAGE_SIZE as usize,
+                    mem.min,
+                    0,
+                    false,
+                )
+            };
 
         let mut mmap = Mmap::with_size(mmap_size).unwrap();
 
@@ -154,11 +157,13 @@ impl LinearMemory {
                     new_mmap.as_mut_ptr(),
                     new_bytes,
                     region::Protection::ReadWrite,
-                ).ok()?;
+                )
+                .ok()?;
             }
 
             let copy_size = self.mmap.len() - self.offset_guard_size;
-            new_mmap.as_mut_slice()[..copy_size].copy_from_slice(&self.mmap.as_slice()[..copy_size]);
+            new_mmap.as_mut_slice()[..copy_size]
+                .copy_from_slice(&self.mmap.as_slice()[..copy_size]);
 
             self.mmap = new_mmap;
         }
@@ -201,7 +206,8 @@ impl LinearMemory {
                 self.mmap.as_ptr().add(prev_bytes) as _,
                 new_bytes - prev_bytes,
                 region::Protection::ReadWrite,
-            ).ok()?;
+            )
+            .ok()?;
         }
 
         self.current = new_pages;

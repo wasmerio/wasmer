@@ -1,12 +1,11 @@
 use crate::runtime::{
-    vm,
+    instance::{Import, Imports},
+    memory::LinearMemory,
     module::Module,
     table::TableBacking,
-    types::{Val, GlobalInit, MapIndex},
-    memory::LinearMemory,
-    instance::{Imports, Import},
+    types::{GlobalInit, MapIndex, Val},
+    vm,
 };
-
 
 #[derive(Debug)]
 pub struct LocalBacking {
@@ -43,10 +42,7 @@ impl LocalBacking {
 
         for (_, mem) in &module.memories {
             // If we use emscripten, we set a fixed initial and maximum
-            debug!(
-                "Instance - init memory ({}, {:?})",
-                mem.min, mem.max
-            );
+            debug!("Instance - init memory ({}, {:?})", mem.min, mem.max);
             // let memory = if options.abi == InstanceABI::Emscripten {
             //     // We use MAX_PAGES, so at the end the result is:
             //     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
@@ -65,7 +61,9 @@ impl LocalBacking {
     fn finalize_memories(module: &Module, memories: &mut [LinearMemory]) -> Box<[vm::LocalMemory]> {
         for init in &module.data_initializers {
             assert!(init.base.is_none(), "globalvar base not supported yet");
-            assert!(init.offset + init.data.len() <= memories[init.memory_index.index()].current_size());
+            assert!(
+                init.offset + init.data.len() <= memories[init.memory_index.index()].current_size()
+            );
             let offset = init.offset;
             let mem: &mut LinearMemory = &mut memories[init.memory_index.index()];
             let end_of_init = offset + init.data.len();
@@ -78,7 +76,11 @@ impl LocalBacking {
             to_init.copy_from_slice(&init.data);
         }
 
-        memories.iter_mut().map(|mem| mem.into_vm_memory()).collect::<Vec<_>>().into_boxed_slice()
+        memories
+            .iter_mut()
+            .map(|mem| mem.into_vm_memory())
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
     }
 
     fn generate_tables(module: &Module) -> Box<[TableBacking]> {
@@ -94,7 +96,11 @@ impl LocalBacking {
 
     // TODO: Actually finish this
     fn finalize_tables(module: &Module, tables: &mut [TableBacking]) -> Box<[vm::LocalTable]> {
-        tables.iter_mut().map(|table| table.into_vm_table()).collect::<Vec<_>>().into_boxed_slice()
+        tables
+            .iter_mut()
+            .map(|table| table.into_vm_table())
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
     }
 
     // TODO: Actually finish this
@@ -104,7 +110,11 @@ impl LocalBacking {
         globals.into_boxed_slice()
     }
 
-    fn finalize_globals(module: &Module, imports: &ImportBacking, mut globals: Box<[vm::LocalGlobal]>) -> Box<[vm::LocalGlobal]> {
+    fn finalize_globals(
+        module: &Module,
+        imports: &ImportBacking,
+        mut globals: Box<[vm::LocalGlobal]>,
+    ) -> Box<[vm::LocalGlobal]> {
         for (to, (_, from)) in globals.iter_mut().zip(module.globals.into_iter()) {
             to.data = match from.init {
                 GlobalInit::Val(Val::I32(x)) => x as u64,
@@ -196,8 +206,14 @@ pub struct ImportBacking {
 
 impl ImportBacking {
     pub fn new(module: &Module, imports: &Imports) -> Result<Self, String> {
-        assert!(module.imported_memories.len() == 0, "imported memories not yet supported");
-        assert!(module.imported_tables.len() == 0, "imported tables not yet supported");
+        assert!(
+            module.imported_memories.len() == 0,
+            "imported memories not yet supported"
+        );
+        assert!(
+            module.imported_tables.len() == 0,
+            "imported tables not yet supported"
+        );
 
         let mut functions = Vec::with_capacity(module.imported_functions.len());
         for (index, (mod_name, item_name)) in &module.imported_functions {
@@ -211,7 +227,10 @@ impl ImportBacking {
                         // vmctx: ptr::null_mut(),
                     });
                 } else {
-                    return Err(format!("unexpected signature for {:?}:{:?}", mod_name, item_name));
+                    return Err(format!(
+                        "unexpected signature for {:?}:{:?}",
+                        mod_name, item_name
+                    ));
                 }
             } else {
                 return Err(format!("incorrect type for {:?}:{:?}", mod_name, item_name));
@@ -234,7 +253,10 @@ impl ImportBacking {
                         },
                     });
                 } else {
-                    return Err(format!("unexpected global type for {:?}:{:?}", mod_name, item_name));
+                    return Err(format!(
+                        "unexpected global type for {:?}:{:?}",
+                        mod_name, item_name
+                    ));
                 }
             } else {
                 return Err(format!("incorrect type for {:?}:{:?}", mod_name, item_name));
