@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Syrus Akbary <me@syrusakbary.com>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -36,7 +36,7 @@ error-chain = "0.12.0"
 errno = "0.2.4"
 structopt = "0.2.11"
 wabt = "0.7.2"
-wasmparser = "0.20.0"
+wasmparser = "0.23.0"
 winapi = "0.3.6"
 region = "0.3.0"
 # spin = "0.4.10"

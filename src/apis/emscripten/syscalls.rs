@@ -18,6 +18,7 @@ use libc::{
     connect,
     dup2,
     exit,
+    fcntl,
     fstat,
     getgid,
     getpeername,
@@ -42,6 +43,9 @@ use libc::{
     // readv,
     recvfrom,
     recvmsg,
+    rmdir,
+    // ENOTTY,
+    rusage,
     sa_family_t,
     // writev,
     select,
@@ -57,15 +61,29 @@ use libc::{
     uname,
     utsname,
     write,
+    EINVAL,
     // sockaddr_in,
     FIOCLEX,
     FIONBIO,
+    F_GETFD,
+    F_SETFD,
     SOL_SOCKET,
     TIOCGWINSZ,
 };
+
 use std::mem;
 use std::slice;
 // use std::sys::fd::FileDesc;
+
+// Linking to functions that are not provided by rust libc
+#[cfg(target_os = "macos")]
+#[link(name = "c")]
+extern "C" {
+    pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
+}
+
+#[cfg(not(target_os = "macos"))]
+use libc::wait4;
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
@@ -76,8 +94,8 @@ use libc::SO_NOSIGPIPE;
 const SO_NOSIGPIPE: c_int = 0;
 
 /// exit
-pub extern "C" fn ___syscall1(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) {
-    debug!("emscripten::___syscall1 (exit)");
+pub extern "C" fn ___syscall1(which: c_int, mut varargs: VarArgs, instance: &mut Instance) {
+    debug!("emscripten::___syscall1 (exit) {}", which);
     let status: i32 = varargs.get(instance);
     unsafe {
         exit(status);
@@ -86,11 +104,11 @@ pub extern "C" fn ___syscall1(_which: c_int, mut varargs: VarArgs, instance: &mu
 
 /// read
 pub extern "C" fn ___syscall3(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> ssize_t {
-    debug!("emscripten::___syscall3 (read)");
+    debug!("emscripten::___syscall3 (read) {}", which);
     let fd: i32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
     let count: usize = varargs.get(instance);
@@ -103,11 +121,11 @@ pub extern "C" fn ___syscall3(
 
 /// write
 pub extern "C" fn ___syscall4(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall4 (write)");
+    debug!("emscripten::___syscall4 (write) {}", which);
     let fd: i32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
     let count: u32 = varargs.get(instance);
@@ -118,11 +136,11 @@ pub extern "C" fn ___syscall4(
 
 /// open
 pub extern "C" fn ___syscall5(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall5 (open)");
+    debug!("emscripten::___syscall5 (open) {}", which);
     let pathname: u32 = varargs.get(instance);
     let flags: i32 = varargs.get(instance);
     let mode: u32 = varargs.get(instance);
@@ -138,11 +156,11 @@ pub extern "C" fn ___syscall5(
 
 /// close
 pub extern "C" fn ___syscall6(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall6 (close)");
+    debug!("emscripten::___syscall6 (close) {}", which);
     let fd: i32 = varargs.get(instance);
     debug!("fd: {}", fd);
     unsafe { close(fd) }
@@ -150,11 +168,11 @@ pub extern "C" fn ___syscall6(
 
 // chdir
 pub extern "C" fn ___syscall12(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall12 (chdir)");
+    debug!("emscripten::___syscall12 (chdir) {}", which);
     let path_addr: i32 = varargs.get(instance);
     unsafe {
         let path_ptr = instance.memory_offset_addr(0, path_addr as usize) as *const i8;
@@ -173,32 +191,36 @@ pub extern "C" fn ___syscall20() -> pid_t {
 
 // mkdir
 pub extern "C" fn ___syscall39(
+    which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall39 (mkdir) {}", which);
+    let pathname: u32 = varargs.get(instance);
+    let mode: u32 = varargs.get(instance);
+    let pathname_addr = instance.memory_offset_addr(0, pathname as usize) as *const i8;
+    unsafe { mkdir(pathname_addr, mode as _) }
+}
+
+// rmdir
+pub extern "C" fn ___syscall40(
     _which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall39 (mkdir)");
+    debug!("emscripten::___syscall40 (rmdir)");
     let pathname: u32 = varargs.get(instance);
-    let mode: u32 = varargs.get(instance);
     let pathname_addr = instance.memory_offset_addr(0, pathname as usize) as *const i8;
-
-    unsafe { mkdir(pathname_addr, mode as _) };
-    0
-}
-
-// getppid
-pub extern "C" fn ___syscall64() -> pid_t {
-    debug!("emscripten::___syscall64 (getppid)");
-    unsafe { getpid() }
+    unsafe { rmdir(pathname_addr) }
 }
 
 /// ioctl
 pub extern "C" fn ___syscall54(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall54 (ioctl)");
+    debug!("emscripten::___syscall54 (ioctl) {}", which);
     let fd: i32 = varargs.get(instance);
     let request: u32 = varargs.get(instance);
     debug!("fd: {}, op: {}", fd, request);
@@ -238,13 +260,45 @@ pub extern "C" fn ___syscall54(
     }
 }
 
-// socketcall
-pub extern "C" fn ___syscall102(
-    _which: c_int,
+// setpgid
+pub extern "C" fn ___syscall57(
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall102 (socketcall)");
+    debug!("emscripten::___syscall57 (setpgid) {}", which);
+    let pid: i32 = varargs.get(instance);
+    let pgid: i32 = varargs.get(instance);
+    unsafe { setpgid(pid, pgid) }
+}
+
+// dup2
+pub extern "C" fn ___syscall63(
+    which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall63 (dup2) {}", which);
+
+    let src: i32 = varargs.get(instance);
+    let dst: i32 = varargs.get(instance);
+
+    unsafe { dup2(src, dst) }
+}
+
+// getppid
+pub extern "C" fn ___syscall64() -> pid_t {
+    debug!("emscripten::___syscall64 (getppid)");
+    unsafe { getpid() }
+}
+
+// socketcall
+pub extern "C" fn ___syscall102(
+    which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall102 (socketcall) {}", which);
     let call: u32 = varargs.get(instance);
     let mut socket_varargs: VarArgs = varargs.get(instance);
 
@@ -515,27 +569,71 @@ pub extern "C" fn ___syscall102(
     }
 }
 
-/// uname
-// NOTE: Wondering if we should return custom utsname, like Emscripten.
-pub extern "C" fn ___syscall122(
+/// wait4
+pub extern "C" fn ___syscall114(
     _which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
+) -> pid_t {
+    debug!("emscripten::___syscall114 (wait4)");
+    let pid: pid_t = varargs.get(instance);
+    let status: u32 = varargs.get(instance);
+    let options: c_int = varargs.get(instance);
+    let rusage: u32 = varargs.get(instance);
+    let status_addr = instance.memory_offset_addr(0, status as usize) as *mut c_int;
+    let rusage_addr = instance.memory_offset_addr(0, rusage as usize) as *mut rusage;
+    let res = unsafe { wait4(pid, status_addr, options, rusage_addr) };
+    debug!(
+        "=> pid: {}, status: {:?}, options: {}, rusage: {:?} = pid: {}",
+        pid, status_addr, options, rusage_addr, res
+    );
+    res
+}
+
+/// uname
+// NOTE: Wondering if we should return custom utsname, like Emscripten.
+pub extern "C" fn ___syscall122(
+    which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall122 (uname)");
+    debug!("emscripten::___syscall122 (uname) {}", which);
     let buf: u32 = varargs.get(instance);
     debug!("=> buf: {}", buf);
     let buf_addr = instance.memory_offset_addr(0, buf as usize) as *mut utsname;
     unsafe { uname(buf_addr) }
 }
 
-// mmap2
-pub extern "C" fn ___syscall192(
-    _which: c_int,
+// select
+pub extern "C" fn ___syscall142(
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall192 (mmap2)");
+    debug!("emscripten::___syscall142 (newselect) {}", which);
+
+    let nfds: i32 = varargs.get(instance);
+    let readfds: u32 = varargs.get(instance);
+    let writefds: u32 = varargs.get(instance);
+    let exceptfds: u32 = varargs.get(instance);
+    let _timeout: i32 = varargs.get(instance);
+
+    assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
+    assert!(exceptfds == 0, "`exceptfds` is not supporrted");
+
+    let readfds_ptr = instance.memory_offset_addr(0, readfds as _) as _;
+    let writefds_ptr = instance.memory_offset_addr(0, writefds as _) as _;
+
+    unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
+}
+
+// mmap2
+pub extern "C" fn ___syscall192(
+    which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
+) -> c_int {
+    debug!("emscripten::___syscall192 (mmap2) {}", which);
     let addr: i32 = varargs.get(instance);
     let len: u32 = varargs.get(instance);
     let prot: i32 = varargs.get(instance);
@@ -566,11 +664,11 @@ pub extern "C" fn ___syscall192(
 
 /// lseek
 pub extern "C" fn ___syscall140(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> off_t {
-    debug!("emscripten::___syscall140 (lseek)");
+    debug!("emscripten::___syscall140 (lseek) {}", which);
     let fd: i32 = varargs.get(instance);
     let offset: i64 = varargs.get(instance);
     let whence: i32 = varargs.get(instance);
@@ -580,11 +678,11 @@ pub extern "C" fn ___syscall140(
 
 /// readv
 pub extern "C" fn ___syscall145(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> ssize_t {
-    debug!("emscripten::___syscall145 (readv)");
+    debug!("emscripten::___syscall145 (readv) {}", which);
     // let fd: i32 = varargs.get(instance);
     // let iov: u32 = varargs.get(instance);
     // let iovcnt: i32 = varargs.get(instance);
@@ -625,11 +723,11 @@ pub extern "C" fn ___syscall145(
 
 // writev
 pub extern "C" fn ___syscall146(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> ssize_t {
-    debug!("emscripten::___syscall146 (writev)");
+    debug!("emscripten::___syscall146 (writev) {}", which);
     let fd: i32 = varargs.get(instance);
     let iov: i32 = varargs.get(instance);
     let iovcnt: i32 = varargs.get(instance);
@@ -663,11 +761,11 @@ pub extern "C" fn ___syscall146(
 
 // pread
 pub extern "C" fn ___syscall180(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall180 (pread)");
+    debug!("emscripten::___syscall180 (pread) {}", which);
     let fd: i32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
     let count: u32 = varargs.get(instance);
@@ -684,11 +782,11 @@ pub extern "C" fn ___syscall180(
 
 // pwrite
 pub extern "C" fn ___syscall181(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall181 (pwrite)");
+    debug!("emscripten::___syscall181 (pwrite) {}", which);
     let fd: i32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
     let count: u32 = varargs.get(instance);
@@ -709,11 +807,11 @@ pub extern "C" fn ___syscall181(
 
 // stat64
 pub extern "C" fn ___syscall195(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall195 (stat64)");
+    debug!("emscripten::___syscall195 (stat64) {}", which);
     let pathname: u32 = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
 
@@ -733,11 +831,11 @@ pub extern "C" fn ___syscall195(
 
 // fstat64
 pub extern "C" fn ___syscall197(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall197 (fstat64)");
+    debug!("emscripten::___syscall197 (fstat64) {}", which);
     let fd: c_int = varargs.get(instance);
     let buf: u32 = varargs.get(instance);
 
@@ -783,11 +881,11 @@ pub extern "C" fn ___syscall202() -> gid_t {
 
 // chown
 pub extern "C" fn ___syscall212(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall212 (chown)");
+    debug!("emscripten::___syscall212 (chown) {}", which);
 
     let pathname: u32 = varargs.get(instance);
     let owner: u32 = varargs.get(instance);
@@ -800,11 +898,11 @@ pub extern "C" fn ___syscall212(
 
 // fcntl64
 pub extern "C" fn ___syscall221(
-    _which: c_int,
+    which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall221 (fcntl64)");
+    debug!("emscripten::___syscall221 (fcntl64) {}", which);
     // fcntl64
     let _fd: i32 = varargs.get(instance);
     let cmd: u32 = varargs.get(instance);
@@ -814,13 +912,51 @@ pub extern "C" fn ___syscall221(
     }
 }
 
-// prlimit64
-pub extern "C" fn ___syscall340(
+/// dup3
+pub extern "C" fn ___syscall330(
     _which: c_int,
     mut varargs: VarArgs,
     instance: &mut Instance,
+) -> pid_t {
+    // Implementation based on description at https://linux.die.net/man/2/dup3
+    debug!("emscripten::___syscall330 (dup3)");
+    let oldfd: c_int = varargs.get(instance);
+    let newfd: c_int = varargs.get(instance);
+    let flags: c_int = varargs.get(instance);
+
+    if oldfd == newfd {
+        return EINVAL;
+    }
+
+    let res = unsafe { dup2(oldfd, newfd) };
+
+    // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
+    let mut old_flags = unsafe { fcntl(newfd, F_GETFD, 0) };
+
+    if old_flags > 0 {
+        old_flags |= flags;
+    } else if old_flags == 0 {
+        old_flags &= !flags;
+    }
+
+    unsafe {
+        fcntl(newfd, F_SETFD, old_flags);
+    }
+
+    debug!(
+        "=> oldfd: {}, newfd: {}, flags: {} = pid: {}",
+        oldfd, newfd, flags, res
+    );
+    res
+}
+
+// prlimit64
+pub extern "C" fn ___syscall340(
+    which: c_int,
+    mut varargs: VarArgs,
+    instance: &mut Instance,
 ) -> c_int {
-    debug!("emscripten::___syscall340 (prlimit64)");
+    debug!("emscripten::___syscall340 (prlimit64), {}", which);
     // NOTE: Doesn't really matter. Wasm modules cannot exceed WASM_PAGE_SIZE anyway.
     let _pid: i32 = varargs.get(instance);
     let _resource: i32 = varargs.get(instance);
@@ -839,53 +975,4 @@ pub extern "C" fn ___syscall340(
     }
 
     0
-}
-
-// dup2
-pub extern "C" fn ___syscall63(
-    _which: c_int,
-    mut varargs: VarArgs,
-    instance: &mut Instance,
-) -> c_int {
-    debug!("emscripten::___syscall63 (dup2)");
-
-    let src: i32 = varargs.get(instance);
-    let dst: i32 = varargs.get(instance);
-
-    unsafe { dup2(src, dst) }
-}
-
-// select
-pub extern "C" fn ___syscall142(
-    _which: c_int,
-    mut varargs: VarArgs,
-    instance: &mut Instance,
-) -> c_int {
-    debug!("emscripten::___syscall142 (newselect)");
-
-    let nfds: i32 = varargs.get(instance);
-    let readfds: u32 = varargs.get(instance);
-    let writefds: u32 = varargs.get(instance);
-    let exceptfds: u32 = varargs.get(instance);
-    let _timeout: i32 = varargs.get(instance);
-
-    assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
-    assert!(exceptfds == 0, "`exceptfds` is not supporrted");
-
-    let readfds_ptr = instance.memory_offset_addr(0, readfds as _) as _;
-    let writefds_ptr = instance.memory_offset_addr(0, writefds as _) as _;
-
-    unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
-}
-
-// setpgid
-pub extern "C" fn ___syscall57(
-    _which: c_int,
-    mut varargs: VarArgs,
-    instance: &mut Instance,
-) -> c_int {
-    debug!("emscripten::___syscall57 (setpgid)");
-    let pid: i32 = varargs.get(instance);
-    let pgid: i32 = varargs.get(instance);
-    unsafe { setpgid(pid, pgid) }
 }

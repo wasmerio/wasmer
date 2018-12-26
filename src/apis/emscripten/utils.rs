@@ -27,6 +27,7 @@ pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: 
     buf
 }
 
+/// This function expects nullbyte to be appended.
 pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();

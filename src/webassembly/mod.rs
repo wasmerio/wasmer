@@ -147,6 +147,10 @@ pub fn get_isa() -> Box<isa::TargetIsa> {
         let mut builder = settings::builder();
         builder.set("opt_level", "best").unwrap();
 
+        if cfg!(not(test)) {
+            builder.set("enable_verifier", "false").unwrap();
+        }
+
         let flags = settings::Flags::new(builder);
         debug_assert_eq!(flags.opt_level(), settings::OptLevel::Best);
         flags

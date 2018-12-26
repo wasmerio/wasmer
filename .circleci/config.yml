@@ -7,12 +7,6 @@ jobs:
 
     steps:
       - checkout
-      - run:
-          name: Pull submodules
-          command: |
-            # git pull --recurse-submodules
-            git submodule sync --recursive
-            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -34,12 +28,6 @@ jobs:
 
     steps:
       - checkout
-      - run:
-          name: Pull submodules
-          command: |
-            # git pull --recurse-submodules
-            git submodule sync --recursive
-            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -82,12 +70,6 @@ jobs:
 
     steps:
       - checkout
-      - run:
-          name: Pull submodules
-          command: |
-            # git pull --recurse-submodules
-            git submodule sync --recursive
-            git submodule update --recursive --init
       - restore_cache:
           keys:
             - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -136,6 +118,26 @@ jobs:
             - target/release/deps
           key: v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
+  test-rust-nightly:
+    docker:
+      - image: circleci/rust:latest
+
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+      - run: sudo apt-get install -y cmake
+      - run: rustup default nightly
+      - run: make test
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+
   publish-github-release:
     docker:
       - image: cibuilds/github
@@ -156,7 +158,7 @@ jobs:
             # VERSION_TAG=$(git describe --exact-match --tags)
             #if [ "$VERSION" == "$VERSION_TAG" ]; then
             # echo "Versions match, publishing to Github"
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -soft ${VERSION} ./artifacts/
             #else
             #    echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
             #    exit 1
@@ -175,6 +177,10 @@ workflows:
             branches:
               only: master
       - test-and-build-macos:
+          filters:
+            branches:
+              only: master
+      - test-rust-nightly:
           filters:
             branches:
               only: master

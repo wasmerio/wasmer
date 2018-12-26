@@ -15,7 +15,9 @@ use cranelift_wasm::{FuncIndex, GlobalInit};
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 
+use libc::c_int;
 use region;
+use std::cell::UnsafeCell;
 use std::iter::FromIterator;
 use std::iter::Iterator;
 use std::mem::size_of;
@@ -72,6 +74,83 @@ pub struct EmscriptenData {
     pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
     pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
     pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
+    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
+}
+
+impl EmscriptenData {
+    pub fn new(module: &Module, instance: &Instance) -> Self {
+        unsafe {
+            debug!("emscripten::new");
+            let malloc_export = module.info.exports.get("_malloc");
+            let free_export = module.info.exports.get("_free");
+            let memalign_export = module.info.exports.get("_memalign");
+            let memset_export = module.info.exports.get("_memset");
+            let stack_alloc_export = module.info.exports.get("stackAlloc");
+
+            let mut malloc_addr = 0 as *const u8;
+            let mut free_addr = 0 as *const u8;
+            let mut memalign_addr = 0 as *const u8;
+            let mut memset_addr = 0 as *const u8;
+            let mut stack_alloc_addr = 0 as _;
+
+            if let Some(Export::Function(malloc_index)) = malloc_export {
+                malloc_addr = instance.get_function_pointer(*malloc_index);
+            }
+
+            if let Some(Export::Function(free_index)) = free_export {
+                free_addr = instance.get_function_pointer(*free_index);
+            }
+
+            if let Some(Export::Function(memalign_index)) = memalign_export {
+                memalign_addr = instance.get_function_pointer(*memalign_index);
+            }
+
+            if let Some(Export::Function(memset_index)) = memset_export {
+                memset_addr = instance.get_function_pointer(*memset_index);
+            }
+
+            if let Some(Export::Function(stack_alloc_index)) = stack_alloc_export {
+                stack_alloc_addr = instance.get_function_pointer(*stack_alloc_index);
+            }
+
+            EmscriptenData {
+                malloc: mem::transmute(malloc_addr),
+                free: mem::transmute(free_addr),
+                memalign: mem::transmute(memalign_addr),
+                memset: mem::transmute(memset_addr),
+                stack_alloc: mem::transmute(stack_alloc_addr),
+                jumps: Vec::new(),
+            }
+        }
+    }
+
+    // Emscripten __ATINIT__
+    pub fn atinit(&self, module: &Module, instance: &Instance) -> Result<(), String> {
+        debug!("emscripten::atinit");
+        if let Some(&Export::Function(environ_constructor_index)) =
+            module.info.exports.get("___emscripten_environ_constructor")
+        {
+            debug!("emscripten::___emscripten_environ_constructor");
+            let ___emscripten_environ_constructor: extern "C" fn(&Instance) =
+                get_instance_function!(instance, environ_constructor_index);
+            call_protected!(___emscripten_environ_constructor(&instance))
+                .map_err(|err| format!("{}", err))?;
+        };
+        // TODO: We also need to handle TTY.init() and SOCKFS.root = FS.mount(SOCKFS, {}, null)
+        Ok(())
+    }
+
+    // Emscripten __ATEXIT__
+    pub fn atexit(&self, _module: &Module, _instance: &Instance) -> Result<(), String> {
+        debug!("emscripten::atexit");
+        use libc::fflush;
+        use std::ptr;
+        // Flush all open streams
+        unsafe {
+            fflush(ptr::null_mut());
+        };
+        Ok(())
+    }
 }
 
 impl EmscriptenData {
@@ -195,6 +274,10 @@ pub struct Instance {
     // Region start memory location
     // code_base: *const (),
     pub emscripten_data: Option<EmscriptenData>,
+
+    // Workarounds to prevent use after free issue
+    memories_pointer: Vec<BoundedSlice<u8>>,
+    tables_pointer: Vec<BoundedSlice<usize>>,
 }
 
 /// Contains pointers to data (heaps, globals, tables) needed
@@ -638,6 +721,8 @@ impl Instance {
             import_functions,
             start_func,
             emscripten_data: None,
+            memories_pointer,
+            tables_pointer,
         };
 
         if options.abi == InstanceABI::Emscripten {

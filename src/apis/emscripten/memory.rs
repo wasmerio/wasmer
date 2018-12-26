@@ -1,6 +1,6 @@
 use super::process::abort_with_message;
 use crate::webassembly::Instance;
-use libc::{c_void, memcpy, size_t};
+use libc::{c_int, c_void, memcpy, size_t};
 
 /// emscripten: _emscripten_memcpy_big
 pub extern "C" fn _emscripten_memcpy_big(
@@ -9,7 +9,10 @@ pub extern "C" fn _emscripten_memcpy_big(
     len: u32,
     instance: &mut Instance,
 ) -> u32 {
-    debug!("emscripten::_emscripten_memcpy_big");
+    debug!(
+        "emscripten::_emscripten_memcpy_big {}, {}, {}",
+        dest, src, len
+    );
     let dest_addr = instance.memory_offset_addr(0, dest as usize) as *mut c_void;
     let src_addr = instance.memory_offset_addr(0, src as usize) as *mut c_void;
     unsafe {
@@ -35,4 +38,11 @@ pub extern "C" fn enlarge_memory(_instance: &mut Instance) {
 pub extern "C" fn abort_on_cannot_grow_memory() {
     debug!("emscripten::abort_on_cannot_grow_memory");
     abort_with_message("Cannot enlarge memory arrays!");
+}
+
+/// emscripten: ___map_file
+pub extern "C" fn ___map_file() -> c_int {
+    debug!("emscripten::___map_file");
+    // NOTE: TODO: Em returns -1 here as well. May need to implement properly
+    -1
 }
