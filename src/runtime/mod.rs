@@ -1,7 +1,7 @@
 
 pub mod vm;
+pub mod types;
 mod backing;
-mod types;
 mod memory;
 mod backend;
 mod module;
