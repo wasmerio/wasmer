@@ -237,7 +237,7 @@ impl Anyfunc {
     // }
 
     pub fn offset_sig_id() -> u8 {
-        2 * (mem::size_of::<usize>() as u8)
+        1 * (mem::size_of::<usize>() as u8)
     }
 }
 
