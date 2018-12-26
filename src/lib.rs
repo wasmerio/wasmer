@@ -35,3 +35,4 @@ mod spectests;
 pub mod update;
 pub mod webassembly;
 pub mod runtime;
+pub mod compilers;
