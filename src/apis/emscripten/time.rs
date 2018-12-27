@@ -40,7 +40,11 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
         tv_nsec: i32,
     }
 
-    let timespec = time::get_time();
+    let timespec = match clk_id {
+        0 => time::get_time(),
+        1 => panic!("Monotonic clock is not supported."),
+        _ => panic!("Clock is not supported."),
+    };
 
     unsafe {
         let timespec_struct_ptr = instance.memory_offset_addr(0, tp as _) as *mut GuestTimeSpec;
