@@ -1,10 +1,9 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
-use libc::{
-    c_char, c_int, clock_gettime as libc_clock_gettime, localtime, localtime_r, time, time_t,
-    timespec, tm,
-};
+use libc::{c_char, c_int, localtime, localtime_r, time as libc_time, time_t, timespec, tm};
 use std::mem;
 use std::time::SystemTime;
+
+use time;
 
 use crate::webassembly::Instance;
 
@@ -41,19 +40,12 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
         tv_nsec: i32,
     }
 
-    unsafe {
-        let mut timespec = timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        };
-        let ret = libc_clock_gettime(clk_id as _, &mut timespec);
-        if ret != 0 {
-            return ret;
-        }
+    let timespec = time::get_time();
 
+    unsafe {
         let timespec_struct_ptr = instance.memory_offset_addr(0, tp as _) as *mut GuestTimeSpec;
-        (*timespec_struct_ptr).tv_sec = timespec.tv_sec as _;
-        (*timespec_struct_ptr).tv_nsec = timespec.tv_nsec as _;
+        (*timespec_struct_ptr).tv_sec = timespec.sec as _;
+        (*timespec_struct_ptr).tv_nsec = timespec.nsec as _;
     }
     0
 }
@@ -244,7 +236,7 @@ pub extern "C" fn _time(time_p: u32, instance: &mut Instance) -> time_t {
 
     unsafe {
         let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
-        time(time_p_addr)
+        libc_time(time_p_addr)
     }
 }
 
