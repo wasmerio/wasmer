@@ -28,6 +28,11 @@ macro_rules! assert_emscripten_output {
         .unwrap();
         let output = capturer.end().unwrap().0;
         let expected_output = include_str!($expected);
-        assert_eq!(output, expected_output);
+        assert!(
+            output.contains(expected_output),
+            "Output: `{}` does not contain expected output: `{}`",
+            output,
+            expected_output
+        );
     }};
 }

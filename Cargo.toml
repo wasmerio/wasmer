@@ -52,6 +52,7 @@ console = "0.7.1"
 
 [build-dependencies]
 wabt = "0.7.2"
+glob = "0.2.11"
 # [dev-dependencies]
 # libffi = "0.6.4"
 # maplit = "1.0.1"
