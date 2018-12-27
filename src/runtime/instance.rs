@@ -14,7 +14,7 @@ use std::iter;
 use std::sync::Arc;
 
 pub struct Instance {
-    backing: LocalBacking,
+    pub (in crate::runtime) backing: LocalBacking,
     import_backing: ImportBacking,
     sig_registry: SigRegistry,
     pub module: Arc<Module>,
@@ -43,6 +43,26 @@ impl Instance {
         Ok(instance)
     }
 
+    /// Call an exported webassembly function given the export name.
+    /// Pass arguments by wrapping each one in the `Val` enum.
+    /// The returned value is also returned in a `Val`.
+    ///
+    /// This will eventually return `Result<Option<Vec<Val>>, String>` in
+    /// order to support multi-value returns.
+    pub fn call(&mut self, name: &str, args: &[Val]) -> Result<Option<Val>, String> {
+        let func_index = *self
+            .module
+            .exports
+            .get(name)
+            .ok_or_else(|| "there is no export with that name".to_string())
+            .and_then(|export| match export {
+                Export::Func(func_index) => Ok(func_index),
+                _ => Err("that export is not a function".to_string()),
+            })?;
+
+        self.call_with_index(func_index, args)
+    }
+
     fn call_with_index(
         &mut self,
         func_index: FuncIndex,
@@ -54,15 +74,18 @@ impl Instance {
             .signature_assoc
             .get(func_index)
             .expect("broken invariant, incorrect func index");
-        let signature = &self.module.signatures[sig_index];
+        
+        {
+            let signature = &self.module.signatures[sig_index];
 
-        assert!(
-            signature.returns.len() <= 1,
-            "multi-value returns not yet supported"
-        );
+            assert!(
+                signature.returns.len() <= 1,
+                "multi-value returns not yet supported"
+            );
 
-        if !signature.check_sig(args) {
-            return Err("incorrect signature".to_string());
+            if !signature.check_sig(args) {
+                return Err("incorrect signature".to_string());
+            }
         }
 
         // the vmctx will be located at the same place on the stack the entire time that this
@@ -93,7 +116,7 @@ impl Instance {
         );
 
         call_protected(|| {
-            signature
+            self.module.signatures[sig_index]
                 .returns
                 .first()
                 .map(|ty| match ty {
@@ -110,26 +133,6 @@ impl Instance {
                     None
                 })
         })
-    }
-
-    /// Call an exported webassembly function given the export name.
-    /// Pass arguments by wrapping each one in the `Val` enum.
-    /// The returned value is also returned in a `Val`.
-    ///
-    /// This will eventually return `Result<Option<Vec<Val>>, String>` in
-    /// order to support multi-value returns.
-    pub fn call(&mut self, name: &str, args: &[Val]) -> Result<Option<Val>, String> {
-        let func_index = *self
-            .module
-            .exports
-            .get(name)
-            .ok_or_else(|| "there is no export with that name".to_string())
-            .and_then(|export| match export {
-                Export::Func(func_index) => Ok(func_index),
-                _ => Err("that export is not a function".to_string()),
-            })?;
-
-        self.call_with_index(func_index, args)
     }
 }
 

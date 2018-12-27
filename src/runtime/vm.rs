@@ -1,8 +1,4 @@
 use crate::runtime::{
-    // types::{
-    //     MemoryIndex, TableIndex, GlobalIndex, FuncIndex,
-    //     SigIndex,
-    // },
     backing::{ImportBacking, LocalBacking},
     sig_registry::SigRegistry,
 };
@@ -34,6 +30,9 @@ pub struct Ctx {
 
     /// Signature identifiers for signature-checked indirect calls.
     pub signatures: *const SigId,
+
+    /// The parent instance.
+    pub local_backing: *mut LocalBacking,
 }
 
 impl Ctx {
@@ -53,6 +52,7 @@ impl Ctx {
             imported_funcs: import_backing.functions.as_mut_ptr(),
 
             signatures: sig_registry.into_vm_signatures(),
+            local_backing: local_backing,
         }
     }
 

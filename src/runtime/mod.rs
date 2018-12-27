@@ -7,6 +7,7 @@ mod sig_registry;
 mod table;
 pub mod types;
 pub mod vm;
+pub mod vmcalls;
 
 pub use self::backend::Compiler;
 pub use self::instance::{Import, Imports, Instance};

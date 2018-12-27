@@ -10,8 +10,8 @@ use crate::runtime::{
 
 #[derive(Debug)]
 pub struct LocalBacking {
-    memories: Box<[LinearMemory]>,
-    tables: Box<[TableBacking]>,
+    pub memories: Box<[LinearMemory]>,
+    pub tables: Box<[TableBacking]>,
 
     pub vm_memories: Box<[vm::LocalMemory]>,
     pub vm_tables: Box<[vm::LocalTable]>,
