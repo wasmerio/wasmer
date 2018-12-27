@@ -16,10 +16,8 @@ use std::sync::Arc;
 pub struct Instance {
     backing: LocalBacking,
     import_backing: ImportBacking,
-
+    sig_registry: SigRegistry,
     pub module: Arc<Module>,
-
-    pub sig_registry: SigRegistry,
 }
 
 impl Instance {
