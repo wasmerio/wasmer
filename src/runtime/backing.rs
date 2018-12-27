@@ -2,7 +2,8 @@ use crate::runtime::{
     instance::{Import, Imports},
     memory::LinearMemory,
     module::{ImportName, Module},
-    table::TableBacking,
+    sig_registry::SigRegistry,
+    table::{TableBacking, TableElements},
     types::{GlobalInit, MapIndex, Val},
     vm,
 };
@@ -18,13 +19,13 @@ pub struct LocalBacking {
 }
 
 impl LocalBacking {
-    pub fn new(module: &Module, imports: &ImportBacking) -> Self {
+    pub fn new(module: &Module, imports: &ImportBacking, sig_registry: &SigRegistry) -> Self {
         let mut memories = Self::generate_memories(module);
         let mut tables = Self::generate_tables(module);
         let globals = Self::generate_globals(module);
 
         let vm_memories = Self::finalize_memories(module, &mut memories[..]);
-        let vm_tables = Self::finalize_tables(module, &mut tables[..]);
+        let vm_tables = Self::finalize_tables(module, imports, &mut tables[..], sig_registry);
         let vm_globals = Self::finalize_globals(module, imports, globals);
 
         Self {
@@ -60,7 +61,7 @@ impl LocalBacking {
 
     fn finalize_memories(module: &Module, memories: &mut [LinearMemory]) -> Box<[vm::LocalMemory]> {
         for init in &module.data_initializers {
-            assert!(init.base.is_none(), "globalvar base not supported yet");
+            assert!(init.base.is_none(), "global base not supported yet");
             assert!(
                 init.offset + init.data.len() <= memories[init.memory_index.index()].current_size()
             );
@@ -94,8 +95,40 @@ impl LocalBacking {
         tables.into_boxed_slice()
     }
 
-    // TODO: Actually finish this
-    fn finalize_tables(_module: &Module, tables: &mut [TableBacking]) -> Box<[vm::LocalTable]> {
+    fn finalize_tables(
+        module: &Module,
+        imports: &ImportBacking,
+        tables: &mut [TableBacking],
+        sig_registry: &SigRegistry,
+    ) -> Box<[vm::LocalTable]> {
+        for init in &module.table_initializers {
+            assert!(init.base.is_none(), "global base not supported yet");
+            let table = &mut tables[init.table_index.index()];
+            match table.elements {
+                TableElements::Anyfunc(ref mut elements) => {
+                    for (i, &func_index) in init.elements.iter().enumerate() {
+                        let sig_index = module.signature_assoc[func_index];
+                        let vm_sig_id = sig_registry.get_vm_id(sig_index);
+
+                        let func_data = if module.is_imported_function(func_index) {
+                            imports.functions[func_index.index()].clone()
+                        } else {
+                            vm::ImportedFunc {
+                                func: (module.function_resolver)(module, func_index)
+                                    .unwrap()
+                                    .as_ptr(),
+                            }
+                        };
+
+                        elements[init.offset + i] = vm::Anyfunc {
+                            func_data,
+                            sig_id: vm_sig_id,
+                        };
+                    }
+                }
+            }
+        }
+
         tables
             .iter_mut()
             .map(|table| table.into_vm_table())
@@ -103,9 +136,8 @@ impl LocalBacking {
             .into_boxed_slice()
     }
 
-    // TODO: Actually finish this
     fn generate_globals(module: &Module) -> Box<[vm::LocalGlobal]> {
-        let mut globals = vec![vm::LocalGlobal::null(); module.globals.len()];
+        let globals = vec![vm::LocalGlobal::null(); module.globals.len()];
 
         globals.into_boxed_slice()
     }

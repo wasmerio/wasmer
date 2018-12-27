@@ -1,13 +1,16 @@
-use crate::runtime::backend::FuncResolver;
-use crate::runtime::types::{
-    FuncIndex, FuncSig, Global, GlobalDesc, GlobalIndex, Map, Memory, MemoryIndex, SigIndex, Table,
-    TableIndex,
+use crate::runtime::{
+    types::{
+        FuncIndex, FuncSig, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex,
+        SigIndex, Table, TableIndex,
+    },
+    vm,
 };
 use hashbrown::HashMap;
+use std::ptr::NonNull;
 
 /// This is used to instantiate a new webassembly module.
 pub struct Module {
-    pub functions: Box<dyn FuncResolver>,
+    pub function_resolver: Box<dyn Fn(&Module, FuncIndex) -> Option<NonNull<vm::Func>>>,
     pub memories: Map<Memory, MemoryIndex>,
     pub globals: Map<Global, GlobalIndex>,
     pub tables: Map<Table, TableIndex>,
@@ -20,10 +23,17 @@ pub struct Module {
     pub exports: HashMap<String, Export>,
 
     pub data_initializers: Vec<DataInitializer>,
+    pub table_initializers: Vec<TableInitializer>,
     pub start_func: FuncIndex,
 
     pub signature_assoc: Map<SigIndex, FuncIndex>,
     pub signatures: Map<FuncSig, SigIndex>,
+}
+
+impl Module {
+    pub(in crate::runtime) fn is_imported_function(&self, func_index: FuncIndex) -> bool {
+        func_index.index() < self.imported_functions.len()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -51,4 +61,17 @@ pub struct DataInitializer {
     pub offset: usize,
     /// The initialization data.
     pub data: Vec<u8>,
+}
+
+/// A WebAssembly table initializer.
+#[derive(Clone, Debug)]
+pub struct TableInitializer {
+    /// The index of a table to initialize.
+    pub table_index: TableIndex,
+    /// Optionally, a global variable giving a base index.
+    pub base: Option<GlobalIndex>,
+    /// The offset to add to the base.
+    pub offset: usize,
+    /// The values to write into the table elements.
+    pub elements: Vec<FuncIndex>,
 }

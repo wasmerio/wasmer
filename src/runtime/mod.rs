@@ -8,7 +8,7 @@ mod table;
 pub mod types;
 pub mod vm;
 
-pub use self::backend::{Compiler, FuncResolver};
+pub use self::backend::Compiler;
 pub use self::instance::{Import, Imports, Instance};
 pub use self::module::Module;
 

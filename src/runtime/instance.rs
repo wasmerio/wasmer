@@ -22,10 +22,10 @@ pub struct Instance {
 
 impl Instance {
     pub fn new(module: Arc<Module>, imports: &Imports) -> Result<Box<Instance>, String> {
-        let import_backing = ImportBacking::new(&*module, imports)?;
-        let backing = LocalBacking::new(&*module, &import_backing);
+        let sig_registry = SigRegistry::new(&*module);
 
-        let sig_registry = SigRegistry::new();
+        let import_backing = ImportBacking::new(&*module, imports)?;
+        let backing = LocalBacking::new(&*module, &import_backing, &sig_registry);
 
         Ok(Box::new(Instance {
             backing,
@@ -90,9 +90,7 @@ impl Instance {
             .collect();
 
         let func_ptr = CodePtr::from_ptr(
-            self.module
-                .functions
-                .resolve(&*self.module, name)
+            (self.module.function_resolver)(&*self.module, func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
                 .cast()
                 .as_ptr(),

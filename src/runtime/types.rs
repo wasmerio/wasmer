@@ -120,7 +120,7 @@ impl Memory {
 }
 
 /// A wasm func.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FuncSig {
     pub params: Vec<Type>,
     pub returns: Vec<Type>,
