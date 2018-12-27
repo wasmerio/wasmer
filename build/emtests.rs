@@ -116,7 +116,12 @@ pub fn compile(file: &str, ignores: &Vec<String>) -> Option<String> {
         let contents = format!(
             "#[test]{ignore}
 fn test_{rs_module_name}() {{
-    assert_emscripten_output!(\"../../{module_path}\", \"{rs_module_name}\", vec![], \"../../{test_output_path}\");
+    assert_emscripten_output!(
+        \"../../{module_path}\",
+        \"{rs_module_name}\",
+        vec![],
+        \"../../{test_output_path}\"
+    );
 }}
 ",
             ignore = ignored,
@@ -147,7 +152,7 @@ pub fn build() {
                     let test = path.to_str().unwrap();
                     if !EXCLUDES.iter().any(|e| test.ends_with(e)) {
                         if let Some(module_name) = compile(test, &ignores) {
-                            modules.push(format!("mod {};", module_name));
+                            modules.push(module_name);
                         }
                     }
                 }
@@ -155,6 +160,8 @@ pub fn build() {
             }
         }
     }
+    modules.sort();
+    let mut modules: Vec<String> = modules.iter().map(|m| format!("mod {};", m)).collect();
     assert!(modules.len() > 0, "Expected > 0 modules found");
 
     modules.insert(0, BANNER.to_string());
