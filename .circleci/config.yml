@@ -11,6 +11,7 @@ jobs:
           keys:
             - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
+      - run: sudo apt-get install texinfo
       - run: make test
       - run: rustup component add rustfmt
       - run: make lint
@@ -32,6 +33,7 @@ jobs:
           keys:
             - v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
+      - run: sudo apt-get install texinfo
       - run:
           name: Execute tests
           command: make test
