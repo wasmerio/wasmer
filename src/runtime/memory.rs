@@ -145,7 +145,6 @@ impl LinearMemory {
             return None;
         }
 
-        let prev_bytes = (prev_pages * Self::PAGE_SIZE) as usize;
         let new_bytes = (new_pages * Self::PAGE_SIZE) as usize;
 
         if new_bytes > self.mmap.len() - self.offset_guard_size {

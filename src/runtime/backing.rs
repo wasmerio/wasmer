@@ -66,7 +66,7 @@ impl LocalBacking {
             );
             let offset = init.offset;
             let mem: &mut LinearMemory = &mut memories[init.memory_index.index()];
-            let end_of_init = offset + init.data.len();
+            // let end_of_init = offset + init.data.len();
             // if end_of_init > mem.current_size() {
             //     let grow_pages = (end_of_init / LinearMemory::PAGE_SIZE as usize) + 1;
             //     mem.grow(grow_pages as u32)
@@ -95,7 +95,7 @@ impl LocalBacking {
     }
 
     // TODO: Actually finish this
-    fn finalize_tables(module: &Module, tables: &mut [TableBacking]) -> Box<[vm::LocalTable]> {
+    fn finalize_tables(_module: &Module, tables: &mut [TableBacking]) -> Box<[vm::LocalTable]> {
         tables
             .iter_mut()
             .map(|table| table.into_vm_table())

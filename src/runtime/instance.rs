@@ -5,7 +5,7 @@ use crate::runtime::{
     module::{Export, Module},
     sig_registry::SigRegistry,
     table::TableBacking,
-    types::{FuncIndex, FuncSig, Memory, Table, Type, Val},
+    types::{FuncSig, Memory, Table, Type, Val},
     vm,
 };
 use hashbrown::HashMap;
