@@ -12,7 +12,7 @@ jobs:
             - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
       - run: sudo apt-get install texinfo
-      - run: sudo apt-get install libclang-dev
+      - run: sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run: make test
       - run: rustup component add rustfmt
       - run: make lint
@@ -35,7 +35,7 @@ jobs:
             - v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
       - run: sudo apt-get install texinfo
-      - run: sudo apt-get install libclang-dev
+      - run: sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run:
           name: Execute tests
           command: make test
@@ -133,7 +133,7 @@ jobs:
             - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
       - run: sudo apt-get install -y cmake
       - run: sudo apt-get install texinfo
-      - run: sudo apt-get install libclang-dev
+      - run: sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run: rustup default nightly
       - run: make test
       - save_cache:
