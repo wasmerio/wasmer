@@ -24,7 +24,7 @@ pub struct Module {
 
     pub data_initializers: Vec<DataInitializer>,
     pub table_initializers: Vec<TableInitializer>,
-    pub start_func: FuncIndex,
+    pub start_func: Option<FuncIndex>,
 
     pub signature_assoc: Map<SigIndex, FuncIndex>,
     pub signatures: Map<FuncSig, SigIndex>,

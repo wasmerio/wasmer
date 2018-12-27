@@ -5,7 +5,7 @@ use crate::runtime::{
     module::{Export, Module},
     sig_registry::SigRegistry,
     table::TableBacking,
-    types::{FuncSig, Memory, Table, Type, Val},
+    types::{FuncIndex, FuncSig, Memory, Table, Type, Val},
     vm,
 };
 use hashbrown::HashMap;
@@ -27,31 +27,27 @@ impl Instance {
         let import_backing = ImportBacking::new(&*module, imports)?;
         let backing = LocalBacking::new(&*module, &import_backing, &sig_registry);
 
-        Ok(Box::new(Instance {
+        let start_func = module.start_func;
+
+        let mut instance = Box::new(Instance {
             backing,
             import_backing,
             module,
             sig_registry,
-        }))
+        });
+
+        if let Some(start_index) = start_func {
+            instance.call_with_index(start_index, &[])?;
+        }
+
+        Ok(instance)
     }
 
-    /// Call an exported webassembly function given the export name.
-    /// Pass arguments by wrapping each one in the `Val` enum.
-    /// The returned value is also returned in a `Val`.
-    ///
-    /// This will eventually return `Result<Option<Vec<Val>>, String>` in
-    /// order to support multi-value returns.
-    pub fn call(&mut self, name: &str, args: &[Val]) -> Result<Option<Val>, String> {
-        let func_index = *self
-            .module
-            .exports
-            .get(name)
-            .ok_or_else(|| "there is no export with that name".to_string())
-            .and_then(|export| match export {
-                Export::Func(func_index) => Ok(func_index),
-                _ => Err("that export is not a function".to_string()),
-            })?;
-
+    fn call_with_index(
+        &mut self,
+        func_index: FuncIndex,
+        args: &[Val],
+    ) -> Result<Option<Val>, String> {
         // Check the function signature.
         let sig_index = *self
             .module
@@ -114,6 +110,26 @@ impl Instance {
                     None
                 })
         })
+    }
+
+    /// Call an exported webassembly function given the export name.
+    /// Pass arguments by wrapping each one in the `Val` enum.
+    /// The returned value is also returned in a `Val`.
+    ///
+    /// This will eventually return `Result<Option<Vec<Val>>, String>` in
+    /// order to support multi-value returns.
+    pub fn call(&mut self, name: &str, args: &[Val]) -> Result<Option<Val>, String> {
+        let func_index = *self
+            .module
+            .exports
+            .get(name)
+            .ok_or_else(|| "there is no export with that name".to_string())
+            .and_then(|export| match export {
+                Export::Func(func_index) => Ok(func_index),
+                _ => Err("that export is not a function".to_string()),
+            })?;
+
+        self.call_with_index(func_index, args)
     }
 }
 
