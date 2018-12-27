@@ -4,7 +4,9 @@
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
 
+use crate::sighandler::install_sighandler;
 use nix::libc::siginfo_t;
+use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 use std::cell::{Cell, UnsafeCell};
 use std::sync::Once;
 
@@ -69,6 +71,37 @@ macro_rules! call_protected {
             }
         }
     };
+}
+
+pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, String> {
+    unsafe {
+        let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
+        let prev_jmp_buf = *jmp_buf;
+
+        SIGHANDLER_INIT.call_once(|| {
+            install_sighandler();
+        });
+
+        let signum = setjmp(jmp_buf as *mut ::nix::libc::c_void);
+        if signum != 0 {
+            *jmp_buf = prev_jmp_buf;
+            let addr = CAUGHT_ADDRESS.with(|cell| cell.get());
+
+            let signal = match Signal::from_c_int(signum) {
+                Ok(SIGFPE) => "floating-point exception",
+                Ok(SIGILL) => "illegal instruction",
+                Ok(SIGSEGV) => "segmentation violation",
+                Ok(SIGBUS) => "bus error",
+                Err(_) => "error while getting the Signal",
+                _ => "unkown trapped signal",
+            };
+            Err(format!("trap at {:#x} - {}", addr, signal))
+        } else {
+            let ret = f(); // TODO: Switch stack?
+            *jmp_buf = prev_jmp_buf;
+            Ok(ret)
+        }
+    }
 }
 
 /// Unwinds to last protected_call.

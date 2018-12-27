@@ -10,7 +10,7 @@ pub mod vm;
 
 pub use self::backend::{Compiler, FuncResolver};
 pub use self::instance::{Import, Imports, Instance};
-pub use self::module::{ItemName, Module, ModuleName};
+pub use self::module::Module;
 
 /// Compile a webassembly module using the provided compiler and linked with the provided imports.
 pub fn compile(

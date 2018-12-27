@@ -1,4 +1,4 @@
-use crate::runtime::{module::Module, types::FuncIndex, vm};
+use crate::runtime::{module::Module, vm};
 use std::ptr::NonNull;
 use std::sync::Arc;
 
@@ -7,5 +7,5 @@ pub trait Compiler {
 }
 
 pub trait FuncResolver {
-    fn resolve(&self, index: FuncIndex) -> Option<NonNull<vm::Func>>;
+    fn resolve(&self, module: &Module, name: &str) -> Option<NonNull<vm::Func>>;
 }

@@ -1,7 +1,7 @@
 use crate::runtime::{
     instance::{Import, Imports},
     memory::LinearMemory,
-    module::Module,
+    module::{ImportName, Module},
     table::TableBacking,
     types::{GlobalInit, MapIndex, Val},
     vm,
@@ -216,7 +216,14 @@ impl ImportBacking {
         );
 
         let mut functions = Vec::with_capacity(module.imported_functions.len());
-        for (index, (mod_name, item_name)) in &module.imported_functions {
+        for (
+            index,
+            ImportName {
+                module: mod_name,
+                name: item_name,
+            },
+        ) in &module.imported_functions
+        {
             let expected_sig_index = module.signature_assoc[index];
             let expected_sig = &module.signatures[expected_sig_index];
             let import = imports.get(mod_name, item_name);
@@ -238,7 +245,17 @@ impl ImportBacking {
         }
 
         let mut globals = Vec::with_capacity(module.imported_globals.len());
-        for (_, ((mod_name, item_name), global_desc)) in &module.imported_globals {
+        for (
+            _,
+            (
+                ImportName {
+                    module: mod_name,
+                    name: item_name,
+                },
+                global_desc,
+            ),
+        ) in &module.imported_globals
+        {
             let import = imports.get(mod_name, item_name);
             if let Some(Import::Global(val)) = import {
                 if val.ty() == global_desc.ty {

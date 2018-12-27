@@ -126,6 +126,17 @@ pub struct FuncSig {
     pub returns: Vec<Type>,
 }
 
+impl FuncSig {
+    pub fn check_sig(&self, params: &[Val]) -> bool {
+        self.params.len() == params.len()
+            && self
+                .params
+                .iter()
+                .zip(params.iter().map(|val| val.ty()))
+                .all(|(t0, ref t1)| t0 == t1)
+    }
+}
+
 pub trait MapIndex {
     fn new(index: usize) -> Self;
     fn index(&self) -> usize;

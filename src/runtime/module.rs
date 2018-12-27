@@ -3,6 +3,7 @@ use crate::runtime::types::{
     FuncIndex, FuncSig, Global, GlobalDesc, GlobalIndex, Map, Memory, MemoryIndex, SigIndex, Table,
     TableIndex,
 };
+use hashbrown::HashMap;
 
 /// This is used to instantiate a new webassembly module.
 pub struct Module {
@@ -16,7 +17,7 @@ pub struct Module {
     pub imported_tables: Map<(ImportName, Table), TableIndex>,
     pub imported_globals: Map<(ImportName, GlobalDesc), GlobalIndex>,
 
-    pub exported: Vec<(ItemName, Export)>,
+    pub exports: HashMap<String, Export>,
 
     pub data_initializers: Vec<DataInitializer>,
     pub start_func: FuncIndex,
@@ -25,9 +26,11 @@ pub struct Module {
     pub signatures: Map<FuncSig, SigIndex>,
 }
 
-pub type ModuleName = Vec<u8>;
-pub type ItemName = Vec<u8>;
-pub type ImportName = (ModuleName, ItemName);
+#[derive(Debug, Clone)]
+pub struct ImportName {
+    pub module: String,
+    pub name: String,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Export {
