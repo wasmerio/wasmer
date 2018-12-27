@@ -6,5 +6,6 @@
 mod _common;
 mod clock_gettime;
 mod env;
+mod localtime;
 mod printf;
 mod puts;
