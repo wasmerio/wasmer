@@ -14,7 +14,7 @@ use std::iter;
 use std::sync::Arc;
 
 pub struct Instance {
-    pub (in crate::runtime) backing: LocalBacking,
+    pub(in crate::runtime) backing: LocalBacking,
     import_backing: ImportBacking,
     sig_registry: SigRegistry,
     pub module: Arc<Module>,
@@ -74,7 +74,7 @@ impl Instance {
             .signature_assoc
             .get(func_index)
             .expect("broken invariant, incorrect func index");
-        
+
         {
             let signature = &self.module.signatures[sig_index];
 
