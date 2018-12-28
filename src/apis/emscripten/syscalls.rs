@@ -852,15 +852,6 @@ pub extern "C" fn ___syscall197(
     0
 }
 
-// /// fcntl64
-// pub extern "C" fn ___syscall221(_which: c_int, mut varargs: VarArgs, instance: &mut Instance) -> c_int {
-//     debug!("emscripten::___syscall221");
-//     let fd: i32 = varargs.get(instance);
-//     let cmd: i32 = varargs.get(instance);
-//     debug!("fd: {}, cmd: {}", fd, cmd);
-//     unsafe { fcntl(fd, cmd) }
-// }
-
 // getgid
 pub extern "C" fn ___syscall201() -> gid_t {
     debug!("emscripten::___syscall201 (getgid)");

@@ -1,3 +1,4 @@
+extern crate glob;
 extern crate wabt;
 
 use std::env;

@@ -4,6 +4,6 @@ fn test_env() {
         "../../emtests/env.wasm",
         "env",
         vec![],
-        "../../emtests/env.output"
+        "../../emtests/env.out"
     );
 }
