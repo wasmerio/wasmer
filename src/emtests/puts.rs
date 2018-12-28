@@ -4,6 +4,6 @@ fn test_puts() {
         "../../emtests/puts.wasm",
         "puts",
         vec![],
-        "../../emtests/puts.output"
+        "../../emtests/puts.out"
     );
 }

@@ -4,6 +4,6 @@ fn test_clock_gettime() {
         "../../emtests/clock_gettime.wasm",
         "clock_gettime",
         vec![],
-        "../../emtests/clock_gettime.output"
+        "../../emtests/clock_gettime.out"
     );
 }
