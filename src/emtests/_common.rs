@@ -26,8 +26,13 @@ macro_rules! assert_emscripten_output {
             $args,
         )
         .unwrap();
-        let output = capturer.end().0;
+        let output = capturer.end().unwrap().0;
         let expected_output = include_str!($expected);
-        assert_eq!(output, expected_output);
+        assert!(
+            output.contains(expected_output),
+            "Output: `{}` does not contain expected output: `{}`",
+            output,
+            expected_output
+        );
     }};
 }

@@ -26,9 +26,21 @@
 
 ###### ENVIRONMENT
 
-- **\_getenv** &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+- **\_getenv** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-
+  fn _getenv(name: c_int, instance: &mut Instance)
+  ```
+- **\_putenv** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+  ```rust
+  fn _putenv(name: c_int, instance: &mut Instance)
+  ```
+- **\_setenv** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+  ```rust
+  fn _setenv(name: c_int, value: c_int, overwrite: c_int, instance: &mut Instance
+  ```
+- **\_unsetenv** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
+  ```rust
+  fn _unsetenv(name: c_int, instance: &mut Instance)
   ```
 
 ###### THREAD
@@ -42,10 +54,6 @@
 
   ```
 - **\_pthread_setspecific** &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
-  ```rust
-
-  ```
-- **\_unsetenv** &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
 
   ```

@@ -4,6 +4,6 @@ fn test_printf() {
         "../../emtests/printf.wasm",
         "printf",
         vec![],
-        "../../emtests/printf.output"
+        "../../emtests/printf.out"
     );
 }

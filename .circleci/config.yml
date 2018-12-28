@@ -91,6 +91,9 @@ jobs:
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
+            # We increase the ulimit for fixing cargo unclosed files in mac
+            ulimit -n 8000
+            sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
             make lint
       - run:
@@ -118,6 +121,26 @@ jobs:
             - target/release/deps
           key: v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
+  test-rust-nightly:
+    docker:
+      - image: circleci/rust:latest
+
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+      - run: sudo apt-get install -y cmake
+      - run: rustup default nightly
+      - run: make test
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+
   publish-github-release:
     docker:
       - image: cibuilds/github
@@ -138,7 +161,7 @@ jobs:
             # VERSION_TAG=$(git describe --exact-match --tags)
             #if [ "$VERSION" == "$VERSION_TAG" ]; then
             # echo "Versions match, publishing to Github"
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts/
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -soft ${VERSION} ./artifacts/
             #else
             #    echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
             #    exit 1
@@ -157,6 +180,10 @@ workflows:
             branches:
               only: master
       - test-and-build-macos:
+          filters:
+            branches:
+              only: master
+      - test-rust-nightly:
           filters:
             branches:
               only: master
