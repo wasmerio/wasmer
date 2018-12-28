@@ -74,17 +74,17 @@ pub extern "C" fn _difftime(t0: u32, t1: u32) -> c_int {
 
 #[repr(C)]
 struct guest_tm {
-    pub tm_sec: c_int,   // 0
-    pub tm_min: c_int,   // 4
-    pub tm_hour: c_int,  // 8
-    pub tm_mday: c_int,  // 12
-    pub tm_mon: c_int,   // 16
-    pub tm_year: c_int,  // 20
-    pub tm_wday: c_int,  // 24
-    pub tm_yday: c_int,  // 28
-    pub tm_isdst: c_int, // 32
+    pub tm_sec: c_int,    // 0
+    pub tm_min: c_int,    // 4
+    pub tm_hour: c_int,   // 8
+    pub tm_mday: c_int,   // 12
+    pub tm_mon: c_int,    // 16
+    pub tm_year: c_int,   // 20
+    pub tm_wday: c_int,   // 24
+    pub tm_yday: c_int,   // 28
+    pub tm_isdst: c_int,  // 32
     pub tm_gmtoff: c_int, // 36
-    pub tm_zone: c_int, // 40
+    pub tm_zone: c_int,   // 40
 }
 
 /// emscripten: _tvset
