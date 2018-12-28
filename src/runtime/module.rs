@@ -11,14 +11,14 @@ use std::ptr::NonNull;
 /// This is used to instantiate a new webassembly module.
 pub struct Module {
     pub function_resolver: Box<dyn Fn(&Module, FuncIndex) -> Option<NonNull<vm::Func>>>,
-    pub memories: Map<Memory, MemoryIndex>,
-    pub globals: Map<Global, GlobalIndex>,
-    pub tables: Map<Table, TableIndex>,
+    pub memories: Map<MemoryIndex, Memory>,
+    pub globals: Map<GlobalIndex, Global>,
+    pub tables: Map<TableIndex, Table>,
 
-    pub imported_functions: Map<ImportName, FuncIndex>,
-    pub imported_memories: Map<(ImportName, Memory), MemoryIndex>,
-    pub imported_tables: Map<(ImportName, Table), TableIndex>,
-    pub imported_globals: Map<(ImportName, GlobalDesc), GlobalIndex>,
+    pub imported_functions: Map<FuncIndex, ImportName>,
+    pub imported_memories: Map<MemoryIndex, (ImportName, Memory)>,
+    pub imported_tables: Map<TableIndex, (ImportName, Table)>,
+    pub imported_globals: Map<GlobalIndex, (ImportName, GlobalDesc)>,
 
     pub exports: HashMap<String, Export>,
 
@@ -26,8 +26,8 @@ pub struct Module {
     pub table_initializers: Vec<TableInitializer>,
     pub start_func: Option<FuncIndex>,
 
-    pub signature_assoc: Map<SigIndex, FuncIndex>,
-    pub signatures: Map<FuncSig, SigIndex>,
+    pub signature_assoc: Map<FuncIndex, SigIndex>,
+    pub signatures: Map<SigIndex, FuncSig>,
 }
 
 impl Module {

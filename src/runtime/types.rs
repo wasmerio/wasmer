@@ -84,8 +84,10 @@ pub struct Table {
 /// Overtime, this will be able to represent more and more
 /// complex expressions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GlobalInit {
-    Val(Val),
+pub enum Initializer {
+    /// Corresponds to a `const.*` instruction.
+    Const(Val),
+    /// Corresponds to a `get_global` instruction.
     GetGlobal(GlobalIndex),
 }
 
@@ -99,7 +101,7 @@ pub struct GlobalDesc {
 #[derive(Debug, Clone, Copy)]
 pub struct Global {
     pub desc: GlobalDesc,
-    pub init: GlobalInit,
+    pub init: Initializer,
 }
 
 /// A wasm memory.
@@ -144,7 +146,7 @@ pub trait MapIndex {
 
 /// Dense item map
 #[derive(Debug, Clone)]
-pub struct Map<T, I>
+pub struct Map<I, T>
 where
     I: MapIndex,
 {
@@ -152,7 +154,7 @@ where
     _marker: PhantomData<I>,
 }
 
-impl<T, I> Map<T, I>
+impl<I, T> Map<I, T>
 where
     I: MapIndex,
 {
@@ -189,7 +191,7 @@ where
     }
 }
 
-impl<T, I> Index<I> for Map<T, I>
+impl<I, T> Index<I> for Map<I, T>
 where
     I: MapIndex,
 {
@@ -199,7 +201,7 @@ where
     }
 }
 
-impl<T, I> IndexMut<I> for Map<T, I>
+impl<I, T> IndexMut<I> for Map<I, T>
 where
     I: MapIndex,
 {
@@ -208,7 +210,7 @@ where
     }
 }
 
-impl<'a, T, I> IntoIterator for &'a Map<T, I>
+impl<'a, I, T> IntoIterator for &'a Map<I, T>
 where
     I: MapIndex,
 {
@@ -220,7 +222,7 @@ where
     }
 }
 
-impl<'a, T, I> IntoIterator for &'a mut Map<T, I>
+impl<'a, I, T> IntoIterator for &'a mut Map<I, T>
 where
     I: MapIndex,
 {

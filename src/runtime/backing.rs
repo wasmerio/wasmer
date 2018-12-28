@@ -4,7 +4,7 @@ use crate::runtime::{
     module::{ImportName, Module},
     sig_registry::SigRegistry,
     table::{TableBacking, TableElements},
-    types::{GlobalInit, MapIndex, Val},
+    types::{Initializer, MapIndex, Val},
     vm,
 };
 
@@ -149,11 +149,11 @@ impl LocalBacking {
     ) -> Box<[vm::LocalGlobal]> {
         for (to, (_, from)) in globals.iter_mut().zip(module.globals.into_iter()) {
             to.data = match from.init {
-                GlobalInit::Val(Val::I32(x)) => x as u64,
-                GlobalInit::Val(Val::I64(x)) => x as u64,
-                GlobalInit::Val(Val::F32(x)) => x as u64,
-                GlobalInit::Val(Val::F64(x)) => x,
-                GlobalInit::GetGlobal(index) => (imports.globals[index.index()].global).data,
+                Initializer::Const(Val::I32(x)) => x as u64,
+                Initializer::Const(Val::I64(x)) => x as u64,
+                Initializer::Const(Val::F32(x)) => x as u64,
+                Initializer::Const(Val::F64(x)) => x,
+                Initializer::GetGlobal(index) => (imports.globals[index.index()].global).data,
             };
         }
 

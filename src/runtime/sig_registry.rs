@@ -7,7 +7,7 @@ use hashbrown::HashMap;
 
 pub struct SigRegistry {
     sig_set: HashMap<FuncSig, vm::SigId>,
-    signatures: Map<vm::SigId, SigIndex>,
+    signatures: Map<SigIndex, vm::SigId>,
 }
 
 impl SigRegistry {
@@ -19,7 +19,8 @@ impl SigRegistry {
 
         for (_, &sig_index) in &module.signature_assoc {
             let func_sig = module.signatures[sig_index].clone();
-            registry.register(func_sig);
+            let new_sig_index = registry.register(func_sig);
+            assert_eq!(sig_index, new_sig_index);
         }
 
         registry
@@ -33,12 +34,12 @@ impl SigRegistry {
         self.signatures[sig_index]
     }
 
-    fn register(&mut self, signature: FuncSig) {
+    fn register(&mut self, signature: FuncSig) -> SigIndex {
         let index = self.sig_set.len();
         let vm_sig_id = *self
             .sig_set
             .entry(signature)
             .or_insert_with(|| vm::SigId(index as u32));
-        self.signatures.push(vm_sig_id);
+        self.signatures.push(vm_sig_id)
     }
 }
