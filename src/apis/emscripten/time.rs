@@ -83,6 +83,8 @@ struct guest_tm {
     pub tm_wday: c_int,  // 24
     pub tm_yday: c_int,  // 28
     pub tm_isdst: c_int, // 32
+    pub tm_gmtoff: c_int, // 36
+    pub tm_zone: c_int, // 40
 }
 
 /// emscripten: _tvset
@@ -154,7 +156,7 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
     //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
     let timespec = unsafe {
-        let mut time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
+        let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
         let seconds = *time_p_addr.clone();
         time::Timespec::new(seconds, 0)
     };
@@ -180,6 +182,8 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
         (*tm_struct_ptr).tm_wday = result_tm.tm_wday;
         (*tm_struct_ptr).tm_yday = result_tm.tm_yday;
         (*tm_struct_ptr).tm_isdst = result_tm.tm_isdst;
+        (*tm_struct_ptr).tm_gmtoff = 0;
+        (*tm_struct_ptr).tm_zone = 0;
 
         tm_struct_offset as _
     }
@@ -192,9 +196,8 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
     //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
     unsafe {
-        let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
-        let seconds = *time_p_addr.clone();
-        let timespec = time::Timespec::new(seconds, 0);
+        let seconds = instance.memory_offset_addr(0, time_p as _) as *const i64;
+        let timespec = time::Timespec::new(*seconds, 0);
         let result_tm = time::at(timespec);
 
         // debug!(
@@ -214,6 +217,8 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
         (*result_addr).tm_wday = result_tm.tm_wday;
         (*result_addr).tm_yday = result_tm.tm_yday;
         (*result_addr).tm_isdst = result_tm.tm_isdst;
+        (*result_addr).tm_gmtoff = 0;
+        (*result_addr).tm_zone = 0;
 
         result as _
     }
