@@ -1,36 +1,16 @@
-use crate::runtime::Compiler;
-use crate::runtime::Module;
-use crate::webassembly;
-use cranelift_codegen::isa::{CallConv, TargetFrontendConfig};
-use cranelift_wasm::{
-    translate_module, DefinedFuncIndex, FuncEnvironment as FuncEnvironmentTrait, FuncIndex,
-    FuncTranslator, Global, GlobalIndex, GlobalVariable, Memory, MemoryIndex, ModuleEnvironment,
-    ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
+pub mod codegen;
+
+use crate::runtime::{
+    module::Module,
+    backend::Compiler,
 };
 use std::sync::Arc;
 
-use crate::webassembly::{Error, ErrorKind};
+struct Cranelift {}
 
-pub struct CraneliftCompiler {}
-
-impl Compiler for CraneliftCompiler {
+impl Compiler for Cranelift {
+    // Compiles towasm byte to module
     fn compile(&self, wasm: &[u8]) -> Result<Arc<Module>, String> {
-        debug!("webassembly - validating module");
-        // TODO: This should be automatically validated when creating the Module
-        webassembly::validate_or_error(&wasm).map_err(|err| format!("{}", err))?;
-
-        let isa = webassembly::get_isa();
-
-        debug!("webassembly - creating module");
-
-        // TODO Implement Module with ModuleEnvironment
-        //        let mut module = Module {
-        //
-        //        };
-        //        translate_module(&buffer_source, &mut module)
-        //            .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
-
-        debug!("webassembly - module created");
-        unimplemented!()
+        Ok(Arc::new(codegen::CraneliftModuleTrait::from_bytes(wasm)?))
     }
 }
