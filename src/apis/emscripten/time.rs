@@ -163,7 +163,7 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
     let result_tm = time::at(timespec);
 
     unsafe {
-        let tm_struct_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(
+        let tm_struct_offset = (instance.emscripten_data().as_ref().unwrap().malloc)(
             mem::size_of::<guest_tm>() as _,
             instance,
         );

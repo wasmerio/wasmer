@@ -69,11 +69,11 @@ fn get_function_addr(
 }
 
 pub struct EmscriptenData {
-    pub malloc: extern "C" fn(i32, &Instance) -> u32,
-    pub free: extern "C" fn(i32, &mut Instance),
-    pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
-    pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
-    pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
+    pub malloc: extern "C" fn(i32, &crate::runtime::Instance) -> u32,
+    pub free: extern "C" fn(i32, &mut crate::runtime::Instance),
+    pub memalign: extern "C" fn(u32, u32, &mut crate::runtime::Instance) -> u32,
+    pub memset: extern "C" fn(u32, i32, u32, &mut crate::runtime::Instance) -> u32,
+    pub stack_alloc: extern "C" fn(u32, &crate::runtime::Instance) -> u32,
     pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
 }
 

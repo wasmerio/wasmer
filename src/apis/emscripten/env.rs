@@ -9,7 +9,19 @@ use std::mem;
 use std::os::raw::c_char;
 
 use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use crate::webassembly::Instance;
+use crate::runtime::Instance;
+use crate::webassembly::instance::EmscriptenData;
+
+impl Instance {
+    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
+        unimplemented!("TODO replace this stub")
+    }
+
+    pub fn emscripten_data(&self) -> &'static mut Option<EmscriptenData> {
+        unimplemented!("TODO replace this stub")
+    }
+
+}
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
@@ -84,7 +96,7 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 
     unsafe {
         let passwd = &*libc_getpwnam(name.as_ptr());
-        let passwd_struct_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(
+        let passwd_struct_offset = (instance.emscripten_data().as_ref().unwrap().malloc)(
             mem::size_of::<GuestPasswd>() as _,
             instance,
         );
@@ -121,7 +133,7 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 
     unsafe {
         let group = &*libc_getgrnam(name.as_ptr());
-        let group_struct_offset = (instance.emscripten_data.as_ref().unwrap().malloc)(
+        let group_struct_offset = (instance.emscripten_data().as_ref().unwrap().malloc)(
             mem::size_of::<GuestGroup>() as _,
             instance,
         );
