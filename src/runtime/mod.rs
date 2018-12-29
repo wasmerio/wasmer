@@ -10,7 +10,7 @@ pub mod vm;
 pub mod vmcalls;
 
 pub use self::backend::{Compiler, FuncResolver};
-pub use self::instance::{Import, ImportResolver, Instance};
+pub use self::instance::{Import, Imports, ImportResolver, Instance};
 pub use self::module::Module;
 pub use self::table::TableBacking;
 
