@@ -149,7 +149,7 @@ fn wabt2rust_value(v: &Value) -> String {
                 // Support for non-canonical NaNs
                 format!("Val::F32(f32::from_bits({:?}) as u32)", v.to_bits())
             } else {
-                format!("Val::F32({:?} as u32)", v)
+                format!("Val::F32(({:?}f32).to_bits())", v)
             }
         }
         Value::F64(v) => {
@@ -162,7 +162,7 @@ fn wabt2rust_value(v: &Value) -> String {
             } else if v.is_nan() {
                 format!("Val::F64(f64::from_bits({:?}) as u64)", v.to_bits())
             } else {
-                format!("Val::F64({:?} as u64)", v)
+                format!("Val::F64(({:?}f64).to_bits())", v)
             }
         }
     }
@@ -344,7 +344,7 @@ fn {}_assert_invalid() {{
                     format!(
                         "fn {func_name}(result_object: &mut ResultObject) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = result_object.instance.call(\"{func_name}\", &vec![{args_values}][..]).unwrap().expect(\"Missing result in {func_name}\");
+    let result = result_object.instance.call(\"{func_name}\", &[{args_values}]).unwrap().expect(\"Missing result in {func_name}\");
     {assertion}
 }}\n",
                         func_name=func_name,
@@ -396,7 +396,7 @@ fn {}_assert_invalid() {{
                     format!(
                         "fn {func_name}(result_object: &mut ResultObject) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = result_object.instance.call(\"{func_name}\", &vec![{args_values}][..]).unwrap().expect(\"Missing result in {func_name}\");
+    let result = result_object.instance.call(\"{func_name}\", &[{args_values}]).unwrap().expect(\"Missing result in {func_name}\");
     {assertion}
 }}\n",
                         func_name=func_name,
@@ -510,7 +510,7 @@ fn {}_assert_malformed() {{
                     format!(
                         "fn {func_name}(result_object: &mut ResultObject) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = result_object.instance.call(\"{func_name}\", &vec![{args_values}][..]).expect(\"Missing result in {func_name}\");
+    let result = result_object.instance.call(\"{func_name}\", &[{args_values}]).expect(\"Missing result in {func_name}\");
     {assertion}
 }}\n",
                         func_name=func_name,

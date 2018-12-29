@@ -1,5 +1,5 @@
 use crate::runtime::{
-    instance::{ImportResolver, Import},
+    instance::{Import, ImportResolver},
     memory::LinearMemory,
     module::{ImportName, Module},
     sig_registry::SigRegistry,
@@ -114,7 +114,9 @@ impl LocalBacking {
                             imports.functions[func_index.index()].clone()
                         } else {
                             vm::ImportedFunc {
-                                func: module.func_resolver.get(module, func_index)
+                                func: module
+                                    .func_resolver
+                                    .get(module, func_index)
                                     .unwrap()
                                     .as_ptr(),
                             }

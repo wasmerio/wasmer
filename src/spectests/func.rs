@@ -339,7 +339,7 @@ fn c1_l171_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l171_action_invoke");
     let result = result_object
         .instance
-        .call("c1_l171_action_invoke", &vec![][..])
+        .call("c1_l171_action_invoke", &[])
         .expect("Missing result in c1_l171_action_invoke");
     assert_eq!(result, None);
 }
@@ -349,7 +349,7 @@ fn c2_l172_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l172_action_invoke");
     let result = result_object
         .instance
-        .call("c2_l172_action_invoke", &vec![][..])
+        .call("c2_l172_action_invoke", &[])
         .expect("Missing result in c2_l172_action_invoke");
     assert_eq!(result, Some(Val::I32(0 as i32)));
 }
@@ -359,7 +359,7 @@ fn c3_l173_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l173_action_invoke");
     let result = result_object
         .instance
-        .call("c3_l173_action_invoke", &vec![Val::I32(1 as i32)][..])
+        .call("c3_l173_action_invoke", &[Val::I32(1 as i32)])
         .expect("Missing result in c3_l173_action_invoke");
     assert_eq!(result, None);
 }
@@ -371,7 +371,11 @@ fn c4_l175_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c4_l175_action_invoke",
-            &vec![Val::I32(1 as i32), Val::F64(1.0 as u64), Val::I32(1 as i32)][..],
+            &[
+                Val::I32(1 as i32),
+                Val::F64((1.0f64).to_bits()),
+                Val::I32(1 as i32),
+            ],
         )
         .expect("Missing result in c4_l175_action_invoke");
     assert_eq!(result, Some(Val::I32(0 as i32)));
@@ -382,7 +386,7 @@ fn c5_l178_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l178_action_invoke");
     let result = result_object
         .instance
-        .call("c5_l178_action_invoke", &vec![][..])
+        .call("c5_l178_action_invoke", &[])
         .expect("Missing result in c5_l178_action_invoke");
     assert_eq!(result, Some(Val::I32(0 as i32)));
 }
@@ -392,7 +396,7 @@ fn c6_l179_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c6_l179_action_invoke");
     let result = result_object
         .instance
-        .call("c6_l179_action_invoke", &vec![Val::I32(1 as i32)][..])
+        .call("c6_l179_action_invoke", &[Val::I32(1 as i32)])
         .expect("Missing result in c6_l179_action_invoke");
     assert_eq!(result, None);
 }
@@ -404,7 +408,11 @@ fn c7_l181_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c7_l181_action_invoke",
-            &vec![Val::I32(1 as i32), Val::F64(1.0 as u64), Val::I32(1 as i32)][..],
+            &[
+                Val::I32(1 as i32),
+                Val::F64((1.0f64).to_bits()),
+                Val::I32(1 as i32),
+            ],
         )
         .expect("Missing result in c7_l181_action_invoke");
     assert_eq!(result, Some(Val::I32(0 as i32)));
@@ -415,7 +423,7 @@ fn c8_l185_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c8_l185_action_invoke");
     let result = result_object
         .instance
-        .call("c8_l185_action_invoke", &vec![][..])
+        .call("c8_l185_action_invoke", &[])
         .expect("Missing result in c8_l185_action_invoke");
     assert_eq!(result, Some(Val::I32(0 as i32)));
 }
@@ -425,7 +433,7 @@ fn c9_l186_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c9_l186_action_invoke");
     let result = result_object
         .instance
-        .call("c9_l186_action_invoke", &vec![][..])
+        .call("c9_l186_action_invoke", &[])
         .expect("Missing result in c9_l186_action_invoke");
     assert_eq!(result, Some(Val::I64(0 as i64)));
 }
@@ -435,9 +443,9 @@ fn c10_l187_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c10_l187_action_invoke");
     let result = result_object
         .instance
-        .call("c10_l187_action_invoke", &vec![][..])
+        .call("c10_l187_action_invoke", &[])
         .expect("Missing result in c10_l187_action_invoke");
-    assert_eq!(result, Some(Val::F32(0.0 as u32)));
+    assert_eq!(result, Some(Val::F32((0.0f32).to_bits())));
 }
 
 // Line 188
@@ -445,9 +453,9 @@ fn c11_l188_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c11_l188_action_invoke");
     let result = result_object
         .instance
-        .call("c11_l188_action_invoke", &vec![][..])
+        .call("c11_l188_action_invoke", &[])
         .expect("Missing result in c11_l188_action_invoke");
-    assert_eq!(result, Some(Val::F64(0.0 as u64)));
+    assert_eq!(result, Some(Val::F64((0.0f64).to_bits())));
 }
 
 // Line 189
@@ -455,7 +463,7 @@ fn c12_l189_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c12_l189_action_invoke");
     let result = result_object
         .instance
-        .call("c12_l189_action_invoke", &vec![][..])
+        .call("c12_l189_action_invoke", &[])
         .expect("Missing result in c12_l189_action_invoke");
     assert_eq!(result, Some(Val::I32(0 as i32)));
 }
@@ -465,7 +473,7 @@ fn c13_l190_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c13_l190_action_invoke");
     let result = result_object
         .instance
-        .call("c13_l190_action_invoke", &vec![][..])
+        .call("c13_l190_action_invoke", &[])
         .expect("Missing result in c13_l190_action_invoke");
     assert_eq!(result, Some(Val::I64(0 as i64)));
 }
@@ -475,9 +483,9 @@ fn c14_l191_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c14_l191_action_invoke");
     let result = result_object
         .instance
-        .call("c14_l191_action_invoke", &vec![][..])
+        .call("c14_l191_action_invoke", &[])
         .expect("Missing result in c14_l191_action_invoke");
-    assert_eq!(result, Some(Val::F32(0.0 as u32)));
+    assert_eq!(result, Some(Val::F32((0.0f32).to_bits())));
 }
 
 // Line 192
@@ -485,9 +493,9 @@ fn c15_l192_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c15_l192_action_invoke");
     let result = result_object
         .instance
-        .call("c15_l192_action_invoke", &vec![][..])
+        .call("c15_l192_action_invoke", &[])
         .expect("Missing result in c15_l192_action_invoke");
-    assert_eq!(result, Some(Val::F64(0.0 as u64)));
+    assert_eq!(result, Some(Val::F64((0.0f64).to_bits())));
 }
 
 // Line 193
@@ -495,9 +503,9 @@ fn c16_l193_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c16_l193_action_invoke");
     let result = result_object
         .instance
-        .call("c16_l193_action_invoke", &vec![][..])
+        .call("c16_l193_action_invoke", &[])
         .expect("Missing result in c16_l193_action_invoke");
-    assert_eq!(result, Some(Val::F64(0.0 as u64)));
+    assert_eq!(result, Some(Val::F64((0.0f64).to_bits())));
 }
 
 // Line 196
@@ -507,7 +515,7 @@ fn c17_l196_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c17_l196_action_invoke",
-            &vec![Val::I32(2 as i32), Val::I32(3 as i32)][..],
+            &[Val::I32(2 as i32), Val::I32(3 as i32)],
         )
         .expect("Missing result in c17_l196_action_invoke");
     assert_eq!(result, Some(Val::I32(2 as i32)));
@@ -520,7 +528,7 @@ fn c18_l199_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c18_l199_action_invoke",
-            &vec![Val::I64(2 as i64), Val::I64(3 as i64)][..],
+            &[Val::I64(2 as i64), Val::I64(3 as i64)],
         )
         .expect("Missing result in c18_l199_action_invoke");
     assert_eq!(result, Some(Val::I64(2 as i64)));
@@ -533,10 +541,10 @@ fn c19_l202_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c19_l202_action_invoke",
-            &vec![Val::F32(2.0 as u32), Val::F32(3.0 as u32)][..],
+            &[Val::F32((2.0f32).to_bits()), Val::F32((3.0f32).to_bits())],
         )
         .expect("Missing result in c19_l202_action_invoke");
-    assert_eq!(result, Some(Val::F32(2.0 as u32)));
+    assert_eq!(result, Some(Val::F32((2.0f32).to_bits())));
 }
 
 // Line 205
@@ -546,10 +554,10 @@ fn c20_l205_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c20_l205_action_invoke",
-            &vec![Val::F64(2.0 as u64), Val::F64(3.0 as u64)][..],
+            &[Val::F64((2.0f64).to_bits()), Val::F64((3.0f64).to_bits())],
         )
         .expect("Missing result in c20_l205_action_invoke");
-    assert_eq!(result, Some(Val::F64(2.0 as u64)));
+    assert_eq!(result, Some(Val::F64((2.0f64).to_bits())));
 }
 
 // Line 208
@@ -559,7 +567,7 @@ fn c21_l208_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c21_l208_action_invoke",
-            &vec![Val::I32(2 as i32), Val::I32(3 as i32)][..],
+            &[Val::I32(2 as i32), Val::I32(3 as i32)],
         )
         .expect("Missing result in c21_l208_action_invoke");
     assert_eq!(result, Some(Val::I32(3 as i32)));
@@ -572,7 +580,7 @@ fn c22_l211_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c22_l211_action_invoke",
-            &vec![Val::I64(2 as i64), Val::I64(3 as i64)][..],
+            &[Val::I64(2 as i64), Val::I64(3 as i64)],
         )
         .expect("Missing result in c22_l211_action_invoke");
     assert_eq!(result, Some(Val::I64(3 as i64)));
@@ -585,10 +593,10 @@ fn c23_l214_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c23_l214_action_invoke",
-            &vec![Val::F32(2.0 as u32), Val::F32(3.0 as u32)][..],
+            &[Val::F32((2.0f32).to_bits()), Val::F32((3.0f32).to_bits())],
         )
         .expect("Missing result in c23_l214_action_invoke");
-    assert_eq!(result, Some(Val::F32(3.0 as u32)));
+    assert_eq!(result, Some(Val::F32((3.0f32).to_bits())));
 }
 
 // Line 217
@@ -598,10 +606,10 @@ fn c24_l217_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c24_l217_action_invoke",
-            &vec![Val::F64(2.0 as u64), Val::F64(3.0 as u64)][..],
+            &[Val::F64((2.0f64).to_bits()), Val::F64((3.0f64).to_bits())],
         )
         .expect("Missing result in c24_l217_action_invoke");
-    assert_eq!(result, Some(Val::F64(3.0 as u64)));
+    assert_eq!(result, Some(Val::F64((3.0f64).to_bits())));
 }
 
 // Line 221
@@ -611,17 +619,17 @@ fn c25_l221_action_invoke(result_object: &mut ResultObject) {
         .instance
         .call(
             "c25_l221_action_invoke",
-            &vec![
-                Val::F32(1.0 as u32),
+            &[
+                Val::F32((1.0f32).to_bits()),
                 Val::I32(2 as i32),
                 Val::I64(3 as i64),
                 Val::I32(4 as i32),
-                Val::F64(5.5 as u64),
+                Val::F64((5.5f64).to_bits()),
                 Val::I32(6 as i32),
-            ][..],
+            ],
         )
         .expect("Missing result in c25_l221_action_invoke");
-    assert_eq!(result, Some(Val::F64(5.5 as u64)));
+    assert_eq!(result, Some(Val::F64((5.5f64).to_bits())));
 }
 
 // Line 228
@@ -629,7 +637,7 @@ fn c26_l228_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c26_l228_action_invoke");
     let result = result_object
         .instance
-        .call("c26_l228_action_invoke", &vec![][..])
+        .call("c26_l228_action_invoke", &[])
         .expect("Missing result in c26_l228_action_invoke");
     assert_eq!(result, None);
 }
@@ -639,7 +647,7 @@ fn c27_l229_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c27_l229_action_invoke");
     let result = result_object
         .instance
-        .call("c27_l229_action_invoke", &vec![][..])
+        .call("c27_l229_action_invoke", &[])
         .expect("Missing result in c27_l229_action_invoke");
     assert_eq!(result, None);
 }
@@ -649,7 +657,7 @@ fn c28_l230_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c28_l230_action_invoke");
     let result = result_object
         .instance
-        .call("c28_l230_action_invoke", &vec![][..])
+        .call("c28_l230_action_invoke", &[])
         .expect("Missing result in c28_l230_action_invoke");
     assert_eq!(result, Some(Val::I32(77 as i32)));
 }
@@ -659,7 +667,7 @@ fn c29_l231_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c29_l231_action_invoke");
     let result = result_object
         .instance
-        .call("c29_l231_action_invoke", &vec![][..])
+        .call("c29_l231_action_invoke", &[])
         .expect("Missing result in c29_l231_action_invoke");
     assert_eq!(result, Some(Val::I64(7777 as i64)));
 }
@@ -669,9 +677,9 @@ fn c30_l232_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c30_l232_action_invoke");
     let result = result_object
         .instance
-        .call("c30_l232_action_invoke", &vec![][..])
+        .call("c30_l232_action_invoke", &[])
         .expect("Missing result in c30_l232_action_invoke");
-    assert_eq!(result, Some(Val::F32(77.7 as u32)));
+    assert_eq!(result, Some(Val::F32((77.7f32).to_bits())));
 }
 
 // Line 233
@@ -679,9 +687,9 @@ fn c31_l233_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c31_l233_action_invoke");
     let result = result_object
         .instance
-        .call("c31_l233_action_invoke", &vec![][..])
+        .call("c31_l233_action_invoke", &[])
         .expect("Missing result in c31_l233_action_invoke");
-    assert_eq!(result, Some(Val::F64(77.77 as u64)));
+    assert_eq!(result, Some(Val::F64((77.77f64).to_bits())));
 }
 
 // Line 234
@@ -689,7 +697,7 @@ fn c32_l234_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c32_l234_action_invoke");
     let result = result_object
         .instance
-        .call("c32_l234_action_invoke", &vec![][..])
+        .call("c32_l234_action_invoke", &[])
         .expect("Missing result in c32_l234_action_invoke");
     assert_eq!(result, None);
 }
@@ -699,7 +707,7 @@ fn c33_l235_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c33_l235_action_invoke");
     let result = result_object
         .instance
-        .call("c33_l235_action_invoke", &vec![][..])
+        .call("c33_l235_action_invoke", &[])
         .expect("Missing result in c33_l235_action_invoke");
     assert_eq!(result, Some(Val::I32(77 as i32)));
 }
@@ -709,7 +717,7 @@ fn c34_l237_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c34_l237_action_invoke");
     let result = result_object
         .instance
-        .call("c34_l237_action_invoke", &vec![][..])
+        .call("c34_l237_action_invoke", &[])
         .expect("Missing result in c34_l237_action_invoke");
     assert_eq!(result, None);
 }
@@ -719,7 +727,7 @@ fn c35_l238_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c35_l238_action_invoke");
     let result = result_object
         .instance
-        .call("c35_l238_action_invoke", &vec![][..])
+        .call("c35_l238_action_invoke", &[])
         .expect("Missing result in c35_l238_action_invoke");
     assert_eq!(result, Some(Val::I32(78 as i32)));
 }
@@ -729,7 +737,7 @@ fn c36_l239_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c36_l239_action_invoke");
     let result = result_object
         .instance
-        .call("c36_l239_action_invoke", &vec![][..])
+        .call("c36_l239_action_invoke", &[])
         .expect("Missing result in c36_l239_action_invoke");
     assert_eq!(result, Some(Val::I64(7878 as i64)));
 }
@@ -739,9 +747,9 @@ fn c37_l240_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c37_l240_action_invoke");
     let result = result_object
         .instance
-        .call("c37_l240_action_invoke", &vec![][..])
+        .call("c37_l240_action_invoke", &[])
         .expect("Missing result in c37_l240_action_invoke");
-    assert_eq!(result, Some(Val::F32(78.7 as u32)));
+    assert_eq!(result, Some(Val::F32((78.7f32).to_bits())));
 }
 
 // Line 241
@@ -749,9 +757,9 @@ fn c38_l241_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c38_l241_action_invoke");
     let result = result_object
         .instance
-        .call("c38_l241_action_invoke", &vec![][..])
+        .call("c38_l241_action_invoke", &[])
         .expect("Missing result in c38_l241_action_invoke");
-    assert_eq!(result, Some(Val::F64(78.78 as u64)));
+    assert_eq!(result, Some(Val::F64((78.78f64).to_bits())));
 }
 
 // Line 242
@@ -759,7 +767,7 @@ fn c39_l242_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c39_l242_action_invoke");
     let result = result_object
         .instance
-        .call("c39_l242_action_invoke", &vec![][..])
+        .call("c39_l242_action_invoke", &[])
         .expect("Missing result in c39_l242_action_invoke");
     assert_eq!(result, Some(Val::I32(77 as i32)));
 }
@@ -769,7 +777,7 @@ fn c40_l244_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c40_l244_action_invoke");
     let result = result_object
         .instance
-        .call("c40_l244_action_invoke", &vec![][..])
+        .call("c40_l244_action_invoke", &[])
         .expect("Missing result in c40_l244_action_invoke");
     assert_eq!(result, None);
 }
@@ -779,7 +787,7 @@ fn c41_l245_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c41_l245_action_invoke");
     let result = result_object
         .instance
-        .call("c41_l245_action_invoke", &vec![][..])
+        .call("c41_l245_action_invoke", &[])
         .expect("Missing result in c41_l245_action_invoke");
     assert_eq!(result, Some(Val::I32(79 as i32)));
 }
@@ -789,7 +797,7 @@ fn c42_l246_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c42_l246_action_invoke");
     let result = result_object
         .instance
-        .call("c42_l246_action_invoke", &vec![][..])
+        .call("c42_l246_action_invoke", &[])
         .expect("Missing result in c42_l246_action_invoke");
     assert_eq!(result, Some(Val::I64(7979 as i64)));
 }
@@ -799,9 +807,9 @@ fn c43_l247_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c43_l247_action_invoke");
     let result = result_object
         .instance
-        .call("c43_l247_action_invoke", &vec![][..])
+        .call("c43_l247_action_invoke", &[])
         .expect("Missing result in c43_l247_action_invoke");
-    assert_eq!(result, Some(Val::F32(79.9 as u32)));
+    assert_eq!(result, Some(Val::F32((79.9f32).to_bits())));
 }
 
 // Line 248
@@ -809,9 +817,9 @@ fn c44_l248_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c44_l248_action_invoke");
     let result = result_object
         .instance
-        .call("c44_l248_action_invoke", &vec![][..])
+        .call("c44_l248_action_invoke", &[])
         .expect("Missing result in c44_l248_action_invoke");
-    assert_eq!(result, Some(Val::F64(79.79 as u64)));
+    assert_eq!(result, Some(Val::F64((79.79f64).to_bits())));
 }
 
 // Line 249
@@ -819,7 +827,7 @@ fn c45_l249_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c45_l249_action_invoke");
     let result = result_object
         .instance
-        .call("c45_l249_action_invoke", &vec![][..])
+        .call("c45_l249_action_invoke", &[])
         .expect("Missing result in c45_l249_action_invoke");
     assert_eq!(result, Some(Val::I32(77 as i32)));
 }
@@ -829,7 +837,7 @@ fn c46_l251_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c46_l251_action_invoke");
     let result = result_object
         .instance
-        .call("c46_l251_action_invoke", &vec![Val::I32(0 as i32)][..])
+        .call("c46_l251_action_invoke", &[Val::I32(0 as i32)])
         .expect("Missing result in c46_l251_action_invoke");
     assert_eq!(result, None);
 }
@@ -839,7 +847,7 @@ fn c47_l252_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c47_l252_action_invoke");
     let result = result_object
         .instance
-        .call("c47_l252_action_invoke", &vec![Val::I32(2 as i32)][..])
+        .call("c47_l252_action_invoke", &[Val::I32(2 as i32)])
         .expect("Missing result in c47_l252_action_invoke");
     assert_eq!(result, None);
 }
@@ -849,7 +857,7 @@ fn c48_l253_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c48_l253_action_invoke");
     let result = result_object
         .instance
-        .call("c48_l253_action_invoke", &vec![Val::I32(0 as i32)][..])
+        .call("c48_l253_action_invoke", &[Val::I32(0 as i32)])
         .expect("Missing result in c48_l253_action_invoke");
     assert_eq!(result, Some(Val::I32(51 as i32)));
 }
@@ -859,7 +867,7 @@ fn c49_l254_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c49_l254_action_invoke");
     let result = result_object
         .instance
-        .call("c49_l254_action_invoke", &vec![Val::I32(1 as i32)][..])
+        .call("c49_l254_action_invoke", &[Val::I32(1 as i32)])
         .expect("Missing result in c49_l254_action_invoke");
     assert_eq!(result, Some(Val::I32(50 as i32)));
 }
@@ -869,7 +877,7 @@ fn c50_l256_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c50_l256_action_invoke");
     let result = result_object
         .instance
-        .call("c50_l256_action_invoke", &vec![Val::I32(0 as i32)][..])
+        .call("c50_l256_action_invoke", &[Val::I32(0 as i32)])
         .expect("Missing result in c50_l256_action_invoke");
     assert_eq!(result, None);
 }
@@ -879,7 +887,7 @@ fn c51_l257_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c51_l257_action_invoke");
     let result = result_object
         .instance
-        .call("c51_l257_action_invoke", &vec![Val::I32(1 as i32)][..])
+        .call("c51_l257_action_invoke", &[Val::I32(1 as i32)])
         .expect("Missing result in c51_l257_action_invoke");
     assert_eq!(result, None);
 }
@@ -889,7 +897,7 @@ fn c52_l258_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c52_l258_action_invoke");
     let result = result_object
         .instance
-        .call("c52_l258_action_invoke", &vec![Val::I32(5 as i32)][..])
+        .call("c52_l258_action_invoke", &[Val::I32(5 as i32)])
         .expect("Missing result in c52_l258_action_invoke");
     assert_eq!(result, None);
 }
@@ -899,7 +907,7 @@ fn c53_l259_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c53_l259_action_invoke");
     let result = result_object
         .instance
-        .call("c53_l259_action_invoke", &vec![Val::I32(-1 as i32)][..])
+        .call("c53_l259_action_invoke", &[Val::I32(-1 as i32)])
         .expect("Missing result in c53_l259_action_invoke");
     assert_eq!(result, None);
 }
@@ -909,7 +917,7 @@ fn c54_l260_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c54_l260_action_invoke");
     let result = result_object
         .instance
-        .call("c54_l260_action_invoke", &vec![Val::I32(0 as i32)][..])
+        .call("c54_l260_action_invoke", &[Val::I32(0 as i32)])
         .expect("Missing result in c54_l260_action_invoke");
     assert_eq!(result, Some(Val::I32(50 as i32)));
 }
@@ -919,7 +927,7 @@ fn c55_l261_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c55_l261_action_invoke");
     let result = result_object
         .instance
-        .call("c55_l261_action_invoke", &vec![Val::I32(1 as i32)][..])
+        .call("c55_l261_action_invoke", &[Val::I32(1 as i32)])
         .expect("Missing result in c55_l261_action_invoke");
     assert_eq!(result, Some(Val::I32(50 as i32)));
 }
@@ -929,7 +937,7 @@ fn c56_l262_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c56_l262_action_invoke");
     let result = result_object
         .instance
-        .call("c56_l262_action_invoke", &vec![Val::I32(10 as i32)][..])
+        .call("c56_l262_action_invoke", &[Val::I32(10 as i32)])
         .expect("Missing result in c56_l262_action_invoke");
     assert_eq!(result, Some(Val::I32(50 as i32)));
 }
@@ -939,7 +947,7 @@ fn c57_l263_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c57_l263_action_invoke");
     let result = result_object
         .instance
-        .call("c57_l263_action_invoke", &vec![Val::I32(-100 as i32)][..])
+        .call("c57_l263_action_invoke", &[Val::I32(-100 as i32)])
         .expect("Missing result in c57_l263_action_invoke");
     assert_eq!(result, Some(Val::I32(50 as i32)));
 }
@@ -949,7 +957,7 @@ fn c58_l264_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c58_l264_action_invoke");
     let result = result_object
         .instance
-        .call("c58_l264_action_invoke", &vec![Val::I32(0 as i32)][..])
+        .call("c58_l264_action_invoke", &[Val::I32(0 as i32)])
         .expect("Missing result in c58_l264_action_invoke");
     assert_eq!(result, None);
 }
@@ -959,7 +967,7 @@ fn c59_l265_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c59_l265_action_invoke");
     let result = result_object
         .instance
-        .call("c59_l265_action_invoke", &vec![Val::I32(1 as i32)][..])
+        .call("c59_l265_action_invoke", &[Val::I32(1 as i32)])
         .expect("Missing result in c59_l265_action_invoke");
     assert_eq!(result, None);
 }
@@ -969,7 +977,7 @@ fn c60_l266_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c60_l266_action_invoke");
     let result = result_object
         .instance
-        .call("c60_l266_action_invoke", &vec![Val::I32(3 as i32)][..])
+        .call("c60_l266_action_invoke", &[Val::I32(3 as i32)])
         .expect("Missing result in c60_l266_action_invoke");
     assert_eq!(result, None);
 }
@@ -979,7 +987,7 @@ fn c61_l267_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c61_l267_action_invoke");
     let result = result_object
         .instance
-        .call("c61_l267_action_invoke", &vec![Val::I32(-2 as i32)][..])
+        .call("c61_l267_action_invoke", &[Val::I32(-2 as i32)])
         .expect("Missing result in c61_l267_action_invoke");
     assert_eq!(result, None);
 }
@@ -989,7 +997,7 @@ fn c62_l269_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c62_l269_action_invoke");
     let result = result_object
         .instance
-        .call("c62_l269_action_invoke", &vec![Val::I32(0 as i32)][..])
+        .call("c62_l269_action_invoke", &[Val::I32(0 as i32)])
         .expect("Missing result in c62_l269_action_invoke");
     assert_eq!(result, Some(Val::I32(52 as i32)));
 }
@@ -999,7 +1007,7 @@ fn c63_l272_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c63_l272_action_invoke");
     let result = result_object
         .instance
-        .call("c63_l272_action_invoke", &vec![Val::I32(1 as i32)][..])
+        .call("c63_l272_action_invoke", &[Val::I32(1 as i32)])
         .expect("Missing result in c63_l272_action_invoke");
     assert_eq!(result, Some(Val::I32(50 as i32)));
 }
@@ -1009,7 +1017,7 @@ fn c64_l275_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c64_l275_action_invoke");
     let result = result_object
         .instance
-        .call("c64_l275_action_invoke", &vec![Val::I32(2 as i32)][..])
+        .call("c64_l275_action_invoke", &[Val::I32(2 as i32)])
         .expect("Missing result in c64_l275_action_invoke");
     assert_eq!(result, Some(Val::I32(52 as i32)));
 }
@@ -1019,7 +1027,7 @@ fn c65_l278_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c65_l278_action_invoke");
     let result = result_object
         .instance
-        .call("c65_l278_action_invoke", &vec![Val::I32(-3 as i32)][..])
+        .call("c65_l278_action_invoke", &[Val::I32(-3 as i32)])
         .expect("Missing result in c65_l278_action_invoke");
     assert_eq!(result, Some(Val::I32(52 as i32)));
 }
@@ -1029,7 +1037,7 @@ fn c66_l281_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c66_l281_action_invoke");
     let result = result_object
         .instance
-        .call("c66_l281_action_invoke", &vec![][..])
+        .call("c66_l281_action_invoke", &[])
         .expect("Missing result in c66_l281_action_invoke");
     assert_eq!(result, Some(Val::I32(0 as i32)));
 }
@@ -1039,7 +1047,7 @@ fn c67_l282_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c67_l282_action_invoke");
     let result = result_object
         .instance
-        .call("c67_l282_action_invoke", &vec![][..])
+        .call("c67_l282_action_invoke", &[])
         .expect("Missing result in c67_l282_action_invoke");
     assert_eq!(result, Some(Val::I64(0 as i64)));
 }
@@ -1049,9 +1057,9 @@ fn c68_l283_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c68_l283_action_invoke");
     let result = result_object
         .instance
-        .call("c68_l283_action_invoke", &vec![][..])
+        .call("c68_l283_action_invoke", &[])
         .expect("Missing result in c68_l283_action_invoke");
-    assert_eq!(result, Some(Val::F32(0.0 as u32)));
+    assert_eq!(result, Some(Val::F32((0.0f32).to_bits())));
 }
 
 // Line 284
@@ -1059,9 +1067,9 @@ fn c69_l284_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c69_l284_action_invoke");
     let result = result_object
         .instance
-        .call("c69_l284_action_invoke", &vec![][..])
+        .call("c69_l284_action_invoke", &[])
         .expect("Missing result in c69_l284_action_invoke");
-    assert_eq!(result, Some(Val::F64(0.0 as u64)));
+    assert_eq!(result, Some(Val::F64((0.0f64).to_bits())));
 }
 
 // Line 289
@@ -1286,7 +1294,7 @@ fn c73_l378_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c73_l378_action_invoke");
     let result = result_object
         .instance
-        .call("c73_l378_action_invoke", &vec![][..])
+        .call("c73_l378_action_invoke", &[])
         .expect("Missing result in c73_l378_action_invoke");
     assert_eq!(result, None);
 }
@@ -1296,7 +1304,7 @@ fn c74_l379_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c74_l379_action_invoke");
     let result = result_object
         .instance
-        .call("c74_l379_action_invoke", &vec![][..])
+        .call("c74_l379_action_invoke", &[])
         .expect("Missing result in c74_l379_action_invoke");
     assert_eq!(result, None);
 }
@@ -1306,7 +1314,7 @@ fn c75_l380_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c75_l380_action_invoke");
     let result = result_object
         .instance
-        .call("c75_l380_action_invoke", &vec![][..])
+        .call("c75_l380_action_invoke", &[])
         .expect("Missing result in c75_l380_action_invoke");
     assert_eq!(result, None);
 }
@@ -1316,7 +1324,7 @@ fn c76_l381_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c76_l381_action_invoke");
     let result = result_object
         .instance
-        .call("c76_l381_action_invoke", &vec![][..])
+        .call("c76_l381_action_invoke", &[])
         .expect("Missing result in c76_l381_action_invoke");
     assert_eq!(result, None);
 }

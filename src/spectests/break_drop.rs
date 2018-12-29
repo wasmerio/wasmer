@@ -49,7 +49,7 @@ fn c1_l7_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l7_action_invoke");
     let result = result_object
         .instance
-        .call("c1_l7_action_invoke", &vec![][..])
+        .call("c1_l7_action_invoke", &[])
         .expect("Missing result in c1_l7_action_invoke");
     assert_eq!(result, None);
 }
@@ -59,7 +59,7 @@ fn c2_l8_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l8_action_invoke");
     let result = result_object
         .instance
-        .call("c2_l8_action_invoke", &vec![][..])
+        .call("c2_l8_action_invoke", &[])
         .expect("Missing result in c2_l8_action_invoke");
     assert_eq!(result, None);
 }
@@ -69,7 +69,7 @@ fn c3_l9_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l9_action_invoke");
     let result = result_object
         .instance
-        .call("c3_l9_action_invoke", &vec![][..])
+        .call("c3_l9_action_invoke", &[])
         .expect("Missing result in c3_l9_action_invoke");
     assert_eq!(result, None);
 }

@@ -8,10 +8,10 @@ use crate::runtime::{
     types::{FuncIndex, FuncSig, Memory, Table, Type, Val},
     vm,
 };
+use hashbrown::HashMap;
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
 use std::iter;
 use std::sync::Arc;
-use hashbrown::HashMap;
 
 pub struct Instance {
     pub(in crate::runtime) backing: LocalBacking,
@@ -110,7 +110,9 @@ impl Instance {
             .collect();
 
         let func_ptr = CodePtr::from_ptr(
-            self.module.func_resolver.get(&*self.module, func_index)
+            self.module
+                .func_resolver
+                .get(&*self.module, func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
                 .cast()
                 .as_ptr(),
@@ -149,7 +151,6 @@ pub enum Import {
 pub struct Imports {
     map: HashMap<String, HashMap<String, Import>>,
 }
-
 
 // TODO Remove again
 impl Imports {

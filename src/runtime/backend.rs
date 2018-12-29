@@ -1,8 +1,4 @@
-use crate::runtime::{
-    module::Module,
-    types::FuncIndex,
-    vm,
-};
+use crate::runtime::{module::Module, types::FuncIndex, vm};
 use std::ptr::NonNull;
 use std::sync::Arc;
 

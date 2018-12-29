@@ -1,9 +1,9 @@
 use crate::runtime::{
+    backend::FuncResolver,
     types::{
         FuncIndex, FuncSig, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex,
         SigIndex, Table, TableIndex,
     },
-    backend::FuncResolver,
 };
 use hashbrown::HashMap;
 
