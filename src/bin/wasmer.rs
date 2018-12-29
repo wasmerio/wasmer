@@ -72,7 +72,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
-    let abi = if apis::is_emscripten_module(Arc::clone(&module)) {
+    let abi = if apis::is_emscripten_module(&module) {
         webassembly::InstanceABI::Emscripten
     } else {
         webassembly::InstanceABI::None

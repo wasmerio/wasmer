@@ -8,7 +8,7 @@ use std::os::raw::c_char;
 use std::slice;
 use std::sync::Arc;
 /// We check if a provided module is an Emscripten generated one
-pub fn is_emscripten_module(module: Arc<Module>) -> bool {
+pub fn is_emscripten_module(module: &Module) -> bool {
     for (_, import_name) in &module.imported_functions {
         if import_name.name == "_emscripten_memcpy_big" && import_name.module == "env" {
             return true;

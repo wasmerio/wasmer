@@ -69,7 +69,7 @@ pub fn instantiate(
         .map_err(|e| ErrorKind::CompileError(e))?;
 
     let isa = get_isa();
-    let abi = if is_emscripten_module(Arc::clone(&instance.module)) {
+    let abi = if is_emscripten_module(&instance.module) {
         InstanceABI::Emscripten
     } else {
         InstanceABI::None
@@ -221,7 +221,7 @@ pub fn start_instance(
     path: &str,
     args: Vec<&str>,
 ) -> Result<(), String> {
-    let main_name = if is_emscripten_module(Arc::clone(&instance.module)) {
+    let main_name = if is_emscripten_module(&instance.module) {
         "_main"
     } else {
         "main"
