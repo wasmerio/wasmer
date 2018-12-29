@@ -95,7 +95,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     debug!("webassembly - creating instance");
 
-    let mut instance = runtime::Instance::new(Arc::clone(&module), &import_object).map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
+    let mut instance = runtime::Instance::new(Arc::clone(&module), &import_object)
+        .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(
         Arc::clone(&module),

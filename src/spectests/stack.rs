@@ -7,8 +7,10 @@
 )]
 use wabt::wat2wasm;
 
+use crate::runtime::types::Val;
+use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+
 use super::_common::{spectest_importobject, NaNCheck};
-use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 1
 fn create_module_1() -> ResultObject {
@@ -156,62 +158,55 @@ fn create_module_1() -> ResultObject {
       (export \"fac-mixed-raw\" (func 4)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_1(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_1(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 130
-fn c1_l130_action_invoke(result_object: &ResultObject) {
+fn c1_l130_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l130_action_invoke");
-    let func_index = match result_object.module.info.exports.get("fac-expr") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &result_object.instance);
-    assert_eq!(result, 7034535277573963776 as i64);
+    let result = result_object
+        .instance
+        .call("c1_l130_action_invoke", &vec![Val::I64(25 as i64)][..])
+        .expect("Missing result in c1_l130_action_invoke");
+    assert_eq!(result, Some(Val::I64(7034535277573963776 as i64)));
 }
 
 // Line 131
-fn c2_l131_action_invoke(result_object: &ResultObject) {
+fn c2_l131_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l131_action_invoke");
-    let func_index = match result_object.module.info.exports.get("fac-stack") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &result_object.instance);
-    assert_eq!(result, 7034535277573963776 as i64);
+    let result = result_object
+        .instance
+        .call("c2_l131_action_invoke", &vec![Val::I64(25 as i64)][..])
+        .expect("Missing result in c2_l131_action_invoke");
+    assert_eq!(result, Some(Val::I64(7034535277573963776 as i64)));
 }
 
 // Line 132
-fn c3_l132_action_invoke(result_object: &ResultObject) {
+fn c3_l132_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l132_action_invoke");
-    let func_index = match result_object.module.info.exports.get("fac-mixed") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &result_object.instance);
-    assert_eq!(result, 7034535277573963776 as i64);
+    let result = result_object
+        .instance
+        .call("c3_l132_action_invoke", &vec![Val::I64(25 as i64)][..])
+        .expect("Missing result in c3_l132_action_invoke");
+    assert_eq!(result, Some(Val::I64(7034535277573963776 as i64)));
 }
 
 // Line 137
 
 #[test]
 fn test_module_1() {
-    let result_object = create_module_1();
+    let mut result_object = create_module_1();
     // We group the calls together
-    start_module_1(&result_object);
-    c1_l130_action_invoke(&result_object);
-    c2_l131_action_invoke(&result_object);
-    c3_l132_action_invoke(&result_object);
+    start_module_1(&mut result_object);
+    c1_l130_action_invoke(&mut result_object);
+    c2_l131_action_invoke(&mut result_object);
+    c3_l132_action_invoke(&mut result_object);
 }
 fn create_module_2() -> ResultObject {
     let module_str = "(module
@@ -440,16 +435,18 @@ fn create_module_2() -> ResultObject {
       (table (;0;) 1 anyfunc))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_2(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_2(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 #[test]
 fn test_module_2() {
-    let result_object = create_module_2();
+    let mut result_object = create_module_2();
     // We group the calls together
-    start_module_2(&result_object);
+    start_module_2(&mut result_object);
 }

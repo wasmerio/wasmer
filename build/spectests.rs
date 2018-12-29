@@ -82,6 +82,15 @@ fn wabt2rust_type(v: &Value) -> String {
     }
 }
 
+fn wabt2rust_type_destructure(v: &Value, placeholder: &str) -> String {
+    match v {
+        Value::I32(_v) => format!("Val::I32({})", placeholder),
+        Value::I64(_v) => format!("Val::I64({})", placeholder),
+        Value::F32(_v) => format!("Val::F32({})", placeholder),
+        Value::F64(_v) => format!("Val::F64({})", placeholder),
+    }
+}
+
 fn is_nan(v: &Value) -> bool {
     if let Value::F32(v) = v {
         return v.is_nan();
@@ -91,7 +100,7 @@ fn is_nan(v: &Value) -> bool {
     return false;
 }
 
-fn wabt2rust_value(v: &Value) -> String {
+fn wabt2rust_value_bare(v: &Value) -> String {
     match v {
         Value::I32(v) => format!("{:?} as i32", v),
         Value::I64(v) => format!("{:?} as i64", v),
@@ -120,6 +129,40 @@ fn wabt2rust_value(v: &Value) -> String {
                 format!("f64::from_bits({:?})", v.to_bits())
             } else {
                 format!("{:?} as f64", v)
+            }
+        }
+    }
+}
+
+fn wabt2rust_value(v: &Value) -> String {
+    match v {
+        Value::I32(v) => format!("Val::I32({:?} as i32)", v),
+        Value::I64(v) => format!("Val::I64({:?} as i64)", v),
+        Value::F32(v) => {
+            if v.is_infinite() {
+                if v.is_sign_negative() {
+                    "Val::F32(f32::NEG_INFINITY)".to_string()
+                } else {
+                    "Val::F32(f32::INFINITY)".to_string()
+                }
+            } else if v.is_nan() {
+                // Support for non-canonical NaNs
+                format!("Val::F32(f32::from_bits({:?}) as u32)", v.to_bits())
+            } else {
+                format!("Val::F32({:?} as u32)", v)
+            }
+        }
+        Value::F64(v) => {
+            if v.is_infinite() {
+                if v.is_sign_negative() {
+                    "Val::F64(f64::NEG_INFINITY)".to_string()
+                } else {
+                    "Val::F64(f64::INFINITY)".to_string()
+                }
+            } else if v.is_nan() {
+                format!("Val::F64(f64::from_bits({:?}) as u64)", v.to_bits())
+            } else {
+                format!("Val::F64({:?} as u64)", v)
             }
         }
     }
@@ -162,7 +205,9 @@ impl WastTestGenerator {
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, Instance, Export}};
+use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, Instance}};
+use crate::runtime::types::{{Val}};
+
 use super::_common::{{
     spectest_importobject,
     NaNCheck,
@@ -191,14 +236,14 @@ use super::_common::{{
             .entry(module)
             .or_insert(Vec::new())
             .iter()
-            .map(|call_str| format!("{}(&result_object);", call_str))
+            .map(|call_str| format!("{}(&mut result_object);", call_str))
             .collect();
         if calls.len() > 0 {
             self.buffer.push_str(
                 format!(
                     "\n#[test]
 fn test_module_{}() {{
-    let result_object = create_module_{}();
+    let mut result_object = create_module_{}();
     // We group the calls together
     {}
 }}\n",
@@ -224,7 +269,7 @@ fn test_module_{}() {{
                 "fn create_module_{}() -> ResultObject {{
     let module_str = \"{}\";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
-    instantiate(wasm_binary, spectest_importobject(), None).expect(\"WASM can't be instantiated\")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
                 // We do this to ident four spaces, so it looks aligned to the function body
@@ -240,8 +285,9 @@ fn test_module_{}() {{
         let start_module_call = format!("start_module_{}", self.last_module);
         self.buffer.push_str(
             format!(
-                "\nfn {}(result_object: &ResultObject) {{
-    result_object.instance.start();
+                "\nfn {}(result_object: &mut ResultObject) {{
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }}\n",
                 start_module_call
             )
@@ -262,7 +308,7 @@ fn test_module_{}() {{
                 "#[test]
 fn {}_assert_invalid() {{
     let wasm_binary = {:?};
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(compilation.is_err(), \"WASM should not compile as is invalid\");
 }}\n",
                 command_name,
@@ -290,32 +336,26 @@ fn {}_assert_invalid() {{
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
                 let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
-                args_types.push("&Instance".to_string());
+                //                args_types.push("&Instance".to_string());
                 let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
-                args_values.push("&result_object.instance".to_string());
+                //                args_values.push("&result_object.instance".to_string());
                 let func_name = format!("{}_assert_return_arithmetic_nan", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {}(result_object: &ResultObject) {{
-    println!(\"Executing function {{}}\", \"{}\");
-    let func_index = match result_object.module.info.exports.get({:?}) {{
-        Some(&Export::Function(index)) => index,
-        _ => panic!(\"Function not found\"),
-    }};
-    let invoke_fn: fn({}){} = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn({});
-    {}
+                        "fn {func_name}(result_object: &mut ResultObject) {{
+    println!(\"Executing function {{}}\", \"{func_name}\");
+    let result = result_object.instance.call(\"{func_name}\", &vec![{args_values}][..]).unwrap().expect(\"Missing result in {func_name}\");
+    {assertion}
 }}\n",
-                        func_name,
-                        func_name,
-                        field,
-                        args_types.join(", "),
-                        func_return,
-                        args_values.join(", "),
-                        assertion,
+                        func_name=func_name,
+                        args_values=args_values.join(", "),
+                        assertion=assertion,
                     )
                     .as_str(),
                 );
+                //                field=field,
+                //                args_types=args_types.join(", "),
+                //                func_return=func_return,
                 self.module_calls
                     .entry(self.last_module)
                     .or_insert(Vec::new())
@@ -348,29 +388,20 @@ fn {}_assert_invalid() {{
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
                 let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
-                args_types.push("&Instance".to_string());
+                //                args_types.push("&Instance".to_string());
                 let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
-                args_values.push("&result_object.instance".to_string());
+                //                args_values.push("&result_object.instance".to_string());
                 let func_name = format!("{}_assert_return_canonical_nan", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {}(result_object: &ResultObject) {{
-    println!(\"Executing function {{}}\", \"{}\");
-    let func_index = match result_object.module.info.exports.get({:?}) {{
-        Some(&Export::Function(index)) => index,
-        _ => panic!(\"Function not found\"),
-    }};
-    let invoke_fn: fn({}){} = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn({});
-    {}
+                        "fn {func_name}(result_object: &mut ResultObject) {{
+    println!(\"Executing function {{}}\", \"{func_name}\");
+    let result = result_object.instance.call(\"{func_name}\", &vec![{args_values}][..]).unwrap().expect(\"Missing result in {func_name}\");
+    {assertion}
 }}\n",
-                        func_name,
-                        func_name,
-                        field,
-                        args_types.join(", "),
-                        func_return,
-                        args_values.join(", "),
-                        assertion,
+                        func_name=func_name,
+                        args_values=args_values.join(", "),
+                        assertion=assertion,
                     )
                     .as_str(),
                 );
@@ -394,7 +425,7 @@ fn {}_assert_invalid() {{
                 "#[test]
 fn {}_assert_malformed() {{
     let wasm_binary = {:?};
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(compilation.is_err(), \"WASM should not compile as is malformed\");
 }}\n",
                 command_name,
@@ -423,18 +454,45 @@ fn {}_assert_malformed() {{
                             "".to_string()
                         };
                         let expected_result = if expected.len() > 0 {
-                            wabt2rust_value(&expected[0])
+                            wabt2rust_value_bare(&expected[0])
                         } else {
-                            "()".to_string()
+                            "should not use this expect result".to_string()
+                        };
+                        let expected_some_result = if expected.len() > 0 {
+                            format!("Some({})", wabt2rust_value(&expected[0]))
+                        } else {
+                            "None".to_string()
+                        };
+                        let return_type = if expected.len() > 0 {
+                            wabt2rust_type(&expected[0])
+                        } else {
+                            "should not use this return type".to_string()
+                        };
+                        let return_type_destructure = if expected.len() > 0 {
+                            wabt2rust_type_destructure(&expected[0], "result")
+                        } else {
+                            "should not use this result return type destructure".to_string()
+                        };
+                        let expected_type_destructure = if expected.len() > 0 {
+                            wabt2rust_type_destructure(&expected[0], "expected")
+                        } else {
+                            "should not use this expected return type destructure".to_string()
                         };
                         let assertion = if expected.len() > 0 && is_nan(&expected[0]) {
                             format!(
-                                "assert!(result.is_nan());
-            assert_eq!(result.is_sign_positive(), ({}).is_sign_positive());",
-                                expected_result
+                                "let expected = {expected_result};
+                                if let {return_type_destructure} = result.unwrap() {{
+                                assert!((result as {return_type}).is_nan());
+            assert_eq!((result as {return_type}).is_sign_positive(), (expected as {return_type}).is_sign_positive());
+            }} else {{
+              panic!(\"Unexpected result type {{:?}}\", result);
+            }}",
+                                expected_result=expected_result,
+                                return_type=return_type,
+                                return_type_destructure=return_type_destructure
                             )
                         } else {
-                            format!("assert_eq!(result, {});", expected_result)
+                            format!("assert_eq!(result, {});", expected_some_result)
                         };
                         (func_return, assertion)
                     }
@@ -444,29 +502,20 @@ fn {}_assert_malformed() {{
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
                 let mut args_types: Vec<String> = args.iter().map(wabt2rust_type).collect();
-                args_types.push("&Instance".to_string());
+                //                args_types.push("&Instance".to_string());
                 let mut args_values: Vec<String> = args.iter().map(wabt2rust_value).collect();
-                args_values.push("&result_object.instance".to_string());
+                //                args_values.push("&result_object.instance".to_string());
                 let func_name = format!("{}_action_invoke", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {}(result_object: &ResultObject) {{
-    println!(\"Executing function {{}}\", \"{}\");
-    let func_index = match result_object.module.info.exports.get({:?}) {{
-        Some(&Export::Function(index)) => index,
-        _ => panic!(\"Function not found\"),
-    }};
-    let invoke_fn: fn({}){} = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn({});
-    {}
+                        "fn {func_name}(result_object: &mut ResultObject) {{
+    println!(\"Executing function {{}}\", \"{func_name}\");
+    let result = result_object.instance.call(\"{func_name}\", &vec![{args_values}][..]).expect(\"Missing result in {func_name}\");
+    {assertion}
 }}\n",
-                        func_name,
-                        func_name,
-                        field,
-                        args_types.join(", "),
-                        func_return,
-                        args_values.join(", "),
-                        assertion,
+                        func_name=func_name,
+                        args_values=args_values.join(", "),
+                        assertion=assertion,
                     )
                     .as_str(),
                 );
@@ -514,8 +563,8 @@ fn {}_assert_malformed() {{
                 "
 #[test]
 fn {}() {{
-    let result_object = create_module_{}();
-    let result = call_protected!({}(&result_object));
+    let mut result_object = create_module_{}();
+    let result = call_protected!({}(&mut result_object));
     assert!(result.is_err());
 }}\n",
                 trap_func_name,

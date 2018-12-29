@@ -20,7 +20,6 @@ impl Instance {
     pub fn emscripten_data(&self) -> &'static mut Option<EmscriptenData> {
         unimplemented!("TODO replace this stub")
     }
-
 }
 
 // #[no_mangle]

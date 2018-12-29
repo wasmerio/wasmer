@@ -7,47 +7,53 @@
 )]
 use wabt::wat2wasm;
 
+use crate::runtime::types::Val;
+use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+
 use super::_common::{spectest_importobject, NaNCheck};
-use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 1
 fn create_module_1() -> ResultObject {
     let module_str = "(module)
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_1(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_1(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 14
 
 #[test]
 fn test_module_1() {
-    let result_object = create_module_1();
+    let mut result_object = create_module_1();
     // We group the calls together
-    start_module_1(&result_object);
+    start_module_1(&mut result_object);
 }
 fn create_module_2() -> ResultObject {
     let module_str = "(module)
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_2(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_2(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 50
 
 #[test]
 fn test_module_2() {
-    let result_object = create_module_2();
+    let mut result_object = create_module_2();
     // We group the calls together
-    start_module_2(&result_object);
+    start_module_2(&mut result_object);
 }
 fn create_module_3() -> ResultObject {
     let module_str = "(module
@@ -59,18 +65,20 @@ fn create_module_3() -> ResultObject {
       (export \"addTwo\" (func 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_3(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_3(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 61
 #[test]
 fn c3_l61_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -81,7 +89,7 @@ fn c3_l61_assert_malformed() {
 #[test]
 fn c4_l69_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0, 0];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -92,7 +100,7 @@ fn c4_l69_assert_malformed() {
 #[test]
 fn c5_l77_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0, 0, 0, 5, 1, 0, 7, 0, 0];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -107,7 +115,7 @@ fn c6_l85_assert_malformed() {
         99, 116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97,
         121, 108, 111, 97, 100,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -124,7 +132,7 @@ fn c7_l93_assert_malformed() {
         116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97, 121,
         108, 111, 97, 100,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -141,7 +149,7 @@ fn c8_l102_assert_malformed() {
         32, 1, 106, 11, 0, 27, 7, 99, 117, 115, 116, 111, 109, 50, 116, 104, 105, 115, 32, 105,
         115, 32, 116, 104, 101, 32, 112, 97, 121, 108, 111, 97, 100,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -152,7 +160,7 @@ fn c8_l102_assert_malformed() {
 #[test]
 fn c9_l115_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0, 97, 115, 109, 1, 0, 0, 0];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -161,7 +169,7 @@ fn c9_l115_assert_malformed() {
 
 #[test]
 fn test_module_3() {
-    let result_object = create_module_3();
+    let mut result_object = create_module_3();
     // We group the calls together
-    start_module_3(&result_object);
+    start_module_3(&mut result_object);
 }

@@ -12,6 +12,7 @@ pub mod vmcalls;
 pub use self::backend::Compiler;
 pub use self::instance::{Import, Imports, Instance};
 pub use self::module::Module;
+pub use self::table::TableBacking;
 
 /// Compile a webassembly module using the provided compiler and linked with the provided imports.
 pub fn compile(

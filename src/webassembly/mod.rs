@@ -9,6 +9,9 @@ pub mod utils;
 pub mod vmcontext;
 pub mod vmoffsets;
 
+use super::compilers::cranelift::CraneliftCompiler;
+use super::runtime;
+pub use super::runtime::{Import, Imports, Instance, Module};
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
@@ -17,19 +20,16 @@ use cranelift_wasm::ModuleEnvironment;
 use std::io::{self, Write};
 use std::panic;
 use std::str::FromStr;
+use std::sync::Arc;
 use target_lexicon;
 use wasmparser;
 use wasmparser::WasmDecoder;
-use std::sync::Arc;
-use super::runtime;
-pub use super::runtime::{Import, Imports, Instance, Module};
-use super::compilers::cranelift::CraneliftCompiler;
 
 pub use self::errors::{Error, ErrorKind};
 pub use self::import_object::{ImportObject, ImportValue};
 pub use self::instance::{InstanceABI, InstanceOptions};
 pub use self::memory::LinearMemory;
-pub use self::module::{ModuleInfo};
+pub use self::module::ModuleInfo;
 use crate::runtime::Compiler;
 
 use crate::apis::emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
@@ -62,12 +62,11 @@ pub fn instantiate(
     import_object: &Imports,
     options: Option<InstanceOptions>,
 ) -> Result<ResultObject, ErrorKind> {
-
-
     debug!("webassembly - creating instance");
 
     //let instance = Instance::new(&module, import_object, options)?;
-    let instance = runtime::compile(&CraneliftCompiler {}, buffer_source, import_object).map_err(|e| ErrorKind::CompileError(e))?;
+    let instance = runtime::compile(&CraneliftCompiler {}, buffer_source, import_object)
+        .map_err(|e| ErrorKind::CompileError(e))?;
 
     let isa = get_isa();
     let abi = if is_emscripten_module(Arc::clone(&instance.module)) {
@@ -86,7 +85,10 @@ pub fn instantiate(
     });
 
     debug!("webassembly - instance created");
-    Ok(ResultObject { module: Arc::clone(&instance.module), instance })
+    Ok(ResultObject {
+        module: Arc::clone(&instance.module),
+        instance,
+    })
 }
 
 /// The webassembly::instantiate_streaming() function compiles and instantiates
@@ -110,9 +112,10 @@ pub fn instantiate_streaming(
 /// If the operation fails, the Result rejects with a
 /// webassembly::CompileError.
 pub fn compile(buffer_source: &[u8]) -> Result<Arc<Module>, ErrorKind> {
-
     let compiler = &CraneliftCompiler {};
-    let module = compiler.compile(buffer_source).map_err(|e| ErrorKind::CompileError(e))?;
+    let module = compiler
+        .compile(buffer_source)
+        .map_err(|e| ErrorKind::CompileError(e))?;
 
     Ok(module)
 }
@@ -218,7 +221,6 @@ pub fn start_instance(
     path: &str,
     args: Vec<&str>,
 ) -> Result<(), String> {
-
     let main_name = if is_emscripten_module(Arc::clone(&instance.module)) {
         "_main"
     } else {
@@ -229,47 +231,47 @@ pub fn start_instance(
     instance.call(main_name, &[]).map(|o| ())
     // TODO atinit and atexit for emscripten
 
-//    if let Some(ref emscripten_data) = &instance.emscripten_data {
-//        emscripten_data.atinit(module, instance)?;
-//
-//        let func_index = match module.exports.get("_main") {
-//            Some(&Export::Function(index)) => index,
-//            _ => panic!("_main emscripten function not found"),
-//        };
-//
-//        let sig_index = module.get_func_type(func_index);
-//        let signature = module.get_signature(sig_index);
-//        let num_params = signature.params.len();
-//        let result = match num_params {
-//            2 => {
-//                let main: extern "C" fn(u32, u32, &Instance) =
-//                    get_instance_function!(instance, func_index);
-//                let (argc, argv) = store_module_arguments(path, args, instance);
-//                call_protected!(main(argc, argv, &instance))
-//            }
-//            0 => {
-//                let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
-//                call_protected!(main(&instance))
-//            }
-//            _ => panic!(
-//                "The emscripten main function has received an incorrect number of params {}",
-//                num_params
-//            ),
-//        }
-//        .map_err(|err| format!("{}", err));
-//
-//        emscripten_data.atexit(module, instance)?;
-//
-//        result
-//    } else {
-//        let func_index =
-//            instance
-//                .start_func
-//                .unwrap_or_else(|| match module.info.exports.get("main") {
-//                    Some(&Export::Function(index)) => index,
-//                    _ => panic!("Main function not found"),
-//                });
-//        let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
-//        call_protected!(main(&instance)).map_err(|err| format!("{}", err))
-//    }
+    //    if let Some(ref emscripten_data) = &instance.emscripten_data {
+    //        emscripten_data.atinit(module, instance)?;
+    //
+    //        let func_index = match module.exports.get("_main") {
+    //            Some(&Export::Function(index)) => index,
+    //            _ => panic!("_main emscripten function not found"),
+    //        };
+    //
+    //        let sig_index = module.get_func_type(func_index);
+    //        let signature = module.get_signature(sig_index);
+    //        let num_params = signature.params.len();
+    //        let result = match num_params {
+    //            2 => {
+    //                let main: extern "C" fn(u32, u32, &Instance) =
+    //                    get_instance_function!(instance, func_index);
+    //                let (argc, argv) = store_module_arguments(path, args, instance);
+    //                call_protected!(main(argc, argv, &instance))
+    //            }
+    //            0 => {
+    //                let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
+    //                call_protected!(main(&instance))
+    //            }
+    //            _ => panic!(
+    //                "The emscripten main function has received an incorrect number of params {}",
+    //                num_params
+    //            ),
+    //        }
+    //        .map_err(|err| format!("{}", err));
+    //
+    //        emscripten_data.atexit(module, instance)?;
+    //
+    //        result
+    //    } else {
+    //        let func_index =
+    //            instance
+    //                .start_func
+    //                .unwrap_or_else(|| match module.info.exports.get("main") {
+    //                    Some(&Export::Function(index)) => index,
+    //                    _ => panic!("Main function not found"),
+    //                });
+    //        let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
+    //        call_protected!(main(&instance)).map_err(|err| format!("{}", err))
+    //    }
 }

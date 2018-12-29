@@ -1,4 +1,4 @@
-use crate::runtime::{Module, Instance};
+use crate::runtime::{Instance, Module};
 //use crate::webassembly::Instance;
 use byteorder::{ByteOrder, LittleEndian};
 use libc::stat;
@@ -125,14 +125,14 @@ mod tests {
     #[test]
     fn should_detect_emscripten_files() {
         let wasm_bytes = include_wast2wasm_bytes!("tests/is_emscripten_true.wast");
-        let module = compile(wasm_bytes).expect("Not compiled properly");
-        assert!(is_emscripten_module(&module));
+        let module = compile(&wasm_bytes).expect("Not compiled properly");
+        assert!(is_emscripten_module(module));
     }
 
     #[test]
     fn should_detect_non_emscripten_files() {
         let wasm_bytes = include_wast2wasm_bytes!("tests/is_emscripten_false.wast");
-        let module = compile(wasm_bytes).expect("Not compiled properly");
-        assert!(!is_emscripten_module(&module));
+        let module = compile(&wasm_bytes).expect("Not compiled properly");
+        assert!(!is_emscripten_module(module));
     }
 }
