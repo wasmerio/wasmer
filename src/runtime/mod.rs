@@ -1,10 +1,10 @@
-mod backend;
 mod backing;
 mod instance;
 mod memory;
-mod module;
 mod sig_registry;
 mod table;
+pub mod module;
+pub mod backend;
 pub mod types;
 pub mod vm;
 pub mod vmcalls;
