@@ -3,14 +3,13 @@ use crate::runtime::{
         FuncIndex, FuncSig, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex,
         SigIndex, Table, TableIndex,
     },
-    vm,
+    backend::FuncResolver,
 };
 use hashbrown::HashMap;
-use std::ptr::NonNull;
 
 /// This is used to instantiate a new webassembly module.
 pub struct Module {
-    pub function_resolver: Box<dyn Fn(&Module, FuncIndex) -> Option<NonNull<vm::Func>>>,
+    pub func_resolver: Box<dyn FuncResolver>,
     pub memories: Map<MemoryIndex, Memory>,
     pub globals: Map<GlobalIndex, Global>,
     pub tables: Map<TableIndex, Table>,

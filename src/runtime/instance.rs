@@ -8,7 +8,6 @@ use crate::runtime::{
     types::{FuncIndex, FuncSig, Memory, Table, Type, Val},
     vm,
 };
-use hashbrown::HashMap;
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
 use std::iter;
 use std::sync::Arc;
@@ -21,7 +20,7 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub fn new(module: Arc<Module>, imports: &Imports) -> Result<Box<Instance>, String> {
+    pub(in crate::runtime) fn new(module: Arc<Module>, imports: &dyn ImportResolver) -> Result<Box<Instance>, String> {
         let sig_registry = SigRegistry::new(&*module);
 
         let import_backing = ImportBacking::new(&*module, imports)?;
@@ -109,7 +108,7 @@ impl Instance {
             .collect();
 
         let func_ptr = CodePtr::from_ptr(
-            (self.module.function_resolver)(&*self.module, func_index)
+            self.module.func_resolver.get(&*self.module, func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
                 .cast()
                 .as_ptr(),
@@ -144,25 +143,6 @@ pub enum Import {
     Global(Val),
 }
 
-pub struct Imports {
-    map: HashMap<String, HashMap<String, Import>>,
-}
-
-impl Imports {
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
-    }
-
-    pub fn add(&mut self, module: String, name: String, import: Import) {
-        self.map
-            .entry(module)
-            .or_insert(HashMap::new())
-            .insert(name, import);
-    }
-
-    pub fn get(&self, module: &str, name: &str) -> Option<&Import> {
-        self.map.get(module).and_then(|m| m.get(name))
-    }
+pub trait ImportResolver {
+    fn get(&self, module: &str, name: &str) -> Option<Import>;
 }
