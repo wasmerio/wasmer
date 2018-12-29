@@ -1,5 +1,5 @@
 use crate::runtime::{
-    instance::{Import, Imports},
+    instance::{ImportResolver, Import},
     memory::LinearMemory,
     module::{ImportName, Module},
     sig_registry::SigRegistry,
@@ -114,7 +114,7 @@ impl LocalBacking {
                             imports.functions[func_index.index()].clone()
                         } else {
                             vm::ImportedFunc {
-                                func: (module.function_resolver)(module, func_index)
+                                func: module.func_resolver.get(module, func_index)
                                     .unwrap()
                                     .as_ptr(),
                             }
@@ -237,7 +237,7 @@ pub struct ImportBacking {
 }
 
 impl ImportBacking {
-    pub fn new(module: &Module, imports: &Imports) -> Result<Self, String> {
+    pub fn new(module: &Module, imports: &dyn ImportResolver) -> Result<Self, String> {
         assert!(
             module.imported_memories.len() == 0,
             "imported memories not yet supported"
@@ -260,9 +260,9 @@ impl ImportBacking {
             let expected_sig = &module.signatures[expected_sig_index];
             let import = imports.get(mod_name, item_name);
             if let Some(Import::Func(func, signature)) = import {
-                if expected_sig == signature {
+                if expected_sig == &signature {
                     functions.push(vm::ImportedFunc {
-                        func: *func,
+                        func: func,
                         // vmctx: ptr::null_mut(),
                     });
                 } else {
@@ -294,10 +294,10 @@ impl ImportBacking {
                     globals.push(vm::ImportedGlobal {
                         global: vm::LocalGlobal {
                             data: match val {
-                                Val::I32(n) => *n as u64,
-                                Val::I64(n) => *n as u64,
-                                Val::F32(n) => *n as u64,
-                                Val::F64(n) => *n,
+                                Val::I32(n) => n as u64,
+                                Val::I64(n) => n as u64,
+                                Val::F32(n) => n as u64,
+                                Val::F64(n) => n,
                             },
                         },
                     });

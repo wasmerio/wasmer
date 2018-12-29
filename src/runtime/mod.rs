@@ -9,16 +9,16 @@ pub mod types;
 pub mod vm;
 pub mod vmcalls;
 
-pub use self::backend::Compiler;
-pub use self::instance::{Import, Imports, Instance};
+pub use self::backend::{Compiler, FuncResolver};
+pub use self::instance::{Import, ImportResolver, Instance};
 pub use self::module::Module;
 pub use self::table::TableBacking;
 
 /// Compile a webassembly module using the provided compiler and linked with the provided imports.
-pub fn compile(
-    compiler: &dyn Compiler,
+pub fn instantiate(
     wasm: &[u8],
-    imports: &Imports,
+    compiler: &dyn Compiler,
+    imports: &dyn ImportResolver,
 ) -> Result<Box<Instance>, String> {
     let module = compiler.compile(wasm)?;
     Instance::new(module, imports)
