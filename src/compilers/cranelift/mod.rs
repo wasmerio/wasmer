@@ -12,7 +12,7 @@ use self::codegen::{
     converter,
 };
 
-struct Cranelift {}
+pub struct Cranelift {}
 
 impl Compiler for Cranelift {
     // Compiles towasm byte to module
