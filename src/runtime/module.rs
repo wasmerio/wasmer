@@ -5,6 +5,7 @@ use crate::runtime::{
     },
     backend::FuncResolver,
 };
+use crate::compilers::cranelift::codegen::{CraneliftModule, converter};
 use hashbrown::HashMap;
 
 /// This is used to instantiate a new webassembly module.
@@ -35,10 +36,25 @@ impl Module {
     }
 }
 
+impl From<CraneliftModule> for Module {
+    fn from(cranelift_module: CraneliftModule) -> Self {
+        converter::convert_module(cranelift_module)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ImportName {
     pub module: String,
     pub name: String,
+}
+
+impl From<(String, String)> for ImportName {
+    fn from(n: (String, String)) -> Self {
+        ImportName {
+            module: n.0,
+            name: n.1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
