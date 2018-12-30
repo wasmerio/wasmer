@@ -18,7 +18,7 @@ pub enum Type {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Val {
+pub enum Value {
     /// The `i32` type.
     I32(i32),
     /// The `i64` type.
@@ -29,38 +29,22 @@ pub enum Val {
     F64(u64),
 }
 
-impl Val {
+impl Value {
     pub fn ty(&self) -> Type {
         match self {
-            Val::I32(_) => Type::I32,
-            Val::I64(_) => Type::I64,
-            Val::F32(_) => Type::F32,
-            Val::F64(_) => Type::F64,
+            Value::I32(_) => Type::I32,
+            Value::I64(_) => Type::I64,
+            Value::F32(_) => Type::F32,
+            Value::F64(_) => Type::F64,
         }
     }
-}
 
-impl From<i32> for Val {
-    fn from(n: i32) -> Self {
-        Val::I32(n)
+    pub fn from_f32(f: f32) -> Self {
+        Value::F32(f.to_bits())
     }
-}
 
-impl From<i64> for Val {
-    fn from(n: i64) -> Self {
-        Val::I64(n)
-    }
-}
-
-impl From<f32> for Val {
-    fn from(n: f32) -> Self {
-        Val::F32(n.to_bits())
-    }
-}
-
-impl From<f64> for Val {
-    fn from(n: f64) -> Self {
-        Val::F64(n.to_bits())
+    pub fn from_f64(f: f64) -> Self {
+        Value::F64(f.to_bits())
     }
 }
 
@@ -86,7 +70,7 @@ pub struct Table {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Initializer {
     /// Corresponds to a `const.*` instruction.
-    Const(Val),
+    Const(Value),
     /// Corresponds to a `get_global` instruction.
     GetGlobal(GlobalIndex),
 }
@@ -129,7 +113,7 @@ pub struct FuncSig {
 }
 
 impl FuncSig {
-    pub fn check_sig(&self, params: &[Val]) -> bool {
+    pub fn check_sig(&self, params: &[Value]) -> bool {
         self.params.len() == params.len()
             && self
                 .params

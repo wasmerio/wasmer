@@ -7,10 +7,14 @@
 )]
 use wabt::wat2wasm;
 
-use crate::runtime::types::Val;
-use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance};
+use crate::runtime::types::{Value};
 
-use super::_common::{spectest_importobject, NaNCheck};
+use super::_common::{
+    spectest_importobject,
+    NaNCheck,
+};
+
 
 // Line 1
 fn create_module_1() -> ResultObject {
@@ -35,8 +39,7 @@ fn create_module_1() -> ResultObject {
       (export \"br_table\" (func 2)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None)
-        .expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(result_object: &mut ResultObject) {
@@ -47,30 +50,21 @@ fn start_module_1(result_object: &mut ResultObject) {
 // Line 7
 fn c1_l7_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l7_action_invoke");
-    let result = result_object
-        .instance
-        .call("c1_l7_action_invoke", &[])
-        .expect("Missing result in c1_l7_action_invoke");
+    let result = result_object.instance.call("c1_l7_action_invoke", &[]).expect("Missing result in c1_l7_action_invoke");
     assert_eq!(result, None);
 }
 
 // Line 8
 fn c2_l8_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l8_action_invoke");
-    let result = result_object
-        .instance
-        .call("c2_l8_action_invoke", &[])
-        .expect("Missing result in c2_l8_action_invoke");
+    let result = result_object.instance.call("c2_l8_action_invoke", &[]).expect("Missing result in c2_l8_action_invoke");
     assert_eq!(result, None);
 }
 
 // Line 9
 fn c3_l9_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l9_action_invoke");
-    let result = result_object
-        .instance
-        .call("c3_l9_action_invoke", &[])
-        .expect("Missing result in c3_l9_action_invoke");
+    let result = result_object.instance.call("c3_l9_action_invoke", &[]).expect("Missing result in c3_l9_action_invoke");
     assert_eq!(result, None);
 }
 

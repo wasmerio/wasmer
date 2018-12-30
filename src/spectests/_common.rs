@@ -1,4 +1,4 @@
-use crate::runtime::types::{ElementType, FuncSig, Table, Type, Val};
+use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
 use crate::runtime::{Import, Imports, TableBacking};
 use crate::webassembly::{ImportObject, ImportValue};
 use std::sync::Arc;
@@ -41,7 +41,7 @@ pub fn spectest_importobject() -> Imports {
     import_object.add(
         "spectest".to_string(),
         "global_i32".to_string(),
-        Import::Global(Val::I64(GLOBAL_I32 as _)),
+        Import::Global(Value::I64(GLOBAL_I32 as _)),
     );
 
     let table = Table {

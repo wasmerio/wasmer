@@ -5,7 +5,7 @@ use crate::runtime::{
     module::{Export, Module},
     sig_registry::SigRegistry,
     table::TableBacking,
-    types::{FuncIndex, FuncSig, Memory, Table, Type, Val},
+    types::{FuncIndex, FuncSig, Memory, Table, Type, Value},
     vm,
 };
 use hashbrown::HashMap;
@@ -50,7 +50,7 @@ impl Instance {
     ///
     /// This will eventually return `Result<Option<Vec<Val>>, String>` in
     /// order to support multi-value returns.
-    pub fn call(&mut self, name: &str, args: &[Val]) -> Result<Option<Val>, String> {
+    pub fn call(&mut self, name: &str, args: &[Value]) -> Result<Option<Value>, String> {
         let func_index = *self
             .module
             .exports
@@ -67,8 +67,8 @@ impl Instance {
     fn call_with_index(
         &mut self,
         func_index: FuncIndex,
-        args: &[Val],
-    ) -> Result<Option<Val>, String> {
+        args: &[Value],
+    ) -> Result<Option<Value>, String> {
         // Check the function signature.
         let sig_index = *self
             .module
@@ -101,10 +101,10 @@ impl Instance {
         let libffi_args: Vec<_> = args
             .iter()
             .map(|val| match val {
-                Val::I32(ref x) => libffi_arg(x),
-                Val::I64(ref x) => libffi_arg(x),
-                Val::F32(ref x) => libffi_arg(x),
-                Val::F64(ref x) => libffi_arg(x),
+                Value::I32(ref x) => libffi_arg(x),
+                Value::I64(ref x) => libffi_arg(x),
+                Value::F32(ref x) => libffi_arg(x),
+                Value::F64(ref x) => libffi_arg(x),
             })
             .chain(iter::once(libffi_arg(&vmctx_ptr)))
             .collect();
@@ -123,10 +123,10 @@ impl Instance {
                 .returns
                 .first()
                 .map(|ty| match ty {
-                    Type::I32 => Val::I32(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::I64 => Val::I64(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::F32 => Val::F32(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::F64 => Val::F64(unsafe { libffi_call(func_ptr, &libffi_args) }),
+                    Type::I32 => Value::I32(unsafe { libffi_call(func_ptr, &libffi_args) }),
+                    Type::I64 => Value::I64(unsafe { libffi_call(func_ptr, &libffi_args) }),
+                    Type::F32 => Value::F32(unsafe { libffi_call(func_ptr, &libffi_args) }),
+                    Type::F64 => Value::F64(unsafe { libffi_call(func_ptr, &libffi_args) }),
                 })
                 .or_else(|| {
                     // call with no returns
@@ -144,7 +144,7 @@ pub enum Import {
     Func(*const vm::Func, FuncSig),
     Table(Arc<TableBacking>, Table),
     Memory(Arc<LinearMemory>, Memory),
-    Global(Val),
+    Global(Value),
 }
 
 // TODO Remove again

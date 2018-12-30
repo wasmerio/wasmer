@@ -4,7 +4,7 @@ use crate::runtime::{
     module::{ImportName, Module},
     sig_registry::SigRegistry,
     table::{TableBacking, TableElements},
-    types::{Initializer, MapIndex, Val},
+    types::{Initializer, MapIndex, Value},
     vm,
 };
 
@@ -151,10 +151,10 @@ impl LocalBacking {
     ) -> Box<[vm::LocalGlobal]> {
         for (to, (_, from)) in globals.iter_mut().zip(module.globals.into_iter()) {
             to.data = match from.init {
-                Initializer::Const(Val::I32(x)) => x as u64,
-                Initializer::Const(Val::I64(x)) => x as u64,
-                Initializer::Const(Val::F32(x)) => x as u64,
-                Initializer::Const(Val::F64(x)) => x,
+                Initializer::Const(Value::I32(x)) => x as u64,
+                Initializer::Const(Value::I64(x)) => x as u64,
+                Initializer::Const(Value::F32(x)) => x as u64,
+                Initializer::Const(Value::F64(x)) => x,
                 Initializer::GetGlobal(index) => (imports.globals[index.index()].global).data,
             };
         }
@@ -296,10 +296,10 @@ impl ImportBacking {
                     globals.push(vm::ImportedGlobal {
                         global: vm::LocalGlobal {
                             data: match val {
-                                Val::I32(n) => n as u64,
-                                Val::I64(n) => n as u64,
-                                Val::F32(n) => n as u64,
-                                Val::F64(n) => n,
+                                Value::I32(n) => n as u64,
+                                Value::I64(n) => n as u64,
+                                Value::F32(n) => n as u64,
+                                Value::F64(n) => n,
                             },
                         },
                     });

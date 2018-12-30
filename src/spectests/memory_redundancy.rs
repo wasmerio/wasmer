@@ -7,10 +7,14 @@
 )]
 use wabt::wat2wasm;
 
-use crate::runtime::types::Val;
-use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance};
+use crate::runtime::types::{Value};
 
-use super::_common::{spectest_importobject, NaNCheck};
+use super::_common::{
+    spectest_importobject,
+    NaNCheck,
+};
+
 
 // Line 5
 fn create_module_1() -> ResultObject {
@@ -94,8 +98,7 @@ fn create_module_1() -> ResultObject {
       (export \"malloc_aliasing\" (func 5)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None)
-        .expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(result_object: &mut ResultObject) {
@@ -106,73 +109,50 @@ fn start_module_1(result_object: &mut ResultObject) {
 // Line 59
 fn c1_l59_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l59_action_invoke");
-    let result = result_object
-        .instance
-        .call("c1_l59_action_invoke", &[])
-        .expect("Missing result in c1_l59_action_invoke");
-    assert_eq!(result, Some(Val::I32(128 as i32)));
+    let result = result_object.instance.call("c1_l59_action_invoke", &[]).expect("Missing result in c1_l59_action_invoke");
+    assert_eq!(result, Some(Value::I32(128 as i32)));
 }
 
 // Line 60
 fn c2_l60_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l60_action_invoke");
-    let result = result_object
-        .instance
-        .call("c2_l60_action_invoke", &[])
-        .expect("Missing result in c2_l60_action_invoke");
+    let result = result_object.instance.call("c2_l60_action_invoke", &[]).expect("Missing result in c2_l60_action_invoke");
+    
 }
 
 // Line 61
 fn c3_l61_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l61_action_invoke");
-    let result = result_object
-        .instance
-        .call("c3_l61_action_invoke", &[])
-        .expect("Missing result in c3_l61_action_invoke");
-    assert_eq!(result, Some(Val::I32(128 as i32)));
+    let result = result_object.instance.call("c3_l61_action_invoke", &[]).expect("Missing result in c3_l61_action_invoke");
+    assert_eq!(result, Some(Value::I32(128 as i32)));
 }
 
 // Line 62
 fn c4_l62_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l62_action_invoke");
-    let result = result_object
-        .instance
-        .call("c4_l62_action_invoke", &[])
-        .expect("Missing result in c4_l62_action_invoke");
+    let result = result_object.instance.call("c4_l62_action_invoke", &[]).expect("Missing result in c4_l62_action_invoke");
+    
 }
 
 // Line 63
 fn c5_l63_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l63_action_invoke");
-    let result = result_object
-        .instance
-        .call("c5_l63_action_invoke", &[])
-        .expect("Missing result in c5_l63_action_invoke");
-    assert_eq!(
-        result,
-        Some(Val::F32(
-            (0.000000000000000000000000000000000000000000049f32).to_bits()
-        ))
-    );
+    let result = result_object.instance.call("c5_l63_action_invoke", &[]).expect("Missing result in c5_l63_action_invoke");
+    assert_eq!(result, Some(Value::F32((0.000000000000000000000000000000000000000000049f32).to_bits())));
 }
 
 // Line 64
 fn c6_l64_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c6_l64_action_invoke");
-    let result = result_object
-        .instance
-        .call("c6_l64_action_invoke", &[])
-        .expect("Missing result in c6_l64_action_invoke");
+    let result = result_object.instance.call("c6_l64_action_invoke", &[]).expect("Missing result in c6_l64_action_invoke");
+    
 }
 
 // Line 65
 fn c7_l65_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c7_l65_action_invoke");
-    let result = result_object
-        .instance
-        .call("c7_l65_action_invoke", &[])
-        .expect("Missing result in c7_l65_action_invoke");
-    assert_eq!(result, Some(Val::I32(43 as i32)));
+    let result = result_object.instance.call("c7_l65_action_invoke", &[]).expect("Missing result in c7_l65_action_invoke");
+    assert_eq!(result, Some(Value::I32(43 as i32)));
 }
 
 #[test]

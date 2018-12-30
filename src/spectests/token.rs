@@ -7,34 +7,27 @@
 )]
 use wabt::wat2wasm;
 
-use crate::runtime::types::Val;
-use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance};
+use crate::runtime::types::{Value};
 
-use super::_common::{spectest_importobject, NaNCheck};
+use super::_common::{
+    spectest_importobject,
+    NaNCheck,
+};
+
 
 // Line 4
 #[test]
 fn c0_l4_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 40, 100, 114, 111, 112, 32, 40, 105, 51, 50, 46, 99, 111, 110,
-        115, 116, 48, 41, 41, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 100, 114, 111, 112, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 48, 41, 41, 41];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 8
 #[test]
 fn c1_l8_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 98, 114, 32, 48, 100, 114, 111, 112, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 98, 114, 32, 48, 100, 114, 111, 112, 41];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }

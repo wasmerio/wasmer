@@ -7,18 +7,21 @@
 )]
 use wabt::wat2wasm;
 
-use crate::runtime::types::Val;
-use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance};
+use crate::runtime::types::{Value};
 
-use super::_common::{spectest_importobject, NaNCheck};
+use super::_common::{
+    spectest_importobject,
+    NaNCheck,
+};
+
 
 // Line 1
 fn create_module_1() -> ResultObject {
     let module_str = "(module)
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None)
-        .expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(result_object: &mut ResultObject) {
@@ -38,8 +41,7 @@ fn create_module_2() -> ResultObject {
     let module_str = "(module)
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None)
-        .expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
 }
 
 fn start_module_2(result_object: &mut ResultObject) {
@@ -65,8 +67,7 @@ fn create_module_3() -> ResultObject {
       (export \"addTwo\" (func 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None)
-        .expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
 }
 
 fn start_module_3(result_object: &mut ResultObject) {
@@ -79,10 +80,7 @@ fn start_module_3(result_object: &mut ResultObject) {
 fn c3_l61_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 69
@@ -90,10 +88,7 @@ fn c3_l61_assert_malformed() {
 fn c4_l69_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0, 0];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 77
@@ -101,59 +96,31 @@ fn c4_l69_assert_malformed() {
 fn c5_l77_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0, 0, 0, 5, 1, 0, 7, 0, 0];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 85
 #[test]
 fn c6_l85_assert_malformed() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 0, 38, 16, 97, 32, 99, 117, 115, 116, 111, 109, 32, 115, 101,
-        99, 116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97,
-        121, 108, 111, 97, 100,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0, 38, 16, 97, 32, 99, 117, 115, 116, 111, 109, 32, 115, 101, 99, 116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97, 121, 108, 111, 97, 100];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 93
 #[test]
 fn c7_l93_assert_malformed() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 0, 37, 16, 97, 32, 99, 117, 115, 116, 111, 109, 32, 115, 101,
-        99, 116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97,
-        121, 108, 111, 97, 100, 0, 36, 16, 97, 32, 99, 117, 115, 116, 111, 109, 32, 115, 101, 99,
-        116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97, 121,
-        108, 111, 97, 100,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0, 37, 16, 97, 32, 99, 117, 115, 116, 111, 109, 32, 115, 101, 99, 116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97, 121, 108, 111, 97, 100, 0, 36, 16, 97, 32, 99, 117, 115, 116, 111, 109, 32, 115, 101, 99, 116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97, 121, 108, 111, 97, 100];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 102
 #[test]
 fn c8_l102_assert_malformed() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 7, 1, 96, 2, 127, 127, 1, 127, 0, 37, 16, 97, 32, 99, 117,
-        115, 116, 111, 109, 32, 115, 101, 99, 116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115,
-        32, 116, 104, 101, 32, 112, 97, 121, 108, 111, 97, 100, 3, 2, 1, 0, 10, 9, 1, 7, 0, 32, 0,
-        32, 1, 106, 11, 0, 27, 7, 99, 117, 115, 116, 111, 109, 50, 116, 104, 105, 115, 32, 105,
-        115, 32, 116, 104, 101, 32, 112, 97, 121, 108, 111, 97, 100,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 7, 1, 96, 2, 127, 127, 1, 127, 0, 37, 16, 97, 32, 99, 117, 115, 116, 111, 109, 32, 115, 101, 99, 116, 105, 111, 110, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97, 121, 108, 111, 97, 100, 3, 2, 1, 0, 10, 9, 1, 7, 0, 32, 0, 32, 1, 106, 11, 0, 27, 7, 99, 117, 115, 116, 111, 109, 50, 116, 104, 105, 115, 32, 105, 115, 32, 116, 104, 101, 32, 112, 97, 121, 108, 111, 97, 100];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 115
@@ -161,10 +128,7 @@ fn c8_l102_assert_malformed() {
 fn c9_l115_assert_malformed() {
     let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 0, 97, 115, 109, 1, 0, 0, 0];
     let compilation = compile(&wasm_binary.to_vec());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 #[test]

@@ -84,10 +84,10 @@ fn wabt2rust_type(v: &Value) -> String {
 
 fn wabt2rust_type_destructure(v: &Value, placeholder: &str) -> String {
     match v {
-        Value::I32(_v) => format!("Val::I32({})", placeholder),
-        Value::I64(_v) => format!("Val::I64({})", placeholder),
-        Value::F32(_v) => format!("Val::F32({})", placeholder),
-        Value::F64(_v) => format!("Val::F64({})", placeholder),
+        Value::I32(_v) => format!("Value::I32({})", placeholder),
+        Value::I64(_v) => format!("Value::I64({})", placeholder),
+        Value::F32(_v) => format!("Value::F32({})", placeholder),
+        Value::F64(_v) => format!("Value::F64({})", placeholder),
     }
 }
 
@@ -136,33 +136,33 @@ fn wabt2rust_value_bare(v: &Value) -> String {
 
 fn wabt2rust_value(v: &Value) -> String {
     match v {
-        Value::I32(v) => format!("Val::I32({:?} as i32)", v),
-        Value::I64(v) => format!("Val::I64({:?} as i64)", v),
+        Value::I32(v) => format!("Value::I32({:?} as i32)", v),
+        Value::I64(v) => format!("Value::I64({:?} as i64)", v),
         Value::F32(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "Val::F32(f32::NEG_INFINITY)".to_string()
+                    "Value::F32(f32::NEG_INFINITY)".to_string()
                 } else {
-                    "Val::F32(f32::INFINITY)".to_string()
+                    "Value::F32(f32::INFINITY)".to_string()
                 }
             } else if v.is_nan() {
                 // Support for non-canonical NaNs
-                format!("Val::F32(f32::from_bits({:?}) as u32)", v.to_bits())
+                format!("Value::F32(f32::from_bits({:?}) as u32)", v.to_bits())
             } else {
-                format!("Val::F32(({:?}f32).to_bits())", v)
+                format!("Value::F32(({:?}f32).to_bits())", v)
             }
         }
         Value::F64(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "Val::F64(f64::NEG_INFINITY)".to_string()
+                    "Value::F64(f64::NEG_INFINITY)".to_string()
                 } else {
-                    "Val::F64(f64::INFINITY)".to_string()
+                    "Value::F64(f64::INFINITY)".to_string()
                 }
             } else if v.is_nan() {
-                format!("Val::F64(f64::from_bits({:?}) as u64)", v.to_bits())
+                format!("Value::F64(f64::from_bits({:?}) as u64)", v.to_bits())
             } else {
-                format!("Val::F64(({:?}f64).to_bits())", v)
+                format!("Value::F64(({:?}f64).to_bits())", v)
             }
         }
     }
@@ -206,7 +206,7 @@ impl WastTestGenerator {
 use wabt::wat2wasm;
 
 use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, Instance}};
-use crate::runtime::types::{{Val}};
+use crate::runtime::types::{{Value}};
 
 use super::_common::{{
     spectest_importobject,
