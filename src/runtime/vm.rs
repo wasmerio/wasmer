@@ -52,7 +52,7 @@ impl Ctx {
             imported_funcs: import_backing.functions.as_mut_ptr(),
 
             signatures: sig_registry.into_vm_signatures(),
-            local_backing: local_backing,
+            local_backing,
         }
     }
 

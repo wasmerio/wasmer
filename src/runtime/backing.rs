@@ -264,7 +264,7 @@ impl ImportBacking {
             if let Some(Import::Func(func, signature)) = import {
                 if expected_sig == &signature {
                     functions.push(vm::ImportedFunc {
-                        func: func,
+                        func,
                         // vmctx: ptr::null_mut(),
                     });
                 } else {
