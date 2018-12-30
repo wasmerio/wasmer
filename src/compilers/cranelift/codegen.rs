@@ -9,27 +9,23 @@ use cranelift_codegen::ir::{
 use cranelift_codegen::isa::{self, CallConv, TargetFrontendConfig};
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_entity::{EntityRef, PrimaryMap};
-use target_lexicon;
 use cranelift_wasm::{
     translate_module, DefinedFuncIndex, FuncEnvironment as FuncEnvironmentTrait, FuncIndex,
     FuncTranslator, Global, GlobalIndex, GlobalVariable, Memory, MemoryIndex, ModuleEnvironment,
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
+use target_lexicon;
 
 // wasmer::webassembly
-use crate::webassembly::errors::{ErrorKind};
+use crate::webassembly::errors::ErrorKind;
 
 // wasmer::runtime
 use crate::runtime::{
-    module::{
-        Export,
-        ImportName,
-        DataInitializer,
-        TableInitializer,
-        Module as WasmerModule,
-    },
+    module::{DataInitializer, Export, ImportName, Module as WasmerModule, TableInitializer},
     types::{
-        Map,
+        FuncIndex as WasmerFuncIndex, Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc,
+        GlobalIndex as WasmerGlobalIndex, Map, Memory as WasmerMemory,
+        MemoryIndex as WasmerMemoryIndex, Table as WasmerTable, TableIndex as WasmerTableIndex,
         Type as WasmerType,
         GlobalIndex as WasmerGlobalIndex,
         Global as WasmerGlobal,
@@ -46,6 +42,7 @@ use crate::runtime::{
         self,
         Ctx as WasmerVMContext,
     },
+    vm::{self, Ctx as WasmerVMContext},
 };
 
 use hashbrown::HashMap;
@@ -103,7 +100,6 @@ pub mod converter {
     }
 }
 
-
 // Cranelift module for generating cranelift IR and the generic module
 pub struct CraneliftModule {
     /// Target description relevant to frontends producing Cranelift IR.
@@ -134,9 +130,9 @@ pub struct CraneliftModule {
     pub grow_memory_extfunc: Option<FuncRef>,
 
     // ------------------------------------- //
-
     /// A function that takes a wasmer module and resolves a function index to a vm::Func.
-    pub function_resolver: Option<Box<dyn Fn(&WasmerModule, WasmerFuncIndex) -> Option<NonNull<vm::Func>>>>,
+    pub function_resolver:
+        Option<Box<dyn Fn(&WasmerModule, WasmerFuncIndex) -> Option<NonNull<vm::Func>>>>,
 
     // An array holding information about the wasm instance memories.
     pub memories: Vec<Memory>,
@@ -172,11 +168,13 @@ pub struct CraneliftModule {
     pub start_func: Option<WasmerFuncIndex>,
 }
 
-
 ///
 impl CraneliftModule {
     ///
-    pub fn from_bytes(buffer_source: Vec<u8>, config: TargetFrontendConfig) -> Result<Self, ErrorKind> {
+    pub fn from_bytes(
+        buffer_source: Vec<u8>,
+        config: TargetFrontendConfig,
+    ) -> Result<Self, ErrorKind> {
         // Create a cranelift module
         let mut cranelift_module = CraneliftModule {
             config,
@@ -216,12 +214,10 @@ impl CraneliftModule {
     }
 }
 
-
 ///
 pub struct FuncEnvironment<'environment> {
     pub module: &'environment CraneliftModule,
 }
-
 
 ///
 impl<'environment> FuncEnvironment<'environment> {
@@ -367,10 +363,10 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn return_mode(&self) -> ReturnMode {
         ReturnMode::NormalReturns
     }
-
 }
 
-impl<'data> ModuleEnvironment<'data> for CraneliftModule {/// Get the information needed to produce Cranelift IR for the current target.
+impl<'data> ModuleEnvironment<'data> for CraneliftModule {
+    /// Get the information needed to produce Cranelift IR for the current target.
     fn target_config(&self) -> TargetFrontendConfig {
         self.config
     }
@@ -467,7 +463,7 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {/// Get the informatio
         base: Option<GlobalIndex>,
         offset: usize,
         elements: Vec<FuncIndex>,
-    ){
+    ) {
         unimplemented!()
     }
 
@@ -488,7 +484,7 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {/// Get the informatio
         base: Option<GlobalIndex>,
         offset: usize,
         data: &'data [u8],
-    ){
+    ) {
         unimplemented!()
     }
 
