@@ -646,7 +646,7 @@ pub extern "C" fn ___syscall192(
     );
 
     let (memalign, memset) = {
-        let emscripten_data = &instance.emscripten_data.as_ref().unwrap();
+        let emscripten_data = &instance.emscripten_data().as_ref().unwrap();
         (emscripten_data.memalign, emscripten_data.memset)
     };
 

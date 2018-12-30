@@ -1,4 +1,7 @@
+use crate::runtime::types::{ElementType, FuncSig, Table, Type, Val};
+use crate::runtime::{Import, Imports, TableBacking};
 use crate::webassembly::{ImportObject, ImportValue};
+use std::sync::Arc;
 
 extern "C" fn print_i32(num: i32) {
     println!("{}", num);
@@ -8,16 +11,50 @@ extern "C" fn print() {}
 
 static GLOBAL_I32: i32 = 666;
 
-pub fn spectest_importobject<'a, 'b>() -> ImportObject<&'a str, &'b str> {
-    let mut import_object = ImportObject::new();
-    import_object.set("spectest", "print_i32", ImportValue::Func(print_i32 as _));
-    import_object.set("spectest", "print", ImportValue::Func(print as _));
-    import_object.set(
-        "spectest",
-        "global_i32",
-        ImportValue::Global(GLOBAL_I32 as _),
+pub fn spectest_importobject() -> Imports {
+    let mut import_object = Imports::new();
+
+    import_object.add(
+        "spectest".to_string(),
+        "print_i32".to_string(),
+        Import::Func(
+            print_i32 as _,
+            FuncSig {
+                params: vec![Type::I32],
+                returns: vec![],
+            },
+        ),
     );
-    import_object.set("spectest", "table", ImportValue::Table(vec![0; 30]));
+
+    import_object.add(
+        "spectest".to_string(),
+        "print".to_string(),
+        Import::Func(
+            print as _,
+            FuncSig {
+                params: vec![],
+                returns: vec![],
+            },
+        ),
+    );
+
+    import_object.add(
+        "spectest".to_string(),
+        "global_i32".to_string(),
+        Import::Global(Val::I64(GLOBAL_I32 as _)),
+    );
+
+    let table = Table {
+        ty: ElementType::Anyfunc,
+        min: 0,
+        max: Some(30),
+    };
+    import_object.add(
+        "spectest".to_string(),
+        "table".to_string(),
+        Import::Table(Arc::new(TableBacking::new(&table)), table),
+    );
+
     return import_object;
 }
 

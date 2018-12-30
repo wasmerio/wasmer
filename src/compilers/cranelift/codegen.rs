@@ -9,41 +9,26 @@ use cranelift_codegen::ir::{
 use cranelift_codegen::isa::{self, CallConv, TargetFrontendConfig};
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_entity::{EntityRef, PrimaryMap};
-use target_lexicon;
 use cranelift_wasm::{
     translate_module, DefinedFuncIndex, FuncEnvironment as FuncEnvironmentTrait, FuncIndex,
     FuncTranslator, Global, GlobalIndex, GlobalVariable, Memory, MemoryIndex, ModuleEnvironment,
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
+use target_lexicon;
 
 // wasmer::webassembly
-use crate::webassembly::errors::{ErrorKind};
+use crate::webassembly::errors::ErrorKind;
 
 // wasmer::runtime
 use crate::runtime::{
-    module::{
-        Export,
-        ImportName,
-        DataInitializer,
-        TableInitializer,
-        Module as WasmerModule,
-    },
+    module::{DataInitializer, Export, ImportName, Module as WasmerModule, TableInitializer},
     types::{
-        Map,
+        FuncIndex as WasmerFuncIndex, Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc,
+        GlobalIndex as WasmerGlobalIndex, Map, Memory as WasmerMemory,
+        MemoryIndex as WasmerMemoryIndex, Table as WasmerTable, TableIndex as WasmerTableIndex,
         Type as WasmerType,
-        GlobalIndex as WasmerGlobalIndex,
-        Global as WasmerGlobal,
-        GlobalDesc as WasmerGlobalDesc,
-        MemoryIndex as WasmerMemoryIndex,
-        Memory as WasmerMemory,
-        Table as WasmerTable,
-        TableIndex as WasmerTableIndex,
-        FuncIndex as WasmerFuncIndex,
     },
-    vm::{
-        self,
-        Ctx as WasmerVMContext,
-    },
+    vm::{self, Ctx as WasmerVMContext},
 };
 
 use hashbrown::HashMap;
@@ -58,9 +43,9 @@ pub mod converter {
     pub fn generate_wasmer_module(cranelift_module: super::CraneliftModule) -> WasmerModule {
         //
         unimplemented!()
-//        WasmerModule {
-//            // ...
-//        }
+        //        WasmerModule {
+        //            // ...
+        //        }
     }
 
     /// Converts from cranelift's type to wasmer type
@@ -73,7 +58,6 @@ pub mod converter {
         }
     }
 }
-
 
 // Cranelift module for generating cranelift IR and the generic module
 pub struct CraneliftModule {
@@ -105,9 +89,9 @@ pub struct CraneliftModule {
     pub grow_memory_extfunc: Option<FuncRef>,
 
     // ------------------------------------- //
-
     /// A function that takes a wasmer module and resolves a function index to a vm::Func.
-    pub function_resolver: Option<Box<dyn Fn(&WasmerModule, WasmerFuncIndex) -> Option<NonNull<vm::Func>>>>,
+    pub function_resolver:
+        Option<Box<dyn Fn(&WasmerModule, WasmerFuncIndex) -> Option<NonNull<vm::Func>>>>,
 
     // An array holding information about the wasm instance memories.
     pub memories: Map<WasmerMemoryIndex, WasmerMemory>,
@@ -143,11 +127,13 @@ pub struct CraneliftModule {
     pub start_func: Option<WasmerFuncIndex>,
 }
 
-
 ///
 impl CraneliftModule {
     ///
-    pub fn from_bytes(buffer_source: Vec<u8>, config: TargetFrontendConfig) -> Result<Self, ErrorKind> {
+    pub fn from_bytes(
+        buffer_source: Vec<u8>,
+        config: TargetFrontendConfig,
+    ) -> Result<Self, ErrorKind> {
         // Create a cranelift module
         let mut cranelift_module = CraneliftModule {
             config,
@@ -187,12 +173,10 @@ impl CraneliftModule {
     }
 }
 
-
 ///
 pub struct FuncEnvironment<'environment> {
     pub module: &'environment CraneliftModule,
 }
-
 
 ///
 impl<'environment> FuncEnvironment<'environment> {
@@ -246,7 +230,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared memories.
-    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> ir::Heap{
+    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> ir::Heap {
         unimplemented!()
     }
 
@@ -254,14 +238,14 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared tables.
-    fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> ir::Table{
+    fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> ir::Table {
         unimplemented!()
     }
 
     /// Sets up a signature definition in `func`'s preamble
     /// Signature may contain additional argument, but arguments marked as ArgumentPurpose::Normal`
     /// must correspond to the arguments in the wasm signature
-    fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef{
+    fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef {
         unimplemented!()
     }
 
@@ -269,7 +253,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     /// directly call the function `index`.
     ///
     /// The index space covers both imported functions and functions defined in the current module.
-    fn make_direct_func(&mut self, func: &mut ir::Function, index: FuncIndex) -> ir::FuncRef{
+    fn make_direct_func(&mut self, func: &mut ir::Function, index: FuncIndex) -> ir::FuncRef {
         unimplemented!()
     }
 
@@ -286,7 +270,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-    ) -> WasmResult<ir::Inst>{
+    ) -> WasmResult<ir::Inst> {
         unimplemented!()
     }
 
@@ -311,7 +295,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         index: MemoryIndex,
         heap: ir::Heap,
         val: ir::Value,
-    ) -> WasmResult<ir::Value>{
+    ) -> WasmResult<ir::Value> {
         unimplemented!()
     }
 
@@ -323,7 +307,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         pos: FuncCursor,
         index: MemoryIndex,
         heap: ir::Heap,
-    ) -> WasmResult<ir::Value>{
+    ) -> WasmResult<ir::Value> {
         unimplemented!()
     }
 
@@ -338,13 +322,13 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn return_mode(&self) -> ReturnMode {
         ReturnMode::NormalReturns
     }
-
 }
 
-impl<'data> ModuleEnvironment<'data> for CraneliftModule {/// Get the information needed to produce Cranelift IR for the current target.
+impl<'data> ModuleEnvironment<'data> for CraneliftModule {
+    /// Get the information needed to produce Cranelift IR for the current target.
     fn target_config(&self) -> TargetFrontendConfig {
-    unimplemented!()
-}
+        unimplemented!()
+    }
 
     /// Declares a function signature to the environment.
     fn declare_signature(&mut self, sig: &ir::Signature) {
@@ -362,47 +346,47 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {/// Get the informatio
         sig_index: SignatureIndex,
         module: &'data str,
         field: &'data str,
-    ){
+    ) {
         unimplemented!()
     }
 
     /// Return the number of imported funcs.
-    fn get_num_func_imports(&self) -> usize{
+    fn get_num_func_imports(&self) -> usize {
         unimplemented!()
     }
 
     /// Declares the type (signature) of a local function in the module.
-    fn declare_func_type(&mut self, sig_index: SignatureIndex){
+    fn declare_func_type(&mut self, sig_index: SignatureIndex) {
         unimplemented!()
     }
 
     /// Return the signature index for the given function index.
-    fn get_func_type(&self, func_index: FuncIndex) -> SignatureIndex{
+    fn get_func_type(&self, func_index: FuncIndex) -> SignatureIndex {
         unimplemented!()
     }
 
     /// Declares a global to the environment.
-    fn declare_global(&mut self, global: Global){
+    fn declare_global(&mut self, global: Global) {
         unimplemented!()
     }
 
     /// Declares a global import to the environment.
-    fn declare_global_import(&mut self, global: Global, module: &'data str, field: &'data str){
+    fn declare_global_import(&mut self, global: Global, module: &'data str, field: &'data str) {
         unimplemented!()
     }
 
     /// Return the global for the given global index.
-    fn get_global(&self, global_index: GlobalIndex) -> &Global{
+    fn get_global(&self, global_index: GlobalIndex) -> &Global {
         unimplemented!()
     }
 
     /// Declares a table to the environment.
-    fn declare_table(&mut self, table: Table){
+    fn declare_table(&mut self, table: Table) {
         unimplemented!()
     }
 
     /// Declares a table import to the environment.
-    fn declare_table_import(&mut self, table: Table, module: &'data str, field: &'data str){
+    fn declare_table_import(&mut self, table: Table, module: &'data str, field: &'data str) {
         unimplemented!()
     }
 
@@ -413,17 +397,17 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {/// Get the informatio
         base: Option<GlobalIndex>,
         offset: usize,
         elements: Vec<FuncIndex>,
-    ){
+    ) {
         unimplemented!()
     }
 
     /// Declares a memory to the environment
-    fn declare_memory(&mut self, memory: Memory){
+    fn declare_memory(&mut self, memory: Memory) {
         unimplemented!()
     }
 
     /// Declares a memory import to the environment.
-    fn declare_memory_import(&mut self, memory: Memory, module: &'data str, field: &'data str){
+    fn declare_memory_import(&mut self, memory: Memory, module: &'data str, field: &'data str) {
         unimplemented!()
     }
 
@@ -434,34 +418,34 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {/// Get the informatio
         base: Option<GlobalIndex>,
         offset: usize,
         data: &'data [u8],
-    ){
+    ) {
         unimplemented!()
     }
 
     /// Declares a function export to the environment.
-    fn declare_func_export(&mut self, func_index: FuncIndex, name: &'data str){
+    fn declare_func_export(&mut self, func_index: FuncIndex, name: &'data str) {
         unimplemented!()
     }
     /// Declares a table export to the environment.
-    fn declare_table_export(&mut self, table_index: TableIndex, name: &'data str){
+    fn declare_table_export(&mut self, table_index: TableIndex, name: &'data str) {
         unimplemented!()
     }
     /// Declares a memory export to the environment.
-    fn declare_memory_export(&mut self, memory_index: MemoryIndex, name: &'data str){
+    fn declare_memory_export(&mut self, memory_index: MemoryIndex, name: &'data str) {
         unimplemented!()
     }
     /// Declares a global export to the environment.
-    fn declare_global_export(&mut self, global_index: GlobalIndex, name: &'data str){
+    fn declare_global_export(&mut self, global_index: GlobalIndex, name: &'data str) {
         unimplemented!()
     }
 
     /// Declares a start function.
-    fn declare_start_func(&mut self, index: FuncIndex){
+    fn declare_start_func(&mut self, index: FuncIndex) {
         unimplemented!()
     }
 
     /// Provides the contents of a function body.
-    fn define_function_body(&mut self, body_bytes: &'data [u8]) -> WasmResult<()>{
+    fn define_function_body(&mut self, body_bytes: &'data [u8]) -> WasmResult<()> {
         unimplemented!()
     }
 }

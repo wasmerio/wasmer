@@ -7,8 +7,10 @@
 )]
 use wabt::wat2wasm;
 
+use crate::runtime::types::Val;
+use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+
 use super::_common::{spectest_importobject, NaNCheck};
-use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 3
 fn create_module_1() -> ResultObject {
@@ -116,155 +118,131 @@ fn create_module_1() -> ResultObject {
       (export \"read\" (func 9)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_1(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_1(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 64
-fn c1_l64_action_invoke(result_object: &ResultObject) {
+fn c1_l64_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l64_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-local-i32") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i32);
+    let result = result_object
+        .instance
+        .call("c1_l64_action_invoke", &[])
+        .expect("Missing result in c1_l64_action_invoke");
+    assert_eq!(result, Some(Val::I32(0 as i32)));
 }
 
 // Line 65
-fn c2_l65_action_invoke(result_object: &ResultObject) {
+fn c2_l65_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l65_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-local-i64") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i64);
+    let result = result_object
+        .instance
+        .call("c2_l65_action_invoke", &[])
+        .expect("Missing result in c2_l65_action_invoke");
+    assert_eq!(result, Some(Val::I64(0 as i64)));
 }
 
 // Line 66
-fn c3_l66_action_invoke(result_object: &ResultObject) {
+fn c3_l66_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l66_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-local-f32") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0.0 as f32);
+    let result = result_object
+        .instance
+        .call("c3_l66_action_invoke", &[])
+        .expect("Missing result in c3_l66_action_invoke");
+    assert_eq!(result, Some(Val::F32((0.0f32).to_bits())));
 }
 
 // Line 67
-fn c4_l67_action_invoke(result_object: &ResultObject) {
+fn c4_l67_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l67_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-local-f64") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0.0 as f64);
+    let result = result_object
+        .instance
+        .call("c4_l67_action_invoke", &[])
+        .expect("Missing result in c4_l67_action_invoke");
+    assert_eq!(result, Some(Val::F64((0.0f64).to_bits())));
 }
 
 // Line 69
-fn c5_l69_action_invoke(result_object: &ResultObject) {
+fn c5_l69_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l69_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-param-i32") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i32, &Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(2 as i32, &result_object.instance);
-    assert_eq!(result, 2 as i32);
+    let result = result_object
+        .instance
+        .call("c5_l69_action_invoke", &[Val::I32(2 as i32)])
+        .expect("Missing result in c5_l69_action_invoke");
+    assert_eq!(result, Some(Val::I32(2 as i32)));
 }
 
 // Line 70
-fn c6_l70_action_invoke(result_object: &ResultObject) {
+fn c6_l70_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c6_l70_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-param-i64") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(3 as i64, &result_object.instance);
-    assert_eq!(result, 3 as i64);
+    let result = result_object
+        .instance
+        .call("c6_l70_action_invoke", &[Val::I64(3 as i64)])
+        .expect("Missing result in c6_l70_action_invoke");
+    assert_eq!(result, Some(Val::I64(3 as i64)));
 }
 
 // Line 71
-fn c7_l71_action_invoke(result_object: &ResultObject) {
+fn c7_l71_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c7_l71_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-param-f32") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(f32, &Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(4.4 as f32, &result_object.instance);
-    assert_eq!(result, 4.4 as f32);
+    let result = result_object
+        .instance
+        .call("c7_l71_action_invoke", &[Val::F32((4.4f32).to_bits())])
+        .expect("Missing result in c7_l71_action_invoke");
+    assert_eq!(result, Some(Val::F32((4.4f32).to_bits())));
 }
 
 // Line 72
-fn c8_l72_action_invoke(result_object: &ResultObject) {
+fn c8_l72_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c8_l72_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-param-f64") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(f64, &Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(5.5 as f64, &result_object.instance);
-    assert_eq!(result, 5.5 as f64);
+    let result = result_object
+        .instance
+        .call("c8_l72_action_invoke", &[Val::F64((5.5f64).to_bits())])
+        .expect("Missing result in c8_l72_action_invoke");
+    assert_eq!(result, Some(Val::F64((5.5f64).to_bits())));
 }
 
 // Line 75
-fn c9_l75_action_invoke(result_object: &ResultObject) {
+fn c9_l75_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c9_l75_action_invoke");
-    let func_index = match result_object.module.info.exports.get("type-mixed") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, f32, f64, i32, i32, &Instance) =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(
-        1 as i64,
-        2.2 as f32,
-        3.3 as f64,
-        4 as i32,
-        5 as i32,
-        &result_object.instance,
-    );
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call(
+            "c9_l75_action_invoke",
+            &[
+                Val::I64(1 as i64),
+                Val::F32((2.2f32).to_bits()),
+                Val::F64((3.3f64).to_bits()),
+                Val::I32(4 as i32),
+                Val::I32(5 as i32),
+            ],
+        )
+        .expect("Missing result in c9_l75_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 81
-fn c10_l81_action_invoke(result_object: &ResultObject) {
+fn c10_l81_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c10_l81_action_invoke");
-    let func_index = match result_object.module.info.exports.get("read") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, f32, f64, i32, i32, &Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(
-        1 as i64,
-        2.0 as f32,
-        3.3 as f64,
-        4 as i32,
-        5 as i32,
-        &result_object.instance,
-    );
-    assert_eq!(result, 34.8 as f64);
+    let result = result_object
+        .instance
+        .call(
+            "c10_l81_action_invoke",
+            &[
+                Val::I64(1 as i64),
+                Val::F32((2.0f32).to_bits()),
+                Val::F64((3.3f64).to_bits()),
+                Val::I32(4 as i32),
+                Val::I32(5 as i32),
+            ],
+        )
+        .expect("Missing result in c10_l81_action_invoke");
+    assert_eq!(result, Some(Val::F64((34.8f64).to_bits())));
 }
 
 // Line 91
@@ -274,7 +252,7 @@ fn c11_l91_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 8, 1, 6, 1, 1, 127,
         32, 0, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -288,7 +266,7 @@ fn c12_l95_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 9, 1, 7, 1, 1, 125, 32, 0,
         69, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -302,7 +280,7 @@ fn c13_l99_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 11, 1, 9, 2, 1, 124, 1,
         126, 32, 1, 154, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -316,7 +294,7 @@ fn c14_l107_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 1, 127, 1, 126, 3, 2, 1, 0, 10, 6, 1, 4, 0, 32,
         0, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -330,7 +308,7 @@ fn c15_l111_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 1, 125, 0, 3, 2, 1, 0, 10, 7, 1, 5, 0, 32, 0, 69,
         11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -344,7 +322,7 @@ fn c16_l115_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 2, 124, 126, 0, 3, 2, 1, 0, 10, 7, 1, 5, 0, 32,
         1, 154, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -358,7 +336,7 @@ fn c17_l123_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 10, 1, 8, 2, 1, 127, 1,
         126, 32, 3, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -372,7 +350,7 @@ fn c18_l127_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 13, 1, 11, 2, 1, 127, 1,
         126, 32, 247, 164, 234, 6, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -386,7 +364,7 @@ fn c19_l132_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 6, 1, 96, 2, 127, 126, 0, 3, 2, 1, 0, 10, 6, 1, 4, 0, 32,
         2, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -400,7 +378,7 @@ fn c20_l136_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 14, 1, 12, 2, 1, 127, 1,
         126, 32, 247, 242, 206, 212, 2, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -414,7 +392,7 @@ fn c21_l141_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 1, 127, 0, 3, 2, 1, 0, 10, 10, 1, 8, 2, 1, 127,
         1, 126, 32, 3, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -428,7 +406,7 @@ fn c22_l145_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 1, 126, 0, 3, 2, 1, 0, 10, 13, 1, 11, 2, 1, 127,
         1, 126, 32, 247, 168, 153, 102, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -437,17 +415,17 @@ fn c22_l145_assert_invalid() {
 
 #[test]
 fn test_module_1() {
-    let result_object = create_module_1();
+    let mut result_object = create_module_1();
     // We group the calls together
-    start_module_1(&result_object);
-    c1_l64_action_invoke(&result_object);
-    c2_l65_action_invoke(&result_object);
-    c3_l66_action_invoke(&result_object);
-    c4_l67_action_invoke(&result_object);
-    c5_l69_action_invoke(&result_object);
-    c6_l70_action_invoke(&result_object);
-    c7_l71_action_invoke(&result_object);
-    c8_l72_action_invoke(&result_object);
-    c9_l75_action_invoke(&result_object);
-    c10_l81_action_invoke(&result_object);
+    start_module_1(&mut result_object);
+    c1_l64_action_invoke(&mut result_object);
+    c2_l65_action_invoke(&mut result_object);
+    c3_l66_action_invoke(&mut result_object);
+    c4_l67_action_invoke(&mut result_object);
+    c5_l69_action_invoke(&mut result_object);
+    c6_l70_action_invoke(&mut result_object);
+    c7_l71_action_invoke(&mut result_object);
+    c8_l72_action_invoke(&mut result_object);
+    c9_l75_action_invoke(&mut result_object);
+    c10_l81_action_invoke(&mut result_object);
 }

@@ -4,7 +4,7 @@ use crate::webassembly::Instance;
 /// emscripten: ___cxa_allocate_exception
 pub extern "C" fn ___cxa_allocate_exception(size: u32, instance: &mut Instance) -> u32 {
     debug!("emscripten::___cxa_allocate_exception");
-    (instance.emscripten_data.as_ref().unwrap().malloc)(size as _, instance)
+    (instance.emscripten_data().as_ref().unwrap().malloc)(size as _, instance)
 }
 
 /// emscripten: ___cxa_throw

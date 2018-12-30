@@ -7,8 +7,10 @@
 )]
 use wabt::wat2wasm;
 
+use crate::runtime::types::Val;
+use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+
 use super::_common::{spectest_importobject, NaNCheck};
-use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 3
 fn create_module_1() -> ResultObject {
@@ -438,916 +440,597 @@ fn create_module_1() -> ResultObject {
       (export \"loop-value-after-return\" (func 48)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_1(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_1(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 212
-fn c1_l212_action_invoke(result_object: &ResultObject) {
+fn c1_l212_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l212_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("func-unwind-by-unreachable")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
+    let result = result_object
+        .instance
+        .call("c1_l212_action_invoke", &[])
+        .expect("Missing result in c1_l212_action_invoke");
 }
 
 #[test]
 fn c1_l212_assert_trap() {
-    let result_object = create_module_1();
-    let result = call_protected!(c1_l212_action_invoke(&result_object));
+    let mut result_object = create_module_1();
+    let result = call_protected!(c1_l212_action_invoke(&mut result_object));
     assert!(result.is_err());
 }
 
 // Line 213
-fn c2_l213_action_invoke(result_object: &ResultObject) {
+fn c2_l213_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l213_action_invoke");
-    let func_index = match result_object.module.info.exports.get("func-unwind-by-br") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call("c2_l213_action_invoke", &[])
+        .expect("Missing result in c2_l213_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 214
-fn c3_l214_action_invoke(result_object: &ResultObject) {
+fn c3_l214_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l214_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("func-unwind-by-br-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c3_l214_action_invoke", &[])
+        .expect("Missing result in c3_l214_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 215
-fn c4_l215_action_invoke(result_object: &ResultObject) {
+fn c4_l215_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l215_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("func-unwind-by-br_if")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call("c4_l215_action_invoke", &[])
+        .expect("Missing result in c4_l215_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 216
-fn c5_l216_action_invoke(result_object: &ResultObject) {
+fn c5_l216_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l216_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("func-unwind-by-br_if-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c5_l216_action_invoke", &[])
+        .expect("Missing result in c5_l216_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 217
-fn c6_l217_action_invoke(result_object: &ResultObject) {
+fn c6_l217_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c6_l217_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("func-unwind-by-br_table")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call("c6_l217_action_invoke", &[])
+        .expect("Missing result in c6_l217_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 218
-fn c7_l218_action_invoke(result_object: &ResultObject) {
+fn c7_l218_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c7_l218_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("func-unwind-by-br_table-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c7_l218_action_invoke", &[])
+        .expect("Missing result in c7_l218_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 219
-fn c8_l219_action_invoke(result_object: &ResultObject) {
+fn c8_l219_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c8_l219_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("func-unwind-by-return")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c8_l219_action_invoke", &[])
+        .expect("Missing result in c8_l219_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 221
-fn c9_l221_action_invoke(result_object: &ResultObject) {
+fn c9_l221_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c9_l221_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-unwind-by-unreachable")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
+    let result = result_object
+        .instance
+        .call("c9_l221_action_invoke", &[])
+        .expect("Missing result in c9_l221_action_invoke");
 }
 
 #[test]
 fn c9_l221_assert_trap() {
-    let result_object = create_module_1();
-    let result = call_protected!(c9_l221_action_invoke(&result_object));
+    let mut result_object = create_module_1();
+    let result = call_protected!(c9_l221_action_invoke(&mut result_object));
     assert!(result.is_err());
 }
 
 // Line 222
-fn c10_l222_action_invoke(result_object: &ResultObject) {
+fn c10_l222_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c10_l222_action_invoke");
-    let func_index = match result_object.module.info.exports.get("block-unwind-by-br") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c10_l222_action_invoke", &[])
+        .expect("Missing result in c10_l222_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 223
-fn c11_l223_action_invoke(result_object: &ResultObject) {
+fn c11_l223_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c11_l223_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-unwind-by-br-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c11_l223_action_invoke", &[])
+        .expect("Missing result in c11_l223_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 224
-fn c12_l224_action_invoke(result_object: &ResultObject) {
+fn c12_l224_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c12_l224_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-unwind-by-br_if")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c12_l224_action_invoke", &[])
+        .expect("Missing result in c12_l224_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 225
-fn c13_l225_action_invoke(result_object: &ResultObject) {
+fn c13_l225_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c13_l225_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-unwind-by-br_if-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c13_l225_action_invoke", &[])
+        .expect("Missing result in c13_l225_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 226
-fn c14_l226_action_invoke(result_object: &ResultObject) {
+fn c14_l226_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c14_l226_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-unwind-by-br_table")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c14_l226_action_invoke", &[])
+        .expect("Missing result in c14_l226_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 227
-fn c15_l227_action_invoke(result_object: &ResultObject) {
+fn c15_l227_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c15_l227_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-unwind-by-br_table-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c15_l227_action_invoke", &[])
+        .expect("Missing result in c15_l227_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 228
-fn c16_l228_action_invoke(result_object: &ResultObject) {
+fn c16_l228_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c16_l228_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-unwind-by-return")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c16_l228_action_invoke", &[])
+        .expect("Missing result in c16_l228_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 230
-fn c17_l230_action_invoke(result_object: &ResultObject) {
+fn c17_l230_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c17_l230_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-nested-unwind-by-unreachable")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
+    let result = result_object
+        .instance
+        .call("c17_l230_action_invoke", &[])
+        .expect("Missing result in c17_l230_action_invoke");
 }
 
 #[test]
 fn c17_l230_assert_trap() {
-    let result_object = create_module_1();
-    let result = call_protected!(c17_l230_action_invoke(&result_object));
+    let mut result_object = create_module_1();
+    let result = call_protected!(c17_l230_action_invoke(&mut result_object));
     assert!(result.is_err());
 }
 
 // Line 231
-fn c18_l231_action_invoke(result_object: &ResultObject) {
+fn c18_l231_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c18_l231_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-nested-unwind-by-br")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c18_l231_action_invoke", &[])
+        .expect("Missing result in c18_l231_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 232
-fn c19_l232_action_invoke(result_object: &ResultObject) {
+fn c19_l232_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c19_l232_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-nested-unwind-by-br-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c19_l232_action_invoke", &[])
+        .expect("Missing result in c19_l232_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 233
-fn c20_l233_action_invoke(result_object: &ResultObject) {
+fn c20_l233_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c20_l233_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-nested-unwind-by-br_if")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c20_l233_action_invoke", &[])
+        .expect("Missing result in c20_l233_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 234
-fn c21_l234_action_invoke(result_object: &ResultObject) {
+fn c21_l234_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c21_l234_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-nested-unwind-by-br_if-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c21_l234_action_invoke", &[])
+        .expect("Missing result in c21_l234_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 235
-fn c22_l235_action_invoke(result_object: &ResultObject) {
+fn c22_l235_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c22_l235_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-nested-unwind-by-br_table")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c22_l235_action_invoke", &[])
+        .expect("Missing result in c22_l235_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 236
-fn c23_l236_action_invoke(result_object: &ResultObject) {
+fn c23_l236_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c23_l236_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-nested-unwind-by-br_table-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c23_l236_action_invoke", &[])
+        .expect("Missing result in c23_l236_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 237
-fn c24_l237_action_invoke(result_object: &ResultObject) {
+fn c24_l237_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c24_l237_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-nested-unwind-by-return")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c24_l237_action_invoke", &[])
+        .expect("Missing result in c24_l237_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 239
-fn c25_l239_action_invoke(result_object: &ResultObject) {
+fn c25_l239_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c25_l239_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("unary-after-unreachable")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
+    let result = result_object
+        .instance
+        .call("c25_l239_action_invoke", &[])
+        .expect("Missing result in c25_l239_action_invoke");
 }
 
 #[test]
 fn c25_l239_assert_trap() {
-    let result_object = create_module_1();
-    let result = call_protected!(c25_l239_action_invoke(&result_object));
+    let mut result_object = create_module_1();
+    let result = call_protected!(c25_l239_action_invoke(&mut result_object));
     assert!(result.is_err());
 }
 
 // Line 240
-fn c26_l240_action_invoke(result_object: &ResultObject) {
+fn c26_l240_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c26_l240_action_invoke");
-    let func_index = match result_object.module.info.exports.get("unary-after-br") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c26_l240_action_invoke", &[])
+        .expect("Missing result in c26_l240_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 241
-fn c27_l241_action_invoke(result_object: &ResultObject) {
+fn c27_l241_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c27_l241_action_invoke");
-    let func_index = match result_object.module.info.exports.get("unary-after-br_if") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c27_l241_action_invoke", &[])
+        .expect("Missing result in c27_l241_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 242
-fn c28_l242_action_invoke(result_object: &ResultObject) {
+fn c28_l242_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c28_l242_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("unary-after-br_table")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c28_l242_action_invoke", &[])
+        .expect("Missing result in c28_l242_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 243
-fn c29_l243_action_invoke(result_object: &ResultObject) {
+fn c29_l243_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c29_l243_action_invoke");
-    let func_index = match result_object.module.info.exports.get("unary-after-return") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c29_l243_action_invoke", &[])
+        .expect("Missing result in c29_l243_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 245
-fn c30_l245_action_invoke(result_object: &ResultObject) {
+fn c30_l245_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c30_l245_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("binary-after-unreachable")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
+    let result = result_object
+        .instance
+        .call("c30_l245_action_invoke", &[])
+        .expect("Missing result in c30_l245_action_invoke");
 }
 
 #[test]
 fn c30_l245_assert_trap() {
-    let result_object = create_module_1();
-    let result = call_protected!(c30_l245_action_invoke(&result_object));
+    let mut result_object = create_module_1();
+    let result = call_protected!(c30_l245_action_invoke(&mut result_object));
     assert!(result.is_err());
 }
 
 // Line 246
-fn c31_l246_action_invoke(result_object: &ResultObject) {
+fn c31_l246_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c31_l246_action_invoke");
-    let func_index = match result_object.module.info.exports.get("binary-after-br") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c31_l246_action_invoke", &[])
+        .expect("Missing result in c31_l246_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 247
-fn c32_l247_action_invoke(result_object: &ResultObject) {
+fn c32_l247_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c32_l247_action_invoke");
-    let func_index = match result_object.module.info.exports.get("binary-after-br_if") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c32_l247_action_invoke", &[])
+        .expect("Missing result in c32_l247_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 248
-fn c33_l248_action_invoke(result_object: &ResultObject) {
+fn c33_l248_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c33_l248_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("binary-after-br_table")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c33_l248_action_invoke", &[])
+        .expect("Missing result in c33_l248_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 249
-fn c34_l249_action_invoke(result_object: &ResultObject) {
+fn c34_l249_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c34_l249_action_invoke");
-    let func_index = match result_object.module.info.exports.get("binary-after-return") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c34_l249_action_invoke", &[])
+        .expect("Missing result in c34_l249_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 251
-fn c35_l251_action_invoke(result_object: &ResultObject) {
+fn c35_l251_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c35_l251_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("select-after-unreachable")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
+    let result = result_object
+        .instance
+        .call("c35_l251_action_invoke", &[])
+        .expect("Missing result in c35_l251_action_invoke");
 }
 
 #[test]
 fn c35_l251_assert_trap() {
-    let result_object = create_module_1();
-    let result = call_protected!(c35_l251_action_invoke(&result_object));
+    let mut result_object = create_module_1();
+    let result = call_protected!(c35_l251_action_invoke(&mut result_object));
     assert!(result.is_err());
 }
 
 // Line 252
-fn c36_l252_action_invoke(result_object: &ResultObject) {
+fn c36_l252_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c36_l252_action_invoke");
-    let func_index = match result_object.module.info.exports.get("select-after-br") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c36_l252_action_invoke", &[])
+        .expect("Missing result in c36_l252_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 253
-fn c37_l253_action_invoke(result_object: &ResultObject) {
+fn c37_l253_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c37_l253_action_invoke");
-    let func_index = match result_object.module.info.exports.get("select-after-br_if") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c37_l253_action_invoke", &[])
+        .expect("Missing result in c37_l253_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 254
-fn c38_l254_action_invoke(result_object: &ResultObject) {
+fn c38_l254_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c38_l254_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("select-after-br_table")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c38_l254_action_invoke", &[])
+        .expect("Missing result in c38_l254_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 255
-fn c39_l255_action_invoke(result_object: &ResultObject) {
+fn c39_l255_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c39_l255_action_invoke");
-    let func_index = match result_object.module.info.exports.get("select-after-return") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c39_l255_action_invoke", &[])
+        .expect("Missing result in c39_l255_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 257
-fn c40_l257_action_invoke(result_object: &ResultObject) {
+fn c40_l257_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c40_l257_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-value-after-unreachable")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
+    let result = result_object
+        .instance
+        .call("c40_l257_action_invoke", &[])
+        .expect("Missing result in c40_l257_action_invoke");
 }
 
 #[test]
 fn c40_l257_assert_trap() {
-    let result_object = create_module_1();
-    let result = call_protected!(c40_l257_action_invoke(&result_object));
+    let mut result_object = create_module_1();
+    let result = call_protected!(c40_l257_action_invoke(&mut result_object));
     assert!(result.is_err());
 }
 
 // Line 258
-fn c41_l258_action_invoke(result_object: &ResultObject) {
+fn c41_l258_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c41_l258_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-value-after-br")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c41_l258_action_invoke", &[])
+        .expect("Missing result in c41_l258_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 259
-fn c42_l259_action_invoke(result_object: &ResultObject) {
+fn c42_l259_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c42_l259_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-value-after-br_if")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c42_l259_action_invoke", &[])
+        .expect("Missing result in c42_l259_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 260
-fn c43_l260_action_invoke(result_object: &ResultObject) {
+fn c43_l260_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c43_l260_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-value-after-br_table")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c43_l260_action_invoke", &[])
+        .expect("Missing result in c43_l260_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 261
-fn c44_l261_action_invoke(result_object: &ResultObject) {
+fn c44_l261_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c44_l261_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("block-value-after-return")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c44_l261_action_invoke", &[])
+        .expect("Missing result in c44_l261_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 263
-fn c45_l263_action_invoke(result_object: &ResultObject) {
+fn c45_l263_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c45_l263_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("loop-value-after-unreachable")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
+    let result = result_object
+        .instance
+        .call("c45_l263_action_invoke", &[])
+        .expect("Missing result in c45_l263_action_invoke");
 }
 
 #[test]
 fn c45_l263_assert_trap() {
-    let result_object = create_module_1();
-    let result = call_protected!(c45_l263_action_invoke(&result_object));
+    let mut result_object = create_module_1();
+    let result = call_protected!(c45_l263_action_invoke(&mut result_object));
     assert!(result.is_err());
 }
 
 // Line 264
-fn c46_l264_action_invoke(result_object: &ResultObject) {
+fn c46_l264_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c46_l264_action_invoke");
-    let func_index = match result_object.module.info.exports.get("loop-value-after-br") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c46_l264_action_invoke", &[])
+        .expect("Missing result in c46_l264_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 265
-fn c47_l265_action_invoke(result_object: &ResultObject) {
+fn c47_l265_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c47_l265_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("loop-value-after-br_if")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c47_l265_action_invoke", &[])
+        .expect("Missing result in c47_l265_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 266
-fn c48_l266_action_invoke(result_object: &ResultObject) {
+fn c48_l266_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c48_l266_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("loop-value-after-br_table")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c48_l266_action_invoke", &[])
+        .expect("Missing result in c48_l266_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 // Line 267
-fn c49_l267_action_invoke(result_object: &ResultObject) {
+fn c49_l267_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c49_l267_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("loop-value-after-return")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c49_l267_action_invoke", &[])
+        .expect("Missing result in c49_l267_action_invoke");
+    assert_eq!(result, Some(Val::I32(9 as i32)));
 }
 
 #[test]
 fn test_module_1() {
-    let result_object = create_module_1();
+    let mut result_object = create_module_1();
     // We group the calls together
-    start_module_1(&result_object);
-    c2_l213_action_invoke(&result_object);
-    c3_l214_action_invoke(&result_object);
-    c4_l215_action_invoke(&result_object);
-    c5_l216_action_invoke(&result_object);
-    c6_l217_action_invoke(&result_object);
-    c7_l218_action_invoke(&result_object);
-    c8_l219_action_invoke(&result_object);
-    c10_l222_action_invoke(&result_object);
-    c11_l223_action_invoke(&result_object);
-    c12_l224_action_invoke(&result_object);
-    c13_l225_action_invoke(&result_object);
-    c14_l226_action_invoke(&result_object);
-    c15_l227_action_invoke(&result_object);
-    c16_l228_action_invoke(&result_object);
-    c18_l231_action_invoke(&result_object);
-    c19_l232_action_invoke(&result_object);
-    c20_l233_action_invoke(&result_object);
-    c21_l234_action_invoke(&result_object);
-    c22_l235_action_invoke(&result_object);
-    c23_l236_action_invoke(&result_object);
-    c24_l237_action_invoke(&result_object);
-    c26_l240_action_invoke(&result_object);
-    c27_l241_action_invoke(&result_object);
-    c28_l242_action_invoke(&result_object);
-    c29_l243_action_invoke(&result_object);
-    c31_l246_action_invoke(&result_object);
-    c32_l247_action_invoke(&result_object);
-    c33_l248_action_invoke(&result_object);
-    c34_l249_action_invoke(&result_object);
-    c36_l252_action_invoke(&result_object);
-    c37_l253_action_invoke(&result_object);
-    c38_l254_action_invoke(&result_object);
-    c39_l255_action_invoke(&result_object);
-    c41_l258_action_invoke(&result_object);
-    c42_l259_action_invoke(&result_object);
-    c43_l260_action_invoke(&result_object);
-    c44_l261_action_invoke(&result_object);
-    c46_l264_action_invoke(&result_object);
-    c47_l265_action_invoke(&result_object);
-    c48_l266_action_invoke(&result_object);
-    c49_l267_action_invoke(&result_object);
+    start_module_1(&mut result_object);
+    c2_l213_action_invoke(&mut result_object);
+    c3_l214_action_invoke(&mut result_object);
+    c4_l215_action_invoke(&mut result_object);
+    c5_l216_action_invoke(&mut result_object);
+    c6_l217_action_invoke(&mut result_object);
+    c7_l218_action_invoke(&mut result_object);
+    c8_l219_action_invoke(&mut result_object);
+    c10_l222_action_invoke(&mut result_object);
+    c11_l223_action_invoke(&mut result_object);
+    c12_l224_action_invoke(&mut result_object);
+    c13_l225_action_invoke(&mut result_object);
+    c14_l226_action_invoke(&mut result_object);
+    c15_l227_action_invoke(&mut result_object);
+    c16_l228_action_invoke(&mut result_object);
+    c18_l231_action_invoke(&mut result_object);
+    c19_l232_action_invoke(&mut result_object);
+    c20_l233_action_invoke(&mut result_object);
+    c21_l234_action_invoke(&mut result_object);
+    c22_l235_action_invoke(&mut result_object);
+    c23_l236_action_invoke(&mut result_object);
+    c24_l237_action_invoke(&mut result_object);
+    c26_l240_action_invoke(&mut result_object);
+    c27_l241_action_invoke(&mut result_object);
+    c28_l242_action_invoke(&mut result_object);
+    c29_l243_action_invoke(&mut result_object);
+    c31_l246_action_invoke(&mut result_object);
+    c32_l247_action_invoke(&mut result_object);
+    c33_l248_action_invoke(&mut result_object);
+    c34_l249_action_invoke(&mut result_object);
+    c36_l252_action_invoke(&mut result_object);
+    c37_l253_action_invoke(&mut result_object);
+    c38_l254_action_invoke(&mut result_object);
+    c39_l255_action_invoke(&mut result_object);
+    c41_l258_action_invoke(&mut result_object);
+    c42_l259_action_invoke(&mut result_object);
+    c43_l260_action_invoke(&mut result_object);
+    c44_l261_action_invoke(&mut result_object);
+    c46_l264_action_invoke(&mut result_object);
+    c47_l265_action_invoke(&mut result_object);
+    c48_l266_action_invoke(&mut result_object);
+    c49_l267_action_invoke(&mut result_object);
 }
