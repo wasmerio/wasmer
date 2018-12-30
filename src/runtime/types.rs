@@ -54,13 +54,13 @@ impl From<i64> for Value {
 
 impl From<f32> for Value {
     fn from(f: f32) -> Self {
-        Value::F32(f)
+        Value::F32(f as _)
     }
 }
 
 impl From<f64> for Value {
     fn from(f: f64) -> Self {
-        Value::F64(f)
+        Value::F64(f as _)
     }
 }
 

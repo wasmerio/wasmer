@@ -9,7 +9,7 @@ pub mod utils;
 pub mod vmcontext;
 pub mod vmoffsets;
 
-use super::compilers::cranelift::Cranelift;
+use super::compilers::cranelift::CraneliftCompiler;
 use super::runtime;
 pub use super::runtime::{Import, Imports, Instance, Module};
 use cranelift_codegen::{
@@ -65,7 +65,7 @@ pub fn instantiate(
     debug!("webassembly - creating instance");
 
     //let instance = Instance::new(&module, import_object, options)?;
-    let instance = runtime::instantiate(buffer_source, &Cranelift {}, import_object)
+    let instance = runtime::instantiate(buffer_source, &CraneliftCompiler {}, import_object)
         .map_err(|e| ErrorKind::CompileError(e))?;
 
     let isa = get_isa();
@@ -112,7 +112,7 @@ pub fn instantiate_streaming(
 /// If the operation fails, the Result rejects with a
 /// webassembly::CompileError.
 pub fn compile(buffer_source: &[u8]) -> Result<Arc<Module>, ErrorKind> {
-    let compiler = &Cranelift {};
+    let compiler = &CraneliftCompiler {};
     let module = compiler
         .compile(buffer_source)
         .map_err(|e| ErrorKind::CompileError(e))?;

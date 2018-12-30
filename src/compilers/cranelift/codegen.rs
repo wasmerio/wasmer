@@ -23,9 +23,6 @@ use crate::webassembly::errors::ErrorKind;
 use crate::runtime::{
     module::{DataInitializer, Export, ImportName, Module as WasmerModule, TableInitializer},
     types::{
-        FuncIndex as WasmerFuncIndex, Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc,
-        GlobalIndex as WasmerGlobalIndex, Map, Memory as WasmerMemory,
-        MemoryIndex as WasmerMemoryIndex, Table as WasmerTable, TableIndex as WasmerTableIndex,
         Type as WasmerType,
         GlobalIndex as WasmerGlobalIndex,
         Global as WasmerGlobal,
@@ -42,7 +39,6 @@ use crate::runtime::{
         self,
         Ctx as WasmerVMContext,
     },
-    vm::{self, Ctx as WasmerVMContext},
 };
 
 use hashbrown::HashMap;
@@ -66,6 +62,7 @@ pub mod converter {
             I64 => WasmerType::I64,
             F32 => WasmerType::F32,
             F64 => WasmerType::F64,
+            _ => unimplemented!("unsupported wasm type!"),
         }
     }
 
@@ -86,9 +83,9 @@ pub mod converter {
             F64Const(val) => WasmerInitializer::Const((val as f64).into()),
             GetGlobal(index) =>
                 WasmerInitializer::GetGlobal(
-                    WasmerGlobalIndex(index.as_u32() as _)
+                    WasmerGlobalIndex::new(index.as_u32() as _)
                 ),
-            _ => unimplemented!(),
+            Import => unimplemented!("TODO: imported globals not supported yet!"),
         };
 
         WasmerGlobal {desc, init}
@@ -144,16 +141,16 @@ pub struct CraneliftModule {
     pub tables: Vec<Table>,
 
     // An array holding information about the wasm instance imported functions.
-    pub imported_functions: Map<WasmerFuncIndex, ImportName>,
+    pub imported_functions: Vec<ImportName>,
 
     // An array holding information about the wasm instance imported memories.
-    pub imported_memories: Map<WasmerMemoryIndex, (ImportName, WasmerMemory)>,
+    pub imported_memories: Vec<(ImportName, WasmerMemory)>,
 
     // An array holding information about the wasm instance imported tables.
-    pub imported_tables: Map<WasmerTableIndex, (ImportName, WasmerTable)>,
+    pub imported_tables: Vec<(ImportName, WasmerTable)>,
 
     // An array holding information about the wasm instance imported globals.
-    pub imported_globals: Map<WasmerGlobalIndex, (ImportName, WasmerGlobalDesc)>,
+    pub imported_globals: Vec<(ImportName, WasmerGlobalDesc)>,
 
     // An hash map holding information about the wasm instance exports.
     pub exports: HashMap<String, Export>,
@@ -190,10 +187,10 @@ impl CraneliftModule {
             memories: Vec::new(),
             globals: Vec::new(),
             tables: Vec::new(),
-            imported_functions: Map::new(),
-            imported_memories: Map::new(),
-            imported_tables: Map::new(),
-            imported_globals: Map::new(),
+            imported_functions: Vec::new(),
+            imported_memories: Vec::new(),
+            imported_tables: Vec::new(),
+            imported_globals: Vec::new(),
             exports: HashMap::new(),
             data_initializers: Vec::new(),
             table_initializers: Vec::new(),
