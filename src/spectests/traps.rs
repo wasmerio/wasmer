@@ -7,14 +7,10 @@
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{instantiate, compile, ImportObject, ResultObject, Instance};
-use crate::runtime::types::{Value};
+use crate::runtime::types::Value;
+use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
 
-use super::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use super::_common::{spectest_importobject, NaNCheck};
 
 // Line 5
 fn create_module_1() -> ResultObject {
@@ -47,7 +43,8 @@ fn create_module_1() -> ResultObject {
       (export \"no_dce.i64.div_u\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(result_object: &mut ResultObject) {
@@ -58,8 +55,13 @@ fn start_module_1(result_object: &mut ResultObject) {
 // Line 16
 fn c1_l16_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l16_action_invoke");
-    let result = result_object.instance.call("c1_l16_action_invoke", &[Value::I32(1 as i32), Value::I32(0 as i32)]).expect("Missing result in c1_l16_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c1_l16_action_invoke",
+            &[Value::I32(1 as i32), Value::I32(0 as i32)],
+        )
+        .expect("Missing result in c1_l16_action_invoke");
 }
 
 #[test]
@@ -72,8 +74,13 @@ fn c1_l16_assert_trap() {
 // Line 17
 fn c2_l17_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l17_action_invoke");
-    let result = result_object.instance.call("c2_l17_action_invoke", &[Value::I32(1 as i32), Value::I32(0 as i32)]).expect("Missing result in c2_l17_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c2_l17_action_invoke",
+            &[Value::I32(1 as i32), Value::I32(0 as i32)],
+        )
+        .expect("Missing result in c2_l17_action_invoke");
 }
 
 #[test]
@@ -86,8 +93,13 @@ fn c2_l17_assert_trap() {
 // Line 18
 fn c3_l18_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l18_action_invoke");
-    let result = result_object.instance.call("c3_l18_action_invoke", &[Value::I64(1 as i64), Value::I64(0 as i64)]).expect("Missing result in c3_l18_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c3_l18_action_invoke",
+            &[Value::I64(1 as i64), Value::I64(0 as i64)],
+        )
+        .expect("Missing result in c3_l18_action_invoke");
 }
 
 #[test]
@@ -100,8 +112,13 @@ fn c3_l18_assert_trap() {
 // Line 19
 fn c4_l19_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l19_action_invoke");
-    let result = result_object.instance.call("c4_l19_action_invoke", &[Value::I64(1 as i64), Value::I64(0 as i64)]).expect("Missing result in c4_l19_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c4_l19_action_invoke",
+            &[Value::I64(1 as i64), Value::I64(0 as i64)],
+        )
+        .expect("Missing result in c4_l19_action_invoke");
 }
 
 #[test]
@@ -114,8 +131,13 @@ fn c4_l19_assert_trap() {
 // Line 20
 fn c5_l20_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l20_action_invoke");
-    let result = result_object.instance.call("c5_l20_action_invoke", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]).expect("Missing result in c5_l20_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c5_l20_action_invoke",
+            &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+        )
+        .expect("Missing result in c5_l20_action_invoke");
 }
 
 #[test]
@@ -128,8 +150,16 @@ fn c5_l20_assert_trap() {
 // Line 21
 fn c6_l21_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c6_l21_action_invoke");
-    let result = result_object.instance.call("c6_l21_action_invoke", &[Value::I64(-9223372036854775808 as i64), Value::I64(-1 as i64)]).expect("Missing result in c6_l21_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c6_l21_action_invoke",
+            &[
+                Value::I64(-9223372036854775808 as i64),
+                Value::I64(-1 as i64),
+            ],
+        )
+        .expect("Missing result in c6_l21_action_invoke");
 }
 
 #[test]
@@ -177,7 +207,8 @@ fn create_module_2() -> ResultObject {
       (export \"no_dce.i64.rem_u\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_2(result_object: &mut ResultObject) {
@@ -188,8 +219,13 @@ fn start_module_2(result_object: &mut ResultObject) {
 // Line 34
 fn c8_l34_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c8_l34_action_invoke");
-    let result = result_object.instance.call("c8_l34_action_invoke", &[Value::I32(1 as i32), Value::I32(0 as i32)]).expect("Missing result in c8_l34_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c8_l34_action_invoke",
+            &[Value::I32(1 as i32), Value::I32(0 as i32)],
+        )
+        .expect("Missing result in c8_l34_action_invoke");
 }
 
 #[test]
@@ -202,8 +238,13 @@ fn c8_l34_assert_trap() {
 // Line 35
 fn c9_l35_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c9_l35_action_invoke");
-    let result = result_object.instance.call("c9_l35_action_invoke", &[Value::I32(1 as i32), Value::I32(0 as i32)]).expect("Missing result in c9_l35_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c9_l35_action_invoke",
+            &[Value::I32(1 as i32), Value::I32(0 as i32)],
+        )
+        .expect("Missing result in c9_l35_action_invoke");
 }
 
 #[test]
@@ -216,8 +257,13 @@ fn c9_l35_assert_trap() {
 // Line 36
 fn c10_l36_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c10_l36_action_invoke");
-    let result = result_object.instance.call("c10_l36_action_invoke", &[Value::I64(1 as i64), Value::I64(0 as i64)]).expect("Missing result in c10_l36_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c10_l36_action_invoke",
+            &[Value::I64(1 as i64), Value::I64(0 as i64)],
+        )
+        .expect("Missing result in c10_l36_action_invoke");
 }
 
 #[test]
@@ -230,8 +276,13 @@ fn c10_l36_assert_trap() {
 // Line 37
 fn c11_l37_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c11_l37_action_invoke");
-    let result = result_object.instance.call("c11_l37_action_invoke", &[Value::I64(1 as i64), Value::I64(0 as i64)]).expect("Missing result in c11_l37_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c11_l37_action_invoke",
+            &[Value::I64(1 as i64), Value::I64(0 as i64)],
+        )
+        .expect("Missing result in c11_l37_action_invoke");
 }
 
 #[test]
@@ -295,7 +346,8 @@ fn create_module_3() -> ResultObject {
       (export \"no_dce.i64.trunc_u_f64\" (func 7)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_3(result_object: &mut ResultObject) {
@@ -306,8 +358,13 @@ fn start_module_3(result_object: &mut ResultObject) {
 // Line 50
 fn c13_l50_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c13_l50_action_invoke");
-    let result = result_object.instance.call("c13_l50_action_invoke", &[Value::F32(f32::from_bits(2143289344) as u32)]).expect("Missing result in c13_l50_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c13_l50_action_invoke",
+            &[Value::F32(f32::from_bits(2143289344) as u32)],
+        )
+        .expect("Missing result in c13_l50_action_invoke");
 }
 
 #[test]
@@ -320,8 +377,13 @@ fn c13_l50_assert_trap() {
 // Line 51
 fn c14_l51_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c14_l51_action_invoke");
-    let result = result_object.instance.call("c14_l51_action_invoke", &[Value::F32(f32::from_bits(2143289344) as u32)]).expect("Missing result in c14_l51_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c14_l51_action_invoke",
+            &[Value::F32(f32::from_bits(2143289344) as u32)],
+        )
+        .expect("Missing result in c14_l51_action_invoke");
 }
 
 #[test]
@@ -334,8 +396,13 @@ fn c14_l51_assert_trap() {
 // Line 52
 fn c15_l52_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c15_l52_action_invoke");
-    let result = result_object.instance.call("c15_l52_action_invoke", &[Value::F64(f64::from_bits(9221120237041090560) as u64)]).expect("Missing result in c15_l52_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c15_l52_action_invoke",
+            &[Value::F64(f64::from_bits(9221120237041090560) as u64)],
+        )
+        .expect("Missing result in c15_l52_action_invoke");
 }
 
 #[test]
@@ -348,8 +415,13 @@ fn c15_l52_assert_trap() {
 // Line 53
 fn c16_l53_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c16_l53_action_invoke");
-    let result = result_object.instance.call("c16_l53_action_invoke", &[Value::F64(f64::from_bits(9221120237041090560) as u64)]).expect("Missing result in c16_l53_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c16_l53_action_invoke",
+            &[Value::F64(f64::from_bits(9221120237041090560) as u64)],
+        )
+        .expect("Missing result in c16_l53_action_invoke");
 }
 
 #[test]
@@ -362,8 +434,13 @@ fn c16_l53_assert_trap() {
 // Line 54
 fn c17_l54_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c17_l54_action_invoke");
-    let result = result_object.instance.call("c17_l54_action_invoke", &[Value::F32(f32::from_bits(2143289344) as u32)]).expect("Missing result in c17_l54_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c17_l54_action_invoke",
+            &[Value::F32(f32::from_bits(2143289344) as u32)],
+        )
+        .expect("Missing result in c17_l54_action_invoke");
 }
 
 #[test]
@@ -376,8 +453,13 @@ fn c17_l54_assert_trap() {
 // Line 55
 fn c18_l55_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c18_l55_action_invoke");
-    let result = result_object.instance.call("c18_l55_action_invoke", &[Value::F32(f32::from_bits(2143289344) as u32)]).expect("Missing result in c18_l55_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c18_l55_action_invoke",
+            &[Value::F32(f32::from_bits(2143289344) as u32)],
+        )
+        .expect("Missing result in c18_l55_action_invoke");
 }
 
 #[test]
@@ -390,8 +472,13 @@ fn c18_l55_assert_trap() {
 // Line 56
 fn c19_l56_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c19_l56_action_invoke");
-    let result = result_object.instance.call("c19_l56_action_invoke", &[Value::F64(f64::from_bits(9221120237041090560) as u64)]).expect("Missing result in c19_l56_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c19_l56_action_invoke",
+            &[Value::F64(f64::from_bits(9221120237041090560) as u64)],
+        )
+        .expect("Missing result in c19_l56_action_invoke");
 }
 
 #[test]
@@ -404,8 +491,13 @@ fn c19_l56_assert_trap() {
 // Line 57
 fn c20_l57_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c20_l57_action_invoke");
-    let result = result_object.instance.call("c20_l57_action_invoke", &[Value::F64(f64::from_bits(9221120237041090560) as u64)]).expect("Missing result in c20_l57_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call(
+            "c20_l57_action_invoke",
+            &[Value::F64(f64::from_bits(9221120237041090560) as u64)],
+        )
+        .expect("Missing result in c20_l57_action_invoke");
 }
 
 #[test]
@@ -499,7 +591,8 @@ fn create_module_4() -> ResultObject {
       (export \"no_dce.f64.load\" (func 13)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_4(result_object: &mut ResultObject) {
@@ -510,8 +603,10 @@ fn start_module_4(result_object: &mut ResultObject) {
 // Line 78
 fn c22_l78_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c22_l78_action_invoke");
-    let result = result_object.instance.call("c22_l78_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c22_l78_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c22_l78_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c22_l78_action_invoke");
 }
 
 #[test]
@@ -524,8 +619,10 @@ fn c22_l78_assert_trap() {
 // Line 79
 fn c23_l79_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c23_l79_action_invoke");
-    let result = result_object.instance.call("c23_l79_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c23_l79_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c23_l79_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c23_l79_action_invoke");
 }
 
 #[test]
@@ -538,8 +635,10 @@ fn c23_l79_assert_trap() {
 // Line 80
 fn c24_l80_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c24_l80_action_invoke");
-    let result = result_object.instance.call("c24_l80_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c24_l80_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c24_l80_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c24_l80_action_invoke");
 }
 
 #[test]
@@ -552,8 +651,10 @@ fn c24_l80_assert_trap() {
 // Line 81
 fn c25_l81_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c25_l81_action_invoke");
-    let result = result_object.instance.call("c25_l81_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c25_l81_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c25_l81_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c25_l81_action_invoke");
 }
 
 #[test]
@@ -566,8 +667,10 @@ fn c25_l81_assert_trap() {
 // Line 82
 fn c26_l82_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c26_l82_action_invoke");
-    let result = result_object.instance.call("c26_l82_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c26_l82_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c26_l82_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c26_l82_action_invoke");
 }
 
 #[test]
@@ -580,8 +683,10 @@ fn c26_l82_assert_trap() {
 // Line 83
 fn c27_l83_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c27_l83_action_invoke");
-    let result = result_object.instance.call("c27_l83_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c27_l83_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c27_l83_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c27_l83_action_invoke");
 }
 
 #[test]
@@ -594,8 +699,10 @@ fn c27_l83_assert_trap() {
 // Line 84
 fn c28_l84_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c28_l84_action_invoke");
-    let result = result_object.instance.call("c28_l84_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c28_l84_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c28_l84_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c28_l84_action_invoke");
 }
 
 #[test]
@@ -608,8 +715,10 @@ fn c28_l84_assert_trap() {
 // Line 85
 fn c29_l85_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c29_l85_action_invoke");
-    let result = result_object.instance.call("c29_l85_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c29_l85_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c29_l85_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c29_l85_action_invoke");
 }
 
 #[test]
@@ -622,8 +731,10 @@ fn c29_l85_assert_trap() {
 // Line 86
 fn c30_l86_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c30_l86_action_invoke");
-    let result = result_object.instance.call("c30_l86_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c30_l86_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c30_l86_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c30_l86_action_invoke");
 }
 
 #[test]
@@ -636,8 +747,10 @@ fn c30_l86_assert_trap() {
 // Line 87
 fn c31_l87_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c31_l87_action_invoke");
-    let result = result_object.instance.call("c31_l87_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c31_l87_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c31_l87_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c31_l87_action_invoke");
 }
 
 #[test]
@@ -650,8 +763,10 @@ fn c31_l87_assert_trap() {
 // Line 88
 fn c32_l88_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c32_l88_action_invoke");
-    let result = result_object.instance.call("c32_l88_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c32_l88_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c32_l88_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c32_l88_action_invoke");
 }
 
 #[test]
@@ -664,8 +779,10 @@ fn c32_l88_assert_trap() {
 // Line 89
 fn c33_l89_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c33_l89_action_invoke");
-    let result = result_object.instance.call("c33_l89_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c33_l89_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c33_l89_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c33_l89_action_invoke");
 }
 
 #[test]
@@ -678,8 +795,10 @@ fn c33_l89_assert_trap() {
 // Line 90
 fn c34_l90_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c34_l90_action_invoke");
-    let result = result_object.instance.call("c34_l90_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c34_l90_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c34_l90_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c34_l90_action_invoke");
 }
 
 #[test]
@@ -692,8 +811,10 @@ fn c34_l90_assert_trap() {
 // Line 91
 fn c35_l91_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c35_l91_action_invoke");
-    let result = result_object.instance.call("c35_l91_action_invoke", &[Value::I32(65536 as i32)]).expect("Missing result in c35_l91_action_invoke");
-    
+    let result = result_object
+        .instance
+        .call("c35_l91_action_invoke", &[Value::I32(65536 as i32)])
+        .expect("Missing result in c35_l91_action_invoke");
 }
 
 #[test]
