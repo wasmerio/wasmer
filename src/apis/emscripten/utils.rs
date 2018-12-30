@@ -1,16 +1,16 @@
-use crate::webassembly::module::Module;
-use crate::webassembly::Instance;
+use crate::runtime::{Instance, Module};
+//use crate::webassembly::Instance;
 use byteorder::{ByteOrder, LittleEndian};
 use libc::stat;
 use std::ffi::CStr;
 use std::mem::size_of;
 use std::os::raw::c_char;
 use std::slice;
-
+use std::sync::Arc;
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
-    for (module, field) in &module.info.imported_funcs {
-        if field == "_emscripten_memcpy_big" && module == "env" {
+    for (_, import_name) in &module.imported_functions {
+        if import_name.name == "_emscripten_memcpy_big" && import_name.module == "env" {
             return true;
         }
     }
@@ -32,7 +32,7 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
     let space_offset =
-        (instance.emscripten_data.as_ref().unwrap().malloc)((cstr_len as i32) + 1, instance);
+        (instance.emscripten_data().as_ref().unwrap().malloc)((cstr_len as i32) + 1, instance);
     let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
@@ -51,7 +51,7 @@ pub unsafe fn allocate_on_stack<'a, T: Copy>(
     count: u32,
     instance: &'a Instance,
 ) -> (u32, &'a mut [T]) {
-    let offset = (instance.emscripten_data.as_ref().unwrap().stack_alloc)(
+    let offset = (instance.emscripten_data().as_ref().unwrap().stack_alloc)(
         count * (size_of::<T>() as u32),
         instance,
     );
@@ -125,14 +125,14 @@ mod tests {
     #[test]
     fn should_detect_emscripten_files() {
         let wasm_bytes = include_wast2wasm_bytes!("tests/is_emscripten_true.wast");
-        let module = compile(wasm_bytes).expect("Not compiled properly");
+        let module = compile(&wasm_bytes).expect("Not compiled properly");
         assert!(is_emscripten_module(&module));
     }
 
     #[test]
     fn should_detect_non_emscripten_files() {
         let wasm_bytes = include_wast2wasm_bytes!("tests/is_emscripten_false.wast");
-        let module = compile(wasm_bytes).expect("Not compiled properly");
+        let module = compile(&wasm_bytes).expect("Not compiled properly");
         assert!(!is_emscripten_module(&module));
     }
 }

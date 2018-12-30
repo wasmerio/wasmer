@@ -40,6 +40,7 @@ use crate::runtime::{
         TableIndex as WasmerTableIndex,
         FuncIndex as WasmerFuncIndex,
         Initializer as WasmerInitializer,
+        MapIndex,
     },
     vm::{
         self,
@@ -84,9 +85,12 @@ pub mod converter {
         let init = match global.initializer {
             I32Const(val) => WasmerInitializer::Const(val.into()),
             I64Const(val) => WasmerInitializer::Const(val.into()),
-            F32Const(val) => WasmerInitializer::Const(val.into()),
-            F64Const(val) => WasmerInitializer::Const(val.into()),
-            GetGlobal(index) => WasmerInitializer::GetGlobal(WasmerGlobalIndex(index.0)),
+            F32Const(val) => WasmerInitializer::Const((val as f32).into()),
+            F64Const(val) => WasmerInitializer::Const((val as f64).into()),
+            GetGlobal(index) =>
+                WasmerInitializer::GetGlobal(
+                    WasmerGlobalIndex(index.as_u32() as _)
+                ),
             _ => unimplemented!(),
         };
 

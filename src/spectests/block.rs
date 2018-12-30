@@ -7,8 +7,10 @@
 )]
 use wabt::wat2wasm;
 
+use crate::runtime::types::Value;
+use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+
 use super::_common::{spectest_importobject, NaNCheck};
-use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 3
 fn create_module_1() -> ResultObject {
@@ -528,559 +530,423 @@ fn create_module_1() -> ResultObject {
       (elem (;0;) (i32.const 0) 19))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_1(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_1(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 252
-fn c1_l252_action_invoke(result_object: &ResultObject) {
+fn c1_l252_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l252_action_invoke");
-    let func_index = match result_object.module.info.exports.get("empty") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call("c1_l252_action_invoke", &[])
+        .expect("Missing result in c1_l252_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 253
-fn c2_l253_action_invoke(result_object: &ResultObject) {
+fn c2_l253_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l253_action_invoke");
-    let func_index = match result_object.module.info.exports.get("singular") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 7 as i32);
+    let result = result_object
+        .instance
+        .call("c2_l253_action_invoke", &[])
+        .expect("Missing result in c2_l253_action_invoke");
+    assert_eq!(result, Some(Value::I32(7 as i32)));
 }
 
 // Line 254
-fn c3_l254_action_invoke(result_object: &ResultObject) {
+fn c3_l254_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l254_action_invoke");
-    let func_index = match result_object.module.info.exports.get("multi") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 8 as i32);
+    let result = result_object
+        .instance
+        .call("c3_l254_action_invoke", &[])
+        .expect("Missing result in c3_l254_action_invoke");
+    assert_eq!(result, Some(Value::I32(8 as i32)));
 }
 
 // Line 255
-fn c4_l255_action_invoke(result_object: &ResultObject) {
+fn c4_l255_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l255_action_invoke");
-    let func_index = match result_object.module.info.exports.get("nested") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9 as i32);
+    let result = result_object
+        .instance
+        .call("c4_l255_action_invoke", &[])
+        .expect("Missing result in c4_l255_action_invoke");
+    assert_eq!(result, Some(Value::I32(9 as i32)));
 }
 
 // Line 256
-fn c5_l256_action_invoke(result_object: &ResultObject) {
+fn c5_l256_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l256_action_invoke");
-    let func_index = match result_object.module.info.exports.get("deep") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 150 as i32);
+    let result = result_object
+        .instance
+        .call("c5_l256_action_invoke", &[])
+        .expect("Missing result in c5_l256_action_invoke");
+    assert_eq!(result, Some(Value::I32(150 as i32)));
 }
 
 // Line 258
-fn c6_l258_action_invoke(result_object: &ResultObject) {
+fn c6_l258_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c6_l258_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-select-first") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c6_l258_action_invoke", &[])
+        .expect("Missing result in c6_l258_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 259
-fn c7_l259_action_invoke(result_object: &ResultObject) {
+fn c7_l259_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c7_l259_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-select-mid") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2 as i32);
+    let result = result_object
+        .instance
+        .call("c7_l259_action_invoke", &[])
+        .expect("Missing result in c7_l259_action_invoke");
+    assert_eq!(result, Some(Value::I32(2 as i32)));
 }
 
 // Line 260
-fn c8_l260_action_invoke(result_object: &ResultObject) {
+fn c8_l260_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c8_l260_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-select-last") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2 as i32);
+    let result = result_object
+        .instance
+        .call("c8_l260_action_invoke", &[])
+        .expect("Missing result in c8_l260_action_invoke");
+    assert_eq!(result, Some(Value::I32(2 as i32)));
 }
 
 // Line 262
-fn c9_l262_action_invoke(result_object: &ResultObject) {
+fn c9_l262_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c9_l262_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-loop-first") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c9_l262_action_invoke", &[])
+        .expect("Missing result in c9_l262_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 263
-fn c10_l263_action_invoke(result_object: &ResultObject) {
+fn c10_l263_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c10_l263_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-loop-mid") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c10_l263_action_invoke", &[])
+        .expect("Missing result in c10_l263_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 264
-fn c11_l264_action_invoke(result_object: &ResultObject) {
+fn c11_l264_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c11_l264_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-loop-last") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c11_l264_action_invoke", &[])
+        .expect("Missing result in c11_l264_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 266
-fn c12_l266_action_invoke(result_object: &ResultObject) {
+fn c12_l266_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c12_l266_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-if-condition") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call("c12_l266_action_invoke", &[])
+        .expect("Missing result in c12_l266_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 267
-fn c13_l267_action_invoke(result_object: &ResultObject) {
+fn c13_l267_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c13_l267_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-if-then") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c13_l267_action_invoke", &[])
+        .expect("Missing result in c13_l267_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 268
-fn c14_l268_action_invoke(result_object: &ResultObject) {
+fn c14_l268_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c14_l268_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-if-else") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2 as i32);
+    let result = result_object
+        .instance
+        .call("c14_l268_action_invoke", &[])
+        .expect("Missing result in c14_l268_action_invoke");
+    assert_eq!(result, Some(Value::I32(2 as i32)));
 }
 
 // Line 270
-fn c15_l270_action_invoke(result_object: &ResultObject) {
+fn c15_l270_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c15_l270_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-br_if-first") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c15_l270_action_invoke", &[])
+        .expect("Missing result in c15_l270_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 271
-fn c16_l271_action_invoke(result_object: &ResultObject) {
+fn c16_l271_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c16_l271_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-br_if-last") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2 as i32);
+    let result = result_object
+        .instance
+        .call("c16_l271_action_invoke", &[])
+        .expect("Missing result in c16_l271_action_invoke");
+    assert_eq!(result, Some(Value::I32(2 as i32)));
 }
 
 // Line 273
-fn c17_l273_action_invoke(result_object: &ResultObject) {
+fn c17_l273_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c17_l273_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-br_table-first") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c17_l273_action_invoke", &[])
+        .expect("Missing result in c17_l273_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 274
-fn c18_l274_action_invoke(result_object: &ResultObject) {
+fn c18_l274_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c18_l274_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-br_table-last") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2 as i32);
+    let result = result_object
+        .instance
+        .call("c18_l274_action_invoke", &[])
+        .expect("Missing result in c18_l274_action_invoke");
+    assert_eq!(result, Some(Value::I32(2 as i32)));
 }
 
 // Line 276
-fn c19_l276_action_invoke(result_object: &ResultObject) {
+fn c19_l276_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c19_l276_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("as-call_indirect-first")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c19_l276_action_invoke", &[])
+        .expect("Missing result in c19_l276_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 277
-fn c20_l277_action_invoke(result_object: &ResultObject) {
+fn c20_l277_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c20_l277_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("as-call_indirect-mid")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2 as i32);
+    let result = result_object
+        .instance
+        .call("c20_l277_action_invoke", &[])
+        .expect("Missing result in c20_l277_action_invoke");
+    assert_eq!(result, Some(Value::I32(2 as i32)));
 }
 
 // Line 278
-fn c21_l278_action_invoke(result_object: &ResultObject) {
+fn c21_l278_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c21_l278_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("as-call_indirect-last")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c21_l278_action_invoke", &[])
+        .expect("Missing result in c21_l278_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 280
-fn c22_l280_action_invoke(result_object: &ResultObject) {
+fn c22_l280_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c22_l280_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-store-first") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call("c22_l280_action_invoke", &[])
+        .expect("Missing result in c22_l280_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 281
-fn c23_l281_action_invoke(result_object: &ResultObject) {
+fn c23_l281_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c23_l281_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-store-last") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call("c23_l281_action_invoke", &[])
+        .expect("Missing result in c23_l281_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 283
-fn c24_l283_action_invoke(result_object: &ResultObject) {
+fn c24_l283_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c24_l283_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("as-memory.grow-value")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c24_l283_action_invoke", &[])
+        .expect("Missing result in c24_l283_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 284
-fn c25_l284_action_invoke(result_object: &ResultObject) {
+fn c25_l284_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c25_l284_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-call-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c25_l284_action_invoke", &[])
+        .expect("Missing result in c25_l284_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 285
-fn c26_l285_action_invoke(result_object: &ResultObject) {
+fn c26_l285_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c26_l285_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-return-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c26_l285_action_invoke", &[])
+        .expect("Missing result in c26_l285_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 286
-fn c27_l286_action_invoke(result_object: &ResultObject) {
+fn c27_l286_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c27_l286_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-drop-operand") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) = get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, ());
+    let result = result_object
+        .instance
+        .call("c27_l286_action_invoke", &[])
+        .expect("Missing result in c27_l286_action_invoke");
+    assert_eq!(result, None);
 }
 
 // Line 287
-fn c28_l287_action_invoke(result_object: &ResultObject) {
+fn c28_l287_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c28_l287_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-br-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c28_l287_action_invoke", &[])
+        .expect("Missing result in c28_l287_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 288
-fn c29_l288_action_invoke(result_object: &ResultObject) {
+fn c29_l288_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c29_l288_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-set_local-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c29_l288_action_invoke", &[])
+        .expect("Missing result in c29_l288_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 289
-fn c30_l289_action_invoke(result_object: &ResultObject) {
+fn c30_l289_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c30_l289_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-tee_local-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c30_l289_action_invoke", &[])
+        .expect("Missing result in c30_l289_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 290
-fn c31_l290_action_invoke(result_object: &ResultObject) {
+fn c31_l290_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c31_l290_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-set_global-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c31_l290_action_invoke", &[])
+        .expect("Missing result in c31_l290_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 291
-fn c32_l291_action_invoke(result_object: &ResultObject) {
+fn c32_l291_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c32_l291_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-load-operand") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c32_l291_action_invoke", &[])
+        .expect("Missing result in c32_l291_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 293
-fn c33_l293_action_invoke(result_object: &ResultObject) {
+fn c33_l293_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c33_l293_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-unary-operand") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i32);
+    let result = result_object
+        .instance
+        .call("c33_l293_action_invoke", &[])
+        .expect("Missing result in c33_l293_action_invoke");
+    assert_eq!(result, Some(Value::I32(0 as i32)));
 }
 
 // Line 294
-fn c34_l294_action_invoke(result_object: &ResultObject) {
+fn c34_l294_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c34_l294_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-binary-operand") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 12 as i32);
+    let result = result_object
+        .instance
+        .call("c34_l294_action_invoke", &[])
+        .expect("Missing result in c34_l294_action_invoke");
+    assert_eq!(result, Some(Value::I32(12 as i32)));
 }
 
 // Line 295
-fn c35_l295_action_invoke(result_object: &ResultObject) {
+fn c35_l295_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c35_l295_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-test-operand") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i32);
+    let result = result_object
+        .instance
+        .call("c35_l295_action_invoke", &[])
+        .expect("Missing result in c35_l295_action_invoke");
+    assert_eq!(result, Some(Value::I32(0 as i32)));
 }
 
 // Line 296
-fn c36_l296_action_invoke(result_object: &ResultObject) {
+fn c36_l296_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c36_l296_action_invoke");
-    let func_index = match result_object.module.info.exports.get("as-compare-operand") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i32);
+    let result = result_object
+        .instance
+        .call("c36_l296_action_invoke", &[])
+        .expect("Missing result in c36_l296_action_invoke");
+    assert_eq!(result, Some(Value::I32(0 as i32)));
 }
 
 // Line 298
-fn c37_l298_action_invoke(result_object: &ResultObject) {
+fn c37_l298_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c37_l298_action_invoke");
-    let func_index = match result_object.module.info.exports.get("break-bare") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 19 as i32);
+    let result = result_object
+        .instance
+        .call("c37_l298_action_invoke", &[])
+        .expect("Missing result in c37_l298_action_invoke");
+    assert_eq!(result, Some(Value::I32(19 as i32)));
 }
 
 // Line 299
-fn c38_l299_action_invoke(result_object: &ResultObject) {
+fn c38_l299_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c38_l299_action_invoke");
-    let func_index = match result_object.module.info.exports.get("break-value") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 18 as i32);
+    let result = result_object
+        .instance
+        .call("c38_l299_action_invoke", &[])
+        .expect("Missing result in c38_l299_action_invoke");
+    assert_eq!(result, Some(Value::I32(18 as i32)));
 }
 
 // Line 300
-fn c39_l300_action_invoke(result_object: &ResultObject) {
+fn c39_l300_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c39_l300_action_invoke");
-    let func_index = match result_object.module.info.exports.get("break-repeated") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 18 as i32);
+    let result = result_object
+        .instance
+        .call("c39_l300_action_invoke", &[])
+        .expect("Missing result in c39_l300_action_invoke");
+    assert_eq!(result, Some(Value::I32(18 as i32)));
 }
 
 // Line 301
-fn c40_l301_action_invoke(result_object: &ResultObject) {
+fn c40_l301_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c40_l301_action_invoke");
-    let func_index = match result_object.module.info.exports.get("break-inner") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 15 as i32);
+    let result = result_object
+        .instance
+        .call("c40_l301_action_invoke", &[])
+        .expect("Missing result in c40_l301_action_invoke");
+    assert_eq!(result, Some(Value::I32(15 as i32)));
 }
 
 // Line 303
-fn c41_l303_action_invoke(result_object: &ResultObject) {
+fn c41_l303_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c41_l303_action_invoke");
-    let func_index = match result_object.module.info.exports.get("effects") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c41_l303_action_invoke", &[])
+        .expect("Missing result in c41_l303_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 306
@@ -1090,7 +956,7 @@ fn c42_l306_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 64, 11,
         11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1104,7 +970,7 @@ fn c43_l310_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 64, 11,
         11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1118,7 +984,7 @@ fn c44_l314_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 64, 11,
         11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1132,7 +998,7 @@ fn c45_l318_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 64, 11,
         11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1146,7 +1012,7 @@ fn c46_l323_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 64, 65, 1,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1160,7 +1026,7 @@ fn c47_l329_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 64, 66, 1,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1174,7 +1040,7 @@ fn c48_l335_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64, 67, 0,
         0, 128, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1188,7 +1054,7 @@ fn c49_l341_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 64, 68, 0,
         0, 0, 0, 0, 0, 240, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1202,7 +1068,7 @@ fn c50_l348_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 127,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1216,7 +1082,7 @@ fn c51_l354_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 126,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1230,7 +1096,7 @@ fn c52_l360_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 125,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1244,7 +1110,7 @@ fn c53_l366_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 7, 1, 5, 0, 2, 124,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1258,7 +1124,7 @@ fn c54_l373_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 8, 1, 6, 0, 2, 127, 1,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1272,7 +1138,7 @@ fn c55_l379_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 8, 1, 6, 0, 2, 126, 1,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1286,7 +1152,7 @@ fn c56_l385_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 8, 1, 6, 0, 2, 125, 1,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1300,7 +1166,7 @@ fn c57_l391_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 8, 1, 6, 0, 2, 124, 1,
         11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1314,7 +1180,7 @@ fn c58_l398_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 127,
         66, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1328,7 +1194,7 @@ fn c59_l404_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 127,
         67, 0, 0, 0, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1342,7 +1208,7 @@ fn c60_l410_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 127,
         68, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1356,7 +1222,7 @@ fn c61_l416_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 126,
         65, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1370,7 +1236,7 @@ fn c62_l422_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 126,
         67, 0, 0, 0, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1384,7 +1250,7 @@ fn c63_l428_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 126,
         68, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1398,7 +1264,7 @@ fn c64_l434_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 125,
         65, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1412,7 +1278,7 @@ fn c65_l440_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 125,
         66, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1426,7 +1292,7 @@ fn c66_l446_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 125,
         68, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1440,7 +1306,7 @@ fn c67_l452_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 124,
         65, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1454,7 +1320,7 @@ fn c68_l458_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 124,
         66, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1468,7 +1334,7 @@ fn c69_l464_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 124,
         67, 0, 0, 0, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1482,7 +1348,7 @@ fn c70_l471_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 126,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1496,7 +1362,7 @@ fn c71_l477_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 125,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1510,7 +1376,7 @@ fn c72_l483_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 124,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1524,7 +1390,7 @@ fn c73_l489_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 127,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1538,7 +1404,7 @@ fn c74_l495_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 125,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1552,7 +1418,7 @@ fn c75_l501_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 124,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1566,7 +1432,7 @@ fn c76_l507_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 127,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1580,7 +1446,7 @@ fn c77_l513_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 126,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1594,7 +1460,7 @@ fn c78_l519_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 124,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1608,7 +1474,7 @@ fn c79_l525_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 127,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1622,7 +1488,7 @@ fn c80_l531_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 126,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1636,7 +1502,7 @@ fn c81_l537_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 125,
         0, 0, 0, 27, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1650,7 +1516,7 @@ fn c82_l544_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 127,
         12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1664,7 +1530,7 @@ fn c83_l550_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 126,
         12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1678,7 +1544,7 @@ fn c84_l556_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 125,
         12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1692,7 +1558,7 @@ fn c85_l562_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 2, 124,
         12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1706,7 +1572,7 @@ fn c86_l569_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 127,
         12, 0, 65, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1720,7 +1586,7 @@ fn c87_l575_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 126,
         12, 0, 66, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1734,7 +1600,7 @@ fn c88_l581_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 14, 1, 12, 0, 2, 125,
         12, 0, 67, 0, 0, 128, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1748,7 +1614,7 @@ fn c89_l587_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 124,
         12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1762,7 +1628,7 @@ fn c90_l594_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 127,
         1, 12, 0, 65, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1776,7 +1642,7 @@ fn c91_l600_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 126,
         1, 12, 0, 66, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1790,7 +1656,7 @@ fn c92_l606_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 125,
         1, 12, 0, 67, 0, 0, 128, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1804,7 +1670,7 @@ fn c93_l612_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 124,
         1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1818,7 +1684,7 @@ fn c94_l619_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 13, 1, 11, 0, 2, 127,
         66, 1, 12, 0, 65, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1832,7 +1698,7 @@ fn c95_l625_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 127,
         67, 0, 0, 128, 63, 12, 0, 65, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1846,7 +1712,7 @@ fn c96_l631_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 127,
         68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 65, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1860,7 +1726,7 @@ fn c97_l637_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 13, 1, 11, 0, 2, 126,
         65, 1, 12, 0, 66, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1874,7 +1740,7 @@ fn c98_l643_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 126,
         67, 0, 0, 128, 63, 12, 0, 66, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1888,7 +1754,7 @@ fn c99_l649_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 126,
         68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 66, 1, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1902,7 +1768,7 @@ fn c100_l655_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 125,
         65, 1, 12, 0, 67, 0, 0, 128, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1916,7 +1782,7 @@ fn c101_l661_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 125,
         66, 1, 12, 0, 67, 0, 0, 128, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1930,7 +1796,7 @@ fn c102_l667_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 23, 1, 21, 0, 2, 125,
         68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 67, 0, 0, 128, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1944,7 +1810,7 @@ fn c103_l673_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 126,
         65, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1958,7 +1824,7 @@ fn c104_l679_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 124,
         66, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1972,7 +1838,7 @@ fn c105_l685_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 23, 1, 21, 0, 2, 124,
         67, 0, 0, 128, 63, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -1986,7 +1852,7 @@ fn c106_l692_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 2, 127,
         1, 12, 0, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2000,7 +1866,7 @@ fn c107_l698_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 14, 1, 12, 0, 2, 126,
         1, 12, 0, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2014,7 +1880,7 @@ fn c108_l704_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 17, 1, 15, 0, 2, 125,
         1, 12, 0, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2028,7 +1894,7 @@ fn c109_l710_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 124,
         1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2042,7 +1908,7 @@ fn c110_l717_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 127,
         66, 1, 12, 0, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2056,7 +1922,7 @@ fn c111_l723_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 127,
         67, 0, 0, 128, 63, 12, 0, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2070,7 +1936,7 @@ fn c112_l729_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 22, 1, 20, 0, 2, 127,
         68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2084,7 +1950,7 @@ fn c113_l735_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 126,
         65, 1, 12, 0, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2098,7 +1964,7 @@ fn c114_l741_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 126,
         67, 0, 0, 128, 63, 12, 0, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2112,7 +1978,7 @@ fn c115_l747_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 22, 1, 20, 0, 2, 126,
         68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2126,7 +1992,7 @@ fn c116_l753_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 125,
         65, 1, 12, 0, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2140,7 +2006,7 @@ fn c117_l759_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 125,
         66, 1, 12, 0, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2154,7 +2020,7 @@ fn c118_l765_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 125,
         68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2168,7 +2034,7 @@ fn c119_l771_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 22, 1, 20, 0, 2, 124,
         65, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2182,7 +2048,7 @@ fn c120_l777_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 22, 1, 20, 0, 2, 124,
         66, 1, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2196,7 +2062,7 @@ fn c121_l783_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 124,
         67, 0, 0, 128, 63, 12, 0, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2210,7 +2076,7 @@ fn c122_l790_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 127, 2,
         127, 65, 1, 12, 1, 11, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2224,7 +2090,7 @@ fn c123_l796_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 126, 2,
         126, 66, 1, 12, 1, 11, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2238,7 +2104,7 @@ fn c124_l802_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 125, 2,
         125, 67, 0, 0, 128, 63, 12, 1, 11, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2252,7 +2118,7 @@ fn c125_l808_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 23, 1, 21, 0, 2, 124, 2,
         124, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 1, 11, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2266,7 +2132,7 @@ fn c126_l815_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 127,
         2, 64, 12, 1, 11, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2280,7 +2146,7 @@ fn c127_l821_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 16, 1, 14, 0, 2, 126,
         2, 64, 12, 1, 11, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2294,7 +2160,7 @@ fn c128_l827_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 125,
         2, 64, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2308,7 +2174,7 @@ fn c129_l833_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 23, 1, 21, 0, 2, 124,
         2, 64, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2322,7 +2188,7 @@ fn c130_l840_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 17, 1, 15, 0, 2, 127,
         2, 127, 1, 12, 1, 11, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2336,7 +2202,7 @@ fn c131_l846_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 17, 1, 15, 0, 2, 126,
         2, 126, 1, 12, 1, 11, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2350,7 +2216,7 @@ fn c132_l852_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 20, 1, 18, 0, 2, 125,
         2, 125, 1, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2364,7 +2230,7 @@ fn c133_l858_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 24, 1, 22, 0, 2, 124,
         2, 124, 1, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2378,7 +2244,7 @@ fn c134_l865_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 127,
         2, 127, 66, 1, 12, 1, 11, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2392,7 +2258,7 @@ fn c135_l873_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 127,
         2, 127, 67, 0, 0, 128, 63, 12, 1, 11, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2406,7 +2272,7 @@ fn c136_l881_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 127,
         2, 127, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 1, 11, 65, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2420,7 +2286,7 @@ fn c137_l889_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 18, 1, 16, 0, 2, 126,
         2, 126, 65, 1, 12, 1, 11, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2434,7 +2300,7 @@ fn c138_l897_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 126,
         2, 126, 67, 0, 0, 128, 63, 12, 1, 11, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2448,7 +2314,7 @@ fn c139_l905_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 126,
         2, 126, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 1, 11, 66, 1, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2462,7 +2328,7 @@ fn c140_l913_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 125,
         2, 125, 65, 1, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2476,7 +2342,7 @@ fn c141_l921_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 21, 1, 19, 0, 2, 125,
         2, 125, 66, 1, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2490,7 +2356,7 @@ fn c142_l929_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 28, 1, 26, 0, 2, 125,
         2, 125, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 1, 11, 67, 0, 0, 128, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2504,7 +2370,7 @@ fn c143_l937_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 124,
         2, 124, 65, 1, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2518,7 +2384,7 @@ fn c144_l945_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 25, 1, 23, 0, 2, 124,
         2, 124, 66, 1, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2532,7 +2398,7 @@ fn c145_l953_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 28, 1, 26, 0, 2, 124,
         2, 124, 67, 0, 0, 128, 63, 12, 1, 11, 68, 0, 0, 0, 0, 0, 0, 240, 63, 12, 0, 11, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2546,7 +2412,7 @@ fn c146_l962_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 10, 1, 8, 0, 2, 64,
         12, 0, 11, 104, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2560,7 +2426,7 @@ fn c147_l968_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 10, 1, 8, 0, 2, 64,
         12, 0, 11, 122, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2574,7 +2440,7 @@ fn c148_l974_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 10, 1, 8, 0, 2, 64,
         12, 0, 11, 142, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2588,7 +2454,7 @@ fn c149_l980_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 10, 1, 8, 0, 2, 64,
         12, 0, 11, 156, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2602,7 +2468,7 @@ fn c150_l987_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 64, 1,
         12, 0, 11, 104, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2616,7 +2482,7 @@ fn c151_l993_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 64, 1,
         12, 0, 11, 122, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2630,7 +2496,7 @@ fn c152_l999_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 64, 1,
         12, 0, 11, 142, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2644,7 +2510,7 @@ fn c153_l1005_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 11, 1, 9, 0, 2, 64, 1,
         12, 0, 11, 156, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2658,7 +2524,7 @@ fn c154_l1012_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64,
         66, 9, 12, 0, 11, 122, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2672,7 +2538,7 @@ fn c155_l1018_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 64,
         67, 0, 0, 16, 65, 12, 0, 11, 142, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2686,7 +2552,7 @@ fn c156_l1024_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 64,
         68, 0, 0, 0, 0, 0, 0, 34, 64, 12, 0, 11, 156, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2700,7 +2566,7 @@ fn c157_l1030_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64,
         65, 9, 12, 0, 11, 104, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2714,7 +2580,7 @@ fn c158_l1036_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 64,
         67, 0, 0, 16, 65, 12, 0, 11, 142, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2728,7 +2594,7 @@ fn c159_l1042_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 64,
         68, 0, 0, 0, 0, 0, 0, 34, 64, 12, 0, 11, 156, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2742,7 +2608,7 @@ fn c160_l1048_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64,
         65, 9, 12, 0, 11, 104, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2756,7 +2622,7 @@ fn c161_l1054_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64,
         66, 9, 12, 0, 11, 122, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2770,7 +2636,7 @@ fn c162_l1060_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 19, 1, 17, 0, 2, 64,
         68, 0, 0, 0, 0, 0, 0, 34, 64, 12, 0, 11, 156, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2784,7 +2650,7 @@ fn c163_l1066_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64,
         65, 9, 12, 0, 11, 104, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2798,7 +2664,7 @@ fn c164_l1072_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 12, 1, 10, 0, 2, 64,
         66, 9, 12, 0, 11, 122, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2812,7 +2678,7 @@ fn c165_l1078_assert_invalid() {
         0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 15, 1, 13, 0, 2, 64,
         67, 0, 0, 16, 65, 12, 0, 11, 142, 11,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is invalid"
@@ -2825,7 +2691,7 @@ fn c166_l1085_assert_malformed() {
     let wasm_binary = [
         40, 102, 117, 110, 99, 32, 98, 108, 111, 99, 107, 32, 101, 110, 100, 32, 36, 108, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2839,7 +2705,7 @@ fn c167_l1089_assert_malformed() {
         40, 102, 117, 110, 99, 32, 98, 108, 111, 99, 107, 32, 36, 97, 32, 101, 110, 100, 32, 36,
         108, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2848,48 +2714,48 @@ fn c167_l1089_assert_malformed() {
 
 #[test]
 fn test_module_1() {
-    let result_object = create_module_1();
+    let mut result_object = create_module_1();
     // We group the calls together
-    start_module_1(&result_object);
-    c1_l252_action_invoke(&result_object);
-    c2_l253_action_invoke(&result_object);
-    c3_l254_action_invoke(&result_object);
-    c4_l255_action_invoke(&result_object);
-    c5_l256_action_invoke(&result_object);
-    c6_l258_action_invoke(&result_object);
-    c7_l259_action_invoke(&result_object);
-    c8_l260_action_invoke(&result_object);
-    c9_l262_action_invoke(&result_object);
-    c10_l263_action_invoke(&result_object);
-    c11_l264_action_invoke(&result_object);
-    c12_l266_action_invoke(&result_object);
-    c13_l267_action_invoke(&result_object);
-    c14_l268_action_invoke(&result_object);
-    c15_l270_action_invoke(&result_object);
-    c16_l271_action_invoke(&result_object);
-    c17_l273_action_invoke(&result_object);
-    c18_l274_action_invoke(&result_object);
-    c19_l276_action_invoke(&result_object);
-    c20_l277_action_invoke(&result_object);
-    c21_l278_action_invoke(&result_object);
-    c22_l280_action_invoke(&result_object);
-    c23_l281_action_invoke(&result_object);
-    c24_l283_action_invoke(&result_object);
-    c25_l284_action_invoke(&result_object);
-    c26_l285_action_invoke(&result_object);
-    c27_l286_action_invoke(&result_object);
-    c28_l287_action_invoke(&result_object);
-    c29_l288_action_invoke(&result_object);
-    c30_l289_action_invoke(&result_object);
-    c31_l290_action_invoke(&result_object);
-    c32_l291_action_invoke(&result_object);
-    c33_l293_action_invoke(&result_object);
-    c34_l294_action_invoke(&result_object);
-    c35_l295_action_invoke(&result_object);
-    c36_l296_action_invoke(&result_object);
-    c37_l298_action_invoke(&result_object);
-    c38_l299_action_invoke(&result_object);
-    c39_l300_action_invoke(&result_object);
-    c40_l301_action_invoke(&result_object);
-    c41_l303_action_invoke(&result_object);
+    start_module_1(&mut result_object);
+    c1_l252_action_invoke(&mut result_object);
+    c2_l253_action_invoke(&mut result_object);
+    c3_l254_action_invoke(&mut result_object);
+    c4_l255_action_invoke(&mut result_object);
+    c5_l256_action_invoke(&mut result_object);
+    c6_l258_action_invoke(&mut result_object);
+    c7_l259_action_invoke(&mut result_object);
+    c8_l260_action_invoke(&mut result_object);
+    c9_l262_action_invoke(&mut result_object);
+    c10_l263_action_invoke(&mut result_object);
+    c11_l264_action_invoke(&mut result_object);
+    c12_l266_action_invoke(&mut result_object);
+    c13_l267_action_invoke(&mut result_object);
+    c14_l268_action_invoke(&mut result_object);
+    c15_l270_action_invoke(&mut result_object);
+    c16_l271_action_invoke(&mut result_object);
+    c17_l273_action_invoke(&mut result_object);
+    c18_l274_action_invoke(&mut result_object);
+    c19_l276_action_invoke(&mut result_object);
+    c20_l277_action_invoke(&mut result_object);
+    c21_l278_action_invoke(&mut result_object);
+    c22_l280_action_invoke(&mut result_object);
+    c23_l281_action_invoke(&mut result_object);
+    c24_l283_action_invoke(&mut result_object);
+    c25_l284_action_invoke(&mut result_object);
+    c26_l285_action_invoke(&mut result_object);
+    c27_l286_action_invoke(&mut result_object);
+    c28_l287_action_invoke(&mut result_object);
+    c29_l288_action_invoke(&mut result_object);
+    c30_l289_action_invoke(&mut result_object);
+    c31_l290_action_invoke(&mut result_object);
+    c32_l291_action_invoke(&mut result_object);
+    c33_l293_action_invoke(&mut result_object);
+    c34_l294_action_invoke(&mut result_object);
+    c35_l295_action_invoke(&mut result_object);
+    c36_l296_action_invoke(&mut result_object);
+    c37_l298_action_invoke(&mut result_object);
+    c38_l299_action_invoke(&mut result_object);
+    c39_l300_action_invoke(&mut result_object);
+    c40_l301_action_invoke(&mut result_object);
+    c41_l303_action_invoke(&mut result_object);
 }

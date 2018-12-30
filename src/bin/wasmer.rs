@@ -6,6 +6,7 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
+use std::sync::Arc;
 
 use structopt::StructOpt;
 
@@ -68,7 +69,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let isa = webassembly::get_isa();
 
     debug!("webassembly - creating module");
-    let module = webassembly::compile(wasm_binary)
+    let module = webassembly::compile(&wasm_binary[..])
         .map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
     let abi = if apis::is_emscripten_module(&module) {
@@ -80,7 +81,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let import_object = if abi == webassembly::InstanceABI::Emscripten {
         apis::generate_emscripten_env()
     } else {
-        webassembly::ImportObject::new()
+        runtime::Imports::new()
     };
 
     let instance_options = webassembly::InstanceOptions {
@@ -93,11 +94,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     debug!("webassembly - creating instance");
-    let mut instance = webassembly::Instance::new(&module, import_object, instance_options)
+
+    let mut instance = wasmer::runtime::Instance::new(Arc::clone(&module), &import_object)
         .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(
-        &module,
+        Arc::clone(&module),
         &mut instance,
         options.path.to_str().unwrap(),
         options.args.iter().map(|arg| arg.as_str()).collect(),

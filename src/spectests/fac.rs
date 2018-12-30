@@ -7,8 +7,10 @@
 )]
 use wabt::wat2wasm;
 
+use crate::runtime::types::Value;
+use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+
 use super::_common::{spectest_importobject, NaNCheck};
-use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 1
 fn create_module_1() -> ResultObject {
@@ -128,88 +130,75 @@ fn create_module_1() -> ResultObject {
       (export \"fac-opt\" (func 4)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_1(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_1(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 84
-fn c1_l84_action_invoke(result_object: &ResultObject) {
+fn c1_l84_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l84_action_invoke");
-    let func_index = match result_object.module.info.exports.get("fac-rec") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &result_object.instance);
-    assert_eq!(result, 7034535277573963776 as i64);
+    let result = result_object
+        .instance
+        .call("c1_l84_action_invoke", &[Value::I64(25 as i64)])
+        .expect("Missing result in c1_l84_action_invoke");
+    assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 85
-fn c2_l85_action_invoke(result_object: &ResultObject) {
+fn c2_l85_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l85_action_invoke");
-    let func_index = match result_object.module.info.exports.get("fac-iter") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &result_object.instance);
-    assert_eq!(result, 7034535277573963776 as i64);
+    let result = result_object
+        .instance
+        .call("c2_l85_action_invoke", &[Value::I64(25 as i64)])
+        .expect("Missing result in c2_l85_action_invoke");
+    assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 86
-fn c3_l86_action_invoke(result_object: &ResultObject) {
+fn c3_l86_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l86_action_invoke");
-    let func_index = match result_object.module.info.exports.get("fac-rec-named") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &result_object.instance);
-    assert_eq!(result, 7034535277573963776 as i64);
+    let result = result_object
+        .instance
+        .call("c3_l86_action_invoke", &[Value::I64(25 as i64)])
+        .expect("Missing result in c3_l86_action_invoke");
+    assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 87
-fn c4_l87_action_invoke(result_object: &ResultObject) {
+fn c4_l87_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l87_action_invoke");
-    let func_index = match result_object.module.info.exports.get("fac-iter-named") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &result_object.instance);
-    assert_eq!(result, 7034535277573963776 as i64);
+    let result = result_object
+        .instance
+        .call("c4_l87_action_invoke", &[Value::I64(25 as i64)])
+        .expect("Missing result in c4_l87_action_invoke");
+    assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 88
-fn c5_l88_action_invoke(result_object: &ResultObject) {
+fn c5_l88_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l88_action_invoke");
-    let func_index = match result_object.module.info.exports.get("fac-opt") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(i64, &Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(25 as i64, &result_object.instance);
-    assert_eq!(result, 7034535277573963776 as i64);
+    let result = result_object
+        .instance
+        .call("c5_l88_action_invoke", &[Value::I64(25 as i64)])
+        .expect("Missing result in c5_l88_action_invoke");
+    assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 89
 
 #[test]
 fn test_module_1() {
-    let result_object = create_module_1();
+    let mut result_object = create_module_1();
     // We group the calls together
-    start_module_1(&result_object);
-    c1_l84_action_invoke(&result_object);
-    c2_l85_action_invoke(&result_object);
-    c3_l86_action_invoke(&result_object);
-    c4_l87_action_invoke(&result_object);
-    c5_l88_action_invoke(&result_object);
+    start_module_1(&mut result_object);
+    c1_l84_action_invoke(&mut result_object);
+    c2_l85_action_invoke(&mut result_object);
+    c3_l86_action_invoke(&mut result_object);
+    c4_l87_action_invoke(&mut result_object);
+    c5_l88_action_invoke(&mut result_object);
 }

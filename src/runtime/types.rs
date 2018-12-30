@@ -18,7 +18,7 @@ pub enum Type {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Val {
+pub enum Value {
     /// The `i32` type.
     I32(i32),
     /// The `i64` type.
@@ -29,40 +29,41 @@ pub enum Val {
     F64(u64),
 }
 
-impl Val {
+impl Value {
     pub fn ty(&self) -> Type {
         match self {
-            Val::I32(_) => Type::I32,
-            Val::I64(_) => Type::I64,
-            Val::F32(_) => Type::F32,
-            Val::F64(_) => Type::F64,
+            Value::I32(_) => Type::I32,
+            Value::I64(_) => Type::I64,
+            Value::F32(_) => Type::F32,
+            Value::F64(_) => Type::F64,
         }
     }
 }
 
-impl From<i32> for Val {
-    fn from(n: i32) -> Self {
-        Val::I32(n)
+impl From<i32> for Value {
+    fn from(i: i32) -> Self {
+        Value::I32(i)
     }
 }
 
-impl From<i64> for Val {
-    fn from(n: i64) -> Self {
-        Val::I64(n)
+impl From<i64> for Value {
+    fn from(i: i64) -> Self {
+        Value::I64(i)
     }
 }
 
-impl From<f32> for Val {
-    fn from(n: f32) -> Self {
-        Val::F32(n.to_bits())
+impl From<f32> for Value {
+    fn from(f: f32) -> Self {
+        Value::F32(f)
     }
 }
 
-impl From<f64> for Val {
-    fn from(n: f64) -> Self {
-        Val::F64(n.to_bits())
+impl From<f64> for Value {
+    fn from(f: f64) -> Self {
+        Value::F64(f)
     }
 }
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {
@@ -86,7 +87,7 @@ pub struct Table {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Initializer {
     /// Corresponds to a `const.*` instruction.
-    Const(Val),
+    Const(Value),
     /// Corresponds to a `get_global` instruction.
     GetGlobal(GlobalIndex),
 }
@@ -129,7 +130,7 @@ pub struct FuncSig {
 }
 
 impl FuncSig {
-    pub fn check_sig(&self, params: &[Val]) -> bool {
+    pub fn check_sig(&self, params: &[Value]) -> bool {
         self.params.len() == params.len()
             && self
                 .params
@@ -299,4 +300,16 @@ macro_rules! define_map_index {
     };
 }
 
-define_map_index![FuncIndex, MemoryIndex, GlobalIndex, TableIndex, SigIndex,];
+define_map_index![FuncIndex, MemoryIndex, TableIndex, SigIndex,];
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct GlobalIndex (u32);
+impl MapIndex for GlobalIndex {
+    fn new(index: usize) -> Self {
+        GlobalIndex (index as _)
+    }
+
+    fn index(&self) -> usize {
+        self.0 as usize
+    }
+}

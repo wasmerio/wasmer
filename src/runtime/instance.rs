@@ -5,9 +5,10 @@ use crate::runtime::{
     module::{Export, Module},
     sig_registry::SigRegistry,
     table::TableBacking,
-    types::{FuncIndex, FuncSig, Memory, Table, Type, Val},
+    types::{FuncIndex, FuncSig, Memory, Table, Type, Value},
     vm,
 };
+use hashbrown::HashMap;
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
 use std::iter;
 use std::sync::Arc;
@@ -20,7 +21,8 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub(in crate::runtime) fn new(module: Arc<Module>, imports: &dyn ImportResolver) -> Result<Box<Instance>, String> {
+    // TODO visibility (in crate::runtime)
+    pub fn new(module: Arc<Module>, imports: &dyn ImportResolver) -> Result<Box<Instance>, String> {
         let sig_registry = SigRegistry::new(&*module);
 
         let import_backing = ImportBacking::new(&*module, imports)?;
@@ -48,7 +50,7 @@ impl Instance {
     ///
     /// This will eventually return `Result<Option<Vec<Val>>, String>` in
     /// order to support multi-value returns.
-    pub fn call(&mut self, name: &str, args: &[Val]) -> Result<Option<Val>, String> {
+    pub fn call(&mut self, name: &str, args: &[Value]) -> Result<Option<Value>, String> {
         let func_index = *self
             .module
             .exports
@@ -65,8 +67,8 @@ impl Instance {
     fn call_with_index(
         &mut self,
         func_index: FuncIndex,
-        args: &[Val],
-    ) -> Result<Option<Val>, String> {
+        args: &[Value],
+    ) -> Result<Option<Value>, String> {
         // Check the function signature.
         let sig_index = *self
             .module
@@ -99,16 +101,18 @@ impl Instance {
         let libffi_args: Vec<_> = args
             .iter()
             .map(|val| match val {
-                Val::I32(ref x) => libffi_arg(x),
-                Val::I64(ref x) => libffi_arg(x),
-                Val::F32(ref x) => libffi_arg(x),
-                Val::F64(ref x) => libffi_arg(x),
+                Value::I32(ref x) => libffi_arg(x),
+                Value::I64(ref x) => libffi_arg(x),
+                Value::F32(ref x) => libffi_arg(x),
+                Value::F64(ref x) => libffi_arg(x),
             })
             .chain(iter::once(libffi_arg(&vmctx_ptr)))
             .collect();
 
         let func_ptr = CodePtr::from_ptr(
-            self.module.func_resolver.get(&*self.module, func_index)
+            self.module
+                .func_resolver
+                .get(&*self.module, func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
                 .cast()
                 .as_ptr(),
@@ -119,10 +123,10 @@ impl Instance {
                 .returns
                 .first()
                 .map(|ty| match ty {
-                    Type::I32 => Val::I32(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::I64 => Val::I64(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::F32 => Val::F32(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::F64 => Val::F64(unsafe { libffi_call(func_ptr, &libffi_args) }),
+                    Type::I32 => Value::I32(unsafe { libffi_call(func_ptr, &libffi_args) }),
+                    Type::I64 => Value::I64(unsafe { libffi_call(func_ptr, &libffi_args) }),
+                    Type::F32 => Value::F32(unsafe { libffi_call(func_ptr, &libffi_args) }),
+                    Type::F64 => Value::F64(unsafe { libffi_call(func_ptr, &libffi_args) }),
                 })
                 .or_else(|| {
                     // call with no returns
@@ -140,7 +144,38 @@ pub enum Import {
     Func(*const vm::Func, FuncSig),
     Table(Arc<TableBacking>, Table),
     Memory(Arc<LinearMemory>, Memory),
-    Global(Val),
+    Global(Value),
+}
+
+// TODO Remove again
+pub struct Imports {
+    map: HashMap<String, HashMap<String, Import>>,
+}
+
+// TODO Remove again
+impl Imports {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    pub fn add(&mut self, module: String, name: String, import: Import) {
+        self.map
+            .entry(module)
+            .or_insert(HashMap::new())
+            .insert(name, import);
+    }
+
+    pub fn get(&self, module: &str, name: &str) -> Option<&Import> {
+        self.map.get(module).and_then(|m| m.get(name))
+    }
+}
+
+impl ImportResolver for Imports {
+    fn get(&self, module: &str, name: &str) -> Option<Import> {
+        unimplemented!("ImportResolver for Imports")
+    }
 }
 
 pub trait ImportResolver {

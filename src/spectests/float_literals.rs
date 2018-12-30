@@ -7,8 +7,10 @@
 )]
 use wabt::wat2wasm;
 
+use crate::runtime::types::Value;
+use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+
 use super::_common::{spectest_importobject, NaNCheck};
-use crate::webassembly::{compile, instantiate, Export, ImportObject, Instance, ResultObject};
 
 // Line 3
 fn create_module_1() -> ResultObject {
@@ -327,1278 +329,930 @@ fn create_module_1() -> ResultObject {
       (export \"f64-hex-sep5\" (func 81)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_1(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_1(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 105
-fn c1_l105_action_invoke(result_object: &ResultObject) {
+fn c1_l105_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l105_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2143289344 as i32);
+    let result = result_object
+        .instance
+        .call("c1_l105_action_invoke", &[])
+        .expect("Missing result in c1_l105_action_invoke");
+    assert_eq!(result, Some(Value::I32(2143289344 as i32)));
 }
 
 // Line 106
-fn c2_l106_action_invoke(result_object: &ResultObject) {
+fn c2_l106_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l106_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.positive_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2143289344 as i32);
+    let result = result_object
+        .instance
+        .call("c2_l106_action_invoke", &[])
+        .expect("Missing result in c2_l106_action_invoke");
+    assert_eq!(result, Some(Value::I32(2143289344 as i32)));
 }
 
 // Line 107
-fn c3_l107_action_invoke(result_object: &ResultObject) {
+fn c3_l107_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l107_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.negative_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -4194304 as i32);
+    let result = result_object
+        .instance
+        .call("c3_l107_action_invoke", &[])
+        .expect("Missing result in c3_l107_action_invoke");
+    assert_eq!(result, Some(Value::I32(-4194304 as i32)));
 }
 
 // Line 108
-fn c4_l108_action_invoke(result_object: &ResultObject) {
+fn c4_l108_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l108_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.plain_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2143289344 as i32);
+    let result = result_object
+        .instance
+        .call("c4_l108_action_invoke", &[])
+        .expect("Missing result in c4_l108_action_invoke");
+    assert_eq!(result, Some(Value::I32(2143289344 as i32)));
 }
 
 // Line 109
-fn c5_l109_action_invoke(result_object: &ResultObject) {
+fn c5_l109_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l109_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32.informally_known_as_plain_snan")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2141192192 as i32);
+    let result = result_object
+        .instance
+        .call("c5_l109_action_invoke", &[])
+        .expect("Missing result in c5_l109_action_invoke");
+    assert_eq!(result, Some(Value::I32(2141192192 as i32)));
 }
 
 // Line 110
-fn c6_l110_action_invoke(result_object: &ResultObject) {
+fn c6_l110_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c6_l110_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.all_ones_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -1 as i32);
+    let result = result_object
+        .instance
+        .call("c6_l110_action_invoke", &[])
+        .expect("Missing result in c6_l110_action_invoke");
+    assert_eq!(result, Some(Value::I32(-1 as i32)));
 }
 
 // Line 111
-fn c7_l111_action_invoke(result_object: &ResultObject) {
+fn c7_l111_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c7_l111_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.misc_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2139169605 as i32);
+    let result = result_object
+        .instance
+        .call("c7_l111_action_invoke", &[])
+        .expect("Missing result in c7_l111_action_invoke");
+    assert_eq!(result, Some(Value::I32(2139169605 as i32)));
 }
 
 // Line 112
-fn c8_l112_action_invoke(result_object: &ResultObject) {
+fn c8_l112_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c8_l112_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32.misc_positive_nan")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2142257232 as i32);
+    let result = result_object
+        .instance
+        .call("c8_l112_action_invoke", &[])
+        .expect("Missing result in c8_l112_action_invoke");
+    assert_eq!(result, Some(Value::I32(2142257232 as i32)));
 }
 
 // Line 113
-fn c9_l113_action_invoke(result_object: &ResultObject) {
+fn c9_l113_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c9_l113_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32.misc_negative_nan")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -5587746 as i32);
+    let result = result_object
+        .instance
+        .call("c9_l113_action_invoke", &[])
+        .expect("Missing result in c9_l113_action_invoke");
+    assert_eq!(result, Some(Value::I32(-5587746 as i32)));
 }
 
 // Line 114
-fn c10_l114_action_invoke(result_object: &ResultObject) {
+fn c10_l114_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c10_l114_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.infinity") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2139095040 as i32);
+    let result = result_object
+        .instance
+        .call("c10_l114_action_invoke", &[])
+        .expect("Missing result in c10_l114_action_invoke");
+    assert_eq!(result, Some(Value::I32(2139095040 as i32)));
 }
 
 // Line 115
-fn c11_l115_action_invoke(result_object: &ResultObject) {
+fn c11_l115_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c11_l115_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32.positive_infinity")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2139095040 as i32);
+    let result = result_object
+        .instance
+        .call("c11_l115_action_invoke", &[])
+        .expect("Missing result in c11_l115_action_invoke");
+    assert_eq!(result, Some(Value::I32(2139095040 as i32)));
 }
 
 // Line 116
-fn c12_l116_action_invoke(result_object: &ResultObject) {
+fn c12_l116_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c12_l116_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32.negative_infinity")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -8388608 as i32);
+    let result = result_object
+        .instance
+        .call("c12_l116_action_invoke", &[])
+        .expect("Missing result in c12_l116_action_invoke");
+    assert_eq!(result, Some(Value::I32(-8388608 as i32)));
 }
 
 // Line 117
-fn c13_l117_action_invoke(result_object: &ResultObject) {
+fn c13_l117_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c13_l117_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.zero") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i32);
+    let result = result_object
+        .instance
+        .call("c13_l117_action_invoke", &[])
+        .expect("Missing result in c13_l117_action_invoke");
+    assert_eq!(result, Some(Value::I32(0 as i32)));
 }
 
 // Line 118
-fn c14_l118_action_invoke(result_object: &ResultObject) {
+fn c14_l118_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c14_l118_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.positive_zero") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i32);
+    let result = result_object
+        .instance
+        .call("c14_l118_action_invoke", &[])
+        .expect("Missing result in c14_l118_action_invoke");
+    assert_eq!(result, Some(Value::I32(0 as i32)));
 }
 
 // Line 119
-fn c15_l119_action_invoke(result_object: &ResultObject) {
+fn c15_l119_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c15_l119_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.negative_zero") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -2147483648 as i32);
+    let result = result_object
+        .instance
+        .call("c15_l119_action_invoke", &[])
+        .expect("Missing result in c15_l119_action_invoke");
+    assert_eq!(result, Some(Value::I32(-2147483648 as i32)));
 }
 
 // Line 120
-fn c16_l120_action_invoke(result_object: &ResultObject) {
+fn c16_l120_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c16_l120_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.misc") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1086918619 as i32);
+    let result = result_object
+        .instance
+        .call("c16_l120_action_invoke", &[])
+        .expect("Missing result in c16_l120_action_invoke");
+    assert_eq!(result, Some(Value::I32(1086918619 as i32)));
 }
 
 // Line 121
-fn c17_l121_action_invoke(result_object: &ResultObject) {
+fn c17_l121_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c17_l121_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.min_positive") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c17_l121_action_invoke", &[])
+        .expect("Missing result in c17_l121_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 122
-fn c18_l122_action_invoke(result_object: &ResultObject) {
+fn c18_l122_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c18_l122_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.min_normal") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 8388608 as i32);
+    let result = result_object
+        .instance
+        .call("c18_l122_action_invoke", &[])
+        .expect("Missing result in c18_l122_action_invoke");
+    assert_eq!(result, Some(Value::I32(8388608 as i32)));
 }
 
 // Line 123
-fn c19_l123_action_invoke(result_object: &ResultObject) {
+fn c19_l123_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c19_l123_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.max_subnormal") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 8388607 as i32);
+    let result = result_object
+        .instance
+        .call("c19_l123_action_invoke", &[])
+        .expect("Missing result in c19_l123_action_invoke");
+    assert_eq!(result, Some(Value::I32(8388607 as i32)));
 }
 
 // Line 124
-fn c20_l124_action_invoke(result_object: &ResultObject) {
+fn c20_l124_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c20_l124_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.max_finite") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2139095039 as i32);
+    let result = result_object
+        .instance
+        .call("c20_l124_action_invoke", &[])
+        .expect("Missing result in c20_l124_action_invoke");
+    assert_eq!(result, Some(Value::I32(2139095039 as i32)));
 }
 
 // Line 125
-fn c21_l125_action_invoke(result_object: &ResultObject) {
+fn c21_l125_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c21_l125_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32.trailing_dot") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1149239296 as i32);
+    let result = result_object
+        .instance
+        .call("c21_l125_action_invoke", &[])
+        .expect("Missing result in c21_l125_action_invoke");
+    assert_eq!(result, Some(Value::I32(1149239296 as i32)));
 }
 
 // Line 126
-fn c22_l126_action_invoke(result_object: &ResultObject) {
+fn c22_l126_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c22_l126_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32_dec.zero") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i32);
+    let result = result_object
+        .instance
+        .call("c22_l126_action_invoke", &[])
+        .expect("Missing result in c22_l126_action_invoke");
+    assert_eq!(result, Some(Value::I32(0 as i32)));
 }
 
 // Line 127
-fn c23_l127_action_invoke(result_object: &ResultObject) {
+fn c23_l127_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c23_l127_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32_dec.positive_zero")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i32);
+    let result = result_object
+        .instance
+        .call("c23_l127_action_invoke", &[])
+        .expect("Missing result in c23_l127_action_invoke");
+    assert_eq!(result, Some(Value::I32(0 as i32)));
 }
 
 // Line 128
-fn c24_l128_action_invoke(result_object: &ResultObject) {
+fn c24_l128_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c24_l128_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32_dec.negative_zero")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -2147483648 as i32);
+    let result = result_object
+        .instance
+        .call("c24_l128_action_invoke", &[])
+        .expect("Missing result in c24_l128_action_invoke");
+    assert_eq!(result, Some(Value::I32(-2147483648 as i32)));
 }
 
 // Line 129
-fn c25_l129_action_invoke(result_object: &ResultObject) {
+fn c25_l129_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c25_l129_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32_dec.misc") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1086918619 as i32);
+    let result = result_object
+        .instance
+        .call("c25_l129_action_invoke", &[])
+        .expect("Missing result in c25_l129_action_invoke");
+    assert_eq!(result, Some(Value::I32(1086918619 as i32)));
 }
 
 // Line 130
-fn c26_l130_action_invoke(result_object: &ResultObject) {
+fn c26_l130_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c26_l130_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32_dec.min_positive")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i32);
+    let result = result_object
+        .instance
+        .call("c26_l130_action_invoke", &[])
+        .expect("Missing result in c26_l130_action_invoke");
+    assert_eq!(result, Some(Value::I32(1 as i32)));
 }
 
 // Line 131
-fn c27_l131_action_invoke(result_object: &ResultObject) {
+fn c27_l131_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c27_l131_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32_dec.min_normal") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 8388608 as i32);
+    let result = result_object
+        .instance
+        .call("c27_l131_action_invoke", &[])
+        .expect("Missing result in c27_l131_action_invoke");
+    assert_eq!(result, Some(Value::I32(8388608 as i32)));
 }
 
 // Line 132
-fn c28_l132_action_invoke(result_object: &ResultObject) {
+fn c28_l132_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c28_l132_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32_dec.max_subnormal")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 8388607 as i32);
+    let result = result_object
+        .instance
+        .call("c28_l132_action_invoke", &[])
+        .expect("Missing result in c28_l132_action_invoke");
+    assert_eq!(result, Some(Value::I32(8388607 as i32)));
 }
 
 // Line 133
-fn c29_l133_action_invoke(result_object: &ResultObject) {
+fn c29_l133_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c29_l133_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32_dec.max_finite") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 2139095039 as i32);
+    let result = result_object
+        .instance
+        .call("c29_l133_action_invoke", &[])
+        .expect("Missing result in c29_l133_action_invoke");
+    assert_eq!(result, Some(Value::I32(2139095039 as i32)));
 }
 
 // Line 134
-fn c30_l134_action_invoke(result_object: &ResultObject) {
+fn c30_l134_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c30_l134_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32_dec.trailing_dot")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1343554297 as i32);
+    let result = result_object
+        .instance
+        .call("c30_l134_action_invoke", &[])
+        .expect("Missing result in c30_l134_action_invoke");
+    assert_eq!(result, Some(Value::I32(1343554297 as i32)));
 }
 
 // Line 135
-fn c31_l135_action_invoke(result_object: &ResultObject) {
+fn c31_l135_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c31_l135_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f32_dec.root_beer_float")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1065353217 as i32);
+    let result = result_object
+        .instance
+        .call("c31_l135_action_invoke", &[])
+        .expect("Missing result in c31_l135_action_invoke");
+    assert_eq!(result, Some(Value::I32(1065353217 as i32)));
 }
 
 // Line 137
-fn c32_l137_action_invoke(result_object: &ResultObject) {
+fn c32_l137_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c32_l137_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9221120237041090560 as i64);
+    let result = result_object
+        .instance
+        .call("c32_l137_action_invoke", &[])
+        .expect("Missing result in c32_l137_action_invoke");
+    assert_eq!(result, Some(Value::I64(9221120237041090560 as i64)));
 }
 
 // Line 138
-fn c33_l138_action_invoke(result_object: &ResultObject) {
+fn c33_l138_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c33_l138_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.positive_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9221120237041090560 as i64);
+    let result = result_object
+        .instance
+        .call("c33_l138_action_invoke", &[])
+        .expect("Missing result in c33_l138_action_invoke");
+    assert_eq!(result, Some(Value::I64(9221120237041090560 as i64)));
 }
 
 // Line 139
-fn c34_l139_action_invoke(result_object: &ResultObject) {
+fn c34_l139_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c34_l139_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.negative_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -2251799813685248 as i64);
+    let result = result_object
+        .instance
+        .call("c34_l139_action_invoke", &[])
+        .expect("Missing result in c34_l139_action_invoke");
+    assert_eq!(result, Some(Value::I64(-2251799813685248 as i64)));
 }
 
 // Line 140
-fn c35_l140_action_invoke(result_object: &ResultObject) {
+fn c35_l140_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c35_l140_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.plain_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9221120237041090560 as i64);
+    let result = result_object
+        .instance
+        .call("c35_l140_action_invoke", &[])
+        .expect("Missing result in c35_l140_action_invoke");
+    assert_eq!(result, Some(Value::I64(9221120237041090560 as i64)));
 }
 
 // Line 141
-fn c36_l141_action_invoke(result_object: &ResultObject) {
+fn c36_l141_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c36_l141_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64.informally_known_as_plain_snan")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9219994337134247936 as i64);
+    let result = result_object
+        .instance
+        .call("c36_l141_action_invoke", &[])
+        .expect("Missing result in c36_l141_action_invoke");
+    assert_eq!(result, Some(Value::I64(9219994337134247936 as i64)));
 }
 
 // Line 142
-fn c37_l142_action_invoke(result_object: &ResultObject) {
+fn c37_l142_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c37_l142_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.all_ones_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -1 as i64);
+    let result = result_object
+        .instance
+        .call("c37_l142_action_invoke", &[])
+        .expect("Missing result in c37_l142_action_invoke");
+    assert_eq!(result, Some(Value::I64(-1 as i64)));
 }
 
 // Line 143
-fn c38_l143_action_invoke(result_object: &ResultObject) {
+fn c38_l143_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c38_l143_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.misc_nan") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9218888453225749180 as i64);
+    let result = result_object
+        .instance
+        .call("c38_l143_action_invoke", &[])
+        .expect("Missing result in c38_l143_action_invoke");
+    assert_eq!(result, Some(Value::I64(9218888453225749180 as i64)));
 }
 
 // Line 144
-fn c39_l144_action_invoke(result_object: &ResultObject) {
+fn c39_l144_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c39_l144_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64.misc_positive_nan")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9219717281780008969 as i64);
+    let result = result_object
+        .instance
+        .call("c39_l144_action_invoke", &[])
+        .expect("Missing result in c39_l144_action_invoke");
+    assert_eq!(result, Some(Value::I64(9219717281780008969 as i64)));
 }
 
 // Line 145
-fn c40_l145_action_invoke(result_object: &ResultObject) {
+fn c40_l145_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c40_l145_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64.misc_negative_nan")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -3751748707474619 as i64);
+    let result = result_object
+        .instance
+        .call("c40_l145_action_invoke", &[])
+        .expect("Missing result in c40_l145_action_invoke");
+    assert_eq!(result, Some(Value::I64(-3751748707474619 as i64)));
 }
 
 // Line 146
-fn c41_l146_action_invoke(result_object: &ResultObject) {
+fn c41_l146_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c41_l146_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.infinity") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9218868437227405312 as i64);
+    let result = result_object
+        .instance
+        .call("c41_l146_action_invoke", &[])
+        .expect("Missing result in c41_l146_action_invoke");
+    assert_eq!(result, Some(Value::I64(9218868437227405312 as i64)));
 }
 
 // Line 147
-fn c42_l147_action_invoke(result_object: &ResultObject) {
+fn c42_l147_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c42_l147_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64.positive_infinity")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9218868437227405312 as i64);
+    let result = result_object
+        .instance
+        .call("c42_l147_action_invoke", &[])
+        .expect("Missing result in c42_l147_action_invoke");
+    assert_eq!(result, Some(Value::I64(9218868437227405312 as i64)));
 }
 
 // Line 148
-fn c43_l148_action_invoke(result_object: &ResultObject) {
+fn c43_l148_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c43_l148_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64.negative_infinity")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -4503599627370496 as i64);
+    let result = result_object
+        .instance
+        .call("c43_l148_action_invoke", &[])
+        .expect("Missing result in c43_l148_action_invoke");
+    assert_eq!(result, Some(Value::I64(-4503599627370496 as i64)));
 }
 
 // Line 149
-fn c44_l149_action_invoke(result_object: &ResultObject) {
+fn c44_l149_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c44_l149_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.zero") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i64);
+    let result = result_object
+        .instance
+        .call("c44_l149_action_invoke", &[])
+        .expect("Missing result in c44_l149_action_invoke");
+    assert_eq!(result, Some(Value::I64(0 as i64)));
 }
 
 // Line 150
-fn c45_l150_action_invoke(result_object: &ResultObject) {
+fn c45_l150_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c45_l150_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.positive_zero") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i64);
+    let result = result_object
+        .instance
+        .call("c45_l150_action_invoke", &[])
+        .expect("Missing result in c45_l150_action_invoke");
+    assert_eq!(result, Some(Value::I64(0 as i64)));
 }
 
 // Line 151
-fn c46_l151_action_invoke(result_object: &ResultObject) {
+fn c46_l151_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c46_l151_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.negative_zero") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -9223372036854775808 as i64);
+    let result = result_object
+        .instance
+        .call("c46_l151_action_invoke", &[])
+        .expect("Missing result in c46_l151_action_invoke");
+    assert_eq!(result, Some(Value::I64(-9223372036854775808 as i64)));
 }
 
 // Line 152
-fn c47_l152_action_invoke(result_object: &ResultObject) {
+fn c47_l152_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c47_l152_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.misc") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 4618760256179416344 as i64);
+    let result = result_object
+        .instance
+        .call("c47_l152_action_invoke", &[])
+        .expect("Missing result in c47_l152_action_invoke");
+    assert_eq!(result, Some(Value::I64(4618760256179416344 as i64)));
 }
 
 // Line 153
-fn c48_l153_action_invoke(result_object: &ResultObject) {
+fn c48_l153_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c48_l153_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.min_positive") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i64);
+    let result = result_object
+        .instance
+        .call("c48_l153_action_invoke", &[])
+        .expect("Missing result in c48_l153_action_invoke");
+    assert_eq!(result, Some(Value::I64(1 as i64)));
 }
 
 // Line 154
-fn c49_l154_action_invoke(result_object: &ResultObject) {
+fn c49_l154_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c49_l154_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.min_normal") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 4503599627370496 as i64);
+    let result = result_object
+        .instance
+        .call("c49_l154_action_invoke", &[])
+        .expect("Missing result in c49_l154_action_invoke");
+    assert_eq!(result, Some(Value::I64(4503599627370496 as i64)));
 }
 
 // Line 155
-fn c50_l155_action_invoke(result_object: &ResultObject) {
+fn c50_l155_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c50_l155_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.max_subnormal") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 4503599627370495 as i64);
+    let result = result_object
+        .instance
+        .call("c50_l155_action_invoke", &[])
+        .expect("Missing result in c50_l155_action_invoke");
+    assert_eq!(result, Some(Value::I64(4503599627370495 as i64)));
 }
 
 // Line 156
-fn c51_l156_action_invoke(result_object: &ResultObject) {
+fn c51_l156_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c51_l156_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.max_finite") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9218868437227405311 as i64);
+    let result = result_object
+        .instance
+        .call("c51_l156_action_invoke", &[])
+        .expect("Missing result in c51_l156_action_invoke");
+    assert_eq!(result, Some(Value::I64(9218868437227405311 as i64)));
 }
 
 // Line 157
-fn c52_l157_action_invoke(result_object: &ResultObject) {
+fn c52_l157_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c52_l157_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64.trailing_dot") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 5057542381537067008 as i64);
+    let result = result_object
+        .instance
+        .call("c52_l157_action_invoke", &[])
+        .expect("Missing result in c52_l157_action_invoke");
+    assert_eq!(result, Some(Value::I64(5057542381537067008 as i64)));
 }
 
 // Line 158
-fn c53_l158_action_invoke(result_object: &ResultObject) {
+fn c53_l158_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c53_l158_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64_dec.zero") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i64);
+    let result = result_object
+        .instance
+        .call("c53_l158_action_invoke", &[])
+        .expect("Missing result in c53_l158_action_invoke");
+    assert_eq!(result, Some(Value::I64(0 as i64)));
 }
 
 // Line 159
-fn c54_l159_action_invoke(result_object: &ResultObject) {
+fn c54_l159_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c54_l159_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64_dec.positive_zero")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0 as i64);
+    let result = result_object
+        .instance
+        .call("c54_l159_action_invoke", &[])
+        .expect("Missing result in c54_l159_action_invoke");
+    assert_eq!(result, Some(Value::I64(0 as i64)));
 }
 
 // Line 160
-fn c55_l160_action_invoke(result_object: &ResultObject) {
+fn c55_l160_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c55_l160_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64_dec.negative_zero")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, -9223372036854775808 as i64);
+    let result = result_object
+        .instance
+        .call("c55_l160_action_invoke", &[])
+        .expect("Missing result in c55_l160_action_invoke");
+    assert_eq!(result, Some(Value::I64(-9223372036854775808 as i64)));
 }
 
 // Line 161
-fn c56_l161_action_invoke(result_object: &ResultObject) {
+fn c56_l161_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c56_l161_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64_dec.misc") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 4618760256179416344 as i64);
+    let result = result_object
+        .instance
+        .call("c56_l161_action_invoke", &[])
+        .expect("Missing result in c56_l161_action_invoke");
+    assert_eq!(result, Some(Value::I64(4618760256179416344 as i64)));
 }
 
 // Line 162
-fn c57_l162_action_invoke(result_object: &ResultObject) {
+fn c57_l162_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c57_l162_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64_dec.min_positive")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1 as i64);
+    let result = result_object
+        .instance
+        .call("c57_l162_action_invoke", &[])
+        .expect("Missing result in c57_l162_action_invoke");
+    assert_eq!(result, Some(Value::I64(1 as i64)));
 }
 
 // Line 163
-fn c58_l163_action_invoke(result_object: &ResultObject) {
+fn c58_l163_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c58_l163_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64_dec.min_normal") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 4503599627370496 as i64);
+    let result = result_object
+        .instance
+        .call("c58_l163_action_invoke", &[])
+        .expect("Missing result in c58_l163_action_invoke");
+    assert_eq!(result, Some(Value::I64(4503599627370496 as i64)));
 }
 
 // Line 164
-fn c59_l164_action_invoke(result_object: &ResultObject) {
+fn c59_l164_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c59_l164_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64_dec.max_subnormal")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 4503599627370495 as i64);
+    let result = result_object
+        .instance
+        .call("c59_l164_action_invoke", &[])
+        .expect("Missing result in c59_l164_action_invoke");
+    assert_eq!(result, Some(Value::I64(4503599627370495 as i64)));
 }
 
 // Line 165
-fn c60_l165_action_invoke(result_object: &ResultObject) {
+fn c60_l165_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c60_l165_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64_dec.max_finite") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 9218868437227405311 as i64);
+    let result = result_object
+        .instance
+        .call("c60_l165_action_invoke", &[])
+        .expect("Missing result in c60_l165_action_invoke");
+    assert_eq!(result, Some(Value::I64(9218868437227405311 as i64)));
 }
 
 // Line 166
-fn c61_l166_action_invoke(result_object: &ResultObject) {
+fn c61_l166_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c61_l166_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64_dec.trailing_dot")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 6103021453049119613 as i64);
+    let result = result_object
+        .instance
+        .call("c61_l166_action_invoke", &[])
+        .expect("Missing result in c61_l166_action_invoke");
+    assert_eq!(result, Some(Value::I64(6103021453049119613 as i64)));
 }
 
 // Line 167
-fn c62_l167_action_invoke(result_object: &ResultObject) {
+fn c62_l167_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c62_l167_action_invoke");
-    let func_index = match result_object
-        .module
-        .info
-        .exports
-        .get("f64_dec.root_beer_float")
-    {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> i64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 4607182419335945764 as i64);
+    let result = result_object
+        .instance
+        .call("c62_l167_action_invoke", &[])
+        .expect("Missing result in c62_l167_action_invoke");
+    assert_eq!(result, Some(Value::I64(4607182419335945764 as i64)));
 }
 
 // Line 169
-fn c63_l169_action_invoke(result_object: &ResultObject) {
+fn c63_l169_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c63_l169_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-dec-sep1") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1000000.0 as f32);
+    let result = result_object
+        .instance
+        .call("c63_l169_action_invoke", &[])
+        .expect("Missing result in c63_l169_action_invoke");
+    assert_eq!(result, Some(Value::F32((1000000.0f32).to_bits())));
 }
 
 // Line 170
-fn c64_l170_action_invoke(result_object: &ResultObject) {
+fn c64_l170_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c64_l170_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-dec-sep2") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1000.0 as f32);
+    let result = result_object
+        .instance
+        .call("c64_l170_action_invoke", &[])
+        .expect("Missing result in c64_l170_action_invoke");
+    assert_eq!(result, Some(Value::F32((1000.0f32).to_bits())));
 }
 
 // Line 171
-fn c65_l171_action_invoke(result_object: &ResultObject) {
+fn c65_l171_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c65_l171_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-dec-sep3") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1003.1416 as f32);
+    let result = result_object
+        .instance
+        .call("c65_l171_action_invoke", &[])
+        .expect("Missing result in c65_l171_action_invoke");
+    assert_eq!(result, Some(Value::F32((1003.1416f32).to_bits())));
 }
 
 // Line 172
-fn c66_l172_action_invoke(result_object: &ResultObject) {
+fn c66_l172_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c66_l172_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-dec-sep4") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 990000000000000.0 as f32);
+    let result = result_object
+        .instance
+        .call("c66_l172_action_invoke", &[])
+        .expect("Missing result in c66_l172_action_invoke");
+    assert_eq!(result, Some(Value::F32((990000000000000.0f32).to_bits())));
 }
 
 // Line 173
-fn c67_l173_action_invoke(result_object: &ResultObject) {
+fn c67_l173_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c67_l173_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-dec-sep5") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 12200012000000000000000000000.0 as f32);
+    let result = result_object
+        .instance
+        .call("c67_l173_action_invoke", &[])
+        .expect("Missing result in c67_l173_action_invoke");
+    assert_eq!(
+        result,
+        Some(Value::F32((12200012000000000000000000000.0f32).to_bits()))
+    );
 }
 
 // Line 174
-fn c68_l174_action_invoke(result_object: &ResultObject) {
+fn c68_l174_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c68_l174_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-hex-sep1") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 168755360.0 as f32);
+    let result = result_object
+        .instance
+        .call("c68_l174_action_invoke", &[])
+        .expect("Missing result in c68_l174_action_invoke");
+    assert_eq!(result, Some(Value::F32((168755360.0f32).to_bits())));
 }
 
 // Line 175
-fn c69_l175_action_invoke(result_object: &ResultObject) {
+fn c69_l175_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c69_l175_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-hex-sep2") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 109071.0 as f32);
+    let result = result_object
+        .instance
+        .call("c69_l175_action_invoke", &[])
+        .expect("Missing result in c69_l175_action_invoke");
+    assert_eq!(result, Some(Value::F32((109071.0f32).to_bits())));
 }
 
 // Line 176
-fn c70_l176_action_invoke(result_object: &ResultObject) {
+fn c70_l176_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c70_l176_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-hex-sep3") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 41215.94 as f32);
+    let result = result_object
+        .instance
+        .call("c70_l176_action_invoke", &[])
+        .expect("Missing result in c70_l176_action_invoke");
+    assert_eq!(result, Some(Value::F32((41215.94f32).to_bits())));
 }
 
 // Line 177
-fn c71_l177_action_invoke(result_object: &ResultObject) {
+fn c71_l177_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c71_l177_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-hex-sep4") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1966080.0 as f32);
+    let result = result_object
+        .instance
+        .call("c71_l177_action_invoke", &[])
+        .expect("Missing result in c71_l177_action_invoke");
+    assert_eq!(result, Some(Value::F32((1966080.0f32).to_bits())));
 }
 
 // Line 178
-fn c72_l178_action_invoke(result_object: &ResultObject) {
+fn c72_l178_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c72_l178_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f32-hex-sep5") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f32 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 23605224000000.0 as f32);
+    let result = result_object
+        .instance
+        .call("c72_l178_action_invoke", &[])
+        .expect("Missing result in c72_l178_action_invoke");
+    assert_eq!(result, Some(Value::F32((23605224000000.0f32).to_bits())));
 }
 
 // Line 180
-fn c73_l180_action_invoke(result_object: &ResultObject) {
+fn c73_l180_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c73_l180_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-dec-sep1") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1000000.0 as f64);
+    let result = result_object
+        .instance
+        .call("c73_l180_action_invoke", &[])
+        .expect("Missing result in c73_l180_action_invoke");
+    assert_eq!(result, Some(Value::F64((1000000.0f64).to_bits())));
 }
 
 // Line 181
-fn c74_l181_action_invoke(result_object: &ResultObject) {
+fn c74_l181_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c74_l181_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-dec-sep2") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1000.0 as f64);
+    let result = result_object
+        .instance
+        .call("c74_l181_action_invoke", &[])
+        .expect("Missing result in c74_l181_action_invoke");
+    assert_eq!(result, Some(Value::F64((1000.0f64).to_bits())));
 }
 
 // Line 182
-fn c75_l182_action_invoke(result_object: &ResultObject) {
+fn c75_l182_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c75_l182_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-dec-sep3") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1003.141592 as f64);
+    let result = result_object
+        .instance
+        .call("c75_l182_action_invoke", &[])
+        .expect("Missing result in c75_l182_action_invoke");
+    assert_eq!(result, Some(Value::F64((1003.141592f64).to_bits())));
 }
 
 // Line 183
-fn c76_l183_action_invoke(result_object: &ResultObject) {
+fn c76_l183_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c76_l183_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-dec-sep4") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099 as f64);
+    let result = result_object
+        .instance
+        .call("c76_l183_action_invoke", &[])
+        .expect("Missing result in c76_l183_action_invoke");
+    assert_eq!(result, Some(Value::F64((0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099f64).to_bits())));
 }
 
 // Line 184
-fn c77_l184_action_invoke(result_object: &ResultObject) {
+fn c77_l184_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c77_l184_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-dec-sep5") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 12200011354000000000000000000.0 as f64);
+    let result = result_object
+        .instance
+        .call("c77_l184_action_invoke", &[])
+        .expect("Missing result in c77_l184_action_invoke");
+    assert_eq!(
+        result,
+        Some(Value::F64((12200011354000000000000000000.0f64).to_bits()))
+    );
 }
 
 // Line 185
-fn c78_l185_action_invoke(result_object: &ResultObject) {
+fn c78_l185_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c78_l185_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-hex-sep1") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 3078696982321561.0 as f64);
+    let result = result_object
+        .instance
+        .call("c78_l185_action_invoke", &[])
+        .expect("Missing result in c78_l185_action_invoke");
+    assert_eq!(result, Some(Value::F64((3078696982321561.0f64).to_bits())));
 }
 
 // Line 186
-fn c79_l186_action_invoke(result_object: &ResultObject) {
+fn c79_l186_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c79_l186_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-hex-sep2") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 109071.0 as f64);
+    let result = result_object
+        .instance
+        .call("c79_l186_action_invoke", &[])
+        .expect("Missing result in c79_l186_action_invoke");
+    assert_eq!(result, Some(Value::F64((109071.0f64).to_bits())));
 }
 
 // Line 187
-fn c80_l187_action_invoke(result_object: &ResultObject) {
+fn c80_l187_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c80_l187_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-hex-sep3") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 41215.94240794191 as f64);
+    let result = result_object
+        .instance
+        .call("c80_l187_action_invoke", &[])
+        .expect("Missing result in c80_l187_action_invoke");
+    assert_eq!(result, Some(Value::F64((41215.94240794191f64).to_bits())));
 }
 
 // Line 188
-fn c81_l188_action_invoke(result_object: &ResultObject) {
+fn c81_l188_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c81_l188_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-hex-sep4") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 1966080.0 as f64);
+    let result = result_object
+        .instance
+        .call("c81_l188_action_invoke", &[])
+        .expect("Missing result in c81_l188_action_invoke");
+    assert_eq!(result, Some(Value::F64((1966080.0f64).to_bits())));
 }
 
 // Line 189
-fn c82_l189_action_invoke(result_object: &ResultObject) {
+fn c82_l189_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c82_l189_action_invoke");
-    let func_index = match result_object.module.info.exports.get("f64-hex-sep5") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 23605225168752.0 as f64);
+    let result = result_object
+        .instance
+        .call("c82_l189_action_invoke", &[])
+        .expect("Missing result in c82_l189_action_invoke");
+    assert_eq!(result, Some(Value::F64((23605225168752.0f64).to_bits())));
 }
 
 // Line 192
 
 #[test]
 fn test_module_1() {
-    let result_object = create_module_1();
+    let mut result_object = create_module_1();
     // We group the calls together
-    start_module_1(&result_object);
-    c1_l105_action_invoke(&result_object);
-    c2_l106_action_invoke(&result_object);
-    c3_l107_action_invoke(&result_object);
-    c4_l108_action_invoke(&result_object);
-    c5_l109_action_invoke(&result_object);
-    c6_l110_action_invoke(&result_object);
-    c7_l111_action_invoke(&result_object);
-    c8_l112_action_invoke(&result_object);
-    c9_l113_action_invoke(&result_object);
-    c10_l114_action_invoke(&result_object);
-    c11_l115_action_invoke(&result_object);
-    c12_l116_action_invoke(&result_object);
-    c13_l117_action_invoke(&result_object);
-    c14_l118_action_invoke(&result_object);
-    c15_l119_action_invoke(&result_object);
-    c16_l120_action_invoke(&result_object);
-    c17_l121_action_invoke(&result_object);
-    c18_l122_action_invoke(&result_object);
-    c19_l123_action_invoke(&result_object);
-    c20_l124_action_invoke(&result_object);
-    c21_l125_action_invoke(&result_object);
-    c22_l126_action_invoke(&result_object);
-    c23_l127_action_invoke(&result_object);
-    c24_l128_action_invoke(&result_object);
-    c25_l129_action_invoke(&result_object);
-    c26_l130_action_invoke(&result_object);
-    c27_l131_action_invoke(&result_object);
-    c28_l132_action_invoke(&result_object);
-    c29_l133_action_invoke(&result_object);
-    c30_l134_action_invoke(&result_object);
-    c31_l135_action_invoke(&result_object);
-    c32_l137_action_invoke(&result_object);
-    c33_l138_action_invoke(&result_object);
-    c34_l139_action_invoke(&result_object);
-    c35_l140_action_invoke(&result_object);
-    c36_l141_action_invoke(&result_object);
-    c37_l142_action_invoke(&result_object);
-    c38_l143_action_invoke(&result_object);
-    c39_l144_action_invoke(&result_object);
-    c40_l145_action_invoke(&result_object);
-    c41_l146_action_invoke(&result_object);
-    c42_l147_action_invoke(&result_object);
-    c43_l148_action_invoke(&result_object);
-    c44_l149_action_invoke(&result_object);
-    c45_l150_action_invoke(&result_object);
-    c46_l151_action_invoke(&result_object);
-    c47_l152_action_invoke(&result_object);
-    c48_l153_action_invoke(&result_object);
-    c49_l154_action_invoke(&result_object);
-    c50_l155_action_invoke(&result_object);
-    c51_l156_action_invoke(&result_object);
-    c52_l157_action_invoke(&result_object);
-    c53_l158_action_invoke(&result_object);
-    c54_l159_action_invoke(&result_object);
-    c55_l160_action_invoke(&result_object);
-    c56_l161_action_invoke(&result_object);
-    c57_l162_action_invoke(&result_object);
-    c58_l163_action_invoke(&result_object);
-    c59_l164_action_invoke(&result_object);
-    c60_l165_action_invoke(&result_object);
-    c61_l166_action_invoke(&result_object);
-    c62_l167_action_invoke(&result_object);
-    c63_l169_action_invoke(&result_object);
-    c64_l170_action_invoke(&result_object);
-    c65_l171_action_invoke(&result_object);
-    c66_l172_action_invoke(&result_object);
-    c67_l173_action_invoke(&result_object);
-    c68_l174_action_invoke(&result_object);
-    c69_l175_action_invoke(&result_object);
-    c70_l176_action_invoke(&result_object);
-    c71_l177_action_invoke(&result_object);
-    c72_l178_action_invoke(&result_object);
-    c73_l180_action_invoke(&result_object);
-    c74_l181_action_invoke(&result_object);
-    c75_l182_action_invoke(&result_object);
-    c76_l183_action_invoke(&result_object);
-    c77_l184_action_invoke(&result_object);
-    c78_l185_action_invoke(&result_object);
-    c79_l186_action_invoke(&result_object);
-    c80_l187_action_invoke(&result_object);
-    c81_l188_action_invoke(&result_object);
-    c82_l189_action_invoke(&result_object);
+    start_module_1(&mut result_object);
+    c1_l105_action_invoke(&mut result_object);
+    c2_l106_action_invoke(&mut result_object);
+    c3_l107_action_invoke(&mut result_object);
+    c4_l108_action_invoke(&mut result_object);
+    c5_l109_action_invoke(&mut result_object);
+    c6_l110_action_invoke(&mut result_object);
+    c7_l111_action_invoke(&mut result_object);
+    c8_l112_action_invoke(&mut result_object);
+    c9_l113_action_invoke(&mut result_object);
+    c10_l114_action_invoke(&mut result_object);
+    c11_l115_action_invoke(&mut result_object);
+    c12_l116_action_invoke(&mut result_object);
+    c13_l117_action_invoke(&mut result_object);
+    c14_l118_action_invoke(&mut result_object);
+    c15_l119_action_invoke(&mut result_object);
+    c16_l120_action_invoke(&mut result_object);
+    c17_l121_action_invoke(&mut result_object);
+    c18_l122_action_invoke(&mut result_object);
+    c19_l123_action_invoke(&mut result_object);
+    c20_l124_action_invoke(&mut result_object);
+    c21_l125_action_invoke(&mut result_object);
+    c22_l126_action_invoke(&mut result_object);
+    c23_l127_action_invoke(&mut result_object);
+    c24_l128_action_invoke(&mut result_object);
+    c25_l129_action_invoke(&mut result_object);
+    c26_l130_action_invoke(&mut result_object);
+    c27_l131_action_invoke(&mut result_object);
+    c28_l132_action_invoke(&mut result_object);
+    c29_l133_action_invoke(&mut result_object);
+    c30_l134_action_invoke(&mut result_object);
+    c31_l135_action_invoke(&mut result_object);
+    c32_l137_action_invoke(&mut result_object);
+    c33_l138_action_invoke(&mut result_object);
+    c34_l139_action_invoke(&mut result_object);
+    c35_l140_action_invoke(&mut result_object);
+    c36_l141_action_invoke(&mut result_object);
+    c37_l142_action_invoke(&mut result_object);
+    c38_l143_action_invoke(&mut result_object);
+    c39_l144_action_invoke(&mut result_object);
+    c40_l145_action_invoke(&mut result_object);
+    c41_l146_action_invoke(&mut result_object);
+    c42_l147_action_invoke(&mut result_object);
+    c43_l148_action_invoke(&mut result_object);
+    c44_l149_action_invoke(&mut result_object);
+    c45_l150_action_invoke(&mut result_object);
+    c46_l151_action_invoke(&mut result_object);
+    c47_l152_action_invoke(&mut result_object);
+    c48_l153_action_invoke(&mut result_object);
+    c49_l154_action_invoke(&mut result_object);
+    c50_l155_action_invoke(&mut result_object);
+    c51_l156_action_invoke(&mut result_object);
+    c52_l157_action_invoke(&mut result_object);
+    c53_l158_action_invoke(&mut result_object);
+    c54_l159_action_invoke(&mut result_object);
+    c55_l160_action_invoke(&mut result_object);
+    c56_l161_action_invoke(&mut result_object);
+    c57_l162_action_invoke(&mut result_object);
+    c58_l163_action_invoke(&mut result_object);
+    c59_l164_action_invoke(&mut result_object);
+    c60_l165_action_invoke(&mut result_object);
+    c61_l166_action_invoke(&mut result_object);
+    c62_l167_action_invoke(&mut result_object);
+    c63_l169_action_invoke(&mut result_object);
+    c64_l170_action_invoke(&mut result_object);
+    c65_l171_action_invoke(&mut result_object);
+    c66_l172_action_invoke(&mut result_object);
+    c67_l173_action_invoke(&mut result_object);
+    c68_l174_action_invoke(&mut result_object);
+    c69_l175_action_invoke(&mut result_object);
+    c70_l176_action_invoke(&mut result_object);
+    c71_l177_action_invoke(&mut result_object);
+    c72_l178_action_invoke(&mut result_object);
+    c73_l180_action_invoke(&mut result_object);
+    c74_l181_action_invoke(&mut result_object);
+    c75_l182_action_invoke(&mut result_object);
+    c76_l183_action_invoke(&mut result_object);
+    c77_l184_action_invoke(&mut result_object);
+    c78_l185_action_invoke(&mut result_object);
+    c79_l186_action_invoke(&mut result_object);
+    c80_l187_action_invoke(&mut result_object);
+    c81_l188_action_invoke(&mut result_object);
+    c82_l189_action_invoke(&mut result_object);
 }
 fn create_module_2() -> ResultObject {
     let module_str = "(module
@@ -1608,24 +1262,23 @@ fn create_module_2() -> ResultObject {
       (export \"4294967249\" (func 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(wasm_binary, spectest_importobject(), None).expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None)
+        .expect("WASM can't be instantiated")
 }
 
-fn start_module_2(result_object: &ResultObject) {
-    result_object.instance.start();
+fn start_module_2(result_object: &mut ResultObject) {
+    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
+    //result_object.instance.start();
 }
 
 // Line 201
-fn c84_l201_action_invoke(result_object: &ResultObject) {
+fn c84_l201_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c84_l201_action_invoke");
-    let func_index = match result_object.module.info.exports.get("4294967249") {
-        Some(&Export::Function(index)) => index,
-        _ => panic!("Function not found"),
-    };
-    let invoke_fn: fn(&Instance) -> f64 =
-        get_instance_function!(result_object.instance, func_index);
-    let result = invoke_fn(&result_object.instance);
-    assert_eq!(result, 4294967249.0 as f64);
+    let result = result_object
+        .instance
+        .call("c84_l201_action_invoke", &[])
+        .expect("Missing result in c84_l201_action_invoke");
+    assert_eq!(result, Some(Value::F64((4294967249.0f64).to_bits())));
 }
 
 // Line 204
@@ -1635,7 +1288,7 @@ fn c85_l204_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 95, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1649,7 +1302,7 @@ fn c86_l208_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 43, 95, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1663,7 +1316,7 @@ fn c87_l212_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 45, 95, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1677,7 +1330,7 @@ fn c88_l216_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 57, 57, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1691,7 +1344,7 @@ fn c89_l220_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1705,7 +1358,7 @@ fn c90_l224_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 95, 49, 46, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1719,7 +1372,7 @@ fn c91_l228_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1733,7 +1386,7 @@ fn c92_l232_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 95, 46, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1747,7 +1400,7 @@ fn c93_l236_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 95, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1761,7 +1414,7 @@ fn c94_l240_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 95, 49, 101, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1775,7 +1428,7 @@ fn c95_l244_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 101, 49, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1789,7 +1442,7 @@ fn c96_l248_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 95, 101, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1803,7 +1456,7 @@ fn c97_l252_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 101, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1817,7 +1470,7 @@ fn c98_l256_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 95, 49, 46, 48, 101, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1831,7 +1484,7 @@ fn c99_l260_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 101, 49, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1845,7 +1498,7 @@ fn c100_l264_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 95, 101, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1859,7 +1512,7 @@ fn c101_l268_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 101, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1873,7 +1526,7 @@ fn c102_l272_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 101, 43, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1887,7 +1540,7 @@ fn c103_l276_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 101, 95, 43, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1901,7 +1554,7 @@ fn c104_l280_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1915,7 +1568,7 @@ fn c105_l284_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1929,7 +1582,7 @@ fn c106_l288_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1943,7 +1596,7 @@ fn c107_l292_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 48, 48, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1957,7 +1610,7 @@ fn c108_l296_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1971,7 +1624,7 @@ fn c109_l300_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 95, 49, 46, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1985,7 +1638,7 @@ fn c110_l304_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -1999,7 +1652,7 @@ fn c111_l308_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 95, 46, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2013,7 +1666,7 @@ fn c112_l312_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 95, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2027,7 +1680,7 @@ fn c113_l316_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 95, 49, 112, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2041,7 +1694,7 @@ fn c114_l320_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 112, 49, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2055,7 +1708,7 @@ fn c115_l324_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 95, 112, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2069,7 +1722,7 @@ fn c116_l328_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 112, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2083,7 +1736,7 @@ fn c117_l332_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 95, 49, 46, 48, 112, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2097,7 +1750,7 @@ fn c118_l336_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 112, 49, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2111,7 +1764,7 @@ fn c119_l340_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 95, 112, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2125,7 +1778,7 @@ fn c120_l344_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 112, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2139,7 +1792,7 @@ fn c121_l348_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 112, 43, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2153,7 +1806,7 @@ fn c122_l352_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 51, 50, 32, 40, 102, 51, 50, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 112, 95, 43, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2167,7 +1820,7 @@ fn c123_l357_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 95, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2181,7 +1834,7 @@ fn c124_l361_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 43, 95, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2195,7 +1848,7 @@ fn c125_l365_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 45, 95, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2209,7 +1862,7 @@ fn c126_l369_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 57, 57, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2223,7 +1876,7 @@ fn c127_l373_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2237,7 +1890,7 @@ fn c128_l377_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 95, 49, 46, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2251,7 +1904,7 @@ fn c129_l381_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2265,7 +1918,7 @@ fn c130_l385_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 95, 46, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2279,7 +1932,7 @@ fn c131_l389_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 95, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2293,7 +1946,7 @@ fn c132_l393_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 95, 49, 101, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2307,7 +1960,7 @@ fn c133_l397_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 101, 49, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2321,7 +1974,7 @@ fn c134_l401_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 95, 101, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2335,7 +1988,7 @@ fn c135_l405_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 101, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2349,7 +2002,7 @@ fn c136_l409_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 95, 49, 46, 48, 101, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2363,7 +2016,7 @@ fn c137_l413_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 101, 49, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2377,7 +2030,7 @@ fn c138_l417_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 95, 101, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2391,7 +2044,7 @@ fn c139_l421_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 101, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2405,7 +2058,7 @@ fn c140_l425_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 101, 43, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2419,7 +2072,7 @@ fn c141_l429_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 49, 46, 48, 101, 95, 43, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2433,7 +2086,7 @@ fn c142_l433_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2447,7 +2100,7 @@ fn c143_l437_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2461,7 +2114,7 @@ fn c144_l441_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2475,7 +2128,7 @@ fn c145_l445_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 48, 48, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2489,7 +2142,7 @@ fn c146_l449_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2503,7 +2156,7 @@ fn c147_l453_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 95, 49, 46, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2517,7 +2170,7 @@ fn c148_l457_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2531,7 +2184,7 @@ fn c149_l461_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 95, 46, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2545,7 +2198,7 @@ fn c150_l465_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 95, 48, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2559,7 +2212,7 @@ fn c151_l469_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 95, 49, 112, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2573,7 +2226,7 @@ fn c152_l473_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 112, 49, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2587,7 +2240,7 @@ fn c153_l477_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 95, 112, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2601,7 +2254,7 @@ fn c154_l481_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 112, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2615,7 +2268,7 @@ fn c155_l485_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 95, 49, 46, 48, 112, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2629,7 +2282,7 @@ fn c156_l489_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 112, 49, 95, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2643,7 +2296,7 @@ fn c157_l493_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 95, 112, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2657,7 +2310,7 @@ fn c158_l497_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 112, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2671,7 +2324,7 @@ fn c159_l501_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 112, 43, 95, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2685,7 +2338,7 @@ fn c160_l505_assert_malformed() {
         40, 103, 108, 111, 98, 97, 108, 32, 102, 54, 52, 32, 40, 102, 54, 52, 46, 99, 111, 110,
         115, 116, 32, 48, 120, 49, 46, 48, 112, 95, 43, 49, 41, 41,
     ];
-    let compilation = compile(wasm_binary.to_vec());
+    let compilation = compile(&wasm_binary.to_vec());
     assert!(
         compilation.is_err(),
         "WASM should not compile as is malformed"
@@ -2694,8 +2347,8 @@ fn c160_l505_assert_malformed() {
 
 #[test]
 fn test_module_2() {
-    let result_object = create_module_2();
+    let mut result_object = create_module_2();
     // We group the calls together
-    start_module_2(&result_object);
-    c84_l201_action_invoke(&result_object);
+    start_module_2(&mut result_object);
+    c84_l201_action_invoke(&mut result_object);
 }
