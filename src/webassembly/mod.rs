@@ -65,7 +65,7 @@ pub fn instantiate(
     debug!("webassembly - creating instance");
 
     //let instance = Instance::new(&module, import_object, options)?;
-    let instance = runtime::instantiate(buffer_source, &CraneliftCompiler {}, import_object)
+    let instance = runtime::instantiate(buffer_source, &CraneliftCompiler::new(), import_object)
         .map_err(|e| ErrorKind::CompileError(e))?;
 
     let isa = get_isa();

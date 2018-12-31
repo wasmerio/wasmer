@@ -1,3 +1,17 @@
+use crate::runtime::{
+    backend::FuncResolver,
+    memory::LinearMemory,
+    module::{DataInitializer, Export, ImportName, Module as WasmerModule, TableInitializer},
+    types::{
+        ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
+        Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
+        Initializer as WasmerInitializer, Map, MapIndex, Memory as WasmerMemory,
+        MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex, Table as WasmerTable,
+        TableIndex as WasmerTableIndex, Type as WasmerType,
+    },
+    vm::{self, Ctx as WasmerVMContext},
+};
+use crate::webassembly::errors::ErrorKind;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::{self, *};
@@ -5,81 +19,63 @@ use cranelift_codegen::ir::{
     self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature,
     TrapCode,
 };
-use cranelift_codegen::isa::{self, CallConv, TargetFrontendConfig};
-use cranelift_codegen::settings::{self, Configurable};
+use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_entity::{EntityRef, PrimaryMap};
 use cranelift_wasm::{
     translate_module, DefinedFuncIndex, FuncEnvironment as FuncEnvironmentTrait, FuncIndex,
     FuncTranslator, Global, GlobalIndex, GlobalVariable, Memory, MemoryIndex, ModuleEnvironment,
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
+use hashbrown::HashMap;
 use std::ptr::NonNull;
 use target_lexicon;
-use crate::webassembly::errors::ErrorKind;
-use crate::runtime::{
-    module::{DataInitializer, Export, ImportName, Module as WasmerModule, TableInitializer},
-    types::{
-        Type as WasmerType,
-        FuncIndex as WasmerFuncIndex,
-        GlobalIndex as WasmerGlobalIndex,
-        Global as WasmerGlobal,
-        GlobalDesc as WasmerGlobalDesc,
-        MemoryIndex as WasmerMemoryIndex,
-        Memory as WasmerMemory,
-        Table as WasmerTable,
-        TableIndex as WasmerTableIndex,
-        Initializer as WasmerInitializer,
-        ElementType as WasmerElementType,
-        FuncSig as WasmerSignature,
-        SigIndex as WasmerSignatureIndex,
-        MapIndex,
-        Map,
-    },
-    vm::{
-        self,
-        Ctx as WasmerVMContext,
-    },
-    memory::{
-        LinearMemory,
-    },
-    backend::{
-        FuncResolver,
-    }
-};
-use hashbrown::HashMap;
 
 /// The converter namespace contains functions for converting a Cranelift module
-/// to a wasmer module.
+/// to a Wasmer module.
 pub mod converter {
     use super::*;
 
-    /// Converts a Cranelift module to a wasmer module.
+    /// Converts a Cranelift module to a Wasmer module.
     pub fn convert_module(cranelift_module: CraneliftModule) -> WasmerModule {
-        // Convert Cranelift globals to wasmer globals
-        let mut globals: Map<WasmerGlobalIndex, WasmerGlobal> = Map::with_capacity(cranelift_module.globals.len());
+        // Convert Cranelift globals to Wasmer globals
+        let mut globals: Map<WasmerGlobalIndex, WasmerGlobal> =
+            Map::with_capacity(cranelift_module.globals.len());
         for global in cranelift_module.globals {
             globals.push(convert_global(global));
         }
 
-        // Convert Cranelift memories to wasmer memories.
-        let mut memories: Map<WasmerMemoryIndex, WasmerMemory> = Map::with_capacity(cranelift_module.memories.len());
+        // Convert Cranelift memories to Wasmer memories.
+        let mut memories: Map<WasmerMemoryIndex, WasmerMemory> =
+            Map::with_capacity(cranelift_module.memories.len());
         for memory in cranelift_module.memories {
             memories.push(convert_memory(memory));
         }
 
-        // Convert Cranelift tables to wasmer tables.
-        let mut tables: Map<WasmerTableIndex, WasmerTable> = Map::with_capacity(cranelift_module.tables.len());
+        // Convert Cranelift tables to Wasmer tables.
+        let mut tables: Map<WasmerTableIndex, WasmerTable> =
+            Map::with_capacity(cranelift_module.tables.len());
         for table in cranelift_module.tables {
             tables.push(convert_table(table));
         }
 
-        // TODO: signatures, signatures_assoc, func_resolver
-        let signatures_len = cranelift_module.signatures.len();
-        let signatures: Map<WasmerSignatureIndex, WasmerSignature> = Map::with_capacity(signatures_len);
-        let signature_assoc: Map<WasmerFuncIndex, WasmerSignatureIndex> = Map::with_capacity(signatures_len);
-        let func_resolver = cranelift_module.func_resolver.unwrap();
+        // Convert Cranelift signatures to Wasmer signatures.
+        let mut  signatures: Map<WasmerSignatureIndex, WasmerSignature> =
+            Map::with_capacity(cranelift_module.signatures.len());
+        for signature in cranelift_module.signatures {
+            signatures.push(convert_signature(signature));
+        }
 
-        // Get other fields directly from  the cranelift_module.
+        // Convert Cranelift signature indices to Wasmer signature indices.
+        let mut signature_assoc: Map<WasmerFuncIndex, WasmerSignatureIndex> =
+            Map::with_capacity(cranelift_module.functions.len());
+        for (_, signature_index) in cranelift_module.functions.iter() {
+            signature_assoc.push(WasmerSignatureIndex::new(signature_index.index()));
+        }
+
+        // Create func_resolver.
+        let func_resolver = Box::new(CraneliftFunctionResolver::new());
+
+        // Get other fields from the cranelift_module.
         let CraneliftModule {
             imported_functions,
             imported_memories,
@@ -92,7 +88,7 @@ pub mod converter {
             ..
         } = cranelift_module;
 
-        // Create wasmer module from data above
+        // Create Wasmer module from data above
         WasmerModule {
             func_resolver,
             memories,
@@ -111,7 +107,7 @@ pub mod converter {
         }
     }
 
-    /// Converts from Cranelift type to a wasmer type.
+    /// Converts from Cranelift type to a Wasmer type.
     pub fn convert_type(ty: types::Type) -> WasmerType {
         match ty {
             I32 => WasmerType::I32,
@@ -122,7 +118,7 @@ pub mod converter {
         }
     }
 
-    /// Converts a Cranelift global to a wasmer global.
+    /// Converts a Cranelift global to a Wasmer global.
     pub fn convert_global(global: Global) -> WasmerGlobal {
         let desc = WasmerGlobalDesc {
             mutable: global.mutability,
@@ -138,17 +134,16 @@ pub mod converter {
             I64Const(val) => Const(val.into()),
             F32Const(val) => Const((val as f32).into()),
             F64Const(val) => Const((val as f64).into()),
-            GlobalInit::GetGlobal(index) =>
-                WasmerInitializer::GetGlobal(
-                    WasmerGlobalIndex::new(index.index())
-                ),
+            GlobalInit::GetGlobal(index) => {
+                WasmerInitializer::GetGlobal(WasmerGlobalIndex::new(index.index()))
+            }
             Import => unimplemented!("TODO: imported globals are not supported yet!"),
         };
 
-        WasmerGlobal {desc, init}
+        WasmerGlobal { desc, init }
     }
 
-    /// Converts a Cranelift table to a wasmer table.
+    /// Converts a Cranelift table to a Wasmer table.
     pub fn convert_table(table: Table) -> WasmerTable {
         use cranelift_wasm::TableElementType::*;
 
@@ -164,7 +159,7 @@ pub mod converter {
         }
     }
 
-    /// Converts a Cranelift table to a wasmer table.
+    /// Converts a Cranelift table to a Wasmer table.
     pub fn convert_memory(memory: Memory) -> WasmerMemory {
         WasmerMemory {
             shared: memory.shared,
@@ -173,15 +168,19 @@ pub mod converter {
         }
     }
 
-    /// Converts a Cranelift signature to a wasmer signature.
+    /// Converts a Cranelift signature to a Wasmer signature.
     pub fn convert_signature(sig: ir::Signature) -> WasmerSignature {
         WasmerSignature {
-            params: sig.params.iter().map(
-                |param| convert_type(param.value_type)
-            ).collect(),
-            returns: sig.returns.iter().map(
-                |ret| convert_type(ret.value_type)
-            ).collect(),
+            params: sig
+                .params
+                .iter()
+                .map(|param| convert_type(param.value_type))
+                .collect(),
+            returns: sig
+                .returns
+                .iter()
+                .map(|ret| convert_type(ret.value_type))
+                .collect(),
         }
     }
 }
@@ -215,7 +214,7 @@ pub struct CraneliftModule {
     /// The external function declaration for implementing wasm's `grow_memory`.
     pub grow_memory_extfunc: Option<FuncRef>,
 
-    /// A function that takes a wasmer module and resolves a function index to a vm::Func.
+    /// A function that takes a Wasmer module and resolves a function index to a vm::Func.
     pub func_resolver: Option<Box<dyn FuncResolver>>,
 
     // An array holding information about the wasm instance memories.
@@ -252,11 +251,10 @@ pub struct CraneliftModule {
     pub start_func: Option<WasmerFuncIndex>,
 }
 
-///
 impl CraneliftModule {
     /// Translates wasm bytes into a Cranelift module
     pub fn from_bytes(
-        buffer_source: Vec<u8>,
+        buffer_source: &Vec<u8>,
         config: TargetFrontendConfig,
     ) -> Result<Self, ErrorKind> {
         // Create a cranelift module
@@ -270,7 +268,7 @@ impl CraneliftModule {
             memories_base: None,
             current_memory_extfunc: None,
             grow_memory_extfunc: None,
-            func_resolver: Some(Box::new(MockFuncResolver {})),
+            func_resolver: None,
             memories: Vec::new(),
             globals: Vec::new(),
             tables: Vec::new(),
@@ -291,10 +289,21 @@ impl CraneliftModule {
         // Return translated module.
         Ok(cranelift_module)
     }
+}
 
-    /// Creates a new `FuncEnvironment` for the module.
-    fn func_env(&self) -> FuncEnvironment {
-        FuncEnvironment::new(&self)
+// Resolves a function index to a function address.
+pub struct CraneliftFunctionResolver {}
+
+impl CraneliftFunctionResolver {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+// Implements FuncResolver trait.
+impl FuncResolver for CraneliftFunctionResolver {
+    fn get(&self, module: &WasmerModule, index: WasmerFuncIndex) -> Option<NonNull<vm::Func>> {
+        None
     }
 }
 
@@ -332,6 +341,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 
     /// Gets native pointers types.
+    ///
     /// `I64` on 64-bit arch; `I32` on 32-bit arch.
     fn pointer_type(&self) -> ir::Type {
         ir::Type::int(u16::from(self.module.config.pointer_bits())).unwrap()
@@ -377,11 +387,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     ///
     /// The index space covers both imported and locally declared memories.
     fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> ir::Heap {
-        debug_assert_eq!(
-            index.index(),
-            0,
-            "non-default memories not supported yet"
-        );
+        // Only the first memory is supported for now.
+        debug_assert_eq!(index.index(), 0, "non-default memories not supported yet");
 
         // Create VMContext value.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
@@ -425,11 +432,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     ///
     /// The index space covers both imported and locally declared tables.
     fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> ir::Table {
-        debug_assert_eq!(
-            index.index(),
-            0,
-            "non-default tables not supported yet"
-        );
+        // Only the first table is supported for now.
+        debug_assert_eq!(index.index(), 0, "non-default tables not supported yet");
 
         // Create VMContext value.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
@@ -474,10 +478,12 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         })
     }
 
-    /// Sets up a signature definition in `func`'s preamble
+    /// Sets up a signature definition in `func`'s preamble.
+    ///
     /// Signature may contain additional argument, but arguments marked as ArgumentPurpose::Normal`
     /// must correspond to the arguments in the wasm signature
     fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef {
+        // Create a signature reference out of specified signature (with VMContext param added).
         func.import_signature(self.generate_signature(index))
     }
 
@@ -486,9 +492,16 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     ///
     /// The index space covers both imported functions and functions defined in the current module.
     fn make_direct_func(&mut self, func: &mut ir::Function, index: FuncIndex) -> ir::FuncRef {
+        // Get signature of function.
         let signature_index = self.module.get_func_type(index);
+
+        // Create a signature reference from specified signature (with VMContext param added).
         let signature = func.import_signature(self.generate_signature(signature_index));
+
+        // Get name of function.
         let name = ExternalName::user(0, index.as_u32());
+
+        // Create function reference from fuction data.
         func.import_function(ir::ExtFuncData {
             name,
             signature,
@@ -496,10 +509,12 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         })
     }
 
-    /// Generates an indirect call IR with `callee` and `call_args`
+    /// Generates an indirect call IR with `callee` and `call_args`.
+    ///
     /// Inserts instructions at `pos` to the function `callee` in the table
     /// `table_index` with WebAssembly signature `sig_index`
-    #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
+    /// TODO: Generate bounds checking code.
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     fn translate_call_indirect(
         &mut self,
         mut pos: FuncCursor,
@@ -510,29 +525,30 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         callee: ir::Value,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
-        // Pass the current function's vmctx parameter on to the callee.
+        // Create a VMContext value.
         let vmctx = pos
             .func
             .special_param(ir::ArgumentPurpose::VMContext)
-            .expect("Missing vmctx parameter");
+            .expect("missing vmctx parameter");
+
+        // Get the pointer type based on machine's pointer size.
+        let ptr_type = self.pointer_type();
 
         // The `callee` value is an index into a table of function pointers.
-        // Apparently, that table is stored at absolute address 0 in this dummy environment.
-        // TODO: Generate bounds checking code.
-        let ptr_type = self.pointer_type();
+        // Set callee to an appropriate type based on machine's pointer size.
         let callee_offset = if ptr_type == I32 {
             callee
         } else {
             pos.ins().uextend(ptr_type, callee)
         };
-        // let entry_size = native_pointer_size() as i64 * 2;
-        // let callee_scaled = pos.ins().imul_imm(callee_offset, entry_size);
 
+        // The `callee` value is an index into a table of function pointers.
         let entry_addr = pos.ins().table_addr(ptr_type, table, callee_offset, 0);
 
         let mut mflags = ir::MemFlags::new();
         mflags.set_notrap();
         mflags.set_aligned();
+
         let func_ptr = pos.ins().load(ptr_type, mflags, entry_addr, 0);
 
         pos.ins().trapz(func_ptr, TrapCode::IndirectCallToNull);
@@ -560,12 +576,16 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
+        // Insert call instructions for `callee`.
         Ok(pos.ins().call(callee, call_args))
     }
 
-    /// Generates code corresponding to wasm `memory.grow`
+    /// Generates code corresponding to wasm `memory.grow`.
+    ///
     /// `index` refers to the linear memory to query.
+    ///
     /// `heap` refers to the IR generated by `make_heap`.
+    ///
     /// `val`  refers the value to grow the memory by.
     fn translate_memory_grow(
         &mut self,
@@ -574,96 +594,114 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         heap: ir::Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value> {
+        // Only the first memory is supported for now.
         let grow_mem_func = self.module.grow_memory_extfunc.unwrap_or_else(|| {
-            let sig_ref = pos.func.import_signature(Signature {
-                call_conv: CallConv::SystemV,
-                // argument_bytes: None,
+            // Create signature reference from specified signature.
+            let signature_ref = pos.func.import_signature(Signature {
+                // Get the default calling convention of the isa.
+                call_conv: self.module.config.default_call_conv,
+                // Paramters types.
                 params: vec![
-                    // Size
+                    // Param for new size.
                     AbiParam::new(I32),
-                    // Memory index
+                    // Param for memory index.
                     AbiParam::new(I32),
-                    // VMContext
+                    // Param for VMcontext.
                     AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
                 ],
+                // Return type for previous memory size.
                 returns: vec![AbiParam::new(I32)],
             });
 
+            // Create function reference to a linked `grow_memory` function.
             pos.func.import_function(ExtFuncData {
                 name: ExternalName::testcase("grow_memory"),
-                signature: sig_ref,
+                signature: signature_ref,
                 colocated: false,
             })
         });
 
-        // self.mod_info.grow_memory_extfunc = Some(grow_mem_func);
-        let memory_index_value = pos.ins().iconst(I32, to_imm64(index.index()));
-        let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
+        // Create a memory index value.
+        let memory_index = pos.ins().iconst(I32, to_imm64(index.index()));
 
-        let call_inst = pos
-            .ins()
-            .call(grow_mem_func, &[val, memory_index_value, vmctx]);
+        // Create a VMContext value.
+        let vmctx = pos
+            .func
+            .special_param(ArgumentPurpose::VMContext)
+            .expect("missing vmctx parameter");
 
+        // Insert call instructions for `grow_memory`.
+        let call_inst = pos.ins().call(grow_mem_func, &[val, memory_index, vmctx]);
+
+        // Return value.
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
-    /// Generates code corresponding to wasm `memory.size`
+    /// Generates code corresponding to wasm `memory.size`.
+    ///
     /// `index` refers to the linear memory to query.
-    /// `heap` refers to the IR generated by `make_heap`
+    ///
+    /// `heap` refers to the IR generated by `make_heap`.
     fn translate_memory_size(
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
         heap: ir::Heap,
     ) -> WasmResult<ir::Value> {
-        debug_assert_eq!(
-            index.index(),
-            0,
-            "non-default memories not supported yet"
-        );
-
+        debug_assert_eq!(index.index(), 0, "non-default memories not supported yet");
+        // Only the first memory is supported for now.
         let cur_mem_func = self.module.current_memory_extfunc.unwrap_or_else(|| {
-            let sig_ref = pos.func.import_signature(Signature {
-                call_conv: CallConv::SystemV,
-                // argument_bytes: None,
+            // Create signature reference from specified signature.
+            let signature_ref = pos.func.import_signature(Signature {
+                // Get the default calling convention of the isa.
+                call_conv: self.module.config.default_call_conv,
+                // Paramters types.
                 params: vec![
-                    // The memory index
+                    // Param for memory index.
                     AbiParam::new(I32),
-                    // The vmctx reference
+                    // Param for VMcontext.
                     AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
-                    // AbiParam::special(I64, ArgumentPurpose::VMContext),
                 ],
+                // Return type for current memory size.
                 returns: vec![AbiParam::new(I32)],
             });
 
+            // Create function reference to a linked `current_memory` function.
             pos.func.import_function(ExtFuncData {
                 name: ExternalName::testcase("current_memory"),
-                signature: sig_ref,
+                signature: signature_ref,
                 colocated: false,
             })
         });
 
-        // self.mod_info.current_memory_extfunc = cur_mem_func;
-
+        // Create a memory index value.
         let memory_index_value = pos.ins().iconst(I32, to_imm64(index.index()));
+
+        // Create a VMContext value.
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
+        // Insert call instructions for `current_memory`.
         let call_inst = pos.ins().call(cur_mem_func, &[memory_index_value, vmctx]);
+
+        // Return value.
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     /// Generates code at the beginning of loops.
+    ///
     /// Currently not used.
     fn translate_loop_header(&mut self, _pos: FuncCursor) {
         // By default, don't emit anything.
     }
 
     /// Determines the type of return each function should have.
-    /// It normal returns for now.
+    ///
+    /// It is normal returns for now.
     fn return_mode(&self) -> ReturnMode {
         ReturnMode::NormalReturns
     }
 }
+
 /// Convert a usize offset into a `Imm64` for an iadd_imm.
 fn to_imm64(offset: usize) -> ir::immediates::Imm64 {
     (offset as i64).into()
@@ -678,7 +716,6 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
     /// Declares a function signature to the environment.
     fn declare_signature(&mut self, sig: &ir::Signature) {
         self.signatures.push(sig.clone());
-        // TODO: push to signatures_assoc here.
     }
 
     /// Return the signature with the given index.
@@ -698,9 +735,8 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
         self.functions.push(sig_index);
 
         // Add import names to list of imported functions
-        self.imported_functions.push(
-            (String::from(module), String::from(field)).into()
-        );
+        self.imported_functions
+            .push((String::from(module), String::from(field)).into());
     }
 
     /// Return the number of imported funcs.
@@ -742,7 +778,7 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
     }
 
     /// Declares a table to the environment.
-    fn declare_table(&mut self, table: Table){
+    fn declare_table(&mut self, table: Table) {
         // Add table ir to the list of tables
         self.tables.push(table);
     }
@@ -775,9 +811,10 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
             table_index: WasmerTableIndex::new(table_index.index()),
             base,
             offset,
-            elements: elements.iter().map(
-                |index| WasmerFuncIndex::new(index.index())
-            ).collect(),
+            elements: elements
+                .iter()
+                .map(|index| WasmerFuncIndex::new(index.index()))
+                .collect(),
         });
     }
 
@@ -874,8 +911,7 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
             let mut function = ir::Function::with_name_signature(name, sig);
 
             // Complete function creation with translated function body.
-            FuncTranslator::new()
-                .translate(body_bytes, &mut function, &mut func_environ)?;
+            FuncTranslator::new().translate(body_bytes, &mut function, &mut func_environ)?;
 
             function
         };
@@ -884,12 +920,5 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
         self.function_bodies.push(func_body);
 
         Ok(())
-    }
-}
-
-struct MockFuncResolver {}
-impl FuncResolver for MockFuncResolver {
-    fn get(&self, module: &WasmerModule, index: WasmerFuncIndex) -> Option<NonNull<vm::Func>> {
-        unimplemented!()
     }
 }
