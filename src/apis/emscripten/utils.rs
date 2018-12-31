@@ -102,9 +102,7 @@ pub struct GuestStat {
     st_gid: u32,
     st_rdev: u64,
     st_size: u32,
-    #[cfg(not(target_os = "windows"))]
     st_blksize: u32,
-    #[cfg(not(target_os = "windows"))]
     st_blocks: u32,
     st_atime: u64,
     st_mtime: u64,
@@ -121,10 +119,14 @@ pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat
     (*stat_ptr).st_gid = stat.st_gid as _;
     (*stat_ptr).st_rdev = stat.st_rdev as _;
     (*stat_ptr).st_size = stat.st_size as _;
+    (*stat_ptr).st_blksize = 4096;
     #[cfg(not(target_os = "windows"))]
     {
-        (*stat_ptr).st_blksize = 4096;
         (*stat_ptr).st_blocks = stat.st_blocks as _;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        (*stat_ptr).st_blocks = 0;
     }
     (*stat_ptr).st_atime = stat.st_atime as _;
     (*stat_ptr).st_mtime = stat.st_mtime as _;
