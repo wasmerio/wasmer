@@ -13,6 +13,7 @@ use cranelift_wasm::{
     FuncTranslator, Global, GlobalIndex, GlobalVariable, Memory, MemoryIndex, ModuleEnvironment,
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
+use std::ptr::NonNull;
 use target_lexicon;
 use crate::webassembly::errors::ErrorKind;
 use crate::runtime::{
@@ -269,7 +270,7 @@ impl CraneliftModule {
             memories_base: None,
             current_memory_extfunc: None,
             grow_memory_extfunc: None,
-            func_resolver: None,
+            func_resolver: Some(Box::new(MockFuncResolver {})),
             memories: Vec::new(),
             globals: Vec::new(),
             tables: Vec::new(),
@@ -886,6 +887,9 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
     }
 }
 
-
-
-// trans: FuncTranslator
+struct MockFuncResolver {}
+impl FuncResolver for MockFuncResolver {
+    fn get(&self, module: &WasmerModule, index: WasmerFuncIndex) -> Option<NonNull<vm::Func>> {
+        unimplemented!()
+    }
+}
