@@ -341,7 +341,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         self.module.config.pointer_bytes()
     }
 
-    /// Set up the necessary preamble definitions in `func` to access the global identified
+    /// Sets up the necessary preamble definitions in `func` to access the global identified
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared globals.
@@ -371,7 +371,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         }
     }
 
-    /// Set up the necessary preamble definitions in `func` to access the linear memory identified
+    /// Sets up the necessary preamble definitions in `func` to access the linear memory identified
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared memories.
@@ -379,7 +379,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         debug_assert_eq!(
             index.index(),
             0,
-            "Only one WebAssembly memory supported"
+            "non-default memories not supported yet"
         );
 
         // Create VMContext value.
@@ -419,7 +419,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         })
     }
 
-    /// Set up the necessary preamble definitions in `func` to access the table identified
+    /// Sets up the necessary preamble definitions in `func` to access the table identified
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared tables.
@@ -427,7 +427,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         debug_assert_eq!(
             index.index(),
             0,
-            "Only one WebAssembly table supported"
+            "non-default tables not supported yet"
         );
 
         // Create VMContext value.
@@ -477,15 +477,22 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     /// Signature may contain additional argument, but arguments marked as ArgumentPurpose::Normal`
     /// must correspond to the arguments in the wasm signature
     fn make_indirect_sig(&mut self, func: &mut ir::Function, index: SignatureIndex) -> ir::SigRef {
-        unimplemented!()
+        func.import_signature(self.generate_signature(index))
     }
 
-    /// Set up an external function definition in the preamble of `func` that can be used to
+    /// Sets up an external function definition in the preamble of `func` that can be used to
     /// directly call the function `index`.
     ///
     /// The index space covers both imported functions and functions defined in the current module.
     fn make_direct_func(&mut self, func: &mut ir::Function, index: FuncIndex) -> ir::FuncRef {
-        unimplemented!()
+        let signature_index = self.module.get_func_type(index);
+        let signature = func.import_signature(self.generate_signature(signature_index));
+        let name = ExternalName::user(0, index.as_u32());
+        func.import_function(ir::ExtFuncData {
+            name,
+            signature,
+            colocated: false,
+        })
     }
 
     /// Generates an indirect call IR with `callee` and `call_args`
@@ -494,7 +501,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     #[cfg_attr(feature = "cargo-clippy", allow(too_many_arguments))]
     fn translate_call_indirect(
         &mut self,
-        pos: FuncCursor,
+        mut pos: FuncCursor,
         table_index: TableIndex,
         table: ir::Table,
         sig_index: SignatureIndex,
@@ -502,7 +509,46 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         callee: ir::Value,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
-        unimplemented!()
+        // Pass the current function's vmctx parameter on to the callee.
+        let vmctx = pos
+            .func
+            .special_param(ir::ArgumentPurpose::VMContext)
+            .expect("Missing vmctx parameter");
+
+        // The `callee` value is an index into a table of function pointers.
+        // Apparently, that table is stored at absolute address 0 in this dummy environment.
+        // TODO: Generate bounds checking code.
+        let ptr_type = self.pointer_type();
+        let callee_offset = if ptr_type == I32 {
+            callee
+        } else {
+            pos.ins().uextend(ptr_type, callee)
+        };
+        // let entry_size = native_pointer_size() as i64 * 2;
+        // let callee_scaled = pos.ins().imul_imm(callee_offset, entry_size);
+
+        let entry_addr = pos.ins().table_addr(ptr_type, table, callee_offset, 0);
+
+        let mut mflags = ir::MemFlags::new();
+        mflags.set_notrap();
+        mflags.set_aligned();
+        let func_ptr = pos.ins().load(ptr_type, mflags, entry_addr, 0);
+
+        pos.ins().trapz(func_ptr, TrapCode::IndirectCallToNull);
+
+        // Build a value list for the indirect call instruction containing the callee, call_args,
+        // and the vmctx parameter.
+        let mut args = ir::ValueList::default();
+        args.push(func_ptr, &mut pos.func.dfg.value_lists);
+        args.extend(call_args.iter().cloned(), &mut pos.func.dfg.value_lists);
+        args.push(vmctx, &mut pos.func.dfg.value_lists);
+
+        let inst = pos
+            .ins()
+            .CallIndirect(ir::Opcode::CallIndirect, INVALID, sig_ref, args)
+            .0;
+
+        Ok(inst)
     }
 
     /// Generates a call IR with `callee` and `call_args` and inserts it at `pos`
@@ -522,12 +568,42 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     /// `val`  refers the value to grow the memory by.
     fn translate_memory_grow(
         &mut self,
-        pos: FuncCursor,
+        mut pos: FuncCursor,
         index: MemoryIndex,
         heap: ir::Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value> {
-        unimplemented!()
+        let grow_mem_func = self.module.grow_memory_extfunc.unwrap_or_else(|| {
+            let sig_ref = pos.func.import_signature(Signature {
+                call_conv: CallConv::SystemV,
+                // argument_bytes: None,
+                params: vec![
+                    // Size
+                    AbiParam::new(I32),
+                    // Memory index
+                    AbiParam::new(I32),
+                    // VMContext
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                ],
+                returns: vec![AbiParam::new(I32)],
+            });
+
+            pos.func.import_function(ExtFuncData {
+                name: ExternalName::testcase("grow_memory"),
+                signature: sig_ref,
+                colocated: false,
+            })
+        });
+
+        // self.mod_info.grow_memory_extfunc = Some(grow_mem_func);
+        let memory_index_value = pos.ins().iconst(I32, to_imm64(index.index()));
+        let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
+
+        let call_inst = pos
+            .ins()
+            .call(grow_mem_func, &[val, memory_index_value, vmctx]);
+
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     /// Generates code corresponding to wasm `memory.size`
@@ -535,11 +611,44 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     /// `heap` refers to the IR generated by `make_heap`
     fn translate_memory_size(
         &mut self,
-        pos: FuncCursor,
+        mut pos: FuncCursor,
         index: MemoryIndex,
         heap: ir::Heap,
     ) -> WasmResult<ir::Value> {
-        unimplemented!()
+        debug_assert_eq!(
+            index.index(),
+            0,
+            "non-default memories not supported yet"
+        );
+
+        let cur_mem_func = self.module.current_memory_extfunc.unwrap_or_else(|| {
+            let sig_ref = pos.func.import_signature(Signature {
+                call_conv: CallConv::SystemV,
+                // argument_bytes: None,
+                params: vec![
+                    // The memory index
+                    AbiParam::new(I32),
+                    // The vmctx reference
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    // AbiParam::special(I64, ArgumentPurpose::VMContext),
+                ],
+                returns: vec![AbiParam::new(I32)],
+            });
+
+            pos.func.import_function(ExtFuncData {
+                name: ExternalName::testcase("current_memory"),
+                signature: sig_ref,
+                colocated: false,
+            })
+        });
+
+        // self.mod_info.current_memory_extfunc = cur_mem_func;
+
+        let memory_index_value = pos.ins().iconst(I32, to_imm64(index.index()));
+        let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
+
+        let call_inst = pos.ins().call(cur_mem_func, &[memory_index_value, vmctx]);
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     /// Generates code at the beginning of loops.
@@ -553,6 +662,10 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn return_mode(&self) -> ReturnMode {
         ReturnMode::NormalReturns
     }
+}
+/// Convert a usize offset into a `Imm64` for an iadd_imm.
+fn to_imm64(offset: usize) -> ir::immediates::Imm64 {
+    (offset as i64).into()
 }
 
 impl<'data> ModuleEnvironment<'data> for CraneliftModule {
@@ -751,7 +864,7 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
                 FuncIndex::new(self.get_num_func_imports() + self.function_bodies.len());
 
             // Get the name of function index.
-            let name = ExternalName::user(0, func_index.index() as u32);
+            let name = ExternalName::user(0, func_index.as_u32());
 
             // Get signature of function and extend with a vmct parameter.
             let sig = func_environ.generate_signature(self.get_func_type(func_index));

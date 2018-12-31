@@ -419,7 +419,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             index_type: I32,
         })
     }
-    
+
     // TODO: offsets should be based on the architecture the wasmer was compiled for.
     //      e.g., BoundedSlice.len will be 32-bit (4 bytes) when wasmer is compiled for a 32-bit arch,
     //      however the 32-bit wasmer may be running on 64-bit arch, which means ptr_size here will
