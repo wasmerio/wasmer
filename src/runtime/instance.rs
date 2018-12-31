@@ -147,12 +147,10 @@ pub enum Import {
     Global(Value),
 }
 
-// TODO Remove again
 pub struct Imports {
     map: HashMap<String, HashMap<String, Import>>,
 }
 
-// TODO Remove again
 impl Imports {
     pub fn new() -> Self {
         Self {
