@@ -27,6 +27,7 @@ pub mod apis;
 pub mod common;
 #[cfg(test)]
 mod emtests;
+pub mod isolation;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;
