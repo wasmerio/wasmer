@@ -173,11 +173,11 @@ impl Imports {
 }
 
 impl ImportResolver for Imports {
-    fn get(&self, module: &str, name: &str) -> Option<Import> {
-        unimplemented!("ImportResolver for Imports")
+    fn get(&self, module: &str, name: &str) -> Option<&Import> {
+        self.get(module, name)
     }
 }
 
 pub trait ImportResolver {
-    fn get(&self, module: &str, name: &str) -> Option<Import>;
+    fn get(&self, module: &str, name: &str) -> Option<&Import>;
 }

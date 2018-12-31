@@ -261,8 +261,8 @@ impl ImportBacking {
             let expected_sig_index = module.signature_assoc[index];
             let expected_sig = &module.signatures[expected_sig_index];
             let import = imports.get(mod_name, item_name);
-            if let Some(Import::Func(func, signature)) = import {
-                if expected_sig == &signature {
+            if let Some(&Import::Func(func, ref signature)) = import {
+                if expected_sig == signature {
                     functions.push(vm::ImportedFunc {
                         func,
                         // vmctx: ptr::null_mut(),
@@ -291,7 +291,7 @@ impl ImportBacking {
         ) in &module.imported_globals
         {
             let import = imports.get(mod_name, item_name);
-            if let Some(Import::Global(val)) = import {
+            if let Some(&Import::Global(val)) = import {
                 if val.ty() == global_desc.ty {
                     globals.push(vm::ImportedGlobal {
                         global: vm::LocalGlobal {
