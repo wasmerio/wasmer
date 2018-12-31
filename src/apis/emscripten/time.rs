@@ -7,6 +7,17 @@ use time;
 
 use crate::webassembly::Instance;
 
+#[cfg(not(target_os = "windows"))]
+use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
+
+// some assumptions about the constants when targeting windows
+#[cfg(target_os = "windows")]
+const CLOCK_REALTIME: libc::c_int = 0;
+#[cfg(target_os = "windows")]
+const CLOCK_MONOTONIC: libc::c_int = 1;
+#[cfg(target_os = "windows")]
+const CLOCK_MONOTONIC_COARSE: libc::c_int = 6;
+
 /// emscripten: _gettimeofday
 pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::_gettimeofday {} {}", tp, tz);
@@ -41,9 +52,15 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
     }
 
     let timespec = match clk_id {
-        0 => time::get_time(),
-        1 => panic!("Monotonic clock is not supported."),
-        _ => panic!("Clock is not supported."),
+        CLOCK_REALTIME => time::get_time(),
+        CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
+            let precise_ns = time::precise_time_ns();
+            time::Timespec::new(
+                (precise_ns / 1000000000) as i64,
+                (precise_ns % 1000000000) as i32,
+            )
+        }
+        _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
     };
 
     unsafe {

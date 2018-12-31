@@ -11,6 +11,9 @@ jobs:
           keys:
             - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: sudo apt-get install -y cmake
+      - run:
+          name: Run nginx
+          command:  cargo run -- run examples/nginx/nginx.wasm -- -v
       - run: make test
       - run: rustup component add rustfmt
       - run: make lint
