@@ -13,6 +13,7 @@ use cranelift_wasm::{
     FuncTranslator, Global, GlobalIndex, GlobalVariable, Memory, MemoryIndex, ModuleEnvironment,
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
+use std::ptr::NonNull;
 use target_lexicon;
 use crate::webassembly::errors::ErrorKind;
 use crate::runtime::{
@@ -269,7 +270,7 @@ impl CraneliftModule {
             memories_base: None,
             current_memory_extfunc: None,
             grow_memory_extfunc: None,
-            func_resolver: None,
+            func_resolver: Some(Box::new(MockFuncResolver {})),
             memories: Vec::new(),
             globals: Vec::new(),
             tables: Vec::new(),
@@ -485,7 +486,15 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     ///
     /// The index space covers both imported functions and functions defined in the current module.
     fn make_direct_func(&mut self, func: &mut ir::Function, index: FuncIndex) -> ir::FuncRef {
-        unimplemented!()
+        let signature_index = self.module.functions[index];
+        let name = ExternalName::user(0, index.index() as u32);
+        let mut func_environ = FuncEnvironment::new(&self.module);
+        let signature = func.import_signature(func_environ.generate_signature(signature_index));
+        func.import_function(ir::ExtFuncData {
+            name,
+            signature,
+            colocated: false,
+        })
     }
 
     /// Generates an indirect call IR with `callee` and `call_args`
@@ -773,6 +782,12 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
     }
 }
 
+struct MockFuncResolver {}
+impl FuncResolver for MockFuncResolver {
+    fn get(&self, module: &WasmerModule, index: WasmerFuncIndex) -> Option<NonNull<vm::Func>> {
+        unimplemented!()
+    }
+}
 
 
 // trans: FuncTranslator
