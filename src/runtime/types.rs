@@ -190,6 +190,10 @@ where
     pub fn as_ptr(&self) -> *const T {
         self.elems.as_ptr()
     }
+
+    pub fn reserve_exact(&mut self, size: usize) {
+        self.elems.reserve_exact(size);
+    }
 }
 
 impl<I, T> Index<I> for Map<I, T>

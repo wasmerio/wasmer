@@ -4,14 +4,14 @@ use crate::runtime::{backend::Compiler, module::Module};
 
 use std::sync::Arc;
 
-use self::codegen::{converter, CraneliftModule};
+use self::codegen::{CraneliftModule};
 
 use crate::webassembly;
 
 pub struct CraneliftCompiler {}
 
 impl Compiler for CraneliftCompiler {
-    // Compiles towasm byte to module
+    // Compiles wasm binary to a wasmer module
     fn compile(&self, wasm: &[u8]) -> Result<Arc<Module>, String> {
         webassembly::validate_or_error(wasm).map_err(|err| format!("{}", err))?;
 

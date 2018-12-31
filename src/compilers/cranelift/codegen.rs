@@ -1,4 +1,3 @@
-// cranelift
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::{self, *};
@@ -15,15 +14,12 @@ use cranelift_wasm::{
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
 use target_lexicon;
-
-// wasmer::webassembly
 use crate::webassembly::errors::ErrorKind;
-
-// wasmer::runtime
 use crate::runtime::{
     module::{DataInitializer, Export, ImportName, Module as WasmerModule, TableInitializer},
     types::{
         Type as WasmerType,
+        FuncIndex as WasmerFuncIndex,
         GlobalIndex as WasmerGlobalIndex,
         Global as WasmerGlobal,
         GlobalDesc as WasmerGlobalDesc,
@@ -31,31 +27,90 @@ use crate::runtime::{
         Memory as WasmerMemory,
         Table as WasmerTable,
         TableIndex as WasmerTableIndex,
-        FuncIndex as WasmerFuncIndex,
         Initializer as WasmerInitializer,
+        ElementType as WasmerElementType,
+        FuncSig as WasmerSignature,
+        SigIndex as WasmerSignatureIndex,
         MapIndex,
+        Map,
     },
     vm::{
         self,
         Ctx as WasmerVMContext,
     },
+    memory::{
+        LinearMemory,
+    },
+    backend::{
+        FuncResolver,
+    }
 };
-
 use hashbrown::HashMap;
 
-// std
-use std::ptr::NonNull;
-
+/// The converter namespace contains functions for converting a Cranelift module
+/// to a wasmer module.
 pub mod converter {
     use super::*;
 
-    /// Converts a Cranelift module to wasmer module.
-    pub fn convert_module(cranelift_module: super::CraneliftModule) -> WasmerModule {
-        unimplemented!()
-        // Generate globals, memories, tables, signatures_assoc
+    /// Converts a Cranelift module to a wasmer module.
+    pub fn convert_module(cranelift_module: CraneliftModule) -> WasmerModule {
+        // Convert Cranelift globals to wasmer globals
+        let mut globals: Map<WasmerGlobalIndex, WasmerGlobal> = Map::with_capacity(cranelift_module.globals.len());
+        for global in cranelift_module.globals {
+            globals.push(convert_global(global));
+        }
+
+        // Convert Cranelift memories to wasmer memories.
+        let mut memories: Map<WasmerMemoryIndex, WasmerMemory> = Map::with_capacity(cranelift_module.memories.len());
+        for memory in cranelift_module.memories {
+            memories.push(convert_memory(memory));
+        }
+
+        // Convert Cranelift tables to wasmer tables.
+        let mut tables: Map<WasmerTableIndex, WasmerTable> = Map::with_capacity(cranelift_module.tables.len());
+        for table in cranelift_module.tables {
+            tables.push(convert_table(table));
+        }
+
+        // TODO: signatures, signatures_assoc, func_resolver
+        let signatures_len = cranelift_module.signatures.len();
+        let signatures: Map<WasmerSignatureIndex, WasmerSignature> = Map::with_capacity(signatures_len);
+        let signature_assoc: Map<WasmerFuncIndex, WasmerSignatureIndex> = Map::with_capacity(signatures_len);
+        let func_resolver = cranelift_module.func_resolver.unwrap();
+
+        // Get other fields directly from  the cranelift_module.
+        let CraneliftModule {
+            imported_functions,
+            imported_memories,
+            imported_tables,
+            imported_globals,
+            exports,
+            data_initializers,
+            table_initializers,
+            start_func,
+            ..
+        } = cranelift_module;
+
+        // Create wasmer module from data above
+        WasmerModule {
+            func_resolver,
+            memories,
+            globals,
+            tables,
+            imported_functions,
+            imported_memories,
+            imported_tables,
+            imported_globals,
+            exports,
+            data_initializers,
+            table_initializers,
+            start_func,
+            signatures,
+            signature_assoc,
+        }
     }
 
-    /// Converts from Cranelift type to wasmer type.
+    /// Converts from Cranelift type to a wasmer type.
     pub fn convert_type(ty: types::Type) -> WasmerType {
         match ty {
             I32 => WasmerType::I32,
@@ -66,34 +121,67 @@ pub mod converter {
         }
     }
 
-    /// Converts a Cranelift global to wasmer global.
+    /// Converts a Cranelift global to a wasmer global.
     pub fn convert_global(global: Global) -> WasmerGlobal {
-        // TODO: WasmerGlobal does not support `Import` as Global values
         let desc = WasmerGlobalDesc {
             mutable: global.mutability,
             ty: convert_type(global.ty),
         };
 
-        use cranelift_wasm::GlobalInit::*;
+        use self::WasmerInitializer::*;
+        use cranelift_wasm::GlobalInit::{self, *};
 
+        // TODO: WasmerGlobal does not support `Import` as Global values.
         let init = match global.initializer {
-            I32Const(val) => WasmerInitializer::Const(val.into()),
-            I64Const(val) => WasmerInitializer::Const(val.into()),
-            F32Const(val) => WasmerInitializer::Const((val as f32).into()),
-            F64Const(val) => WasmerInitializer::Const((val as f64).into()),
-            GetGlobal(index) =>
+            I32Const(val) => Const(val.into()),
+            I64Const(val) => Const(val.into()),
+            F32Const(val) => Const((val as f32).into()),
+            F64Const(val) => Const((val as f64).into()),
+            GlobalInit::GetGlobal(index) =>
                 WasmerInitializer::GetGlobal(
-                    WasmerGlobalIndex::new(index.as_u32() as _)
+                    WasmerGlobalIndex::new(index.index())
                 ),
-            Import => unimplemented!("TODO: imported globals not supported yet!"),
+            Import => unimplemented!("TODO: imported globals are not supported yet!"),
         };
 
         WasmerGlobal {desc, init}
     }
 
-    /// Converts a Cranelift global to wasmer global
+    /// Converts a Cranelift table to a wasmer table.
     pub fn convert_table(table: Table) -> WasmerTable {
-        unimplemented!()
+        use cranelift_wasm::TableElementType::*;
+
+        let ty = match table.ty {
+            Func => WasmerElementType::Anyfunc,
+            Val(_) => unimplemented!("non-function table elements are not supported yet!"),
+        };
+
+        WasmerTable {
+            ty,
+            min: table.minimum,
+            max: table.maximum,
+        }
+    }
+
+    /// Converts a Cranelift table to a wasmer table.
+    pub fn convert_memory(memory: Memory) -> WasmerMemory {
+        WasmerMemory {
+            shared: memory.shared,
+            min: memory.minimum,
+            max: memory.maximum,
+        }
+    }
+
+    /// Converts a Cranelift signature to a wasmer signature.
+    pub fn convert_signature(sig: ir::Signature) -> WasmerSignature {
+        WasmerSignature {
+            params: sig.params.iter().map(
+                |param| convert_type(param.value_type)
+            ).collect(),
+            returns: sig.returns.iter().map(
+                |ret| convert_type(ret.value_type)
+            ).collect(),
+        }
     }
 }
 
@@ -126,10 +214,8 @@ pub struct CraneliftModule {
     /// The external function declaration for implementing wasm's `grow_memory`.
     pub grow_memory_extfunc: Option<FuncRef>,
 
-    // ------------------------------------- //
     /// A function that takes a wasmer module and resolves a function index to a vm::Func.
-    pub function_resolver:
-        Option<Box<dyn Fn(&WasmerModule, WasmerFuncIndex) -> Option<NonNull<vm::Func>>>>,
+    pub func_resolver: Option<Box<dyn FuncResolver>>,
 
     // An array holding information about the wasm instance memories.
     pub memories: Vec<Memory>,
@@ -141,16 +227,16 @@ pub struct CraneliftModule {
     pub tables: Vec<Table>,
 
     // An array holding information about the wasm instance imported functions.
-    pub imported_functions: Vec<ImportName>,
+    pub imported_functions: Map<WasmerFuncIndex, ImportName>,
 
     // An array holding information about the wasm instance imported memories.
-    pub imported_memories: Vec<(ImportName, WasmerMemory)>,
+    pub imported_memories: Map<WasmerMemoryIndex, (ImportName, WasmerMemory)>,
 
     // An array holding information about the wasm instance imported tables.
-    pub imported_tables: Vec<(ImportName, WasmerTable)>,
+    pub imported_tables: Map<WasmerTableIndex, (ImportName, WasmerTable)>,
 
     // An array holding information about the wasm instance imported globals.
-    pub imported_globals: Vec<(ImportName, WasmerGlobalDesc)>,
+    pub imported_globals: Map<WasmerGlobalIndex, (ImportName, WasmerGlobalDesc)>,
 
     // An hash map holding information about the wasm instance exports.
     pub exports: HashMap<String, Export>,
@@ -167,7 +253,7 @@ pub struct CraneliftModule {
 
 ///
 impl CraneliftModule {
-    ///
+    /// Translates wasm bytes into a Cranelift module
     pub fn from_bytes(
         buffer_source: Vec<u8>,
         config: TargetFrontendConfig,
@@ -183,14 +269,14 @@ impl CraneliftModule {
             memories_base: None,
             current_memory_extfunc: None,
             grow_memory_extfunc: None,
-            function_resolver: None,
+            func_resolver: None,
             memories: Vec::new(),
             globals: Vec::new(),
             tables: Vec::new(),
-            imported_functions: Vec::new(),
-            imported_memories: Vec::new(),
-            imported_tables: Vec::new(),
-            imported_globals: Vec::new(),
+            imported_functions: Map::new(),
+            imported_memories: Map::new(),
+            imported_tables: Map::new(),
+            imported_globals: Map::new(),
             exports: HashMap::new(),
             data_initializers: Vec::new(),
             table_initializers: Vec::new(),
@@ -205,18 +291,17 @@ impl CraneliftModule {
         Ok(cranelift_module)
     }
 
-    ///
+    /// Creates a new `FuncEnvironment` for the module.
     fn func_env(&self) -> FuncEnvironment {
         FuncEnvironment::new(&self)
     }
 }
 
-///
+/// The `FuncEnvironment` implementation for use by the `CraneliftModule`.
 pub struct FuncEnvironment<'environment> {
     pub module: &'environment CraneliftModule,
 }
 
-///
 impl<'environment> FuncEnvironment<'environment> {
     pub fn new(module: &'environment CraneliftModule) -> Self {
         Self { module }
@@ -261,7 +346,29 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     ///
     /// The index space covers both imported and locally declared globals.
     fn make_global(&mut self, func: &mut ir::Function, index: GlobalIndex) -> GlobalVariable {
-        unimplemented!()
+        // Create VMContext value.
+        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        let ptr_size = self.pointer_bytes();
+        let globals_offset = WasmerVMContext::offset_globals();
+
+        // Load value at (vmctx + globals_offset), i.e. the address at Ctx.globals.
+        let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+            base: vmctx,
+            offset: Offset32::new(globals_offset as i32),
+            global_type: self.pointer_type(),
+            readonly: false,
+        });
+
+        // *Ctx.globals -> [ u8, u8, .. ]
+        // Based on the index provided, we need to know the offset into globals array
+        let offset = index.index() * ptr_size as usize;
+
+        // Create global variable based on the data above.
+        GlobalVariable::Memory {
+            gv: globals_base_addr,
+            offset: (offset as i32).into(),
+            ty: self.module.get_global(index).ty,
+        }
     }
 
     /// Set up the necessary preamble definitions in `func` to access the linear memory identified
@@ -269,7 +376,47 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     ///
     /// The index space covers both imported and locally declared memories.
     fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> ir::Heap {
-        unimplemented!()
+        debug_assert_eq!(
+            index.index(),
+            0,
+            "Only one WebAssembly memory supported"
+        );
+
+        // Create VMContext value.
+        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        let ptr_size = self.pointer_bytes();
+        let memories_offset = WasmerVMContext::offset_memories();
+
+        // Load value at (vmctx + memories_offset), i.e. the address at Ctx.memories.
+        let base = func.create_global_value(ir::GlobalValueData::Load {
+            base: vmctx,
+            offset: Offset32::new(memories_offset as i32),
+            global_type: self.pointer_type(),
+            readonly: true,
+        });
+
+        // *Ctx.memories -> [ {data: *usize, len: usize}, {data: *usize, len: usize}, ... ]
+        // Based on the index provided, we need to know the offset into memories array.
+        let memory_data_offset = (index.as_u32() as i32) * (ptr_size as i32) * 2;
+
+        // Load value at the (base + memory_data_offset), i.e. the address at Ctx.memories[index].data.
+        let heap_base = func.create_global_value(ir::GlobalValueData::Load {
+            base,
+            offset: Offset32::new(memory_data_offset),
+            global_type: self.pointer_type(),
+            readonly: true,
+        });
+
+        // Create heap based on the data above.
+        func.create_heap(ir::HeapData {
+            base: heap_base,
+            min_size: 0.into(),
+            offset_guard_size: Uimm64::new(LinearMemory::DEFAULT_GUARD_SIZE as u64),
+            style: ir::HeapStyle::Static {
+                bound: Uimm64::new(LinearMemory::DEFAULT_HEAP_SIZE as u64),
+            },
+            index_type: I32,
+        })
     }
 
     /// Set up the necessary preamble definitions in `func` to access the table identified
@@ -277,7 +424,53 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     ///
     /// The index space covers both imported and locally declared tables.
     fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> ir::Table {
-        unimplemented!()
+        debug_assert_eq!(
+            index.index(),
+            0,
+            "Only one WebAssembly table supported"
+        );
+
+        // Create VMContext value.
+        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        let ptr_size = self.pointer_bytes();
+        let tables_offset = WasmerVMContext::offset_tables();
+
+        // Load value at (vmctx + memories_offset) which is the address at Ctx.tables.
+        let base = func.create_global_value(ir::GlobalValueData::Load {
+            base: vmctx,
+            offset: Offset32::new(tables_offset as i32),
+            global_type: self.pointer_type(),
+            readonly: true,
+        });
+
+        // *Ctx.tables -> [ {data: *usize, len: usize}, {data: *usize, len: usize}, ... ]
+        // Based on the index provided, we need to know the offset into tables array.
+        let table_data_offset = (index.as_u32() as i32) * (ptr_size as i32) * 2;
+
+        // Load value at (base + table_data_offset), i.e. the address at Ctx.tables[index].data
+        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base,
+            offset: Offset32::new(table_data_offset),
+            global_type: self.pointer_type(),
+            readonly: false,
+        });
+
+        // Load value at (base + table_data_offset), i.e. the value at Ctx.tables[index].len
+        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base,
+            offset: Offset32::new(table_data_offset + ptr_size as i32),
+            global_type: self.pointer_type(),
+            readonly: false,
+        });
+
+        // Create table based on the data above
+        func.create_table(ir::TableData {
+            base_gv,
+            min_size: Uimm64::new(0),
+            bound_gv,
+            element_size: Uimm64::new(u64::from(self.pointer_bytes())),
+            index_type: I64,
+        })
     }
 
     /// Sets up a signature definition in `func`'s preamble
@@ -442,15 +635,14 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
 
     /// Declares a table import to the environment.
     fn declare_table_import(&mut self, table: Table, module: &'data str, field: &'data str) {
-        // // Add table index to list of tables
-        // self.tables.push(table);
+        // Add table index to list of tables
+        self.tables.push(table);
 
-        // // Add import names to list of imported tables
-        // self.imported_tables.push((
-        //     (String::from(module), String::from(field)).into(),
-        //     converter::convert_table(table).desc,
-        // ));
-        unimplemented!()
+        // Add import names to list of imported tables
+        self.imported_tables.push((
+            (String::from(module), String::from(field)).into(),
+            converter::convert_table(table),
+        ));
     }
 
     /// Fills a declared table with references to functions in the module.
@@ -461,17 +653,36 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
         offset: usize,
         elements: Vec<FuncIndex>,
     ) {
-        unimplemented!()
+        // Convert Cranelift GlobalIndex to wamser GlobalIndex
+        let base = base.map(|index| WasmerGlobalIndex::new(index.index()));
+
+        // Add table initializer to list of table initializers
+        self.table_initializers.push(TableInitializer {
+            table_index: WasmerTableIndex::new(table_index.index()),
+            base,
+            offset,
+            elements: elements.iter().map(
+                |index| WasmerFuncIndex::new(index.index())
+            ).collect(),
+        });
     }
 
     /// Declares a memory to the environment
     fn declare_memory(&mut self, memory: Memory) {
-        unimplemented!()
+        // Add memory index to list of memories
+        self.memories.push(memory);
     }
 
     /// Declares a memory import to the environment.
     fn declare_memory_import(&mut self, memory: Memory, module: &'data str, field: &'data str) {
-        unimplemented!()
+        // Add memory index to list of memories
+        self.memories.push(memory);
+
+        // Add import names to list of imported memories
+        self.imported_memories.push((
+            (String::from(module), String::from(field)).into(),
+            converter::convert_memory(memory),
+        ));
     }
 
     /// Fills a declared memory with bytes at module instantiation.
@@ -482,33 +693,86 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
         offset: usize,
         data: &'data [u8],
     ) {
-        unimplemented!()
+        // Convert Cranelift GlobalIndex to wamser GlobalIndex
+        let base = base.map(|index| WasmerGlobalIndex::new(index.index()));
+
+        // Add data initializer to list of data initializers
+        self.data_initializers.push(DataInitializer {
+            memory_index: WasmerMemoryIndex::new(memory_index.index()),
+            base,
+            offset,
+            data: data.to_vec(),
+        });
     }
 
     /// Declares a function export to the environment.
     fn declare_func_export(&mut self, func_index: FuncIndex, name: &'data str) {
-        unimplemented!()
+        self.exports.insert(
+            String::from(name),
+            Export::Func(WasmerFuncIndex::new(func_index.index())),
+        );
     }
     /// Declares a table export to the environment.
     fn declare_table_export(&mut self, table_index: TableIndex, name: &'data str) {
-        unimplemented!()
+        self.exports.insert(
+            String::from(name),
+            Export::Table(WasmerTableIndex::new(table_index.index())),
+        );
     }
     /// Declares a memory export to the environment.
     fn declare_memory_export(&mut self, memory_index: MemoryIndex, name: &'data str) {
-        unimplemented!()
+        self.exports.insert(
+            String::from(name),
+            Export::Memory(WasmerMemoryIndex::new(memory_index.index())),
+        );
     }
     /// Declares a global export to the environment.
     fn declare_global_export(&mut self, global_index: GlobalIndex, name: &'data str) {
-        unimplemented!()
+        self.exports.insert(
+            String::from(name),
+            Export::Global(WasmerGlobalIndex::new(global_index.index())),
+        );
     }
 
     /// Declares a start function.
     fn declare_start_func(&mut self, index: FuncIndex) {
-        unimplemented!()
+        self.start_func = Some(WasmerFuncIndex::new(index.index()));
     }
 
     /// Provides the contents of a function body.
     fn define_function_body(&mut self, body_bytes: &'data [u8]) -> WasmResult<()> {
-        unimplemented!()
+        // IR of the function body.
+        let func_body = {
+            // Generate a function environment needed by the function IR.
+            let mut func_environ = FuncEnvironment::new(&self);
+
+            // Get function index.
+            let func_index =
+                FuncIndex::new(self.get_num_func_imports() + self.function_bodies.len());
+
+            // Get the name of function index.
+            let name = ExternalName::user(0, func_index.index() as u32);
+
+            // Get signature of function and extend with a vmct parameter.
+            let sig = func_environ.generate_signature(self.get_func_type(func_index));
+
+            // Create function.
+            let mut function = ir::Function::with_name_signature(name, sig);
+
+            // Complete function creation with translated function body.
+            FuncTranslator::new()
+                .translate(body_bytes, &mut function, &mut func_environ)?;
+
+            function
+        };
+
+        // Add function body to list of function bodies.
+        self.function_bodies.push(func_body);
+
+        Ok(())
     }
 }
+
+
+
+// trans: FuncTranslator

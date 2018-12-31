@@ -1,7 +1,7 @@
 pub mod backend;
 mod backing;
 mod instance;
-mod memory;
+pub mod memory;
 pub mod module;
 mod sig_registry;
 mod table;
