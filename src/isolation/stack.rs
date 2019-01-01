@@ -17,15 +17,31 @@ extern "C" {
 
 pub struct StackContext<T, R> {
     addr: *mut u8,
-    size: usize,
-    thread_context: ThreadContext<T, R>,
+    thread_context: Box<ThreadContext<T, R>>,
 }
 
-struct ThreadContext<T, R> {
-    target: fn(T) -> R,
+pub struct ThreadContext<T, R> {
+    target: fn(&mut ThreadContext<T, R>, T) -> R,
     param: Option<T>,
     ret: Option<R>,
     jmp_buffer: [c_int; SETJMP_BUFFER_LEN],
+}
+
+impl<T, R> ThreadContext<T, R> {
+    /// do_yield swaps the current state with the saved one.
+    ///
+    /// This is marked as safe because we assume that:
+    /// - A ThreadContext can only be constructed from within this module.
+    /// - This function is never inlined so that the compiler consider the whole ThreadContext as possibly modified after calling this.
+    #[inline(never)] // prevent compiler from looking into do_yield when performing optimizations.
+    pub fn do_yield(&mut self) {
+        unsafe {
+            let mut yield_point = self.jmp_buffer;
+            if setjmp(&mut self.jmp_buffer) == 0 {
+                longjmp(&mut yield_point, 1);
+            }
+        }
+    }
 }
 
 struct PthreadAttr {
@@ -56,36 +72,46 @@ impl Drop for PthreadAttr {
 }
 
 impl<T, R> StackContext<T, R> {
-    pub unsafe fn new(addr: *mut u8, size: usize, f: fn(T) -> R, param: T) -> StackContext<T, R> {
+    /// Creates a new stack context.
+    ///
+    /// This function is unsafe because `addr` and `size` must be ensured by the user to be valid.
+    pub unsafe fn new(
+        addr: *mut u8,
+        f: fn(&mut ThreadContext<T, R>, T) -> R,
+        param: T,
+    ) -> StackContext<T, R> {
         extern "C" fn run_context<T, R>(ctx: *mut c_void) -> *mut c_void {
             unsafe {
                 let ctx = &mut *(ctx as *mut ThreadContext<T, R>);
                 if setjmp(&mut ctx.jmp_buffer) != 0 {
-                    ctx.ret = Some((ctx.target)(ctx.param.take().unwrap()));
+                    let target = ctx.target;
+                    let param = ctx.param.take().unwrap();
+                    let ret = (target)(ctx, param);
+                    ctx.ret = Some(ret);
+                    ctx.do_yield();
                 }
             }
             ::std::ptr::null_mut()
         }
 
         let mut attr = PthreadAttr::new();
-        if pthread_attr_setstack(&mut attr.inner, addr as *mut c_void, size as size_t) != 0 {
-            panic!(
-                "pthread_attr_setstack failed, addr = {:?}, size = {}",
-                addr, size
-            );
+
+        // The value 65536 is chosen arbitrarily. Any reasonable value for stack size works here.
+        if pthread_attr_setstack(&mut attr.inner, addr as *mut c_void, 65536) != 0 {
+            panic!("pthread_attr_setstack failed, addr = {:?}", addr);
         }
-        let mut thread_ctx = ThreadContext {
+        let mut thread_ctx = Box::new(ThreadContext {
             target: f,
             param: Some(param),
             ret: None,
             jmp_buffer: ::std::mem::uninitialized(),
-        };
+        });
         let mut pthread_handle: pthread_t = ::std::mem::uninitialized();
         if pthread_create(
             &mut pthread_handle,
             &mut attr.inner,
             run_context::<T, R>,
-            &mut thread_ctx as *mut ThreadContext<T, R> as *mut c_void,
+            thread_ctx.as_mut() as *mut ThreadContext<T, R> as *mut c_void,
         ) != 0
         {
             panic!("pthread_create failed");
@@ -93,8 +119,18 @@ impl<T, R> StackContext<T, R> {
         pthread_join(pthread_handle, ::std::ptr::null_mut());
         StackContext {
             addr: addr,
-            size: size,
             thread_context: thread_ctx,
+        }
+    }
+
+    /// Continues execution of the current stack context.
+    ///
+    /// This function is unsafe because nested stack context is not supported and may cause UB.
+    pub unsafe fn next(mut self) -> Result<R, Self> {
+        self.thread_context.do_yield();
+        match self.thread_context.ret {
+            Some(x) => Ok(x),
+            None => Err(self),
         }
     }
 }
@@ -105,16 +141,31 @@ mod tests {
 
     #[test]
     fn test_stack_context() {
-        fn some_fn(_: ()) {}
+        fn some_fn(ctx: &mut ThreadContext<&mut i32, ()>, out: &mut i32) {
+            for i in 0..100i32 {
+                *out += i;
+                ctx.do_yield();
+            }
+        }
         let mut buf: Vec<u8> = Vec::with_capacity(65536);
         unsafe { buf.set_len(65536) };
-        let ctx = unsafe {
+
+        let mut sum: i32 = 0;
+        let mut ctx = Some(unsafe {
             StackContext::new(
                 ((buf.as_mut_ptr().offset(buf.len() as isize) as usize) & (!4095usize)) as _,
-                buf.len(),
                 some_fn,
-                (),
+                &mut sum,
             )
-        };
+        });
+        loop {
+            match unsafe { ctx.take().unwrap().next() } {
+                Ok(x) => break,
+                Err(x) => {
+                    ctx = Some(x);
+                }
+            }
+        }
+        assert_eq!(sum, 4950);
     }
 }
