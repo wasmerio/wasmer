@@ -7,16 +7,21 @@ use time;
 
 use crate::webassembly::Instance;
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "linux")]
 use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
+
+#[cfg(target_os = "macos")]
+use libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
+#[cfg(target_os = "macos")]
+const CLOCK_MONOTONIC_COARSE: libc::clockid_t = 6;
 
 // some assumptions about the constants when targeting windows
 #[cfg(target_os = "windows")]
-const CLOCK_REALTIME: libc::c_int = 0;
+const CLOCK_REALTIME: libc::clockid_t = 0;
 #[cfg(target_os = "windows")]
-const CLOCK_MONOTONIC: libc::c_int = 1;
+const CLOCK_MONOTONIC: libc::clockid_t = 1;
 #[cfg(target_os = "windows")]
-const CLOCK_MONOTONIC_COARSE: libc::c_int = 6;
+const CLOCK_MONOTONIC_COARSE: libc::clockid_t = 6;
 
 /// emscripten: _gettimeofday
 pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
@@ -43,7 +48,11 @@ pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -
 }
 
 /// emscripten: _clock_gettime
-pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn _clock_gettime(
+    clk_id: libc::clockid_t,
+    tp: c_int,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::_clock_gettime {} {}", clk_id, tp);
     #[repr(C)]
     struct GuestTimeSpec {
@@ -72,7 +81,11 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
 }
 
 /// emscripten: ___clock_gettime
-pub extern "C" fn ___clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___clock_gettime(
+    clk_id: libc::clockid_t,
+    tp: c_int,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
     _clock_gettime(clk_id, tp, instance)
 }
