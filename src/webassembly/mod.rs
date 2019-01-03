@@ -163,7 +163,7 @@ pub fn get_isa() -> Box<isa::TargetIsa> {
     isa::lookup(triple!("x86_64")).unwrap().finish(flags)
 }
 
-fn store_module_arguments(path: &str, args: Vec<&str>, instance: &Instance) -> (u32, u32) {
+fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) -> (u32, u32) {
     let argc = args.len() + 1;
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =

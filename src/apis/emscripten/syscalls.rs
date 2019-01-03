@@ -71,6 +71,7 @@ use libc::{
     TIOCGWINSZ,
 };
 
+use crate::apis::emscripten::env;
 use std::mem;
 use std::slice;
 // use std::sys::fd::FileDesc;
@@ -645,17 +646,12 @@ pub extern "C" fn ___syscall192(
         addr, len, prot, flags, fd, off
     );
 
-    let (memalign, memset) = {
-        let emscripten_data = &instance.emscripten_data().as_ref().unwrap();
-        (emscripten_data.memalign, emscripten_data.memset)
-    };
-
     if fd == -1 {
-        let ptr = memalign(16384, len, instance);
+        let ptr = env::call_memalign(16384, len, instance);
         if ptr == 0 {
             return -1;
         }
-        memset(ptr, 0, len, instance);
+        env::call_memset(ptr, 0, len, instance);
         ptr as _
     } else {
         -1

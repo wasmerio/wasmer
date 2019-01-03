@@ -9,7 +9,8 @@ use std::mem;
 use std::os::raw::c_char;
 
 use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use crate::runtime::Instance;
+use crate::apis::emscripten::env;
+use crate::runtime::{types::Value, Instance};
 use crate::webassembly::instance::EmscriptenData;
 
 impl Instance {
@@ -95,10 +96,7 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 
     unsafe {
         let passwd = &*libc_getpwnam(name.as_ptr());
-        let passwd_struct_offset = (instance.emscripten_data().as_ref().unwrap().malloc)(
-            mem::size_of::<GuestPasswd>() as _,
-            instance,
-        );
+        let passwd_struct_offset = call_malloc(mem::size_of::<GuestPasswd>() as _, instance);
 
         let passwd_struct_ptr =
             instance.memory_offset_addr(0, passwd_struct_offset as _) as *mut GuestPasswd;
@@ -132,10 +130,7 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
 
     unsafe {
         let group = &*libc_getgrnam(name.as_ptr());
-        let group_struct_offset = (instance.emscripten_data().as_ref().unwrap().malloc)(
-            mem::size_of::<GuestGroup>() as _,
-            instance,
-        );
+        let group_struct_offset = call_malloc(mem::size_of::<GuestGroup>() as _, instance);
 
         let group_struct_ptr =
             instance.memory_offset_addr(0, group_struct_offset as _) as *mut GuestGroup;
@@ -145,6 +140,49 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
         (*group_struct_ptr).gr_mem = copy_terminated_array_of_cstrs(instance, group.gr_mem);
 
         group_struct_offset as c_int
+    }
+}
+
+pub fn call_malloc(size: i32, instance: &mut Instance) -> u32 {
+    let ret = instance
+        .call("_malloc", &[Value::I32(size)])
+        .expect("_malloc call failed");
+    if let Some(Value::I32(ptr)) = ret {
+        ptr as u32
+    } else {
+        panic!("unexpected value from _malloc: {:?}", ret);
+    }
+}
+
+pub fn call_memalign(alignment: u32, size: u32, instance: &mut Instance) -> u32 {
+    let ret = instance
+        .call(
+            "_memalign",
+            &[Value::I32(alignment as i32), Value::I32(size as i32)],
+        )
+        .expect("_memalign call failed");
+    if let Some(Value::I32(res)) = ret {
+        res as u32
+    } else {
+        panic!("unexpected value from _memalign {:?}", ret);
+    }
+}
+
+pub fn call_memset(pointer: u32, value: i32, size: u32, instance: &mut Instance) -> u32 {
+    let ret = instance
+        .call(
+            "_memset",
+            &[
+                Value::I32(pointer as i32),
+                Value::I32(value),
+                Value::I32(size as i32),
+            ],
+        )
+        .expect("_memset call failed");
+    if let Some(Value::I32(res)) = ret {
+        res as u32
+    } else {
+        panic!("unexpected value from _memset {:?}", ret);
     }
 }
 

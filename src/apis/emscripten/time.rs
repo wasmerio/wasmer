@@ -5,6 +5,7 @@ use std::time::SystemTime;
 
 use time;
 
+use crate::apis::emscripten::env;
 use crate::webassembly::Instance;
 
 /// emscripten: _gettimeofday
@@ -163,10 +164,7 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
     let result_tm = time::at(timespec);
 
     unsafe {
-        let tm_struct_offset = (instance.emscripten_data().as_ref().unwrap().malloc)(
-            mem::size_of::<guest_tm>() as _,
-            instance,
-        );
+        let tm_struct_offset = env::call_malloc(mem::size_of::<guest_tm>() as _, instance);
         let tm_struct_ptr = instance.memory_offset_addr(0, tm_struct_offset as _) as *mut guest_tm;
         // debug!(
         //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
