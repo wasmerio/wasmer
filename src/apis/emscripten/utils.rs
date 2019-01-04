@@ -92,29 +92,51 @@ pub unsafe fn copy_terminated_array_of_cstrs(
     0
 }
 
-pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat) {
-    let buf_ptr = instance.memory_offset_addr(0, buf as _) as *mut u8;
-    let buf = slice::from_raw_parts_mut(buf_ptr, 76);
+#[repr(C)]
+pub struct GuestStat {
+    st_dev: u32,
+    __st_dev_padding: u32,
+    __st_ino_truncated: u32,
+    st_mode: u32,
+    st_nlink: u32,
+    st_uid: u32,
+    st_gid: u32,
+    st_rdev: u32,
+    __st_rdev_padding: u32,
+    st_size: u32,
+    st_blksize: u32,
+    st_blocks: u32,
+    st_atime: u64,
+    st_mtime: u64,
+    st_ctime: u64,
+    st_ino: u64,
+}
 
-    LittleEndian::write_u32(&mut buf[..], stat.st_dev as _);
-    LittleEndian::write_u32(&mut buf[4..], 0);
-    LittleEndian::write_u32(&mut buf[8..], stat.st_ino as _);
-    LittleEndian::write_u32(&mut buf[12..], stat.st_mode as _);
-    LittleEndian::write_u32(&mut buf[16..], stat.st_nlink as _);
-    LittleEndian::write_u32(&mut buf[20..], stat.st_uid);
-    LittleEndian::write_u32(&mut buf[24..], stat.st_gid);
-    LittleEndian::write_u32(&mut buf[28..], stat.st_rdev as _);
-    LittleEndian::write_u32(&mut buf[32..], 0);
-    LittleEndian::write_u32(&mut buf[36..], stat.st_size as _);
-    LittleEndian::write_u32(&mut buf[40..], 4096);
-    LittleEndian::write_u32(&mut buf[44..], stat.st_blocks as _);
-    LittleEndian::write_u32(&mut buf[48..], stat.st_atime as _);
-    LittleEndian::write_u32(&mut buf[52..], 0);
-    LittleEndian::write_u32(&mut buf[56..], stat.st_mtime as _);
-    LittleEndian::write_u32(&mut buf[60..], 0);
-    LittleEndian::write_u32(&mut buf[64..], stat.st_ctime as _);
-    LittleEndian::write_u32(&mut buf[68..], 0);
-    LittleEndian::write_u32(&mut buf[72..], stat.st_ino as _);
+pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat) {
+    let stat_ptr = instance.memory_offset_addr(0, buf as _) as *mut GuestStat;
+    (*stat_ptr).st_dev = stat.st_dev as _;
+    (*stat_ptr).__st_dev_padding = 0;
+    (*stat_ptr).__st_ino_truncated = stat.st_ino as _;
+    (*stat_ptr).st_mode = stat.st_mode as _;
+    (*stat_ptr).st_nlink = stat.st_nlink as _;
+    (*stat_ptr).st_uid = stat.st_uid as _;
+    (*stat_ptr).st_gid = stat.st_gid as _;
+    (*stat_ptr).st_rdev = stat.st_rdev as _;
+    (*stat_ptr).__st_rdev_padding = 0;
+    (*stat_ptr).st_size = stat.st_size as _;
+    (*stat_ptr).st_blksize = 4096;
+    #[cfg(not(target_os = "windows"))]
+    {
+        (*stat_ptr).st_blocks = stat.st_blocks as _;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        (*stat_ptr).st_blocks = 0;
+    }
+    (*stat_ptr).st_atime = stat.st_atime as _;
+    (*stat_ptr).st_mtime = stat.st_mtime as _;
+    (*stat_ptr).st_ctime = stat.st_ctime as _;
+    (*stat_ptr).st_ino = stat.st_ino as _;
 }
 
 #[cfg(test)]
