@@ -94,7 +94,7 @@ pub unsafe fn copy_terminated_array_of_cstrs(
 
 #[repr(C)]
 pub struct GuestStat {
-    st_dev: u64,
+    st_dev: u32,
     __st_dev_padding: u32,
     __st_ino_truncated: u32,
     st_mode: u32,
