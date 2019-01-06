@@ -9,7 +9,7 @@ use std::process::exit;
 use std::sync::Arc;
 
 use structopt::StructOpt;
-use wasmer::apis::emscripten::{EmptyModuleEnvironment, EmscriptenModuleEnvironment};
+use wasmer::apis::emscripten::EmscriptenModuleEnvironment;
 use wasmer::runtime::module::ModuleEnvironment;
 
 use wasmer::*;
@@ -78,8 +78,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let mut environments: Vec<Box<dyn ModuleEnvironment>> = vec![];
     if apis::is_emscripten_module(&module) {
         environments.push(Box::new(EmscriptenModuleEnvironment::new()));
-    } else {
-        environments.push(Box::new(EmptyModuleEnvironment::new()));
     }
 
     for env in environments {

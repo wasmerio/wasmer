@@ -20,7 +20,7 @@ pub struct Instance {
     import_backing: ImportBacking,
     sig_registry: SigRegistry,
     pub module: Arc<Module>,
-    pub environments: Vec<InstanceEnvironment>,
+    pub environments: [InstanceEnvironment; 4],
 }
 
 impl Instance {
@@ -43,7 +43,12 @@ impl Instance {
             import_backing,
             module: Arc::clone(&module),
             sig_registry,
-            environments: vec![],
+            environments: [
+                InstanceEnvironment::EmptyInstanceEnvironment,
+                InstanceEnvironment::EmptyInstanceEnvironment,
+                InstanceEnvironment::EmptyInstanceEnvironment,
+                InstanceEnvironment::EmptyInstanceEnvironment,
+            ],
         });
 
         if let Some(start_index) = start_func {

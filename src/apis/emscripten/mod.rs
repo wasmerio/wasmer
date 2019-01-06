@@ -54,25 +54,11 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
 }
 
 pub enum InstanceEnvironment {
+    EmptyInstanceEnvironment,
     EmscriptenInstanceEnvironment(EmscriptenData),
 }
 
-// This index depends on the EmscriptenModuleEnvironment being the first ModuleEnvironment
-// in a module so that EmscriptenInstanceEnvironment are pushed to modules at index 0.
 const EMSCRIPTEN_INSTANCE_INDEX: usize = 0;
-
-// This struct is a placeholder for an unused module environment
-pub struct EmptyModuleEnvironment {}
-impl EmptyModuleEnvironment {
-    pub fn new() -> EmptyModuleEnvironment {
-        EmptyModuleEnvironment {}
-    }
-}
-impl ModuleEnvironment for EmptyModuleEnvironment {
-    fn after_instantiate(&self, instance: &mut Instance) {}
-
-    fn append_imports(&self, import_object: &mut Imports) {}
-}
 
 pub struct EmscriptenModuleEnvironment {}
 impl EmscriptenModuleEnvironment {
@@ -85,7 +71,7 @@ impl ModuleEnvironment for EmscriptenModuleEnvironment {
     fn after_instantiate(&self, instance: &mut Instance) {
         let data = EmscriptenData::new(&Arc::clone(&instance.module), instance);
         let instance_environment = InstanceEnvironment::EmscriptenInstanceEnvironment(data);
-        instance.environments.push(instance_environment);
+        instance.environments[EMSCRIPTEN_INSTANCE_INDEX] = instance_environment;
     }
 
     fn append_imports(&self, mut import_object: &mut Imports) {
