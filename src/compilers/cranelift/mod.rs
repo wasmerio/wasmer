@@ -4,7 +4,7 @@ use crate::runtime::{backend::Compiler, module::Module};
 
 use std::sync::Arc;
 
-use self::codegen::{CraneliftModule};
+use self::codegen::CraneliftModule;
 
 use crate::webassembly;
 

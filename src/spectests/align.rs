@@ -8,7 +8,7 @@
 use wabt::wat2wasm;
 
 use crate::runtime::types::Value;
-use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+use crate::webassembly::{compile, instantiate, ResultObject};
 
 use super::_common::{spectest_importobject, NaNCheck};
 
@@ -2471,7 +2471,7 @@ fn c107_l802_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c107_l802_action_invoke");
     let result = result_object
         .instance
-        .call("c107_l802_action_invoke", &[Value::I32(0 as i32)])
+        .call("f32_align_switch", &[Value::I32(0 as i32)])
         .expect("Missing result in c107_l802_action_invoke");
     assert_eq!(result, Some(Value::F32((10.0f32).to_bits())));
 }
@@ -2481,7 +2481,7 @@ fn c108_l803_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c108_l803_action_invoke");
     let result = result_object
         .instance
-        .call("c108_l803_action_invoke", &[Value::I32(1 as i32)])
+        .call("f32_align_switch", &[Value::I32(1 as i32)])
         .expect("Missing result in c108_l803_action_invoke");
     assert_eq!(result, Some(Value::F32((10.0f32).to_bits())));
 }
@@ -2491,7 +2491,7 @@ fn c109_l804_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c109_l804_action_invoke");
     let result = result_object
         .instance
-        .call("c109_l804_action_invoke", &[Value::I32(2 as i32)])
+        .call("f32_align_switch", &[Value::I32(2 as i32)])
         .expect("Missing result in c109_l804_action_invoke");
     assert_eq!(result, Some(Value::F32((10.0f32).to_bits())));
 }
@@ -2501,7 +2501,7 @@ fn c110_l805_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c110_l805_action_invoke");
     let result = result_object
         .instance
-        .call("c110_l805_action_invoke", &[Value::I32(3 as i32)])
+        .call("f32_align_switch", &[Value::I32(3 as i32)])
         .expect("Missing result in c110_l805_action_invoke");
     assert_eq!(result, Some(Value::F32((10.0f32).to_bits())));
 }
@@ -2511,7 +2511,7 @@ fn c111_l807_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c111_l807_action_invoke");
     let result = result_object
         .instance
-        .call("c111_l807_action_invoke", &[Value::I32(0 as i32)])
+        .call("f64_align_switch", &[Value::I32(0 as i32)])
         .expect("Missing result in c111_l807_action_invoke");
     assert_eq!(result, Some(Value::F64((10.0f64).to_bits())));
 }
@@ -2521,7 +2521,7 @@ fn c112_l808_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c112_l808_action_invoke");
     let result = result_object
         .instance
-        .call("c112_l808_action_invoke", &[Value::I32(1 as i32)])
+        .call("f64_align_switch", &[Value::I32(1 as i32)])
         .expect("Missing result in c112_l808_action_invoke");
     assert_eq!(result, Some(Value::F64((10.0f64).to_bits())));
 }
@@ -2531,7 +2531,7 @@ fn c113_l809_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c113_l809_action_invoke");
     let result = result_object
         .instance
-        .call("c113_l809_action_invoke", &[Value::I32(2 as i32)])
+        .call("f64_align_switch", &[Value::I32(2 as i32)])
         .expect("Missing result in c113_l809_action_invoke");
     assert_eq!(result, Some(Value::F64((10.0f64).to_bits())));
 }
@@ -2541,7 +2541,7 @@ fn c114_l810_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c114_l810_action_invoke");
     let result = result_object
         .instance
-        .call("c114_l810_action_invoke", &[Value::I32(3 as i32)])
+        .call("f64_align_switch", &[Value::I32(3 as i32)])
         .expect("Missing result in c114_l810_action_invoke");
     assert_eq!(result, Some(Value::F64((10.0f64).to_bits())));
 }
@@ -2551,7 +2551,7 @@ fn c115_l811_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c115_l811_action_invoke");
     let result = result_object
         .instance
-        .call("c115_l811_action_invoke", &[Value::I32(4 as i32)])
+        .call("f64_align_switch", &[Value::I32(4 as i32)])
         .expect("Missing result in c115_l811_action_invoke");
     assert_eq!(result, Some(Value::F64((10.0f64).to_bits())));
 }
@@ -2562,7 +2562,7 @@ fn c116_l813_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c116_l813_action_invoke",
+            "i32_align_switch",
             &[Value::I32(0 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c116_l813_action_invoke");
@@ -2575,7 +2575,7 @@ fn c117_l814_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c117_l814_action_invoke",
+            "i32_align_switch",
             &[Value::I32(0 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c117_l814_action_invoke");
@@ -2588,7 +2588,7 @@ fn c118_l815_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c118_l815_action_invoke",
+            "i32_align_switch",
             &[Value::I32(1 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c118_l815_action_invoke");
@@ -2601,7 +2601,7 @@ fn c119_l816_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c119_l816_action_invoke",
+            "i32_align_switch",
             &[Value::I32(1 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c119_l816_action_invoke");
@@ -2614,7 +2614,7 @@ fn c120_l817_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c120_l817_action_invoke",
+            "i32_align_switch",
             &[Value::I32(2 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c120_l817_action_invoke");
@@ -2627,7 +2627,7 @@ fn c121_l818_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c121_l818_action_invoke",
+            "i32_align_switch",
             &[Value::I32(2 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c121_l818_action_invoke");
@@ -2640,7 +2640,7 @@ fn c122_l819_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c122_l819_action_invoke",
+            "i32_align_switch",
             &[Value::I32(2 as i32), Value::I32(2 as i32)],
         )
         .expect("Missing result in c122_l819_action_invoke");
@@ -2653,7 +2653,7 @@ fn c123_l820_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c123_l820_action_invoke",
+            "i32_align_switch",
             &[Value::I32(3 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c123_l820_action_invoke");
@@ -2666,7 +2666,7 @@ fn c124_l821_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c124_l821_action_invoke",
+            "i32_align_switch",
             &[Value::I32(3 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c124_l821_action_invoke");
@@ -2679,7 +2679,7 @@ fn c125_l822_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c125_l822_action_invoke",
+            "i32_align_switch",
             &[Value::I32(3 as i32), Value::I32(2 as i32)],
         )
         .expect("Missing result in c125_l822_action_invoke");
@@ -2692,7 +2692,7 @@ fn c126_l823_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c126_l823_action_invoke",
+            "i32_align_switch",
             &[Value::I32(4 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c126_l823_action_invoke");
@@ -2705,7 +2705,7 @@ fn c127_l824_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c127_l824_action_invoke",
+            "i32_align_switch",
             &[Value::I32(4 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c127_l824_action_invoke");
@@ -2718,7 +2718,7 @@ fn c128_l825_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c128_l825_action_invoke",
+            "i32_align_switch",
             &[Value::I32(4 as i32), Value::I32(2 as i32)],
         )
         .expect("Missing result in c128_l825_action_invoke");
@@ -2731,7 +2731,7 @@ fn c129_l826_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c129_l826_action_invoke",
+            "i32_align_switch",
             &[Value::I32(4 as i32), Value::I32(4 as i32)],
         )
         .expect("Missing result in c129_l826_action_invoke");
@@ -2744,7 +2744,7 @@ fn c130_l828_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c130_l828_action_invoke",
+            "i64_align_switch",
             &[Value::I32(0 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c130_l828_action_invoke");
@@ -2757,7 +2757,7 @@ fn c131_l829_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c131_l829_action_invoke",
+            "i64_align_switch",
             &[Value::I32(0 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c131_l829_action_invoke");
@@ -2770,7 +2770,7 @@ fn c132_l830_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c132_l830_action_invoke",
+            "i64_align_switch",
             &[Value::I32(1 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c132_l830_action_invoke");
@@ -2783,7 +2783,7 @@ fn c133_l831_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c133_l831_action_invoke",
+            "i64_align_switch",
             &[Value::I32(1 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c133_l831_action_invoke");
@@ -2796,7 +2796,7 @@ fn c134_l832_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c134_l832_action_invoke",
+            "i64_align_switch",
             &[Value::I32(2 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c134_l832_action_invoke");
@@ -2809,7 +2809,7 @@ fn c135_l833_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c135_l833_action_invoke",
+            "i64_align_switch",
             &[Value::I32(2 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c135_l833_action_invoke");
@@ -2822,7 +2822,7 @@ fn c136_l834_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c136_l834_action_invoke",
+            "i64_align_switch",
             &[Value::I32(2 as i32), Value::I32(2 as i32)],
         )
         .expect("Missing result in c136_l834_action_invoke");
@@ -2835,7 +2835,7 @@ fn c137_l835_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c137_l835_action_invoke",
+            "i64_align_switch",
             &[Value::I32(3 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c137_l835_action_invoke");
@@ -2848,7 +2848,7 @@ fn c138_l836_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c138_l836_action_invoke",
+            "i64_align_switch",
             &[Value::I32(3 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c138_l836_action_invoke");
@@ -2861,7 +2861,7 @@ fn c139_l837_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c139_l837_action_invoke",
+            "i64_align_switch",
             &[Value::I32(3 as i32), Value::I32(2 as i32)],
         )
         .expect("Missing result in c139_l837_action_invoke");
@@ -2874,7 +2874,7 @@ fn c140_l838_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c140_l838_action_invoke",
+            "i64_align_switch",
             &[Value::I32(4 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c140_l838_action_invoke");
@@ -2887,7 +2887,7 @@ fn c141_l839_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c141_l839_action_invoke",
+            "i64_align_switch",
             &[Value::I32(4 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c141_l839_action_invoke");
@@ -2900,7 +2900,7 @@ fn c142_l840_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c142_l840_action_invoke",
+            "i64_align_switch",
             &[Value::I32(4 as i32), Value::I32(2 as i32)],
         )
         .expect("Missing result in c142_l840_action_invoke");
@@ -2913,7 +2913,7 @@ fn c143_l841_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c143_l841_action_invoke",
+            "i64_align_switch",
             &[Value::I32(4 as i32), Value::I32(4 as i32)],
         )
         .expect("Missing result in c143_l841_action_invoke");
@@ -2926,7 +2926,7 @@ fn c144_l842_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c144_l842_action_invoke",
+            "i64_align_switch",
             &[Value::I32(5 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c144_l842_action_invoke");
@@ -2939,7 +2939,7 @@ fn c145_l843_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c145_l843_action_invoke",
+            "i64_align_switch",
             &[Value::I32(5 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c145_l843_action_invoke");
@@ -2952,7 +2952,7 @@ fn c146_l844_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c146_l844_action_invoke",
+            "i64_align_switch",
             &[Value::I32(5 as i32), Value::I32(2 as i32)],
         )
         .expect("Missing result in c146_l844_action_invoke");
@@ -2965,7 +2965,7 @@ fn c147_l845_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c147_l845_action_invoke",
+            "i64_align_switch",
             &[Value::I32(5 as i32), Value::I32(4 as i32)],
         )
         .expect("Missing result in c147_l845_action_invoke");
@@ -2978,7 +2978,7 @@ fn c148_l846_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c148_l846_action_invoke",
+            "i64_align_switch",
             &[Value::I32(6 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c148_l846_action_invoke");
@@ -2991,7 +2991,7 @@ fn c149_l847_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c149_l847_action_invoke",
+            "i64_align_switch",
             &[Value::I32(6 as i32), Value::I32(1 as i32)],
         )
         .expect("Missing result in c149_l847_action_invoke");
@@ -3004,7 +3004,7 @@ fn c150_l848_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c150_l848_action_invoke",
+            "i64_align_switch",
             &[Value::I32(6 as i32), Value::I32(2 as i32)],
         )
         .expect("Missing result in c150_l848_action_invoke");
@@ -3017,7 +3017,7 @@ fn c151_l849_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c151_l849_action_invoke",
+            "i64_align_switch",
             &[Value::I32(6 as i32), Value::I32(4 as i32)],
         )
         .expect("Missing result in c151_l849_action_invoke");
@@ -3030,7 +3030,7 @@ fn c152_l850_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c152_l850_action_invoke",
+            "i64_align_switch",
             &[Value::I32(6 as i32), Value::I32(8 as i32)],
         )
         .expect("Missing result in c152_l850_action_invoke");

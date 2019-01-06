@@ -8,6 +8,22 @@ use time;
 use crate::apis::emscripten::env;
 use crate::webassembly::Instance;
 
+#[cfg(target_os = "linux")]
+use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
+
+#[cfg(target_os = "macos")]
+use libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
+#[cfg(target_os = "macos")]
+const CLOCK_MONOTONIC_COARSE: libc::clockid_t = 6;
+
+// some assumptions about the constants when targeting windows
+#[cfg(target_os = "windows")]
+const CLOCK_REALTIME: libc::clockid_t = 0;
+#[cfg(target_os = "windows")]
+const CLOCK_MONOTONIC: libc::clockid_t = 1;
+#[cfg(target_os = "windows")]
+const CLOCK_MONOTONIC_COARSE: libc::clockid_t = 6;
+
 /// emscripten: _gettimeofday
 pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::_gettimeofday {} {}", tp, tz);
@@ -33,7 +49,11 @@ pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -
 }
 
 /// emscripten: _clock_gettime
-pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn _clock_gettime(
+    clk_id: libc::clockid_t,
+    tp: c_int,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::_clock_gettime {} {}", clk_id, tp);
     #[repr(C)]
     struct GuestTimeSpec {
@@ -42,9 +62,15 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
     }
 
     let timespec = match clk_id {
-        0 => time::get_time(),
-        1 => panic!("Monotonic clock is not supported."),
-        _ => panic!("Clock is not supported."),
+        CLOCK_REALTIME => time::get_time(),
+        CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
+            let precise_ns = time::precise_time_ns();
+            time::Timespec::new(
+                (precise_ns / 1000000000) as i64,
+                (precise_ns % 1000000000) as i32,
+            )
+        }
+        _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
     };
 
     unsafe {
@@ -56,7 +82,11 @@ pub extern "C" fn _clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instan
 }
 
 /// emscripten: ___clock_gettime
-pub extern "C" fn ___clock_gettime(clk_id: c_int, tp: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn ___clock_gettime(
+    clk_id: libc::clockid_t,
+    tp: c_int,
+    instance: &mut Instance,
+) -> c_int {
     debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
     _clock_gettime(clk_id, tp, instance)
 }

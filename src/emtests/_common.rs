@@ -3,10 +3,8 @@ macro_rules! assert_emscripten_output {
         use crate::apis::generate_emscripten_env;
         use crate::common::stdio::StdioCapturer;
         use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
-        use crate::runtime::{Import, Imports};
-        use crate::webassembly::{
-            get_isa, instantiate, start_instance, InstanceABI, InstanceOptions,
-        };
+        use crate::runtime::{Import, Imports, InstanceABI, InstanceOptions};
+        use crate::webassembly::{get_isa, instantiate, start_instance};
         use std::sync::Arc;
 
         let wasm_bytes = include_bytes!($file);

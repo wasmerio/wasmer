@@ -9,6 +9,7 @@ use crate::runtime::{
     types::{FuncIndex, FuncSig, Memory, Table, Type, Value},
     vm,
 };
+use cranelift_codegen::isa;
 use hashbrown::HashMap;
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
 use std::cell::UnsafeCell;
@@ -21,6 +22,22 @@ pub struct Instance {
     sig_registry: SigRegistry,
     pub module: Arc<Module>,
     pub environments: [InstanceEnvironment; 4],
+}
+
+pub struct InstanceOptions {
+    // Shall we mock automatically the imported functions if they don't exist?
+    pub mock_missing_imports: bool,
+    pub mock_missing_globals: bool,
+    pub mock_missing_tables: bool,
+    pub abi: InstanceABI,
+    pub show_progressbar: bool,
+    pub isa: Box<isa::TargetIsa>,
+}
+
+#[derive(PartialEq)]
+pub enum InstanceABI {
+    Emscripten,
+    None,
 }
 
 impl Instance {

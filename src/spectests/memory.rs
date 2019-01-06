@@ -8,7 +8,7 @@
 use wabt::wat2wasm;
 
 use crate::runtime::types::Value;
-use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+use crate::webassembly::{compile, instantiate, ResultObject};
 
 use super::_common::{spectest_importobject, NaNCheck};
 
@@ -150,7 +150,7 @@ fn c7_l11_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c7_l11_action_invoke");
     let result = result_object
         .instance
-        .call("c7_l11_action_invoke", &[])
+        .call("memsize", &[])
         .expect("Missing result in c7_l11_action_invoke");
     assert_eq!(result, Some(Value::I32(0 as i32)));
 }
@@ -188,7 +188,7 @@ fn c9_l13_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c9_l13_action_invoke");
     let result = result_object
         .instance
-        .call("c9_l13_action_invoke", &[])
+        .call("memsize", &[])
         .expect("Missing result in c9_l13_action_invoke");
     assert_eq!(result, Some(Value::I32(0 as i32)));
 }
@@ -226,7 +226,7 @@ fn c11_l15_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c11_l15_action_invoke");
     let result = result_object
         .instance
-        .call("c11_l15_action_invoke", &[])
+        .call("memsize", &[])
         .expect("Missing result in c11_l15_action_invoke");
     assert_eq!(result, Some(Value::I32(1 as i32)));
 }

@@ -205,7 +205,7 @@ impl WastTestGenerator {
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, Instance}};
+use crate::webassembly::{{instantiate, compile, ResultObject}};
 use crate::runtime::types::{{Value}};
 
 use super::_common::{{
@@ -344,10 +344,11 @@ fn {}_assert_invalid() {{
                     format!(
                         "fn {func_name}(result_object: &mut ResultObject) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = result_object.instance.call(\"{func_name}\", &[{args_values}]).unwrap().expect(\"Missing result in {func_name}\");
+    let result = result_object.instance.call(\"{field}\", &[{args_values}]).unwrap().expect(\"Missing result in {func_name}\");
     {assertion}
 }}\n",
                         func_name=func_name,
+                        field=field,
                         args_values=args_values.join(", "),
                         assertion=assertion,
                     )
@@ -396,10 +397,11 @@ fn {}_assert_invalid() {{
                     format!(
                         "fn {func_name}(result_object: &mut ResultObject) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = result_object.instance.call(\"{func_name}\", &[{args_values}]).unwrap().expect(\"Missing result in {func_name}\");
+    let result = result_object.instance.call(\"{field}\", &[{args_values}]).unwrap().expect(\"Missing result in {func_name}\");
     {assertion}
 }}\n",
                         func_name=func_name,
+                        field=field,
                         args_values=args_values.join(", "),
                         assertion=assertion,
                     )
@@ -510,10 +512,11 @@ fn {}_assert_malformed() {{
                     format!(
                         "fn {func_name}(result_object: &mut ResultObject) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = result_object.instance.call(\"{func_name}\", &[{args_values}]).expect(\"Missing result in {func_name}\");
+    let result = result_object.instance.call(\"{field}\", &[{args_values}]).expect(\"Missing result in {func_name}\");
     {assertion}
 }}\n",
                         func_name=func_name,
+                        field=field,
                         args_values=args_values.join(", "),
                         assertion=assertion,
                     )

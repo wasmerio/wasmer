@@ -1,8 +1,8 @@
 use crate::runtime::module::ModuleEnvironment;
+use crate::runtime::memory::LinearMemory;
 use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
 use crate::runtime::{Import, Imports, Instance, Module};
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
-use crate::webassembly::{ImportValue, LinearMemory};
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_int;
 use std::cell::UnsafeCell;
