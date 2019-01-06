@@ -308,7 +308,7 @@ fn c12_l22_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c12_l22_action_invoke");
     let result = result_object
         .instance
-        .call("c12_l22_action_invoke", &[Value::I32(42 as i32)])
+        .call("e", &[Value::I32(42 as i32)])
         .expect("Missing result in c12_l22_action_invoke");
     assert_eq!(result, Some(Value::I32(43 as i32)));
 }
@@ -318,7 +318,7 @@ fn c13_l23_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c13_l23_action_invoke");
     let result = result_object
         .instance
-        .call("c13_l23_action_invoke", &[Value::I32(42 as i32)])
+        .call("e", &[Value::I32(42 as i32)])
         .expect("Missing result in c13_l23_action_invoke");
     assert_eq!(result, Some(Value::I32(43 as i32)));
 }

@@ -144,7 +144,7 @@ fn c1_l84_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l84_action_invoke");
     let result = result_object
         .instance
-        .call("c1_l84_action_invoke", &[Value::I64(25 as i64)])
+        .call("fac-rec", &[Value::I64(25 as i64)])
         .expect("Missing result in c1_l84_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
@@ -154,7 +154,7 @@ fn c2_l85_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l85_action_invoke");
     let result = result_object
         .instance
-        .call("c2_l85_action_invoke", &[Value::I64(25 as i64)])
+        .call("fac-iter", &[Value::I64(25 as i64)])
         .expect("Missing result in c2_l85_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
@@ -164,7 +164,7 @@ fn c3_l86_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l86_action_invoke");
     let result = result_object
         .instance
-        .call("c3_l86_action_invoke", &[Value::I64(25 as i64)])
+        .call("fac-rec-named", &[Value::I64(25 as i64)])
         .expect("Missing result in c3_l86_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
@@ -174,7 +174,7 @@ fn c4_l87_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l87_action_invoke");
     let result = result_object
         .instance
-        .call("c4_l87_action_invoke", &[Value::I64(25 as i64)])
+        .call("fac-iter-named", &[Value::I64(25 as i64)])
         .expect("Missing result in c4_l87_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
@@ -184,7 +184,7 @@ fn c5_l88_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l88_action_invoke");
     let result = result_object
         .instance
-        .call("c5_l88_action_invoke", &[Value::I64(25 as i64)])
+        .call("fac-opt", &[Value::I64(25 as i64)])
         .expect("Missing result in c5_l88_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }

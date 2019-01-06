@@ -58,7 +58,7 @@ fn c1_l16_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c1_l16_action_invoke",
+            "no_dce.i32.div_s",
             &[Value::I32(1 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c1_l16_action_invoke");
@@ -77,7 +77,7 @@ fn c2_l17_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c2_l17_action_invoke",
+            "no_dce.i32.div_u",
             &[Value::I32(1 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c2_l17_action_invoke");
@@ -96,7 +96,7 @@ fn c3_l18_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c3_l18_action_invoke",
+            "no_dce.i64.div_s",
             &[Value::I64(1 as i64), Value::I64(0 as i64)],
         )
         .expect("Missing result in c3_l18_action_invoke");
@@ -115,7 +115,7 @@ fn c4_l19_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c4_l19_action_invoke",
+            "no_dce.i64.div_u",
             &[Value::I64(1 as i64), Value::I64(0 as i64)],
         )
         .expect("Missing result in c4_l19_action_invoke");
@@ -134,7 +134,7 @@ fn c5_l20_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c5_l20_action_invoke",
+            "no_dce.i32.div_s",
             &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
         )
         .expect("Missing result in c5_l20_action_invoke");
@@ -153,7 +153,7 @@ fn c6_l21_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c6_l21_action_invoke",
+            "no_dce.i64.div_s",
             &[
                 Value::I64(-9223372036854775808 as i64),
                 Value::I64(-1 as i64),
@@ -222,7 +222,7 @@ fn c8_l34_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c8_l34_action_invoke",
+            "no_dce.i32.rem_s",
             &[Value::I32(1 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c8_l34_action_invoke");
@@ -241,7 +241,7 @@ fn c9_l35_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c9_l35_action_invoke",
+            "no_dce.i32.rem_u",
             &[Value::I32(1 as i32), Value::I32(0 as i32)],
         )
         .expect("Missing result in c9_l35_action_invoke");
@@ -260,7 +260,7 @@ fn c10_l36_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c10_l36_action_invoke",
+            "no_dce.i64.rem_s",
             &[Value::I64(1 as i64), Value::I64(0 as i64)],
         )
         .expect("Missing result in c10_l36_action_invoke");
@@ -279,7 +279,7 @@ fn c11_l37_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c11_l37_action_invoke",
+            "no_dce.i64.rem_u",
             &[Value::I64(1 as i64), Value::I64(0 as i64)],
         )
         .expect("Missing result in c11_l37_action_invoke");
@@ -361,7 +361,7 @@ fn c13_l50_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c13_l50_action_invoke",
+            "no_dce.i32.trunc_s_f32",
             &[Value::F32(f32::from_bits(2143289344) as u32)],
         )
         .expect("Missing result in c13_l50_action_invoke");
@@ -380,7 +380,7 @@ fn c14_l51_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c14_l51_action_invoke",
+            "no_dce.i32.trunc_u_f32",
             &[Value::F32(f32::from_bits(2143289344) as u32)],
         )
         .expect("Missing result in c14_l51_action_invoke");
@@ -399,7 +399,7 @@ fn c15_l52_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c15_l52_action_invoke",
+            "no_dce.i32.trunc_s_f64",
             &[Value::F64(f64::from_bits(9221120237041090560) as u64)],
         )
         .expect("Missing result in c15_l52_action_invoke");
@@ -418,7 +418,7 @@ fn c16_l53_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c16_l53_action_invoke",
+            "no_dce.i32.trunc_u_f64",
             &[Value::F64(f64::from_bits(9221120237041090560) as u64)],
         )
         .expect("Missing result in c16_l53_action_invoke");
@@ -437,7 +437,7 @@ fn c17_l54_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c17_l54_action_invoke",
+            "no_dce.i64.trunc_s_f32",
             &[Value::F32(f32::from_bits(2143289344) as u32)],
         )
         .expect("Missing result in c17_l54_action_invoke");
@@ -456,7 +456,7 @@ fn c18_l55_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c18_l55_action_invoke",
+            "no_dce.i64.trunc_u_f32",
             &[Value::F32(f32::from_bits(2143289344) as u32)],
         )
         .expect("Missing result in c18_l55_action_invoke");
@@ -475,7 +475,7 @@ fn c19_l56_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c19_l56_action_invoke",
+            "no_dce.i64.trunc_s_f64",
             &[Value::F64(f64::from_bits(9221120237041090560) as u64)],
         )
         .expect("Missing result in c19_l56_action_invoke");
@@ -494,7 +494,7 @@ fn c20_l57_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c20_l57_action_invoke",
+            "no_dce.i64.trunc_u_f64",
             &[Value::F64(f64::from_bits(9221120237041090560) as u64)],
         )
         .expect("Missing result in c20_l57_action_invoke");
@@ -605,7 +605,7 @@ fn c22_l78_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c22_l78_action_invoke");
     let result = result_object
         .instance
-        .call("c22_l78_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i32.load", &[Value::I32(65536 as i32)])
         .expect("Missing result in c22_l78_action_invoke");
 }
 
@@ -621,7 +621,7 @@ fn c23_l79_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c23_l79_action_invoke");
     let result = result_object
         .instance
-        .call("c23_l79_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i32.load16_s", &[Value::I32(65536 as i32)])
         .expect("Missing result in c23_l79_action_invoke");
 }
 
@@ -637,7 +637,7 @@ fn c24_l80_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c24_l80_action_invoke");
     let result = result_object
         .instance
-        .call("c24_l80_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i32.load16_u", &[Value::I32(65536 as i32)])
         .expect("Missing result in c24_l80_action_invoke");
 }
 
@@ -653,7 +653,7 @@ fn c25_l81_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c25_l81_action_invoke");
     let result = result_object
         .instance
-        .call("c25_l81_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i32.load8_s", &[Value::I32(65536 as i32)])
         .expect("Missing result in c25_l81_action_invoke");
 }
 
@@ -669,7 +669,7 @@ fn c26_l82_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c26_l82_action_invoke");
     let result = result_object
         .instance
-        .call("c26_l82_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i32.load8_u", &[Value::I32(65536 as i32)])
         .expect("Missing result in c26_l82_action_invoke");
 }
 
@@ -685,7 +685,7 @@ fn c27_l83_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c27_l83_action_invoke");
     let result = result_object
         .instance
-        .call("c27_l83_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i64.load", &[Value::I32(65536 as i32)])
         .expect("Missing result in c27_l83_action_invoke");
 }
 
@@ -701,7 +701,7 @@ fn c28_l84_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c28_l84_action_invoke");
     let result = result_object
         .instance
-        .call("c28_l84_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i64.load32_s", &[Value::I32(65536 as i32)])
         .expect("Missing result in c28_l84_action_invoke");
 }
 
@@ -717,7 +717,7 @@ fn c29_l85_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c29_l85_action_invoke");
     let result = result_object
         .instance
-        .call("c29_l85_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i64.load32_u", &[Value::I32(65536 as i32)])
         .expect("Missing result in c29_l85_action_invoke");
 }
 
@@ -733,7 +733,7 @@ fn c30_l86_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c30_l86_action_invoke");
     let result = result_object
         .instance
-        .call("c30_l86_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i64.load16_s", &[Value::I32(65536 as i32)])
         .expect("Missing result in c30_l86_action_invoke");
 }
 
@@ -749,7 +749,7 @@ fn c31_l87_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c31_l87_action_invoke");
     let result = result_object
         .instance
-        .call("c31_l87_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i64.load16_u", &[Value::I32(65536 as i32)])
         .expect("Missing result in c31_l87_action_invoke");
 }
 
@@ -765,7 +765,7 @@ fn c32_l88_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c32_l88_action_invoke");
     let result = result_object
         .instance
-        .call("c32_l88_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i64.load8_s", &[Value::I32(65536 as i32)])
         .expect("Missing result in c32_l88_action_invoke");
 }
 
@@ -781,7 +781,7 @@ fn c33_l89_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c33_l89_action_invoke");
     let result = result_object
         .instance
-        .call("c33_l89_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.i64.load8_u", &[Value::I32(65536 as i32)])
         .expect("Missing result in c33_l89_action_invoke");
 }
 
@@ -797,7 +797,7 @@ fn c34_l90_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c34_l90_action_invoke");
     let result = result_object
         .instance
-        .call("c34_l90_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.f32.load", &[Value::I32(65536 as i32)])
         .expect("Missing result in c34_l90_action_invoke");
 }
 
@@ -813,7 +813,7 @@ fn c35_l91_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c35_l91_action_invoke");
     let result = result_object
         .instance
-        .call("c35_l91_action_invoke", &[Value::I32(65536 as i32)])
+        .call("no_dce.f64.load", &[Value::I32(65536 as i32)])
         .expect("Missing result in c35_l91_action_invoke");
 }
 

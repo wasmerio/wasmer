@@ -47,7 +47,7 @@ fn c1_l10_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c1_l10_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -63,7 +63,7 @@ fn c2_l11_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c2_l11_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -79,7 +79,7 @@ fn c3_l12_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c3_l12_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -95,7 +95,7 @@ fn c4_l13_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c4_l13_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -111,7 +111,7 @@ fn c5_l14_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c5_l14_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -127,7 +127,7 @@ fn c6_l15_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c6_l15_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -143,7 +143,7 @@ fn c7_l16_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c7_l16_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -159,7 +159,7 @@ fn c8_l17_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c8_l17_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -175,7 +175,7 @@ fn c9_l18_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c9_l18_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -191,7 +191,7 @@ fn c10_l19_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c10_l19_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -207,7 +207,7 @@ fn c11_l20_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c11_l20_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -223,7 +223,7 @@ fn c12_l21_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c12_l21_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -239,7 +239,7 @@ fn c13_l22_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c13_l22_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -255,7 +255,7 @@ fn c14_l23_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c14_l23_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -271,7 +271,7 @@ fn c15_l24_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c15_l24_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -287,7 +287,7 @@ fn c16_l25_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c16_l25_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -303,7 +303,7 @@ fn c17_l26_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c17_l26_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -319,7 +319,7 @@ fn c18_l27_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c18_l27_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -335,7 +335,7 @@ fn c19_l28_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c19_l28_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -351,7 +351,7 @@ fn c20_l29_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c20_l29_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -367,7 +367,7 @@ fn c21_l30_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c21_l30_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -383,7 +383,7 @@ fn c22_l31_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c22_l31_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -399,7 +399,7 @@ fn c23_l32_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c23_l32_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -415,7 +415,7 @@ fn c24_l33_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c24_l33_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -431,7 +431,7 @@ fn c25_l34_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c25_l34_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -447,7 +447,7 @@ fn c26_l35_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c26_l35_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -463,7 +463,7 @@ fn c27_l36_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c27_l36_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -479,7 +479,7 @@ fn c28_l37_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c28_l37_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -495,7 +495,7 @@ fn c29_l38_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c29_l38_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -511,7 +511,7 @@ fn c30_l39_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c30_l39_action_invoke",
+            "copysign",
             &[Value::F32((-0.0f32).to_bits()), Value::F32(f32::INFINITY)],
         )
         .expect("Missing result in c30_l39_action_invoke");
@@ -524,7 +524,7 @@ fn c31_l40_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c31_l40_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -540,7 +540,7 @@ fn c32_l41_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c32_l41_action_invoke",
+            "copysign",
             &[Value::F32((0.0f32).to_bits()), Value::F32(f32::INFINITY)],
         )
         .expect("Missing result in c32_l41_action_invoke");
@@ -553,7 +553,7 @@ fn c33_l42_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c33_l42_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -569,7 +569,7 @@ fn c34_l43_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c34_l43_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.0f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -585,7 +585,7 @@ fn c35_l44_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c35_l44_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -601,7 +601,7 @@ fn c36_l45_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c36_l45_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.0f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -617,7 +617,7 @@ fn c37_l46_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c37_l46_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -638,7 +638,7 @@ fn c38_l47_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c38_l47_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -659,7 +659,7 @@ fn c39_l48_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c39_l48_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -680,7 +680,7 @@ fn c40_l49_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c40_l49_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -701,7 +701,7 @@ fn c41_l50_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c41_l50_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -722,7 +722,7 @@ fn c42_l51_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c42_l51_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -743,7 +743,7 @@ fn c43_l52_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c43_l52_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -764,7 +764,7 @@ fn c44_l53_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c44_l53_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -785,7 +785,7 @@ fn c45_l54_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c45_l54_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -806,7 +806,7 @@ fn c46_l55_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c46_l55_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -827,7 +827,7 @@ fn c47_l56_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c47_l56_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -848,7 +848,7 @@ fn c48_l57_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c48_l57_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -869,7 +869,7 @@ fn c49_l58_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c49_l58_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -890,7 +890,7 @@ fn c50_l59_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c50_l59_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -911,7 +911,7 @@ fn c51_l60_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c51_l60_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -932,7 +932,7 @@ fn c52_l61_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c52_l61_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -953,7 +953,7 @@ fn c53_l62_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c53_l62_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -974,7 +974,7 @@ fn c54_l63_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c54_l63_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -995,7 +995,7 @@ fn c55_l64_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c55_l64_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -1016,7 +1016,7 @@ fn c56_l65_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c56_l65_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -1037,7 +1037,7 @@ fn c57_l66_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c57_l66_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -1058,7 +1058,7 @@ fn c58_l67_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c58_l67_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -1079,7 +1079,7 @@ fn c59_l68_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c59_l68_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -1100,7 +1100,7 @@ fn c60_l69_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c60_l69_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -1121,7 +1121,7 @@ fn c61_l70_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c61_l70_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -1142,7 +1142,7 @@ fn c62_l71_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c62_l71_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -1163,7 +1163,7 @@ fn c63_l72_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c63_l72_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -1184,7 +1184,7 @@ fn c64_l73_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c64_l73_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -1205,7 +1205,7 @@ fn c65_l74_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c65_l74_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -1226,7 +1226,7 @@ fn c66_l75_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c66_l75_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32(f32::INFINITY),
@@ -1247,7 +1247,7 @@ fn c67_l76_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c67_l76_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -1268,7 +1268,7 @@ fn c68_l77_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c68_l77_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32(f32::INFINITY),
@@ -1289,7 +1289,7 @@ fn c69_l78_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c69_l78_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -1310,7 +1310,7 @@ fn c70_l79_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c70_l79_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -1331,7 +1331,7 @@ fn c71_l80_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c71_l80_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -1352,7 +1352,7 @@ fn c72_l81_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c72_l81_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -1373,7 +1373,7 @@ fn c73_l82_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c73_l82_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -1394,7 +1394,7 @@ fn c74_l83_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c74_l83_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -1415,7 +1415,7 @@ fn c75_l84_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c75_l84_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -1436,7 +1436,7 @@ fn c76_l85_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c76_l85_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -1457,7 +1457,7 @@ fn c77_l86_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c77_l86_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -1478,7 +1478,7 @@ fn c78_l87_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c78_l87_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -1499,7 +1499,7 @@ fn c79_l88_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c79_l88_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -1520,7 +1520,7 @@ fn c80_l89_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c80_l89_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -1541,7 +1541,7 @@ fn c81_l90_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c81_l90_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -1562,7 +1562,7 @@ fn c82_l91_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c82_l91_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -1583,7 +1583,7 @@ fn c83_l92_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c83_l92_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -1604,7 +1604,7 @@ fn c84_l93_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c84_l93_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -1625,7 +1625,7 @@ fn c85_l94_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c85_l94_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -1646,7 +1646,7 @@ fn c86_l95_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c86_l95_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -1667,7 +1667,7 @@ fn c87_l96_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c87_l96_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -1688,7 +1688,7 @@ fn c88_l97_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c88_l97_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -1709,7 +1709,7 @@ fn c89_l98_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c89_l98_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -1730,7 +1730,7 @@ fn c90_l99_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c90_l99_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -1751,7 +1751,7 @@ fn c91_l100_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c91_l100_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -1772,7 +1772,7 @@ fn c92_l101_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c92_l101_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -1793,7 +1793,7 @@ fn c93_l102_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c93_l102_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -1814,7 +1814,7 @@ fn c94_l103_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c94_l103_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -1835,7 +1835,7 @@ fn c95_l104_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c95_l104_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -1856,7 +1856,7 @@ fn c96_l105_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c96_l105_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -1877,7 +1877,7 @@ fn c97_l106_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c97_l106_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -1898,7 +1898,7 @@ fn c98_l107_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c98_l107_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -1919,7 +1919,7 @@ fn c99_l108_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c99_l108_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -1940,7 +1940,7 @@ fn c100_l109_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c100_l109_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -1961,7 +1961,7 @@ fn c101_l110_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c101_l110_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -1982,7 +1982,7 @@ fn c102_l111_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c102_l111_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32(f32::INFINITY),
@@ -2003,7 +2003,7 @@ fn c103_l112_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c103_l112_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -2024,7 +2024,7 @@ fn c104_l113_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c104_l113_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32(f32::INFINITY),
@@ -2045,7 +2045,7 @@ fn c105_l114_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c105_l114_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -2066,7 +2066,7 @@ fn c106_l115_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c106_l115_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -2087,7 +2087,7 @@ fn c107_l116_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c107_l116_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -2108,7 +2108,7 @@ fn c108_l117_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c108_l117_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -2129,7 +2129,7 @@ fn c109_l118_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c109_l118_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -2145,7 +2145,7 @@ fn c110_l119_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c110_l119_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -2161,7 +2161,7 @@ fn c111_l120_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c111_l120_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -2177,7 +2177,7 @@ fn c112_l121_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c112_l121_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -2193,7 +2193,7 @@ fn c113_l122_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c113_l122_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -2209,7 +2209,7 @@ fn c114_l123_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c114_l123_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -2225,7 +2225,7 @@ fn c115_l124_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c115_l124_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -2241,7 +2241,7 @@ fn c116_l125_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c116_l125_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -2257,7 +2257,7 @@ fn c117_l126_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c117_l126_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -2273,7 +2273,7 @@ fn c118_l127_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c118_l127_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -2289,7 +2289,7 @@ fn c119_l128_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c119_l128_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -2305,7 +2305,7 @@ fn c120_l129_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c120_l129_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -2321,7 +2321,7 @@ fn c121_l130_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c121_l130_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -2337,7 +2337,7 @@ fn c122_l131_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c122_l131_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -2353,7 +2353,7 @@ fn c123_l132_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c123_l132_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -2369,7 +2369,7 @@ fn c124_l133_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c124_l133_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -2385,7 +2385,7 @@ fn c125_l134_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c125_l134_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -2401,7 +2401,7 @@ fn c126_l135_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c126_l135_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -2417,7 +2417,7 @@ fn c127_l136_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c127_l136_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -2433,7 +2433,7 @@ fn c128_l137_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c128_l137_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -2449,7 +2449,7 @@ fn c129_l138_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c129_l138_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -2465,7 +2465,7 @@ fn c130_l139_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c130_l139_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -2481,7 +2481,7 @@ fn c131_l140_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c131_l140_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -2497,7 +2497,7 @@ fn c132_l141_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c132_l141_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -2513,7 +2513,7 @@ fn c133_l142_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c133_l142_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -2529,7 +2529,7 @@ fn c134_l143_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c134_l143_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -2545,7 +2545,7 @@ fn c135_l144_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c135_l144_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -2561,7 +2561,7 @@ fn c136_l145_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c136_l145_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -2577,7 +2577,7 @@ fn c137_l146_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c137_l146_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -2593,7 +2593,7 @@ fn c138_l147_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c138_l147_action_invoke",
+            "copysign",
             &[Value::F32((-0.5f32).to_bits()), Value::F32(f32::INFINITY)],
         )
         .expect("Missing result in c138_l147_action_invoke");
@@ -2606,7 +2606,7 @@ fn c139_l148_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c139_l148_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -2622,7 +2622,7 @@ fn c140_l149_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c140_l149_action_invoke",
+            "copysign",
             &[Value::F32((0.5f32).to_bits()), Value::F32(f32::INFINITY)],
         )
         .expect("Missing result in c140_l149_action_invoke");
@@ -2635,7 +2635,7 @@ fn c141_l150_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c141_l150_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -2651,7 +2651,7 @@ fn c142_l151_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c142_l151_action_invoke",
+            "copysign",
             &[
                 Value::F32((-0.5f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -2667,7 +2667,7 @@ fn c143_l152_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c143_l152_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -2683,7 +2683,7 @@ fn c144_l153_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c144_l153_action_invoke",
+            "copysign",
             &[
                 Value::F32((0.5f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -2699,7 +2699,7 @@ fn c145_l154_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c145_l154_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -2715,7 +2715,7 @@ fn c146_l155_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c146_l155_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -2731,7 +2731,7 @@ fn c147_l156_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c147_l156_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -2747,7 +2747,7 @@ fn c148_l157_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c148_l157_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -2763,7 +2763,7 @@ fn c149_l158_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c149_l158_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -2779,7 +2779,7 @@ fn c150_l159_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c150_l159_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -2795,7 +2795,7 @@ fn c151_l160_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c151_l160_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -2811,7 +2811,7 @@ fn c152_l161_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c152_l161_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -2827,7 +2827,7 @@ fn c153_l162_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c153_l162_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -2843,7 +2843,7 @@ fn c154_l163_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c154_l163_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -2859,7 +2859,7 @@ fn c155_l164_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c155_l164_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -2875,7 +2875,7 @@ fn c156_l165_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c156_l165_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -2891,7 +2891,7 @@ fn c157_l166_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c157_l166_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -2907,7 +2907,7 @@ fn c158_l167_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c158_l167_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -2923,7 +2923,7 @@ fn c159_l168_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c159_l168_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -2939,7 +2939,7 @@ fn c160_l169_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c160_l169_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -2955,7 +2955,7 @@ fn c161_l170_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c161_l170_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -2971,7 +2971,7 @@ fn c162_l171_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c162_l171_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -2987,7 +2987,7 @@ fn c163_l172_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c163_l172_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -3003,7 +3003,7 @@ fn c164_l173_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c164_l173_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -3019,7 +3019,7 @@ fn c165_l174_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c165_l174_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -3035,7 +3035,7 @@ fn c166_l175_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c166_l175_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -3051,7 +3051,7 @@ fn c167_l176_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c167_l176_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -3067,7 +3067,7 @@ fn c168_l177_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c168_l177_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -3083,7 +3083,7 @@ fn c169_l178_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c169_l178_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -3099,7 +3099,7 @@ fn c170_l179_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c170_l179_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -3115,7 +3115,7 @@ fn c171_l180_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c171_l180_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -3131,7 +3131,7 @@ fn c172_l181_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c172_l181_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -3147,7 +3147,7 @@ fn c173_l182_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c173_l182_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -3163,7 +3163,7 @@ fn c174_l183_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c174_l183_action_invoke",
+            "copysign",
             &[Value::F32((-1.0f32).to_bits()), Value::F32(f32::INFINITY)],
         )
         .expect("Missing result in c174_l183_action_invoke");
@@ -3176,7 +3176,7 @@ fn c175_l184_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c175_l184_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -3192,7 +3192,7 @@ fn c176_l185_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c176_l185_action_invoke",
+            "copysign",
             &[Value::F32((1.0f32).to_bits()), Value::F32(f32::INFINITY)],
         )
         .expect("Missing result in c176_l185_action_invoke");
@@ -3205,7 +3205,7 @@ fn c177_l186_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c177_l186_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -3221,7 +3221,7 @@ fn c178_l187_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c178_l187_action_invoke",
+            "copysign",
             &[
                 Value::F32((-1.0f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -3237,7 +3237,7 @@ fn c179_l188_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c179_l188_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -3253,7 +3253,7 @@ fn c180_l189_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c180_l189_action_invoke",
+            "copysign",
             &[
                 Value::F32((1.0f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -3269,7 +3269,7 @@ fn c181_l190_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c181_l190_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -3285,7 +3285,7 @@ fn c182_l191_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c182_l191_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -3301,7 +3301,7 @@ fn c183_l192_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c183_l192_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -3317,7 +3317,7 @@ fn c184_l193_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c184_l193_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -3333,7 +3333,7 @@ fn c185_l194_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c185_l194_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -3349,7 +3349,7 @@ fn c186_l195_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c186_l195_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -3365,7 +3365,7 @@ fn c187_l196_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c187_l196_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -3381,7 +3381,7 @@ fn c188_l197_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c188_l197_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -3397,7 +3397,7 @@ fn c189_l198_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c189_l198_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -3413,7 +3413,7 @@ fn c190_l199_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c190_l199_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -3429,7 +3429,7 @@ fn c191_l200_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c191_l200_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -3445,7 +3445,7 @@ fn c192_l201_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c192_l201_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -3461,7 +3461,7 @@ fn c193_l202_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c193_l202_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -3477,7 +3477,7 @@ fn c194_l203_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c194_l203_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -3493,7 +3493,7 @@ fn c195_l204_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c195_l204_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -3509,7 +3509,7 @@ fn c196_l205_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c196_l205_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -3525,7 +3525,7 @@ fn c197_l206_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c197_l206_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -3541,7 +3541,7 @@ fn c198_l207_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c198_l207_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -3557,7 +3557,7 @@ fn c199_l208_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c199_l208_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -3573,7 +3573,7 @@ fn c200_l209_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c200_l209_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -3589,7 +3589,7 @@ fn c201_l210_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c201_l210_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -3605,7 +3605,7 @@ fn c202_l211_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c202_l211_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -3621,7 +3621,7 @@ fn c203_l212_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c203_l212_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -3637,7 +3637,7 @@ fn c204_l213_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c204_l213_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -3653,7 +3653,7 @@ fn c205_l214_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c205_l214_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -3669,7 +3669,7 @@ fn c206_l215_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c206_l215_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -3685,7 +3685,7 @@ fn c207_l216_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c207_l216_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -3701,7 +3701,7 @@ fn c208_l217_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c208_l217_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -3717,7 +3717,7 @@ fn c209_l218_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c209_l218_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -3733,7 +3733,7 @@ fn c210_l219_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c210_l219_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32(f32::INFINITY),
@@ -3749,7 +3749,7 @@ fn c211_l220_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c211_l220_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -3765,7 +3765,7 @@ fn c212_l221_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c212_l221_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32(f32::INFINITY),
@@ -3781,7 +3781,7 @@ fn c213_l222_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c213_l222_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -3797,7 +3797,7 @@ fn c214_l223_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c214_l223_action_invoke",
+            "copysign",
             &[
                 Value::F32((-6.2831855f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -3813,7 +3813,7 @@ fn c215_l224_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c215_l224_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -3829,7 +3829,7 @@ fn c216_l225_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c216_l225_action_invoke",
+            "copysign",
             &[
                 Value::F32((6.2831855f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -3845,7 +3845,7 @@ fn c217_l226_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c217_l226_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -3866,7 +3866,7 @@ fn c218_l227_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c218_l227_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -3887,7 +3887,7 @@ fn c219_l228_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c219_l228_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-0.0f32).to_bits()),
@@ -3908,7 +3908,7 @@ fn c220_l229_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c220_l229_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((0.0f32).to_bits()),
@@ -3929,7 +3929,7 @@ fn c221_l230_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c221_l230_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -3950,7 +3950,7 @@ fn c222_l231_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c222_l231_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -3971,7 +3971,7 @@ fn c223_l232_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c223_l232_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -3992,7 +3992,7 @@ fn c224_l233_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c224_l233_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -4013,7 +4013,7 @@ fn c225_l234_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c225_l234_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -4034,7 +4034,7 @@ fn c226_l235_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c226_l235_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -4055,7 +4055,7 @@ fn c227_l236_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c227_l236_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -4076,7 +4076,7 @@ fn c228_l237_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c228_l237_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -4097,7 +4097,7 @@ fn c229_l238_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c229_l238_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -4118,7 +4118,7 @@ fn c230_l239_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c230_l239_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -4139,7 +4139,7 @@ fn c231_l240_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c231_l240_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-0.5f32).to_bits()),
@@ -4160,7 +4160,7 @@ fn c232_l241_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c232_l241_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((0.5f32).to_bits()),
@@ -4181,7 +4181,7 @@ fn c233_l242_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c233_l242_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -4202,7 +4202,7 @@ fn c234_l243_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c234_l243_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -4223,7 +4223,7 @@ fn c235_l244_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c235_l244_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-1.0f32).to_bits()),
@@ -4244,7 +4244,7 @@ fn c236_l245_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c236_l245_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((1.0f32).to_bits()),
@@ -4265,7 +4265,7 @@ fn c237_l246_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c237_l246_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -4286,7 +4286,7 @@ fn c238_l247_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c238_l247_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -4307,7 +4307,7 @@ fn c239_l248_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c239_l248_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -4328,7 +4328,7 @@ fn c240_l249_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c240_l249_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((6.2831855f32).to_bits()),
@@ -4349,7 +4349,7 @@ fn c241_l250_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c241_l250_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -4370,7 +4370,7 @@ fn c242_l251_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c242_l251_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -4391,7 +4391,7 @@ fn c243_l252_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c243_l252_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -4412,7 +4412,7 @@ fn c244_l253_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c244_l253_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -4433,7 +4433,7 @@ fn c245_l254_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c245_l254_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -4454,7 +4454,7 @@ fn c246_l255_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c246_l255_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32(f32::INFINITY),
@@ -4475,7 +4475,7 @@ fn c247_l256_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c247_l256_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32(f32::NEG_INFINITY),
@@ -4496,7 +4496,7 @@ fn c248_l257_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c248_l257_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32(f32::INFINITY),
@@ -4517,7 +4517,7 @@ fn c249_l258_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c249_l258_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -4538,7 +4538,7 @@ fn c250_l259_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c250_l259_action_invoke",
+            "copysign",
             &[
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -4559,7 +4559,7 @@ fn c251_l260_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c251_l260_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -4580,7 +4580,7 @@ fn c252_l261_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c252_l261_action_invoke",
+            "copysign",
             &[
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -4601,7 +4601,7 @@ fn c253_l262_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c253_l262_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((-0.0f32).to_bits()),
@@ -4617,7 +4617,7 @@ fn c254_l263_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c254_l263_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((0.0f32).to_bits()),
@@ -4633,7 +4633,7 @@ fn c255_l264_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c255_l264_action_invoke",
+            "copysign",
             &[Value::F32(f32::INFINITY), Value::F32((-0.0f32).to_bits())],
         )
         .expect("Missing result in c255_l264_action_invoke");
@@ -4646,7 +4646,7 @@ fn c256_l265_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c256_l265_action_invoke",
+            "copysign",
             &[Value::F32(f32::INFINITY), Value::F32((0.0f32).to_bits())],
         )
         .expect("Missing result in c256_l265_action_invoke");
@@ -4659,7 +4659,7 @@ fn c257_l266_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c257_l266_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -4675,7 +4675,7 @@ fn c258_l267_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c258_l267_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -4691,7 +4691,7 @@ fn c259_l268_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c259_l268_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -4707,7 +4707,7 @@ fn c260_l269_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c260_l269_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -4723,7 +4723,7 @@ fn c261_l270_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c261_l270_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -4739,7 +4739,7 @@ fn c262_l271_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c262_l271_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -4755,7 +4755,7 @@ fn c263_l272_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c263_l272_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -4771,7 +4771,7 @@ fn c264_l273_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c264_l273_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -4787,7 +4787,7 @@ fn c265_l274_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c265_l274_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((-0.5f32).to_bits()),
@@ -4803,7 +4803,7 @@ fn c266_l275_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c266_l275_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((0.5f32).to_bits()),
@@ -4819,7 +4819,7 @@ fn c267_l276_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c267_l276_action_invoke",
+            "copysign",
             &[Value::F32(f32::INFINITY), Value::F32((-0.5f32).to_bits())],
         )
         .expect("Missing result in c267_l276_action_invoke");
@@ -4832,7 +4832,7 @@ fn c268_l277_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c268_l277_action_invoke",
+            "copysign",
             &[Value::F32(f32::INFINITY), Value::F32((0.5f32).to_bits())],
         )
         .expect("Missing result in c268_l277_action_invoke");
@@ -4845,7 +4845,7 @@ fn c269_l278_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c269_l278_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((-1.0f32).to_bits()),
@@ -4861,7 +4861,7 @@ fn c270_l279_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c270_l279_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((1.0f32).to_bits()),
@@ -4877,7 +4877,7 @@ fn c271_l280_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c271_l280_action_invoke",
+            "copysign",
             &[Value::F32(f32::INFINITY), Value::F32((-1.0f32).to_bits())],
         )
         .expect("Missing result in c271_l280_action_invoke");
@@ -4890,7 +4890,7 @@ fn c272_l281_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c272_l281_action_invoke",
+            "copysign",
             &[Value::F32(f32::INFINITY), Value::F32((1.0f32).to_bits())],
         )
         .expect("Missing result in c272_l281_action_invoke");
@@ -4903,7 +4903,7 @@ fn c273_l282_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c273_l282_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -4919,7 +4919,7 @@ fn c274_l283_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c274_l283_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((6.2831855f32).to_bits()),
@@ -4935,7 +4935,7 @@ fn c275_l284_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c275_l284_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -4951,7 +4951,7 @@ fn c276_l285_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c276_l285_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32((6.2831855f32).to_bits()),
@@ -4967,7 +4967,7 @@ fn c277_l286_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c277_l286_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -4983,7 +4983,7 @@ fn c278_l287_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c278_l287_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -4999,7 +4999,7 @@ fn c279_l288_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c279_l288_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -5015,7 +5015,7 @@ fn c280_l289_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c280_l289_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -5031,7 +5031,7 @@ fn c281_l290_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c281_l290_action_invoke",
+            "copysign",
             &[Value::F32(f32::NEG_INFINITY), Value::F32(f32::NEG_INFINITY)],
         )
         .expect("Missing result in c281_l290_action_invoke");
@@ -5044,7 +5044,7 @@ fn c282_l291_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c282_l291_action_invoke",
+            "copysign",
             &[Value::F32(f32::NEG_INFINITY), Value::F32(f32::INFINITY)],
         )
         .expect("Missing result in c282_l291_action_invoke");
@@ -5057,7 +5057,7 @@ fn c283_l292_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c283_l292_action_invoke",
+            "copysign",
             &[Value::F32(f32::INFINITY), Value::F32(f32::NEG_INFINITY)],
         )
         .expect("Missing result in c283_l292_action_invoke");
@@ -5070,7 +5070,7 @@ fn c284_l293_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c284_l293_action_invoke",
+            "copysign",
             &[Value::F32(f32::INFINITY), Value::F32(f32::INFINITY)],
         )
         .expect("Missing result in c284_l293_action_invoke");
@@ -5083,7 +5083,7 @@ fn c285_l294_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c285_l294_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -5099,7 +5099,7 @@ fn c286_l295_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c286_l295_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::NEG_INFINITY),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -5115,7 +5115,7 @@ fn c287_l296_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c287_l296_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -5131,7 +5131,7 @@ fn c288_l297_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c288_l297_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::INFINITY),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -5147,7 +5147,7 @@ fn c289_l298_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c289_l298_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((-0.0f32).to_bits()),
@@ -5172,7 +5172,7 @@ fn c290_l299_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c290_l299_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((0.0f32).to_bits()),
@@ -5197,7 +5197,7 @@ fn c291_l300_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c291_l300_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((-0.0f32).to_bits()),
@@ -5222,7 +5222,7 @@ fn c292_l301_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c292_l301_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((0.0f32).to_bits()),
@@ -5247,7 +5247,7 @@ fn c293_l302_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c293_l302_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -5272,7 +5272,7 @@ fn c294_l303_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c294_l303_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -5297,7 +5297,7 @@ fn c295_l304_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c295_l304_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((-0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -5322,7 +5322,7 @@ fn c296_l305_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c296_l305_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((0.000000000000000000000000000000000000000000001f32).to_bits()),
@@ -5347,7 +5347,7 @@ fn c297_l306_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c297_l306_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -5372,7 +5372,7 @@ fn c298_l307_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c298_l307_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -5397,7 +5397,7 @@ fn c299_l308_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c299_l308_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((-0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -5422,7 +5422,7 @@ fn c300_l309_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c300_l309_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((0.000000000000000000000000000000000000011754944f32).to_bits()),
@@ -5447,7 +5447,7 @@ fn c301_l310_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c301_l310_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((-0.5f32).to_bits()),
@@ -5472,7 +5472,7 @@ fn c302_l311_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c302_l311_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((0.5f32).to_bits()),
@@ -5497,7 +5497,7 @@ fn c303_l312_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c303_l312_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((-0.5f32).to_bits()),
@@ -5522,7 +5522,7 @@ fn c304_l313_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c304_l313_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((0.5f32).to_bits()),
@@ -5547,7 +5547,7 @@ fn c305_l314_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c305_l314_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((-1.0f32).to_bits()),
@@ -5572,7 +5572,7 @@ fn c306_l315_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c306_l315_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((1.0f32).to_bits()),
@@ -5597,7 +5597,7 @@ fn c307_l316_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c307_l316_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((-1.0f32).to_bits()),
@@ -5622,7 +5622,7 @@ fn c308_l317_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c308_l317_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((1.0f32).to_bits()),
@@ -5647,7 +5647,7 @@ fn c309_l318_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c309_l318_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -5672,7 +5672,7 @@ fn c310_l319_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c310_l319_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((6.2831855f32).to_bits()),
@@ -5697,7 +5697,7 @@ fn c311_l320_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c311_l320_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((-6.2831855f32).to_bits()),
@@ -5722,7 +5722,7 @@ fn c312_l321_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c312_l321_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((6.2831855f32).to_bits()),
@@ -5747,7 +5747,7 @@ fn c313_l322_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c313_l322_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -5772,7 +5772,7 @@ fn c314_l323_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c314_l323_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -5797,7 +5797,7 @@ fn c315_l324_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c315_l324_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((-340282350000000000000000000000000000000.0f32).to_bits()),
@@ -5822,7 +5822,7 @@ fn c316_l325_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c316_l325_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32((340282350000000000000000000000000000000.0f32).to_bits()),
@@ -5847,7 +5847,7 @@ fn c317_l326_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c317_l326_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32(f32::NEG_INFINITY),
@@ -5872,7 +5872,7 @@ fn c318_l327_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c318_l327_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32(f32::INFINITY),
@@ -5897,7 +5897,7 @@ fn c319_l328_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c319_l328_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32(f32::NEG_INFINITY),
@@ -5922,7 +5922,7 @@ fn c320_l329_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c320_l329_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32(f32::INFINITY),
@@ -5947,7 +5947,7 @@ fn c321_l330_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c321_l330_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -5972,7 +5972,7 @@ fn c322_l331_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c322_l331_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(4290772992) as u32),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -5997,7 +5997,7 @@ fn c323_l332_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c323_l332_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32(f32::from_bits(4290772992) as u32),
@@ -6022,7 +6022,7 @@ fn c324_l333_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c324_l333_action_invoke",
+            "copysign",
             &[
                 Value::F32(f32::from_bits(2143289344) as u32),
                 Value::F32(f32::from_bits(2143289344) as u32),
@@ -6046,10 +6046,7 @@ fn c325_l334_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c325_l334_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c325_l334_action_invoke",
-            &[Value::F32((-0.0f32).to_bits())],
-        )
+        .call("abs", &[Value::F32((-0.0f32).to_bits())])
         .expect("Missing result in c325_l334_action_invoke");
     assert_eq!(result, Some(Value::F32((0.0f32).to_bits())));
 }
@@ -6059,7 +6056,7 @@ fn c326_l335_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c326_l335_action_invoke");
     let result = result_object
         .instance
-        .call("c326_l335_action_invoke", &[Value::F32((0.0f32).to_bits())])
+        .call("abs", &[Value::F32((0.0f32).to_bits())])
         .expect("Missing result in c326_l335_action_invoke");
     assert_eq!(result, Some(Value::F32((0.0f32).to_bits())));
 }
@@ -6070,7 +6067,7 @@ fn c327_l336_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c327_l336_action_invoke",
+            "abs",
             &[Value::F32(
                 (-0.000000000000000000000000000000000000000000001f32).to_bits(),
             )],
@@ -6090,7 +6087,7 @@ fn c328_l337_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c328_l337_action_invoke",
+            "abs",
             &[Value::F32(
                 (0.000000000000000000000000000000000000000000001f32).to_bits(),
             )],
@@ -6110,7 +6107,7 @@ fn c329_l338_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c329_l338_action_invoke",
+            "abs",
             &[Value::F32(
                 (-0.000000000000000000000000000000000000011754944f32).to_bits(),
             )],
@@ -6130,7 +6127,7 @@ fn c330_l339_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c330_l339_action_invoke",
+            "abs",
             &[Value::F32(
                 (0.000000000000000000000000000000000000011754944f32).to_bits(),
             )],
@@ -6149,10 +6146,7 @@ fn c331_l340_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c331_l340_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c331_l340_action_invoke",
-            &[Value::F32((-0.5f32).to_bits())],
-        )
+        .call("abs", &[Value::F32((-0.5f32).to_bits())])
         .expect("Missing result in c331_l340_action_invoke");
     assert_eq!(result, Some(Value::F32((0.5f32).to_bits())));
 }
@@ -6162,7 +6156,7 @@ fn c332_l341_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c332_l341_action_invoke");
     let result = result_object
         .instance
-        .call("c332_l341_action_invoke", &[Value::F32((0.5f32).to_bits())])
+        .call("abs", &[Value::F32((0.5f32).to_bits())])
         .expect("Missing result in c332_l341_action_invoke");
     assert_eq!(result, Some(Value::F32((0.5f32).to_bits())));
 }
@@ -6172,10 +6166,7 @@ fn c333_l342_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c333_l342_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c333_l342_action_invoke",
-            &[Value::F32((-1.0f32).to_bits())],
-        )
+        .call("abs", &[Value::F32((-1.0f32).to_bits())])
         .expect("Missing result in c333_l342_action_invoke");
     assert_eq!(result, Some(Value::F32((1.0f32).to_bits())));
 }
@@ -6185,7 +6176,7 @@ fn c334_l343_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c334_l343_action_invoke");
     let result = result_object
         .instance
-        .call("c334_l343_action_invoke", &[Value::F32((1.0f32).to_bits())])
+        .call("abs", &[Value::F32((1.0f32).to_bits())])
         .expect("Missing result in c334_l343_action_invoke");
     assert_eq!(result, Some(Value::F32((1.0f32).to_bits())));
 }
@@ -6195,10 +6186,7 @@ fn c335_l344_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c335_l344_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c335_l344_action_invoke",
-            &[Value::F32((-6.2831855f32).to_bits())],
-        )
+        .call("abs", &[Value::F32((-6.2831855f32).to_bits())])
         .expect("Missing result in c335_l344_action_invoke");
     assert_eq!(result, Some(Value::F32((6.2831855f32).to_bits())));
 }
@@ -6208,10 +6196,7 @@ fn c336_l345_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c336_l345_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c336_l345_action_invoke",
-            &[Value::F32((6.2831855f32).to_bits())],
-        )
+        .call("abs", &[Value::F32((6.2831855f32).to_bits())])
         .expect("Missing result in c336_l345_action_invoke");
     assert_eq!(result, Some(Value::F32((6.2831855f32).to_bits())));
 }
@@ -6222,7 +6207,7 @@ fn c337_l346_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c337_l346_action_invoke",
+            "abs",
             &[Value::F32(
                 (-340282350000000000000000000000000000000.0f32).to_bits(),
             )],
@@ -6242,7 +6227,7 @@ fn c338_l347_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c338_l347_action_invoke",
+            "abs",
             &[Value::F32(
                 (340282350000000000000000000000000000000.0f32).to_bits(),
             )],
@@ -6261,7 +6246,7 @@ fn c339_l348_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c339_l348_action_invoke");
     let result = result_object
         .instance
-        .call("c339_l348_action_invoke", &[Value::F32(f32::NEG_INFINITY)])
+        .call("abs", &[Value::F32(f32::NEG_INFINITY)])
         .expect("Missing result in c339_l348_action_invoke");
     assert_eq!(result, Some(Value::F32(f32::INFINITY)));
 }
@@ -6271,7 +6256,7 @@ fn c340_l349_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c340_l349_action_invoke");
     let result = result_object
         .instance
-        .call("c340_l349_action_invoke", &[Value::F32(f32::INFINITY)])
+        .call("abs", &[Value::F32(f32::INFINITY)])
         .expect("Missing result in c340_l349_action_invoke");
     assert_eq!(result, Some(Value::F32(f32::INFINITY)));
 }
@@ -6281,10 +6266,7 @@ fn c341_l350_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c341_l350_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c341_l350_action_invoke",
-            &[Value::F32(f32::from_bits(4290772992) as u32)],
-        )
+        .call("abs", &[Value::F32(f32::from_bits(4290772992) as u32)])
         .expect("Missing result in c341_l350_action_invoke");
     let expected = f32::from_bits(2143289344);
     if let Value::F32(result) = result.unwrap() {
@@ -6303,10 +6285,7 @@ fn c342_l351_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c342_l351_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c342_l351_action_invoke",
-            &[Value::F32(f32::from_bits(2143289344) as u32)],
-        )
+        .call("abs", &[Value::F32(f32::from_bits(2143289344) as u32)])
         .expect("Missing result in c342_l351_action_invoke");
     let expected = f32::from_bits(2143289344);
     if let Value::F32(result) = result.unwrap() {
@@ -6325,10 +6304,7 @@ fn c343_l352_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c343_l352_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c343_l352_action_invoke",
-            &[Value::F32((-0.0f32).to_bits())],
-        )
+        .call("neg", &[Value::F32((-0.0f32).to_bits())])
         .expect("Missing result in c343_l352_action_invoke");
     assert_eq!(result, Some(Value::F32((0.0f32).to_bits())));
 }
@@ -6338,7 +6314,7 @@ fn c344_l353_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c344_l353_action_invoke");
     let result = result_object
         .instance
-        .call("c344_l353_action_invoke", &[Value::F32((0.0f32).to_bits())])
+        .call("neg", &[Value::F32((0.0f32).to_bits())])
         .expect("Missing result in c344_l353_action_invoke");
     assert_eq!(result, Some(Value::F32((-0.0f32).to_bits())));
 }
@@ -6349,7 +6325,7 @@ fn c345_l354_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c345_l354_action_invoke",
+            "neg",
             &[Value::F32(
                 (-0.000000000000000000000000000000000000000000001f32).to_bits(),
             )],
@@ -6369,7 +6345,7 @@ fn c346_l355_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c346_l355_action_invoke",
+            "neg",
             &[Value::F32(
                 (0.000000000000000000000000000000000000000000001f32).to_bits(),
             )],
@@ -6389,7 +6365,7 @@ fn c347_l356_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c347_l356_action_invoke",
+            "neg",
             &[Value::F32(
                 (-0.000000000000000000000000000000000000011754944f32).to_bits(),
             )],
@@ -6409,7 +6385,7 @@ fn c348_l357_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c348_l357_action_invoke",
+            "neg",
             &[Value::F32(
                 (0.000000000000000000000000000000000000011754944f32).to_bits(),
             )],
@@ -6428,10 +6404,7 @@ fn c349_l358_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c349_l358_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c349_l358_action_invoke",
-            &[Value::F32((-0.5f32).to_bits())],
-        )
+        .call("neg", &[Value::F32((-0.5f32).to_bits())])
         .expect("Missing result in c349_l358_action_invoke");
     assert_eq!(result, Some(Value::F32((0.5f32).to_bits())));
 }
@@ -6441,7 +6414,7 @@ fn c350_l359_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c350_l359_action_invoke");
     let result = result_object
         .instance
-        .call("c350_l359_action_invoke", &[Value::F32((0.5f32).to_bits())])
+        .call("neg", &[Value::F32((0.5f32).to_bits())])
         .expect("Missing result in c350_l359_action_invoke");
     assert_eq!(result, Some(Value::F32((-0.5f32).to_bits())));
 }
@@ -6451,10 +6424,7 @@ fn c351_l360_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c351_l360_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c351_l360_action_invoke",
-            &[Value::F32((-1.0f32).to_bits())],
-        )
+        .call("neg", &[Value::F32((-1.0f32).to_bits())])
         .expect("Missing result in c351_l360_action_invoke");
     assert_eq!(result, Some(Value::F32((1.0f32).to_bits())));
 }
@@ -6464,7 +6434,7 @@ fn c352_l361_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c352_l361_action_invoke");
     let result = result_object
         .instance
-        .call("c352_l361_action_invoke", &[Value::F32((1.0f32).to_bits())])
+        .call("neg", &[Value::F32((1.0f32).to_bits())])
         .expect("Missing result in c352_l361_action_invoke");
     assert_eq!(result, Some(Value::F32((-1.0f32).to_bits())));
 }
@@ -6474,10 +6444,7 @@ fn c353_l362_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c353_l362_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c353_l362_action_invoke",
-            &[Value::F32((-6.2831855f32).to_bits())],
-        )
+        .call("neg", &[Value::F32((-6.2831855f32).to_bits())])
         .expect("Missing result in c353_l362_action_invoke");
     assert_eq!(result, Some(Value::F32((6.2831855f32).to_bits())));
 }
@@ -6487,10 +6454,7 @@ fn c354_l363_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c354_l363_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c354_l363_action_invoke",
-            &[Value::F32((6.2831855f32).to_bits())],
-        )
+        .call("neg", &[Value::F32((6.2831855f32).to_bits())])
         .expect("Missing result in c354_l363_action_invoke");
     assert_eq!(result, Some(Value::F32((-6.2831855f32).to_bits())));
 }
@@ -6501,7 +6465,7 @@ fn c355_l364_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c355_l364_action_invoke",
+            "neg",
             &[Value::F32(
                 (-340282350000000000000000000000000000000.0f32).to_bits(),
             )],
@@ -6521,7 +6485,7 @@ fn c356_l365_action_invoke(result_object: &mut ResultObject) {
     let result = result_object
         .instance
         .call(
-            "c356_l365_action_invoke",
+            "neg",
             &[Value::F32(
                 (340282350000000000000000000000000000000.0f32).to_bits(),
             )],
@@ -6540,7 +6504,7 @@ fn c357_l366_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c357_l366_action_invoke");
     let result = result_object
         .instance
-        .call("c357_l366_action_invoke", &[Value::F32(f32::NEG_INFINITY)])
+        .call("neg", &[Value::F32(f32::NEG_INFINITY)])
         .expect("Missing result in c357_l366_action_invoke");
     assert_eq!(result, Some(Value::F32(f32::INFINITY)));
 }
@@ -6550,7 +6514,7 @@ fn c358_l367_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c358_l367_action_invoke");
     let result = result_object
         .instance
-        .call("c358_l367_action_invoke", &[Value::F32(f32::INFINITY)])
+        .call("neg", &[Value::F32(f32::INFINITY)])
         .expect("Missing result in c358_l367_action_invoke");
     assert_eq!(result, Some(Value::F32(f32::NEG_INFINITY)));
 }
@@ -6560,10 +6524,7 @@ fn c359_l368_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c359_l368_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c359_l368_action_invoke",
-            &[Value::F32(f32::from_bits(4290772992) as u32)],
-        )
+        .call("neg", &[Value::F32(f32::from_bits(4290772992) as u32)])
         .expect("Missing result in c359_l368_action_invoke");
     let expected = f32::from_bits(2143289344);
     if let Value::F32(result) = result.unwrap() {
@@ -6582,10 +6543,7 @@ fn c360_l369_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c360_l369_action_invoke");
     let result = result_object
         .instance
-        .call(
-            "c360_l369_action_invoke",
-            &[Value::F32(f32::from_bits(2143289344) as u32)],
-        )
+        .call("neg", &[Value::F32(f32::from_bits(2143289344) as u32)])
         .expect("Missing result in c360_l369_action_invoke");
     let expected = f32::from_bits(4290772992);
     if let Value::F32(result) = result.unwrap() {
