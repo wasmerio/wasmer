@@ -1,17 +1,11 @@
 pub mod errors;
-pub mod import_object;
-pub mod instance;
 pub mod libcalls;
-pub mod memory;
-pub mod module;
 pub mod relocation;
 pub mod utils;
-pub mod vmcontext;
-pub mod vmoffsets;
 
 use super::compilers::cranelift::CraneliftCompiler;
 use super::runtime;
-pub use super::runtime::{Import, Imports, Instance, Module};
+pub use super::runtime::{Import, Imports, Instance, InstanceOptions, Module};
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
@@ -26,10 +20,6 @@ use wasmparser;
 use wasmparser::WasmDecoder;
 
 pub use self::errors::{Error, ErrorKind};
-pub use self::import_object::{ImportObject, ImportValue};
-pub use self::instance::{InstanceABI, InstanceOptions};
-pub use self::memory::LinearMemory;
-pub use self::module::ModuleInfo;
 use crate::runtime::Compiler;
 
 use crate::apis::emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
@@ -69,20 +59,20 @@ pub fn instantiate(
         .map_err(|e| ErrorKind::CompileError(e))?;
 
     let isa = get_isa();
-    let abi = if is_emscripten_module(&instance.module) {
-        InstanceABI::Emscripten
-    } else {
-        InstanceABI::None
-    };
-
-    let options = options.unwrap_or_else(|| InstanceOptions {
-        mock_missing_imports: false,
-        mock_missing_globals: false,
-        mock_missing_tables: false,
-        abi,
-        show_progressbar: false,
-        isa,
-    });
+    //    let abi = if is_emscripten_module(&instance.module) {
+    //        InstanceABI::Emscripten
+    //    } else {
+    //        InstanceABI::None
+    //    };
+    //
+    //    let options = options.unwrap_or_else(|| InstanceOptions {
+    //        mock_missing_imports: false,
+    //        mock_missing_globals: false,
+    //        mock_missing_tables: false,
+    //        abi,
+    //        show_progressbar: false,
+    //        isa,
+    //    });
 
     debug!("webassembly - instance created");
     Ok(ResultObject {
@@ -96,7 +86,7 @@ pub fn instantiate(
 /// This is the most efficient, optimized way to load wasm code.
 pub fn instantiate_streaming(
     _buffer_source: Vec<u8>,
-    _import_object: ImportObject<&str, &str>,
+    _import_object: Imports,
 ) -> Result<ResultObject, ErrorKind> {
     unimplemented!();
 }

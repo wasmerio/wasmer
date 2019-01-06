@@ -1,8 +1,10 @@
+use crate::runtime::memory::LinearMemory;
 use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
-use crate::runtime::{Import, Imports};
+use crate::runtime::{Import, Imports, Instance};
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
-use crate::webassembly::{ImportValue, LinearMemory};
 use byteorder::{ByteOrder, LittleEndian};
+use libc::c_int;
+use std::cell::UnsafeCell;
 use std::mem;
 
 // EMSCRIPTEN APIS
@@ -47,6 +49,15 @@ fn dynamic_base(static_bump: u32) -> u32 {
 
 fn dynamictop_ptr(static_bump: u32) -> u32 {
     static_bump + DYNAMICTOP_PTR_DIFF
+}
+
+pub struct EmscriptenData {
+    pub malloc: extern "C" fn(i32, &Instance) -> u32,
+    pub free: extern "C" fn(i32, &mut Instance),
+    pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
+    pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
+    pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
+    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
 }
 
 pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {

@@ -1,3 +1,4 @@
+use crate::compilers::cranelift::codegen::{converter, CraneliftModule};
 use crate::runtime::{
     backend::FuncResolver,
     types::{
@@ -5,7 +6,6 @@ use crate::runtime::{
         SigIndex, Table, TableIndex,
     },
 };
-use crate::compilers::cranelift::codegen::{CraneliftModule, converter};
 use hashbrown::HashMap;
 
 /// This is used to instantiate a new webassembly module.

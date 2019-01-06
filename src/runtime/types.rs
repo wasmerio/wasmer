@@ -64,7 +64,6 @@ impl From<f64> for Value {
     }
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {
     /// Any wasm function.
@@ -307,10 +306,10 @@ macro_rules! define_map_index {
 define_map_index![FuncIndex, MemoryIndex, TableIndex, SigIndex,];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct GlobalIndex (u32);
+pub struct GlobalIndex(u32);
 impl MapIndex for GlobalIndex {
     fn new(index: usize) -> Self {
-        GlobalIndex (index as _)
+        GlobalIndex(index as _)
     }
 
     fn index(&self) -> usize {

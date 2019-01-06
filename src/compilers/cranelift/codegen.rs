@@ -59,7 +59,7 @@ pub mod converter {
         }
 
         // Convert Cranelift signatures to Wasmer signatures.
-        let mut  signatures: Map<WasmerSignatureIndex, WasmerSignature> =
+        let mut signatures: Map<WasmerSignatureIndex, WasmerSignature> =
             Map::with_capacity(cranelift_module.signatures.len());
         for signature in cranelift_module.signatures {
             signatures.push(convert_signature(signature));
