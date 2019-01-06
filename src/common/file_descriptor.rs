@@ -1,4 +1,3 @@
-use std::ffi::CString;
 use std::io;
 use std::io::Error;
 use std::io::ErrorKind;

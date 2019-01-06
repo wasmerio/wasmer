@@ -10,8 +10,6 @@ use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
 };
-use cranelift_wasm::ModuleEnvironment;
-use std::io::{self, Write};
 use std::panic;
 use std::str::FromStr;
 use std::sync::Arc;

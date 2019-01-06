@@ -1,5 +1,3 @@
-use crate::webassembly::Instance;
-
 /// emscripten: _llvm_log10_f64
 pub extern "C" fn _llvm_log10_f64(value: f64) -> f64 {
     debug!("emscripten::_llvm_log10_f64");

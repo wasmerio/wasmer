@@ -1,5 +1,5 @@
 use crate::runtime::memory::LinearMemory;
-use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
+use crate::runtime::types::{FuncSig, Type, Value};
 use crate::runtime::{Import, Imports, Instance};
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
 use byteorder::{ByteOrder, LittleEndian};
