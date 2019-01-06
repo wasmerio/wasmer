@@ -205,7 +205,7 @@ impl WastTestGenerator {
 )]
 use wabt::wat2wasm;
 
-use crate::webassembly::{{instantiate, compile, ImportObject, ResultObject, Instance}};
+use crate::webassembly::{{instantiate, compile, ResultObject}};
 use crate::runtime::types::{{Value}};
 
 use super::_common::{{

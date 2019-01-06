@@ -1,6 +1,5 @@
 use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
 use crate::runtime::{Import, Imports, TableBacking};
-use crate::webassembly::{ImportObject, ImportValue};
 use std::sync::Arc;
 
 extern "C" fn print_i32(num: i32) {

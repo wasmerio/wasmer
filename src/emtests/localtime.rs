@@ -4,6 +4,6 @@ fn test_localtime() {
         "../../emtests/localtime.wasm",
         "localtime",
         vec![],
-        "../../emtests/localtime.output"
+        "../../emtests/localtime.out"
     );
 }

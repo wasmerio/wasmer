@@ -8,7 +8,7 @@
 use wabt::wat2wasm;
 
 use crate::runtime::types::Value;
-use crate::webassembly::{compile, instantiate, ImportObject, Instance, ResultObject};
+use crate::webassembly::{compile, instantiate, ResultObject};
 
 use super::_common::{spectest_importobject, NaNCheck};
 
