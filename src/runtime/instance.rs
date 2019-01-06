@@ -1,3 +1,4 @@
+use crate::apis::emscripten::InstanceEnvironment;
 use crate::recovery::call_protected;
 use crate::runtime::{
     backing::{ImportBacking, LocalBacking},
@@ -10,6 +11,7 @@ use crate::runtime::{
 };
 use hashbrown::HashMap;
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
+use std::cell::UnsafeCell;
 use std::iter;
 use std::sync::Arc;
 
@@ -18,9 +20,15 @@ pub struct Instance {
     import_backing: ImportBacking,
     sig_registry: SigRegistry,
     pub module: Arc<Module>,
+    pub environments: Vec<InstanceEnvironment>,
 }
 
 impl Instance {
+    pub fn get_function_pointer(&self, func_index: FuncIndex) -> *const u8 {
+        unimplemented!()
+        //        get_function_addr(&func_index, &self.import_functions, &self.functions)
+    }
+
     // TODO visibility (in crate::runtime)
     pub fn new(module: Arc<Module>, imports: &dyn ImportResolver) -> Result<Box<Instance>, String> {
         let sig_registry = SigRegistry::new(&*module);
@@ -33,13 +41,16 @@ impl Instance {
         let mut instance = Box::new(Instance {
             backing,
             import_backing,
-            module,
+            module: Arc::clone(&module),
             sig_registry,
+            environments: vec![],
         });
 
         if let Some(start_index) = start_func {
             instance.call_with_index(start_index, &[])?;
         }
+
+        module.after_instantiate(&mut instance);
 
         Ok(instance)
     }

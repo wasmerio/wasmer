@@ -1,3 +1,4 @@
+use crate::compilers::cranelift::codegen::{converter, CraneliftModule};
 use crate::runtime::{
     backend::FuncResolver,
     types::{
@@ -5,7 +6,9 @@ use crate::runtime::{
         SigIndex, Table, TableIndex,
     },
 };
-use crate::compilers::cranelift::codegen::{CraneliftModule, converter};
+use crate::runtime::{Import, Imports, Instance};
+use std::cell::RefCell;
+
 use hashbrown::HashMap;
 
 /// This is used to instantiate a new webassembly module.
@@ -28,11 +31,25 @@ pub struct Module {
 
     pub signature_assoc: Map<FuncIndex, SigIndex>,
     pub signatures: Map<SigIndex, FuncSig>,
+
+    pub environments: RefCell<Vec<Box<dyn ModuleEnvironment>>>,
+}
+
+/// Provides hooks relating to setting up an environment for a module's instances
+pub trait ModuleEnvironment {
+    fn after_instantiate(&self, instance: &mut Instance);
+    fn append_imports(&self, import_object: &mut Imports);
 }
 
 impl Module {
     pub(in crate::runtime) fn is_imported_function(&self, func_index: FuncIndex) -> bool {
         func_index.index() < self.imported_functions.len()
+    }
+
+    pub fn after_instantiate(&self, instance: &mut Instance) {
+        for module_environment in self.environments.borrow().iter() {
+            module_environment.after_instantiate(instance);
+        }
     }
 }
 

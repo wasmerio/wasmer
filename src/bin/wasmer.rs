@@ -9,6 +9,8 @@ use std::process::exit;
 use std::sync::Arc;
 
 use structopt::StructOpt;
+use wasmer::apis::emscripten::{EmptyModuleEnvironment, EmscriptenModuleEnvironment};
+use wasmer::runtime::module::ModuleEnvironment;
 
 use wasmer::*;
 
@@ -66,32 +68,50 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
     }
 
-    let isa = webassembly::get_isa();
+    //    let isa = webassembly::get_isa();
 
     debug!("webassembly - creating module");
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
-    let abi = if apis::is_emscripten_module(&module) {
-        webassembly::InstanceABI::Emscripten
+    // Setup Module Environments
+    let mut environments: Vec<Box<dyn ModuleEnvironment>> = vec![];
+    if apis::is_emscripten_module(&module) {
+        environments.push(Box::new(EmscriptenModuleEnvironment::new()));
     } else {
-        webassembly::InstanceABI::None
-    };
+        environments.push(Box::new(EmptyModuleEnvironment::new()));
+    }
 
-    let import_object = if abi == webassembly::InstanceABI::Emscripten {
-        apis::generate_emscripten_env()
-    } else {
-        runtime::Imports::new()
-    };
+    for env in environments {
+        module.environments.borrow_mut().push(env);
+    }
 
-    let instance_options = webassembly::InstanceOptions {
-        mock_missing_imports: true,
-        mock_missing_globals: true,
-        mock_missing_tables: true,
-        abi: abi,
-        show_progressbar: true,
-        isa: isa,
-    };
+    // Setup Imports
+    let mut import_object = runtime::Imports::new();
+    for env in module.environments.borrow().iter() {
+        env.append_imports(&mut import_object);
+    }
+
+    //    let abi = if apis::is_emscripten_module(&module) {
+    //        webassembly::InstanceABI::Emscripten
+    //    } else {
+    //        webassembly::InstanceABI::None
+    //    };
+
+    //    let import_object = if abi == webassembly::InstanceABI::Emscripten {
+    //        apis::generate_emscripten_env()
+    //    } else {
+    //
+    //    };
+
+    //    let instance_options = webassembly::InstanceOptions {
+    //        mock_missing_imports: true,
+    //        mock_missing_globals: true,
+    //        mock_missing_tables: true,
+    //        abi: abi,
+    //        show_progressbar: true,
+    //        isa: isa,
+    //    };
 
     debug!("webassembly - creating instance");
 

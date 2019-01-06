@@ -1,3 +1,5 @@
+use crate::apis::emscripten::InstanceEnvironment;
+use crate::apis::emscripten::{EmscriptenData, EMSCRIPTEN_INSTANCE_INDEX};
 use crate::webassembly::Instance;
 use libc::{c_int, c_void};
 use std::cell::UnsafeCell;
@@ -12,13 +14,22 @@ pub extern "C" fn __setjmp(env_addr: u32, instance: &mut Instance) -> c_int {
         let jump_index = instance.memory_offset_addr(0, env_addr as usize) as *mut i8;
         // We create the jump buffer outside of the wasm memory
         let jump_buf: UnsafeCell<[c_int; 27]> = UnsafeCell::new([0; 27]);
-        let mut jumps = &mut instance.emscripten_data().as_mut().unwrap().jumps;
+
+        let mut instance_environment = &mut instance.environments[EMSCRIPTEN_INSTANCE_INDEX];
+        let mut jumps = &mut get_emscripten_data(&mut instance_environment).jumps;
         let result = setjmp(jump_buf.get() as _);
         // We set the jump index to be the last value of jumps
         *jump_index = jumps.len() as _;
         // We hold the reference of the jump buffer
         jumps.push(jump_buf);
         result
+    }
+}
+
+fn get_emscripten_data(instance_environment: &mut InstanceEnvironment) -> &mut EmscriptenData {
+    match instance_environment {
+        &mut InstanceEnvironment::EmscriptenInstanceEnvironment(ref mut data) => data,
+        _ => panic!("expected EmscriptenInstance enum"),
     }
 }
 

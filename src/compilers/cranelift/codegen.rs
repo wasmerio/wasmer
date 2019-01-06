@@ -27,6 +27,7 @@ use cranelift_wasm::{
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
 use hashbrown::HashMap;
+use std::cell::RefCell;
 use std::ptr::NonNull;
 use target_lexicon;
 
@@ -59,7 +60,7 @@ pub mod converter {
         }
 
         // Convert Cranelift signatures to Wasmer signatures.
-        let mut  signatures: Map<WasmerSignatureIndex, WasmerSignature> =
+        let mut signatures: Map<WasmerSignatureIndex, WasmerSignature> =
             Map::with_capacity(cranelift_module.signatures.len());
         for signature in cranelift_module.signatures {
             signatures.push(convert_signature(signature));
@@ -104,6 +105,7 @@ pub mod converter {
             start_func,
             signatures,
             signature_assoc,
+            environments: RefCell::new(vec![]),
         }
     }
 
