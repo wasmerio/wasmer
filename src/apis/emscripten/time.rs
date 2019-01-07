@@ -226,8 +226,8 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
     //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
     unsafe {
-        let seconds = instance.memory_offset_addr(0, time_p as _) as *const i64;
-        let timespec = time::Timespec::new(*seconds, 0);
+        let seconds = instance.memory_offset_addr(0, time_p as _) as *const i32;
+        let timespec = time::Timespec::new(*seconds as _, 0);
         let result_tm = time::at(timespec);
 
         // debug!(
