@@ -1,45 +1,36 @@
 use crate::runtime::{
-    module::Module,
-    types::{FuncSig, Map, SigIndex},
+    types::{FuncSig, Map, SigIndex, MapIndex},
     vm,
 };
 use hashbrown::HashMap;
 
 pub struct SigRegistry {
-    sig_set: HashMap<FuncSig, vm::SigId>,
-    signatures: Map<SigIndex, vm::SigId>,
+    func_table: HashMap<FuncSig, SigIndex>,
+    sig_assoc: Map<SigIndex, FuncSig>,
 }
 
 impl SigRegistry {
-    pub fn new(module: &Module) -> Self {
-        let mut registry = Self {
-            sig_set: HashMap::new(),
-            signatures: Map::new(),
-        };
-
-        for (_, &sig_index) in &module.signature_assoc {
-            let func_sig = module.signatures[sig_index].clone();
-            let new_sig_index = registry.register(func_sig);
-            assert_eq!(sig_index, new_sig_index);
+    pub fn new() -> Self {
+        Self {
+            func_table: HashMap::new(),
+            sig_assoc: Map::new(),
         }
-
-        registry
+    }
+    
+    pub fn register(&mut self, func_sig: FuncSig) -> SigIndex {
+        let func_table = &mut self.func_table;
+        let sig_assoc = &mut self.sig_assoc;
+        *func_table.entry(func_sig.clone()).or_insert_with(|| {
+            sig_assoc.push(func_sig)
+        })
     }
 
-    pub fn into_vm_signatures(&self) -> *const vm::SigId {
-        self.signatures.as_ptr()
+    pub fn lookup_func_sig(&self, sig_index: SigIndex) -> &FuncSig {
+        &self.sig_assoc[sig_index]
     }
 
-    pub fn get_vm_id(&self, sig_index: SigIndex) -> vm::SigId {
-        self.signatures[sig_index]
-    }
-
-    fn register(&mut self, signature: FuncSig) -> SigIndex {
-        let index = self.sig_set.len();
-        let vm_sig_id = *self
-            .sig_set
-            .entry(signature)
-            .or_insert_with(|| vm::SigId(index as u32));
-        self.signatures.push(vm_sig_id)
+    pub(in crate::runtime) fn into_vm_sigid(&self) -> Box<[vm::SigId]> {
+        let v: Vec<_> = self.sig_assoc.iter().map(|(sig_index, _)| vm::SigId(sig_index.index() as u32)).collect();
+        v.into_boxed_slice()
     }
 }

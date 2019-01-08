@@ -1,4 +1,4 @@
-use crate::runtime::{module::Module, types::FuncIndex, vm};
+use crate::runtime::{module::Module, types::FuncIndex, vm, sig_registry::SigRegistry};
 use std::ptr::NonNull;
 use std::sync::Arc;
 

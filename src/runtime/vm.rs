@@ -1,6 +1,5 @@
 use crate::runtime::{
     backing::{ImportBacking, LocalBacking},
-    sig_registry::SigRegistry,
 };
 use std::{mem, ptr};
 
@@ -39,7 +38,6 @@ impl Ctx {
     pub fn new(
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
-        sig_registry: &SigRegistry,
     ) -> Self {
         Self {
             memories: local_backing.vm_memories.as_mut_ptr(),
@@ -51,7 +49,7 @@ impl Ctx {
             imported_globals: import_backing.globals.as_mut_ptr(),
             imported_funcs: import_backing.functions.as_mut_ptr(),
 
-            signatures: sig_registry.into_vm_signatures(),
+            signatures: local_backing.vm_signatures.as_mut_ptr(),
             local_backing,
         }
     }
