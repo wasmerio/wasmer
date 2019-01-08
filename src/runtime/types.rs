@@ -307,16 +307,5 @@ macro_rules! define_map_index {
     };
 }
 
-define_map_index![FuncIndex, MemoryIndex, TableIndex, SigIndex,];
+define_map_index![GlobalIndex, FuncIndex, MemoryIndex, TableIndex, SigIndex,];
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct GlobalIndex(u32);
-impl MapIndex for GlobalIndex {
-    fn new(index: usize) -> Self {
-        GlobalIndex(index as _)
-    }
-
-    fn index(&self) -> usize {
-        self.0 as usize
-    }
-}
