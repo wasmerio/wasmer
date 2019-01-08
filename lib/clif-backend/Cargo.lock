@@ -608,7 +608,6 @@ dependencies = [
  "libffi 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "page_size 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.1.0",
 ]
 
 [[package]]

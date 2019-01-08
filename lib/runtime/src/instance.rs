@@ -102,14 +102,12 @@ impl Instance {
             .chain(iter::once(libffi_arg(&vmctx_ptr)))
             .collect();
 
-        let func_ptr = CodePtr::from_ptr(
-            self.module
+        let func_ptr = CodePtr::from_ptr(self.module
                 .func_resolver
                 .get(&self.module, func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
                 .cast()
-                .as_ptr(),
-        );
+                .as_ptr());
 
         call_protected(|| {
             self.module.sig_registry.lookup_func_sig(sig_index)

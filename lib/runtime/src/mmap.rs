@@ -45,7 +45,8 @@ impl Mmap {
     pub unsafe fn protect(&mut self, range: Range<usize>, protect: Protect) -> Result<(), String> {
         let page_size = page_size::get();
         let start = self.ptr.add(round_down_to_page_size(range.start, page_size));
-        let size = range.end - range.start;
+        let size = round_up_to_page_size(range.end - range.start, page_size);
+        assert!(size <= self.size);
 
         let success = libc::mprotect(start as _, size, protect as i32);
         if success == -1 {
@@ -67,7 +68,7 @@ impl Mmap {
         slice::from_raw_parts_mut(self.ptr, self.size)
     }
 
-    pub fn as_ptr(&mut self) -> *mut u8 {
+    pub fn as_ptr(&self) -> *mut u8 {
         self.ptr
     }
 }
