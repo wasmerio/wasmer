@@ -16,17 +16,19 @@ pub struct LocalBacking {
     pub vm_memories: Box<[vm::LocalMemory]>,
     pub vm_tables: Box<[vm::LocalTable]>,
     pub vm_globals: Box<[vm::LocalGlobal]>,
+    pub vm_signatures: Box<[vm::SigId]>,
 }
 
 impl LocalBacking {
-    pub fn new(module: &Module, imports: &ImportBacking, sig_registry: &SigRegistry) -> Self {
+    pub fn new(module: &Module, imports: &ImportBacking) -> Self {
         let mut memories = Self::generate_memories(module);
         let mut tables = Self::generate_tables(module);
         let globals = Self::generate_globals(module);
 
         let vm_memories = Self::finalize_memories(module, &mut memories[..]);
-        let vm_tables = Self::finalize_tables(module, imports, &mut tables[..], sig_registry);
+        let vm_tables = Self::finalize_tables(module, imports, &mut tables[..]);
         let vm_globals = Self::finalize_globals(module, imports, globals);
+        let vm_signatures = module.sig_registry.into_vm_sigid();
 
         Self {
             memories,
@@ -35,6 +37,7 @@ impl LocalBacking {
             vm_memories,
             vm_tables,
             vm_globals,
+            vm_signatures,
         }
     }
 
@@ -99,7 +102,6 @@ impl LocalBacking {
         module: &Module,
         imports: &ImportBacking,
         tables: &mut [TableBacking],
-        sig_registry: &SigRegistry,
     ) -> Box<[vm::LocalTable]> {
         for init in &module.table_initializers {
             assert!(init.base.is_none(), "global base not supported yet");
@@ -107,8 +109,9 @@ impl LocalBacking {
             match table.elements {
                 TableElements::Anyfunc(ref mut elements) => {
                     for (i, &func_index) in init.elements.iter().enumerate() {
-                        let sig_index = module.signature_assoc[func_index];
-                        let vm_sig_id = sig_registry.get_vm_id(sig_index);
+
+                        let sig_index = module.func_assoc[func_index];
+                        let vm_sig_id = vm::SigId(sig_index.index() as u32);
 
                         let func_data = if module.is_imported_function(func_index) {
                             imports.functions[func_index.index()].clone()
@@ -258,8 +261,8 @@ impl ImportBacking {
             },
         ) in &module.imported_functions
         {
-            let expected_sig_index = module.signature_assoc[index];
-            let expected_sig = &module.signatures[expected_sig_index];
+            let sig_index = module.func_assoc[index];
+            let expected_sig = module.sig_registry.lookup_func_sig(sig_index);
             let import = imports.get(mod_name, item_name);
             if let Some(&Import::Func(func, ref signature)) = import {
                 if expected_sig == signature {

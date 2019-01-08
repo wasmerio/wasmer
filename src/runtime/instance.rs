@@ -19,7 +19,6 @@ use std::sync::Arc;
 pub struct Instance {
     pub(in crate::runtime) backing: LocalBacking,
     import_backing: ImportBacking,
-    sig_registry: SigRegistry,
     pub module: Arc<Module>,
     pub environment: InstanceEnvironment,
 }
@@ -48,10 +47,8 @@ impl Instance {
 
     // TODO visibility (in crate::runtime)
     pub fn new(module: Arc<Module>, imports: &dyn ImportResolver) -> Result<Box<Instance>, String> {
-        let sig_registry = SigRegistry::new(&*module);
-
         let import_backing = ImportBacking::new(&*module, imports)?;
-        let backing = LocalBacking::new(&*module, &import_backing, &sig_registry);
+        let backing = LocalBacking::new(&*module, &import_backing);
 
         let start_func = module.start_func;
 
@@ -59,7 +56,6 @@ impl Instance {
             backing,
             import_backing,
             module: Arc::clone(&module),
-            sig_registry,
             environment: InstanceEnvironment::EmptyInstanceEnvironment,
         });
 
@@ -100,12 +96,12 @@ impl Instance {
         // Check the function signature.
         let sig_index = *self
             .module
-            .signature_assoc
+            .func_assoc
             .get(func_index)
             .expect("broken invariant, incorrect func index");
 
         {
-            let signature = &self.module.signatures[sig_index];
+            let signature = self.module.sig_registry.lookup_func_sig(sig_index);
 
             assert!(
                 signature.returns.len() <= 1,
@@ -119,11 +115,7 @@ impl Instance {
 
         // the vmctx will be located at the same place on the stack the entire time that this
         // wasm function is running.
-        let mut vmctx = vm::Ctx::new(
-            &mut self.backing,
-            &mut self.import_backing,
-            &self.sig_registry,
-        );
+        let mut vmctx = vm::Ctx::new(&mut self.backing, &mut self.import_backing);
         let vmctx_ptr = &mut vmctx as *mut vm::Ctx;
 
         let libffi_args: Vec<_> = args
@@ -147,7 +139,9 @@ impl Instance {
         );
 
         call_protected(|| {
-            self.module.signatures[sig_index]
+            self.module
+                .sig_registry
+                .lookup_func_sig(sig_index)
                 .returns
                 .first()
                 .map(|ty| match ty {

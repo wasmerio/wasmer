@@ -1,4 +1,3 @@
-use super::super::host;
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 use libc::{
     c_int, c_long, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, putenv, setenv,
@@ -9,7 +8,6 @@ use std::mem;
 use std::os::raw::c_char;
 
 use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use crate::apis::emscripten::env;
 use crate::apis::emscripten::EmscriptenData;
 use crate::runtime::{types::Value, Instance};
 

@@ -1,5 +1,5 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
-use libc::{c_char, c_int, localtime, localtime_r, time as libc_time, time_t, timespec, tm};
+use libc::{c_char, c_int, time as libc_time, time_t};
 use std::mem;
 use std::time::SystemTime;
 

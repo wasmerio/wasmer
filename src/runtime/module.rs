@@ -2,9 +2,10 @@ use crate::compilers::cranelift::codegen::{converter, CraneliftModule};
 use crate::runtime::{
     backend::FuncResolver,
     types::{
-        FuncIndex, FuncSig, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex,
+        FuncIndex, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex,
         SigIndex, Table, TableIndex,
     },
+    sig_registry::SigRegistry,
 };
 use crate::runtime::{Import, Imports, Instance};
 use std::cell::RefCell;
@@ -28,9 +29,8 @@ pub struct Module {
     pub data_initializers: Vec<DataInitializer>,
     pub table_initializers: Vec<TableInitializer>,
     pub start_func: Option<FuncIndex>,
-
-    pub signature_assoc: Map<FuncIndex, SigIndex>,
-    pub signatures: Map<SigIndex, FuncSig>,
+    pub func_assoc: Map<FuncIndex, SigIndex>,
+    pub sig_registry: SigRegistry,
 
     pub environment: RefCell<Option<Box<dyn ModuleEnvironment>>>,
 }

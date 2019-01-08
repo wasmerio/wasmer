@@ -13,6 +13,7 @@ pub use self::backend::{Compiler, FuncResolver};
 pub use self::instance::{Import, ImportResolver, Imports, Instance, InstanceABI, InstanceOptions};
 pub use self::module::Module;
 pub use self::table::TableBacking;
+pub use self::sig_registry::SigRegistry;
 
 /// Compile a webassembly module using the provided compiler and linked with the provided imports.
 pub fn instantiate(

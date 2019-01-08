@@ -2,8 +2,7 @@ macro_rules! assert_emscripten_output {
     ($file:expr, $name:expr, $args:expr, $expected:expr) => {{
         use crate::apis::generate_emscripten_env;
         use crate::common::stdio::StdioCapturer;
-        use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
-        use crate::runtime::{Import, Imports, InstanceABI, InstanceOptions};
+        use crate::runtime::{InstanceABI, InstanceOptions};
         use crate::webassembly::{get_isa, instantiate, start_instance};
         use std::sync::Arc;
 

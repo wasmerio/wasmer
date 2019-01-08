@@ -9,6 +9,7 @@ use crate::runtime::{
         MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex, Table as WasmerTable,
         TableIndex as WasmerTableIndex, Type as WasmerType,
     },
+    SigRegistry,
     vm::{self, Ctx as WasmerVMContext},
 };
 use crate::webassembly::errors::ErrorKind;
@@ -59,18 +60,17 @@ pub mod converter {
             tables.push(convert_table(table));
         }
 
-        // Convert Cranelift signatures to Wasmer signatures.
-        let mut signatures: Map<WasmerSignatureIndex, WasmerSignature> =
-            Map::with_capacity(cranelift_module.signatures.len());
+        let mut sig_registry = SigRegistry::new();
         for signature in cranelift_module.signatures {
-            signatures.push(convert_signature(signature));
+            let func_sig = convert_signature(signature);
+            sig_registry.register(func_sig);
         }
 
         // Convert Cranelift signature indices to Wasmer signature indices.
-        let mut signature_assoc: Map<WasmerFuncIndex, WasmerSignatureIndex> =
+        let mut func_assoc: Map<WasmerFuncIndex, WasmerSignatureIndex> =
             Map::with_capacity(cranelift_module.functions.len());
         for (_, signature_index) in cranelift_module.functions.iter() {
-            signature_assoc.push(WasmerSignatureIndex::new(signature_index.index()));
+            func_assoc.push(WasmerSignatureIndex::new(signature_index.index()));
         }
 
         // Create func_resolver.
@@ -103,9 +103,9 @@ pub mod converter {
             data_initializers,
             table_initializers,
             start_func,
-            signatures,
-            signature_assoc,
             environment: RefCell::new(None),
+            func_assoc,
+            sig_registry,
         }
     }
 
@@ -571,6 +571,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     }
 
     /// Generates a call IR with `callee` and `call_args` and inserts it at `pos`
+    /// TODO: add support for imported functions
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,

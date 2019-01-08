@@ -193,6 +193,10 @@ where
     pub fn reserve_exact(&mut self, size: usize) {
         self.elems.reserve_exact(size);
     }
+
+    pub fn iter(&self) -> Iter<T, I> {
+        Iter::new(self.elems.iter())
+    }
 }
 
 impl<I, T> Index<I> for Map<I, T>
