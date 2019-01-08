@@ -9,8 +9,8 @@ use crate::runtime::{
         MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex, Table as WasmerTable,
         TableIndex as WasmerTableIndex, Type as WasmerType,
     },
-    SigRegistry,
     vm::{self, Ctx as WasmerVMContext},
+    SigRegistry,
 };
 use crate::webassembly::errors::ErrorKind;
 use cranelift_codegen::cursor::FuncCursor;
@@ -70,6 +70,106 @@ pub mod converter {
             Map::with_capacity(cranelift_module.functions.len());
         for (_, signature_index) in cranelift_module.functions.iter() {
             func_assoc.push(WasmerSignatureIndex::new(signature_index.index()));
+        }
+
+        // Compile functions.
+        use crate::runtime::vmcalls::{memory_grow_static, memory_size};
+        use crate::webassembly::{
+            get_isa, libcalls,
+            relocation::{Reloc, RelocSink, Relocation, RelocationType},
+        };
+        use cranelift_codegen::{binemit::NullTrapSink, ir::LibCall, isa::TargetIsa, Context};
+        use std::ptr::write_unaligned;
+
+        let isa = &*get_isa();
+        let functions_length = cranelift_module.function_bodies.len();
+
+        // Compiles internally defined functions only
+        let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(functions_length);
+        let mut relocations: Vec<Vec<Relocation>> = Vec::with_capacity(functions_length);
+
+        for function_body in cranelift_module.function_bodies.iter() {
+            let mut func_context = Context::for_function(function_body.1.to_owned());
+            let mut code_buf: Vec<u8> = Vec::new();
+            let mut reloc_sink = RelocSink::new();
+            let mut trap_sink = NullTrapSink {};
+
+            // Compile IR to machine code.
+            func_context
+                .compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
+                .map_err(|e| {
+                    panic!("CompileError: {}", e.to_string());
+                });
+
+            unsafe {
+                // Make code buffer executable.
+                region::protect(
+                    code_buf.as_ptr(),
+                    code_buf.len(),
+                    region::Protection::ReadWriteExecute,
+                )
+                .map_err(|e| {
+                    panic!(
+                        "failed to give executable permission to code: {}",
+                        e.to_string()
+                    );
+                });
+            }
+
+            // Push
+            compiled_functions.push(code_buf);
+            relocations.push(reloc_sink.func_relocs);
+        }
+
+        for (index, relocs) in relocations.iter().enumerate() {
+            for ref reloc in relocs {
+                let target_func_address: isize = match reloc.target {
+                    RelocationType::Normal(func_index) => {
+                        compiled_functions[index].as_ptr() as isize
+                    }
+                    RelocationType::CurrentMemory => memory_size as isize,
+                    RelocationType::GrowMemory => memory_grow_static as isize,
+                    RelocationType::LibCall(libcall) => match libcall {
+                        LibCall::CeilF32 => libcalls::ceilf32 as isize,
+                        LibCall::FloorF32 => libcalls::floorf32 as isize,
+                        LibCall::TruncF32 => libcalls::truncf32 as isize,
+                        LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
+                        LibCall::CeilF64 => libcalls::ceilf64 as isize,
+                        LibCall::FloorF64 => libcalls::floorf64 as isize,
+                        LibCall::TruncF64 => libcalls::truncf64 as isize,
+                        LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
+                        LibCall::Probestack => libcalls::__rust_probestack as isize,
+                        _ => {
+                            panic!("unexpected libcall {}", libcall);
+                        }
+                    },
+                    RelocationType::Intrinsic(ref name) => {
+                        panic!("unexpected intrinsic {}", name);
+                    }
+                };
+
+                // ???
+                let func_addr = compiled_functions[index].as_ptr();
+
+                // Determine relocation type and apply relocation
+                match reloc.reloc {
+                    Reloc::Abs8 => unsafe {
+                        let reloc_address = func_addr.offset(reloc.offset as isize) as i64;
+                        let reloc_addend = reloc.addend;
+                        let reloc_abs = target_func_address as i64 + reloc_addend;
+                        write_unaligned(reloc_address as *mut i64, reloc_abs);
+                    },
+                    Reloc::X86PCRel4 => unsafe {
+                        let reloc_address = func_addr.offset(reloc.offset as isize) as isize;
+                        let reloc_addend = reloc.addend as isize;
+                        // TODO: Handle overflow.
+                        let reloc_delta_i32 =
+                            (target_func_address - reloc_address + reloc_addend) as i32;
+                        write_unaligned(reloc_address as *mut i32, reloc_delta_i32);
+                    },
+                    _ => panic!("unsupported reloc kind"),
+                }
+            }
         }
 
         // Create func_resolver.
