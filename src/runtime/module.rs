@@ -32,7 +32,7 @@ pub struct Module {
     pub signature_assoc: Map<FuncIndex, SigIndex>,
     pub signatures: Map<SigIndex, FuncSig>,
 
-    pub environments: RefCell<Vec<Box<dyn ModuleEnvironment>>>,
+    pub environment: RefCell<Option<Box<dyn ModuleEnvironment>>>,
 }
 
 /// Provides hooks relating to setting up an environment for a module's instances
@@ -47,7 +47,7 @@ impl Module {
     }
 
     pub fn after_instantiate(&self, instance: &mut Instance) {
-        for module_environment in self.environments.borrow().iter() {
+        if let Some(ref module_environment) = *self.environment.borrow() {
             module_environment.after_instantiate(instance);
         }
     }

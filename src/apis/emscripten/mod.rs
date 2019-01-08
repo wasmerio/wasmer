@@ -1,5 +1,5 @@
-use crate::runtime::module::ModuleEnvironment;
 use crate::runtime::memory::LinearMemory;
+use crate::runtime::module::ModuleEnvironment;
 use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
 use crate::runtime::{Import, Imports, Instance, Module};
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
@@ -58,8 +58,6 @@ pub enum InstanceEnvironment {
     EmscriptenInstanceEnvironment(EmscriptenData),
 }
 
-const EMSCRIPTEN_INSTANCE_INDEX: usize = 0;
-
 pub struct EmscriptenModuleEnvironment {}
 impl EmscriptenModuleEnvironment {
     pub fn new() -> EmscriptenModuleEnvironment {
@@ -70,8 +68,7 @@ impl EmscriptenModuleEnvironment {
 impl ModuleEnvironment for EmscriptenModuleEnvironment {
     fn after_instantiate(&self, instance: &mut Instance) {
         let data = EmscriptenData::new(&Arc::clone(&instance.module), instance);
-        let instance_environment = InstanceEnvironment::EmscriptenInstanceEnvironment(data);
-        instance.environments[EMSCRIPTEN_INSTANCE_INDEX] = instance_environment;
+        instance.environment = InstanceEnvironment::EmscriptenInstanceEnvironment(data);
     }
 
     fn append_imports(&self, mut import_object: &mut Imports) {

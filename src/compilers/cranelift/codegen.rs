@@ -105,7 +105,7 @@ pub mod converter {
             start_func,
             signatures,
             signature_assoc,
-            environments: RefCell::new(vec![]),
+            environment: RefCell::new(None),
         }
     }
 

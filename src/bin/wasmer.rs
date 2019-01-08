@@ -75,19 +75,16 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
     // Setup Module Environments
-    let mut environments: Vec<Box<dyn ModuleEnvironment>> = vec![];
     if apis::is_emscripten_module(&module) {
-        environments.push(Box::new(EmscriptenModuleEnvironment::new()));
-    }
-
-    for env in environments {
-        module.environments.borrow_mut().push(env);
+        let mut environment = module.environment.borrow_mut();
+        *environment = Some(Box::new(EmscriptenModuleEnvironment::new()));
     }
 
     // Setup Imports
     let mut import_object = runtime::Imports::new();
-    for env in module.environments.borrow().iter() {
-        env.append_imports(&mut import_object);
+
+    if let Some(ref module_environment) = *module.environment.borrow() {
+        module_environment.append_imports(&mut import_object);
     }
 
     //    let abi = if apis::is_emscripten_module(&module) {
