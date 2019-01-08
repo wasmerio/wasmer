@@ -73,14 +73,16 @@ pub mod converter {
         }
 
         // Compile functions.
+        // TODO: Rearrange, Abstract
         use crate::runtime::vmcalls::{memory_grow_static, memory_size};
         use crate::webassembly::{
             get_isa, libcalls,
             relocation::{Reloc, RelocSink, Relocation, RelocationType},
         };
-        use cranelift_codegen::{binemit::NullTrapSink, ir::LibCall, isa::TargetIsa, Context};
+        use cranelift_codegen::{binemit::NullTrapSink, ir::LibCall, Context};
         use std::ptr::write_unaligned;
 
+        // Get the machine ISA.
         let isa = &*get_isa();
         let functions_length = cranelift_module.function_bodies.len();
 
@@ -95,37 +97,38 @@ pub mod converter {
             let mut trap_sink = NullTrapSink {};
 
             // Compile IR to machine code.
-            func_context
-                .compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
-                .map_err(|e| {
-                    panic!("CompileError: {}", e.to_string());
-                });
+            let result = func_context.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink);
+            if result.is_err() {
+                panic!("CompileError: {}", result.unwrap_err().to_string());
+            }
 
             unsafe {
                 // Make code buffer executable.
-                region::protect(
+                let result = region::protect(
                     code_buf.as_ptr(),
                     code_buf.len(),
                     region::Protection::ReadWriteExecute,
-                )
-                .map_err(|e| {
+                );
+
+                if result.is_err() {
                     panic!(
                         "failed to give executable permission to code: {}",
-                        e.to_string()
+                        result.unwrap_err().to_string()
                     );
-                });
+                }
             }
 
-            // Push
+            // Push compiled functions and relocations
             compiled_functions.push(code_buf);
             relocations.push(reloc_sink.func_relocs);
         }
 
+        // Apply relocations.
         for (index, relocs) in relocations.iter().enumerate() {
             for ref reloc in relocs {
                 let target_func_address: isize = match reloc.target {
                     RelocationType::Normal(func_index) => {
-                        compiled_functions[index].as_ptr() as isize
+                        compiled_functions[func_index as usize].as_ptr() as isize
                     }
                     RelocationType::CurrentMemory => memory_size as isize,
                     RelocationType::GrowMemory => memory_grow_static as isize,
@@ -148,10 +151,9 @@ pub mod converter {
                     }
                 };
 
-                // ???
                 let func_addr = compiled_functions[index].as_ptr();
 
-                // Determine relocation type and apply relocation
+                // Determine relocation type and apply relocations.
                 match reloc.reloc {
                     Reloc::Abs8 => unsafe {
                         let reloc_address = func_addr.offset(reloc.offset as isize) as i64;
@@ -172,9 +174,6 @@ pub mod converter {
             }
         }
 
-        // Create func_resolver.
-        let func_resolver = Box::new(CraneliftFunctionResolver::new());
-
         // Get other fields from the cranelift_module.
         let CraneliftModule {
             imported_functions,
@@ -190,7 +189,7 @@ pub mod converter {
 
         // Create Wasmer module from data above
         WasmerModule {
-            func_resolver,
+            func_resolver: Box::new(CraneliftFunctionResolver::new(compiled_functions)),
             memories,
             globals,
             tables,
@@ -392,18 +391,33 @@ impl CraneliftModule {
 }
 
 // Resolves a function index to a function address.
-pub struct CraneliftFunctionResolver {}
+pub struct CraneliftFunctionResolver {
+    compiled_functions: Vec<Vec<u8>>,
+}
 
 impl CraneliftFunctionResolver {
-    fn new() -> Self {
-        Self {}
+    fn new(compiled_functions: Vec<Vec<u8>>) -> Self {
+        Self {
+            compiled_functions,
+        }
     }
 }
 
 // Implements FuncResolver trait.
 impl FuncResolver for CraneliftFunctionResolver {
+    // NOTE: This gets internal defined functions only. Will need access to vmctx to return imported function address.
     fn get(&self, module: &WasmerModule, index: WasmerFuncIndex) -> Option<NonNull<vm::Func>> {
-        None
+        let index = index.index();
+        let imported_functions_length = module.imported_functions.len();
+        let internal_functions_length = self.compiled_functions.len();
+        let limit = imported_functions_length + internal_functions_length;
+
+        // Making sure it is not an imported function.
+        if index >= imported_functions_length && index < limit {
+            Some(NonNull::new(self.compiled_functions[index].as_ptr() as *mut _).unwrap())
+        } else {
+            None
+        }
     }
 }
 
