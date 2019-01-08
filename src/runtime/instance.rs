@@ -37,7 +37,8 @@ pub enum InstanceABI {
 }
 
 impl Instance {
-    pub(in crate::runtime) fn new(module: Arc<Module>, imports: &dyn ImportResolver) -> Result<Box<Instance>, String> {
+    // TODO visibility (in crate::runtime)
+    pub fn new(module: Arc<Module>, imports: &dyn ImportResolver) -> Result<Box<Instance>, String> {
         let import_backing = ImportBacking::new(&*module, imports)?;
         let backing = LocalBacking::new(&*module, &import_backing);
 
@@ -103,10 +104,7 @@ impl Instance {
 
         // the vmctx will be located at the same place on the stack the entire time that this
         // wasm function is running.
-        let mut vmctx = vm::Ctx::new(
-            &mut self.backing,
-            &mut self.import_backing,
-        );
+        let mut vmctx = vm::Ctx::new(&mut self.backing, &mut self.import_backing);
         let vmctx_ptr = &mut vmctx as *mut vm::Ctx;
 
         let libffi_args: Vec<_> = args
@@ -130,7 +128,9 @@ impl Instance {
         );
 
         call_protected(|| {
-            self.module.sig_registry.lookup_func_sig(sig_index)
+            self.module
+                .sig_registry
+                .lookup_func_sig(sig_index)
                 .returns
                 .first()
                 .map(|ty| match ty {
