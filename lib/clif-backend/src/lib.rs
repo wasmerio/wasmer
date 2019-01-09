@@ -8,7 +8,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
-use wasmer_runtime::{Compiler, Module};
+use wasmer_runtime::{backend::Compiler, module::Module};
 use wasmparser::{self, WasmDecoder};
 
 use self::codegen::converter;

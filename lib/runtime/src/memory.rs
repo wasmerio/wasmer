@@ -91,28 +91,28 @@ impl LinearMemory {
     }
 
     /// Returns an base address of this linear memory.
-    pub fn base(&mut self) -> *mut u8 {
+    fn base(&mut self) -> *mut u8 {
         self.mmap.as_ptr()
     }
 
     /// Returns a number of allocated wasm pages.
-    pub fn current_size(&self) -> usize {
+    pub(crate) fn size(&self) -> usize {
         self.current as usize * Self::PAGE_SIZE as usize
     }
 
-    pub fn current_pages(&self) -> u32 {
+    pub fn pages(&self) -> u32 {
         self.current
     }
 
     /// Returns the maximum number of wasm pages allowed.
-    pub fn maximum_size(&self) -> u32 {
+    pub fn max(&self) -> u32 {
         self.max.unwrap_or(Self::MAX_PAGES)
     }
 
-    pub fn into_vm_memory(&mut self) -> LocalMemory {
+    pub(crate) fn into_vm_memory(&mut self) -> LocalMemory {
         LocalMemory {
             base: self.base(),
-            size: self.current_size(),
+            size: self.size(),
         }
     }
 
@@ -120,7 +120,7 @@ impl LinearMemory {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
-    pub fn grow_dynamic(&mut self, add_pages: u32) -> Option<i32> {
+    pub(crate) fn grow_dynamic(&mut self, add_pages: u32) -> Option<i32> {
         debug!("grow_memory_dynamic called!");
         assert!(self.max.is_none());
         if add_pages == 0 {
@@ -169,7 +169,7 @@ impl LinearMemory {
         Some(prev_pages as i32)
     }
 
-    pub fn grow_static(&mut self, add_pages: u32) -> Option<i32> {
+    pub(crate) fn grow_static(&mut self, add_pages: u32) -> Option<i32> {
         debug!("grow_memory_static called!");
         assert!(self.max.is_some());
         if add_pages == 0 {
@@ -206,13 +206,6 @@ impl LinearMemory {
         self.current = new_pages;
 
         Some(prev_pages as i32)
-    }
-}
-
-// Not comparing based on memory content. That would be inefficient.
-impl PartialEq for LinearMemory {
-    fn eq(&self, other: &LinearMemory) -> bool {
-        self.current == other.current && self.max == other.max
     }
 }
 

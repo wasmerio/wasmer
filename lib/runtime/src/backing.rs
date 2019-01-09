@@ -65,7 +65,7 @@ impl LocalBacking {
         for init in &module.data_initializers {
             assert!(init.base.is_none(), "global base not supported yet");
             assert!(
-                init.offset + init.data.len() <= memories[init.memory_index.index()].current_size()
+                init.offset + init.data.len() <= memories[init.memory_index.index()].size()
             );
             let offset = init.offset;
             let mem: &mut LinearMemory = &mut memories[init.memory_index.index()];

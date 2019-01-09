@@ -16,7 +16,7 @@ use cranelift_wasm::{
 use hashbrown::HashMap;
 use target_lexicon;
 use wasmer_runtime::{
-    module::{DataInitializer, Export, ImportName, TableInitializer},
+    module::{ModuleInner as WasmerModule, DataInitializer, Export, ImportName, TableInitializer},
     types::{
         ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
         Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
@@ -25,7 +25,8 @@ use wasmer_runtime::{
         TableIndex as WasmerTableIndex, Type as WasmerType,
     },
     vm::{self, Ctx as WasmerVMContext},
-    LinearMemory, ModuleInner as WasmerModule, SigRegistry,
+    backend::SigRegistry,
+    LinearMemory,
 };
 
 /// The converter namespace contains functions for converting a Cranelift module
@@ -611,6 +612,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
                 .ins()
                 .call_indirect(sig_ref, imported_func_addr, &args[..]))
         } else {
+            println!("translate_call: {:?}", callee_index);
             // this is an internal function
             let vmctx = pos
                 .func
@@ -621,7 +623,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             args.extend(call_args.iter().cloned());
             args.push(vmctx);
 
-            Ok(pos.ins().call(callee, &args[..]))
+            Ok(pos.ins().call(callee, &args))
         }
     }
 

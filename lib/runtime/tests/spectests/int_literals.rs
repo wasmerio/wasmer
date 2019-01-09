@@ -9,7 +9,7 @@ use wabt::wat2wasm;
 use std::{f32, f64};
 
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, Module};
+use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
 
 use crate::spectests::_common::{

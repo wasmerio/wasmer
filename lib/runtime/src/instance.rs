@@ -66,10 +66,10 @@ impl Instance {
     }
 
     /// Call an exported webassembly function given the export name.
-    /// Pass arguments by wrapping each one in the `Val` enum.
-    /// The returned value is also returned in a `Val`.
+    /// Pass arguments by wrapping each one in the `Value` enum.
+    /// The returned value is also returned in a `Value`.
     ///
-    /// This will eventually return `Result<Option<Vec<Val>>, String>` in
+    /// This will eventually return `Result<Option<Vec<Value>>, String>` in
     /// order to support multi-value returns.
     pub fn call(&mut self, name: &str, args: &[Value]) -> Result<Option<Value>, String> {
         let func_index = *self
