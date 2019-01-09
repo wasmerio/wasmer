@@ -1,18 +1,4 @@
-use wasmer_runtime::{
-    FuncResolver,
-    LinearMemory,
-    ModuleInner as WasmerModule,
-    SigRegistry,
-    module::{DataInitializer, Export, ImportName, TableInitializer},
-    types::{
-        ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
-        Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
-        Initializer as WasmerInitializer, Map, MapIndex, Memory as WasmerMemory,
-        MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex, Table as WasmerTable,
-        TableIndex as WasmerTableIndex, Type as WasmerType,
-    },
-    vm::Ctx as WasmerVMContext,
-};
+use crate::resolver::FuncResolverBuilder;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::{self, *};
@@ -29,7 +15,18 @@ use cranelift_wasm::{
 };
 use hashbrown::HashMap;
 use target_lexicon;
-use crate::resolver::{FuncResolverBuilder};
+use wasmer_runtime::{
+    module::{DataInitializer, Export, ImportName, TableInitializer},
+    types::{
+        ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
+        Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
+        Initializer as WasmerInitializer, Map, MapIndex, Memory as WasmerMemory,
+        MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex, Table as WasmerTable,
+        TableIndex as WasmerTableIndex, Type as WasmerType,
+    },
+    vm::{self, Ctx as WasmerVMContext},
+    LinearMemory, ModuleInner as WasmerModule, SigRegistry,
+};
 
 /// The converter namespace contains functions for converting a Cranelift module
 /// to a Wasmer module.
@@ -72,8 +69,17 @@ pub mod converter {
             func_assoc.push(WasmerSignatureIndex::new(signature_index.index()));
         }
 
-        let function_bodies: Vec<_> = cranelift_module.function_bodies.into_iter().map(|(_, v)| v.clone()).collect();
-        let func_resolver_builder = FuncResolverBuilder::new(&*crate::get_isa(), function_bodies).unwrap();
+        let function_bodies: Vec<_> = cranelift_module
+            .function_bodies
+            .into_iter()
+            .map(|(_, v)| v.clone())
+            .collect();
+        let func_resolver_builder = FuncResolverBuilder::new(
+            &*crate::get_isa(),
+            function_bodies,
+            cranelift_module.imported_functions.len(),
+        )
+        .unwrap();
 
         // Create func_resolver.
         let func_resolver = Box::new(func_resolver_builder.finalize().unwrap());
@@ -217,9 +223,6 @@ pub struct CraneliftModule {
     /// The external function declaration for implementing wasm's `grow_memory`.
     pub grow_memory_extfunc: Option<FuncRef>,
 
-    /// A function that takes a Wasmer module and resolves a function index to a vm::Func.
-    pub func_resolver: Option<Box<dyn FuncResolver>>,
-
     // An array holding information about the wasm instance memories.
     pub memories: Vec<Memory>,
 
@@ -271,7 +274,6 @@ impl CraneliftModule {
             memories_base: None,
             current_memory_extfunc: None,
             grow_memory_extfunc: None,
-            func_resolver: None,
             memories: Vec::new(),
             globals: Vec::new(),
             tables: Vec::new(),
@@ -286,8 +288,7 @@ impl CraneliftModule {
         };
 
         // Translate wasm to cranelift IR.
-        translate_module(&buffer_source, &mut cranelift_module)
-            .map_err(|e| e.to_string())?;
+        translate_module(&buffer_source, &mut cranelift_module).map_err(|e| e.to_string())?;
 
         // Return translated module.
         Ok(cranelift_module)
@@ -560,12 +561,68 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,
-        _callee_index: FuncIndex,
+        callee_index: FuncIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
         // Insert call instructions for `callee`.
-        Ok(pos.ins().call(callee, call_args))
+
+        if callee_index.index() < self.module.imported_functions.len() {
+            // this is an imported function
+            let vmctx = pos.func.create_global_value(ir::GlobalValueData::VMContext);
+
+            let imported_funcs = pos.func.create_global_value(ir::GlobalValueData::Load {
+                base: vmctx,
+                offset: (WasmerVMContext::offset_imported_funcs() as i32).into(),
+                global_type: self.pointer_type(),
+                readonly: true,
+            });
+
+            let imported_func_struct_addr =
+                pos.func.create_global_value(ir::GlobalValueData::IAddImm {
+                    base: imported_funcs,
+                    offset: (callee_index.index() as i64 * vm::ImportedFunc::size() as i64).into(),
+                    global_type: self.pointer_type(),
+                });
+
+            let imported_func_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
+                base: imported_func_struct_addr,
+                offset: (vm::ImportedFunc::offset_func() as i32).into(),
+                global_type: self.pointer_type(),
+                readonly: true,
+            });
+
+            let imported_func_addr = pos
+                .ins()
+                .global_value(self.pointer_type(), imported_func_addr);
+
+            let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
+
+            let vmctx = pos
+                .func
+                .special_param(ir::ArgumentPurpose::VMContext)
+                .expect("missing vmctx parameter");
+
+            let mut args = Vec::with_capacity(call_args.len() + 1);
+            args.extend(call_args.iter().cloned());
+            args.push(vmctx);
+
+            Ok(pos
+                .ins()
+                .call_indirect(sig_ref, imported_func_addr, &args[..]))
+        } else {
+            // this is an internal function
+            let vmctx = pos
+                .func
+                .special_param(ir::ArgumentPurpose::VMContext)
+                .expect("missing vmctx parameter");
+
+            let mut args = Vec::with_capacity(call_args.len() + 1);
+            args.extend(call_args.iter().cloned());
+            args.push(vmctx);
+
+            Ok(pos.ins().call(callee, &args[..]))
+        }
     }
 
     /// Generates code corresponding to wasm `memory.grow`.

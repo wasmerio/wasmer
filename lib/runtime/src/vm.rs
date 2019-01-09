@@ -33,10 +33,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    pub fn new(
-        local_backing: &mut LocalBacking,
-        import_backing: &mut ImportBacking,
-    ) -> Self {
+    pub fn new(local_backing: &mut LocalBacking, import_backing: &mut ImportBacking) -> Self {
         Self {
             memories: local_backing.vm_memories.as_mut_ptr(),
             tables: local_backing.vm_tables.as_mut_ptr(),
@@ -100,6 +97,10 @@ pub struct ImportedFunc {
 impl ImportedFunc {
     pub fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
     }
 }
 

@@ -17,7 +17,7 @@ pub enum Type {
     F64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     /// The `i32` type.
     I32(i32),
@@ -83,7 +83,7 @@ pub struct Table {
 /// A global value initializer.
 /// Overtime, this will be able to represent more and more
 /// complex expressions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Initializer {
     /// Corresponds to a `const.*` instruction.
     Const(Value),
@@ -98,7 +98,7 @@ pub struct GlobalDesc {
 }
 
 /// A wasm global.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Global {
     pub desc: GlobalDesc,
     pub init: Initializer,

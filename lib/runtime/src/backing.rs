@@ -108,7 +108,6 @@ impl LocalBacking {
             match table.elements {
                 TableElements::Anyfunc(ref mut elements) => {
                     for (i, &func_index) in init.elements.iter().enumerate() {
-
                         let sig_index = module.func_assoc[func_index];
                         let vm_sig_id = vm::SigId(sig_index.index() as u32);
 
@@ -263,20 +262,29 @@ impl ImportBacking {
             let sig_index = module.func_assoc[index];
             let expected_sig = module.sig_registry.lookup_func_sig(sig_index);
             let import = imports.get(mod_name, item_name);
-            if let Some(&Import::Func(func, ref signature)) = import {
-                if expected_sig == signature {
-                    functions.push(vm::ImportedFunc {
-                        func,
-                        // vmctx: ptr::null_mut(),
-                    });
-                } else {
+            match import {
+                Some(&Import::Func(func, ref signature)) => {
+                    if expected_sig == signature {
+                        functions.push(vm::ImportedFunc {
+                            func,
+                            // vmctx: ptr::null_mut(),
+                        });
+                    } else {
+                        return Err(format!(
+                            "unexpected signature for {:?}:{:?}",
+                            mod_name, item_name
+                        ));
+                    }
+                }
+                Some(_) => {
                     return Err(format!(
-                        "unexpected signature for {:?}:{:?}",
+                        "incorrect import type for {}:{}",
                         mod_name, item_name
                     ));
                 }
-            } else {
-                return Err(format!("incorrect type for {:?}:{:?}", mod_name, item_name));
+                None => {
+                    return Err(format!("import not found: {}:{}", mod_name, item_name));
+                }
             }
         }
 
@@ -293,26 +301,35 @@ impl ImportBacking {
         ) in &module.imported_globals
         {
             let import = imports.get(mod_name, item_name);
-            if let Some(&Import::Global(val)) = import {
-                if val.ty() == global_desc.ty {
-                    globals.push(vm::ImportedGlobal {
-                        global: vm::LocalGlobal {
-                            data: match val {
-                                Value::I32(n) => n as u64,
-                                Value::I64(n) => n as u64,
-                                Value::F32(n) => n as u64,
-                                Value::F64(n) => n,
+            match import {
+                Some(Import::Global(val)) => {
+                    if val.ty() == global_desc.ty {
+                        globals.push(vm::ImportedGlobal {
+                            global: vm::LocalGlobal {
+                                data: match val {
+                                    Value::I32(n) => *n as u64,
+                                    Value::I64(n) => *n as u64,
+                                    Value::F32(n) => *n as u64,
+                                    Value::F64(n) => *n,
+                                },
                             },
-                        },
-                    });
-                } else {
+                        });
+                    } else {
+                        return Err(format!(
+                            "unexpected global type for {:?}:{:?}",
+                            mod_name, item_name
+                        ));
+                    }
+                }
+                Some(_) => {
                     return Err(format!(
-                        "unexpected global type for {:?}:{:?}",
+                        "incorrect import type for {}:{}",
                         mod_name, item_name
                     ));
                 }
-            } else {
-                return Err(format!("incorrect type for {:?}:{:?}", mod_name, item_name));
+                None => {
+                    return Err(format!("import not found: {}:{}", mod_name, item_name));
+                }
             }
         }
 

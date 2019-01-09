@@ -1,8 +1,8 @@
-use std::{slice, ptr};
-use std::ops::Range;
+use errno;
 use nix::libc;
 use page_size;
-use errno;
+use std::ops::Range;
+use std::{ptr, slice};
 
 #[derive(Debug)]
 pub struct Mmap {
@@ -44,7 +44,9 @@ impl Mmap {
 
     pub unsafe fn protect(&mut self, range: Range<usize>, protect: Protect) -> Result<(), String> {
         let page_size = page_size::get();
-        let start = self.ptr.add(round_down_to_page_size(range.start, page_size));
+        let start = self
+            .ptr
+            .add(round_down_to_page_size(range.start, page_size));
         let size = round_up_to_page_size(range.end - range.start, page_size);
         assert!(size <= self.size);
 
@@ -100,5 +102,5 @@ fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
 
 /// Round `size` down to the nearest multiple of `page_size`.
 fn round_down_to_page_size(size: usize, page_size: usize) -> usize {
-    size & !(page_size-1)
+    size & !(page_size - 1)
 }

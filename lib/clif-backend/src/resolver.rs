@@ -1,19 +1,14 @@
-use cranelift_codegen::{
-    ir,
-    isa,
-    Context,
-};
+use crate::libcalls;
+use crate::relocation::{Reloc, RelocSink, Relocation, RelocationType, TrapSink};
+use cranelift_codegen::{ir, isa, Context};
+use std::mem;
+use std::ptr::{write_unaligned, NonNull};
 use wasmer_runtime::{
     self,
-    types::{Map, MapIndex, FuncIndex},
     mmap::{Mmap, Protect},
-    vm,
-    vmcalls,
+    types::{FuncIndex, Map, MapIndex},
+    vm, vmcalls,
 };
-use crate::relocation::{Reloc, RelocSink, Relocation, RelocationType, TrapSink};
-use crate::libcalls;
-use std::ptr::{write_unaligned, NonNull};
-use std::mem;
 
 #[allow(dead_code)]
 pub struct FuncResolverBuilder {
@@ -23,7 +18,11 @@ pub struct FuncResolverBuilder {
 }
 
 impl FuncResolverBuilder {
-    pub fn new(isa: &isa::TargetIsa, function_bodies: Vec<ir::Function>) -> Result<Self, String> {
+    pub fn new(
+        isa: &isa::TargetIsa,
+        function_bodies: Vec<ir::Function>,
+        num_imported_funcs: usize,
+    ) -> Result<Self, String> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
         let mut relocations = Map::with_capacity(function_bodies.len());
         let mut trap_sinks = Map::with_capacity(function_bodies.len());
@@ -37,11 +36,8 @@ impl FuncResolverBuilder {
             let mut reloc_sink = RelocSink::new();
             let mut trap_sink = TrapSink::new();
 
-            ctx
-                .compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
-                .map_err(|e| {
-                    format!("compile error: {}", e.to_string())
-                })?;
+            ctx.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
+                .map_err(|e| format!("compile error: {}", e.to_string()))?;
             ctx.clear();
             // Round up each function's size to pointer alignment.
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
@@ -62,7 +58,8 @@ impl FuncResolverBuilder {
         for compiled in compiled_functions.iter() {
             let new_end = previous_end + round_up(compiled.len(), mem::size_of::<usize>());
             unsafe {
-                memory.as_slice_mut()[previous_end..previous_end + compiled.len()].copy_from_slice(&compiled[..]);
+                memory.as_slice_mut()[previous_end..previous_end + compiled.len()]
+                    .copy_from_slice(&compiled[..]);
             }
             map.push(previous_end);
             previous_end = new_end;
@@ -70,6 +67,7 @@ impl FuncResolverBuilder {
 
         Ok(Self {
             resolver: FuncResolver {
+                num_imported_funcs,
                 map,
                 memory,
             },
@@ -86,7 +84,10 @@ impl FuncResolverBuilder {
                         // This will always be an internal function
                         // because imported functions are not
                         // called in this way.
-                        self.resolver.lookup(FuncIndex::new(func_index as _)).unwrap().as_ptr() as isize
+                        self.resolver
+                            .lookup(FuncIndex::new(func_index as _))
+                            .unwrap()
+                            .as_ptr() as isize
                     }
                     RelocationType::CurrentMemory => vmcalls::memory_size as isize,
                     RelocationType::GrowMemory => vmcalls::memory_grow_static as isize,
@@ -135,7 +136,9 @@ impl FuncResolverBuilder {
         }
 
         unsafe {
-            self.resolver.memory.protect(0..self.resolver.memory.size(), Protect::ReadExec)?;
+            self.resolver
+                .memory
+                .protect(0..self.resolver.memory.size(), Protect::ReadExec)?;
         }
 
         Ok(self.resolver)
@@ -144,16 +147,17 @@ impl FuncResolverBuilder {
 
 /// Resolves a function index to a function address.
 pub struct FuncResolver {
+    num_imported_funcs: usize,
     map: Map<FuncIndex, usize>,
     memory: Mmap,
 }
 
 impl FuncResolver {
     fn lookup(&self, index: FuncIndex) -> Option<NonNull<vm::Func>> {
-        let offset = *self.map.get(index)?;
-        let ptr = unsafe {
-            self.memory.as_ptr().add(offset)
-        };
+        let offset = *self
+            .map
+            .get(FuncIndex::new(index.index() - self.num_imported_funcs))?;
+        let ptr = unsafe { self.memory.as_ptr().add(offset) };
 
         NonNull::new(ptr).map(|nonnull| nonnull.cast())
     }

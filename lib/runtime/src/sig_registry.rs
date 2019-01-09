@@ -1,5 +1,5 @@
 use crate::{
-    types::{FuncSig, Map, SigIndex, MapIndex},
+    types::{FuncSig, Map, MapIndex, SigIndex},
     vm,
 };
 use hashbrown::HashMap;
@@ -16,13 +16,13 @@ impl SigRegistry {
             sig_assoc: Map::new(),
         }
     }
-    
+
     pub fn register(&mut self, func_sig: FuncSig) -> SigIndex {
         let func_table = &mut self.func_table;
         let sig_assoc = &mut self.sig_assoc;
-        *func_table.entry(func_sig.clone()).or_insert_with(|| {
-            sig_assoc.push(func_sig)
-        })
+        *func_table
+            .entry(func_sig.clone())
+            .or_insert_with(|| sig_assoc.push(func_sig))
     }
 
     pub fn lookup_func_sig(&self, sig_index: SigIndex) -> &FuncSig {
@@ -30,7 +30,11 @@ impl SigRegistry {
     }
 
     pub(crate) fn into_vm_sigid(&self) -> Box<[vm::SigId]> {
-        let v: Vec<_> = self.sig_assoc.iter().map(|(sig_index, _)| vm::SigId(sig_index.index() as u32)).collect();
+        let v: Vec<_> = self
+            .sig_assoc
+            .iter()
+            .map(|(sig_index, _)| vm::SigId(sig_index.index() as u32))
+            .collect();
         v.into_boxed_slice()
     }
 }

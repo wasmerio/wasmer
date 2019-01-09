@@ -5,7 +5,11 @@
 //! mutable from both Rust and WebAssembly.
 use std::ops::{Deref, DerefMut};
 
-use crate::{types::Memory, vm::LocalMemory, mmap::{Mmap, Protect}};
+use crate::{
+    mmap::{Mmap, Protect},
+    types::Memory,
+    vm::LocalMemory,
+};
 
 /// A linear memory instance.
 #[derive(Debug)]
@@ -69,8 +73,11 @@ impl LinearMemory {
         // map initial pages as readwrite since the inital mmap is mapped as not accessible.
         if initial_pages != 0 {
             unsafe {
-                mmap.protect(0..(initial_pages as usize * Self::PAGE_SIZE as usize), Protect::ReadWrite)
-                    .expect("unable to make memory accessible");
+                mmap.protect(
+                    0..(initial_pages as usize * Self::PAGE_SIZE as usize),
+                    Protect::ReadWrite,
+                )
+                .expect("unable to make memory accessible");
             }
         }
 
@@ -191,7 +198,9 @@ impl LinearMemory {
         let new_bytes = (new_pages * Self::PAGE_SIZE) as usize;
 
         unsafe {
-            self.mmap.protect(prev_bytes..new_bytes, Protect::ReadWrite).ok()?;
+            self.mmap
+                .protect(prev_bytes..new_bytes, Protect::ReadWrite)
+                .ok()?;
         }
 
         self.current = new_pages;
@@ -210,16 +219,12 @@ impl PartialEq for LinearMemory {
 impl Deref for LinearMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe {
-            self.mmap.as_slice()
-        }
+        unsafe { self.mmap.as_slice() }
     }
 }
 
 impl DerefMut for LinearMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe {
-            self.mmap.as_slice_mut()
-        }
+        unsafe { self.mmap.as_slice_mut() }
     }
 }

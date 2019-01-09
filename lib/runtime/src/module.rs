@@ -1,16 +1,15 @@
 use crate::{
     backend::FuncResolver,
-    types::{
-        FuncIndex, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex,
-        SigIndex, Table, TableIndex,
-    },
     sig_registry::SigRegistry,
-    ImportResolver,
-    Instance,
+    types::{
+        FuncIndex, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex, SigIndex,
+        Table, TableIndex,
+    },
+    ImportResolver, Instance,
 };
-use std::sync::Arc;
-use std::ops::Deref;
 use hashbrown::HashMap;
+use std::ops::Deref;
+use std::sync::Arc;
 
 /// This is used to instantiate a new webassembly module.
 pub struct ModuleInner {
@@ -56,12 +55,11 @@ impl ModuleInner {
 
 impl Deref for Module {
     type Target = ModuleInner;
-    
+
     fn deref(&self) -> &ModuleInner {
         &*self.0
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct ImportName {

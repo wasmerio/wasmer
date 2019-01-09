@@ -3,13 +3,16 @@ mod libcalls;
 mod relocation;
 mod resolver;
 
-use wasmer_runtime::{Compiler, Module};
-use cranelift_codegen::{settings::{self, Configurable}, isa};
+use cranelift_codegen::{
+    isa,
+    settings::{self, Configurable},
+};
 use target_lexicon::Triple;
+use wasmer_runtime::{Compiler, Module};
 use wasmparser::{self, WasmDecoder};
 
-use self::codegen::CraneliftModule;
 use self::codegen::converter;
+use self::codegen::CraneliftModule;
 
 pub struct CraneliftCompiler {}
 
@@ -59,10 +62,7 @@ fn validate(bytes: &[u8]) -> Result<(), String> {
         match *state {
             wasmparser::ParserState::EndWasm => return Ok(()),
             wasmparser::ParserState::Error(err) => {
-                return Err(format!(
-                    "Validation error: {}",
-                    err.message
-                ));
+                return Err(format!("Validation error: {}", err.message));
             }
             _ => (),
         }
