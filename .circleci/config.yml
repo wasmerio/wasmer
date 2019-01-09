@@ -40,6 +40,10 @@ jobs:
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
+          name: Install libffi dependencies
+          command: |
+            brew install autoconf automake libtool
+      - run:
           name: Install Rust
           command: |
             curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -116,6 +120,10 @@ jobs:
             curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+      - run:
+          name: Install libffi dependencies
+          command: |
+            brew install autoconf automake libtool
       - run:
           name: Install Rust
           command: |
