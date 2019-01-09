@@ -2,7 +2,7 @@ use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     self as runtime,
     types::{FuncSig, Type, Value},
-    vm, Import, Imports,
+    vm, Import, Imports, FuncRef,
 };
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
@@ -15,7 +15,7 @@ fn main() -> Result<(), String> {
         "env".to_string(),
         "print_num".to_string(),
         Import::Func(
-            print_num as _,
+            unsafe { FuncRef::new(print_num as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],

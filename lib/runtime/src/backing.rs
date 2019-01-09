@@ -263,10 +263,10 @@ impl ImportBacking {
             let expected_sig = module.sig_registry.lookup_func_sig(sig_index);
             let import = imports.get(mod_name, item_name);
             match import {
-                Some(&Import::Func(func, ref signature)) => {
+                Some(&Import::Func(ref func, ref signature)) => {
                     if expected_sig == signature {
                         functions.push(vm::ImportedFunc {
-                            func,
+                            func: func.inner(),
                             // vmctx: ptr::null_mut(),
                         });
                     } else {

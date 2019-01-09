@@ -135,8 +135,24 @@ impl Instance {
 }
 
 #[derive(Debug)]
+pub struct FuncRef(*const vm::Func);
+
+impl FuncRef {
+    /// This needs to be unsafe because there is
+    /// no way to check whether the passed function
+    /// is valid and has the right signature.
+    pub unsafe fn new(f: *const vm::Func) -> Self {
+        FuncRef(f)
+    }
+
+    pub(crate) fn inner(&self) -> *const vm::Func {
+        self.0
+    }
+}
+
+#[derive(Debug)]
 pub enum Import {
-    Func(*const vm::Func, FuncSig),
+    Func(FuncRef, FuncSig),
     Table(Arc<TableBacking>, Table),
     Memory(Arc<LinearMemory>, Memory),
     Global(Value),
