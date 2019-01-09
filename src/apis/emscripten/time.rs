@@ -6,7 +6,7 @@ use std::time::SystemTime;
 use time;
 
 use crate::apis::emscripten::env;
-use crate::webassembly::Instance;
+use wasmer_runtime::Instance;
 
 #[cfg(target_os = "linux")]
 use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};

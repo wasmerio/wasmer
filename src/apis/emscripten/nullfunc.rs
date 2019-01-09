@@ -1,5 +1,5 @@
 use super::process::abort_with_message;
-use crate::webassembly::Instance;
+use wasmer_runtime::Instance;
 
 pub extern "C" fn nullfunc_ii(x: u32, _instance: &Instance) {
     debug!("emscripten::nullfunc_ii {}", x);

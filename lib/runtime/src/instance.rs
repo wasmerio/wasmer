@@ -18,6 +18,30 @@ pub struct Instance {
     pub module: Module,
 }
 
+
+impl Instance {
+    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
+        unimplemented!("TODO replace this emscripten stub")
+    }
+}
+
+pub struct InstanceOptions {
+    // Shall we mock automatically the imported functions if they don't exist?
+    pub mock_missing_imports: bool,
+    pub mock_missing_globals: bool,
+    pub mock_missing_tables: bool,
+    pub abi: InstanceABI,
+    pub show_progressbar: bool,
+//    pub isa: Box<isa::TargetIsa>, TODO isa
+}
+
+#[derive(PartialEq)]
+pub enum InstanceABI {
+    Emscripten,
+    None,
+}
+
+
 impl Instance {
     pub(crate) fn new(
         module: Module,

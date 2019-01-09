@@ -1,4 +1,4 @@
-mod codegen;
+pub mod codegen;
 mod libcalls;
 mod relocation;
 mod resolver;

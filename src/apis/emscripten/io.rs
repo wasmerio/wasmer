@@ -1,6 +1,6 @@
 use libc::printf as _printf;
 
-use crate::webassembly::Instance;
+use wasmer_runtime::Instance;
 
 /// putchar
 pub use libc::putchar;

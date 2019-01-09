@@ -1,6 +1,6 @@
 use super::process::_abort;
 use crate::apis::emscripten::env;
-use crate::webassembly::Instance;
+use wasmer_runtime::Instance;
 
 /// emscripten: ___cxa_allocate_exception
 pub extern "C" fn ___cxa_allocate_exception(size: u32, instance: &mut Instance) -> u32 {

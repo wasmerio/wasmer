@@ -19,7 +19,7 @@ pub mod vm;
 pub mod vmcalls;
 
 pub use self::backend::{Compiler, FuncResolver};
-pub use self::instance::{Import, ImportResolver, Imports, FuncRef, Instance};
+pub use self::instance::{Import, ImportResolver, Imports, FuncRef, Instance, InstanceOptions, InstanceABI};
 pub use self::memory::LinearMemory;
 pub use self::module::{Module, ModuleInner};
 pub use self::sig_registry::SigRegistry;

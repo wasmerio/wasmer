@@ -1,4 +1,4 @@
-use crate::webassembly::Instance;
+use wasmer_runtime::Instance;
 
 // TODO: Need to implement.
 

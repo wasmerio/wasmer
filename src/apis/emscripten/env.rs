@@ -9,17 +9,17 @@ use std::os::raw::c_char;
 
 use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
 use crate::apis::emscripten::EmscriptenData;
-use crate::runtime::{types::Value, Instance};
+use wasmer_runtime::{types::Value, Instance};
 
-impl Instance {
-    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
-        unimplemented!("TODO replace this stub")
-    }
-
-    pub fn emscripten_data(&self) -> &'static mut Option<EmscriptenData> {
-        unimplemented!("TODO replace this stub")
-    }
-}
+//impl Instance {
+//    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
+//        unimplemented!("TODO replace this stub")
+//    }
+//
+//    pub fn emscripten_data(&self) -> &'static mut Option<EmscriptenData> {
+//        unimplemented!("TODO replace this stub")
+//    }
+//}
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;

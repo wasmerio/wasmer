@@ -1,5 +1,5 @@
 // use super::varargs::VarArgs;
-use crate::webassembly::Instance;
+use wasmer_runtime::Instance;
 
 pub extern "C" fn _sigemptyset(set: u32, instance: &mut Instance) -> i32 {
     debug!("emscripten::_sigemptyset");

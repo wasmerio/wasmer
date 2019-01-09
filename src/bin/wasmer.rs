@@ -11,6 +11,7 @@ use std::sync::Arc;
 use structopt::StructOpt;
 
 use wasmer::*;
+use wasmer_runtime;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]
@@ -73,29 +74,29 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
     let abi = if apis::is_emscripten_module(&module) {
-        runtime::InstanceABI::Emscripten
+        wasmer_runtime::InstanceABI::Emscripten
     } else {
-        runtime::InstanceABI::None
+        wasmer_runtime::InstanceABI::None
     };
 
-    let import_object = if abi == runtime::InstanceABI::Emscripten {
+    let import_object = if abi == wasmer_runtime::InstanceABI::Emscripten {
         apis::generate_emscripten_env()
     } else {
-        runtime::Imports::new()
+        wasmer_runtime::Imports::new()
     };
 
-    let instance_options = runtime::InstanceOptions {
+    let instance_options = wasmer_runtime::InstanceOptions {
         mock_missing_imports: true,
         mock_missing_globals: true,
         mock_missing_tables: true,
         abi: abi,
         show_progressbar: true,
-        isa: isa,
+//        isa: isa,
     };
 
     debug!("webassembly - creating instance");
 
-    let mut instance = wasmer::runtime::Instance::new(Arc::clone(&module), &import_object)
+    let mut instance = module.instantiate(&import_object)
         .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(

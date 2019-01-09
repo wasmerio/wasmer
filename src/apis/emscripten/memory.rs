@@ -1,5 +1,5 @@
 use super::process::abort_with_message;
-use crate::webassembly::Instance;
+use wasmer_runtime::Instance;
 use libc::{c_int, c_void, memcpy, size_t};
 
 /// emscripten: _emscripten_memcpy_big

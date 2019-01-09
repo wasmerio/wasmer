@@ -9,6 +9,8 @@ extern crate region;
 extern crate structopt;
 extern crate wabt;
 extern crate wasmparser;
+extern crate wasmer_clif_backend;
+extern crate wasmer_runtime;
 #[macro_use]
 extern crate target_lexicon;
 extern crate byteorder;
@@ -27,10 +29,8 @@ mod macros;
 pub mod recovery;
 pub mod apis;
 pub mod common;
-pub mod compilers;
 #[cfg(test)]
 mod emtests;
-pub mod runtime;
 pub mod sighandler;
 #[cfg(test)]
 mod spectests;

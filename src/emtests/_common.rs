@@ -2,7 +2,8 @@ macro_rules! assert_emscripten_output {
     ($file:expr, $name:expr, $args:expr, $expected:expr) => {{
         use crate::apis::generate_emscripten_env;
         use crate::common::stdio::StdioCapturer;
-        use crate::runtime::{InstanceABI, InstanceOptions};
+        use wasmer_runtime::{Import, Imports, FuncRef, InstanceABI, InstanceOptions};
+        use wasmer_runtime::table::TableBacking;
         use crate::webassembly::{get_isa, instantiate, start_instance};
         use std::sync::Arc;
 
@@ -14,7 +15,7 @@ macro_rules! assert_emscripten_output {
             mock_missing_tables: true,
             abi: InstanceABI::Emscripten,
             show_progressbar: false,
-            isa: get_isa(),
+//            isa: get_isa(),
         });
         let mut result_object = instantiate(&wasm_bytes.to_vec(), &import_object, options)
             .expect("Not compiled properly");

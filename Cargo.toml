@@ -53,6 +53,8 @@ field-offset = "0.1.1"
 hashbrown = "0.1"
 libffi = "0.6.4"
 time = "0.1.41"
+wasmer-clif-backend = { path = "lib/clif-backend" }
+wasmer-runtime = { path = "lib/runtime" }
 
 [build-dependencies]
 wabt = "0.7.2"

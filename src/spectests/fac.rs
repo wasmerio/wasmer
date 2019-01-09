@@ -7,10 +7,14 @@
 )]
 use wabt::wat2wasm;
 
-use crate::runtime::types::Value;
-use crate::webassembly::{compile, instantiate, ResultObject};
+use crate::webassembly::{instantiate, compile, ResultObject};
+use wasmer_runtime::types::{Value};
 
-use super::_common::{spectest_importobject, NaNCheck};
+use super::_common::{
+    spectest_importobject,
+    NaNCheck,
+};
+
 
 // Line 1
 fn create_module_1() -> ResultObject {
@@ -130,8 +134,7 @@ fn create_module_1() -> ResultObject {
       (export \"fac-opt\" (func 4)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    instantiate(&wasm_binary[..], &spectest_importobject(), None)
-        .expect("WASM can't be instantiated")
+    instantiate(&wasm_binary[..], &spectest_importobject(), None).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(result_object: &mut ResultObject) {
@@ -142,50 +145,35 @@ fn start_module_1(result_object: &mut ResultObject) {
 // Line 84
 fn c1_l84_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c1_l84_action_invoke");
-    let result = result_object
-        .instance
-        .call("fac-rec", &[Value::I64(25 as i64)])
-        .expect("Missing result in c1_l84_action_invoke");
+    let result = result_object.instance.call("fac-rec", &[Value::I64(25 as i64)]).expect("Missing result in c1_l84_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 85
 fn c2_l85_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c2_l85_action_invoke");
-    let result = result_object
-        .instance
-        .call("fac-iter", &[Value::I64(25 as i64)])
-        .expect("Missing result in c2_l85_action_invoke");
+    let result = result_object.instance.call("fac-iter", &[Value::I64(25 as i64)]).expect("Missing result in c2_l85_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 86
 fn c3_l86_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c3_l86_action_invoke");
-    let result = result_object
-        .instance
-        .call("fac-rec-named", &[Value::I64(25 as i64)])
-        .expect("Missing result in c3_l86_action_invoke");
+    let result = result_object.instance.call("fac-rec-named", &[Value::I64(25 as i64)]).expect("Missing result in c3_l86_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 87
 fn c4_l87_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c4_l87_action_invoke");
-    let result = result_object
-        .instance
-        .call("fac-iter-named", &[Value::I64(25 as i64)])
-        .expect("Missing result in c4_l87_action_invoke");
+    let result = result_object.instance.call("fac-iter-named", &[Value::I64(25 as i64)]).expect("Missing result in c4_l87_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 
 // Line 88
 fn c5_l88_action_invoke(result_object: &mut ResultObject) {
     println!("Executing function {}", "c5_l88_action_invoke");
-    let result = result_object
-        .instance
-        .call("fac-opt", &[Value::I64(25 as i64)])
-        .expect("Missing result in c5_l88_action_invoke");
+    let result = result_object.instance.call("fac-opt", &[Value::I64(25 as i64)]).expect("Missing result in c5_l88_action_invoke");
     assert_eq!(result, Some(Value::I64(7034535277573963776 as i64)));
 }
 

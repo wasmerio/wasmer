@@ -1,5 +1,5 @@
-use crate::runtime::{Instance, Module};
-//use crate::webassembly::Instance;
+use wasmer_runtime::{Instance, Module};
+//use wasmer_runtime::Instance;
 use crate::apis::emscripten::env;
 use libc::stat;
 use std::ffi::CStr;
@@ -49,14 +49,15 @@ pub unsafe fn allocate_on_stack<'a, T: Copy>(
     count: u32,
     instance: &'a Instance,
 ) -> (u32, &'a mut [T]) {
-    let offset = (instance.emscripten_data().as_ref().unwrap().stack_alloc)(
-        count * (size_of::<T>() as u32),
-        instance,
-    );
-    let addr = instance.memory_offset_addr(0, offset as _) as *mut T;
-    let slice = slice::from_raw_parts_mut(addr, count as usize);
-
-    (offset, slice)
+    unimplemented!("allocate_on_stack not implemented")
+//    let offset = (instance.emscripten_data().as_ref().unwrap().stack_alloc)(
+//        count * (size_of::<T>() as u32),
+//        instance,
+//    );
+//    let addr = instance.memory_offset_addr(0, offset as _) as *mut T;
+//    let slice = slice::from_raw_parts_mut(addr, count as usize);
+//
+//    (offset, slice)
 }
 
 pub unsafe fn allocate_cstr_on_stack<'a>(s: &str, instance: &'a Instance) -> (u32, &'a [u8]) {

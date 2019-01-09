@@ -3,9 +3,10 @@ pub mod libcalls;
 pub mod relocation;
 pub mod utils;
 
-use super::compilers::cranelift::CraneliftCompiler;
-use super::runtime;
-pub use super::runtime::{Import, Imports, Instance, InstanceOptions, Module};
+use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::{Compiler, Module};
+use wasmer_runtime;
+use wasmer_runtime::{Import, Imports, Instance, InstanceOptions};
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
@@ -18,7 +19,6 @@ use wasmparser;
 use wasmparser::WasmDecoder;
 
 pub use self::errors::{Error, ErrorKind};
-use crate::runtime::Compiler;
 
 use crate::apis::emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
 
@@ -53,10 +53,11 @@ pub fn instantiate(
     debug!("webassembly - creating instance");
 
     //let instance = Instance::new(&module, import_object, options)?;
-    let instance = runtime::instantiate(buffer_source, &CraneliftCompiler::new(), import_object)
-        .map_err(|e| ErrorKind::CompileError(e))?;
-
-    let isa = get_isa();
+    unimplemented!()
+//    let instance = wasmer_runtime::instantiate(buffer_source, &CraneliftCompiler::new(), import_object)
+//        .map_err(|e| ErrorKind::CompileError(e))?;
+//
+//    let isa = get_isa();
     //    let abi = if is_emscripten_module(&instance.module) {
     //        InstanceABI::Emscripten
     //    } else {
@@ -72,11 +73,11 @@ pub fn instantiate(
     //        isa,
     //    });
 
-    debug!("webassembly - instance created");
-    Ok(ResultObject {
-        module: Arc::clone(&instance.module),
-        instance,
-    })
+//    debug!("webassembly - instance created");
+//    Ok(ResultObject {
+//        module: Arc::clone(&instance.module),
+//        instance,
+//    })
 }
 
 /// The webassembly::instantiate_streaming() function compiles and instantiates
@@ -105,7 +106,7 @@ pub fn compile(buffer_source: &[u8]) -> Result<Arc<Module>, ErrorKind> {
         .compile(buffer_source)
         .map_err(|e| ErrorKind::CompileError(e))?;
 
-    Ok(module)
+    Ok(Arc::new(module))
 }
 
 /// The webassembly::validate() function validates a given typed

@@ -1,4 +1,4 @@
-use crate::webassembly::Instance;
+use wasmer_runtime::Instance;
 use libc::c_int;
 
 // NOTE: Not implemented by Emscripten

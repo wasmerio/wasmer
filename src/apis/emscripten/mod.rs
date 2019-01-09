@@ -1,6 +1,6 @@
-use crate::runtime::memory::LinearMemory;
-use crate::runtime::types::{FuncSig, Type, Value};
-use crate::runtime::{Import, Imports, Instance};
+use wasmer_runtime::LinearMemory;
+use wasmer_runtime::types::{FuncSig, Type, Value};
+use wasmer_runtime::{Import, Imports, Instance, FuncRef};
 /// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_int;
@@ -81,8 +81,8 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
 
 macro_rules! mock_external {
     ($import:ident, $name:ident) => {{
-        use crate::runtime::types::{FuncSig, Type};
-        use crate::runtime::Import;
+        use wasmer_runtime::types::{FuncSig, Type};
+        use wasmer_runtime::Import;
         extern "C" fn _mocked_fn() -> i32 {
             debug!("emscripten::{} <mock>", stringify!($name));
             -1
@@ -91,7 +91,7 @@ macro_rules! mock_external {
             "env".to_string(),
             stringify!($name).to_string(),
             Import::Func(
-                _mocked_fn as _,
+                unsafe { FuncRef::new(_mocked_fn as _) },
                 FuncSig {
                     params: vec![],
                     returns: vec![Type::I32],
@@ -159,7 +159,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "printf".to_string(),
         Import::Func(
-            io::printf as _,
+            unsafe { FuncRef::new(io::printf as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -170,7 +170,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "putchar".to_string(),
         Import::Func(
-            io::putchar as _,
+            unsafe { FuncRef::new(io::putchar as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -182,7 +182,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___lock".to_string(),
         Import::Func(
-            lock::___lock as _,
+            unsafe { FuncRef::new(lock::___lock as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![],
@@ -193,7 +193,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___unlock".to_string(),
         Import::Func(
-            lock::___unlock as _,
+            unsafe { FuncRef::new(lock::___unlock as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![],
@@ -204,7 +204,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___wait".to_string(),
         Import::Func(
-            lock::___wait as _,
+            unsafe { FuncRef::new(lock::___wait as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![],
@@ -216,7 +216,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_getenv".to_string(),
         Import::Func(
-            env::_getenv as _,
+            unsafe { FuncRef::new(env::_getenv as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -227,7 +227,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_setenv".to_string(),
         Import::Func(
-            env::_setenv as _,
+            unsafe { FuncRef::new(env::_setenv as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32, Type::I32],
                 returns: vec![],
@@ -238,7 +238,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_putenv".to_string(),
         Import::Func(
-            env::_putenv as _,
+            unsafe { FuncRef::new(env::_putenv as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -249,7 +249,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_unsetenv".to_string(),
         Import::Func(
-            env::_unsetenv as _,
+            unsafe { FuncRef::new(env::_unsetenv as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -260,7 +260,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_getpwnam".to_string(),
         Import::Func(
-            env::_getpwnam as _,
+            unsafe { FuncRef::new(env::_getpwnam as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -271,7 +271,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_getgrnam".to_string(),
         Import::Func(
-            env::_getgrnam as _,
+            unsafe { FuncRef::new(env::_getgrnam as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -282,7 +282,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___buildEnvironment".to_string(),
         Import::Func(
-            env::___build_environment as _,
+            unsafe { FuncRef::new(env::___build_environment as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -294,7 +294,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___setErrNo".to_string(),
         Import::Func(
-            errno::___seterrno as _,
+            unsafe { FuncRef::new(errno::___seterrno as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -306,7 +306,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall1".to_string(),
         Import::Func(
-            syscalls::___syscall1 as _,
+            unsafe { FuncRef::new(syscalls::___syscall1 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![],
@@ -317,7 +317,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall3".to_string(),
         Import::Func(
-            syscalls::___syscall3 as _,
+            unsafe { FuncRef::new(syscalls::___syscall3 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -328,7 +328,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall4".to_string(),
         Import::Func(
-            syscalls::___syscall4 as _,
+            unsafe { FuncRef::new(syscalls::___syscall4 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -339,7 +339,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall5".to_string(),
         Import::Func(
-            syscalls::___syscall5 as _,
+            unsafe { FuncRef::new(syscalls::___syscall5 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -350,7 +350,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall6".to_string(),
         Import::Func(
-            syscalls::___syscall6 as _,
+            unsafe { FuncRef::new(syscalls::___syscall6 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -361,7 +361,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall12".to_string(),
         Import::Func(
-            syscalls::___syscall12 as _,
+            unsafe { FuncRef::new(syscalls::___syscall12 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -372,7 +372,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall20".to_string(),
         Import::Func(
-            syscalls::___syscall20 as _,
+            unsafe { FuncRef::new(syscalls::___syscall20 as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -383,7 +383,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall39".to_string(),
         Import::Func(
-            syscalls::___syscall39 as _,
+            unsafe { FuncRef::new(syscalls::___syscall39 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -394,7 +394,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall40".to_string(),
         Import::Func(
-            syscalls::___syscall40 as _,
+            unsafe { FuncRef::new(syscalls::___syscall40 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -405,7 +405,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall54".to_string(),
         Import::Func(
-            syscalls::___syscall54 as _,
+            unsafe { FuncRef::new(syscalls::___syscall54 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -416,7 +416,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall57".to_string(),
         Import::Func(
-            syscalls::___syscall57 as _,
+            unsafe { FuncRef::new(syscalls::___syscall57 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -427,7 +427,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall63".to_string(),
         Import::Func(
-            syscalls::___syscall63 as _,
+            unsafe { FuncRef::new(syscalls::___syscall63 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -438,7 +438,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall64".to_string(),
         Import::Func(
-            syscalls::___syscall64 as _,
+            unsafe { FuncRef::new(syscalls::___syscall64 as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -449,7 +449,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall102".to_string(),
         Import::Func(
-            syscalls::___syscall102 as _,
+            unsafe { FuncRef::new(syscalls::___syscall102 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -460,7 +460,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall114".to_string(),
         Import::Func(
-            syscalls::___syscall114 as _,
+            unsafe { FuncRef::new(syscalls::___syscall114 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -471,7 +471,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall122".to_string(),
         Import::Func(
-            syscalls::___syscall122 as _,
+            unsafe { FuncRef::new(syscalls::___syscall122 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -482,7 +482,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall140".to_string(),
         Import::Func(
-            syscalls::___syscall140 as _,
+            unsafe { FuncRef::new(syscalls::___syscall140 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -493,7 +493,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall142".to_string(),
         Import::Func(
-            syscalls::___syscall142 as _,
+            unsafe { FuncRef::new(syscalls::___syscall142 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -504,7 +504,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall145".to_string(),
         Import::Func(
-            syscalls::___syscall145 as _,
+            unsafe { FuncRef::new(syscalls::___syscall145 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -515,7 +515,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall146".to_string(),
         Import::Func(
-            syscalls::___syscall146 as _,
+            unsafe { FuncRef::new(syscalls::___syscall146 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -526,7 +526,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall180".to_string(),
         Import::Func(
-            syscalls::___syscall180 as _,
+            unsafe { FuncRef::new(syscalls::___syscall180 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -537,7 +537,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall181".to_string(),
         Import::Func(
-            syscalls::___syscall181 as _,
+            unsafe { FuncRef::new(syscalls::___syscall181 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -548,7 +548,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall192".to_string(),
         Import::Func(
-            syscalls::___syscall192 as _,
+            unsafe { FuncRef::new(syscalls::___syscall192 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -559,7 +559,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall195".to_string(),
         Import::Func(
-            syscalls::___syscall195 as _,
+            unsafe { FuncRef::new(syscalls::___syscall195 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -570,7 +570,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall197".to_string(),
         Import::Func(
-            syscalls::___syscall197 as _,
+            unsafe { FuncRef::new(syscalls::___syscall197 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -581,7 +581,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall201".to_string(),
         Import::Func(
-            syscalls::___syscall201 as _,
+            unsafe { FuncRef::new(syscalls::___syscall201 as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -592,7 +592,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall202".to_string(),
         Import::Func(
-            syscalls::___syscall202 as _,
+            unsafe { FuncRef::new(syscalls::___syscall202 as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -603,7 +603,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall212".to_string(),
         Import::Func(
-            syscalls::___syscall212 as _,
+            unsafe { FuncRef::new(syscalls::___syscall212 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -614,7 +614,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall221".to_string(),
         Import::Func(
-            syscalls::___syscall221 as _,
+            unsafe { FuncRef::new(syscalls::___syscall221 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -625,7 +625,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall330".to_string(),
         Import::Func(
-            syscalls::___syscall330 as _,
+            unsafe { FuncRef::new(syscalls::___syscall330 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -636,7 +636,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___syscall340".to_string(),
         Import::Func(
-            syscalls::___syscall340 as _,
+            unsafe { FuncRef::new(syscalls::___syscall340 as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -648,7 +648,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "abort".to_string(),
         Import::Func(
-            process::em_abort as _,
+            unsafe { FuncRef::new(process::em_abort as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -659,7 +659,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_abort".to_string(),
         Import::Func(
-            process::_abort as _,
+            unsafe { FuncRef::new(process::_abort as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![],
@@ -670,7 +670,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "abortStackOverflow".to_string(),
         Import::Func(
-            process::abort_stack_overflow as _,
+            unsafe { FuncRef::new(process::abort_stack_overflow as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![],
@@ -681,7 +681,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_llvm_trap".to_string(),
         Import::Func(
-            process::_llvm_trap as _,
+            unsafe { FuncRef::new(process::_llvm_trap as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![],
@@ -692,7 +692,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_fork".to_string(),
         Import::Func(
-            process::_fork as _,
+            unsafe { FuncRef::new(process::_fork as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -703,7 +703,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_exit".to_string(),
         Import::Func(
-            process::_exit as _,
+            unsafe { FuncRef::new(process::_exit as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -714,7 +714,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_system".to_string(),
         Import::Func(
-            process::_system as _,
+            unsafe { FuncRef::new(process::_system as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -725,7 +725,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_popen".to_string(),
         Import::Func(
-            process::_popen as _,
+            unsafe { FuncRef::new(process::_popen as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -737,7 +737,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_sigemptyset".to_string(),
         Import::Func(
-            signal::_sigemptyset as _,
+            unsafe { FuncRef::new(signal::_sigemptyset as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -748,7 +748,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_sigaddset".to_string(),
         Import::Func(
-            signal::_sigaddset as _,
+            unsafe { FuncRef::new(signal::_sigaddset as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -759,7 +759,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_sigprocmask".to_string(),
         Import::Func(
-            signal::_sigprocmask as _,
+            unsafe { FuncRef::new(signal::_sigprocmask as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -770,7 +770,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_sigaction".to_string(),
         Import::Func(
-            signal::_sigaction as _,
+            unsafe { FuncRef::new(signal::_sigaction as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -781,7 +781,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_signal".to_string(),
         Import::Func(
-            signal::_signal as _,
+            unsafe { FuncRef::new(signal::_signal as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -793,7 +793,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "abortOnCannotGrowMemory".to_string(),
         Import::Func(
-            memory::abort_on_cannot_grow_memory as _,
+            unsafe { FuncRef::new(memory::abort_on_cannot_grow_memory as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![],
@@ -804,7 +804,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_emscripten_memcpy_big".to_string(),
         Import::Func(
-            memory::_emscripten_memcpy_big as _,
+            unsafe { FuncRef::new(memory::_emscripten_memcpy_big as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -815,7 +815,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "enlargeMemory".to_string(),
         Import::Func(
-            memory::enlarge_memory as _,
+            unsafe { FuncRef::new(memory::enlarge_memory as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![],
@@ -826,7 +826,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "getTotalMemory".to_string(),
         Import::Func(
-            memory::get_total_memory as _,
+            unsafe { FuncRef::new(memory::get_total_memory as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -837,7 +837,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___map_file".to_string(),
         Import::Func(
-            memory::___map_file as _,
+            unsafe { FuncRef::new(memory::___map_file as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -849,7 +849,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___cxa_allocate_exception".to_string(),
         Import::Func(
-            exception::___cxa_allocate_exception as _,
+            unsafe { FuncRef::new(exception::___cxa_allocate_exception as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -860,7 +860,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___cxa_allocate_exception".to_string(),
         Import::Func(
-            exception::___cxa_throw as _,
+            unsafe { FuncRef::new(exception::___cxa_throw as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32, Type::I32],
                 returns: vec![],
@@ -871,7 +871,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___cxa_throw".to_string(),
         Import::Func(
-            exception::___cxa_throw as _,
+            unsafe { FuncRef::new(exception::___cxa_throw as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32, Type::I32],
                 returns: vec![],
@@ -883,7 +883,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_ii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_ii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_ii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -894,7 +894,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_iii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_iii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_iii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -905,7 +905,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_iiii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_iiii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_iiii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -916,7 +916,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_iiiii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_iiiii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_iiiii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -927,7 +927,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_iiiiii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_iiiiii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_iiiiii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -938,7 +938,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_v".to_string(),
         Import::Func(
-            nullfunc::nullfunc_v as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_v as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -949,7 +949,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_vi".to_string(),
         Import::Func(
-            nullfunc::nullfunc_vi as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_vi as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -960,7 +960,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_vii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_vii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_vii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -971,7 +971,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_viii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_viii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_viii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -982,7 +982,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_viiii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_viiii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_viiii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -993,7 +993,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_viiiii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_viiiii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_viiiii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -1004,7 +1004,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "nullFunc_viiiiii".to_string(),
         Import::Func(
-            nullfunc::nullfunc_viiiiii as _,
+            unsafe { FuncRef::new(nullfunc::nullfunc_viiiiii as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -1016,7 +1016,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_gettimeofday".to_string(),
         Import::Func(
-            time::_gettimeofday as _,
+            unsafe { FuncRef::new(time::_gettimeofday as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -1027,7 +1027,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_clock_gettime".to_string(),
         Import::Func(
-            time::_clock_gettime as _,
+            unsafe { FuncRef::new(time::_clock_gettime as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -1038,7 +1038,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "___clock_gettime".to_string(),
         Import::Func(
-            time::___clock_gettime as _,
+            unsafe { FuncRef::new(time::___clock_gettime as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -1049,7 +1049,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_clock".to_string(),
         Import::Func(
-            time::_clock as _,
+            unsafe { FuncRef::new(time::_clock as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -1060,7 +1060,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_difftime".to_string(),
         Import::Func(
-            time::_difftime as _,
+            unsafe { FuncRef::new(time::_difftime as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -1071,7 +1071,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_asctime".to_string(),
         Import::Func(
-            time::_asctime as _,
+            unsafe { FuncRef::new(time::_asctime as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -1082,7 +1082,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_asctime_r".to_string(),
         Import::Func(
-            time::_asctime_r as _,
+            unsafe { FuncRef::new(time::_asctime_r as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -1093,7 +1093,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_localtime".to_string(),
         Import::Func(
-            time::_localtime as _,
+            unsafe { FuncRef::new(time::_localtime as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -1104,7 +1104,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_time".to_string(),
         Import::Func(
-            time::_time as _,
+            unsafe { FuncRef::new(time::_time as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -1115,7 +1115,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_strftime".to_string(),
         Import::Func(
-            time::_strftime as _,
+            unsafe { FuncRef::new(time::_strftime as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32, Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -1126,7 +1126,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_localtime_r".to_string(),
         Import::Func(
-            time::_localtime_r as _,
+            unsafe { FuncRef::new(time::_localtime_r as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![Type::I32],
@@ -1137,7 +1137,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_getpagesize".to_string(),
         Import::Func(
-            env::_getpagesize as _,
+            unsafe { FuncRef::new(env::_getpagesize as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![Type::I32],
@@ -1148,7 +1148,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_sysconf".to_string(),
         Import::Func(
-            env::_sysconf as _,
+            unsafe { FuncRef::new(env::_sysconf as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -1160,7 +1160,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_llvm_log10_f64".to_string(),
         Import::Func(
-            math::_llvm_log10_f64 as _,
+            unsafe { FuncRef::new(math::_llvm_log10_f64 as _) },
             FuncSig {
                 params: vec![Type::F64],
                 returns: vec![Type::F64],
@@ -1171,7 +1171,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "_llvm_log2_f64".to_string(),
         Import::Func(
-            math::_llvm_log2_f64 as _,
+            unsafe { FuncRef::new( math::_llvm_log2_f64 as _) },
             FuncSig {
                 params: vec![Type::F64],
                 returns: vec![Type::F64],
@@ -1182,7 +1182,7 @@ pub fn generate_emscripten_env() -> Imports {
         "asm2wasm".to_string(),
         "f64-rem".to_string(),
         Import::Func(
-            math::f64_rem as _,
+            unsafe { FuncRef::new(math::f64_rem as _) },
             FuncSig {
                 params: vec![Type::F64, Type::F64],
                 returns: vec![Type::F64],
@@ -1194,7 +1194,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "__setjmp".to_string(),
         Import::Func(
-            jmp::__setjmp as _,
+            unsafe { FuncRef::new(jmp::__setjmp as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![Type::I32],
@@ -1205,7 +1205,7 @@ pub fn generate_emscripten_env() -> Imports {
         "env".to_string(),
         "__longjmp".to_string(),
         Import::Func(
-            jmp::__longjmp as _,
+            unsafe { FuncRef::new(jmp::__longjmp as _) },
             FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![],

@@ -1,5 +1,6 @@
-use crate::runtime::types::{ElementType, FuncSig, Table, Type, Value};
-use crate::runtime::{Import, Imports, TableBacking};
+use wasmer_runtime::types::{ElementType, FuncSig, Table, Type, Value};
+use wasmer_runtime::table::TableBacking;
+use wasmer_runtime::{Import, Imports, FuncRef};
 use std::sync::Arc;
 
 extern "C" fn print_i32(num: i32) {
@@ -17,7 +18,7 @@ pub fn spectest_importobject() -> Imports {
         "spectest".to_string(),
         "print_i32".to_string(),
         Import::Func(
-            print_i32 as _,
+            unsafe { FuncRef::new(print_i32 as _) },
             FuncSig {
                 params: vec![Type::I32],
                 returns: vec![],
@@ -29,7 +30,7 @@ pub fn spectest_importobject() -> Imports {
         "spectest".to_string(),
         "print".to_string(),
         Import::Func(
-            print as _,
+            unsafe { FuncRef::new(print as _) },
             FuncSig {
                 params: vec![],
                 returns: vec![],
