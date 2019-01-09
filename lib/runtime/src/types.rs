@@ -17,7 +17,7 @@ pub enum Type {
     F64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     /// The `i32` type.
     I32(i32),
@@ -83,7 +83,7 @@ pub struct Table {
 /// A global value initializer.
 /// Overtime, this will be able to represent more and more
 /// complex expressions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Initializer {
     /// Corresponds to a `const.*` instruction.
     Const(Value),
@@ -98,7 +98,7 @@ pub struct GlobalDesc {
 }
 
 /// A wasm global.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Global {
     pub desc: GlobalDesc,
     pub init: Initializer,
@@ -307,5 +307,16 @@ macro_rules! define_map_index {
     };
 }
 
-define_map_index![GlobalIndex, FuncIndex, MemoryIndex, TableIndex, SigIndex,];
+define_map_index![FuncIndex, MemoryIndex, TableIndex, SigIndex,];
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct GlobalIndex(u32);
+impl MapIndex for GlobalIndex {
+    fn new(index: usize) -> Self {
+        GlobalIndex(index as _)
+    }
+
+    fn index(&self) -> usize {
+        self.0 as usize
+    }
+}

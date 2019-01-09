@@ -1,18 +1,4 @@
-use crate::runtime::{
-    backend::FuncResolver,
-    memory::LinearMemory,
-    module::{DataInitializer, Export, ImportName, Module as WasmerModule, TableInitializer},
-    types::{
-        ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
-        Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
-        Initializer as WasmerInitializer, Map, MapIndex, Memory as WasmerMemory,
-        MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex, Table as WasmerTable,
-        TableIndex as WasmerTableIndex, Type as WasmerType,
-    },
-    vm::{self, Ctx as WasmerVMContext},
-    SigRegistry,
-};
-use crate::webassembly::errors::ErrorKind;
+use crate::resolver::FuncResolverBuilder;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::{self, *};
@@ -28,9 +14,19 @@ use cranelift_wasm::{
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
 use hashbrown::HashMap;
-use std::cell::RefCell;
-use std::ptr::NonNull;
 use target_lexicon;
+use wasmer_runtime::{
+    module::{DataInitializer, Export, ImportName, TableInitializer},
+    types::{
+        ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
+        Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
+        Initializer as WasmerInitializer, Map, MapIndex, Memory as WasmerMemory,
+        MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex, Table as WasmerTable,
+        TableIndex as WasmerTableIndex, Type as WasmerType,
+    },
+    vm::{self, Ctx as WasmerVMContext},
+    LinearMemory, ModuleInner as WasmerModule, SigRegistry,
+};
 
 /// The converter namespace contains functions for converting a Cranelift module
 /// to a Wasmer module.
@@ -73,107 +69,20 @@ pub mod converter {
             func_assoc.push(WasmerSignatureIndex::new(signature_index.index()));
         }
 
-        // Compile functions.
-        // TODO: Rearrange, Abstract
-        use crate::runtime::vmcalls::{memory_grow_static, memory_size};
-        use crate::webassembly::{
-            get_isa, libcalls,
-            relocation::{Reloc, RelocSink, Relocation, RelocationType},
-        };
-        use cranelift_codegen::{binemit::NullTrapSink, ir::LibCall, Context};
-        use std::ptr::write_unaligned;
+        let function_bodies: Vec<_> = cranelift_module
+            .function_bodies
+            .into_iter()
+            .map(|(_, v)| v.clone())
+            .collect();
+        let func_resolver_builder = FuncResolverBuilder::new(
+            &*crate::get_isa(),
+            function_bodies,
+            cranelift_module.imported_functions.len(),
+        )
+        .unwrap();
 
-        // Get the machine ISA.
-        let isa = &*get_isa();
-        let functions_length = cranelift_module.function_bodies.len();
-
-        // Compiles internally defined functions only
-        let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(functions_length);
-        let mut relocations: Vec<Vec<Relocation>> = Vec::with_capacity(functions_length);
-
-        for function_body in cranelift_module.function_bodies.iter() {
-            let mut func_context = Context::for_function(function_body.1.to_owned());
-            let mut code_buf: Vec<u8> = Vec::new();
-            let mut reloc_sink = RelocSink::new();
-            let mut trap_sink = NullTrapSink {};
-
-            // Compile IR to machine code.
-            let result = func_context.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink);
-            if result.is_err() {
-                panic!("CompileError: {}", result.unwrap_err().to_string());
-            }
-
-            unsafe {
-                // Make code buffer executable.
-                let result = region::protect(
-                    code_buf.as_ptr(),
-                    code_buf.len(),
-                    region::Protection::ReadWriteExecute,
-                );
-
-                if result.is_err() {
-                    panic!(
-                        "failed to give executable permission to code: {}",
-                        result.unwrap_err().to_string()
-                    );
-                }
-            }
-
-            // Push compiled functions and relocations
-            compiled_functions.push(code_buf);
-            relocations.push(reloc_sink.func_relocs);
-        }
-
-        // Apply relocations.
-        for (index, relocs) in relocations.iter().enumerate() {
-            for ref reloc in relocs {
-                let target_func_address: isize = match reloc.target {
-                    RelocationType::Normal(func_index) => {
-                        compiled_functions[func_index as usize].as_ptr() as isize
-                    }
-                    RelocationType::CurrentMemory => memory_size as isize,
-                    RelocationType::GrowMemory => memory_grow_static as isize,
-                    RelocationType::LibCall(libcall) => match libcall {
-                        LibCall::CeilF32 => libcalls::ceilf32 as isize,
-                        LibCall::FloorF32 => libcalls::floorf32 as isize,
-                        LibCall::TruncF32 => libcalls::truncf32 as isize,
-                        LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
-                        LibCall::CeilF64 => libcalls::ceilf64 as isize,
-                        LibCall::FloorF64 => libcalls::floorf64 as isize,
-                        LibCall::TruncF64 => libcalls::truncf64 as isize,
-                        LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
-                        LibCall::Probestack => libcalls::__rust_probestack as isize,
-                        _ => {
-                            panic!("unexpected libcall {}", libcall);
-                        }
-                    },
-                    RelocationType::Intrinsic(ref name) => {
-                        panic!("unexpected intrinsic {}", name);
-                    }
-                };
-
-                let func_addr = compiled_functions[index].as_ptr();
-
-                // Determine relocation type and apply relocations.
-                match reloc.reloc {
-                    Reloc::Abs8 => unsafe {
-                        let reloc_address = func_addr.offset(reloc.offset as isize) as i64;
-                        let reloc_addend = reloc.addend;
-                        let reloc_abs = target_func_address as i64 + reloc_addend;
-                        write_unaligned(reloc_address as *mut i64, reloc_abs);
-                    },
-                    Reloc::X86PCRel4 => unsafe {
-                        let reloc_address = func_addr.offset(reloc.offset as isize) as isize;
-                        let reloc_addend = reloc.addend as isize;
-                        // TODO: Handle overflow.
-                        let reloc_delta_i32 =
-                            (target_func_address - reloc_address + reloc_addend) as i32;
-                        write_unaligned(reloc_address as *mut i32, reloc_delta_i32);
-                    },
-                    _ => panic!("unsupported reloc kind"),
-                }
-            }
-        }
+        // Create func_resolver.
+        let func_resolver = Box::new(func_resolver_builder.finalize().unwrap());
 
         // Get other fields from the cranelift_module.
         let CraneliftModule {
@@ -190,7 +99,7 @@ pub mod converter {
 
         // Create Wasmer module from data above
         WasmerModule {
-            func_resolver: Box::new(CraneliftFunctionResolver::new(compiled_functions)),
+            func_resolver,
             memories,
             globals,
             tables,
@@ -202,7 +111,6 @@ pub mod converter {
             data_initializers,
             table_initializers,
             start_func,
-            environment: RefCell::new(None),
             func_assoc,
             sig_registry,
         }
@@ -315,9 +223,6 @@ pub struct CraneliftModule {
     /// The external function declaration for implementing wasm's `grow_memory`.
     pub grow_memory_extfunc: Option<FuncRef>,
 
-    /// A function that takes a Wasmer module and resolves a function index to a vm::Func.
-    pub func_resolver: Option<Box<dyn FuncResolver>>,
-
     // An array holding information about the wasm instance memories.
     pub memories: Vec<Memory>,
 
@@ -357,7 +262,7 @@ impl CraneliftModule {
     pub fn from_bytes(
         buffer_source: &Vec<u8>,
         config: TargetFrontendConfig,
-    ) -> Result<Self, ErrorKind> {
+    ) -> Result<Self, String> {
         // Create a cranelift module
         let mut cranelift_module = CraneliftModule {
             config,
@@ -369,7 +274,6 @@ impl CraneliftModule {
             memories_base: None,
             current_memory_extfunc: None,
             grow_memory_extfunc: None,
-            func_resolver: None,
             memories: Vec::new(),
             globals: Vec::new(),
             tables: Vec::new(),
@@ -384,42 +288,10 @@ impl CraneliftModule {
         };
 
         // Translate wasm to cranelift IR.
-        translate_module(&buffer_source, &mut cranelift_module)
-            .map_err(|e| ErrorKind::CompileError(e.to_string()))?;
+        translate_module(&buffer_source, &mut cranelift_module).map_err(|e| e.to_string())?;
 
         // Return translated module.
         Ok(cranelift_module)
-    }
-}
-
-// Resolves a function index to a function address.
-pub struct CraneliftFunctionResolver {
-    compiled_functions: Vec<Vec<u8>>,
-}
-
-impl CraneliftFunctionResolver {
-    fn new(compiled_functions: Vec<Vec<u8>>) -> Self {
-        Self {
-            compiled_functions,
-        }
-    }
-}
-
-// Implements FuncResolver trait.
-impl FuncResolver for CraneliftFunctionResolver {
-    // NOTE: This gets internal defined functions only. Will need access to vmctx to return imported function address.
-    fn get(&self, module: &WasmerModule, index: WasmerFuncIndex) -> Option<NonNull<vm::Func>> {
-        let index = index.index();
-        let imported_functions_length = module.imported_functions.len();
-        let internal_functions_length = self.compiled_functions.len();
-        let limit = imported_functions_length + internal_functions_length;
-
-        // Making sure it is not an imported function.
-        if index >= imported_functions_length && index < limit {
-            Some(NonNull::new(self.compiled_functions[index].as_ptr() as *mut _).unwrap())
-        } else {
-            None
-        }
     }
 }
 
@@ -634,9 +506,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn translate_call_indirect(
         &mut self,
         mut pos: FuncCursor,
-        table_index: TableIndex,
+        _table_index: TableIndex,
         table: ir::Table,
-        sig_index: SignatureIndex,
+        _sig_index: SignatureIndex,
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
@@ -689,12 +561,68 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,
-        _callee_index: FuncIndex,
+        callee_index: FuncIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
         // Insert call instructions for `callee`.
-        Ok(pos.ins().call(callee, call_args))
+
+        if callee_index.index() < self.module.imported_functions.len() {
+            // this is an imported function
+            let vmctx = pos.func.create_global_value(ir::GlobalValueData::VMContext);
+
+            let imported_funcs = pos.func.create_global_value(ir::GlobalValueData::Load {
+                base: vmctx,
+                offset: (WasmerVMContext::offset_imported_funcs() as i32).into(),
+                global_type: self.pointer_type(),
+                readonly: true,
+            });
+
+            let imported_func_struct_addr =
+                pos.func.create_global_value(ir::GlobalValueData::IAddImm {
+                    base: imported_funcs,
+                    offset: (callee_index.index() as i64 * vm::ImportedFunc::size() as i64).into(),
+                    global_type: self.pointer_type(),
+                });
+
+            let imported_func_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
+                base: imported_func_struct_addr,
+                offset: (vm::ImportedFunc::offset_func() as i32).into(),
+                global_type: self.pointer_type(),
+                readonly: true,
+            });
+
+            let imported_func_addr = pos
+                .ins()
+                .global_value(self.pointer_type(), imported_func_addr);
+
+            let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
+
+            let vmctx = pos
+                .func
+                .special_param(ir::ArgumentPurpose::VMContext)
+                .expect("missing vmctx parameter");
+
+            let mut args = Vec::with_capacity(call_args.len() + 1);
+            args.extend(call_args.iter().cloned());
+            args.push(vmctx);
+
+            Ok(pos
+                .ins()
+                .call_indirect(sig_ref, imported_func_addr, &args[..]))
+        } else {
+            // this is an internal function
+            let vmctx = pos
+                .func
+                .special_param(ir::ArgumentPurpose::VMContext)
+                .expect("missing vmctx parameter");
+
+            let mut args = Vec::with_capacity(call_args.len() + 1);
+            args.extend(call_args.iter().cloned());
+            args.push(vmctx);
+
+            Ok(pos.ins().call(callee, &args[..]))
+        }
     }
 
     /// Generates code corresponding to wasm `memory.grow`.
@@ -708,7 +636,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        _heap: ir::Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value> {
         // Only the first memory is supported for now.
@@ -763,7 +691,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        _heap: ir::Heap,
     ) -> WasmResult<ir::Value> {
         debug_assert_eq!(index.index(), 0, "non-default memories not supported yet");
         // Only the first memory is supported for now.

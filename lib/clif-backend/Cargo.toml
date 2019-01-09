@@ -1,0 +1,15 @@
+[package]
+name = "wasmer-clif-backend"
+version = "0.1.0"
+authors = ["Lachlan Sneff <lachlan.sneff@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+wasmer-runtime = { path = "../runtime" }
+cranelift-native = "0.26.0"
+cranelift-codegen = "0.26.0"
+cranelift-entity = "0.26.0"
+cranelift-wasm = "0.26.0"
+hashbrown = "0.1"
+target-lexicon = "0.2.0"
+wasmparser = "0.23.0"
