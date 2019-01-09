@@ -18,3 +18,4 @@ wabt = "0.7.2"
 [dev-dependencies]
 wasmer-clif-backend = { path = "../clif-backend" }
 wabt = "0.7.2"
+field-offset = "0.1.1"

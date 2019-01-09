@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[macro_use]
+extern crate field_offset;
+
 #[macro_use]
 mod macros;
 mod backend;
@@ -9,7 +13,7 @@ pub mod module;
 mod recovery;
 mod sig_registry;
 mod sighandler;
-mod table;
+pub mod table;
 pub mod types;
 pub mod vm;
 pub mod vmcalls;

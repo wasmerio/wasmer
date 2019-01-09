@@ -1,5 +1,6 @@
 use wasmer_runtime::types::{ElementType, FuncSig, Table, Type, Value};
-use wasmer_runtime::{Import, Imports, TableBacking, FuncRef};
+use wasmer_runtime::{Import, Imports, FuncRef};
+use wasmer_runtime::table::TableBacking;
 use std::sync::Arc;
 
 extern "C" fn print_i32(num: i32) {

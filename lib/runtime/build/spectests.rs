@@ -107,9 +107,9 @@ fn wabt2rust_value_bare(v: &Value) -> String {
         Value::F32(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "f32::NEG_INFINITY".to_string()
+                    "f32::NEG_INFINITY.to_bits()".to_string()
                 } else {
-                    "f32::INFINITY".to_string()
+                    "f32::INFINITY.to_bits()".to_string()
                 }
             } else if v.is_nan() {
                 // Support for non-canonical NaNs
@@ -121,9 +121,9 @@ fn wabt2rust_value_bare(v: &Value) -> String {
         Value::F64(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "f64::NEG_INFINITY".to_string()
+                    "f64::NEG_INFINITY.to_bits()".to_string()
                 } else {
-                    "f64::INFINITY".to_string()
+                    "f64::INFINITY.to_bits()".to_string()
                 }
             } else if v.is_nan() {
                 format!("f64::from_bits({:?})", v.to_bits())
@@ -141,9 +141,9 @@ fn wabt2rust_value(v: &Value) -> String {
         Value::F32(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "Value::F32(f32::NEG_INFINITY)".to_string()
+                    "Value::F32(f32::NEG_INFINITY.to_bits())".to_string()
                 } else {
-                    "Value::F32(f32::INFINITY)".to_string()
+                    "Value::F32(f32::INFINITY.to_bits())".to_string()
                 }
             } else if v.is_nan() {
                 // Support for non-canonical NaNs
@@ -155,9 +155,9 @@ fn wabt2rust_value(v: &Value) -> String {
         Value::F64(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "Value::F64(f64::NEG_INFINITY)".to_string()
+                    "Value::F64(f64::NEG_INFINITY.to_bits())".to_string()
                 } else {
-                    "Value::F64(f64::INFINITY)".to_string()
+                    "Value::F64(f64::INFINITY.to_bits())".to_string()
                 }
             } else if v.is_nan() {
                 format!("Value::F64(f64::from_bits({:?}) as u64)", v.to_bits())
@@ -204,12 +204,13 @@ impl WastTestGenerator {
     dead_code
 )]
 use wabt::wat2wasm;
+use std::{{f32, f64}};
 
 use wasmer_runtime::types::Value;
 use wasmer_runtime::{{Instance, Module}};
 use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::_common::{{
+use crate::spectests::_common::{{
     spectest_importobject,
     NaNCheck,
 }};\n\n",
@@ -267,7 +268,7 @@ fn test_module_{}() {{
         // self.module_calls.insert(self.last_module, vec![]);
         self.buffer.push_str(
             format!(
-                "fn create_module_{}() -> Instance {{
+                "fn create_module_{}() -> Box<Instance> {{
     let module_str = \"{}\";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
@@ -310,7 +311,7 @@ fn test_module_{}() {{
                 "#[test]
 fn {}_assert_invalid() {{
     let wasm_binary = {:?};
-    let module = wasmer_runtime::compile(wasm_binary, &CraneliftCompiler::new());
+    let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), \"WASM should not compile as is invalid\");
 }}\n",
                 command_name,
@@ -333,7 +334,11 @@ fn {}_assert_invalid() {{
             } => {
                 // let return_type = wabt2rust_type(&args[0]);
                 // let func_return = format!(" -> {}", return_type);
-                let assertion = String::from("assert!(result.is_quiet_nan())");
+                let assertion = String::from("assert!(match result {
+        Value::F32(fp) => f32::from_bits(fp).is_quiet_nan(),
+        Value::F64(fp) => f64::from_bits(fp).is_quiet_nan(),
+        _ => unimplemented!()
+    })");
 
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
@@ -386,7 +391,11 @@ fn {}_assert_invalid() {{
                     _ => wabt2rust_type(&args[0]),
                 };
                 // let func_return = format!(" -> {}", return_type);
-                let assertion = String::from("assert!(result.is_quiet_nan())");
+                let assertion = String::from("assert!(match result {
+        Value::F32(fp) => f32::from_bits(fp).is_quiet_nan(),
+        Value::F64(fp) => f64::from_bits(fp).is_quiet_nan(),
+        _ => unimplemented!()
+    })");
 
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
@@ -429,7 +438,7 @@ fn {}_assert_invalid() {{
                 "#[test]
 fn {}_assert_malformed() {{
     let wasm_binary = {:?};
-    let compilation = wasmer_runtime::compile(wasm_binary, &CraneliftCompiler::new());
+    let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(compilation.is_err(), \"WASM should not compile as is malformed\");
 }}\n",
                 command_name,
@@ -463,9 +472,9 @@ fn {}_assert_malformed() {{
                             "should not use this expect result".to_string()
                         };
                         let expected_some_result = if expected.len() > 0 {
-                            format!("Some({})", wabt2rust_value(&expected[0]))
+                            format!("Ok(Some({}))", wabt2rust_value(&expected[0]))
                         } else {
-                            "None".to_string()
+                            "Ok(None)".to_string()
                         };
                         let return_type = if expected.len() > 0 {
                             wabt2rust_type(&expected[0])
@@ -485,7 +494,7 @@ fn {}_assert_malformed() {{
                         let assertion = if expected.len() > 0 && is_nan(&expected[0]) {
                             format!(
                                 "let expected = {expected_result};
-                                if let {return_type_destructure} = result.unwrap() {{
+                                if let {return_type_destructure} = result.clone().unwrap().unwrap() {{
                                 assert!((result as {return_type}).is_nan());
             assert_eq!((result as {return_type}).is_sign_positive(), (expected as {return_type}).is_sign_positive());
             }} else {{
@@ -514,7 +523,7 @@ fn {}_assert_malformed() {{
                     format!(
                         "fn {func_name}(instance: &mut Instance) -> Result<(), String> {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = instance.call(\"{field}\", &[{args_values}]).expect(\"Missing result in {func_name}\");
+    let result = instance.call(\"{field}\", &[{args_values}]);
     {assertion}
     result.map(|_| ())
 }}\n",
@@ -570,7 +579,7 @@ fn {}_assert_malformed() {{
 #[test]
 fn {}() {{
     let mut instance = create_module_{}();
-    let result = {}(&mut instance);
+    let result = {}(&mut*instance);
     assert!(result.is_err());
 }}\n",
                 trap_func_name,
