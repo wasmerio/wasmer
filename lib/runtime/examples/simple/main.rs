@@ -12,8 +12,8 @@ fn main() -> Result<(), String> {
 
     let mut imports = Imports::new();
     imports.add(
-        "env".to_string(),
-        "print_num".to_string(),
+        "env",
+        "print_num",
         Import::Func(
             unsafe { FuncRef::new(print_num as _) },
             FuncSig {

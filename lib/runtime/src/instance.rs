@@ -169,11 +169,11 @@ impl Imports {
         }
     }
 
-    pub fn add(&mut self, module: String, name: String, import: Import) {
+    pub fn add(&mut self, module: impl Into<String>, name: impl Into<String>, import: Import) {
         self.map
-            .entry(module)
-            .or_insert(HashMap::new())
-            .insert(name, import);
+            .entry(module.into())
+            .or_insert_with(|| HashMap::new())
+            .insert(name.into(), import);
     }
 
     pub fn get(&self, module: &str, name: &str) -> Option<&Import> {
