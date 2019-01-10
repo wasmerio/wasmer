@@ -41,8 +41,9 @@ jobs:
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
           name: Upgrade Brew
-          command: brew upgrade
-          halt_build_on_fail: false
+          command: |
+            set -e
+            brew upgrade
       - run:
           name: Install libffi dependencies
           command: |
@@ -126,8 +127,9 @@ jobs:
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
           name: Upgrade Brew
-          command: brew upgrade
-          halt_build_on_fail: false
+          command: |
+            set -e
+            brew upgrade
       - run:
           name: Install libffi dependencies
           command: |
