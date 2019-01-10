@@ -53,7 +53,7 @@ impl LinearMemory {
         debug!("Instantiate LinearMemory(mem: {:?})", mem);
 
         let (mmap_size, initial_pages, offset_guard_size, requires_signal_catch) =
-            if mem.is_static_heap() {
+            if /*mem.is_static_heap()*/ true {
                 (Self::DEFAULT_SIZE, mem.min, Self::DEFAULT_GUARD_SIZE, true)
             // This is a static heap
             } else {
@@ -170,8 +170,8 @@ impl LinearMemory {
     }
 
     pub(crate) fn grow_static(&mut self, add_pages: u32) -> Option<i32> {
-        debug!("grow_memory_static called!");
-        assert!(self.max.is_some());
+        // debug!("grow_memory_static called!");
+        // assert!(self.max.is_some());
         if add_pages == 0 {
             return Some(self.current as _);
         }

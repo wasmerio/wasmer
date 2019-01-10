@@ -36,6 +36,8 @@ mod f64_bitwise;
 #[cfg(not(feature = "fast-tests"))]
 mod f64_cmp;
 mod fac;
+#[cfg(not(feature = "fast-tests"))]
+mod float_exprs;
 mod float_literals;
 mod float_memory;
 #[cfg(not(feature = "fast-tests"))]

@@ -648,9 +648,9 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
                 call_conv: self.module.config.default_call_conv,
                 // Paramters types.
                 params: vec![
-                    // Param for new size.
-                    AbiParam::new(I32),
                     // Param for memory index.
+                    AbiParam::new(I32),
+                    // Param for new size.
                     AbiParam::new(I32),
                     // Param for VMcontext.
                     AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
@@ -677,7 +677,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             .expect("missing vmctx parameter");
 
         // Insert call instructions for `grow_memory`.
-        let call_inst = pos.ins().call(grow_mem_func, &[val, memory_index, vmctx]);
+        let call_inst = pos.ins().call(grow_mem_func, &[memory_index, val, vmctx]);
 
         // Return value.
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
@@ -721,13 +721,13 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         });
 
         // Create a memory index value.
-        let memory_index_value = pos.ins().iconst(I32, to_imm64(index.index()));
+        let memory_index = pos.ins().iconst(I32, to_imm64(index.index()));
 
         // Create a VMContext value.
         let vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
         // Insert call instructions for `current_memory`.
-        let call_inst = pos.ins().call(cur_mem_func, &[memory_index_value, vmctx]);
+        let call_inst = pos.ins().call(cur_mem_func, &[memory_index, vmctx]);
 
         // Return value.
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())

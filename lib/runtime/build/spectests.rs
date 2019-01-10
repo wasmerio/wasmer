@@ -36,7 +36,7 @@ const TESTS: &[&str] = &[
     "spectests/f64_bitwise.wast",
     "spectests/f64_cmp.wast",
     "spectests/fac.wast",
-    // "spectests/float_exprs.wast",
+    "spectests/float_exprs.wast",
     "spectests/float_literals.wast",
     "spectests/float_memory.wast",
     "spectests/float_misc.wast",
