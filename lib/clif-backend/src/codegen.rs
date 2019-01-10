@@ -4,7 +4,7 @@ use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::{self, *};
 use cranelift_codegen::ir::{
     self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature,
-    TrapCode,
+    TrapCode, condcodes::IntCC,
 };
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_entity::{EntityRef, PrimaryMap};
@@ -57,17 +57,11 @@ pub mod converter {
             tables.push(convert_table(table));
         }
 
-        let mut sig_registry = SigRegistry::new();
-        for signature in cranelift_module.signatures {
-            let func_sig = convert_signature(signature);
-            sig_registry.register(func_sig);
-        }
-
         // Convert Cranelift signature indices to Wasmer signature indices.
         let mut func_assoc: Map<WasmerFuncIndex, WasmerSignatureIndex> =
             Map::with_capacity(cranelift_module.functions.len());
         for (_, signature_index) in cranelift_module.functions.iter() {
-            func_assoc.push(WasmerSignatureIndex::new(signature_index.index()));
+            func_assoc.push(cranelift_module.sig_registry.lookup_deduplicated_sigindex(WasmerSignatureIndex::new(signature_index.index())));
         }
 
         let function_bodies: Vec<_> = cranelift_module
@@ -95,6 +89,7 @@ pub mod converter {
             data_initializers,
             table_initializers,
             start_func,
+            sig_registry,
             ..
         } = cranelift_module;
 
@@ -179,7 +174,7 @@ pub mod converter {
     }
 
     /// Converts a Cranelift signature to a Wasmer signature.
-    pub fn convert_signature(sig: ir::Signature) -> WasmerSignature {
+    pub fn convert_signature(sig: &ir::Signature) -> WasmerSignature {
         WasmerSignature {
             params: sig
                 .params
@@ -256,6 +251,8 @@ pub struct CraneliftModule {
 
     // The start function index.
     pub start_func: Option<WasmerFuncIndex>,
+
+    pub sig_registry: SigRegistry,
 }
 
 impl CraneliftModule {
@@ -286,6 +283,7 @@ impl CraneliftModule {
             data_initializers: Vec::new(),
             table_initializers: Vec::new(),
             start_func: None,
+            sig_registry: SigRegistry::new(),
         };
 
         // Translate wasm to cranelift IR.
@@ -441,10 +439,16 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // Based on the index provided, we need to know the offset into tables array.
         let table_data_offset = (index.as_u32() as i32) * (ptr_size as i32) * 2;
 
+        let table_data = func.create_global_value(ir::GlobalValueData::IAddImm {
+            base,
+            offset: (table_data_offset as i64).into(),
+            global_type: self.pointer_type(),
+        });
+
         // Load value at (base + table_data_offset), i.e. the address at Ctx.tables[index].data
         let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base,
-            offset: Offset32::new(table_data_offset),
+            base: table_data,
+            offset: 0.into(),
             global_type: self.pointer_type(),
             readonly: false,
         });
@@ -452,7 +456,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // Load value at (base + table_data_offset), i.e. the value at Ctx.tables[index].len
         let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
             base,
-            offset: Offset32::new(table_data_offset + ptr_size as i32),
+            offset: (self.pointer_bytes() as i32).into(),
             global_type: self.pointer_type(),
             readonly: false,
         });
@@ -462,8 +466,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base_gv,
             min_size: Uimm64::new(0),
             bound_gv,
-            element_size: Uimm64::new(u64::from(self.pointer_bytes())),
-            index_type: I64,
+            element_size: Uimm64::new(u64::from(self.pointer_bytes() * 2)),
+            index_type: self.pointer_type(),
         })
     }
 
@@ -502,14 +506,13 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     ///
     /// Inserts instructions at `pos` to the function `callee` in the table
     /// `table_index` with WebAssembly signature `sig_index`
-    /// TODO: Generate bounds checking code.
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
     fn translate_call_indirect(
         &mut self,
         mut pos: FuncCursor,
         _table_index: TableIndex,
         table: ir::Table,
-        _sig_index: SignatureIndex,
+        sig_index: SignatureIndex,
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
@@ -534,27 +537,26 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // The `callee` value is an index into a table of function pointers.
         let entry_addr = pos.ins().table_addr(ptr_type, table, callee_offset, 0);
 
-        let mut mflags = ir::MemFlags::new();
-        mflags.set_notrap();
-        mflags.set_aligned();
+        let mflags = ir::MemFlags::trusted();
 
         let func_ptr = pos.ins().load(ptr_type, mflags, entry_addr, 0);
 
         pos.ins().trapz(func_ptr, TrapCode::IndirectCallToNull);
 
-        // Build a value list for the indirect call instruction containing the callee, call_args,
+        let found_sig = pos.ins().load(I32, mflags, entry_addr, self.pointer_bytes() as i32);
+        let deduplicated_sig_index = self.module.sig_registry.lookup_deduplicated_sigindex(WasmerSignatureIndex::new(sig_index.index()));
+        let expected_sig = pos.ins().iconst(I32, deduplicated_sig_index.index() as i64);
+        let not_equal_flags = pos.ins().ifcmp(found_sig, expected_sig);
+
+        pos.ins().trapif(IntCC::NotEqual, not_equal_flags, TrapCode::BadSignature);
+
+        // Build a value list for the indirect call instruction containing the call_args
         // and the vmctx parameter.
-        let mut args = ir::ValueList::default();
-        args.push(func_ptr, &mut pos.func.dfg.value_lists);
-        args.extend(call_args.iter().cloned(), &mut pos.func.dfg.value_lists);
-        args.push(vmctx, &mut pos.func.dfg.value_lists);
+        let mut args = Vec::with_capacity(call_args.len() + 1);
+        args.extend(call_args.iter().cloned());
+        args.push(vmctx);
 
-        let inst = pos
-            .ins()
-            .CallIndirect(ir::Opcode::CallIndirect, INVALID, sig_ref, args)
-            .0;
-
-        Ok(inst)
+        Ok(pos.ins().call_indirect(sig_ref, func_ptr, &args))
     }
 
     /// Generates a call IR with `callee` and `call_args` and inserts it at `pos`
@@ -762,6 +764,8 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
     /// Declares a function signature to the environment.
     fn declare_signature(&mut self, sig: &ir::Signature) {
         self.signatures.push(sig.clone());
+        let wasmer_sig = converter::convert_signature(sig);
+        self.sig_registry.register(wasmer_sig);
     }
 
     /// Return the signature with the given index.

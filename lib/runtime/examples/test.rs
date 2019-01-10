@@ -5,7 +5,7 @@ use wasmer_clif_backend::CraneliftCompiler;
 
 fn main() {
     let mut instance = create_module_1();
-    let result = instance.call("signature-explicit-reused", &[]);
+    let result = instance.call("signature-implicit-reused", &[]);
     println!("result: {:?}", result);
 }
 
@@ -23,11 +23,6 @@ fn create_module_1() -> Box<Instance> {
       (func (;5;) (type 2) (param i64 i64 f64 i64 f64 i64 f32 i32))
       (func (;6;) (type 2) (param i64 i64 f64 i64 f64 i64 f32 i32))
       (func (;7;) (type 0)
-        i32.const 1
-        call_indirect (type 0)
-        i32.const 4
-        call_indirect (type 0))
-      (func (;8;) (type 0)
         f64.const 0x0p+0 (;=0;)
         i64.const 0
         f64.const 0x0p+0 (;=0;)
@@ -58,35 +53,8 @@ fn create_module_1() -> Box<Instance> {
         i32.const 0
         i32.const 3
         call_indirect (type 3))
-      (func (;9;) (type 0)
-        i32.const 1
-        call_indirect (type 1))
-      (func (;10;) (type 0)
-        i64.const 0
-        i64.const 0
-        f64.const 0x0p+0 (;=0;)
-        i64.const 0
-        f64.const 0x0p+0 (;=0;)
-        i64.const 0
-        f32.const 0x0p+0 (;=0;)
-        i32.const 0
-        i32.const 5
-        call_indirect (type 2)
-        i64.const 0
-        i64.const 0
-        f64.const 0x0p+0 (;=0;)
-        i64.const 0
-        f64.const 0x0p+0 (;=0;)
-        i64.const 0
-        f32.const 0x0p+0 (;=0;)
-        i32.const 0
-        i32.const 6
-        call_indirect (type 2))
       (table (;0;) 7 7 anyfunc)
-      (export \"signature-explicit-reused\" (func 7))
-      (export \"signature-implicit-reused\" (func 8))
-      (export \"signature-explicit-duplicate\" (func 9))
-      (export \"signature-implicit-duplicate\" (func 10))
+      (export \"signature-implicit-reused\" (func 7))
       (elem (;0;) (i32.const 0) 4 2 1 4 0 5 6))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");

@@ -25,9 +25,6 @@ pub struct Ctx {
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub imported_funcs: *mut ImportedFunc,
 
-    /// Signature identifiers for signature-checked indirect calls.
-    pub signatures: *const SigId,
-
     /// The parent instance.
     pub local_backing: *mut LocalBacking,
 }
@@ -43,8 +40,7 @@ impl Ctx {
             imported_tables: import_backing.tables.as_mut_ptr(),
             imported_globals: import_backing.globals.as_mut_ptr(),
             imported_funcs: import_backing.functions.as_mut_ptr(),
-
-            signatures: local_backing.vm_signatures.as_mut_ptr(),
+            
             local_backing,
         }
     }
@@ -280,11 +276,6 @@ mod vm_offset_tests {
         assert_eq!(
             Ctx::offset_imported_funcs() as usize,
             offset_of!(Ctx => imported_funcs).get_byte_offset(),
-        );
-
-        assert_eq!(
-            Ctx::offset_signatures() as usize,
-            offset_of!(Ctx => signatures).get_byte_offset(),
         );
     }
 

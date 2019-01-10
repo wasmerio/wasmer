@@ -15,7 +15,6 @@ pub struct LocalBacking {
     pub vm_memories: Box<[vm::LocalMemory]>,
     pub vm_tables: Box<[vm::LocalTable]>,
     pub vm_globals: Box<[vm::LocalGlobal]>,
-    pub vm_signatures: Box<[vm::SigId]>,
 }
 
 impl LocalBacking {
@@ -27,7 +26,6 @@ impl LocalBacking {
         let vm_memories = Self::finalize_memories(module, &mut memories[..]);
         let vm_tables = Self::finalize_tables(module, imports, &mut tables[..]);
         let vm_globals = Self::finalize_globals(module, imports, globals);
-        let vm_signatures = module.sig_registry.into_vm_sigid();
 
         Self {
             memories,
@@ -36,7 +34,6 @@ impl LocalBacking {
             vm_memories,
             vm_tables,
             vm_globals,
-            vm_signatures,
         }
     }
 
@@ -110,7 +107,6 @@ impl LocalBacking {
                     for (i, &func_index) in init.elements.iter().enumerate() {
                         let sig_index = module.func_assoc[func_index];
                         let vm_sig_id = vm::SigId(sig_index.index() as u32);
-
                         let func_data = if module.is_imported_function(func_index) {
                             imports.functions[func_index.index()].clone()
                         } else {
