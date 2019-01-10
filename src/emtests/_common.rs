@@ -2,9 +2,9 @@ macro_rules! assert_emscripten_output {
     ($file:expr, $name:expr, $args:expr, $expected:expr) => {{
         use crate::apis::generate_emscripten_env;
         use crate::common::stdio::StdioCapturer;
-        use wasmer_runtime::{Import, Imports, FuncRef, InstanceABI, InstanceOptions};
+        use wasmer_runtime::{Import, Imports, FuncRef};
         use wasmer_runtime::table::TableBacking;
-        use crate::webassembly::{get_isa, instantiate, start_instance};
+        use crate::webassembly::{get_isa, instantiate, start_instance, InstanceABI, InstanceOptions};
         use std::sync::Arc;
 
         let wasm_bytes = include_bytes!($file);
