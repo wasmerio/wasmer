@@ -56,6 +56,9 @@ time = "0.1.41"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-runtime = { path = "lib/runtime" }
 
+[workspace]
+members = ["lib/clif-backend", "lib/runtime"]
+
 [build-dependencies]
 wabt = "0.7.2"
 glob = "0.2.11"
