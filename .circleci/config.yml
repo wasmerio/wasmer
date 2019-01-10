@@ -40,9 +40,12 @@ jobs:
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
+          name: Upgrade Brew
+          command: brew upgrade
+          halt_build_on_fail: false
+      - run:
           name: Install libffi dependencies
           command: |
-            brew upgrade
             brew install autoconf automake libtool
       - run:
           name: Install Rust
@@ -122,9 +125,12 @@ jobs:
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
+          name: Upgrade Brew
+          command: brew upgrade
+          halt_build_on_fail: false
+      - run:
           name: Install libffi dependencies
           command: |
-            brew upgrade
             brew install autoconf automake libtool
       - run:
           name: Install Rust
