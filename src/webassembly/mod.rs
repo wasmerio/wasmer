@@ -4,9 +4,9 @@ pub mod relocation;
 pub mod utils;
 
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime::{Compiler, Module};
+use wasmer_runtime::{backend::Compiler, module::Module};
 use wasmer_runtime;
-use wasmer_runtime::{Import, Imports, Instance, InstanceOptions};
+use wasmer_runtime::{Import, Imports, Instance};
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
@@ -29,6 +29,23 @@ pub struct ResultObject {
     /// A webassembly::Instance object that contains all the Exported WebAssembly
     /// functions.
     pub instance: Box<Instance>,
+}
+
+
+pub struct InstanceOptions {
+    // Shall we mock automatically the imported functions if they don't exist?
+    pub mock_missing_imports: bool,
+    pub mock_missing_globals: bool,
+    pub mock_missing_tables: bool,
+    pub abi: InstanceABI,
+    pub show_progressbar: bool,
+//    pub isa: Box<isa::TargetIsa>, TODO isa
+}
+
+#[derive(PartialEq)]
+pub enum InstanceABI {
+    Emscripten,
+    None,
 }
 
 /// The webassembly::instantiate() function allows you to compile and

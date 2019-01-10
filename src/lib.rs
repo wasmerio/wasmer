@@ -32,7 +32,5 @@ pub mod common;
 #[cfg(test)]
 mod emtests;
 pub mod sighandler;
-#[cfg(test)]
-mod spectests;
 pub mod update;
 pub mod webassembly;
