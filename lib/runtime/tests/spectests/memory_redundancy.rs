@@ -145,7 +145,7 @@ fn c4_l62_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c5_l63_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c5_l63_action_invoke");
     let result = instance.call("test_dead_store", &[]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000049f32).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000049f32)))));
     result.map(|_| ())
 }
 

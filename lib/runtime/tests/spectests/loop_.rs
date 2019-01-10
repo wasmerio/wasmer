@@ -1085,128 +1085,128 @@ fn c50_l366_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 368
 fn c51_l368_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c51_l368_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((0.0f32).to_bits()), Value::F32((7.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((0.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((0.0f32)), Value::F32((7.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
 
 // Line 369
 fn c52_l369_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c52_l369_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((7.0f32).to_bits()), Value::F32((0.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((0.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((7.0f32)), Value::F32((0.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
 
 // Line 370
 fn c53_l370_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c53_l370_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((1.0f32).to_bits()), Value::F32((1.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((1.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((1.0f32)), Value::F32((1.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
 
 // Line 371
 fn c54_l371_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c54_l371_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((1.0f32).to_bits()), Value::F32((2.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((2.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((1.0f32)), Value::F32((2.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((2.0f32)))));
     result.map(|_| ())
 }
 
 // Line 372
 fn c55_l372_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c55_l372_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((1.0f32).to_bits()), Value::F32((3.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((4.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((1.0f32)), Value::F32((3.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((4.0f32)))));
     result.map(|_| ())
 }
 
 // Line 373
 fn c56_l373_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c56_l373_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((1.0f32).to_bits()), Value::F32((4.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((6.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((1.0f32)), Value::F32((4.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((6.0f32)))));
     result.map(|_| ())
 }
 
 // Line 374
 fn c57_l374_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c57_l374_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((1.0f32).to_bits()), Value::F32((100.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((2550.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((1.0f32)), Value::F32((100.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((2550.0f32)))));
     result.map(|_| ())
 }
 
 // Line 375
 fn c58_l375_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c58_l375_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((1.0f32).to_bits()), Value::F32((101.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((2601.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((1.0f32)), Value::F32((101.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((2601.0f32)))));
     result.map(|_| ())
 }
 
 // Line 376
 fn c59_l376_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c59_l376_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((2.0f32).to_bits()), Value::F32((1.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((1.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((2.0f32)), Value::F32((1.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
 
 // Line 377
 fn c60_l377_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c60_l377_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((3.0f32).to_bits()), Value::F32((1.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((1.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((3.0f32)), Value::F32((1.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
 
 // Line 378
 fn c61_l378_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c61_l378_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((10.0f32).to_bits()), Value::F32((1.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((1.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((10.0f32)), Value::F32((1.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
 
 // Line 379
 fn c62_l379_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c62_l379_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((2.0f32).to_bits()), Value::F32((2.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((3.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((2.0f32)), Value::F32((2.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((3.0f32)))));
     result.map(|_| ())
 }
 
 // Line 380
 fn c63_l380_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c63_l380_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((2.0f32).to_bits()), Value::F32((3.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((4.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((2.0f32)), Value::F32((3.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((4.0f32)))));
     result.map(|_| ())
 }
 
 // Line 381
 fn c64_l381_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c64_l381_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((7.0f32).to_bits()), Value::F32((4.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((10.309524f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((7.0f32)), Value::F32((4.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((10.309524f32)))));
     result.map(|_| ())
 }
 
 // Line 382
 fn c65_l382_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c65_l382_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((7.0f32).to_bits()), Value::F32((100.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((4381.548f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((7.0f32)), Value::F32((100.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((4381.548f32)))));
     result.map(|_| ())
 }
 
 // Line 383
 fn c66_l383_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c66_l383_action_invoke");
-    let result = instance.call("nesting", &[Value::F32((7.0f32).to_bits()), Value::F32((101.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((2601.0f32).to_bits()))));
+    let result = instance.call("nesting", &[Value::F32((7.0f32)), Value::F32((101.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((2601.0f32)))));
     result.map(|_| ())
 }
 

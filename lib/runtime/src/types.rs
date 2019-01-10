@@ -18,16 +18,16 @@ pub enum Type {
     F64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// The `i32` type.
     I32(i32),
     /// The `i64` type.
     I64(i64),
     /// The `f32` type.
-    F32(u32),
+    F32(f32),
     /// The `f64` type.
-    F64(u64),
+    F64(f64),
 }
 
 impl Value {
@@ -55,13 +55,13 @@ impl From<i64> for Value {
 
 impl From<f32> for Value {
     fn from(f: f32) -> Self {
-        Value::F32(f as _)
+        Value::F32(f)
     }
 }
 
 impl From<f64> for Value {
     fn from(f: f64) -> Self {
-        Value::F64(f as _)
+        Value::F64(f)
     }
 }
 
@@ -84,7 +84,7 @@ pub struct Table {
 /// A global value initializer.
 /// Overtime, this will be able to represent more and more
 /// complex expressions.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Initializer {
     /// Corresponds to a `const.*` instruction.
     Const(Value),

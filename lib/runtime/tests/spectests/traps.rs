@@ -321,7 +321,7 @@ fn start_module_3(instance: &mut Instance) {
 // Line 50
 fn c13_l50_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c13_l50_action_invoke");
-    let result = instance.call("no_dce.i32.trunc_s_f32", &[Value::F32(f32::from_bits(2143289344) as u32)]);
+    let result = instance.call("no_dce.i32.trunc_s_f32", &[Value::F32(f32::from_bits(2143289344))]);
     
     result.map(|_| ())
 }
@@ -336,7 +336,7 @@ fn c13_l50_assert_trap() {
 // Line 51
 fn c14_l51_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c14_l51_action_invoke");
-    let result = instance.call("no_dce.i32.trunc_u_f32", &[Value::F32(f32::from_bits(2143289344) as u32)]);
+    let result = instance.call("no_dce.i32.trunc_u_f32", &[Value::F32(f32::from_bits(2143289344))]);
     
     result.map(|_| ())
 }
@@ -351,7 +351,7 @@ fn c14_l51_assert_trap() {
 // Line 52
 fn c15_l52_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c15_l52_action_invoke");
-    let result = instance.call("no_dce.i32.trunc_s_f64", &[Value::F64(f64::from_bits(9221120237041090560) as u64)]);
+    let result = instance.call("no_dce.i32.trunc_s_f64", &[Value::F64(f64::from_bits(9221120237041090560))]);
     
     result.map(|_| ())
 }
@@ -366,7 +366,7 @@ fn c15_l52_assert_trap() {
 // Line 53
 fn c16_l53_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c16_l53_action_invoke");
-    let result = instance.call("no_dce.i32.trunc_u_f64", &[Value::F64(f64::from_bits(9221120237041090560) as u64)]);
+    let result = instance.call("no_dce.i32.trunc_u_f64", &[Value::F64(f64::from_bits(9221120237041090560))]);
     
     result.map(|_| ())
 }
@@ -381,7 +381,7 @@ fn c16_l53_assert_trap() {
 // Line 54
 fn c17_l54_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c17_l54_action_invoke");
-    let result = instance.call("no_dce.i64.trunc_s_f32", &[Value::F32(f32::from_bits(2143289344) as u32)]);
+    let result = instance.call("no_dce.i64.trunc_s_f32", &[Value::F32(f32::from_bits(2143289344))]);
     
     result.map(|_| ())
 }
@@ -396,7 +396,7 @@ fn c17_l54_assert_trap() {
 // Line 55
 fn c18_l55_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c18_l55_action_invoke");
-    let result = instance.call("no_dce.i64.trunc_u_f32", &[Value::F32(f32::from_bits(2143289344) as u32)]);
+    let result = instance.call("no_dce.i64.trunc_u_f32", &[Value::F32(f32::from_bits(2143289344))]);
     
     result.map(|_| ())
 }
@@ -411,7 +411,7 @@ fn c18_l55_assert_trap() {
 // Line 56
 fn c19_l56_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c19_l56_action_invoke");
-    let result = instance.call("no_dce.i64.trunc_s_f64", &[Value::F64(f64::from_bits(9221120237041090560) as u64)]);
+    let result = instance.call("no_dce.i64.trunc_s_f64", &[Value::F64(f64::from_bits(9221120237041090560))]);
     
     result.map(|_| ())
 }
@@ -426,7 +426,7 @@ fn c19_l56_assert_trap() {
 // Line 57
 fn c20_l57_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c20_l57_action_invoke");
-    let result = instance.call("no_dce.i64.trunc_u_f64", &[Value::F64(f64::from_bits(9221120237041090560) as u64)]);
+    let result = instance.call("no_dce.i64.trunc_u_f64", &[Value::F64(f64::from_bits(9221120237041090560))]);
     
     result.map(|_| ())
 }

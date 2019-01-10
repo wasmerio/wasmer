@@ -154,8 +154,8 @@ impl LocalBacking {
             to.data = match from.init {
                 Initializer::Const(Value::I32(x)) => x as u64,
                 Initializer::Const(Value::I64(x)) => x as u64,
-                Initializer::Const(Value::F32(x)) => x as u64,
-                Initializer::Const(Value::F64(x)) => x,
+                Initializer::Const(Value::F32(x)) => x.to_bits() as u64,
+                Initializer::Const(Value::F64(x)) => x.to_bits(),
                 Initializer::GetGlobal(index) => (imports.globals[index.index()].global).data,
             };
         }
@@ -309,8 +309,8 @@ impl ImportBacking {
                                 data: match val {
                                     Value::I32(n) => *n as u64,
                                     Value::I64(n) => *n as u64,
-                                    Value::F32(n) => *n as u64,
-                                    Value::F64(n) => *n,
+                                    Value::F32(n) => (*n).to_bits() as u64,
+                                    Value::F64(n) => (*n).to_bits(),
                                 },
                             },
                         });

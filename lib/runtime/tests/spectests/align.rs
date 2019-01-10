@@ -1886,7 +1886,7 @@ fn start_module_24(instance: &mut Instance) {
 fn c107_l802_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c107_l802_action_invoke");
     let result = instance.call("f32_align_switch", &[Value::I32(0 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F32((10.0f32).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F32((10.0f32)))));
     result.map(|_| ())
 }
 
@@ -1894,7 +1894,7 @@ fn c107_l802_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c108_l803_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c108_l803_action_invoke");
     let result = instance.call("f32_align_switch", &[Value::I32(1 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F32((10.0f32).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F32((10.0f32)))));
     result.map(|_| ())
 }
 
@@ -1902,7 +1902,7 @@ fn c108_l803_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c109_l804_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c109_l804_action_invoke");
     let result = instance.call("f32_align_switch", &[Value::I32(2 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F32((10.0f32).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F32((10.0f32)))));
     result.map(|_| ())
 }
 
@@ -1910,7 +1910,7 @@ fn c109_l804_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c110_l805_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c110_l805_action_invoke");
     let result = instance.call("f32_align_switch", &[Value::I32(3 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F32((10.0f32).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F32((10.0f32)))));
     result.map(|_| ())
 }
 
@@ -1918,7 +1918,7 @@ fn c110_l805_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c111_l807_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c111_l807_action_invoke");
     let result = instance.call("f64_align_switch", &[Value::I32(0 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F64((10.0f64).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F64((10.0f64)))));
     result.map(|_| ())
 }
 
@@ -1926,7 +1926,7 @@ fn c111_l807_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c112_l808_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c112_l808_action_invoke");
     let result = instance.call("f64_align_switch", &[Value::I32(1 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F64((10.0f64).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F64((10.0f64)))));
     result.map(|_| ())
 }
 
@@ -1934,7 +1934,7 @@ fn c112_l808_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c113_l809_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c113_l809_action_invoke");
     let result = instance.call("f64_align_switch", &[Value::I32(2 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F64((10.0f64).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F64((10.0f64)))));
     result.map(|_| ())
 }
 
@@ -1942,7 +1942,7 @@ fn c113_l809_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c114_l810_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c114_l810_action_invoke");
     let result = instance.call("f64_align_switch", &[Value::I32(3 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F64((10.0f64).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F64((10.0f64)))));
     result.map(|_| ())
 }
 
@@ -1950,7 +1950,7 @@ fn c114_l810_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c115_l811_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c115_l811_action_invoke");
     let result = instance.call("f64_align_switch", &[Value::I32(4 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F64((10.0f64).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F64((10.0f64)))));
     result.map(|_| ())
 }
 

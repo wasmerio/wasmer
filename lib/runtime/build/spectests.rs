@@ -107,28 +107,28 @@ fn wabt2rust_value_bare(v: &Value) -> String {
         Value::F32(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "f32::NEG_INFINITY.to_bits()".to_string()
+                    "f32::NEG_INFINITY".to_string()
                 } else {
-                    "f32::INFINITY.to_bits()".to_string()
+                    "f32::INFINITY".to_string()
                 }
             } else if v.is_nan() {
                 // Support for non-canonical NaNs
                 format!("f32::from_bits({:?})", v.to_bits())
             } else {
-                format!("{:?} as f32", v)
+                format!("{:?}", v)
             }
         }
         Value::F64(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "f64::NEG_INFINITY.to_bits()".to_string()
+                    "f64::NEG_INFINITY".to_string()
                 } else {
-                    "f64::INFINITY.to_bits()".to_string()
+                    "f64::INFINITY".to_string()
                 }
             } else if v.is_nan() {
                 format!("f64::from_bits({:?})", v.to_bits())
             } else {
-                format!("{:?} as f64", v)
+                format!("{:?}", v)
             }
         }
     }
@@ -141,28 +141,28 @@ fn wabt2rust_value(v: &Value) -> String {
         Value::F32(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "Value::F32(f32::NEG_INFINITY.to_bits())".to_string()
+                    "Value::F32(f32::NEG_INFINITY)".to_string()
                 } else {
-                    "Value::F32(f32::INFINITY.to_bits())".to_string()
+                    "Value::F32(f32::INFINITY)".to_string()
                 }
             } else if v.is_nan() {
                 // Support for non-canonical NaNs
-                format!("Value::F32(f32::from_bits({:?}) as u32)", v.to_bits())
+                format!("Value::F32(f32::from_bits({:?}))", v.to_bits())
             } else {
-                format!("Value::F32(({:?}f32).to_bits())", v)
+                format!("Value::F32(({:?}f32))", v)
             }
         }
         Value::F64(v) => {
             if v.is_infinite() {
                 if v.is_sign_negative() {
-                    "Value::F64(f64::NEG_INFINITY.to_bits())".to_string()
+                    "Value::F64(f64::NEG_INFINITY)".to_string()
                 } else {
-                    "Value::F64(f64::INFINITY.to_bits())".to_string()
+                    "Value::F64(f64::INFINITY)".to_string()
                 }
             } else if v.is_nan() {
-                format!("Value::F64(f64::from_bits({:?}) as u64)", v.to_bits())
+                format!("Value::F64(f64::from_bits({:?}))", v.to_bits())
             } else {
-                format!("Value::F64(({:?}f64).to_bits())", v)
+                format!("Value::F64(({:?}f64))", v)
             }
         }
     }
@@ -335,8 +335,8 @@ fn {}_assert_invalid() {{
                 // let return_type = wabt2rust_type(&args[0]);
                 // let func_return = format!(" -> {}", return_type);
                 let assertion = String::from("assert!(match result {
-        Value::F32(fp) => f32::from_bits(fp).is_quiet_nan(),
-        Value::F64(fp) => f64::from_bits(fp).is_quiet_nan(),
+        Value::F32(fp) => fp.is_quiet_nan(),
+        Value::F64(fp) => fp.is_quiet_nan(),
         _ => unimplemented!()
     })");
 
@@ -392,8 +392,8 @@ fn {}_assert_invalid() {{
                 };
                 // let func_return = format!(" -> {}", return_type);
                 let assertion = String::from("assert!(match result {
-        Value::F32(fp) => f32::from_bits(fp).is_quiet_nan(),
-        Value::F64(fp) => f64::from_bits(fp).is_quiet_nan(),
+        Value::F32(fp) => fp.is_quiet_nan(),
+        Value::F64(fp) => fp.is_quiet_nan(),
         _ => unimplemented!()
     })");
 

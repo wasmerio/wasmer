@@ -142,8 +142,8 @@ pub mod converter {
         let init = match global.initializer {
             I32Const(val) => Const(val.into()),
             I64Const(val) => Const(val.into()),
-            F32Const(val) => Const((val as f32).into()),
-            F64Const(val) => Const((val as f64).into()),
+            F32Const(val) => Const(f32::from_bits(val).into()),
+            F64Const(val) => Const(f64::from_bits(val).into()),
             GlobalInit::GetGlobal(index) => {
                 WasmerInitializer::GetGlobal(WasmerGlobalIndex::new(index.index()))
             }
@@ -612,7 +612,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
                 .ins()
                 .call_indirect(sig_ref, imported_func_addr, &args[..]))
         } else {
-            println!("translate_call: {:?}", callee_index);
             // this is an internal function
             let vmctx = pos
                 .func

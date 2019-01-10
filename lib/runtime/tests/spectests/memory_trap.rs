@@ -730,7 +730,7 @@ fn c38_l134_assert_trap() {
 // Line 135
 fn c39_l135_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c39_l135_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(65536 as i32), Value::F32((0.0f32).to_bits())]);
+    let result = instance.call("f32.store", &[Value::I32(65536 as i32), Value::F32((0.0f32))]);
     
     result.map(|_| ())
 }
@@ -745,7 +745,7 @@ fn c39_l135_assert_trap() {
 // Line 136
 fn c40_l136_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c40_l136_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(65535 as i32), Value::F32((0.0f32).to_bits())]);
+    let result = instance.call("f32.store", &[Value::I32(65535 as i32), Value::F32((0.0f32))]);
     
     result.map(|_| ())
 }
@@ -760,7 +760,7 @@ fn c40_l136_assert_trap() {
 // Line 137
 fn c41_l137_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c41_l137_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(65534 as i32), Value::F32((0.0f32).to_bits())]);
+    let result = instance.call("f32.store", &[Value::I32(65534 as i32), Value::F32((0.0f32))]);
     
     result.map(|_| ())
 }
@@ -775,7 +775,7 @@ fn c41_l137_assert_trap() {
 // Line 138
 fn c42_l138_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c42_l138_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(65533 as i32), Value::F32((0.0f32).to_bits())]);
+    let result = instance.call("f32.store", &[Value::I32(65533 as i32), Value::F32((0.0f32))]);
     
     result.map(|_| ())
 }
@@ -790,7 +790,7 @@ fn c42_l138_assert_trap() {
 // Line 139
 fn c43_l139_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c43_l139_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(-1 as i32), Value::F32((0.0f32).to_bits())]);
+    let result = instance.call("f32.store", &[Value::I32(-1 as i32), Value::F32((0.0f32))]);
     
     result.map(|_| ())
 }
@@ -805,7 +805,7 @@ fn c43_l139_assert_trap() {
 // Line 140
 fn c44_l140_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c44_l140_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(-2 as i32), Value::F32((0.0f32).to_bits())]);
+    let result = instance.call("f32.store", &[Value::I32(-2 as i32), Value::F32((0.0f32))]);
     
     result.map(|_| ())
 }
@@ -820,7 +820,7 @@ fn c44_l140_assert_trap() {
 // Line 141
 fn c45_l141_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c45_l141_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(-3 as i32), Value::F32((0.0f32).to_bits())]);
+    let result = instance.call("f32.store", &[Value::I32(-3 as i32), Value::F32((0.0f32))]);
     
     result.map(|_| ())
 }
@@ -835,7 +835,7 @@ fn c45_l141_assert_trap() {
 // Line 142
 fn c46_l142_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c46_l142_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(-4 as i32), Value::F32((0.0f32).to_bits())]);
+    let result = instance.call("f32.store", &[Value::I32(-4 as i32), Value::F32((0.0f32))]);
     
     result.map(|_| ())
 }
@@ -850,7 +850,7 @@ fn c46_l142_assert_trap() {
 // Line 143
 fn c47_l143_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c47_l143_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65536 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(65536 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -865,7 +865,7 @@ fn c47_l143_assert_trap() {
 // Line 144
 fn c48_l144_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c48_l144_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65535 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(65535 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -880,7 +880,7 @@ fn c48_l144_assert_trap() {
 // Line 145
 fn c49_l145_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c49_l145_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65534 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(65534 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -895,7 +895,7 @@ fn c49_l145_assert_trap() {
 // Line 146
 fn c50_l146_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c50_l146_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65533 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(65533 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -910,7 +910,7 @@ fn c50_l146_assert_trap() {
 // Line 147
 fn c51_l147_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c51_l147_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65532 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(65532 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -925,7 +925,7 @@ fn c51_l147_assert_trap() {
 // Line 148
 fn c52_l148_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c52_l148_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65531 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(65531 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -940,7 +940,7 @@ fn c52_l148_assert_trap() {
 // Line 149
 fn c53_l149_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c53_l149_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65530 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(65530 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -955,7 +955,7 @@ fn c53_l149_assert_trap() {
 // Line 150
 fn c54_l150_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c54_l150_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65529 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(65529 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -970,7 +970,7 @@ fn c54_l150_assert_trap() {
 // Line 151
 fn c55_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c55_l151_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(-1 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(-1 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -985,7 +985,7 @@ fn c55_l151_assert_trap() {
 // Line 152
 fn c56_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c56_l152_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(-2 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(-2 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -1000,7 +1000,7 @@ fn c56_l152_assert_trap() {
 // Line 153
 fn c57_l153_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c57_l153_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(-3 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(-3 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -1015,7 +1015,7 @@ fn c57_l153_assert_trap() {
 // Line 154
 fn c58_l154_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c58_l154_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(-4 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(-4 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -1030,7 +1030,7 @@ fn c58_l154_assert_trap() {
 // Line 155
 fn c59_l155_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c59_l155_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(-5 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(-5 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -1045,7 +1045,7 @@ fn c59_l155_assert_trap() {
 // Line 156
 fn c60_l156_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c60_l156_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(-6 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(-6 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -1060,7 +1060,7 @@ fn c60_l156_assert_trap() {
 // Line 157
 fn c61_l157_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c61_l157_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(-7 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(-7 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }
@@ -1075,7 +1075,7 @@ fn c61_l157_assert_trap() {
 // Line 158
 fn c62_l158_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c62_l158_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(-8 as i32), Value::F64((0.0f64).to_bits())]);
+    let result = instance.call("f64.store", &[Value::I32(-8 as i32), Value::F64((0.0f64))]);
     
     result.map(|_| ())
 }

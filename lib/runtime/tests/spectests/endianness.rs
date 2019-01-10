@@ -495,64 +495,64 @@ fn c32_l171_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 173
 fn c33_l173_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c33_l173_action_invoke");
-    let result = instance.call("f32_load", &[Value::F32((-1.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((-1.0f32).to_bits()))));
+    let result = instance.call("f32_load", &[Value::F32((-1.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
 
 // Line 174
 fn c34_l174_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c34_l174_action_invoke");
-    let result = instance.call("f32_load", &[Value::F32((0.01234f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((0.01234f32).to_bits()))));
+    let result = instance.call("f32_load", &[Value::F32((0.01234f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((0.01234f32)))));
     result.map(|_| ())
 }
 
 // Line 175
 fn c35_l175_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c35_l175_action_invoke");
-    let result = instance.call("f32_load", &[Value::F32((4242.4243f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((4242.4243f32).to_bits()))));
+    let result = instance.call("f32_load", &[Value::F32((4242.4243f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((4242.4243f32)))));
     result.map(|_| ())
 }
 
 // Line 176
 fn c36_l176_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c36_l176_action_invoke");
-    let result = instance.call("f32_load", &[Value::F32((340282350000000000000000000000000000000.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32).to_bits()))));
+    let result = instance.call("f32_load", &[Value::F32((340282350000000000000000000000000000000.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
     result.map(|_| ())
 }
 
 // Line 178
 fn c37_l178_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c37_l178_action_invoke");
-    let result = instance.call("f64_load", &[Value::F64((-1.0f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((-1.0f64).to_bits()))));
+    let result = instance.call("f64_load", &[Value::F64((-1.0f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((-1.0f64)))));
     result.map(|_| ())
 }
 
 // Line 179
 fn c38_l179_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c38_l179_action_invoke");
-    let result = instance.call("f64_load", &[Value::F64((1234.56789f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((1234.56789f64).to_bits()))));
+    let result = instance.call("f64_load", &[Value::F64((1234.56789f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((1234.56789f64)))));
     result.map(|_| ())
 }
 
 // Line 180
 fn c39_l180_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c39_l180_action_invoke");
-    let result = instance.call("f64_load", &[Value::F64((424242.424242f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((424242.424242f64).to_bits()))));
+    let result = instance.call("f64_load", &[Value::F64((424242.424242f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((424242.424242f64)))));
     result.map(|_| ())
 }
 
 // Line 181
 fn c40_l181_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c40_l181_action_invoke");
-    let result = instance.call("f64_load", &[Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64).to_bits()))));
+    let result = instance.call("f64_load", &[Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64)))));
     result.map(|_| ())
 }
 
@@ -719,64 +719,64 @@ fn c60_l207_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 209
 fn c61_l209_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c61_l209_action_invoke");
-    let result = instance.call("f32_store", &[Value::F32((-1.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((-1.0f32).to_bits()))));
+    let result = instance.call("f32_store", &[Value::F32((-1.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
 
 // Line 210
 fn c62_l210_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c62_l210_action_invoke");
-    let result = instance.call("f32_store", &[Value::F32((0.01234f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((0.01234f32).to_bits()))));
+    let result = instance.call("f32_store", &[Value::F32((0.01234f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((0.01234f32)))));
     result.map(|_| ())
 }
 
 // Line 211
 fn c63_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c63_l211_action_invoke");
-    let result = instance.call("f32_store", &[Value::F32((4242.4243f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((4242.4243f32).to_bits()))));
+    let result = instance.call("f32_store", &[Value::F32((4242.4243f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((4242.4243f32)))));
     result.map(|_| ())
 }
 
 // Line 212
 fn c64_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c64_l212_action_invoke");
-    let result = instance.call("f32_store", &[Value::F32((340282350000000000000000000000000000000.0f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32).to_bits()))));
+    let result = instance.call("f32_store", &[Value::F32((340282350000000000000000000000000000000.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
     result.map(|_| ())
 }
 
 // Line 214
 fn c65_l214_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c65_l214_action_invoke");
-    let result = instance.call("f64_store", &[Value::F64((-1.0f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((-1.0f64).to_bits()))));
+    let result = instance.call("f64_store", &[Value::F64((-1.0f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((-1.0f64)))));
     result.map(|_| ())
 }
 
 // Line 215
 fn c66_l215_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c66_l215_action_invoke");
-    let result = instance.call("f64_store", &[Value::F64((1234.56789f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((1234.56789f64).to_bits()))));
+    let result = instance.call("f64_store", &[Value::F64((1234.56789f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((1234.56789f64)))));
     result.map(|_| ())
 }
 
 // Line 216
 fn c67_l216_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c67_l216_action_invoke");
-    let result = instance.call("f64_store", &[Value::F64((424242.424242f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((424242.424242f64).to_bits()))));
+    let result = instance.call("f64_store", &[Value::F64((424242.424242f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((424242.424242f64)))));
     result.map(|_| ())
 }
 
 // Line 217
 fn c68_l217_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c68_l217_action_invoke");
-    let result = instance.call("f64_store", &[Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64).to_bits()))));
+    let result = instance.call("f64_store", &[Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64)))));
     result.map(|_| ())
 }
 

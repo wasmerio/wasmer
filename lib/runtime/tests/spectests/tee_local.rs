@@ -220,7 +220,7 @@ fn c2_l99_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c3_l100_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c3_l100_action_invoke");
     let result = instance.call("type-local-f32", &[]);
-    assert_eq!(result, Ok(Some(Value::F32((0.0f32).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
 
@@ -228,7 +228,7 @@ fn c3_l100_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c4_l101_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c4_l101_action_invoke");
     let result = instance.call("type-local-f64", &[]);
-    assert_eq!(result, Ok(Some(Value::F64((0.0f64).to_bits()))));
+    assert_eq!(result, Ok(Some(Value::F64((0.0f64)))));
     result.map(|_| ())
 }
 
@@ -251,23 +251,23 @@ fn c6_l104_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 105
 fn c7_l105_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c7_l105_action_invoke");
-    let result = instance.call("type-param-f32", &[Value::F32((4.4f32).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F32((11.1f32).to_bits()))));
+    let result = instance.call("type-param-f32", &[Value::F32((4.4f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((11.1f32)))));
     result.map(|_| ())
 }
 
 // Line 106
 fn c8_l106_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c8_l106_action_invoke");
-    let result = instance.call("type-param-f64", &[Value::F64((5.5f64).to_bits())]);
-    assert_eq!(result, Ok(Some(Value::F64((12.2f64).to_bits()))));
+    let result = instance.call("type-param-f64", &[Value::F64((5.5f64))]);
+    assert_eq!(result, Ok(Some(Value::F64((12.2f64)))));
     result.map(|_| ())
 }
 
 // Line 109
 fn c9_l109_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c9_l109_action_invoke");
-    let result = instance.call("type-mixed", &[Value::I64(1 as i64), Value::F32((2.2f32).to_bits()), Value::F64((3.3f64).to_bits()), Value::I32(4 as i32), Value::I32(5 as i32)]);
+    let result = instance.call("type-mixed", &[Value::I64(1 as i64), Value::F32((2.2f32)), Value::F64((3.3f64)), Value::I32(4 as i32), Value::I32(5 as i32)]);
     assert_eq!(result, Ok(None));
     result.map(|_| ())
 }
@@ -275,7 +275,7 @@ fn c9_l109_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 115
 fn c10_l115_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c10_l115_action_invoke");
-    let result = instance.call("write", &[Value::I64(1 as i64), Value::F32((2.0f32).to_bits()), Value::F64((3.3f64).to_bits()), Value::I32(4 as i32), Value::I32(5 as i32)]);
+    let result = instance.call("write", &[Value::I64(1 as i64), Value::F32((2.0f32)), Value::F64((3.3f64)), Value::I32(4 as i32), Value::I32(5 as i32)]);
     assert_eq!(result, Ok(Some(Value::I64(56 as i64))));
     result.map(|_| ())
 }
@@ -283,8 +283,8 @@ fn c10_l115_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 122
 fn c11_l122_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c11_l122_action_invoke");
-    let result = instance.call("result", &[Value::I64(-1 as i64), Value::F32((-2.0f32).to_bits()), Value::F64((-3.3f64).to_bits()), Value::I32(-4 as i32), Value::I32(-5 as i32)]);
-    assert_eq!(result, Ok(Some(Value::F64((34.8f64).to_bits()))));
+    let result = instance.call("result", &[Value::I64(-1 as i64), Value::F32((-2.0f32)), Value::F64((-3.3f64)), Value::I32(-4 as i32), Value::I32(-5 as i32)]);
+    assert_eq!(result, Ok(Some(Value::F64((34.8f64)))));
     result.map(|_| ())
 }
 
