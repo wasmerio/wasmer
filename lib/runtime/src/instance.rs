@@ -4,7 +4,7 @@ use crate::{
     memory::LinearMemory,
     module::{Export, Module},
     table::TableBacking,
-    types::{FuncIndex, FuncSig, Memory, Table, Type, Value},
+    types::{FuncIndex, FuncSig, Memory, Table, Type, Value, MapIndex},
     vm,
 };
 use hashbrown::HashMap;
@@ -72,7 +72,7 @@ impl Instance {
             .func_assoc
             .get(func_index)
             .expect("broken invariant, incorrect func index");
-
+        
         {
             let signature = self.module.sig_registry.lookup_func_sig(sig_index);
 
@@ -102,14 +102,17 @@ impl Instance {
             .chain(iter::once(libffi_arg(&vmctx_ptr)))
             .collect();
 
-        let func_ptr = CodePtr::from_ptr(
+        let func_ptr = CodePtr::from_ptr(if self.module.is_imported_function(func_index) {
+            let imported_func = &self.import_backing.functions[func_index.index()];
+            imported_func.func as *const _
+        } else {
             self.module
                 .func_resolver
                 .get(&self.module, func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
                 .cast()
-                .as_ptr(),
-        );
+                .as_ptr()
+        });
 
         call_protected(|| {
             self.module
@@ -193,7 +196,7 @@ pub trait ImportResolver {
 
 // TODO Remove this later, only needed for compilation till emscripten is updated
 impl Instance {
-    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
+    pub fn memory_offset_addr(&self, _index: usize, _offset: usize) -> *const usize {
         unimplemented!("TODO replace this emscripten stub")
     }
 }

@@ -2,27 +2,28 @@ use crate::{
     types::{FuncSig, Map, MapIndex, SigIndex},
     vm,
 };
-use hashbrown::HashMap;
+// use hashbrown::HashMap;
 
 pub struct SigRegistry {
-    func_table: HashMap<FuncSig, SigIndex>,
+    // func_table: HashMap<FuncSig, SigIndex>,
     sig_assoc: Map<SigIndex, FuncSig>,
 }
 
 impl SigRegistry {
     pub fn new() -> Self {
         Self {
-            func_table: HashMap::new(),
+            // func_table: HashMap::new(),
             sig_assoc: Map::new(),
         }
     }
 
     pub fn register(&mut self, func_sig: FuncSig) -> SigIndex {
-        let func_table = &mut self.func_table;
-        let sig_assoc = &mut self.sig_assoc;
-        *func_table
-            .entry(func_sig.clone())
-            .or_insert_with(|| sig_assoc.push(func_sig))
+        self.sig_assoc.push(func_sig)
+        // let func_table = &mut self.func_table;
+        // let sig_assoc = &mut self.sig_assoc;
+        // *func_table
+        //     .entry(func_sig.clone())
+        //     .or_insert_with(|| sig_assoc.push(func_sig))
     }
 
     pub fn lookup_func_sig(&self, sig_index: SigIndex) -> &FuncSig {
