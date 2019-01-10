@@ -42,6 +42,7 @@ jobs:
       - run:
           name: Install libffi dependencies
           command: |
+            brew upgrade
             brew install autoconf automake libtool
       - run:
           name: Install Rust
@@ -123,6 +124,7 @@ jobs:
       - run:
           name: Install libffi dependencies
           command: |
+            brew upgrade
             brew install autoconf automake libtool
       - run:
           name: Install Rust
