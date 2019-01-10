@@ -179,94 +179,104 @@ impl ImportBacking {
             "imported tables not yet supported"
         );
 
-        let mut functions = Vec::with_capacity(module.imported_functions.len());
-        for (
-            index,
+        Ok(ImportBacking {
+            functions: import_functions(module, imports)?,
+            memories: vec![].into_boxed_slice(),
+            tables: vec![].into_boxed_slice(),
+            globals: import_globals(module, imports)?,
+        })
+    }
+}
+
+// fn import_memories(module: &Module, imports: &dyn ImportResolver) -> Result<Box<[vm::ImportedMemory]>, String> {
+
+// }
+
+fn import_functions(module: &Module, imports: &dyn ImportResolver) -> Result<Box<[vm::ImportedFunc]>, String> {
+    let mut functions = Vec::with_capacity(module.imported_functions.len());
+    for (
+        index,
+        ImportName {
+            module: mod_name,
+            name: item_name,
+        },
+    ) in &module.imported_functions
+    {
+        let sig_index = module.func_assoc[index];
+        let expected_sig = module.sig_registry.lookup_func_sig(sig_index);
+        let import = imports.get(mod_name, item_name);
+        match import {
+            Some(&Import::Func(ref func, ref signature)) => {
+                if expected_sig == signature {
+                    functions.push(vm::ImportedFunc {
+                        func: func.inner(),
+                        // vmctx: ptr::null_mut(),
+                    });
+                } else {
+                    return Err(format!(
+                        "unexpected signature for {:?}:{:?}",
+                        mod_name, item_name
+                    ));
+                }
+            }
+            Some(_) => {
+                return Err(format!(
+                    "incorrect import type for {}:{}",
+                    mod_name, item_name
+                ));
+            }
+            None => {
+                return Err(format!("import not found: {}:{}", mod_name, item_name));
+            }
+        }
+    }
+    Ok(functions.into_boxed_slice())
+}
+
+fn import_globals(module: &Module, imports: &dyn ImportResolver) -> Result<Box<[vm::ImportedGlobal]>, String> {
+    let mut globals = Vec::with_capacity(module.imported_globals.len());
+    for (
+        _,
+        (
             ImportName {
                 module: mod_name,
                 name: item_name,
             },
-        ) in &module.imported_functions
-        {
-            let sig_index = module.func_assoc[index];
-            let expected_sig = module.sig_registry.lookup_func_sig(sig_index);
-            let import = imports.get(mod_name, item_name);
-            match import {
-                Some(&Import::Func(ref func, ref signature)) => {
-                    if expected_sig == signature {
-                        functions.push(vm::ImportedFunc {
-                            func: func.inner(),
-                            // vmctx: ptr::null_mut(),
-                        });
-                    } else {
-                        return Err(format!(
-                            "unexpected signature for {:?}:{:?}",
-                            mod_name, item_name
-                        ));
-                    }
-                }
-                Some(_) => {
-                    return Err(format!(
-                        "incorrect import type for {}:{}",
-                        mod_name, item_name
-                    ));
-                }
-                None => {
-                    return Err(format!("import not found: {}:{}", mod_name, item_name));
-                }
-            }
-        }
-
-        let mut globals = Vec::with_capacity(module.imported_globals.len());
-        for (
-            _,
-            (
-                ImportName {
-                    module: mod_name,
-                    name: item_name,
-                },
-                global_desc,
-            ),
-        ) in &module.imported_globals
-        {
-            let import = imports.get(mod_name, item_name);
-            match import {
-                Some(Import::Global(val)) => {
-                    if val.ty() == global_desc.ty {
-                        globals.push(vm::ImportedGlobal {
-                            global: vm::LocalGlobal {
-                                data: match val {
-                                    Value::I32(n) => *n as u64,
-                                    Value::I64(n) => *n as u64,
-                                    Value::F32(n) => (*n).to_bits() as u64,
-                                    Value::F64(n) => (*n).to_bits(),
-                                },
+            global_desc,
+        ),
+    ) in &module.imported_globals
+    {
+        let import = imports.get(mod_name, item_name);
+        match import {
+            Some(Import::Global(val)) => {
+                if val.ty() == global_desc.ty {
+                    globals.push(vm::ImportedGlobal {
+                        global: vm::LocalGlobal {
+                            data: match val {
+                                Value::I32(n) => *n as u64,
+                                Value::I64(n) => *n as u64,
+                                Value::F32(n) => (*n).to_bits() as u64,
+                                Value::F64(n) => (*n).to_bits(),
                             },
-                        });
-                    } else {
-                        return Err(format!(
-                            "unexpected global type for {:?}:{:?}",
-                            mod_name, item_name
-                        ));
-                    }
-                }
-                Some(_) => {
+                        },
+                    });
+                } else {
                     return Err(format!(
-                        "incorrect import type for {}:{}",
+                        "unexpected global type for {:?}:{:?}",
                         mod_name, item_name
                     ));
                 }
-                None => {
-                    return Err(format!("import not found: {}:{}", mod_name, item_name));
-                }
+            }
+            Some(_) => {
+                return Err(format!(
+                    "incorrect import type for {}:{}",
+                    mod_name, item_name
+                ));
+            }
+            None => {
+                return Err(format!("import not found: {}:{}", mod_name, item_name));
             }
         }
-
-        Ok(ImportBacking {
-            functions: functions.into_boxed_slice(),
-            memories: vec![].into_boxed_slice(),
-            tables: vec![].into_boxed_slice(),
-            globals: globals.into_boxed_slice(),
-        })
     }
+    Ok(globals.into_boxed_slice())
 }

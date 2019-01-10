@@ -95,7 +95,7 @@ impl NaNCheck for f32 {
 impl NaNCheck for f64 {
     /// The MSB of the mantissa must be set for a NaN to be a quiet NaN.
     fn is_quiet_nan(&self) -> bool {
-        let bit_mask = 0b1 << 51; // Used to check if 51st bit is set, which is MSB of the mantissa
+        let bit_mask = 0b1 << 51; // Used to check if 52st bit is set, which is MSB of the mantissa
         self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
     }
 

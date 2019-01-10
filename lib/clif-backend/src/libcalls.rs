@@ -26,7 +26,7 @@ pub extern "C" fn nearbyintf32(x: f32) -> f32 {
     }
 
     if x.is_nan() {
-        x
+        f32::from_bits(x.to_bits() | (1 << 22))
     } else {
         let k = f32::EPSILON.recip();
         let a = x.abs();
@@ -64,7 +64,7 @@ pub extern "C" fn nearbyintf64(x: f64) -> f64 {
     }
 
     if x.is_nan() {
-        x
+        f64::from_bits(x.to_bits() | (1 << 51))
     } else {
         let k = f64::EPSILON.recip();
         let a = x.abs();
