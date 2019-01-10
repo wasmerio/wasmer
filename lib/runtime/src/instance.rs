@@ -190,3 +190,10 @@ impl ImportResolver for Imports {
 pub trait ImportResolver {
     fn get(&self, module: &str, name: &str) -> Option<&Import>;
 }
+
+// TODO Remove this later, only needed for compilation till emscripten is updated
+impl Instance {
+    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {
+        unimplemented!("TODO replace this emscripten stub")
+    }
+}

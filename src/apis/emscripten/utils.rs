@@ -1,4 +1,4 @@
-use wasmer_runtime::{Instance, Module};
+use wasmer_runtime::{Instance, module::Module};
 //use wasmer_runtime::Instance;
 use crate::apis::emscripten::env;
 use libc::stat;
