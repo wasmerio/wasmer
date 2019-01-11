@@ -13,7 +13,7 @@ pub extern "C" fn truncf32(x: f32) -> f32 {
     x.trunc()
 }
 
-/// `f32.round()` doesn't have the correct behavior. Ideally, we'd use 
+/// `f32.round()` doesn't have the correct behavior. Ideally, we'd use
 /// "https://doc.rust-lang.org/std/intrinsics/fn.nearbyintf32.html" for this,
 /// but support for stable compilers is necessary, so we must implement
 /// this ourselves.
@@ -51,7 +51,7 @@ pub extern "C" fn truncf64(x: f64) -> f64 {
     x.trunc()
 }
 
-/// `f64.round()` doesn't have the correct behavior. Ideally, we'd use 
+/// `f64.round()` doesn't have the correct behavior. Ideally, we'd use
 /// "https://doc.rust-lang.org/std/intrinsics/fn.nearbyintf64.html" for this,
 /// but support for stable compilers is necessary, so we must implement
 /// this ourselves.

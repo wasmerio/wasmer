@@ -1,15 +1,16 @@
 use crate::{
     backend::FuncResolver,
+    import::ImportResolver,
     sig_registry::SigRegistry,
     types::{
         FuncIndex, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex, SigIndex,
         Table, TableIndex,
     },
-    ImportResolver, Instance,
+    Instance,
 };
 use hashbrown::HashMap;
 use std::ops::Deref;
-use std::sync::Arc;
+use std::rc::Rc;
 
 /// This is used to instantiate a new webassembly module.
 pub struct ModuleInner {
@@ -23,7 +24,7 @@ pub struct ModuleInner {
     pub imported_tables: Map<TableIndex, (ImportName, Table)>,
     pub imported_globals: Map<GlobalIndex, (ImportName, GlobalDesc)>,
 
-    pub exports: HashMap<String, Export>,
+    pub exports: HashMap<String, ExportIndex>,
 
     pub data_initializers: Vec<DataInitializer>,
     pub table_initializers: Vec<TableInitializer>,
@@ -33,17 +34,17 @@ pub struct ModuleInner {
     pub sig_registry: SigRegistry,
 }
 
-pub struct Module(Arc<ModuleInner>);
+pub struct Module(Rc<ModuleInner>);
 
 impl Module {
     #[inline]
     pub fn new(inner: ModuleInner) -> Self {
-        Module(Arc::new(inner))
+        Module(Rc::new(inner))
     }
 
     /// Instantiate a webassembly module with the provided imports.
-    pub fn instantiate(&self, imports: &dyn ImportResolver) -> Result<Box<Instance>, String> {
-        Instance::new(Module(Arc::clone(&self.0)), imports)
+    pub fn instantiate(&self, imports: Rc<dyn ImportResolver>) -> Result<Box<Instance>, String> {
+        Instance::new(Module(Rc::clone(&self.0)), imports)
     }
 }
 
@@ -63,21 +64,21 @@ impl Deref for Module {
 
 #[derive(Debug, Clone)]
 pub struct ImportName {
-    pub module: String,
+    pub namespace: String,
     pub name: String,
 }
 
 impl From<(String, String)> for ImportName {
     fn from(n: (String, String)) -> Self {
         ImportName {
-            module: n.0,
+            namespace: n.0,
             name: n.1,
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Export {
+pub enum ExportIndex {
     Func(FuncIndex),
     Memory(MemoryIndex),
     Global(GlobalIndex),

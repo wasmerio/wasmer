@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 3
 fn create_module_1() -> Box<Instance> {
@@ -166,8 +162,11 @@ fn create_module_1() -> Box<Instance> {
       (export \"ge_u\" (func 28)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -210,7 +209,10 @@ fn c4_l38_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 39
 fn c5_l39_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c5_l39_action_invoke");
-    let result = instance.call("add", &[Value::I32(2147483647 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "add",
+        &[Value::I32(2147483647 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -218,7 +220,10 @@ fn c5_l39_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 40
 fn c6_l40_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c6_l40_action_invoke");
-    let result = instance.call("add", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "add",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(2147483647 as i32))));
     result.map(|_| ())
 }
@@ -226,7 +231,13 @@ fn c6_l40_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 41
 fn c7_l41_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c7_l41_action_invoke");
-    let result = instance.call("add", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "add",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -234,7 +245,10 @@ fn c7_l41_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 42
 fn c8_l42_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c8_l42_action_invoke");
-    let result = instance.call("add", &[Value::I32(1073741823 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "add",
+        &[Value::I32(1073741823 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1073741824 as i32))));
     result.map(|_| ())
 }
@@ -266,7 +280,10 @@ fn c11_l46_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 47
 fn c12_l47_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c12_l47_action_invoke");
-    let result = instance.call("sub", &[Value::I32(2147483647 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "sub",
+        &[Value::I32(2147483647 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -274,7 +291,10 @@ fn c12_l47_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 48
 fn c13_l48_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c13_l48_action_invoke");
-    let result = instance.call("sub", &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "sub",
+        &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(2147483647 as i32))));
     result.map(|_| ())
 }
@@ -282,7 +302,13 @@ fn c13_l48_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 49
 fn c14_l49_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c14_l49_action_invoke");
-    let result = instance.call("sub", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "sub",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -290,7 +316,10 @@ fn c14_l49_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 50
 fn c15_l50_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c15_l50_action_invoke");
-    let result = instance.call("sub", &[Value::I32(1073741823 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "sub",
+        &[Value::I32(1073741823 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1073741824 as i32))));
     result.map(|_| ())
 }
@@ -322,7 +351,10 @@ fn c18_l54_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 55
 fn c19_l55_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c19_l55_action_invoke");
-    let result = instance.call("mul", &[Value::I32(268435456 as i32), Value::I32(4096 as i32)]);
+    let result = instance.call(
+        "mul",
+        &[Value::I32(268435456 as i32), Value::I32(4096 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -330,7 +362,10 @@ fn c19_l55_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 56
 fn c20_l56_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c20_l56_action_invoke");
-    let result = instance.call("mul", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "mul",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -338,7 +373,10 @@ fn c20_l56_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 57
 fn c21_l57_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c21_l57_action_invoke");
-    let result = instance.call("mul", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "mul",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -346,7 +384,10 @@ fn c21_l57_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 58
 fn c22_l58_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c22_l58_action_invoke");
-    let result = instance.call("mul", &[Value::I32(2147483647 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "mul",
+        &[Value::I32(2147483647 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483647 as i32))));
     result.map(|_| ())
 }
@@ -354,7 +395,10 @@ fn c22_l58_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 59
 fn c23_l59_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c23_l59_action_invoke");
-    let result = instance.call("mul", &[Value::I32(19088743 as i32), Value::I32(1985229328 as i32)]);
+    let result = instance.call(
+        "mul",
+        &[Value::I32(19088743 as i32), Value::I32(1985229328 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(898528368 as i32))));
     result.map(|_| ())
 }
@@ -362,7 +406,10 @@ fn c23_l59_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 60
 fn c24_l60_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c24_l60_action_invoke");
-    let result = instance.call("mul", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "mul",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -371,14 +418,14 @@ fn c24_l60_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c25_l62_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c25_l62_action_invoke");
     let result = instance.call("div_s", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c25_l62_assert_trap() {
     let mut instance = create_module_1();
-    let result = c25_l62_action_invoke(&mut*instance);
+    let result = c25_l62_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -386,29 +433,32 @@ fn c25_l62_assert_trap() {
 fn c26_l63_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c26_l63_action_invoke");
     let result = instance.call("div_s", &[Value::I32(0 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c26_l63_assert_trap() {
     let mut instance = create_module_1();
-    let result = c26_l63_action_invoke(&mut*instance);
+    let result = c26_l63_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 64
 fn c27_l64_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c27_l64_action_invoke");
-    let result = instance.call("div_s", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
-    
+    let result = instance.call(
+        "div_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c27_l64_assert_trap() {
     let mut instance = create_module_1();
-    let result = c27_l64_action_invoke(&mut*instance);
+    let result = c27_l64_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -447,7 +497,10 @@ fn c31_l68_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 69
 fn c32_l69_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c32_l69_action_invoke");
-    let result = instance.call("div_s", &[Value::I32(-2147483648 as i32), Value::I32(2 as i32)]);
+    let result = instance.call(
+        "div_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(2 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1073741824 as i32))));
     result.map(|_| ())
 }
@@ -455,7 +508,10 @@ fn c32_l69_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 70
 fn c33_l70_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c33_l70_action_invoke");
-    let result = instance.call("div_s", &[Value::I32(-2147483647 as i32), Value::I32(1000 as i32)]);
+    let result = instance.call(
+        "div_s",
+        &[Value::I32(-2147483647 as i32), Value::I32(1000 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483 as i32))));
     result.map(|_| ())
 }
@@ -544,14 +600,14 @@ fn c43_l80_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c44_l82_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c44_l82_action_invoke");
     let result = instance.call("div_u", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c44_l82_assert_trap() {
     let mut instance = create_module_1();
-    let result = c44_l82_action_invoke(&mut*instance);
+    let result = c44_l82_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -559,14 +615,14 @@ fn c44_l82_assert_trap() {
 fn c45_l83_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c45_l83_action_invoke");
     let result = instance.call("div_u", &[Value::I32(0 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c45_l83_assert_trap() {
     let mut instance = create_module_1();
-    let result = c45_l83_action_invoke(&mut*instance);
+    let result = c45_l83_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -597,7 +653,10 @@ fn c48_l86_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 87
 fn c49_l87_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c49_l87_action_invoke");
-    let result = instance.call("div_u", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "div_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -605,7 +664,10 @@ fn c49_l87_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 88
 fn c50_l88_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c50_l88_action_invoke");
-    let result = instance.call("div_u", &[Value::I32(-2147483648 as i32), Value::I32(2 as i32)]);
+    let result = instance.call(
+        "div_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(2 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1073741824 as i32))));
     result.map(|_| ())
 }
@@ -613,7 +675,10 @@ fn c50_l88_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 89
 fn c51_l89_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c51_l89_action_invoke");
-    let result = instance.call("div_u", &[Value::I32(-1880092688 as i32), Value::I32(65537 as i32)]);
+    let result = instance.call(
+        "div_u",
+        &[Value::I32(-1880092688 as i32), Value::I32(65537 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(36847 as i32))));
     result.map(|_| ())
 }
@@ -621,7 +686,10 @@ fn c51_l89_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 90
 fn c52_l90_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c52_l90_action_invoke");
-    let result = instance.call("div_u", &[Value::I32(-2147483647 as i32), Value::I32(1000 as i32)]);
+    let result = instance.call(
+        "div_u",
+        &[Value::I32(-2147483647 as i32), Value::I32(1000 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(2147483 as i32))));
     result.map(|_| ())
 }
@@ -686,14 +754,14 @@ fn c59_l97_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c60_l99_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c60_l99_action_invoke");
     let result = instance.call("rem_s", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c60_l99_assert_trap() {
     let mut instance = create_module_1();
-    let result = c60_l99_action_invoke(&mut*instance);
+    let result = c60_l99_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -701,21 +769,24 @@ fn c60_l99_assert_trap() {
 fn c61_l100_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c61_l100_action_invoke");
     let result = instance.call("rem_s", &[Value::I32(0 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c61_l100_assert_trap() {
     let mut instance = create_module_1();
-    let result = c61_l100_action_invoke(&mut*instance);
+    let result = c61_l100_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 101
 fn c62_l101_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c62_l101_action_invoke");
-    let result = instance.call("rem_s", &[Value::I32(2147483647 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "rem_s",
+        &[Value::I32(2147483647 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -755,7 +826,10 @@ fn c66_l105_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 106
 fn c67_l106_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c67_l106_action_invoke");
-    let result = instance.call("rem_s", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "rem_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -763,7 +837,10 @@ fn c67_l106_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 107
 fn c68_l107_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c68_l107_action_invoke");
-    let result = instance.call("rem_s", &[Value::I32(-2147483648 as i32), Value::I32(2 as i32)]);
+    let result = instance.call(
+        "rem_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(2 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -771,7 +848,10 @@ fn c68_l107_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 108
 fn c69_l108_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c69_l108_action_invoke");
-    let result = instance.call("rem_s", &[Value::I32(-2147483647 as i32), Value::I32(1000 as i32)]);
+    let result = instance.call(
+        "rem_s",
+        &[Value::I32(-2147483647 as i32), Value::I32(1000 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-647 as i32))));
     result.map(|_| ())
 }
@@ -860,14 +940,14 @@ fn c79_l118_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c80_l120_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c80_l120_action_invoke");
     let result = instance.call("rem_u", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c80_l120_assert_trap() {
     let mut instance = create_module_1();
-    let result = c80_l120_action_invoke(&mut*instance);
+    let result = c80_l120_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -875,14 +955,14 @@ fn c80_l120_assert_trap() {
 fn c81_l121_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c81_l121_action_invoke");
     let result = instance.call("rem_u", &[Value::I32(0 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c81_l121_assert_trap() {
     let mut instance = create_module_1();
-    let result = c81_l121_action_invoke(&mut*instance);
+    let result = c81_l121_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -913,7 +993,10 @@ fn c84_l124_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 125
 fn c85_l125_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c85_l125_action_invoke");
-    let result = instance.call("rem_u", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "rem_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -921,7 +1004,10 @@ fn c85_l125_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 126
 fn c86_l126_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c86_l126_action_invoke");
-    let result = instance.call("rem_u", &[Value::I32(-2147483648 as i32), Value::I32(2 as i32)]);
+    let result = instance.call(
+        "rem_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(2 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -929,7 +1015,10 @@ fn c86_l126_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 127
 fn c87_l127_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c87_l127_action_invoke");
-    let result = instance.call("rem_u", &[Value::I32(-1880092688 as i32), Value::I32(65537 as i32)]);
+    let result = instance.call(
+        "rem_u",
+        &[Value::I32(-1880092688 as i32), Value::I32(65537 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(32769 as i32))));
     result.map(|_| ())
 }
@@ -937,7 +1026,10 @@ fn c87_l127_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 128
 fn c88_l128_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c88_l128_action_invoke");
-    let result = instance.call("rem_u", &[Value::I32(-2147483647 as i32), Value::I32(1000 as i32)]);
+    let result = instance.call(
+        "rem_u",
+        &[Value::I32(-2147483647 as i32), Value::I32(1000 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(649 as i32))));
     result.map(|_| ())
 }
@@ -1033,7 +1125,13 @@ fn c99_l140_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 141
 fn c100_l141_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c100_l141_action_invoke");
-    let result = instance.call("and", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "and",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -1041,7 +1139,10 @@ fn c100_l141_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 142
 fn c101_l142_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c101_l142_action_invoke");
-    let result = instance.call("and", &[Value::I32(2147483647 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "and",
+        &[Value::I32(2147483647 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(2147483647 as i32))));
     result.map(|_| ())
 }
@@ -1049,7 +1150,10 @@ fn c101_l142_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 143
 fn c102_l143_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c102_l143_action_invoke");
-    let result = instance.call("and", &[Value::I32(-252641281 as i32), Value::I32(-3856 as i32)]);
+    let result = instance.call(
+        "and",
+        &[Value::I32(-252641281 as i32), Value::I32(-3856 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-252645136 as i32))));
     result.map(|_| ())
 }
@@ -1097,7 +1201,13 @@ fn c107_l149_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 150
 fn c108_l150_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c108_l150_action_invoke");
-    let result = instance.call("or", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "or",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1 as i32))));
     result.map(|_| ())
 }
@@ -1105,7 +1215,10 @@ fn c108_l150_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 151
 fn c109_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c109_l151_action_invoke");
-    let result = instance.call("or", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "or",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -1113,7 +1226,10 @@ fn c109_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 152
 fn c110_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c110_l152_action_invoke");
-    let result = instance.call("or", &[Value::I32(-252641281 as i32), Value::I32(-3856 as i32)]);
+    let result = instance.call(
+        "or",
+        &[Value::I32(-252641281 as i32), Value::I32(-3856 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1 as i32))));
     result.map(|_| ())
 }
@@ -1161,7 +1277,13 @@ fn c115_l158_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 159
 fn c116_l159_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c116_l159_action_invoke");
-    let result = instance.call("xor", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "xor",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1 as i32))));
     result.map(|_| ())
 }
@@ -1169,7 +1291,10 @@ fn c116_l159_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 160
 fn c117_l160_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c117_l160_action_invoke");
-    let result = instance.call("xor", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "xor",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -1177,7 +1302,10 @@ fn c117_l160_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 161
 fn c118_l161_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c118_l161_action_invoke");
-    let result = instance.call("xor", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "xor",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(2147483647 as i32))));
     result.map(|_| ())
 }
@@ -1185,7 +1313,10 @@ fn c118_l161_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 162
 fn c119_l162_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c119_l162_action_invoke");
-    let result = instance.call("xor", &[Value::I32(-1 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "xor",
+        &[Value::I32(-1 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -1193,7 +1324,10 @@ fn c119_l162_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 163
 fn c120_l163_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c120_l163_action_invoke");
-    let result = instance.call("xor", &[Value::I32(-252641281 as i32), Value::I32(-3856 as i32)]);
+    let result = instance.call(
+        "xor",
+        &[Value::I32(-252641281 as i32), Value::I32(-3856 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(252645135 as i32))));
     result.map(|_| ())
 }
@@ -1225,7 +1359,10 @@ fn c123_l167_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 168
 fn c124_l168_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c124_l168_action_invoke");
-    let result = instance.call("shl", &[Value::I32(2147483647 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shl",
+        &[Value::I32(2147483647 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2 as i32))));
     result.map(|_| ())
 }
@@ -1241,7 +1378,10 @@ fn c125_l169_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 170
 fn c126_l170_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c126_l170_action_invoke");
-    let result = instance.call("shl", &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shl",
+        &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -1249,7 +1389,10 @@ fn c126_l170_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 171
 fn c127_l171_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c127_l171_action_invoke");
-    let result = instance.call("shl", &[Value::I32(1073741824 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shl",
+        &[Value::I32(1073741824 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -1289,7 +1432,10 @@ fn c131_l175_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 176
 fn c132_l176_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c132_l176_action_invoke");
-    let result = instance.call("shl", &[Value::I32(1 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "shl",
+        &[Value::I32(1 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-2147483648 as i32))));
     result.map(|_| ())
 }
@@ -1321,7 +1467,10 @@ fn c135_l180_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 181
 fn c136_l181_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c136_l181_action_invoke");
-    let result = instance.call("shr_s", &[Value::I32(2147483647 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shr_s",
+        &[Value::I32(2147483647 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1073741823 as i32))));
     result.map(|_| ())
 }
@@ -1329,7 +1478,10 @@ fn c136_l181_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 182
 fn c137_l182_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c137_l182_action_invoke");
-    let result = instance.call("shr_s", &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shr_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1073741824 as i32))));
     result.map(|_| ())
 }
@@ -1337,7 +1489,10 @@ fn c137_l182_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 183
 fn c138_l183_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c138_l183_action_invoke");
-    let result = instance.call("shr_s", &[Value::I32(1073741824 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shr_s",
+        &[Value::I32(1073741824 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(536870912 as i32))));
     result.map(|_| ())
 }
@@ -1369,7 +1524,10 @@ fn c141_l186_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 187
 fn c142_l187_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c142_l187_action_invoke");
-    let result = instance.call("shr_s", &[Value::I32(1 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "shr_s",
+        &[Value::I32(1 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -1377,7 +1535,10 @@ fn c142_l187_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 188
 fn c143_l188_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c143_l188_action_invoke");
-    let result = instance.call("shr_s", &[Value::I32(1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "shr_s",
+        &[Value::I32(1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1385,7 +1546,10 @@ fn c143_l188_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 189
 fn c144_l189_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c144_l189_action_invoke");
-    let result = instance.call("shr_s", &[Value::I32(-2147483648 as i32), Value::I32(31 as i32)]);
+    let result = instance.call(
+        "shr_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(31 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1 as i32))));
     result.map(|_| ())
 }
@@ -1417,7 +1581,10 @@ fn c147_l192_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 193
 fn c148_l193_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c148_l193_action_invoke");
-    let result = instance.call("shr_s", &[Value::I32(-1 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "shr_s",
+        &[Value::I32(-1 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1 as i32))));
     result.map(|_| ())
 }
@@ -1425,7 +1592,10 @@ fn c148_l193_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 194
 fn c149_l194_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c149_l194_action_invoke");
-    let result = instance.call("shr_s", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "shr_s",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1 as i32))));
     result.map(|_| ())
 }
@@ -1457,7 +1627,10 @@ fn c152_l198_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 199
 fn c153_l199_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c153_l199_action_invoke");
-    let result = instance.call("shr_u", &[Value::I32(2147483647 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shr_u",
+        &[Value::I32(2147483647 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1073741823 as i32))));
     result.map(|_| ())
 }
@@ -1465,7 +1638,10 @@ fn c153_l199_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 200
 fn c154_l200_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c154_l200_action_invoke");
-    let result = instance.call("shr_u", &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shr_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1073741824 as i32))));
     result.map(|_| ())
 }
@@ -1473,7 +1649,10 @@ fn c154_l200_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 201
 fn c155_l201_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c155_l201_action_invoke");
-    let result = instance.call("shr_u", &[Value::I32(1073741824 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "shr_u",
+        &[Value::I32(1073741824 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(536870912 as i32))));
     result.map(|_| ())
 }
@@ -1505,7 +1684,10 @@ fn c158_l204_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 205
 fn c159_l205_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c159_l205_action_invoke");
-    let result = instance.call("shr_u", &[Value::I32(1 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "shr_u",
+        &[Value::I32(1 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -1513,7 +1695,10 @@ fn c159_l205_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 206
 fn c160_l206_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c160_l206_action_invoke");
-    let result = instance.call("shr_u", &[Value::I32(1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "shr_u",
+        &[Value::I32(1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1521,7 +1706,10 @@ fn c160_l206_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 207
 fn c161_l207_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c161_l207_action_invoke");
-    let result = instance.call("shr_u", &[Value::I32(-2147483648 as i32), Value::I32(31 as i32)]);
+    let result = instance.call(
+        "shr_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(31 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1553,7 +1741,10 @@ fn c164_l210_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 211
 fn c165_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c165_l211_action_invoke");
-    let result = instance.call("shr_u", &[Value::I32(-1 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "shr_u",
+        &[Value::I32(-1 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1561,7 +1752,10 @@ fn c165_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 212
 fn c166_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c166_l212_action_invoke");
-    let result = instance.call("shr_u", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "shr_u",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-1 as i32))));
     result.map(|_| ())
 }
@@ -1601,7 +1795,10 @@ fn c170_l217_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 218
 fn c171_l218_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c171_l218_action_invoke");
-    let result = instance.call("rotl", &[Value::I32(-1412589450 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "rotl",
+        &[Value::I32(-1412589450 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1469788397 as i32))));
     result.map(|_| ())
 }
@@ -1609,7 +1806,10 @@ fn c171_l218_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 219
 fn c172_l219_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c172_l219_action_invoke");
-    let result = instance.call("rotl", &[Value::I32(-33498112 as i32), Value::I32(4 as i32)]);
+    let result = instance.call(
+        "rotl",
+        &[Value::I32(-33498112 as i32), Value::I32(4 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-535969777 as i32))));
     result.map(|_| ())
 }
@@ -1617,7 +1817,10 @@ fn c172_l219_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 220
 fn c173_l220_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c173_l220_action_invoke");
-    let result = instance.call("rotl", &[Value::I32(-1329474845 as i32), Value::I32(5 as i32)]);
+    let result = instance.call(
+        "rotl",
+        &[Value::I32(-1329474845 as i32), Value::I32(5 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(406477942 as i32))));
     result.map(|_| ())
 }
@@ -1633,7 +1836,10 @@ fn c174_l221_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 222
 fn c175_l222_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c175_l222_action_invoke");
-    let result = instance.call("rotl", &[Value::I32(-1329474845 as i32), Value::I32(65285 as i32)]);
+    let result = instance.call(
+        "rotl",
+        &[Value::I32(-1329474845 as i32), Value::I32(65285 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(406477942 as i32))));
     result.map(|_| ())
 }
@@ -1641,7 +1847,10 @@ fn c175_l222_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 223
 fn c176_l223_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c176_l223_action_invoke");
-    let result = instance.call("rotl", &[Value::I32(1989852383 as i32), Value::I32(-19 as i32)]);
+    let result = instance.call(
+        "rotl",
+        &[Value::I32(1989852383 as i32), Value::I32(-19 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1469837011 as i32))));
     result.map(|_| ())
 }
@@ -1649,7 +1858,13 @@ fn c176_l223_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 224
 fn c177_l224_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c177_l224_action_invoke");
-    let result = instance.call("rotl", &[Value::I32(1989852383 as i32), Value::I32(-2147483635 as i32)]);
+    let result = instance.call(
+        "rotl",
+        &[
+            Value::I32(1989852383 as i32),
+            Value::I32(-2147483635 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1469837011 as i32))));
     result.map(|_| ())
 }
@@ -1665,7 +1880,10 @@ fn c178_l225_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 226
 fn c179_l226_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c179_l226_action_invoke");
-    let result = instance.call("rotl", &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "rotl",
+        &[Value::I32(-2147483648 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1705,7 +1923,10 @@ fn c183_l231_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 232
 fn c184_l232_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c184_l232_action_invoke");
-    let result = instance.call("rotr", &[Value::I32(-16724992 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "rotr",
+        &[Value::I32(-16724992 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(2139121152 as i32))));
     result.map(|_| ())
 }
@@ -1721,7 +1942,10 @@ fn c185_l233_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 234
 fn c186_l234_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c186_l234_action_invoke");
-    let result = instance.call("rotr", &[Value::I32(-1329474845 as i32), Value::I32(5 as i32)]);
+    let result = instance.call(
+        "rotr",
+        &[Value::I32(-1329474845 as i32), Value::I32(5 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(495324823 as i32))));
     result.map(|_| ())
 }
@@ -1737,7 +1961,10 @@ fn c187_l235_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 236
 fn c188_l236_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c188_l236_action_invoke");
-    let result = instance.call("rotr", &[Value::I32(-1329474845 as i32), Value::I32(65285 as i32)]);
+    let result = instance.call(
+        "rotr",
+        &[Value::I32(-1329474845 as i32), Value::I32(65285 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(495324823 as i32))));
     result.map(|_| ())
 }
@@ -1745,7 +1972,10 @@ fn c188_l236_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 237
 fn c189_l237_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c189_l237_action_invoke");
-    let result = instance.call("rotr", &[Value::I32(1989852383 as i32), Value::I32(-19 as i32)]);
+    let result = instance.call(
+        "rotr",
+        &[Value::I32(1989852383 as i32), Value::I32(-19 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-419711787 as i32))));
     result.map(|_| ())
 }
@@ -1753,7 +1983,13 @@ fn c189_l237_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 238
 fn c190_l238_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c190_l238_action_invoke");
-    let result = instance.call("rotr", &[Value::I32(1989852383 as i32), Value::I32(-2147483635 as i32)]);
+    let result = instance.call(
+        "rotr",
+        &[
+            Value::I32(1989852383 as i32),
+            Value::I32(-2147483635 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(-419711787 as i32))));
     result.map(|_| ())
 }
@@ -1769,7 +2005,10 @@ fn c191_l239_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 240
 fn c192_l240_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c192_l240_action_invoke");
-    let result = instance.call("rotr", &[Value::I32(-2147483648 as i32), Value::I32(31 as i32)]);
+    let result = instance.call(
+        "rotr",
+        &[Value::I32(-2147483648 as i32), Value::I32(31 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2017,7 +2256,13 @@ fn c222_l275_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 276
 fn c223_l276_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c223_l276_action_invoke");
-    let result = instance.call("eq", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "eq",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2025,7 +2270,10 @@ fn c223_l276_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 277
 fn c224_l277_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c224_l277_action_invoke");
-    let result = instance.call("eq", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "eq",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2057,7 +2305,10 @@ fn c227_l280_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 281
 fn c228_l281_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c228_l281_action_invoke");
-    let result = instance.call("eq", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "eq",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2065,7 +2316,10 @@ fn c228_l281_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 282
 fn c229_l282_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c229_l282_action_invoke");
-    let result = instance.call("eq", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "eq",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2073,7 +2327,10 @@ fn c229_l282_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 283
 fn c230_l283_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c230_l283_action_invoke");
-    let result = instance.call("eq", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "eq",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2081,7 +2338,10 @@ fn c230_l283_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 284
 fn c231_l284_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c231_l284_action_invoke");
-    let result = instance.call("eq", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "eq",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2089,7 +2349,13 @@ fn c231_l284_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 285
 fn c232_l285_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c232_l285_action_invoke");
-    let result = instance.call("eq", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "eq",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2097,7 +2363,13 @@ fn c232_l285_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 286
 fn c233_l286_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c233_l286_action_invoke");
-    let result = instance.call("eq", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "eq",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2129,7 +2401,13 @@ fn c236_l290_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 291
 fn c237_l291_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c237_l291_action_invoke");
-    let result = instance.call("ne", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ne",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2137,7 +2415,10 @@ fn c237_l291_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 292
 fn c238_l292_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c238_l292_action_invoke");
-    let result = instance.call("ne", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "ne",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2169,7 +2450,10 @@ fn c241_l295_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 296
 fn c242_l296_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c242_l296_action_invoke");
-    let result = instance.call("ne", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "ne",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2177,7 +2461,10 @@ fn c242_l296_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 297
 fn c243_l297_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c243_l297_action_invoke");
-    let result = instance.call("ne", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ne",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2185,7 +2472,10 @@ fn c243_l297_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 298
 fn c244_l298_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c244_l298_action_invoke");
-    let result = instance.call("ne", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "ne",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2193,7 +2483,10 @@ fn c244_l298_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 299
 fn c245_l299_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c245_l299_action_invoke");
-    let result = instance.call("ne", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ne",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2201,7 +2494,13 @@ fn c245_l299_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 300
 fn c246_l300_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c246_l300_action_invoke");
-    let result = instance.call("ne", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "ne",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2209,7 +2508,13 @@ fn c246_l300_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 301
 fn c247_l301_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c247_l301_action_invoke");
-    let result = instance.call("ne", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ne",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2241,7 +2546,13 @@ fn c250_l305_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 306
 fn c251_l306_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c251_l306_action_invoke");
-    let result = instance.call("lt_s", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "lt_s",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2249,7 +2560,10 @@ fn c251_l306_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 307
 fn c252_l307_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c252_l307_action_invoke");
-    let result = instance.call("lt_s", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "lt_s",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2281,7 +2595,10 @@ fn c255_l310_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 311
 fn c256_l311_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c256_l311_action_invoke");
-    let result = instance.call("lt_s", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "lt_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2289,7 +2606,10 @@ fn c256_l311_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 312
 fn c257_l312_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c257_l312_action_invoke");
-    let result = instance.call("lt_s", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "lt_s",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2297,7 +2617,10 @@ fn c257_l312_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 313
 fn c258_l313_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c258_l313_action_invoke");
-    let result = instance.call("lt_s", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "lt_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2305,7 +2628,10 @@ fn c258_l313_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 314
 fn c259_l314_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c259_l314_action_invoke");
-    let result = instance.call("lt_s", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "lt_s",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2313,7 +2639,13 @@ fn c259_l314_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 315
 fn c260_l315_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c260_l315_action_invoke");
-    let result = instance.call("lt_s", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "lt_s",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2321,7 +2653,13 @@ fn c260_l315_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 316
 fn c261_l316_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c261_l316_action_invoke");
-    let result = instance.call("lt_s", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "lt_s",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2353,7 +2691,13 @@ fn c264_l320_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 321
 fn c265_l321_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c265_l321_action_invoke");
-    let result = instance.call("lt_u", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "lt_u",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2361,7 +2705,10 @@ fn c265_l321_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 322
 fn c266_l322_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c266_l322_action_invoke");
-    let result = instance.call("lt_u", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "lt_u",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2393,7 +2740,10 @@ fn c269_l325_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 326
 fn c270_l326_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c270_l326_action_invoke");
-    let result = instance.call("lt_u", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "lt_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2401,7 +2751,10 @@ fn c270_l326_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 327
 fn c271_l327_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c271_l327_action_invoke");
-    let result = instance.call("lt_u", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "lt_u",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2409,7 +2762,10 @@ fn c271_l327_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 328
 fn c272_l328_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c272_l328_action_invoke");
-    let result = instance.call("lt_u", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "lt_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2417,7 +2773,10 @@ fn c272_l328_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 329
 fn c273_l329_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c273_l329_action_invoke");
-    let result = instance.call("lt_u", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "lt_u",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2425,7 +2784,13 @@ fn c273_l329_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 330
 fn c274_l330_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c274_l330_action_invoke");
-    let result = instance.call("lt_u", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "lt_u",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2433,7 +2798,13 @@ fn c274_l330_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 331
 fn c275_l331_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c275_l331_action_invoke");
-    let result = instance.call("lt_u", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "lt_u",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2465,7 +2836,13 @@ fn c278_l335_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 336
 fn c279_l336_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c279_l336_action_invoke");
-    let result = instance.call("le_s", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "le_s",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2473,7 +2850,10 @@ fn c279_l336_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 337
 fn c280_l337_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c280_l337_action_invoke");
-    let result = instance.call("le_s", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "le_s",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2505,7 +2885,10 @@ fn c283_l340_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 341
 fn c284_l341_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c284_l341_action_invoke");
-    let result = instance.call("le_s", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "le_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2513,7 +2896,10 @@ fn c284_l341_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 342
 fn c285_l342_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c285_l342_action_invoke");
-    let result = instance.call("le_s", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "le_s",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2521,7 +2907,10 @@ fn c285_l342_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 343
 fn c286_l343_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c286_l343_action_invoke");
-    let result = instance.call("le_s", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "le_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2529,7 +2918,10 @@ fn c286_l343_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 344
 fn c287_l344_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c287_l344_action_invoke");
-    let result = instance.call("le_s", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "le_s",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2537,7 +2929,13 @@ fn c287_l344_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 345
 fn c288_l345_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c288_l345_action_invoke");
-    let result = instance.call("le_s", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "le_s",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2545,7 +2943,13 @@ fn c288_l345_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 346
 fn c289_l346_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c289_l346_action_invoke");
-    let result = instance.call("le_s", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "le_s",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2577,7 +2981,13 @@ fn c292_l350_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 351
 fn c293_l351_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c293_l351_action_invoke");
-    let result = instance.call("le_u", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "le_u",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2585,7 +2995,10 @@ fn c293_l351_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 352
 fn c294_l352_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c294_l352_action_invoke");
-    let result = instance.call("le_u", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "le_u",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2617,7 +3030,10 @@ fn c297_l355_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 356
 fn c298_l356_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c298_l356_action_invoke");
-    let result = instance.call("le_u", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "le_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2625,7 +3041,10 @@ fn c298_l356_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 357
 fn c299_l357_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c299_l357_action_invoke");
-    let result = instance.call("le_u", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "le_u",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2633,7 +3052,10 @@ fn c299_l357_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 358
 fn c300_l358_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c300_l358_action_invoke");
-    let result = instance.call("le_u", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "le_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2641,7 +3063,10 @@ fn c300_l358_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 359
 fn c301_l359_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c301_l359_action_invoke");
-    let result = instance.call("le_u", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "le_u",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2649,7 +3074,13 @@ fn c301_l359_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 360
 fn c302_l360_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c302_l360_action_invoke");
-    let result = instance.call("le_u", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "le_u",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2657,7 +3088,13 @@ fn c302_l360_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 361
 fn c303_l361_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c303_l361_action_invoke");
-    let result = instance.call("le_u", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "le_u",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2689,7 +3126,13 @@ fn c306_l365_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 366
 fn c307_l366_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c307_l366_action_invoke");
-    let result = instance.call("gt_s", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "gt_s",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2697,7 +3140,10 @@ fn c307_l366_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 367
 fn c308_l367_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c308_l367_action_invoke");
-    let result = instance.call("gt_s", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "gt_s",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2729,7 +3175,10 @@ fn c311_l370_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 371
 fn c312_l371_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c312_l371_action_invoke");
-    let result = instance.call("gt_s", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "gt_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2737,7 +3186,10 @@ fn c312_l371_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 372
 fn c313_l372_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c313_l372_action_invoke");
-    let result = instance.call("gt_s", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "gt_s",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2745,7 +3197,10 @@ fn c313_l372_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 373
 fn c314_l373_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c314_l373_action_invoke");
-    let result = instance.call("gt_s", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "gt_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2753,7 +3208,10 @@ fn c314_l373_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 374
 fn c315_l374_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c315_l374_action_invoke");
-    let result = instance.call("gt_s", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "gt_s",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2761,7 +3219,13 @@ fn c315_l374_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 375
 fn c316_l375_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c316_l375_action_invoke");
-    let result = instance.call("gt_s", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "gt_s",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2769,7 +3233,13 @@ fn c316_l375_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 376
 fn c317_l376_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c317_l376_action_invoke");
-    let result = instance.call("gt_s", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "gt_s",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2801,7 +3271,13 @@ fn c320_l380_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 381
 fn c321_l381_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c321_l381_action_invoke");
-    let result = instance.call("gt_u", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "gt_u",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2809,7 +3285,10 @@ fn c321_l381_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 382
 fn c322_l382_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c322_l382_action_invoke");
-    let result = instance.call("gt_u", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "gt_u",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2841,7 +3320,10 @@ fn c325_l385_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 386
 fn c326_l386_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c326_l386_action_invoke");
-    let result = instance.call("gt_u", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "gt_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2849,7 +3331,10 @@ fn c326_l386_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 387
 fn c327_l387_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c327_l387_action_invoke");
-    let result = instance.call("gt_u", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "gt_u",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2857,7 +3342,10 @@ fn c327_l387_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 388
 fn c328_l388_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c328_l388_action_invoke");
-    let result = instance.call("gt_u", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "gt_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2865,7 +3353,10 @@ fn c328_l388_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 389
 fn c329_l389_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c329_l389_action_invoke");
-    let result = instance.call("gt_u", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "gt_u",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2873,7 +3364,13 @@ fn c329_l389_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 390
 fn c330_l390_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c330_l390_action_invoke");
-    let result = instance.call("gt_u", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "gt_u",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2881,7 +3378,13 @@ fn c330_l390_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 391
 fn c331_l391_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c331_l391_action_invoke");
-    let result = instance.call("gt_u", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "gt_u",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2913,7 +3416,13 @@ fn c334_l395_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 396
 fn c335_l396_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c335_l396_action_invoke");
-    let result = instance.call("ge_s", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ge_s",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2921,7 +3430,10 @@ fn c335_l396_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 397
 fn c336_l397_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c336_l397_action_invoke");
-    let result = instance.call("ge_s", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "ge_s",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2953,7 +3465,10 @@ fn c339_l400_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 401
 fn c340_l401_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c340_l401_action_invoke");
-    let result = instance.call("ge_s", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "ge_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2961,7 +3476,10 @@ fn c340_l401_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 402
 fn c341_l402_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c341_l402_action_invoke");
-    let result = instance.call("ge_s", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ge_s",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2969,7 +3487,10 @@ fn c341_l402_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 403
 fn c342_l403_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c342_l403_action_invoke");
-    let result = instance.call("ge_s", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "ge_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2977,7 +3498,10 @@ fn c342_l403_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 404
 fn c343_l404_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c343_l404_action_invoke");
-    let result = instance.call("ge_s", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ge_s",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -2985,7 +3509,13 @@ fn c343_l404_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 405
 fn c344_l405_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c344_l405_action_invoke");
-    let result = instance.call("ge_s", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "ge_s",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -2993,7 +3523,13 @@ fn c344_l405_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 406
 fn c345_l406_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c345_l406_action_invoke");
-    let result = instance.call("ge_s", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ge_s",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -3025,7 +3561,13 @@ fn c348_l410_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 411
 fn c349_l411_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c349_l411_action_invoke");
-    let result = instance.call("ge_u", &[Value::I32(-2147483648 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ge_u",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -3033,7 +3575,10 @@ fn c349_l411_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 412
 fn c350_l412_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c350_l412_action_invoke");
-    let result = instance.call("ge_u", &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "ge_u",
+        &[Value::I32(2147483647 as i32), Value::I32(2147483647 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -3065,7 +3610,10 @@ fn c353_l415_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 416
 fn c354_l416_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c354_l416_action_invoke");
-    let result = instance.call("ge_u", &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "ge_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -3073,7 +3621,10 @@ fn c354_l416_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 417
 fn c355_l417_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c355_l417_action_invoke");
-    let result = instance.call("ge_u", &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ge_u",
+        &[Value::I32(0 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -3081,7 +3632,10 @@ fn c355_l417_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 418
 fn c356_l418_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c356_l418_action_invoke");
-    let result = instance.call("ge_u", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
+    let result = instance.call(
+        "ge_u",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -3089,7 +3643,10 @@ fn c356_l418_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 419
 fn c357_l419_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c357_l419_action_invoke");
-    let result = instance.call("ge_u", &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ge_u",
+        &[Value::I32(-1 as i32), Value::I32(-2147483648 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -3097,7 +3654,13 @@ fn c357_l419_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 420
 fn c358_l420_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c358_l420_action_invoke");
-    let result = instance.call("ge_u", &[Value::I32(-2147483648 as i32), Value::I32(2147483647 as i32)]);
+    let result = instance.call(
+        "ge_u",
+        &[
+            Value::I32(-2147483648 as i32),
+            Value::I32(2147483647 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -3105,7 +3668,13 @@ fn c358_l420_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 421
 fn c359_l421_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c359_l421_action_invoke");
-    let result = instance.call("ge_u", &[Value::I32(2147483647 as i32), Value::I32(-2147483648 as i32)]);
+    let result = instance.call(
+        "ge_u",
+        &[
+            Value::I32(2147483647 as i32),
+            Value::I32(-2147483648 as i32),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }

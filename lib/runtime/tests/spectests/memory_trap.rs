@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 1
 fn create_module_1() -> Box<Instance> {
@@ -48,8 +44,11 @@ fn create_module_1() -> Box<Instance> {
       (export \"memory.grow\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -77,14 +76,14 @@ fn c2_l22_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c3_l23_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c3_l23_action_invoke");
     let result = instance.call("store", &[Value::I32(-3 as i32), Value::I32(13 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c3_l23_assert_trap() {
     let mut instance = create_module_1();
-    let result = c3_l23_action_invoke(&mut*instance);
+    let result = c3_l23_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -92,14 +91,14 @@ fn c3_l23_assert_trap() {
 fn c4_l24_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c4_l24_action_invoke");
     let result = instance.call("load", &[Value::I32(-3 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c4_l24_assert_trap() {
     let mut instance = create_module_1();
-    let result = c4_l24_action_invoke(&mut*instance);
+    let result = c4_l24_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -107,14 +106,14 @@ fn c4_l24_assert_trap() {
 fn c5_l25_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c5_l25_action_invoke");
     let result = instance.call("store", &[Value::I32(-2 as i32), Value::I32(13 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c5_l25_assert_trap() {
     let mut instance = create_module_1();
-    let result = c5_l25_action_invoke(&mut*instance);
+    let result = c5_l25_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -122,14 +121,14 @@ fn c5_l25_assert_trap() {
 fn c6_l26_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c6_l26_action_invoke");
     let result = instance.call("load", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c6_l26_assert_trap() {
     let mut instance = create_module_1();
-    let result = c6_l26_action_invoke(&mut*instance);
+    let result = c6_l26_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -137,14 +136,14 @@ fn c6_l26_assert_trap() {
 fn c7_l27_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c7_l27_action_invoke");
     let result = instance.call("store", &[Value::I32(-1 as i32), Value::I32(13 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c7_l27_assert_trap() {
     let mut instance = create_module_1();
-    let result = c7_l27_action_invoke(&mut*instance);
+    let result = c7_l27_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -152,14 +151,14 @@ fn c7_l27_assert_trap() {
 fn c8_l28_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c8_l28_action_invoke");
     let result = instance.call("load", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c8_l28_assert_trap() {
     let mut instance = create_module_1();
-    let result = c8_l28_action_invoke(&mut*instance);
+    let result = c8_l28_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -167,14 +166,14 @@ fn c8_l28_assert_trap() {
 fn c9_l29_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c9_l29_action_invoke");
     let result = instance.call("store", &[Value::I32(0 as i32), Value::I32(13 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c9_l29_assert_trap() {
     let mut instance = create_module_1();
-    let result = c9_l29_action_invoke(&mut*instance);
+    let result = c9_l29_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -182,29 +181,32 @@ fn c9_l29_assert_trap() {
 fn c10_l30_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c10_l30_action_invoke");
     let result = instance.call("load", &[Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c10_l30_assert_trap() {
     let mut instance = create_module_1();
-    let result = c10_l30_action_invoke(&mut*instance);
+    let result = c10_l30_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 31
 fn c11_l31_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c11_l31_action_invoke");
-    let result = instance.call("store", &[Value::I32(-2147483648 as i32), Value::I32(13 as i32)]);
-    
+    let result = instance.call(
+        "store",
+        &[Value::I32(-2147483648 as i32), Value::I32(13 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c11_l31_assert_trap() {
     let mut instance = create_module_1();
-    let result = c11_l31_action_invoke(&mut*instance);
+    let result = c11_l31_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -212,14 +214,14 @@ fn c11_l31_assert_trap() {
 fn c12_l32_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c12_l32_action_invoke");
     let result = instance.call("load", &[Value::I32(-2147483648 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c12_l32_assert_trap() {
     let mut instance = create_module_1();
-    let result = c12_l32_action_invoke(&mut*instance);
+    let result = c12_l32_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -358,8 +360,11 @@ fn create_module_2() -> Box<Instance> {
       (data (;1;) (i32.const 65528) \"abcdefgh\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_2(instance: &mut Instance) {
@@ -370,60 +375,72 @@ fn start_module_2(instance: &mut Instance) {
 // Line 111
 fn c15_l111_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c15_l111_action_invoke");
-    let result = instance.call("i32.store", &[Value::I32(65536 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store",
+        &[Value::I32(65536 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c15_l111_assert_trap() {
     let mut instance = create_module_2();
-    let result = c15_l111_action_invoke(&mut*instance);
+    let result = c15_l111_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 112
 fn c16_l112_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c16_l112_action_invoke");
-    let result = instance.call("i32.store", &[Value::I32(65535 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store",
+        &[Value::I32(65535 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c16_l112_assert_trap() {
     let mut instance = create_module_2();
-    let result = c16_l112_action_invoke(&mut*instance);
+    let result = c16_l112_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 113
 fn c17_l113_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c17_l113_action_invoke");
-    let result = instance.call("i32.store", &[Value::I32(65534 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store",
+        &[Value::I32(65534 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c17_l113_assert_trap() {
     let mut instance = create_module_2();
-    let result = c17_l113_action_invoke(&mut*instance);
+    let result = c17_l113_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 114
 fn c18_l114_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c18_l114_action_invoke");
-    let result = instance.call("i32.store", &[Value::I32(65533 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store",
+        &[Value::I32(65533 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c18_l114_assert_trap() {
     let mut instance = create_module_2();
-    let result = c18_l114_action_invoke(&mut*instance);
+    let result = c18_l114_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -431,14 +448,14 @@ fn c18_l114_assert_trap() {
 fn c19_l115_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c19_l115_action_invoke");
     let result = instance.call("i32.store", &[Value::I32(-1 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c19_l115_assert_trap() {
     let mut instance = create_module_2();
-    let result = c19_l115_action_invoke(&mut*instance);
+    let result = c19_l115_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -446,14 +463,14 @@ fn c19_l115_assert_trap() {
 fn c20_l116_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c20_l116_action_invoke");
     let result = instance.call("i32.store", &[Value::I32(-2 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c20_l116_assert_trap() {
     let mut instance = create_module_2();
-    let result = c20_l116_action_invoke(&mut*instance);
+    let result = c20_l116_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -461,14 +478,14 @@ fn c20_l116_assert_trap() {
 fn c21_l117_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c21_l117_action_invoke");
     let result = instance.call("i32.store", &[Value::I32(-3 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c21_l117_assert_trap() {
     let mut instance = create_module_2();
-    let result = c21_l117_action_invoke(&mut*instance);
+    let result = c21_l117_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -476,134 +493,158 @@ fn c21_l117_assert_trap() {
 fn c22_l118_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c22_l118_action_invoke");
     let result = instance.call("i32.store", &[Value::I32(-4 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c22_l118_assert_trap() {
     let mut instance = create_module_2();
-    let result = c22_l118_action_invoke(&mut*instance);
+    let result = c22_l118_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 119
 fn c23_l119_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c23_l119_action_invoke");
-    let result = instance.call("i64.store", &[Value::I32(65536 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store",
+        &[Value::I32(65536 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c23_l119_assert_trap() {
     let mut instance = create_module_2();
-    let result = c23_l119_action_invoke(&mut*instance);
+    let result = c23_l119_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 120
 fn c24_l120_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c24_l120_action_invoke");
-    let result = instance.call("i64.store", &[Value::I32(65535 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store",
+        &[Value::I32(65535 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c24_l120_assert_trap() {
     let mut instance = create_module_2();
-    let result = c24_l120_action_invoke(&mut*instance);
+    let result = c24_l120_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 121
 fn c25_l121_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c25_l121_action_invoke");
-    let result = instance.call("i64.store", &[Value::I32(65534 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store",
+        &[Value::I32(65534 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c25_l121_assert_trap() {
     let mut instance = create_module_2();
-    let result = c25_l121_action_invoke(&mut*instance);
+    let result = c25_l121_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 122
 fn c26_l122_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c26_l122_action_invoke");
-    let result = instance.call("i64.store", &[Value::I32(65533 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store",
+        &[Value::I32(65533 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c26_l122_assert_trap() {
     let mut instance = create_module_2();
-    let result = c26_l122_action_invoke(&mut*instance);
+    let result = c26_l122_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 123
 fn c27_l123_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c27_l123_action_invoke");
-    let result = instance.call("i64.store", &[Value::I32(65532 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store",
+        &[Value::I32(65532 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c27_l123_assert_trap() {
     let mut instance = create_module_2();
-    let result = c27_l123_action_invoke(&mut*instance);
+    let result = c27_l123_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 124
 fn c28_l124_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c28_l124_action_invoke");
-    let result = instance.call("i64.store", &[Value::I32(65531 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store",
+        &[Value::I32(65531 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c28_l124_assert_trap() {
     let mut instance = create_module_2();
-    let result = c28_l124_action_invoke(&mut*instance);
+    let result = c28_l124_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 125
 fn c29_l125_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c29_l125_action_invoke");
-    let result = instance.call("i64.store", &[Value::I32(65530 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store",
+        &[Value::I32(65530 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c29_l125_assert_trap() {
     let mut instance = create_module_2();
-    let result = c29_l125_action_invoke(&mut*instance);
+    let result = c29_l125_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 126
 fn c30_l126_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c30_l126_action_invoke");
-    let result = instance.call("i64.store", &[Value::I32(65529 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store",
+        &[Value::I32(65529 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c30_l126_assert_trap() {
     let mut instance = create_module_2();
-    let result = c30_l126_action_invoke(&mut*instance);
+    let result = c30_l126_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -611,14 +652,14 @@ fn c30_l126_assert_trap() {
 fn c31_l127_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c31_l127_action_invoke");
     let result = instance.call("i64.store", &[Value::I32(-1 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c31_l127_assert_trap() {
     let mut instance = create_module_2();
-    let result = c31_l127_action_invoke(&mut*instance);
+    let result = c31_l127_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -626,14 +667,14 @@ fn c31_l127_assert_trap() {
 fn c32_l128_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c32_l128_action_invoke");
     let result = instance.call("i64.store", &[Value::I32(-2 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c32_l128_assert_trap() {
     let mut instance = create_module_2();
-    let result = c32_l128_action_invoke(&mut*instance);
+    let result = c32_l128_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -641,14 +682,14 @@ fn c32_l128_assert_trap() {
 fn c33_l129_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c33_l129_action_invoke");
     let result = instance.call("i64.store", &[Value::I32(-3 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c33_l129_assert_trap() {
     let mut instance = create_module_2();
-    let result = c33_l129_action_invoke(&mut*instance);
+    let result = c33_l129_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -656,14 +697,14 @@ fn c33_l129_assert_trap() {
 fn c34_l130_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c34_l130_action_invoke");
     let result = instance.call("i64.store", &[Value::I32(-4 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c34_l130_assert_trap() {
     let mut instance = create_module_2();
-    let result = c34_l130_action_invoke(&mut*instance);
+    let result = c34_l130_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -671,14 +712,14 @@ fn c34_l130_assert_trap() {
 fn c35_l131_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c35_l131_action_invoke");
     let result = instance.call("i64.store", &[Value::I32(-5 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c35_l131_assert_trap() {
     let mut instance = create_module_2();
-    let result = c35_l131_action_invoke(&mut*instance);
+    let result = c35_l131_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -686,14 +727,14 @@ fn c35_l131_assert_trap() {
 fn c36_l132_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c36_l132_action_invoke");
     let result = instance.call("i64.store", &[Value::I32(-6 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c36_l132_assert_trap() {
     let mut instance = create_module_2();
-    let result = c36_l132_action_invoke(&mut*instance);
+    let result = c36_l132_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -701,14 +742,14 @@ fn c36_l132_assert_trap() {
 fn c37_l133_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c37_l133_action_invoke");
     let result = instance.call("i64.store", &[Value::I32(-7 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c37_l133_assert_trap() {
     let mut instance = create_module_2();
-    let result = c37_l133_action_invoke(&mut*instance);
+    let result = c37_l133_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -716,74 +757,86 @@ fn c37_l133_assert_trap() {
 fn c38_l134_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c38_l134_action_invoke");
     let result = instance.call("i64.store", &[Value::I32(-8 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c38_l134_assert_trap() {
     let mut instance = create_module_2();
-    let result = c38_l134_action_invoke(&mut*instance);
+    let result = c38_l134_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 135
 fn c39_l135_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c39_l135_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(65536 as i32), Value::F32((0.0f32))]);
-    
+    let result = instance.call(
+        "f32.store",
+        &[Value::I32(65536 as i32), Value::F32((0.0f32))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c39_l135_assert_trap() {
     let mut instance = create_module_2();
-    let result = c39_l135_action_invoke(&mut*instance);
+    let result = c39_l135_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 136
 fn c40_l136_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c40_l136_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(65535 as i32), Value::F32((0.0f32))]);
-    
+    let result = instance.call(
+        "f32.store",
+        &[Value::I32(65535 as i32), Value::F32((0.0f32))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c40_l136_assert_trap() {
     let mut instance = create_module_2();
-    let result = c40_l136_action_invoke(&mut*instance);
+    let result = c40_l136_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 137
 fn c41_l137_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c41_l137_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(65534 as i32), Value::F32((0.0f32))]);
-    
+    let result = instance.call(
+        "f32.store",
+        &[Value::I32(65534 as i32), Value::F32((0.0f32))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c41_l137_assert_trap() {
     let mut instance = create_module_2();
-    let result = c41_l137_action_invoke(&mut*instance);
+    let result = c41_l137_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 138
 fn c42_l138_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c42_l138_action_invoke");
-    let result = instance.call("f32.store", &[Value::I32(65533 as i32), Value::F32((0.0f32))]);
-    
+    let result = instance.call(
+        "f32.store",
+        &[Value::I32(65533 as i32), Value::F32((0.0f32))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c42_l138_assert_trap() {
     let mut instance = create_module_2();
-    let result = c42_l138_action_invoke(&mut*instance);
+    let result = c42_l138_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -791,14 +844,14 @@ fn c42_l138_assert_trap() {
 fn c43_l139_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c43_l139_action_invoke");
     let result = instance.call("f32.store", &[Value::I32(-1 as i32), Value::F32((0.0f32))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c43_l139_assert_trap() {
     let mut instance = create_module_2();
-    let result = c43_l139_action_invoke(&mut*instance);
+    let result = c43_l139_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -806,14 +859,14 @@ fn c43_l139_assert_trap() {
 fn c44_l140_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c44_l140_action_invoke");
     let result = instance.call("f32.store", &[Value::I32(-2 as i32), Value::F32((0.0f32))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c44_l140_assert_trap() {
     let mut instance = create_module_2();
-    let result = c44_l140_action_invoke(&mut*instance);
+    let result = c44_l140_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -821,14 +874,14 @@ fn c44_l140_assert_trap() {
 fn c45_l141_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c45_l141_action_invoke");
     let result = instance.call("f32.store", &[Value::I32(-3 as i32), Value::F32((0.0f32))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c45_l141_assert_trap() {
     let mut instance = create_module_2();
-    let result = c45_l141_action_invoke(&mut*instance);
+    let result = c45_l141_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -836,134 +889,158 @@ fn c45_l141_assert_trap() {
 fn c46_l142_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c46_l142_action_invoke");
     let result = instance.call("f32.store", &[Value::I32(-4 as i32), Value::F32((0.0f32))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c46_l142_assert_trap() {
     let mut instance = create_module_2();
-    let result = c46_l142_action_invoke(&mut*instance);
+    let result = c46_l142_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 143
 fn c47_l143_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c47_l143_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65536 as i32), Value::F64((0.0f64))]);
-    
+    let result = instance.call(
+        "f64.store",
+        &[Value::I32(65536 as i32), Value::F64((0.0f64))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c47_l143_assert_trap() {
     let mut instance = create_module_2();
-    let result = c47_l143_action_invoke(&mut*instance);
+    let result = c47_l143_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 144
 fn c48_l144_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c48_l144_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65535 as i32), Value::F64((0.0f64))]);
-    
+    let result = instance.call(
+        "f64.store",
+        &[Value::I32(65535 as i32), Value::F64((0.0f64))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c48_l144_assert_trap() {
     let mut instance = create_module_2();
-    let result = c48_l144_action_invoke(&mut*instance);
+    let result = c48_l144_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 145
 fn c49_l145_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c49_l145_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65534 as i32), Value::F64((0.0f64))]);
-    
+    let result = instance.call(
+        "f64.store",
+        &[Value::I32(65534 as i32), Value::F64((0.0f64))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c49_l145_assert_trap() {
     let mut instance = create_module_2();
-    let result = c49_l145_action_invoke(&mut*instance);
+    let result = c49_l145_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 146
 fn c50_l146_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c50_l146_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65533 as i32), Value::F64((0.0f64))]);
-    
+    let result = instance.call(
+        "f64.store",
+        &[Value::I32(65533 as i32), Value::F64((0.0f64))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c50_l146_assert_trap() {
     let mut instance = create_module_2();
-    let result = c50_l146_action_invoke(&mut*instance);
+    let result = c50_l146_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 147
 fn c51_l147_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c51_l147_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65532 as i32), Value::F64((0.0f64))]);
-    
+    let result = instance.call(
+        "f64.store",
+        &[Value::I32(65532 as i32), Value::F64((0.0f64))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c51_l147_assert_trap() {
     let mut instance = create_module_2();
-    let result = c51_l147_action_invoke(&mut*instance);
+    let result = c51_l147_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 148
 fn c52_l148_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c52_l148_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65531 as i32), Value::F64((0.0f64))]);
-    
+    let result = instance.call(
+        "f64.store",
+        &[Value::I32(65531 as i32), Value::F64((0.0f64))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c52_l148_assert_trap() {
     let mut instance = create_module_2();
-    let result = c52_l148_action_invoke(&mut*instance);
+    let result = c52_l148_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 149
 fn c53_l149_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c53_l149_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65530 as i32), Value::F64((0.0f64))]);
-    
+    let result = instance.call(
+        "f64.store",
+        &[Value::I32(65530 as i32), Value::F64((0.0f64))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c53_l149_assert_trap() {
     let mut instance = create_module_2();
-    let result = c53_l149_action_invoke(&mut*instance);
+    let result = c53_l149_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 150
 fn c54_l150_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c54_l150_action_invoke");
-    let result = instance.call("f64.store", &[Value::I32(65529 as i32), Value::F64((0.0f64))]);
-    
+    let result = instance.call(
+        "f64.store",
+        &[Value::I32(65529 as i32), Value::F64((0.0f64))],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c54_l150_assert_trap() {
     let mut instance = create_module_2();
-    let result = c54_l150_action_invoke(&mut*instance);
+    let result = c54_l150_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -971,14 +1048,14 @@ fn c54_l150_assert_trap() {
 fn c55_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c55_l151_action_invoke");
     let result = instance.call("f64.store", &[Value::I32(-1 as i32), Value::F64((0.0f64))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c55_l151_assert_trap() {
     let mut instance = create_module_2();
-    let result = c55_l151_action_invoke(&mut*instance);
+    let result = c55_l151_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -986,14 +1063,14 @@ fn c55_l151_assert_trap() {
 fn c56_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c56_l152_action_invoke");
     let result = instance.call("f64.store", &[Value::I32(-2 as i32), Value::F64((0.0f64))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c56_l152_assert_trap() {
     let mut instance = create_module_2();
-    let result = c56_l152_action_invoke(&mut*instance);
+    let result = c56_l152_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1001,14 +1078,14 @@ fn c56_l152_assert_trap() {
 fn c57_l153_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c57_l153_action_invoke");
     let result = instance.call("f64.store", &[Value::I32(-3 as i32), Value::F64((0.0f64))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c57_l153_assert_trap() {
     let mut instance = create_module_2();
-    let result = c57_l153_action_invoke(&mut*instance);
+    let result = c57_l153_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1016,14 +1093,14 @@ fn c57_l153_assert_trap() {
 fn c58_l154_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c58_l154_action_invoke");
     let result = instance.call("f64.store", &[Value::I32(-4 as i32), Value::F64((0.0f64))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c58_l154_assert_trap() {
     let mut instance = create_module_2();
-    let result = c58_l154_action_invoke(&mut*instance);
+    let result = c58_l154_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1031,14 +1108,14 @@ fn c58_l154_assert_trap() {
 fn c59_l155_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c59_l155_action_invoke");
     let result = instance.call("f64.store", &[Value::I32(-5 as i32), Value::F64((0.0f64))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c59_l155_assert_trap() {
     let mut instance = create_module_2();
-    let result = c59_l155_action_invoke(&mut*instance);
+    let result = c59_l155_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1046,14 +1123,14 @@ fn c59_l155_assert_trap() {
 fn c60_l156_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c60_l156_action_invoke");
     let result = instance.call("f64.store", &[Value::I32(-6 as i32), Value::F64((0.0f64))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c60_l156_assert_trap() {
     let mut instance = create_module_2();
-    let result = c60_l156_action_invoke(&mut*instance);
+    let result = c60_l156_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1061,14 +1138,14 @@ fn c60_l156_assert_trap() {
 fn c61_l157_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c61_l157_action_invoke");
     let result = instance.call("f64.store", &[Value::I32(-7 as i32), Value::F64((0.0f64))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c61_l157_assert_trap() {
     let mut instance = create_module_2();
-    let result = c61_l157_action_invoke(&mut*instance);
+    let result = c61_l157_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1076,29 +1153,32 @@ fn c61_l157_assert_trap() {
 fn c62_l158_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c62_l158_action_invoke");
     let result = instance.call("f64.store", &[Value::I32(-8 as i32), Value::F64((0.0f64))]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c62_l158_assert_trap() {
     let mut instance = create_module_2();
-    let result = c62_l158_action_invoke(&mut*instance);
+    let result = c62_l158_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 159
 fn c63_l159_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c63_l159_action_invoke");
-    let result = instance.call("i32.store8", &[Value::I32(65536 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store8",
+        &[Value::I32(65536 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c63_l159_assert_trap() {
     let mut instance = create_module_2();
-    let result = c63_l159_action_invoke(&mut*instance);
+    let result = c63_l159_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1106,89 +1186,104 @@ fn c63_l159_assert_trap() {
 fn c64_l160_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c64_l160_action_invoke");
     let result = instance.call("i32.store8", &[Value::I32(-1 as i32), Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c64_l160_assert_trap() {
     let mut instance = create_module_2();
-    let result = c64_l160_action_invoke(&mut*instance);
+    let result = c64_l160_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 161
 fn c65_l161_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c65_l161_action_invoke");
-    let result = instance.call("i32.store16", &[Value::I32(65536 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store16",
+        &[Value::I32(65536 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c65_l161_assert_trap() {
     let mut instance = create_module_2();
-    let result = c65_l161_action_invoke(&mut*instance);
+    let result = c65_l161_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 162
 fn c66_l162_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c66_l162_action_invoke");
-    let result = instance.call("i32.store16", &[Value::I32(65535 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store16",
+        &[Value::I32(65535 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c66_l162_assert_trap() {
     let mut instance = create_module_2();
-    let result = c66_l162_action_invoke(&mut*instance);
+    let result = c66_l162_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 163
 fn c67_l163_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c67_l163_action_invoke");
-    let result = instance.call("i32.store16", &[Value::I32(-1 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store16",
+        &[Value::I32(-1 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c67_l163_assert_trap() {
     let mut instance = create_module_2();
-    let result = c67_l163_action_invoke(&mut*instance);
+    let result = c67_l163_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 164
 fn c68_l164_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c68_l164_action_invoke");
-    let result = instance.call("i32.store16", &[Value::I32(-2 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "i32.store16",
+        &[Value::I32(-2 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c68_l164_assert_trap() {
     let mut instance = create_module_2();
-    let result = c68_l164_action_invoke(&mut*instance);
+    let result = c68_l164_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 165
 fn c69_l165_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c69_l165_action_invoke");
-    let result = instance.call("i64.store8", &[Value::I32(65536 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store8",
+        &[Value::I32(65536 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c69_l165_assert_trap() {
     let mut instance = create_module_2();
-    let result = c69_l165_action_invoke(&mut*instance);
+    let result = c69_l165_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1196,194 +1291,230 @@ fn c69_l165_assert_trap() {
 fn c70_l166_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c70_l166_action_invoke");
     let result = instance.call("i64.store8", &[Value::I32(-1 as i32), Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c70_l166_assert_trap() {
     let mut instance = create_module_2();
-    let result = c70_l166_action_invoke(&mut*instance);
+    let result = c70_l166_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 167
 fn c71_l167_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c71_l167_action_invoke");
-    let result = instance.call("i64.store16", &[Value::I32(65536 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store16",
+        &[Value::I32(65536 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c71_l167_assert_trap() {
     let mut instance = create_module_2();
-    let result = c71_l167_action_invoke(&mut*instance);
+    let result = c71_l167_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 168
 fn c72_l168_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c72_l168_action_invoke");
-    let result = instance.call("i64.store16", &[Value::I32(65535 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store16",
+        &[Value::I32(65535 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c72_l168_assert_trap() {
     let mut instance = create_module_2();
-    let result = c72_l168_action_invoke(&mut*instance);
+    let result = c72_l168_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 169
 fn c73_l169_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c73_l169_action_invoke");
-    let result = instance.call("i64.store16", &[Value::I32(-1 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store16",
+        &[Value::I32(-1 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c73_l169_assert_trap() {
     let mut instance = create_module_2();
-    let result = c73_l169_action_invoke(&mut*instance);
+    let result = c73_l169_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 170
 fn c74_l170_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c74_l170_action_invoke");
-    let result = instance.call("i64.store16", &[Value::I32(-2 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store16",
+        &[Value::I32(-2 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c74_l170_assert_trap() {
     let mut instance = create_module_2();
-    let result = c74_l170_action_invoke(&mut*instance);
+    let result = c74_l170_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 171
 fn c75_l171_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c75_l171_action_invoke");
-    let result = instance.call("i64.store32", &[Value::I32(65536 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store32",
+        &[Value::I32(65536 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c75_l171_assert_trap() {
     let mut instance = create_module_2();
-    let result = c75_l171_action_invoke(&mut*instance);
+    let result = c75_l171_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 172
 fn c76_l172_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c76_l172_action_invoke");
-    let result = instance.call("i64.store32", &[Value::I32(65535 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store32",
+        &[Value::I32(65535 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c76_l172_assert_trap() {
     let mut instance = create_module_2();
-    let result = c76_l172_action_invoke(&mut*instance);
+    let result = c76_l172_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 173
 fn c77_l173_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c77_l173_action_invoke");
-    let result = instance.call("i64.store32", &[Value::I32(65534 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store32",
+        &[Value::I32(65534 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c77_l173_assert_trap() {
     let mut instance = create_module_2();
-    let result = c77_l173_action_invoke(&mut*instance);
+    let result = c77_l173_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 174
 fn c78_l174_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c78_l174_action_invoke");
-    let result = instance.call("i64.store32", &[Value::I32(65533 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store32",
+        &[Value::I32(65533 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c78_l174_assert_trap() {
     let mut instance = create_module_2();
-    let result = c78_l174_action_invoke(&mut*instance);
+    let result = c78_l174_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 175
 fn c79_l175_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c79_l175_action_invoke");
-    let result = instance.call("i64.store32", &[Value::I32(-1 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store32",
+        &[Value::I32(-1 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c79_l175_assert_trap() {
     let mut instance = create_module_2();
-    let result = c79_l175_action_invoke(&mut*instance);
+    let result = c79_l175_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 176
 fn c80_l176_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c80_l176_action_invoke");
-    let result = instance.call("i64.store32", &[Value::I32(-2 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store32",
+        &[Value::I32(-2 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c80_l176_assert_trap() {
     let mut instance = create_module_2();
-    let result = c80_l176_action_invoke(&mut*instance);
+    let result = c80_l176_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 177
 fn c81_l177_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c81_l177_action_invoke");
-    let result = instance.call("i64.store32", &[Value::I32(-3 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store32",
+        &[Value::I32(-3 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c81_l177_assert_trap() {
     let mut instance = create_module_2();
-    let result = c81_l177_action_invoke(&mut*instance);
+    let result = c81_l177_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 178
 fn c82_l178_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c82_l178_action_invoke");
-    let result = instance.call("i64.store32", &[Value::I32(-4 as i32), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "i64.store32",
+        &[Value::I32(-4 as i32), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c82_l178_assert_trap() {
     let mut instance = create_module_2();
-    let result = c82_l178_action_invoke(&mut*instance);
+    let result = c82_l178_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1391,14 +1522,14 @@ fn c82_l178_assert_trap() {
 fn c83_l179_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c83_l179_action_invoke");
     let result = instance.call("i32.load", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c83_l179_assert_trap() {
     let mut instance = create_module_2();
-    let result = c83_l179_action_invoke(&mut*instance);
+    let result = c83_l179_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1406,14 +1537,14 @@ fn c83_l179_assert_trap() {
 fn c84_l180_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c84_l180_action_invoke");
     let result = instance.call("i32.load", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c84_l180_assert_trap() {
     let mut instance = create_module_2();
-    let result = c84_l180_action_invoke(&mut*instance);
+    let result = c84_l180_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1421,14 +1552,14 @@ fn c84_l180_assert_trap() {
 fn c85_l181_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c85_l181_action_invoke");
     let result = instance.call("i32.load", &[Value::I32(65534 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c85_l181_assert_trap() {
     let mut instance = create_module_2();
-    let result = c85_l181_action_invoke(&mut*instance);
+    let result = c85_l181_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1436,14 +1567,14 @@ fn c85_l181_assert_trap() {
 fn c86_l182_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c86_l182_action_invoke");
     let result = instance.call("i32.load", &[Value::I32(65533 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c86_l182_assert_trap() {
     let mut instance = create_module_2();
-    let result = c86_l182_action_invoke(&mut*instance);
+    let result = c86_l182_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1451,14 +1582,14 @@ fn c86_l182_assert_trap() {
 fn c87_l183_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c87_l183_action_invoke");
     let result = instance.call("i32.load", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c87_l183_assert_trap() {
     let mut instance = create_module_2();
-    let result = c87_l183_action_invoke(&mut*instance);
+    let result = c87_l183_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1466,14 +1597,14 @@ fn c87_l183_assert_trap() {
 fn c88_l184_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c88_l184_action_invoke");
     let result = instance.call("i32.load", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c88_l184_assert_trap() {
     let mut instance = create_module_2();
-    let result = c88_l184_action_invoke(&mut*instance);
+    let result = c88_l184_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1481,14 +1612,14 @@ fn c88_l184_assert_trap() {
 fn c89_l185_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c89_l185_action_invoke");
     let result = instance.call("i32.load", &[Value::I32(-3 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c89_l185_assert_trap() {
     let mut instance = create_module_2();
-    let result = c89_l185_action_invoke(&mut*instance);
+    let result = c89_l185_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1496,14 +1627,14 @@ fn c89_l185_assert_trap() {
 fn c90_l186_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c90_l186_action_invoke");
     let result = instance.call("i32.load", &[Value::I32(-4 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c90_l186_assert_trap() {
     let mut instance = create_module_2();
-    let result = c90_l186_action_invoke(&mut*instance);
+    let result = c90_l186_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1511,14 +1642,14 @@ fn c90_l186_assert_trap() {
 fn c91_l187_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c91_l187_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c91_l187_assert_trap() {
     let mut instance = create_module_2();
-    let result = c91_l187_action_invoke(&mut*instance);
+    let result = c91_l187_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1526,14 +1657,14 @@ fn c91_l187_assert_trap() {
 fn c92_l188_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c92_l188_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c92_l188_assert_trap() {
     let mut instance = create_module_2();
-    let result = c92_l188_action_invoke(&mut*instance);
+    let result = c92_l188_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1541,14 +1672,14 @@ fn c92_l188_assert_trap() {
 fn c93_l189_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c93_l189_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(65534 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c93_l189_assert_trap() {
     let mut instance = create_module_2();
-    let result = c93_l189_action_invoke(&mut*instance);
+    let result = c93_l189_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1556,14 +1687,14 @@ fn c93_l189_assert_trap() {
 fn c94_l190_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c94_l190_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(65533 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c94_l190_assert_trap() {
     let mut instance = create_module_2();
-    let result = c94_l190_action_invoke(&mut*instance);
+    let result = c94_l190_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1571,14 +1702,14 @@ fn c94_l190_assert_trap() {
 fn c95_l191_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c95_l191_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(65532 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c95_l191_assert_trap() {
     let mut instance = create_module_2();
-    let result = c95_l191_action_invoke(&mut*instance);
+    let result = c95_l191_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1586,14 +1717,14 @@ fn c95_l191_assert_trap() {
 fn c96_l192_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c96_l192_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(65531 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c96_l192_assert_trap() {
     let mut instance = create_module_2();
-    let result = c96_l192_action_invoke(&mut*instance);
+    let result = c96_l192_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1601,14 +1732,14 @@ fn c96_l192_assert_trap() {
 fn c97_l193_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c97_l193_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(65530 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c97_l193_assert_trap() {
     let mut instance = create_module_2();
-    let result = c97_l193_action_invoke(&mut*instance);
+    let result = c97_l193_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1616,14 +1747,14 @@ fn c97_l193_assert_trap() {
 fn c98_l194_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c98_l194_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(65529 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c98_l194_assert_trap() {
     let mut instance = create_module_2();
-    let result = c98_l194_action_invoke(&mut*instance);
+    let result = c98_l194_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1631,14 +1762,14 @@ fn c98_l194_assert_trap() {
 fn c99_l195_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c99_l195_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c99_l195_assert_trap() {
     let mut instance = create_module_2();
-    let result = c99_l195_action_invoke(&mut*instance);
+    let result = c99_l195_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1646,14 +1777,14 @@ fn c99_l195_assert_trap() {
 fn c100_l196_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c100_l196_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c100_l196_assert_trap() {
     let mut instance = create_module_2();
-    let result = c100_l196_action_invoke(&mut*instance);
+    let result = c100_l196_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1661,14 +1792,14 @@ fn c100_l196_assert_trap() {
 fn c101_l197_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c101_l197_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(-3 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c101_l197_assert_trap() {
     let mut instance = create_module_2();
-    let result = c101_l197_action_invoke(&mut*instance);
+    let result = c101_l197_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1676,14 +1807,14 @@ fn c101_l197_assert_trap() {
 fn c102_l198_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c102_l198_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(-4 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c102_l198_assert_trap() {
     let mut instance = create_module_2();
-    let result = c102_l198_action_invoke(&mut*instance);
+    let result = c102_l198_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1691,14 +1822,14 @@ fn c102_l198_assert_trap() {
 fn c103_l199_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c103_l199_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(-5 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c103_l199_assert_trap() {
     let mut instance = create_module_2();
-    let result = c103_l199_action_invoke(&mut*instance);
+    let result = c103_l199_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1706,14 +1837,14 @@ fn c103_l199_assert_trap() {
 fn c104_l200_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c104_l200_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(-6 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c104_l200_assert_trap() {
     let mut instance = create_module_2();
-    let result = c104_l200_action_invoke(&mut*instance);
+    let result = c104_l200_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1721,14 +1852,14 @@ fn c104_l200_assert_trap() {
 fn c105_l201_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c105_l201_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(-7 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c105_l201_assert_trap() {
     let mut instance = create_module_2();
-    let result = c105_l201_action_invoke(&mut*instance);
+    let result = c105_l201_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1736,14 +1867,14 @@ fn c105_l201_assert_trap() {
 fn c106_l202_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c106_l202_action_invoke");
     let result = instance.call("i64.load", &[Value::I32(-8 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c106_l202_assert_trap() {
     let mut instance = create_module_2();
-    let result = c106_l202_action_invoke(&mut*instance);
+    let result = c106_l202_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1751,14 +1882,14 @@ fn c106_l202_assert_trap() {
 fn c107_l203_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c107_l203_action_invoke");
     let result = instance.call("f32.load", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c107_l203_assert_trap() {
     let mut instance = create_module_2();
-    let result = c107_l203_action_invoke(&mut*instance);
+    let result = c107_l203_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1766,14 +1897,14 @@ fn c107_l203_assert_trap() {
 fn c108_l204_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c108_l204_action_invoke");
     let result = instance.call("f32.load", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c108_l204_assert_trap() {
     let mut instance = create_module_2();
-    let result = c108_l204_action_invoke(&mut*instance);
+    let result = c108_l204_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1781,14 +1912,14 @@ fn c108_l204_assert_trap() {
 fn c109_l205_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c109_l205_action_invoke");
     let result = instance.call("f32.load", &[Value::I32(65534 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c109_l205_assert_trap() {
     let mut instance = create_module_2();
-    let result = c109_l205_action_invoke(&mut*instance);
+    let result = c109_l205_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1796,14 +1927,14 @@ fn c109_l205_assert_trap() {
 fn c110_l206_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c110_l206_action_invoke");
     let result = instance.call("f32.load", &[Value::I32(65533 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c110_l206_assert_trap() {
     let mut instance = create_module_2();
-    let result = c110_l206_action_invoke(&mut*instance);
+    let result = c110_l206_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1811,14 +1942,14 @@ fn c110_l206_assert_trap() {
 fn c111_l207_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c111_l207_action_invoke");
     let result = instance.call("f32.load", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c111_l207_assert_trap() {
     let mut instance = create_module_2();
-    let result = c111_l207_action_invoke(&mut*instance);
+    let result = c111_l207_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1826,14 +1957,14 @@ fn c111_l207_assert_trap() {
 fn c112_l208_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c112_l208_action_invoke");
     let result = instance.call("f32.load", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c112_l208_assert_trap() {
     let mut instance = create_module_2();
-    let result = c112_l208_action_invoke(&mut*instance);
+    let result = c112_l208_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1841,14 +1972,14 @@ fn c112_l208_assert_trap() {
 fn c113_l209_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c113_l209_action_invoke");
     let result = instance.call("f32.load", &[Value::I32(-3 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c113_l209_assert_trap() {
     let mut instance = create_module_2();
-    let result = c113_l209_action_invoke(&mut*instance);
+    let result = c113_l209_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1856,14 +1987,14 @@ fn c113_l209_assert_trap() {
 fn c114_l210_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c114_l210_action_invoke");
     let result = instance.call("f32.load", &[Value::I32(-4 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c114_l210_assert_trap() {
     let mut instance = create_module_2();
-    let result = c114_l210_action_invoke(&mut*instance);
+    let result = c114_l210_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1871,14 +2002,14 @@ fn c114_l210_assert_trap() {
 fn c115_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c115_l211_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c115_l211_assert_trap() {
     let mut instance = create_module_2();
-    let result = c115_l211_action_invoke(&mut*instance);
+    let result = c115_l211_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1886,14 +2017,14 @@ fn c115_l211_assert_trap() {
 fn c116_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c116_l212_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c116_l212_assert_trap() {
     let mut instance = create_module_2();
-    let result = c116_l212_action_invoke(&mut*instance);
+    let result = c116_l212_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1901,14 +2032,14 @@ fn c116_l212_assert_trap() {
 fn c117_l213_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c117_l213_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(65534 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c117_l213_assert_trap() {
     let mut instance = create_module_2();
-    let result = c117_l213_action_invoke(&mut*instance);
+    let result = c117_l213_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1916,14 +2047,14 @@ fn c117_l213_assert_trap() {
 fn c118_l214_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c118_l214_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(65533 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c118_l214_assert_trap() {
     let mut instance = create_module_2();
-    let result = c118_l214_action_invoke(&mut*instance);
+    let result = c118_l214_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1931,14 +2062,14 @@ fn c118_l214_assert_trap() {
 fn c119_l215_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c119_l215_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(65532 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c119_l215_assert_trap() {
     let mut instance = create_module_2();
-    let result = c119_l215_action_invoke(&mut*instance);
+    let result = c119_l215_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1946,14 +2077,14 @@ fn c119_l215_assert_trap() {
 fn c120_l216_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c120_l216_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(65531 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c120_l216_assert_trap() {
     let mut instance = create_module_2();
-    let result = c120_l216_action_invoke(&mut*instance);
+    let result = c120_l216_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1961,14 +2092,14 @@ fn c120_l216_assert_trap() {
 fn c121_l217_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c121_l217_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(65530 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c121_l217_assert_trap() {
     let mut instance = create_module_2();
-    let result = c121_l217_action_invoke(&mut*instance);
+    let result = c121_l217_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1976,14 +2107,14 @@ fn c121_l217_assert_trap() {
 fn c122_l218_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c122_l218_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(65529 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c122_l218_assert_trap() {
     let mut instance = create_module_2();
-    let result = c122_l218_action_invoke(&mut*instance);
+    let result = c122_l218_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -1991,14 +2122,14 @@ fn c122_l218_assert_trap() {
 fn c123_l219_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c123_l219_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c123_l219_assert_trap() {
     let mut instance = create_module_2();
-    let result = c123_l219_action_invoke(&mut*instance);
+    let result = c123_l219_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2006,14 +2137,14 @@ fn c123_l219_assert_trap() {
 fn c124_l220_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c124_l220_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c124_l220_assert_trap() {
     let mut instance = create_module_2();
-    let result = c124_l220_action_invoke(&mut*instance);
+    let result = c124_l220_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2021,14 +2152,14 @@ fn c124_l220_assert_trap() {
 fn c125_l221_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c125_l221_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(-3 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c125_l221_assert_trap() {
     let mut instance = create_module_2();
-    let result = c125_l221_action_invoke(&mut*instance);
+    let result = c125_l221_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2036,14 +2167,14 @@ fn c125_l221_assert_trap() {
 fn c126_l222_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c126_l222_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(-4 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c126_l222_assert_trap() {
     let mut instance = create_module_2();
-    let result = c126_l222_action_invoke(&mut*instance);
+    let result = c126_l222_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2051,14 +2182,14 @@ fn c126_l222_assert_trap() {
 fn c127_l223_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c127_l223_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(-5 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c127_l223_assert_trap() {
     let mut instance = create_module_2();
-    let result = c127_l223_action_invoke(&mut*instance);
+    let result = c127_l223_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2066,14 +2197,14 @@ fn c127_l223_assert_trap() {
 fn c128_l224_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c128_l224_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(-6 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c128_l224_assert_trap() {
     let mut instance = create_module_2();
-    let result = c128_l224_action_invoke(&mut*instance);
+    let result = c128_l224_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2081,14 +2212,14 @@ fn c128_l224_assert_trap() {
 fn c129_l225_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c129_l225_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(-7 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c129_l225_assert_trap() {
     let mut instance = create_module_2();
-    let result = c129_l225_action_invoke(&mut*instance);
+    let result = c129_l225_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2096,14 +2227,14 @@ fn c129_l225_assert_trap() {
 fn c130_l226_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c130_l226_action_invoke");
     let result = instance.call("f64.load", &[Value::I32(-8 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c130_l226_assert_trap() {
     let mut instance = create_module_2();
-    let result = c130_l226_action_invoke(&mut*instance);
+    let result = c130_l226_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2111,14 +2242,14 @@ fn c130_l226_assert_trap() {
 fn c131_l227_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c131_l227_action_invoke");
     let result = instance.call("i32.load8_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c131_l227_assert_trap() {
     let mut instance = create_module_2();
-    let result = c131_l227_action_invoke(&mut*instance);
+    let result = c131_l227_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2126,14 +2257,14 @@ fn c131_l227_assert_trap() {
 fn c132_l228_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c132_l228_action_invoke");
     let result = instance.call("i32.load8_s", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c132_l228_assert_trap() {
     let mut instance = create_module_2();
-    let result = c132_l228_action_invoke(&mut*instance);
+    let result = c132_l228_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2141,14 +2272,14 @@ fn c132_l228_assert_trap() {
 fn c133_l229_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c133_l229_action_invoke");
     let result = instance.call("i32.load8_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c133_l229_assert_trap() {
     let mut instance = create_module_2();
-    let result = c133_l229_action_invoke(&mut*instance);
+    let result = c133_l229_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2156,14 +2287,14 @@ fn c133_l229_assert_trap() {
 fn c134_l230_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c134_l230_action_invoke");
     let result = instance.call("i32.load8_u", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c134_l230_assert_trap() {
     let mut instance = create_module_2();
-    let result = c134_l230_action_invoke(&mut*instance);
+    let result = c134_l230_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2171,14 +2302,14 @@ fn c134_l230_assert_trap() {
 fn c135_l231_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c135_l231_action_invoke");
     let result = instance.call("i32.load16_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c135_l231_assert_trap() {
     let mut instance = create_module_2();
-    let result = c135_l231_action_invoke(&mut*instance);
+    let result = c135_l231_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2186,14 +2317,14 @@ fn c135_l231_assert_trap() {
 fn c136_l232_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c136_l232_action_invoke");
     let result = instance.call("i32.load16_s", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c136_l232_assert_trap() {
     let mut instance = create_module_2();
-    let result = c136_l232_action_invoke(&mut*instance);
+    let result = c136_l232_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2201,14 +2332,14 @@ fn c136_l232_assert_trap() {
 fn c137_l233_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c137_l233_action_invoke");
     let result = instance.call("i32.load16_s", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c137_l233_assert_trap() {
     let mut instance = create_module_2();
-    let result = c137_l233_action_invoke(&mut*instance);
+    let result = c137_l233_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2216,14 +2347,14 @@ fn c137_l233_assert_trap() {
 fn c138_l234_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c138_l234_action_invoke");
     let result = instance.call("i32.load16_s", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c138_l234_assert_trap() {
     let mut instance = create_module_2();
-    let result = c138_l234_action_invoke(&mut*instance);
+    let result = c138_l234_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2231,14 +2362,14 @@ fn c138_l234_assert_trap() {
 fn c139_l235_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c139_l235_action_invoke");
     let result = instance.call("i32.load16_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c139_l235_assert_trap() {
     let mut instance = create_module_2();
-    let result = c139_l235_action_invoke(&mut*instance);
+    let result = c139_l235_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2246,14 +2377,14 @@ fn c139_l235_assert_trap() {
 fn c140_l236_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c140_l236_action_invoke");
     let result = instance.call("i32.load16_u", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c140_l236_assert_trap() {
     let mut instance = create_module_2();
-    let result = c140_l236_action_invoke(&mut*instance);
+    let result = c140_l236_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2261,14 +2392,14 @@ fn c140_l236_assert_trap() {
 fn c141_l237_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c141_l237_action_invoke");
     let result = instance.call("i32.load16_u", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c141_l237_assert_trap() {
     let mut instance = create_module_2();
-    let result = c141_l237_action_invoke(&mut*instance);
+    let result = c141_l237_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2276,14 +2407,14 @@ fn c141_l237_assert_trap() {
 fn c142_l238_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c142_l238_action_invoke");
     let result = instance.call("i32.load16_u", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c142_l238_assert_trap() {
     let mut instance = create_module_2();
-    let result = c142_l238_action_invoke(&mut*instance);
+    let result = c142_l238_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2291,14 +2422,14 @@ fn c142_l238_assert_trap() {
 fn c143_l239_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c143_l239_action_invoke");
     let result = instance.call("i64.load8_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c143_l239_assert_trap() {
     let mut instance = create_module_2();
-    let result = c143_l239_action_invoke(&mut*instance);
+    let result = c143_l239_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2306,14 +2437,14 @@ fn c143_l239_assert_trap() {
 fn c144_l240_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c144_l240_action_invoke");
     let result = instance.call("i64.load8_s", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c144_l240_assert_trap() {
     let mut instance = create_module_2();
-    let result = c144_l240_action_invoke(&mut*instance);
+    let result = c144_l240_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2321,14 +2452,14 @@ fn c144_l240_assert_trap() {
 fn c145_l241_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c145_l241_action_invoke");
     let result = instance.call("i64.load8_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c145_l241_assert_trap() {
     let mut instance = create_module_2();
-    let result = c145_l241_action_invoke(&mut*instance);
+    let result = c145_l241_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2336,14 +2467,14 @@ fn c145_l241_assert_trap() {
 fn c146_l242_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c146_l242_action_invoke");
     let result = instance.call("i64.load8_u", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c146_l242_assert_trap() {
     let mut instance = create_module_2();
-    let result = c146_l242_action_invoke(&mut*instance);
+    let result = c146_l242_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2351,14 +2482,14 @@ fn c146_l242_assert_trap() {
 fn c147_l243_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c147_l243_action_invoke");
     let result = instance.call("i64.load16_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c147_l243_assert_trap() {
     let mut instance = create_module_2();
-    let result = c147_l243_action_invoke(&mut*instance);
+    let result = c147_l243_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2366,14 +2497,14 @@ fn c147_l243_assert_trap() {
 fn c148_l244_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c148_l244_action_invoke");
     let result = instance.call("i64.load16_s", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c148_l244_assert_trap() {
     let mut instance = create_module_2();
-    let result = c148_l244_action_invoke(&mut*instance);
+    let result = c148_l244_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2381,14 +2512,14 @@ fn c148_l244_assert_trap() {
 fn c149_l245_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c149_l245_action_invoke");
     let result = instance.call("i64.load16_s", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c149_l245_assert_trap() {
     let mut instance = create_module_2();
-    let result = c149_l245_action_invoke(&mut*instance);
+    let result = c149_l245_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2396,14 +2527,14 @@ fn c149_l245_assert_trap() {
 fn c150_l246_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c150_l246_action_invoke");
     let result = instance.call("i64.load16_s", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c150_l246_assert_trap() {
     let mut instance = create_module_2();
-    let result = c150_l246_action_invoke(&mut*instance);
+    let result = c150_l246_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2411,14 +2542,14 @@ fn c150_l246_assert_trap() {
 fn c151_l247_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c151_l247_action_invoke");
     let result = instance.call("i64.load16_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c151_l247_assert_trap() {
     let mut instance = create_module_2();
-    let result = c151_l247_action_invoke(&mut*instance);
+    let result = c151_l247_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2426,14 +2557,14 @@ fn c151_l247_assert_trap() {
 fn c152_l248_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c152_l248_action_invoke");
     let result = instance.call("i64.load16_u", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c152_l248_assert_trap() {
     let mut instance = create_module_2();
-    let result = c152_l248_action_invoke(&mut*instance);
+    let result = c152_l248_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2441,14 +2572,14 @@ fn c152_l248_assert_trap() {
 fn c153_l249_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c153_l249_action_invoke");
     let result = instance.call("i64.load16_u", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c153_l249_assert_trap() {
     let mut instance = create_module_2();
-    let result = c153_l249_action_invoke(&mut*instance);
+    let result = c153_l249_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2456,14 +2587,14 @@ fn c153_l249_assert_trap() {
 fn c154_l250_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c154_l250_action_invoke");
     let result = instance.call("i64.load16_u", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c154_l250_assert_trap() {
     let mut instance = create_module_2();
-    let result = c154_l250_action_invoke(&mut*instance);
+    let result = c154_l250_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2471,14 +2602,14 @@ fn c154_l250_assert_trap() {
 fn c155_l251_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c155_l251_action_invoke");
     let result = instance.call("i64.load32_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c155_l251_assert_trap() {
     let mut instance = create_module_2();
-    let result = c155_l251_action_invoke(&mut*instance);
+    let result = c155_l251_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2486,14 +2617,14 @@ fn c155_l251_assert_trap() {
 fn c156_l252_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c156_l252_action_invoke");
     let result = instance.call("i64.load32_s", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c156_l252_assert_trap() {
     let mut instance = create_module_2();
-    let result = c156_l252_action_invoke(&mut*instance);
+    let result = c156_l252_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2501,14 +2632,14 @@ fn c156_l252_assert_trap() {
 fn c157_l253_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c157_l253_action_invoke");
     let result = instance.call("i64.load32_s", &[Value::I32(65534 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c157_l253_assert_trap() {
     let mut instance = create_module_2();
-    let result = c157_l253_action_invoke(&mut*instance);
+    let result = c157_l253_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2516,14 +2647,14 @@ fn c157_l253_assert_trap() {
 fn c158_l254_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c158_l254_action_invoke");
     let result = instance.call("i64.load32_s", &[Value::I32(65533 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c158_l254_assert_trap() {
     let mut instance = create_module_2();
-    let result = c158_l254_action_invoke(&mut*instance);
+    let result = c158_l254_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2531,14 +2662,14 @@ fn c158_l254_assert_trap() {
 fn c159_l255_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c159_l255_action_invoke");
     let result = instance.call("i64.load32_s", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c159_l255_assert_trap() {
     let mut instance = create_module_2();
-    let result = c159_l255_action_invoke(&mut*instance);
+    let result = c159_l255_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2546,14 +2677,14 @@ fn c159_l255_assert_trap() {
 fn c160_l256_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c160_l256_action_invoke");
     let result = instance.call("i64.load32_s", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c160_l256_assert_trap() {
     let mut instance = create_module_2();
-    let result = c160_l256_action_invoke(&mut*instance);
+    let result = c160_l256_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2561,14 +2692,14 @@ fn c160_l256_assert_trap() {
 fn c161_l257_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c161_l257_action_invoke");
     let result = instance.call("i64.load32_s", &[Value::I32(-3 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c161_l257_assert_trap() {
     let mut instance = create_module_2();
-    let result = c161_l257_action_invoke(&mut*instance);
+    let result = c161_l257_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2576,14 +2707,14 @@ fn c161_l257_assert_trap() {
 fn c162_l258_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c162_l258_action_invoke");
     let result = instance.call("i64.load32_s", &[Value::I32(-4 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c162_l258_assert_trap() {
     let mut instance = create_module_2();
-    let result = c162_l258_action_invoke(&mut*instance);
+    let result = c162_l258_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2591,14 +2722,14 @@ fn c162_l258_assert_trap() {
 fn c163_l259_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c163_l259_action_invoke");
     let result = instance.call("i64.load32_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c163_l259_assert_trap() {
     let mut instance = create_module_2();
-    let result = c163_l259_action_invoke(&mut*instance);
+    let result = c163_l259_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2606,14 +2737,14 @@ fn c163_l259_assert_trap() {
 fn c164_l260_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c164_l260_action_invoke");
     let result = instance.call("i64.load32_u", &[Value::I32(65535 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c164_l260_assert_trap() {
     let mut instance = create_module_2();
-    let result = c164_l260_action_invoke(&mut*instance);
+    let result = c164_l260_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2621,14 +2752,14 @@ fn c164_l260_assert_trap() {
 fn c165_l261_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c165_l261_action_invoke");
     let result = instance.call("i64.load32_u", &[Value::I32(65534 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c165_l261_assert_trap() {
     let mut instance = create_module_2();
-    let result = c165_l261_action_invoke(&mut*instance);
+    let result = c165_l261_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2636,14 +2767,14 @@ fn c165_l261_assert_trap() {
 fn c166_l262_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c166_l262_action_invoke");
     let result = instance.call("i64.load32_u", &[Value::I32(65533 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c166_l262_assert_trap() {
     let mut instance = create_module_2();
-    let result = c166_l262_action_invoke(&mut*instance);
+    let result = c166_l262_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2651,14 +2782,14 @@ fn c166_l262_assert_trap() {
 fn c167_l263_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c167_l263_action_invoke");
     let result = instance.call("i64.load32_u", &[Value::I32(-1 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c167_l263_assert_trap() {
     let mut instance = create_module_2();
-    let result = c167_l263_action_invoke(&mut*instance);
+    let result = c167_l263_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2666,14 +2797,14 @@ fn c167_l263_assert_trap() {
 fn c168_l264_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c168_l264_action_invoke");
     let result = instance.call("i64.load32_u", &[Value::I32(-2 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c168_l264_assert_trap() {
     let mut instance = create_module_2();
-    let result = c168_l264_action_invoke(&mut*instance);
+    let result = c168_l264_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2681,14 +2812,14 @@ fn c168_l264_assert_trap() {
 fn c169_l265_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c169_l265_action_invoke");
     let result = instance.call("i64.load32_u", &[Value::I32(-3 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c169_l265_assert_trap() {
     let mut instance = create_module_2();
-    let result = c169_l265_action_invoke(&mut*instance);
+    let result = c169_l265_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -2696,14 +2827,14 @@ fn c169_l265_assert_trap() {
 fn c170_l266_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c170_l266_action_invoke");
     let result = instance.call("i64.load32_u", &[Value::I32(-4 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c170_l266_assert_trap() {
     let mut instance = create_module_2();
-    let result = c170_l266_action_invoke(&mut*instance);
+    let result = c170_l266_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 

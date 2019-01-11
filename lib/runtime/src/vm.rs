@@ -40,7 +40,7 @@ impl Ctx {
             imported_tables: import_backing.tables.as_mut_ptr(),
             imported_globals: import_backing.globals.as_mut_ptr(),
             imported_funcs: import_backing.functions.as_mut_ptr(),
-            
+
             local_backing,
         }
     }
@@ -88,11 +88,16 @@ pub enum Func {}
 #[repr(C)]
 pub struct ImportedFunc {
     pub func: *const Func,
+    pub vmctx: *mut Ctx,
 }
 
 impl ImportedFunc {
     pub fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn offset_vmctx() -> u8 {
+        1 * (mem::size_of::<usize>() as u8)
     }
 
     pub fn size() -> u8 {
@@ -164,11 +169,16 @@ impl LocalMemory {
 pub struct ImportedMemory {
     /// A pointer to the memory definition.
     pub memory: *mut LocalMemory,
+    pub vmctx: *mut Ctx,
 }
 
 impl ImportedMemory {
     pub fn offset_memory() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn offset_vmctx() -> u8 {
+        1 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -192,11 +202,11 @@ impl LocalGlobal {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedGlobal {
-    pub global: LocalGlobal,
+    pub global: *mut LocalGlobal,
 }
 
 impl ImportedGlobal {
-    pub fn offset_data() -> u8 {
+    pub fn offset_global() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 }
@@ -216,7 +226,10 @@ pub struct Anyfunc {
 impl Anyfunc {
     pub fn null() -> Self {
         Self {
-            func_data: ImportedFunc { func: ptr::null() },
+            func_data: ImportedFunc {
+                func: ptr::null(),
+                vmctx: ptr::null_mut(),
+            },
             sig_id: SigId(u32::max_value()),
         }
     }
@@ -225,12 +238,12 @@ impl Anyfunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    // pub fn offset_vmctx() -> u8 {
-    //     1 * (mem::size_of::<usize>() as u8)
-    // }
+    pub fn offset_vmctx() -> u8 {
+        1 * (mem::size_of::<usize>() as u8)
+    }
 
     pub fn offset_sig_id() -> u8 {
-        1 * (mem::size_of::<usize>() as u8)
+        2 * (mem::size_of::<usize>() as u8)
     }
 }
 
@@ -286,10 +299,10 @@ mod vm_offset_tests {
             offset_of!(ImportedFunc => func).get_byte_offset(),
         );
 
-        // assert_eq!(
-        //     ImportedFunc::offset_vmctx() as usize,
-        //     offset_of!(ImportedFunc => vmctx).get_byte_offset(),
-        // );
+        assert_eq!(
+            ImportedFunc::offset_vmctx() as usize,
+            offset_of!(ImportedFunc => vmctx).get_byte_offset(),
+        );
     }
 
     #[test]
@@ -337,6 +350,11 @@ mod vm_offset_tests {
             ImportedMemory::offset_memory() as usize,
             offset_of!(ImportedMemory => memory).get_byte_offset(),
         );
+
+        assert_eq!(
+            ImportedMemory::offset_vmctx() as usize,
+            offset_of!(ImportedMemory => vmctx).get_byte_offset(),
+        );
     }
 
     #[test]
@@ -350,8 +368,8 @@ mod vm_offset_tests {
     #[test]
     fn imported_global() {
         assert_eq!(
-            ImportedGlobal::offset_data() as usize,
-            offset_of!(ImportedGlobal => global: LocalGlobal => data).get_byte_offset(),
+            ImportedGlobal::offset_global() as usize,
+            offset_of!(ImportedGlobal => global).get_byte_offset(),
         );
     }
 
@@ -362,10 +380,10 @@ mod vm_offset_tests {
             offset_of!(Anyfunc => func_data: ImportedFunc => func).get_byte_offset(),
         );
 
-        // assert_eq!(
-        //     Anyfunc::offset_vmctx() as usize,
-        //     offset_of!(Anyfunc => func_data: ImportedFunc => vmctx).get_byte_offset(),
-        // );
+        assert_eq!(
+            Anyfunc::offset_vmctx() as usize,
+            offset_of!(Anyfunc => func_data: ImportedFunc => vmctx).get_byte_offset(),
+        );
 
         assert_eq!(
             Anyfunc::offset_sig_id() as usize,
