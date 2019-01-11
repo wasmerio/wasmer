@@ -25,7 +25,8 @@ pub unsafe extern "C" fn memory_grow_dynamic(
     by_pages: u32,
     ctx: *mut vm::Ctx,
 ) -> i32 {
-    if let Some(old) = (*(*ctx).local_backing).memories[memory_index as usize].grow_dynamic(by_pages)
+    if let Some(old) =
+        (*(*ctx).local_backing).memories[memory_index as usize].grow_dynamic(by_pages)
     {
         // Store the new size back into the vmctx.
         (*(*ctx).memories.add(memory_index as usize)).size =

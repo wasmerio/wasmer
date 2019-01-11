@@ -1,61 +1,29 @@
-use wasmer_runtime::types::{ElementType, FuncSig, Table, Type, Value};
-use wasmer_runtime::{Import, Imports, FuncRef};
-use wasmer_runtime::table::TableBacking;
-use std::sync::Arc;
+use std::rc::Rc;
+use wabt::wat2wasm;
+use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::import::Imports;
 
-extern "C" fn print_i32(num: i32) {
-    println!("{}", num);
-}
+static IMPORT_MODULE: &str = r#"
+(module
+  (type $t0 (func (param i32)))
+  (type $t1 (func))
+  (func $print_i32 (export "print_i32") (type $t0) (param $lhs i32))
+  (func $print (export "print") (type $t1))
+  (table $table (export "table") 10 anyfunc)
+  (memory $memory (export "memory") 1)
+  (global $global_i32 (export "global_i32") i32 (i32.const 666)))
+"#;
 
-extern "C" fn print() {}
-
-static GLOBAL_I32: i32 = 666;
-
-pub fn spectest_importobject() -> Imports {
-    let mut import_object = Imports::new();
-
-    import_object.add(
-        "spectest",
-        "print_i32",
-        Import::Func(
-            unsafe { FuncRef::new(print_i32 as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-
-    import_object.add(
-        "spectest",
-        "print",
-        Import::Func(
-            unsafe { FuncRef::new(print as _) },
-            FuncSig {
-                params: vec![],
-                returns: vec![],
-            },
-        ),
-    );
-
-    import_object.add(
-        "spectest".to_string(),
-        "global_i32".to_string(),
-        Import::Global(Value::I64(GLOBAL_I32 as _)),
-    );
-
-    let table = Table {
-        ty: ElementType::Anyfunc,
-        min: 0,
-        max: Some(30),
-    };
-    import_object.add(
-        "spectest".to_string(),
-        "table".to_string(),
-        Import::Table(Arc::new(TableBacking::new(&table)), table),
-    );
-
-    return import_object;
+pub fn generate_imports() -> Rc<Imports> {
+    let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    let instance = module
+        .instantiate(Rc::new(Imports::new()))
+        .expect("WASM can't be instantiated");
+    let mut imports = Imports::new();
+    imports.register_instance("spectest", instance);
+    Rc::new(imports)
 }
 
 /// Bit pattern of an f32 value:

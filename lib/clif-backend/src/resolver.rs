@@ -1,5 +1,6 @@
 use crate::libcalls;
 use crate::relocation::{Reloc, RelocSink, Relocation, RelocationType, TrapSink};
+use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
 use std::mem;
 use std::ptr::{write_unaligned, NonNull};
@@ -9,7 +10,6 @@ use wasmer_runtime::{
     types::{FuncIndex, Map, MapIndex},
     vm, vmcalls,
 };
-use byteorder::{LittleEndian, ByteOrder};
 
 #[allow(dead_code)]
 pub struct FuncResolverBuilder {
@@ -127,13 +127,11 @@ impl FuncResolverBuilder {
                             .unwrap();
                         let empty_space_offset = self.resolver.map[index] + reloc.offset as usize;
                         let ptr_slice = unsafe {
-                            &mut self.resolver.memory.as_slice_mut()[empty_space_offset..empty_space_offset+8]
+                            &mut self.resolver.memory.as_slice_mut()
+                                [empty_space_offset..empty_space_offset + 8]
                         };
-                        LittleEndian::write_u64(
-                            ptr_slice,
-                            ptr_to_write,
-                        );
-                    },
+                        LittleEndian::write_u64(ptr_slice, ptr_to_write);
+                    }
                     Reloc::X86PCRel4 => unsafe {
                         let reloc_address = func_addr.offset(reloc.offset as isize) as isize;
                         let reloc_addend = reloc.addend as isize;
@@ -177,7 +175,11 @@ impl FuncResolver {
 
 // Implements FuncResolver trait.
 impl backend::FuncResolver for FuncResolver {
-    fn get(&self, _module: &wasmer_runtime::module::Module, index: FuncIndex) -> Option<NonNull<vm::Func>> {
+    fn get(
+        &self,
+        _module: &wasmer_runtime::module::Module,
+        index: FuncIndex,
+    ) -> Option<NonNull<vm::Func>> {
         self.lookup(index)
     }
 }

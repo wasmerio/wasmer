@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 5
 fn create_module_1() -> Box<Instance> {
@@ -100,8 +96,11 @@ fn create_module_1() -> Box<Instance> {
       (export \"malloc_aliasing\" (func 5)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -121,7 +120,7 @@ fn c1_l59_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c2_l60_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c2_l60_action_invoke");
     let result = instance.call("zero_everything", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -137,7 +136,7 @@ fn c3_l61_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c4_l62_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c4_l62_action_invoke");
     let result = instance.call("zero_everything", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -145,7 +144,12 @@ fn c4_l62_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c5_l63_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c5_l63_action_invoke");
     let result = instance.call("test_dead_store", &[]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000049f32)))));
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000049f32)
+        )))
+    );
     result.map(|_| ())
 }
 
@@ -153,7 +157,7 @@ fn c5_l63_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c6_l64_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c6_l64_action_invoke");
     let result = instance.call("zero_everything", &[]);
-    
+
     result.map(|_| ())
 }
 

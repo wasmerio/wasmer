@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 1
 fn create_module_1() -> Box<Instance> {
@@ -164,8 +160,11 @@ fn create_module_1() -> Box<Instance> {
       (export \"fac-mixed-raw\" (func 4)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -435,8 +434,11 @@ fn create_module_2() -> Box<Instance> {
       (table (;0;) 1 anyfunc))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_2(instance: &mut Instance) {

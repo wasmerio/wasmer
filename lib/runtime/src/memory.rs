@@ -52,21 +52,22 @@ impl LinearMemory {
         assert!(mem.max.is_none() || mem.max.unwrap() <= Self::MAX_PAGES);
         debug!("Instantiate LinearMemory(mem: {:?})", mem);
 
-        let (mmap_size, initial_pages, offset_guard_size, requires_signal_catch) =
-            if /*mem.is_static_heap()*/ true {
-                (Self::DEFAULT_SIZE, mem.min, Self::DEFAULT_GUARD_SIZE, true)
-            // This is a static heap
-            } else {
-                // this is a dynamic heap
-                assert!(!mem.shared, "shared memories must have a maximum size.");
+        let (mmap_size, initial_pages, offset_guard_size, requires_signal_catch) = if
+        /*mem.is_static_heap()*/
+        true {
+            (Self::DEFAULT_SIZE, mem.min, Self::DEFAULT_GUARD_SIZE, true)
+        // This is a static heap
+        } else {
+            // this is a dynamic heap
+            assert!(!mem.shared, "shared memories must have a maximum size.");
 
-                (
-                    mem.min as usize * Self::PAGE_SIZE as usize,
-                    mem.min,
-                    0,
-                    false,
-                )
-            };
+            (
+                mem.min as usize * Self::PAGE_SIZE as usize,
+                mem.min,
+                0,
+                false,
+            )
+        };
 
         let mut mmap = Mmap::with_size(mmap_size).unwrap();
 

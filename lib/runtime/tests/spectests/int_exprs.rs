@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 6
 fn create_module_1() -> Box<Instance> {
@@ -61,8 +57,11 @@ fn create_module_1() -> Box<Instance> {
       (export \"i64.no_fold_cmp_u_offset\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -73,7 +72,10 @@ fn start_module_1(instance: &mut Instance) {
 // Line 18
 fn c1_l18_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c1_l18_action_invoke");
-    let result = instance.call("i32.no_fold_cmp_s_offset", &[Value::I32(2147483647 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "i32.no_fold_cmp_s_offset",
+        &[Value::I32(2147483647 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -81,7 +83,10 @@ fn c1_l18_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 19
 fn c2_l19_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c2_l19_action_invoke");
-    let result = instance.call("i32.no_fold_cmp_u_offset", &[Value::I32(-1 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "i32.no_fold_cmp_u_offset",
+        &[Value::I32(-1 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -89,7 +94,10 @@ fn c2_l19_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 20
 fn c3_l20_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c3_l20_action_invoke");
-    let result = instance.call("i64.no_fold_cmp_s_offset", &[Value::I64(9223372036854775807 as i64), Value::I64(0 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_cmp_s_offset",
+        &[Value::I64(9223372036854775807 as i64), Value::I64(0 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -97,7 +105,10 @@ fn c3_l20_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 21
 fn c4_l21_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c4_l21_action_invoke");
-    let result = instance.call("i64.no_fold_cmp_u_offset", &[Value::I64(-1 as i64), Value::I64(0 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_cmp_u_offset",
+        &[Value::I64(-1 as i64), Value::I64(0 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -124,8 +135,11 @@ fn create_module_2() -> Box<Instance> {
       (export \"i64.no_fold_wrap_extend_s\" (func 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_2(instance: &mut Instance) {
@@ -136,7 +150,10 @@ fn start_module_2(instance: &mut Instance) {
 // Line 30
 fn c6_l30_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c6_l30_action_invoke");
-    let result = instance.call("i64.no_fold_wrap_extend_s", &[Value::I64(4538991236898928 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_wrap_extend_s",
+        &[Value::I64(4538991236898928 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I64(1079009392 as i64))));
     result.map(|_| ())
 }
@@ -144,7 +161,10 @@ fn c6_l30_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 31
 fn c7_l31_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c7_l31_action_invoke");
-    let result = instance.call("i64.no_fold_wrap_extend_s", &[Value::I64(45230338458316960 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_wrap_extend_s",
+        &[Value::I64(45230338458316960 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I64(-790564704 as i64))));
     result.map(|_| ())
 }
@@ -169,8 +189,11 @@ fn create_module_3() -> Box<Instance> {
       (export \"i64.no_fold_wrap_extend_u\" (func 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_3(instance: &mut Instance) {
@@ -181,7 +204,10 @@ fn start_module_3(instance: &mut Instance) {
 // Line 40
 fn c9_l40_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c9_l40_action_invoke");
-    let result = instance.call("i64.no_fold_wrap_extend_u", &[Value::I64(4538991236898928 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_wrap_extend_u",
+        &[Value::I64(4538991236898928 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I64(1079009392 as i64))));
     result.map(|_| ())
 }
@@ -229,8 +255,11 @@ fn create_module_4() -> Box<Instance> {
       (export \"i64.no_fold_shl_shr_u\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_4(instance: &mut Instance) {
@@ -257,7 +286,10 @@ fn c12_l57_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 58
 fn c13_l58_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c13_l58_action_invoke");
-    let result = instance.call("i64.no_fold_shl_shr_s", &[Value::I64(-9223372036854775808 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_shl_shr_s",
+        &[Value::I64(-9223372036854775808 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I64(0 as i64))));
     result.map(|_| ())
 }
@@ -265,7 +297,10 @@ fn c13_l58_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 59
 fn c14_l59_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c14_l59_action_invoke");
-    let result = instance.call("i64.no_fold_shl_shr_u", &[Value::I64(-9223372036854775808 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_shl_shr_u",
+        &[Value::I64(-9223372036854775808 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I64(0 as i64))));
     result.map(|_| ())
 }
@@ -316,8 +351,11 @@ fn create_module_5() -> Box<Instance> {
       (export \"i64.no_fold_shr_u_shl\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_5(instance: &mut Instance) {
@@ -403,8 +441,11 @@ fn create_module_6() -> Box<Instance> {
       (export \"i64.no_fold_div_u_mul\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_6(instance: &mut Instance) {
@@ -482,8 +523,11 @@ fn create_module_7() -> Box<Instance> {
       (export \"i64.no_fold_div_u_self\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_7(instance: &mut Instance) {
@@ -495,14 +539,14 @@ fn start_module_7(instance: &mut Instance) {
 fn c26_l113_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c26_l113_action_invoke");
     let result = instance.call("i32.no_fold_div_s_self", &[Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c26_l113_assert_trap() {
     let mut instance = create_module_7();
-    let result = c26_l113_action_invoke(&mut*instance);
+    let result = c26_l113_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -510,14 +554,14 @@ fn c26_l113_assert_trap() {
 fn c27_l114_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c27_l114_action_invoke");
     let result = instance.call("i32.no_fold_div_u_self", &[Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c27_l114_assert_trap() {
     let mut instance = create_module_7();
-    let result = c27_l114_action_invoke(&mut*instance);
+    let result = c27_l114_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -525,14 +569,14 @@ fn c27_l114_assert_trap() {
 fn c28_l115_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c28_l115_action_invoke");
     let result = instance.call("i64.no_fold_div_s_self", &[Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c28_l115_assert_trap() {
     let mut instance = create_module_7();
-    let result = c28_l115_action_invoke(&mut*instance);
+    let result = c28_l115_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -540,14 +584,14 @@ fn c28_l115_assert_trap() {
 fn c29_l116_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c29_l116_action_invoke");
     let result = instance.call("i64.no_fold_div_u_self", &[Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c29_l116_assert_trap() {
     let mut instance = create_module_7();
-    let result = c29_l116_action_invoke(&mut*instance);
+    let result = c29_l116_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -585,8 +629,11 @@ fn create_module_8() -> Box<Instance> {
       (export \"i64.no_fold_rem_u_self\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_8(instance: &mut Instance) {
@@ -598,14 +645,14 @@ fn start_module_8(instance: &mut Instance) {
 fn c31_l132_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c31_l132_action_invoke");
     let result = instance.call("i32.no_fold_rem_s_self", &[Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c31_l132_assert_trap() {
     let mut instance = create_module_8();
-    let result = c31_l132_action_invoke(&mut*instance);
+    let result = c31_l132_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -613,14 +660,14 @@ fn c31_l132_assert_trap() {
 fn c32_l133_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c32_l133_action_invoke");
     let result = instance.call("i32.no_fold_rem_u_self", &[Value::I32(0 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c32_l133_assert_trap() {
     let mut instance = create_module_8();
-    let result = c32_l133_action_invoke(&mut*instance);
+    let result = c32_l133_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -628,14 +675,14 @@ fn c32_l133_assert_trap() {
 fn c33_l134_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c33_l134_action_invoke");
     let result = instance.call("i64.no_fold_rem_s_self", &[Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c33_l134_assert_trap() {
     let mut instance = create_module_8();
-    let result = c33_l134_action_invoke(&mut*instance);
+    let result = c33_l134_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -643,14 +690,14 @@ fn c33_l134_assert_trap() {
 fn c34_l135_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c34_l135_action_invoke");
     let result = instance.call("i64.no_fold_rem_u_self", &[Value::I64(0 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c34_l135_assert_trap() {
     let mut instance = create_module_8();
-    let result = c34_l135_action_invoke(&mut*instance);
+    let result = c34_l135_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -696,8 +743,11 @@ fn create_module_9() -> Box<Instance> {
       (export \"i64.no_fold_mul_div_u\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_9(instance: &mut Instance) {
@@ -724,7 +774,10 @@ fn c37_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 153
 fn c38_l153_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c38_l153_action_invoke");
-    let result = instance.call("i64.no_fold_mul_div_s", &[Value::I64(-9223372036854775808 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_mul_div_s",
+        &[Value::I64(-9223372036854775808 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I64(0 as i64))));
     result.map(|_| ())
 }
@@ -732,7 +785,10 @@ fn c38_l153_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 154
 fn c39_l154_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c39_l154_action_invoke");
-    let result = instance.call("i64.no_fold_mul_div_u", &[Value::I64(-9223372036854775808 as i64)]);
+    let result = instance.call(
+        "i64.no_fold_mul_div_u",
+        &[Value::I64(-9223372036854775808 as i64)],
+    );
     assert_eq!(result, Ok(Some(Value::I64(0 as i64))));
     result.map(|_| ())
 }
@@ -765,8 +821,11 @@ fn create_module_10() -> Box<Instance> {
       (export \"i64.no_fold_div_s_2\" (func 1)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_10(instance: &mut Instance) {
@@ -816,8 +875,11 @@ fn create_module_11() -> Box<Instance> {
       (export \"i64.no_fold_rem_s_2\" (func 1)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_11(instance: &mut Instance) {
@@ -877,8 +939,11 @@ fn create_module_12() -> Box<Instance> {
       (export \"i64.div_u_0\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_12(instance: &mut Instance) {
@@ -890,14 +955,14 @@ fn start_module_12(instance: &mut Instance) {
 fn c47_l196_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c47_l196_action_invoke");
     let result = instance.call("i32.div_s_0", &[Value::I32(71 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c47_l196_assert_trap() {
     let mut instance = create_module_12();
-    let result = c47_l196_action_invoke(&mut*instance);
+    let result = c47_l196_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -905,14 +970,14 @@ fn c47_l196_assert_trap() {
 fn c48_l197_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c48_l197_action_invoke");
     let result = instance.call("i32.div_u_0", &[Value::I32(71 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c48_l197_assert_trap() {
     let mut instance = create_module_12();
-    let result = c48_l197_action_invoke(&mut*instance);
+    let result = c48_l197_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -920,14 +985,14 @@ fn c48_l197_assert_trap() {
 fn c49_l198_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c49_l198_action_invoke");
     let result = instance.call("i64.div_s_0", &[Value::I64(71 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c49_l198_assert_trap() {
     let mut instance = create_module_12();
-    let result = c49_l198_action_invoke(&mut*instance);
+    let result = c49_l198_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -935,14 +1000,14 @@ fn c49_l198_assert_trap() {
 fn c50_l199_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c50_l199_action_invoke");
     let result = instance.call("i64.div_u_0", &[Value::I64(71 as i64)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c50_l199_assert_trap() {
     let mut instance = create_module_12();
-    let result = c50_l199_action_invoke(&mut*instance);
+    let result = c50_l199_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
@@ -980,8 +1045,11 @@ fn create_module_13() -> Box<Instance> {
       (export \"i64.div_u_3\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_13(instance: &mut Instance) {
@@ -1095,8 +1163,11 @@ fn create_module_14() -> Box<Instance> {
       (export \"i64.div_u_5\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_14(instance: &mut Instance) {
@@ -1210,8 +1281,11 @@ fn create_module_15() -> Box<Instance> {
       (export \"i64.div_u_7\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_15(instance: &mut Instance) {
@@ -1325,8 +1399,11 @@ fn create_module_16() -> Box<Instance> {
       (export \"i64.rem_u_3\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_16(instance: &mut Instance) {
@@ -1440,8 +1517,11 @@ fn create_module_17() -> Box<Instance> {
       (export \"i64.rem_u_5\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_17(instance: &mut Instance) {
@@ -1555,8 +1635,11 @@ fn create_module_18() -> Box<Instance> {
       (export \"i64.rem_u_7\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_18(instance: &mut Instance) {
@@ -1660,8 +1743,11 @@ fn create_module_19() -> Box<Instance> {
       (export \"i64.no_fold_div_neg1\" (func 1)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(&spectest_importobject()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_19(instance: &mut Instance) {
@@ -1673,29 +1759,32 @@ fn start_module_19(instance: &mut Instance) {
 fn c106_l349_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c106_l349_action_invoke");
     let result = instance.call("i32.no_fold_div_neg1", &[Value::I32(-2147483648 as i32)]);
-    
+
     result.map(|_| ())
 }
 
 #[test]
 fn c106_l349_assert_trap() {
     let mut instance = create_module_19();
-    let result = c106_l349_action_invoke(&mut*instance);
+    let result = c106_l349_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 
 // Line 350
 fn c107_l350_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c107_l350_action_invoke");
-    let result = instance.call("i64.no_fold_div_neg1", &[Value::I64(-9223372036854775808 as i64)]);
-    
+    let result = instance.call(
+        "i64.no_fold_div_neg1",
+        &[Value::I64(-9223372036854775808 as i64)],
+    );
+
     result.map(|_| ())
 }
 
 #[test]
 fn c107_l350_assert_trap() {
     let mut instance = create_module_19();
-    let result = c107_l350_action_invoke(&mut*instance);
+    let result = c107_l350_action_invoke(&mut *instance);
     assert!(result.is_err());
 }
 

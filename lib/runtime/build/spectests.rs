@@ -211,7 +211,7 @@ use wasmer_runtime::{{Instance, module::Module}};
 use wasmer_clif_backend::CraneliftCompiler;
 
 use crate::spectests::_common::{{
-    spectest_importobject,
+    generate_imports,
     NaNCheck,
 }};\n\n",
             self.filename
@@ -272,7 +272,7 @@ fn test_module_{}() {{
     let module_str = \"{}\";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
-    module.instantiate(&spectest_importobject()).expect(\"WASM can't be instantiated\")
+    module.instantiate(generate_imports()).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
                 // We do this to ident four spaces, so it looks aligned to the function body
@@ -334,11 +334,13 @@ fn {}_assert_invalid() {{
             } => {
                 // let return_type = wabt2rust_type(&args[0]);
                 // let func_return = format!(" -> {}", return_type);
-                let assertion = String::from("assert!(match result {
+                let assertion = String::from(
+                    "assert!(match result {
         Value::F32(fp) => fp.is_quiet_nan(),
         Value::F64(fp) => fp.is_quiet_nan(),
         _ => unimplemented!()
-    })");
+    })",
+                );
 
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
@@ -391,11 +393,13 @@ fn {}_assert_invalid() {{
                     _ => wabt2rust_type(&args[0]),
                 };
                 // let func_return = format!(" -> {}", return_type);
-                let assertion = String::from("assert!(match result {
+                let assertion = String::from(
+                    "assert!(match result {
         Value::F32(fp) => fp.is_quiet_nan(),
         Value::F64(fp) => fp.is_quiet_nan(),
         _ => unimplemented!()
-    })");
+    })",
+                );
 
                 // We map the arguments provided into the raw Arguments provided
                 // to libffi
@@ -527,10 +531,10 @@ fn {}_assert_malformed() {{
     {assertion}
     result.map(|_| ())
 }}\n",
-                        func_name=func_name,
-                        field=field,
-                        args_values=args_values.join(", "),
-                        assertion=assertion,
+                        func_name = func_name,
+                        field = field,
+                        args_values = args_values.join(", "),
+                        assertion = assertion,
                     )
                     .as_str(),
                 );

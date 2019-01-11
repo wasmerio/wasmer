@@ -3,8 +3,8 @@ use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::{self, *};
 use cranelift_codegen::ir::{
-    self, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef, InstBuilder, Signature,
-    TrapCode, condcodes::IntCC,
+    self, condcodes::IntCC, AbiParam, ArgumentPurpose, ExtFuncData, ExternalName, FuncRef,
+    InstBuilder, Signature, TrapCode,
 };
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_entity::{EntityRef, PrimaryMap};
@@ -14,9 +14,13 @@ use cranelift_wasm::{
     ReturnMode, SignatureIndex, Table, TableIndex, WasmResult,
 };
 use hashbrown::HashMap;
+use std::mem;
 use target_lexicon;
 use wasmer_runtime::{
-    module::{ModuleInner as WasmerModule, DataInitializer, Export, ImportName, TableInitializer},
+    backend::SigRegistry,
+    module::{
+        DataInitializer, ExportIndex, ImportName, ModuleInner as WasmerModule, TableInitializer,
+    },
     types::{
         ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
         Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
@@ -25,7 +29,6 @@ use wasmer_runtime::{
         TableIndex as WasmerTableIndex, Type as WasmerType,
     },
     vm::{self, Ctx as WasmerVMContext},
-    backend::SigRegistry,
     LinearMemory,
 };
 
@@ -61,7 +64,11 @@ pub mod converter {
         let mut func_assoc: Map<WasmerFuncIndex, WasmerSignatureIndex> =
             Map::with_capacity(cranelift_module.functions.len());
         for (_, signature_index) in cranelift_module.functions.iter() {
-            func_assoc.push(cranelift_module.sig_registry.lookup_deduplicated_sigindex(WasmerSignatureIndex::new(signature_index.index())));
+            func_assoc.push(
+                cranelift_module.sig_registry.lookup_deduplicated_sigindex(
+                    WasmerSignatureIndex::new(signature_index.index()),
+                ),
+            );
         }
 
         let function_bodies: Vec<_> = cranelift_module
@@ -241,7 +248,7 @@ pub struct CraneliftModule {
     pub imported_globals: Map<WasmerGlobalIndex, (ImportName, WasmerGlobalDesc)>,
 
     // An hash map holding information about the wasm instance exports.
-    pub exports: HashMap<String, Export>,
+    pub exports: HashMap<String, ExportIndex>,
 
     // Data to initialize in memory.
     pub data_initializers: Vec<DataInitializer>,
@@ -418,28 +425,30 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared tables.
-    fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> ir::Table {
+    fn make_table(&mut self, func: &mut ir::Function, table_index: TableIndex) -> ir::Table {
         // Only the first table is supported for now.
-        debug_assert_eq!(index.index(), 0, "non-default tables not supported yet");
+        debug_assert_eq!(
+            table_index.index(),
+            0,
+            "non-default tables not supported yet"
+        );
 
         // Create VMContext value.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
-        let ptr_size = self.pointer_bytes();
-        let tables_offset = WasmerVMContext::offset_tables();
 
         // Load value at (vmctx + memories_offset) which is the address at Ctx.tables.
         let base = func.create_global_value(ir::GlobalValueData::Load {
             base: vmctx,
-            offset: Offset32::new(tables_offset as i32),
+            offset: (vm::Ctx::offset_tables() as i32).into(),
             global_type: self.pointer_type(),
             readonly: true,
         });
 
         // *Ctx.tables -> [ {data: *usize, len: usize}, {data: *usize, len: usize}, ... ]
         // Based on the index provided, we need to know the offset into tables array.
-        let table_data_offset = (index.as_u32() as i32) * (ptr_size as i32) * 2;
+        let table_data_offset = table_index.index() * mem::size_of::<vm::LocalTable>();
 
-        let table_data = func.create_global_value(ir::GlobalValueData::IAddImm {
+        let table_data_struct = func.create_global_value(ir::GlobalValueData::IAddImm {
             base,
             offset: (table_data_offset as i64).into(),
             global_type: self.pointer_type(),
@@ -447,16 +456,16 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
 
         // Load value at (base + table_data_offset), i.e. the address at Ctx.tables[index].data
         let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: table_data,
-            offset: 0.into(),
+            base: table_data_struct,
+            offset: (vm::LocalTable::offset_base() as i32).into(),
             global_type: self.pointer_type(),
             readonly: false,
         });
 
         // Load value at (base + table_data_offset), i.e. the value at Ctx.tables[index].len
         let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base,
-            offset: (self.pointer_bytes() as i32).into(),
+            base: table_data_struct,
+            offset: (vm::LocalTable::offset_current_elements() as i32).into(),
             global_type: self.pointer_type(),
             readonly: false,
         });
@@ -466,8 +475,8 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
             base_gv,
             min_size: Uimm64::new(0),
             bound_gv,
-            element_size: Uimm64::new(u64::from(self.pointer_bytes() * 2)),
-            index_type: self.pointer_type(),
+            element_size: Uimm64::new(mem::size_of::<vm::Anyfunc>() as u64),
+            index_type: I32,
         })
     }
 
@@ -517,44 +526,47 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         callee: ir::Value,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
-        // Create a VMContext value.
-        let vmctx = pos
-            .func
-            .special_param(ir::ArgumentPurpose::VMContext)
-            .expect("missing vmctx parameter");
-
         // Get the pointer type based on machine's pointer size.
         let ptr_type = self.pointer_type();
 
         // The `callee` value is an index into a table of function pointers.
-        // Set callee to an appropriate type based on machine's pointer size.
-        let callee_offset = if ptr_type == I32 {
-            callee
-        } else {
-            pos.ins().uextend(ptr_type, callee)
-        };
-
-        // The `callee` value is an index into a table of function pointers.
-        let entry_addr = pos.ins().table_addr(ptr_type, table, callee_offset, 0);
+        let entry_addr = pos.ins().table_addr(ptr_type, table, callee, 0);
 
         let mflags = ir::MemFlags::trusted();
 
-        let func_ptr = pos.ins().load(ptr_type, mflags, entry_addr, 0);
+        let func_ptr = pos.ins().load(
+            ptr_type,
+            mflags,
+            entry_addr,
+            vm::Anyfunc::offset_func() as i32,
+        );
+        let vmctx_ptr = pos.ins().load(
+            ptr_type,
+            mflags,
+            entry_addr,
+            vm::Anyfunc::offset_vmctx() as i32,
+        );
+        let found_sig =
+            pos.ins()
+                .load(I32, mflags, entry_addr, vm::Anyfunc::offset_sig_id() as i32);
 
         pos.ins().trapz(func_ptr, TrapCode::IndirectCallToNull);
 
-        let found_sig = pos.ins().load(I32, mflags, entry_addr, self.pointer_bytes() as i32);
-        let deduplicated_sig_index = self.module.sig_registry.lookup_deduplicated_sigindex(WasmerSignatureIndex::new(sig_index.index()));
+        let deduplicated_sig_index = self
+            .module
+            .sig_registry
+            .lookup_deduplicated_sigindex(WasmerSignatureIndex::new(sig_index.index()));
         let expected_sig = pos.ins().iconst(I32, deduplicated_sig_index.index() as i64);
         let not_equal_flags = pos.ins().ifcmp(found_sig, expected_sig);
 
-        pos.ins().trapif(IntCC::NotEqual, not_equal_flags, TrapCode::BadSignature);
+        pos.ins()
+            .trapif(IntCC::NotEqual, not_equal_flags, TrapCode::BadSignature);
 
         // Build a value list for the indirect call instruction containing the call_args
         // and the vmctx parameter.
         let mut args = Vec::with_capacity(call_args.len() + 1);
         args.extend(call_args.iter().cloned());
-        args.push(vmctx);
+        args.push(vmctx_ptr);
 
         Ok(pos.ins().call_indirect(sig_ref, func_ptr, &args))
     }
@@ -569,7 +581,6 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
         // Insert call instructions for `callee`.
-
         if callee_index.index() < self.module.imported_functions.len() {
             // this is an imported function
             let vmctx = pos.func.create_global_value(ir::GlobalValueData::VMContext);
@@ -595,20 +606,25 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
                 readonly: true,
             });
 
+            let imported_vmctx_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
+                base: imported_func_struct_addr,
+                offset: (vm::ImportedFunc::offset_vmctx() as i32).into(),
+                global_type: self.pointer_type(),
+                readonly: true,
+            });
+
             let imported_func_addr = pos
                 .ins()
                 .global_value(self.pointer_type(), imported_func_addr);
+            let imported_vmctx_addr = pos
+                .ins()
+                .global_value(self.pointer_type(), imported_vmctx_addr);
 
             let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
 
-            let vmctx = pos
-                .func
-                .special_param(ir::ArgumentPurpose::VMContext)
-                .expect("missing vmctx parameter");
-
             let mut args = Vec::with_capacity(call_args.len() + 1);
             args.extend(call_args.iter().cloned());
-            args.push(vmctx);
+            args.push(imported_vmctx_addr);
 
             Ok(pos
                 .ins()
@@ -910,28 +926,28 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
     fn declare_func_export(&mut self, func_index: FuncIndex, name: &'data str) {
         self.exports.insert(
             String::from(name),
-            Export::Func(WasmerFuncIndex::new(func_index.index())),
+            ExportIndex::Func(WasmerFuncIndex::new(func_index.index())),
         );
     }
     /// Declares a table export to the environment.
     fn declare_table_export(&mut self, table_index: TableIndex, name: &'data str) {
         self.exports.insert(
             String::from(name),
-            Export::Table(WasmerTableIndex::new(table_index.index())),
+            ExportIndex::Table(WasmerTableIndex::new(table_index.index())),
         );
     }
     /// Declares a memory export to the environment.
     fn declare_memory_export(&mut self, memory_index: MemoryIndex, name: &'data str) {
         self.exports.insert(
             String::from(name),
-            Export::Memory(WasmerMemoryIndex::new(memory_index.index())),
+            ExportIndex::Memory(WasmerMemoryIndex::new(memory_index.index())),
         );
     }
     /// Declares a global export to the environment.
     fn declare_global_export(&mut self, global_index: GlobalIndex, name: &'data str) {
         self.exports.insert(
             String::from(name),
-            Export::Global(WasmerGlobalIndex::new(global_index.index())),
+            ExportIndex::Global(WasmerGlobalIndex::new(global_index.index())),
         );
     }
 

@@ -1,8 +1,8 @@
 use crate::{module::Module, types::FuncIndex, vm};
 use std::ptr::NonNull;
 
-pub use crate::sig_registry::SigRegistry;
 pub use crate::mmap::{Mmap, Protect};
+pub use crate::sig_registry::SigRegistry;
 
 pub trait Compiler {
     /// Compiles a `Module` from WebAssembly binary format

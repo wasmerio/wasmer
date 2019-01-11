@@ -1,5 +1,6 @@
 use crate::{
-    instance::{Import, ImportResolver},
+    export::{Context, Export},
+    import::ImportResolver,
     memory::LinearMemory,
     module::{ImportName, Module},
     table::{TableBacking, TableElements},
@@ -18,13 +19,13 @@ pub struct LocalBacking {
 }
 
 impl LocalBacking {
-    pub fn new(module: &Module, imports: &ImportBacking) -> Self {
+    pub fn new(module: &Module, imports: &ImportBacking, vmctx: *mut vm::Ctx) -> Self {
         let mut memories = Self::generate_memories(module);
         let mut tables = Self::generate_tables(module);
         let globals = Self::generate_globals(module);
 
         let vm_memories = Self::finalize_memories(module, &mut memories[..]);
-        let vm_tables = Self::finalize_tables(module, imports, &mut tables[..]);
+        let vm_tables = Self::finalize_tables(module, imports, &mut tables[..], vmctx);
         let vm_globals = Self::finalize_globals(module, imports, globals);
 
         Self {
@@ -61,9 +62,7 @@ impl LocalBacking {
     fn finalize_memories(module: &Module, memories: &mut [LinearMemory]) -> Box<[vm::LocalMemory]> {
         for init in &module.data_initializers {
             assert!(init.base.is_none(), "global base not supported yet");
-            assert!(
-                init.offset + init.data.len() <= memories[init.memory_index.index()].size()
-            );
+            assert!(init.offset + init.data.len() <= memories[init.memory_index.index()].size());
             let offset = init.offset;
             let mem: &mut LinearMemory = &mut memories[init.memory_index.index()];
             // let end_of_init = offset + init.data.len();
@@ -98,6 +97,7 @@ impl LocalBacking {
         module: &Module,
         imports: &ImportBacking,
         tables: &mut [TableBacking],
+        vmctx: *mut vm::Ctx,
     ) -> Box<[vm::LocalTable]> {
         for init in &module.table_initializers {
             assert!(init.base.is_none(), "global base not supported yet");
@@ -106,7 +106,8 @@ impl LocalBacking {
                 TableElements::Anyfunc(ref mut elements) => {
                     for (i, &func_index) in init.elements.iter().enumerate() {
                         let sig_index = module.func_assoc[func_index];
-                        let vm_sig_id = vm::SigId(sig_index.index() as u32);
+                        let sig_id = vm::SigId(sig_index.index() as u32);
+
                         let func_data = if module.is_imported_function(func_index) {
                             imports.functions[func_index.index()].clone()
                         } else {
@@ -116,13 +117,13 @@ impl LocalBacking {
                                     .get(module, func_index)
                                     .unwrap()
                                     .as_ptr(),
+                                vmctx,
                             }
                         };
 
-                        elements[init.offset + i] = vm::Anyfunc {
-                            func_data,
-                            sig_id: vm_sig_id,
-                        };
+                        println!("func_data: {:#?}", func_data);
+
+                        elements[init.offset + i] = vm::Anyfunc { func_data, sig_id };
                     }
                 }
             }
@@ -152,7 +153,9 @@ impl LocalBacking {
                 Initializer::Const(Value::I64(x)) => x as u64,
                 Initializer::Const(Value::F32(x)) => x.to_bits() as u64,
                 Initializer::Const(Value::F64(x)) => x.to_bits(),
-                Initializer::GetGlobal(index) => (imports.globals[index.index()].global).data,
+                Initializer::GetGlobal(index) => unsafe {
+                    (*imports.globals[index.index()].global).data
+                },
             };
         }
 
@@ -169,7 +172,11 @@ pub struct ImportBacking {
 }
 
 impl ImportBacking {
-    pub fn new(module: &Module, imports: &dyn ImportResolver) -> Result<Self, String> {
+    pub fn new(
+        module: &Module,
+        imports: &dyn ImportResolver,
+        vmctx: *mut vm::Ctx,
+    ) -> Result<Self, String> {
         assert!(
             module.imported_memories.len() == 0,
             "imported memories not yet supported"
@@ -180,7 +187,7 @@ impl ImportBacking {
         );
 
         Ok(ImportBacking {
-            functions: import_functions(module, imports)?,
+            functions: import_functions(module, imports, vmctx)?,
             memories: vec![].into_boxed_slice(),
             tables: vec![].into_boxed_slice(),
             globals: import_globals(module, imports)?,
@@ -192,89 +199,71 @@ impl ImportBacking {
 
 // }
 
-fn import_functions(module: &Module, imports: &dyn ImportResolver) -> Result<Box<[vm::ImportedFunc]>, String> {
+fn import_functions(
+    module: &Module,
+    imports: &dyn ImportResolver,
+    vmctx: *mut vm::Ctx,
+) -> Result<Box<[vm::ImportedFunc]>, String> {
     let mut functions = Vec::with_capacity(module.imported_functions.len());
-    for (
-        index,
-        ImportName {
-            module: mod_name,
-            name: item_name,
-        },
-    ) in &module.imported_functions
-    {
+    for (index, ImportName { namespace, name }) in &module.imported_functions {
         let sig_index = module.func_assoc[index];
         let expected_sig = module.sig_registry.lookup_func_sig(sig_index);
-        let import = imports.get(mod_name, item_name);
+        let import = imports.get(namespace, name);
         match import {
-            Some(&Import::Func(ref func, ref signature)) => {
-                if expected_sig == signature {
+            Some(Export::Function {
+                func,
+                ctx,
+                signature,
+            }) => {
+                if expected_sig == &signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
-                        // vmctx: ptr::null_mut(),
+                        vmctx: match ctx {
+                            Context::External(ctx) => ctx,
+                            Context::Internal => vmctx,
+                        },
                     });
                 } else {
                     return Err(format!(
                         "unexpected signature for {:?}:{:?}",
-                        mod_name, item_name
+                        namespace, name
                     ));
                 }
             }
             Some(_) => {
-                return Err(format!(
-                    "incorrect import type for {}:{}",
-                    mod_name, item_name
-                ));
+                return Err(format!("incorrect import type for {}:{}", namespace, name));
             }
             None => {
-                return Err(format!("import not found: {}:{}", mod_name, item_name));
+                return Err(format!("import not found: {}:{}", namespace, name));
             }
         }
     }
     Ok(functions.into_boxed_slice())
 }
 
-fn import_globals(module: &Module, imports: &dyn ImportResolver) -> Result<Box<[vm::ImportedGlobal]>, String> {
+fn import_globals(
+    module: &Module,
+    imports: &dyn ImportResolver,
+) -> Result<Box<[vm::ImportedGlobal]>, String> {
     let mut globals = Vec::with_capacity(module.imported_globals.len());
-    for (
-        _,
-        (
-            ImportName {
-                module: mod_name,
-                name: item_name,
-            },
-            global_desc,
-        ),
-    ) in &module.imported_globals
-    {
-        let import = imports.get(mod_name, item_name);
+    for (_, (ImportName { namespace, name }, global_desc)) in &module.imported_globals {
+        let import = imports.get(namespace, name);
         match import {
-            Some(Import::Global(val)) => {
-                if val.ty() == global_desc.ty {
-                    globals.push(vm::ImportedGlobal {
-                        global: vm::LocalGlobal {
-                            data: match val {
-                                Value::I32(n) => *n as u64,
-                                Value::I64(n) => *n as u64,
-                                Value::F32(n) => (*n).to_bits() as u64,
-                                Value::F64(n) => (*n).to_bits(),
-                            },
-                        },
-                    });
+            Some(Export::Global { local, global }) => {
+                if &global == global_desc {
+                    globals.push(vm::ImportedGlobal { global: local });
                 } else {
                     return Err(format!(
-                        "unexpected global type for {:?}:{:?}",
-                        mod_name, item_name
+                        "unexpected global description for {:?}:{:?}",
+                        namespace, name
                     ));
                 }
             }
             Some(_) => {
-                return Err(format!(
-                    "incorrect import type for {}:{}",
-                    mod_name, item_name
-                ));
+                return Err(format!("incorrect import type for {}:{}", namespace, name));
             }
             None => {
-                return Err(format!("import not found: {}:{}", mod_name, item_name));
+                return Err(format!("import not found: {}:{}", namespace, name));
             }
         }
     }

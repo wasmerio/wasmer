@@ -5,31 +5,38 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    spectest_importobject,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 4
 #[test]
 fn c0_l4_assert_malformed() {
-    let wasm_binary = [40, 102, 117, 110, 99, 32, 40, 100, 114, 111, 112, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 48, 41, 41, 41];
+    let wasm_binary = [
+        40, 102, 117, 110, 99, 32, 40, 100, 114, 111, 112, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 48, 41, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 8
 #[test]
 fn c1_l8_assert_malformed() {
-    let wasm_binary = [40, 102, 117, 110, 99, 32, 98, 114, 32, 48, 100, 114, 111, 112, 41];
+    let wasm_binary = [
+        40, 102, 117, 110, 99, 32, 98, 114, 32, 48, 100, 114, 111, 112, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }

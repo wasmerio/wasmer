@@ -1,40 +1,54 @@
 use crate::recovery::call_protected;
 use crate::{
     backing::{ImportBacking, LocalBacking},
-    memory::LinearMemory,
-    module::{Export, Module},
-    table::TableBacking,
-    types::{FuncIndex, FuncSig, Memory, Table, Type, Value, MapIndex},
+    export::{Context, Export},
+    import::ImportResolver,
+    module::{ExportIndex, Module},
+    types::{FuncIndex, FuncSig, MapIndex, Type, Value},
     vm,
 };
-use hashbrown::HashMap;
+use hashbrown::hash_map;
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
-use std::iter;
-use std::sync::Arc;
+use std::rc::Rc;
+use std::{iter, mem};
 
 pub struct Instance {
-    pub(crate) backing: LocalBacking,
-    import_backing: ImportBacking,
     pub module: Module,
+    #[allow(dead_code)]
+    pub(crate) backing: LocalBacking,
+    #[allow(dead_code)]
+    imports: Rc<dyn ImportResolver>,
+    import_backing: ImportBacking,
+    vmctx: Box<vm::Ctx>,
 }
 
 impl Instance {
     pub(crate) fn new(
         module: Module,
-        imports: &dyn ImportResolver,
+        imports: Rc<dyn ImportResolver>,
     ) -> Result<Box<Instance>, String> {
-        let import_backing = ImportBacking::new(&module, imports)?;
-        let backing = LocalBacking::new(&module, &import_backing);
+        // We need the backing and import_backing to create a vm::Ctx, but we need
+        // a vm::Ctx to create a backing and an import_backing. The solution is to create an
+        // uninitialized vm::Ctx and then initialize it in-place.
+        let mut vmctx = unsafe { Box::new(mem::uninitialized()) };
 
-        let start_func = module.start_func;
+        let import_backing = ImportBacking::new(&module, &*imports, &mut *vmctx)?;
+        let backing = LocalBacking::new(&module, &import_backing, &mut *vmctx);
 
+        // When Pin is stablized, this will use `Box::pinned` instead of `Box::new`.
         let mut instance = Box::new(Instance {
-            backing,
-            import_backing,
             module,
+            backing,
+            imports,
+            import_backing,
+            vmctx,
         });
 
-        if let Some(start_index) = start_func {
+        // Initialize the vm::Ctx in-place after the import_backing
+        // has been boxed.
+        *instance.vmctx = vm::Ctx::new(&mut instance.backing, &mut instance.import_backing);
+
+        if let Some(start_index) = instance.module.start_func {
             instance.call_with_index(start_index, &[])?;
         }
 
@@ -48,15 +62,17 @@ impl Instance {
     /// This will eventually return `Result<Option<Vec<Value>>, String>` in
     /// order to support multi-value returns.
     pub fn call(&mut self, name: &str, args: &[Value]) -> Result<Option<Value>, String> {
-        let func_index = *self
+        let export_index = self
             .module
             .exports
             .get(name)
-            .ok_or_else(|| "there is no export with that name".to_string())
-            .and_then(|export| match export {
-                Export::Func(func_index) => Ok(func_index),
-                _ => Err("that export is not a function".to_string()),
-            })?;
+            .ok_or_else(|| format!("there is no export with that name: {}", name))?;
+
+        let func_index = if let ExportIndex::Func(func_index) = export_index {
+            *func_index
+        } else {
+            return Err("that export is not a function".to_string());
+        };
 
         self.call_with_index(func_index, args)
     }
@@ -66,30 +82,24 @@ impl Instance {
         func_index: FuncIndex,
         args: &[Value],
     ) -> Result<Option<Value>, String> {
-        // Check the function signature.
-        let sig_index = *self
-            .module
-            .func_assoc
-            .get(func_index)
-            .expect("broken invariant, incorrect func index");
-        
-        {
-            let signature = self.module.sig_registry.lookup_func_sig(sig_index);
+        let (func_ref, ctx, signature) = self.get_func_from_index(func_index);
 
-            assert!(
-                signature.returns.len() <= 1,
-                "multi-value returns not yet supported"
-            );
+        println!("func_ref: {:?}", func_ref);
 
-            if !signature.check_sig(args) {
-                return Err("incorrect signature".to_string());
-            }
+        let func_ptr = CodePtr::from_ptr(func_ref.inner() as _);
+        let vmctx_ptr = match ctx {
+            Context::External(vmctx) => vmctx,
+            Context::Internal => &mut *self.vmctx,
+        };
+
+        assert!(
+            signature.returns.len() <= 1,
+            "multi-value returns not yet supported"
+        );
+
+        if !signature.check_sig(args) {
+            return Err("incorrect signature".to_string());
         }
-
-        // the vmctx will be located at the same place on the stack the entire time that this
-        // wasm function is running.
-        let mut vmctx = vm::Ctx::new(&mut self.backing, &mut self.import_backing);
-        let vmctx_ptr = &mut vmctx as *mut vm::Ctx;
 
         let libffi_args: Vec<_> = args
             .iter()
@@ -102,22 +112,8 @@ impl Instance {
             .chain(iter::once(libffi_arg(&vmctx_ptr)))
             .collect();
 
-        let func_ptr = CodePtr::from_ptr(if self.module.is_imported_function(func_index) {
-            let imported_func = &self.import_backing.functions[func_index.index()];
-            imported_func.func as *const _
-        } else {
-            self.module
-                .func_resolver
-                .get(&self.module, func_index)
-                .expect("broken invariant, func resolver not synced with module.exports")
-                .cast()
-                .as_ptr()
-        });
-
         call_protected(|| {
-            self.module
-                .sig_registry
-                .lookup_func_sig(sig_index)
+            signature
                 .returns
                 .first()
                 .map(|ty| match ty {
@@ -135,9 +131,75 @@ impl Instance {
                 })
         })
     }
+
+    pub fn get_export(&self, name: &str) -> Result<Export, String> {
+        let export_index = self
+            .module
+            .exports
+            .get(name)
+            .ok_or_else(|| format!("there is no export with that name: {}", name))?;
+
+        Ok(self.get_export_from_index(export_index))
+    }
+
+    pub fn exports(&self) -> ExportIter {
+        ExportIter::new(self)
+    }
+
+    fn get_export_from_index(&self, export_index: &ExportIndex) -> Export {
+        match export_index {
+            ExportIndex::Func(func_index) => {
+                let (func, ctx, signature) = self.get_func_from_index(*func_index);
+
+                Export::Function {
+                    func,
+                    ctx: match ctx {
+                        Context::Internal => {
+                            Context::External(&*self.vmctx as *const vm::Ctx as *mut vm::Ctx)
+                        }
+                        ctx @ Context::External(_) => ctx,
+                    },
+                    signature,
+                }
+            }
+            ExportIndex::Memory(_memory_index) => unimplemented!(),
+            ExportIndex::Global(_global_index) => unimplemented!(),
+            ExportIndex::Table(_table_index) => unimplemented!(),
+        }
+    }
+
+    fn get_func_from_index(&self, func_index: FuncIndex) -> (FuncRef, Context, FuncSig) {
+        let sig_index = *self
+            .module
+            .func_assoc
+            .get(func_index)
+            .expect("broken invariant, incorrect func index");
+
+        let (func_ptr, ctx) = if self.module.is_imported_function(func_index) {
+            let imported_func = &self.import_backing.functions[func_index.index()];
+            (
+                imported_func.func as *const _,
+                Context::External(imported_func.vmctx),
+            )
+        } else {
+            (
+                self.module
+                    .func_resolver
+                    .get(&self.module, func_index)
+                    .expect("broken invariant, func resolver not synced with module.exports")
+                    .cast()
+                    .as_ptr() as *const _,
+                Context::Internal,
+            )
+        };
+
+        let signature = self.module.sig_registry.lookup_func_sig(sig_index).clone();
+
+        (FuncRef(func_ptr), ctx, signature)
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FuncRef(*const vm::Func);
 
 impl FuncRef {
@@ -153,45 +215,29 @@ impl FuncRef {
     }
 }
 
-#[derive(Debug)]
-pub enum Import {
-    Func(FuncRef, FuncSig),
-    Table(Arc<TableBacking>, Table),
-    Memory(Arc<LinearMemory>, Memory),
-    Global(Value),
+pub struct ExportIter<'a> {
+    instance: &'a Instance,
+    iter: hash_map::Iter<'a, String, ExportIndex>,
 }
 
-pub struct Imports {
-    map: HashMap<String, HashMap<String, Import>>,
-}
-
-impl Imports {
-    pub fn new() -> Self {
+impl<'a> ExportIter<'a> {
+    fn new(instance: &'a Instance) -> Self {
         Self {
-            map: HashMap::new(),
+            instance,
+            iter: instance.module.exports.iter(),
         }
     }
-
-    pub fn add(&mut self, module: impl Into<String>, name: impl Into<String>, import: Import) {
-        self.map
-            .entry(module.into())
-            .or_insert_with(|| HashMap::new())
-            .insert(name.into(), import);
-    }
-
-    pub fn get(&self, module: &str, name: &str) -> Option<&Import> {
-        self.map.get(module).and_then(|m| m.get(name))
-    }
 }
 
-impl ImportResolver for Imports {
-    fn get(&self, module: &str, name: &str) -> Option<&Import> {
-        self.get(module, name)
+impl<'a> Iterator for ExportIter<'a> {
+    type Item = (String, Export);
+    fn next(&mut self) -> Option<(String, Export)> {
+        let (name, export_index) = self.iter.next()?;
+        Some((
+            name.clone(),
+            self.instance.get_export_from_index(export_index),
+        ))
     }
-}
-
-pub trait ImportResolver {
-    fn get(&self, module: &str, name: &str) -> Option<&Import>;
 }
 
 // TODO Remove this later, only needed for compilation till emscripten is updated
