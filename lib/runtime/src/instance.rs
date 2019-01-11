@@ -344,7 +344,24 @@ impl Namespace for Instance {
 
 // TODO Remove this later, only needed for compilation till emscripten is updated
 impl Instance {
-    pub fn memory_offset_addr(&self, _index: usize, _offset: usize) -> *const usize {
-        unimplemented!("TODO replace this emscripten stub")
+    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const u8 {
+        // Get vm context.
+        let vmctx = &self.vmctx;
+
+        // Check if the index specified refers to an imported memory.
+        if index < self.module.0.imported_memories.len() {
+            // Get imported memory at specified index.
+            let memory = unsafe { vmctx.imported_memories.add(index) };
+
+            // Get the actual address of the specified offset.
+            return unsafe { (*(*memory).memory).base.add(offset) }
+        }
+
+        // Index points to a locally-defined memory
+        // Get local memory at specified index.
+        let memory = unsafe { vmctx.memories.add(index) };
+
+        // Get the actual address of the specified offset.
+        unsafe { (*memory).base.add(offset) }
     }
 }
