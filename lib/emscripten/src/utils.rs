@@ -9,7 +9,7 @@ use std::slice;
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
     for (_, import_name) in &module.imported_functions {
-        if import_name.name == "_emscripten_memcpy_big" && import_name.module == "env" {
+        if import_name.name == "_emscripten_memcpy_big" && import_name.namespace == "env" {
             return true;
         }
     }

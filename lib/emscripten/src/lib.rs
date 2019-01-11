@@ -6,7 +6,7 @@ use wasmer_runtime::{
     import::{Imports},
     export::{Export, Context},
     types::{
-        FuncSig, Type, Value,
+        FuncSig, Type::*, Value,
         GlobalDesc,
     },
     vm::{self, LocalGlobal},
@@ -91,23 +91,23 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
 }
 
 macro_rules! mock_external {
-    ($import:ident, $name:ident) => {{
-        use wasmer_runtime::types::{FuncSig, Type};
-        use wasmer_runtime::import::Import;
+    ($imports:ident, $name:ident) => {{
         extern "C" fn _mocked_fn() -> i32 {
             debug!("emscripten::{} <mock>", stringify!($name));
             -1
         }
-        $import.add(
-            "env".to_string(),
-            stringify!($name).to_string(),
-            Import::Func(
-                unsafe { FuncRef::new(_mocked_fn as _) },
-                FuncSig {
+
+        $imports.register_export(
+            "env",
+            stringify!($name),
+            Export::Function {
+                func: unsafe { FuncRef::new(_mocked_fn as _) },
+                ctx: Context::Internal,
+                signature: FuncSig {
                     params: vec![],
-                    returns: vec![Type::I32],
+                    returns: vec![I32],
                 },
-            ),
+            },
         );
     }};
 }
@@ -123,31 +123,31 @@ impl EmscriptenGlobals {
         data.push((
             "STACKTOP".into(),
             LocalGlobal { data: stacktop(STATIC_BUMP) as _ },
-            GlobalDesc { mutable: false, ty: Type::I32 }),
+            GlobalDesc { mutable: false, ty: I32 }),
         );
 
         data.push((
-            "DYNAMICTOP_PTR",
+            "DYNAMICTOP_PTR".into(),
             LocalGlobal { data: dynamictop_ptr(STATIC_BUMP) as _ },
-            GlobalDesc { mutable: false, ty: Type::I32 }),
+            GlobalDesc { mutable: false, ty: I32 }),
         );
 
         data.push((
-            "Infinity",
+            "Infinity".into(),
             LocalGlobal { data: std::f64::INFINITY.to_bits() },
-            GlobalDesc { mutable: false, ty: Type::F64 },
+            GlobalDesc { mutable: false, ty: F64 },
         ));
 
         data.push((
-            "NaN",
+            "NaN".into(),
             LocalGlobal { data: std::f64::NAN.to_bits() },
-            GlobalDesc { mutable: false, ty: Type::F64 },
+            GlobalDesc { mutable: false, ty: F64 },
         ));
 
         data.push((
-            "tableBase",
+            "tableBase".into(),
             LocalGlobal { data: 0 },
-            GlobalDesc { mutable: false, ty: Type::I32 },
+            GlobalDesc { mutable: false, ty: I32 },
         ));
 
         Self {
@@ -158,21 +158,17 @@ impl EmscriptenGlobals {
 
 
 pub fn generate_emscripten_env() -> Imports {
-    use Type::*;
-
-
     let mut imports = Imports::new();
-    let mut env_imports= HashMap::new();
     let em_globals = EmscriptenGlobals::new();
 
     // Add globals.
-    for (name, ref global, desc) in em_globals.data {
+    for (ref name, ref global, ref desc) in em_globals.data {
         let export = Export::Global {
-            local: global as *mut _,
-            global: desc,
+            local: unsafe { std::mem::transmute::<&LocalGlobal, *mut LocalGlobal>(global) },
+            global: desc.clone(),
         };
 
-        imports.register_export("env", name, export);
+        imports.register_export("env", name.clone(), export);
     }
 
     // Print functions
@@ -1343,84 +1339,84 @@ pub fn generate_emscripten_env() -> Imports {
         },
     );
 
-    mock_external!(import_object, _waitpid);
-    mock_external!(import_object, _utimes);
-    mock_external!(import_object, _usleep);
-    // mock_external!(import_object, _time);
-    // mock_external!(import_object, _sysconf);
-    // mock_external!(import_object, _strftime);
-    mock_external!(import_object, _sigsuspend);
-    // mock_external!(import_object, _sigprocmask);
-    // mock_external!(import_object, _sigemptyset);
-    // mock_external!(import_object, _sigaddset);
-    // mock_external!(import_object, _sigaction);
-    mock_external!(import_object, _setitimer);
-    mock_external!(import_object, _setgroups);
-    mock_external!(import_object, _setgrent);
-    mock_external!(import_object, _sem_wait);
-    mock_external!(import_object, _sem_post);
-    mock_external!(import_object, _sem_init);
-    mock_external!(import_object, _sched_yield);
-    mock_external!(import_object, _raise);
-    mock_external!(import_object, _mktime);
-    // mock_external!(import_object, _localtime_r);
-    // mock_external!(import_object, _localtime);
-    mock_external!(import_object, _llvm_stacksave);
-    mock_external!(import_object, _llvm_stackrestore);
-    mock_external!(import_object, _kill);
-    mock_external!(import_object, _gmtime_r);
-    // mock_external!(import_object, _gettimeofday);
-    // mock_external!(import_object, _getpagesize);
-    mock_external!(import_object, _getgrent);
-    mock_external!(import_object, _getaddrinfo);
-    // mock_external!(import_object, _fork);
-    // mock_external!(import_object, _exit);
-    mock_external!(import_object, _execve);
-    mock_external!(import_object, _endgrent);
-    // mock_external!(import_object, _clock_gettime);
-    mock_external!(import_object, ___syscall97);
-    mock_external!(import_object, ___syscall91);
-    mock_external!(import_object, ___syscall85);
-    mock_external!(import_object, ___syscall75);
-    mock_external!(import_object, ___syscall66);
-    // mock_external!(import_object, ___syscall64);
-    // mock_external!(import_object, ___syscall63);
-    // mock_external!(import_object, ___syscall60);
-    // mock_external!(import_object, ___syscall54);
-    // mock_external!(import_object, ___syscall39);
-    mock_external!(import_object, ___syscall38);
-    // mock_external!(import_object, ___syscall340);
-    mock_external!(import_object, ___syscall334);
-    mock_external!(import_object, ___syscall300);
-    mock_external!(import_object, ___syscall295);
-    mock_external!(import_object, ___syscall272);
-    mock_external!(import_object, ___syscall268);
-    // mock_external!(import_object, ___syscall221);
-    mock_external!(import_object, ___syscall220);
-    // mock_external!(import_object, ___syscall212);
-    // mock_external!(import_object, ___syscall201);
-    mock_external!(import_object, ___syscall199);
-    // mock_external!(import_object, ___syscall197);
-    mock_external!(import_object, ___syscall196);
-    // mock_external!(import_object, ___syscall195);
-    mock_external!(import_object, ___syscall194);
-    mock_external!(import_object, ___syscall191);
-    // mock_external!(import_object, ___syscall181);
-    // mock_external!(import_object, ___syscall180);
-    mock_external!(import_object, ___syscall168);
-    // mock_external!(import_object, ___syscall146);
-    // mock_external!(import_object, ___syscall145);
-    // mock_external!(import_object, ___syscall142);
-    mock_external!(import_object, ___syscall140);
-    // mock_external!(import_object, ___syscall122);
-    // mock_external!(import_object, ___syscall102);
-    // mock_external!(import_object, ___syscall20);
-    mock_external!(import_object, ___syscall15);
-    mock_external!(import_object, ___syscall10);
-    mock_external!(import_object, _dlopen);
-    mock_external!(import_object, _dlclose);
-    mock_external!(import_object, _dlsym);
-    mock_external!(import_object, _dlerror);
+    mock_external!(imports, _waitpid);
+    mock_external!(imports, _utimes);
+    mock_external!(imports, _usleep);
+    // mock_external!(imports, _time);
+    // mock_external!(imports, _sysconf);
+    // mock_external!(imports, _strftime);
+    mock_external!(imports, _sigsuspend);
+    // mock_external!(imports, _sigprocmask);
+    // mock_external!(imports, _sigemptyset);
+    // mock_external!(imports, _sigaddset);
+    // mock_external!(imports, _sigaction);
+    mock_external!(imports, _setitimer);
+    mock_external!(imports, _setgroups);
+    mock_external!(imports, _setgrent);
+    mock_external!(imports, _sem_wait);
+    mock_external!(imports, _sem_post);
+    mock_external!(imports, _sem_init);
+    mock_external!(imports, _sched_yield);
+    mock_external!(imports, _raise);
+    mock_external!(imports, _mktime);
+    // mock_external!(imports, _localtime_r);
+    // mock_external!(imports, _localtime);
+    mock_external!(imports, _llvm_stacksave);
+    mock_external!(imports, _llvm_stackrestore);
+    mock_external!(imports, _kill);
+    mock_external!(imports, _gmtime_r);
+    // mock_external!(imports, _gettimeofday);
+    // mock_external!(imports, _getpagesize);
+    mock_external!(imports, _getgrent);
+    mock_external!(imports, _getaddrinfo);
+    // mock_external!(imports, _fork);
+    // mock_external!(imports, _exit);
+    mock_external!(imports, _execve);
+    mock_external!(imports, _endgrent);
+    // mock_external!(imports, _clock_gettime);
+    mock_external!(imports, ___syscall97);
+    mock_external!(imports, ___syscall91);
+    mock_external!(imports, ___syscall85);
+    mock_external!(imports, ___syscall75);
+    mock_external!(imports, ___syscall66);
+    // mock_external!(imports, ___syscall64);
+    // mock_external!(imports, ___syscall63);
+    // mock_external!(imports, ___syscall60);
+    // mock_external!(imports, ___syscall54);
+    // mock_external!(imports, ___syscall39);
+    mock_external!(imports, ___syscall38);
+    // mock_external!(imports, ___syscall340);
+    mock_external!(imports, ___syscall334);
+    mock_external!(imports, ___syscall300);
+    mock_external!(imports, ___syscall295);
+    mock_external!(imports, ___syscall272);
+    mock_external!(imports, ___syscall268);
+    // mock_external!(imports, ___syscall221);
+    mock_external!(imports, ___syscall220);
+    // mock_external!(imports, ___syscall212);
+    // mock_external!(imports, ___syscall201);
+    mock_external!(imports, ___syscall199);
+    // mock_external!(imports, ___syscall197);
+    mock_external!(imports, ___syscall196);
+    // mock_external!(imports, ___syscall195);
+    mock_external!(imports, ___syscall194);
+    mock_external!(imports, ___syscall191);
+    // mock_external!(imports, ___syscall181);
+    // mock_external!(imports, ___syscall180);
+    mock_external!(imports, ___syscall168);
+    // mock_external!(imports, ___syscall146);
+    // mock_external!(imports, ___syscall145);
+    // mock_external!(imports, ___syscall142);
+    mock_external!(imports, ___syscall140);
+    // mock_external!(imports, ___syscall122);
+    // mock_external!(imports, ___syscall102);
+    // mock_external!(imports, ___syscall20);
+    mock_external!(imports, ___syscall15);
+    mock_external!(imports, ___syscall10);
+    mock_external!(imports, _dlopen);
+    mock_external!(imports, _dlclose);
+    mock_external!(imports, _dlsym);
+    mock_external!(imports, _dlerror);
 
-    import_object
+    imports
 }

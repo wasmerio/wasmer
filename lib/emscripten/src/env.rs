@@ -8,8 +8,8 @@ use std::mem;
 use std::os::raw::c_char;
 
 use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use super::EmscriptenData;
 use wasmer_runtime::{types::Value, Instance};
+//use super::EmscriptenData;
 
 //impl Instance {
 //    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const usize {

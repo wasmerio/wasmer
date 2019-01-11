@@ -7,6 +7,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use std::sync::Arc;
+use std::rc::Rc;
 
 use structopt::StructOpt;
 
@@ -83,8 +84,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let import_object = if abi == webassembly::InstanceABI::Emscripten {
         wasmer_emscripten::generate_emscripten_env()
     } else {
-        wasmer_runtime::Imports::new()
+        wasmer_runtime::import::Imports::new()
     };
+
+    let import_object = Rc::new(import_object);
 
     let instance_options = webassembly::InstanceOptions {
         mock_missing_imports: true,
@@ -97,7 +100,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     debug!("webassembly - creating instance");
 
-    let mut instance = module.instantiate(&import_object)
+    let mut instance = module.instantiate(import_object)
         .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(

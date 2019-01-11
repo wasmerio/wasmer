@@ -4,9 +4,12 @@ pub mod relocation;
 pub mod utils;
 
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime::{backend::Compiler, module::Module};
-use wasmer_runtime;
-use wasmer_runtime::{Import, Imports, Instance};
+use wasmer_runtime::{
+    backend::Compiler,
+    module::Module,
+    import::Imports,
+    instance::Instance,
+};
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
