@@ -1097,16 +1097,16 @@ dependencies = [
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.41 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.1.0",
- "wasmer-emscripten 0.1.1",
- "wasmer-runtime 0.1.0",
+ "wasmer-clif-backend 0.1.4",
+ "wasmer-emscripten 0.1.4",
+ "wasmer-runtime 0.1.4",
  "wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "wasmer-clif-backend"
-version = "0.1.0"
+version = "0.1.4"
 dependencies = [
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "cranelift-codegen 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1115,26 +1115,27 @@ dependencies = [
  "cranelift-wasm 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "target-lexicon 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime 0.1.0",
+ "wasmer-runtime 0.1.4",
  "wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "wasmer-emscripten"
-version = "0.1.1"
+version = "0.1.4"
 dependencies = [
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hashbrown 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.44 (git+https://github.com/rust-lang/libc)",
  "time 0.1.41 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.1.0",
- "wasmer-runtime 0.1.0",
+ "wasmer-clif-backend 0.1.4",
+ "wasmer-runtime 0.1.4",
 ]
 
 [[package]]
 name = "wasmer-runtime"
-version = "0.1.0"
+version = "0.1.4"
 dependencies = [
  "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "field-offset 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1143,7 +1144,7 @@ dependencies = [
  "nix 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "page_size 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.1.0",
+ "wasmer-clif-backend 0.1.4",
 ]
 
 [[package]]

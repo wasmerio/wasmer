@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-emscripten"
-version = "0.1.1"
+version = "0.1.4"
 authors = [
     "Lachlan Sneff <lachlan.sneff@gmail.com>",
     "Steve Akinyemi <steve@wasmer.io>",
@@ -12,6 +12,7 @@ edition = "2018"
 build = "build/mod.rs"
 
 [dependencies]
+hashbrown = "0.1"
 wasmer-runtime = { path = "../runtime" }
 libc = { git = "https://github.com/rust-lang/libc" }
 byteorder = "1"

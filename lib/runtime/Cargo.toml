@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime"
-version = "0.1.0"
+version = "0.1.4"
 authors = [
     "Lachlan Sneff <lachlan.sneff@gmail.com>",
     "Steve Akinyemi <steve@wasmer.io>",

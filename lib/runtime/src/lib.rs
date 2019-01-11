@@ -9,7 +9,7 @@ pub mod backend;
 mod backing;
 pub mod export;
 pub mod import;
-mod instance;
+pub mod instance;
 pub mod memory;
 mod mmap;
 pub mod module;
