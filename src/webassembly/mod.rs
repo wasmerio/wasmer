@@ -20,7 +20,7 @@ use wasmparser::WasmDecoder;
 
 pub use self::errors::{Error, ErrorKind};
 
-use crate::apis::emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
+use wasmer_emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.

@@ -85,7 +85,7 @@ pub fn compile(file: &str, ignores: &Vec<String>) -> Option<String> {
 
     let rs_module_name = module_name.to_lowercase();
     let rust_test_filepath = format!(
-        concat!(env!("CARGO_MANIFEST_DIR"), "/src/emtests/{}.rs"),
+        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/emtests/{}.rs"),
         rs_module_name.as_str()
     );
 

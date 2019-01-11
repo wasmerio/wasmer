@@ -1,6 +1,6 @@
 use wasmer_runtime::{Instance, module::Module};
 //use wasmer_runtime::Instance;
-use crate::apis::emscripten::env;
+use super::env;
 use libc::stat;
 use std::ffi::CStr;
 use std::mem::size_of;
@@ -141,19 +141,22 @@ pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat
 #[cfg(test)]
 mod tests {
     use super::is_emscripten_module;
-    use crate::webassembly::compile;
+    use wasmer_clif_backend::CraneliftCompiler;
+    use wabt::wat2wasm;
 
     #[test]
     fn should_detect_emscripten_files() {
-        let wasm_bytes = include_wast2wasm_bytes!("tests/is_emscripten_true.wast");
-        let module = compile(&wasm_bytes).expect("Not compiled properly");
+        const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
+        let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
+        let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
         assert!(is_emscripten_module(&module));
     }
 
     #[test]
     fn should_detect_non_emscripten_files() {
-        let wasm_bytes = include_wast2wasm_bytes!("tests/is_emscripten_false.wast");
-        let module = compile(&wasm_bytes).expect("Not compiled properly");
+        const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
+        let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
+        let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
         assert!(!is_emscripten_module(&module));
     }
 }
