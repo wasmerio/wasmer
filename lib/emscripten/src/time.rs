@@ -5,7 +5,7 @@ use std::time::SystemTime;
 
 use time;
 
-use crate::apis::emscripten::env;
+use super::env;
 use wasmer_runtime::Instance;
 
 #[cfg(target_os = "linux")]

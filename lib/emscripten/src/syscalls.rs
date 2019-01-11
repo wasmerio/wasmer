@@ -71,7 +71,7 @@ use libc::{
     TIOCGWINSZ,
 };
 
-use crate::apis::emscripten::env;
+use super::env;
 use std::mem;
 use std::slice;
 // use std::sys::fd::FileDesc;

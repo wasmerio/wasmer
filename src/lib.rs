@@ -11,6 +11,7 @@ extern crate wabt;
 extern crate wasmparser;
 extern crate wasmer_clif_backend;
 extern crate wasmer_runtime;
+extern crate wasmer_emscripten;
 #[macro_use]
 extern crate target_lexicon;
 extern crate byteorder;
@@ -27,10 +28,7 @@ extern crate winapi;
 mod macros;
 #[macro_use]
 pub mod recovery;
-pub mod apis;
 pub mod common;
-#[cfg(test)]
-mod emtests;
 pub mod sighandler;
 pub mod update;
 pub mod webassembly;

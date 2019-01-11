@@ -85,7 +85,7 @@ pub fn compile(file: &str, ignores: &Vec<String>) -> Option<String> {
 
     let rs_module_name = module_name.to_lowercase();
     let rust_test_filepath = format!(
-        concat!(env!("CARGO_MANIFEST_DIR"), "/src/emtests/{}.rs"),
+        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/emtests/{}.rs"),
         rs_module_name.as_str()
     );
 
@@ -138,7 +138,7 @@ fn test_{rs_module_name}() {{
 }
 
 pub fn build() {
-    let rust_test_modpath = concat!(env!("CARGO_MANIFEST_DIR"), "/src/emtests/mod.rs");
+    let rust_test_modpath = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/emtests/mod.rs");
 
     let mut modules: Vec<String> = Vec::new();
     // modules.reserve_exact(TESTS.len());

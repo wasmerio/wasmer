@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate wasmer_runtime;
+
 use wasmer_runtime::LinearMemory;
 use wasmer_runtime::types::{FuncSig, Type, Value};
 use wasmer_runtime::{Import, Imports, Instance, FuncRef};

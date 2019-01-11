@@ -10,7 +10,7 @@ spectests:
 	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime
 
 emtests:
-	WASM_GENERATE_EMTESTS=1 cargo build
+	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten
 
 # clean:
 #     rm -rf artifacts
