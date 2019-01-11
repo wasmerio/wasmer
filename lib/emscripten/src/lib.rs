@@ -112,12 +112,12 @@ macro_rules! mock_external {
     }};
 }
 
-struct EmscriptenGlobals {
+pub struct EmscriptenGlobals {
     pub data: Vec<(String, LocalGlobal, GlobalDesc)>,
 }
 
 impl EmscriptenGlobals {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mut data = Vec::new();
 
         data.push((
@@ -156,13 +156,11 @@ impl EmscriptenGlobals {
     }
 }
 
-
-pub fn generate_emscripten_env() -> Imports {
+pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
     let mut imports = Imports::new();
-    let em_globals = EmscriptenGlobals::new();
 
     // Add globals.
-    for (ref name, ref global, ref desc) in em_globals.data {
+    for (name, global, desc) in &globals.data {
         let export = Export::Global {
             local: unsafe { std::mem::transmute::<&LocalGlobal, *mut LocalGlobal>(global) },
             global: desc.clone(),

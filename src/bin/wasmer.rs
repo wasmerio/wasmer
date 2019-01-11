@@ -81,8 +81,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         webassembly::InstanceABI::None
     };
 
+    let emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
+
     let import_object = if abi == webassembly::InstanceABI::Emscripten {
-        wasmer_emscripten::generate_emscripten_env()
+        wasmer_emscripten::generate_emscripten_env(&emscripten_globals)
     } else {
         wasmer_runtime::import::Imports::new()
     };
