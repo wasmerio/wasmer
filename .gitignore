@@ -2,3 +2,4 @@
 **/*.rs.bk
 /artifacts
 .DS_Store
+.idea
