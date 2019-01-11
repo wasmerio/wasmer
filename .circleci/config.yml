@@ -15,6 +15,7 @@ jobs:
       - run: sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run: make test
       - run: rustup component add rustfmt
+      - run: rustup component add clippy
       - run: make lint
       - save_cache:
           paths:
@@ -55,6 +56,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
             rustup component add rustfmt
+            rustup component add clippy
       - run:
           name: Execute tests
           command: |
@@ -82,6 +84,7 @@ jobs:
           name: Execute tests
           command: make test
       - run: rustup component add rustfmt
+      - run: rustup component add clippy
       - run:
           name: Execute lints
           command: make lint
@@ -141,6 +144,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
             rustup component add rustfmt
+            rustup component add clippy
       - run:
           name: Execute tests
           command: |

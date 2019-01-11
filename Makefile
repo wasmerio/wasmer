@@ -23,6 +23,7 @@ install:
 
 lint:
 	cargo fmt --all -- --check
+	cargo clippy --all
 
 precommit: lint test
 
