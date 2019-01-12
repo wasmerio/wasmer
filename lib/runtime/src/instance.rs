@@ -26,10 +26,7 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub(crate) fn new(
-        module: Module,
-        imports: Rc<dyn ImportResolver>,
-    ) -> Result<Instance, String> {
+    pub(crate) fn new(module: Module, imports: Rc<dyn ImportResolver>) -> Result<Instance, String> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
@@ -50,10 +47,7 @@ impl Instance {
         // has been boxed.
         *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing);
 
-        let mut instance = Instance {
-            module,
-            inner,
-        };
+        let mut instance = Instance { module, inner };
 
         if let Some(start_index) = instance.module.start_func {
             instance.call_with_index(start_index, &[])?;
@@ -207,10 +201,7 @@ impl Instance {
         (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
 
-    fn get_memory_from_index(
-        &self,
-        mem_index: MemoryIndex,
-    ) -> (MemoryPointer, Context, Memory) {
+    fn get_memory_from_index(&self, mem_index: MemoryIndex) -> (MemoryPointer, Context, Memory) {
         if self.module.is_imported_memory(mem_index) {
             let &(_, mem) = &self
                 .module
@@ -219,7 +210,11 @@ impl Instance {
                 .expect("missing imported memory index");
             let vm::ImportedMemory { memory, vmctx } =
                 &self.inner.import_backing.memories[mem_index.index()];
-            (unsafe { MemoryPointer::new(*memory) }, Context::External(*vmctx), *mem)
+            (
+                unsafe { MemoryPointer::new(*memory) },
+                Context::External(*vmctx),
+                *mem,
+            )
         } else {
             let vm_mem = &self.inner.backing.memories[mem_index.index() as usize];
             (

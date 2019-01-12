@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    generate_imports,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 5
 fn create_module_1() -> Instance {
@@ -49,8 +45,11 @@ fn create_module_1() -> Instance {
       (export \"no_dce.i64.div_u\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -61,8 +60,11 @@ fn start_module_1(instance: &mut Instance) {
 // Line 16
 fn c1_l16_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c1_l16_action_invoke");
-    let result = instance.call("no_dce.i32.div_s", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "no_dce.i32.div_s",
+        &[Value::I32(1 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
@@ -76,8 +78,11 @@ fn c1_l16_assert_trap() {
 // Line 17
 fn c2_l17_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c2_l17_action_invoke");
-    let result = instance.call("no_dce.i32.div_u", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "no_dce.i32.div_u",
+        &[Value::I32(1 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
@@ -91,8 +96,11 @@ fn c2_l17_assert_trap() {
 // Line 18
 fn c3_l18_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c3_l18_action_invoke");
-    let result = instance.call("no_dce.i64.div_s", &[Value::I64(1 as i64), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "no_dce.i64.div_s",
+        &[Value::I64(1 as i64), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
@@ -106,8 +114,11 @@ fn c3_l18_assert_trap() {
 // Line 19
 fn c4_l19_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c4_l19_action_invoke");
-    let result = instance.call("no_dce.i64.div_u", &[Value::I64(1 as i64), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "no_dce.i64.div_u",
+        &[Value::I64(1 as i64), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
@@ -121,8 +132,11 @@ fn c4_l19_assert_trap() {
 // Line 20
 fn c5_l20_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c5_l20_action_invoke");
-    let result = instance.call("no_dce.i32.div_s", &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)]);
-    
+    let result = instance.call(
+        "no_dce.i32.div_s",
+        &[Value::I32(-2147483648 as i32), Value::I32(-1 as i32)],
+    );
+
     result.map(|_| ())
 }
 
@@ -136,8 +150,14 @@ fn c5_l20_assert_trap() {
 // Line 21
 fn c6_l21_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c6_l21_action_invoke");
-    let result = instance.call("no_dce.i64.div_s", &[Value::I64(-9223372036854775808 as i64), Value::I64(-1 as i64)]);
-    
+    let result = instance.call(
+        "no_dce.i64.div_s",
+        &[
+            Value::I64(-9223372036854775808 as i64),
+            Value::I64(-1 as i64),
+        ],
+    );
+
     result.map(|_| ())
 }
 
@@ -186,8 +206,11 @@ fn create_module_2() -> Instance {
       (export \"no_dce.i64.rem_u\" (func 3)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_2(instance: &mut Instance) {
@@ -198,8 +221,11 @@ fn start_module_2(instance: &mut Instance) {
 // Line 34
 fn c8_l34_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c8_l34_action_invoke");
-    let result = instance.call("no_dce.i32.rem_s", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "no_dce.i32.rem_s",
+        &[Value::I32(1 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
@@ -213,8 +239,11 @@ fn c8_l34_assert_trap() {
 // Line 35
 fn c9_l35_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c9_l35_action_invoke");
-    let result = instance.call("no_dce.i32.rem_u", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
-    
+    let result = instance.call(
+        "no_dce.i32.rem_u",
+        &[Value::I32(1 as i32), Value::I32(0 as i32)],
+    );
+
     result.map(|_| ())
 }
 
@@ -228,8 +257,11 @@ fn c9_l35_assert_trap() {
 // Line 36
 fn c10_l36_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c10_l36_action_invoke");
-    let result = instance.call("no_dce.i64.rem_s", &[Value::I64(1 as i64), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "no_dce.i64.rem_s",
+        &[Value::I64(1 as i64), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
@@ -243,8 +275,11 @@ fn c10_l36_assert_trap() {
 // Line 37
 fn c11_l37_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c11_l37_action_invoke");
-    let result = instance.call("no_dce.i64.rem_u", &[Value::I64(1 as i64), Value::I64(0 as i64)]);
-    
+    let result = instance.call(
+        "no_dce.i64.rem_u",
+        &[Value::I64(1 as i64), Value::I64(0 as i64)],
+    );
+
     result.map(|_| ())
 }
 
@@ -309,8 +344,11 @@ fn create_module_3() -> Instance {
       (export \"no_dce.i64.trunc_u_f64\" (func 7)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_3(instance: &mut Instance) {
@@ -321,8 +359,11 @@ fn start_module_3(instance: &mut Instance) {
 // Line 50
 fn c13_l50_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c13_l50_action_invoke");
-    let result = instance.call("no_dce.i32.trunc_s_f32", &[Value::F32(f32::from_bits(2143289344))]);
-    
+    let result = instance.call(
+        "no_dce.i32.trunc_s_f32",
+        &[Value::F32(f32::from_bits(2143289344))],
+    );
+
     result.map(|_| ())
 }
 
@@ -336,8 +377,11 @@ fn c13_l50_assert_trap() {
 // Line 51
 fn c14_l51_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c14_l51_action_invoke");
-    let result = instance.call("no_dce.i32.trunc_u_f32", &[Value::F32(f32::from_bits(2143289344))]);
-    
+    let result = instance.call(
+        "no_dce.i32.trunc_u_f32",
+        &[Value::F32(f32::from_bits(2143289344))],
+    );
+
     result.map(|_| ())
 }
 
@@ -351,8 +395,11 @@ fn c14_l51_assert_trap() {
 // Line 52
 fn c15_l52_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c15_l52_action_invoke");
-    let result = instance.call("no_dce.i32.trunc_s_f64", &[Value::F64(f64::from_bits(9221120237041090560))]);
-    
+    let result = instance.call(
+        "no_dce.i32.trunc_s_f64",
+        &[Value::F64(f64::from_bits(9221120237041090560))],
+    );
+
     result.map(|_| ())
 }
 
@@ -366,8 +413,11 @@ fn c15_l52_assert_trap() {
 // Line 53
 fn c16_l53_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c16_l53_action_invoke");
-    let result = instance.call("no_dce.i32.trunc_u_f64", &[Value::F64(f64::from_bits(9221120237041090560))]);
-    
+    let result = instance.call(
+        "no_dce.i32.trunc_u_f64",
+        &[Value::F64(f64::from_bits(9221120237041090560))],
+    );
+
     result.map(|_| ())
 }
 
@@ -381,8 +431,11 @@ fn c16_l53_assert_trap() {
 // Line 54
 fn c17_l54_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c17_l54_action_invoke");
-    let result = instance.call("no_dce.i64.trunc_s_f32", &[Value::F32(f32::from_bits(2143289344))]);
-    
+    let result = instance.call(
+        "no_dce.i64.trunc_s_f32",
+        &[Value::F32(f32::from_bits(2143289344))],
+    );
+
     result.map(|_| ())
 }
 
@@ -396,8 +449,11 @@ fn c17_l54_assert_trap() {
 // Line 55
 fn c18_l55_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c18_l55_action_invoke");
-    let result = instance.call("no_dce.i64.trunc_u_f32", &[Value::F32(f32::from_bits(2143289344))]);
-    
+    let result = instance.call(
+        "no_dce.i64.trunc_u_f32",
+        &[Value::F32(f32::from_bits(2143289344))],
+    );
+
     result.map(|_| ())
 }
 
@@ -411,8 +467,11 @@ fn c18_l55_assert_trap() {
 // Line 56
 fn c19_l56_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c19_l56_action_invoke");
-    let result = instance.call("no_dce.i64.trunc_s_f64", &[Value::F64(f64::from_bits(9221120237041090560))]);
-    
+    let result = instance.call(
+        "no_dce.i64.trunc_s_f64",
+        &[Value::F64(f64::from_bits(9221120237041090560))],
+    );
+
     result.map(|_| ())
 }
 
@@ -426,8 +485,11 @@ fn c19_l56_assert_trap() {
 // Line 57
 fn c20_l57_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c20_l57_action_invoke");
-    let result = instance.call("no_dce.i64.trunc_u_f64", &[Value::F64(f64::from_bits(9221120237041090560))]);
-    
+    let result = instance.call(
+        "no_dce.i64.trunc_u_f64",
+        &[Value::F64(f64::from_bits(9221120237041090560))],
+    );
+
     result.map(|_| ())
 }
 
@@ -522,8 +584,11 @@ fn create_module_4() -> Instance {
       (export \"no_dce.f64.load\" (func 13)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_4(instance: &mut Instance) {
@@ -535,7 +600,7 @@ fn start_module_4(instance: &mut Instance) {
 fn c22_l78_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c22_l78_action_invoke");
     let result = instance.call("no_dce.i32.load", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -550,7 +615,7 @@ fn c22_l78_assert_trap() {
 fn c23_l79_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c23_l79_action_invoke");
     let result = instance.call("no_dce.i32.load16_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -565,7 +630,7 @@ fn c23_l79_assert_trap() {
 fn c24_l80_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c24_l80_action_invoke");
     let result = instance.call("no_dce.i32.load16_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -580,7 +645,7 @@ fn c24_l80_assert_trap() {
 fn c25_l81_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c25_l81_action_invoke");
     let result = instance.call("no_dce.i32.load8_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -595,7 +660,7 @@ fn c25_l81_assert_trap() {
 fn c26_l82_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c26_l82_action_invoke");
     let result = instance.call("no_dce.i32.load8_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -610,7 +675,7 @@ fn c26_l82_assert_trap() {
 fn c27_l83_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c27_l83_action_invoke");
     let result = instance.call("no_dce.i64.load", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -625,7 +690,7 @@ fn c27_l83_assert_trap() {
 fn c28_l84_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c28_l84_action_invoke");
     let result = instance.call("no_dce.i64.load32_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -640,7 +705,7 @@ fn c28_l84_assert_trap() {
 fn c29_l85_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c29_l85_action_invoke");
     let result = instance.call("no_dce.i64.load32_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -655,7 +720,7 @@ fn c29_l85_assert_trap() {
 fn c30_l86_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c30_l86_action_invoke");
     let result = instance.call("no_dce.i64.load16_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -670,7 +735,7 @@ fn c30_l86_assert_trap() {
 fn c31_l87_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c31_l87_action_invoke");
     let result = instance.call("no_dce.i64.load16_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -685,7 +750,7 @@ fn c31_l87_assert_trap() {
 fn c32_l88_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c32_l88_action_invoke");
     let result = instance.call("no_dce.i64.load8_s", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -700,7 +765,7 @@ fn c32_l88_assert_trap() {
 fn c33_l89_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c33_l89_action_invoke");
     let result = instance.call("no_dce.i64.load8_u", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -715,7 +780,7 @@ fn c33_l89_assert_trap() {
 fn c34_l90_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c34_l90_action_invoke");
     let result = instance.call("no_dce.f32.load", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 
@@ -730,7 +795,7 @@ fn c34_l90_assert_trap() {
 fn c35_l91_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c35_l91_action_invoke");
     let result = instance.call("no_dce.f64.load", &[Value::I32(65536 as i32)]);
-    
+
     result.map(|_| ())
 }
 

@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    generate_imports,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 5
 fn create_module_1() -> Instance {
@@ -51,8 +47,11 @@ fn create_module_1() -> Instance {
       (data (;0;) (i32.const 0) \"\\00\\00\\a0\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -73,12 +72,15 @@ fn c2_l16_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c2_l16_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2141192192);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -86,7 +88,7 @@ fn c2_l16_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c3_l17_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c3_l17_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -110,7 +112,7 @@ fn c5_l19_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c6_l20_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c6_l20_action_invoke");
     let result = instance.call("f32.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -127,12 +129,15 @@ fn c8_l22_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c8_l22_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2141192192);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -140,7 +145,7 @@ fn c8_l22_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c9_l23_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c9_l23_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -164,7 +169,7 @@ fn c11_l25_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c12_l26_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c12_l26_action_invoke");
     let result = instance.call("i32.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -181,12 +186,15 @@ fn c14_l28_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c14_l28_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2141192192);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -244,8 +252,11 @@ fn create_module_2() -> Instance {
       (data (;0;) (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\f4\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_2(instance: &mut Instance) {
@@ -266,12 +277,15 @@ fn c17_l41_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c17_l41_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9219994337134247936);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -279,7 +293,7 @@ fn c17_l41_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c18_l42_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c18_l42_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -303,7 +317,7 @@ fn c20_l44_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c21_l45_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c21_l45_action_invoke");
     let result = instance.call("f64.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -320,12 +334,15 @@ fn c23_l47_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c23_l47_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9219994337134247936);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -333,7 +350,7 @@ fn c23_l47_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c24_l48_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c24_l48_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -357,7 +374,7 @@ fn c26_l50_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c27_l51_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c27_l51_action_invoke");
     let result = instance.call("i64.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -374,12 +391,15 @@ fn c29_l53_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c29_l53_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9219994337134247936);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -437,8 +457,11 @@ fn create_module_3() -> Instance {
       (data (;0;) (i32.const 0) \"\\00\\00\\00\\a0\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_3(instance: &mut Instance) {
@@ -459,12 +482,15 @@ fn c32_l68_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c32_l68_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2141192192);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -472,7 +498,7 @@ fn c32_l68_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c33_l69_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c33_l69_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -496,7 +522,7 @@ fn c35_l71_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c36_l72_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c36_l72_action_invoke");
     let result = instance.call("f32.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -513,12 +539,15 @@ fn c38_l74_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c38_l74_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2141192192);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -526,7 +555,7 @@ fn c38_l74_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c39_l75_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c39_l75_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -550,7 +579,7 @@ fn c41_l77_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c42_l78_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c42_l78_action_invoke");
     let result = instance.call("i32.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -567,12 +596,15 @@ fn c44_l80_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c44_l80_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2141192192);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -630,8 +662,11 @@ fn create_module_4() -> Instance {
       (data (;0;) (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\00\\f4\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_4(instance: &mut Instance) {
@@ -652,12 +687,15 @@ fn c47_l93_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c47_l93_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9219994337134247936);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -665,7 +703,7 @@ fn c47_l93_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c48_l94_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c48_l94_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -689,7 +727,7 @@ fn c50_l96_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c51_l97_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c51_l97_action_invoke");
     let result = instance.call("f64.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -706,12 +744,15 @@ fn c53_l99_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c53_l99_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9219994337134247936);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -719,7 +760,7 @@ fn c53_l99_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c54_l100_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c54_l100_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -743,7 +784,7 @@ fn c56_l102_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c57_l103_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c57_l103_action_invoke");
     let result = instance.call("i64.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -760,12 +801,15 @@ fn c59_l105_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c59_l105_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9219994337134247936);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -823,8 +867,11 @@ fn create_module_5() -> Instance {
       (data (;0;) (i32.const 0) \"\\01\\00\\d0\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_5(instance: &mut Instance) {
@@ -845,12 +892,15 @@ fn c62_l120_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c62_l120_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2144337921);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -858,7 +908,7 @@ fn c62_l120_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c63_l121_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c63_l121_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -882,7 +932,7 @@ fn c65_l123_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c66_l124_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c66_l124_action_invoke");
     let result = instance.call("f32.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -899,12 +949,15 @@ fn c68_l126_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c68_l126_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2144337921);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -912,7 +965,7 @@ fn c68_l126_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c69_l127_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c69_l127_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -936,7 +989,7 @@ fn c71_l129_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c72_l130_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c72_l130_action_invoke");
     let result = instance.call("i32.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -953,12 +1006,15 @@ fn c74_l132_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c74_l132_action_invoke");
     let result = instance.call("f32.load", &[]);
     let expected = f32::from_bits(2144337921);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -1016,8 +1072,11 @@ fn create_module_6() -> Instance {
       (data (;0;) (i32.const 0) \"\\01\\00\\00\\00\\00\\00\\fc\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_6(instance: &mut Instance) {
@@ -1038,12 +1097,15 @@ fn c77_l145_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c77_l145_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9222246136947933185);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -1051,7 +1113,7 @@ fn c77_l145_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c78_l146_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c78_l146_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -1075,7 +1137,7 @@ fn c80_l148_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c81_l149_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c81_l149_action_invoke");
     let result = instance.call("f64.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -1092,12 +1154,15 @@ fn c83_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c83_l151_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9222246136947933185);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -1105,7 +1170,7 @@ fn c83_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c84_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c84_l152_action_invoke");
     let result = instance.call("reset", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -1129,7 +1194,7 @@ fn c86_l154_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c87_l155_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c87_l155_action_invoke");
     let result = instance.call("i64.store", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -1146,12 +1211,15 @@ fn c89_l157_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c89_l157_action_invoke");
     let result = instance.call("f64.load", &[]);
     let expected = f64::from_bits(9222246136947933185);
-                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f64).is_nan());
-            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F64(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f64).is_nan());
+        assert_eq!(
+            (result as f64).is_sign_positive(),
+            (expected as f64).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 

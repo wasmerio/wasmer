@@ -18,6 +18,7 @@ use std::mem;
 use target_lexicon;
 use wasmer_runtime::{
     backend::SigRegistry,
+    memory::LinearMemory,
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInner as WasmerModule, TableInitializer,
     },
@@ -29,7 +30,6 @@ use wasmer_runtime::{
         TableIndex as WasmerTableIndex, Type as WasmerType,
     },
     vm::{self, Ctx as WasmerVMContext},
-    memory::LinearMemory,
 };
 
 /// The converter namespace contains functions for converting a Cranelift module

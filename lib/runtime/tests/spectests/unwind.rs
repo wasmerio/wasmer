@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    generate_imports,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 3
 fn create_module_1() -> Instance {
@@ -446,8 +442,11 @@ fn create_module_1() -> Instance {
       (export \"loop-value-after-return\" (func 48)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -459,7 +458,7 @@ fn start_module_1(instance: &mut Instance) {
 fn c1_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c1_l212_action_invoke");
     let result = instance.call("func-unwind-by-unreachable", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -530,7 +529,7 @@ fn c8_l219_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c9_l221_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c9_l221_action_invoke");
     let result = instance.call("block-unwind-by-unreachable", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -601,7 +600,7 @@ fn c16_l228_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c17_l230_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c17_l230_action_invoke");
     let result = instance.call("block-nested-unwind-by-unreachable", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -672,7 +671,7 @@ fn c24_l237_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c25_l239_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c25_l239_action_invoke");
     let result = instance.call("unary-after-unreachable", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -719,7 +718,7 @@ fn c29_l243_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c30_l245_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c30_l245_action_invoke");
     let result = instance.call("binary-after-unreachable", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -766,7 +765,7 @@ fn c34_l249_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c35_l251_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c35_l251_action_invoke");
     let result = instance.call("select-after-unreachable", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -813,7 +812,7 @@ fn c39_l255_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c40_l257_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c40_l257_action_invoke");
     let result = instance.call("block-value-after-unreachable", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -860,7 +859,7 @@ fn c44_l261_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c45_l263_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c45_l263_action_invoke");
     let result = instance.call("loop-value-after-unreachable", &[]);
-    
+
     result.map(|_| ())
 }
 

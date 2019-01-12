@@ -1,10 +1,7 @@
 use std::rc::Rc;
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime::{
-    import::Imports,
-    Instance,
-};
+use wasmer_runtime::{import::Imports, Instance};
 
 fn main() {
     let mut instance = create_module_1();

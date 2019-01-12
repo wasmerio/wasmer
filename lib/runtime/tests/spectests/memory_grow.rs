@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    generate_imports,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 1
 fn create_module_1() -> Instance {
@@ -52,8 +48,11 @@ fn create_module_1() -> Instance {
       (export \"size\" (func 5)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -73,7 +72,7 @@ fn c1_l14_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c2_l15_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c2_l15_action_invoke");
     let result = instance.call("store_at_zero", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -88,7 +87,7 @@ fn c2_l15_assert_trap() {
 fn c3_l16_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c3_l16_action_invoke");
     let result = instance.call("load_at_zero", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -103,7 +102,7 @@ fn c3_l16_assert_trap() {
 fn c4_l17_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c4_l17_action_invoke");
     let result = instance.call("store_at_page_size", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -118,7 +117,7 @@ fn c4_l17_assert_trap() {
 fn c5_l18_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c5_l18_action_invoke");
     let result = instance.call("load_at_page_size", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -173,7 +172,7 @@ fn c10_l23_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c11_l24_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c11_l24_action_invoke");
     let result = instance.call("store_at_page_size", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -188,7 +187,7 @@ fn c11_l24_assert_trap() {
 fn c12_l25_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c12_l25_action_invoke");
     let result = instance.call("load_at_page_size", &[]);
-    
+
     result.map(|_| ())
 }
 
@@ -295,8 +294,11 @@ fn create_module_2() -> Instance {
       (export \"grow\" (func 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_2(instance: &mut Instance) {
@@ -394,8 +396,11 @@ fn create_module_3() -> Instance {
       (export \"grow\" (func 0)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_3(instance: &mut Instance) {
@@ -523,8 +528,11 @@ fn create_module_4() -> Instance {
       (export \"check-memory-zero\" (func 1)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_4(instance: &mut Instance) {
@@ -535,7 +543,10 @@ fn start_module_4(instance: &mut Instance) {
 // Line 87
 fn c40_l87_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c40_l87_action_invoke");
-    let result = instance.call("check-memory-zero", &[Value::I32(0 as i32), Value::I32(65535 as i32)]);
+    let result = instance.call(
+        "check-memory-zero",
+        &[Value::I32(0 as i32), Value::I32(65535 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -551,7 +562,10 @@ fn c41_l88_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 89
 fn c42_l89_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c42_l89_action_invoke");
-    let result = instance.call("check-memory-zero", &[Value::I32(65536 as i32), Value::I32(131071 as i32)]);
+    let result = instance.call(
+        "check-memory-zero",
+        &[Value::I32(65536 as i32), Value::I32(131071 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -567,7 +581,10 @@ fn c43_l90_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 91
 fn c44_l91_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c44_l91_action_invoke");
-    let result = instance.call("check-memory-zero", &[Value::I32(131072 as i32), Value::I32(196607 as i32)]);
+    let result = instance.call(
+        "check-memory-zero",
+        &[Value::I32(131072 as i32), Value::I32(196607 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -583,7 +600,10 @@ fn c45_l92_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 93
 fn c46_l93_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c46_l93_action_invoke");
-    let result = instance.call("check-memory-zero", &[Value::I32(196608 as i32), Value::I32(262143 as i32)]);
+    let result = instance.call(
+        "check-memory-zero",
+        &[Value::I32(196608 as i32), Value::I32(262143 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -599,7 +619,10 @@ fn c47_l94_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 95
 fn c48_l95_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c48_l95_action_invoke");
-    let result = instance.call("check-memory-zero", &[Value::I32(262144 as i32), Value::I32(327679 as i32)]);
+    let result = instance.call(
+        "check-memory-zero",
+        &[Value::I32(262144 as i32), Value::I32(327679 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -615,7 +638,10 @@ fn c49_l96_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 97
 fn c50_l97_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c50_l97_action_invoke");
-    let result = instance.call("check-memory-zero", &[Value::I32(327680 as i32), Value::I32(393215 as i32)]);
+    let result = instance.call(
+        "check-memory-zero",
+        &[Value::I32(327680 as i32), Value::I32(393215 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -909,8 +935,11 @@ fn create_module_5() -> Instance {
       (elem (;0;) (i32.const 0) 14))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_5(instance: &mut Instance) {
@@ -1009,7 +1038,10 @@ fn c62_l273_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 275
 fn c63_l275_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c63_l275_action_invoke");
-    let result = instance.call("as-select-first", &[Value::I32(0 as i32), Value::I32(1 as i32)]);
+    let result = instance.call(
+        "as-select-first",
+        &[Value::I32(0 as i32), Value::I32(1 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1017,7 +1049,10 @@ fn c63_l275_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 276
 fn c64_l276_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c64_l276_action_invoke");
-    let result = instance.call("as-select-second", &[Value::I32(0 as i32), Value::I32(0 as i32)]);
+    let result = instance.call(
+        "as-select-second",
+        &[Value::I32(0 as i32), Value::I32(0 as i32)],
+    );
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1082,7 +1117,7 @@ fn c71_l285_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c72_l286_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c72_l286_action_invoke");
     let result = instance.call("as-call_indirect-index", &[]);
-    
+
     result.map(|_| ())
 }
 

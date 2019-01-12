@@ -121,9 +121,7 @@ impl Memory {
     }
 
     pub(crate) fn fits_in_imported(&self, imported: &Memory) -> bool {
-        self.shared == imported.shared
-        && self.max == imported.max
-        && self.min <= imported.min
+        self.shared == imported.shared && self.max == imported.max && self.min <= imported.min
     }
 }
 

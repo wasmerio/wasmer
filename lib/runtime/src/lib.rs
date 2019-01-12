@@ -4,17 +4,17 @@ extern crate field_offset;
 
 #[macro_use]
 mod macros;
+pub mod backend;
 mod backing;
+pub mod export;
+pub mod import;
 mod instance;
+pub mod memory;
 mod mmap;
+pub mod module;
 mod recovery;
 mod sig_registry;
 mod sighandler;
-pub mod backend;
-pub mod export;
-pub mod import;
-pub mod module;
-pub mod memory;
 pub mod table;
 pub mod types;
 pub mod vm;

@@ -1,8 +1,7 @@
 use crate::{
-    types::{FuncSig, GlobalDesc, Memory, Table},
     module::ExportIndex,
-    vm,
-    Instance,
+    types::{FuncSig, GlobalDesc, Memory, Table},
+    vm, Instance,
 };
 use hashbrown::hash_map;
 

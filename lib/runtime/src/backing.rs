@@ -195,7 +195,9 @@ fn import_memories(
     vmctx: *mut vm::Ctx,
 ) -> Result<Box<[vm::ImportedMemory]>, String> {
     let mut memories = Vec::with_capacity(module.imported_memories.len());
-    for (_index, (ImportName { namespace, name }, expected_memory_desc)) in &module.imported_memories {
+    for (_index, (ImportName { namespace, name }, expected_memory_desc)) in
+        &module.imported_memories
+    {
         let memory_import = imports.get(namespace, name);
         match memory_import {
             Some(Export::Memory {
@@ -219,10 +221,7 @@ fn import_memories(
                 }
             }
             Some(_) => {
-                return Err(format!(
-                    "incorrect import type for {}:{}",
-                    namespace, name
-                ));
+                return Err(format!("incorrect import type for {}:{}", namespace, name));
             }
             None => {
                 return Err(format!("import not found: {}:{}", namespace, name));
@@ -284,7 +283,9 @@ fn import_globals(
         match import {
             Some(Export::Global { local, global }) => {
                 if &global == global_desc {
-                    globals.push(vm::ImportedGlobal { global: local.inner() });
+                    globals.push(vm::ImportedGlobal {
+                        global: local.inner(),
+                    });
                 } else {
                     return Err(format!(
                         "unexpected global description for {:?}:{:?}",

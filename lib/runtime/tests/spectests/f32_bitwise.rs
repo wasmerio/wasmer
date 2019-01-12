@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    generate_imports,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 4
 fn create_module_1() -> Instance {
@@ -38,8 +34,11 @@ fn create_module_1() -> Instance {
       (export \"copysign\" (func 2)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -82,7 +81,13 @@ fn c4_l13_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 14
 fn c5_l14_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c5_l14_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -90,7 +95,13 @@ fn c5_l14_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 15
 fn c6_l15_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c6_l15_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.0f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -98,7 +109,13 @@ fn c6_l15_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 16
 fn c7_l16_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c7_l16_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -106,7 +123,13 @@ fn c7_l16_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 17
 fn c8_l17_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c8_l17_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.0f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -114,7 +137,13 @@ fn c8_l17_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 18
 fn c9_l18_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c9_l18_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -122,7 +151,13 @@ fn c9_l18_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 19
 fn c10_l19_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c10_l19_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.0f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -130,7 +165,13 @@ fn c10_l19_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 20
 fn c11_l20_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c11_l20_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -138,7 +179,13 @@ fn c11_l20_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 21
 fn c12_l21_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c12_l21_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.0f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -210,7 +257,10 @@ fn c20_l29_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 30
 fn c21_l30_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c21_l30_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-0.0f32)), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -218,7 +268,10 @@ fn c21_l30_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 31
 fn c22_l31_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c22_l31_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-0.0f32)), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -226,7 +279,10 @@ fn c22_l31_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 32
 fn c23_l32_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c23_l32_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.0f32)), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -234,7 +290,10 @@ fn c23_l32_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 33
 fn c24_l33_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c24_l33_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.0f32)), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -242,7 +301,13 @@ fn c24_l33_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 34
 fn c25_l34_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c25_l34_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.0f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -250,7 +315,13 @@ fn c25_l34_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 35
 fn c26_l35_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c26_l35_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.0f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -258,7 +329,13 @@ fn c26_l35_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 36
 fn c27_l36_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c27_l36_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.0f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -266,7 +343,13 @@ fn c27_l36_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 37
 fn c28_l37_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c28_l37_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.0f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -274,7 +357,10 @@ fn c28_l37_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 38
 fn c29_l38_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c29_l38_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-0.0f32)), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -282,7 +368,10 @@ fn c29_l38_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 39
 fn c30_l39_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c30_l39_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-0.0f32)), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -290,7 +379,10 @@ fn c30_l39_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 40
 fn c31_l40_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c31_l40_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.0f32)), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -298,7 +390,10 @@ fn c31_l40_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 41
 fn c32_l41_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c32_l41_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.0f32)), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -306,7 +401,13 @@ fn c32_l41_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 42
 fn c33_l42_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c33_l42_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.0f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -314,7 +415,13 @@ fn c33_l42_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 43
 fn c34_l43_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c34_l43_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.0f32)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.0f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -322,7 +429,10 @@ fn c34_l43_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 44
 fn c35_l44_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c35_l44_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.0f32)), Value::F32(f32::from_bits(4290772992))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.0f32)))));
     result.map(|_| ())
 }
@@ -330,7 +440,10 @@ fn c35_l44_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 45
 fn c36_l45_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c36_l45_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.0f32)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.0f32)), Value::F32(f32::from_bits(2143289344))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.0f32)))));
     result.map(|_| ())
 }
@@ -338,576 +451,1368 @@ fn c36_l45_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 46
 fn c37_l46_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c37_l46_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((-0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 47
 fn c38_l47_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c38_l47_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 48
 fn c39_l48_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c39_l48_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((-0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 49
 fn c40_l49_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c40_l49_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 50
 fn c41_l50_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c41_l50_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 51
 fn c42_l51_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c42_l51_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 52
 fn c43_l52_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c43_l52_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 53
 fn c44_l53_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c44_l53_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 54
 fn c45_l54_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c45_l54_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 55
 fn c46_l55_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c46_l55_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 56
 fn c47_l56_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c47_l56_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 57
 fn c48_l57_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c48_l57_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 58
 fn c49_l58_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c49_l58_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((-0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 59
 fn c50_l59_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c50_l59_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 60
 fn c51_l60_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c51_l60_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((-0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 61
 fn c52_l61_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c52_l61_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 62
 fn c53_l62_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c53_l62_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((-1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 63
 fn c54_l63_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c54_l63_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 64
 fn c55_l64_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c55_l64_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((-1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 65
 fn c56_l65_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c56_l65_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 66
 fn c57_l66_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c57_l66_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((-6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 67
 fn c58_l67_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c58_l67_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 68
 fn c59_l68_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c59_l68_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((-6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 69
 fn c60_l69_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c60_l69_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 70
 fn c61_l70_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c61_l70_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 71
 fn c62_l71_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c62_l71_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 72
 fn c63_l72_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c63_l72_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 73
 fn c64_l73_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c64_l73_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 74
 fn c65_l74_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c65_l74_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32(f32::NEG_INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32(f32::NEG_INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 75
 fn c66_l75_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c66_l75_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32(f32::INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32(f32::INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 76
 fn c67_l76_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c67_l76_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32(f32::NEG_INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32(f32::NEG_INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 77
 fn c68_l77_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c68_l77_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32(f32::INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32(f32::INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 78
 fn c69_l78_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c69_l78_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32(f32::from_bits(4290772992))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 79
 fn c70_l79_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c70_l79_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000000000001f32)), Value::F32(f32::from_bits(2143289344))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 80
 fn c71_l80_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c71_l80_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32(f32::from_bits(4290772992))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 81
 fn c72_l81_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c72_l81_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000000000001f32)), Value::F32(f32::from_bits(2143289344))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 82
 fn c73_l82_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c73_l82_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((-0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 83
 fn c74_l83_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c74_l83_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 84
 fn c75_l84_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c75_l84_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((-0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 85
 fn c76_l85_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c76_l85_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 86
 fn c77_l86_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c77_l86_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 87
 fn c78_l87_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c78_l87_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 88
 fn c79_l88_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c79_l88_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 89
 fn c80_l89_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c80_l89_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 90
 fn c81_l90_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c81_l90_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 91
 fn c82_l91_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c82_l91_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 92
 fn c83_l92_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c83_l92_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 93
 fn c84_l93_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c84_l93_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 94
 fn c85_l94_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c85_l94_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((-0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 95
 fn c86_l95_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c86_l95_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 96
 fn c87_l96_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c87_l96_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((-0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 97
 fn c88_l97_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c88_l97_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 98
 fn c89_l98_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c89_l98_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((-1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 99
 fn c90_l99_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c90_l99_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 100
 fn c91_l100_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c91_l100_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((-1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 101
 fn c92_l101_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c92_l101_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 102
 fn c93_l102_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c93_l102_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((-6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 103
 fn c94_l103_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c94_l103_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 104
 fn c95_l104_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c95_l104_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((-6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 105
 fn c96_l105_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c96_l105_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 106
 fn c97_l106_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c97_l106_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 107
 fn c98_l107_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c98_l107_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 108
 fn c99_l108_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c99_l108_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 109
 fn c100_l109_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c100_l109_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 110
 fn c101_l110_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c101_l110_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32(f32::NEG_INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32(f32::NEG_INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 111
 fn c102_l111_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c102_l111_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32(f32::INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32(f32::INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 112
 fn c103_l112_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c103_l112_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32(f32::NEG_INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32(f32::NEG_INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 113
 fn c104_l113_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c104_l113_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32(f32::INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32(f32::INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 114
 fn c105_l114_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c105_l114_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32(f32::from_bits(4290772992))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 115
 fn c106_l115_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c106_l115_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.000000000000000000000000000000000000011754944f32)), Value::F32(f32::from_bits(2143289344))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 116
 fn c107_l116_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c107_l116_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32(f32::from_bits(4290772992))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 117
 fn c108_l117_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c108_l117_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.000000000000000000000000000000000000011754944f32)), Value::F32(f32::from_bits(2143289344))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
@@ -946,7 +1851,13 @@ fn c112_l121_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 122
 fn c113_l122_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c113_l122_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.5f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -954,7 +1865,13 @@ fn c113_l122_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 123
 fn c114_l123_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c114_l123_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.5f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -962,7 +1879,13 @@ fn c114_l123_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 124
 fn c115_l124_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c115_l124_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.5f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -970,7 +1893,13 @@ fn c115_l124_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 125
 fn c116_l125_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c116_l125_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.5f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -978,7 +1907,13 @@ fn c116_l125_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 126
 fn c117_l126_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c117_l126_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.5f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -986,7 +1921,13 @@ fn c117_l126_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 127
 fn c118_l127_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c118_l127_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.5f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -994,7 +1935,13 @@ fn c118_l127_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 128
 fn c119_l128_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c119_l128_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.5f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1002,7 +1949,13 @@ fn c119_l128_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 129
 fn c120_l129_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c120_l129_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.5f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1074,7 +2027,10 @@ fn c128_l137_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 138
 fn c129_l138_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c129_l138_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-0.5f32)), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1082,7 +2038,10 @@ fn c129_l138_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 139
 fn c130_l139_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c130_l139_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-0.5f32)), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1090,7 +2049,10 @@ fn c130_l139_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 140
 fn c131_l140_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c131_l140_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.5f32)), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1098,7 +2060,10 @@ fn c131_l140_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 141
 fn c132_l141_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c132_l141_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.5f32)), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1106,7 +2071,13 @@ fn c132_l141_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 142
 fn c133_l142_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c133_l142_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.5f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1114,7 +2085,13 @@ fn c133_l142_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 143
 fn c134_l143_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c134_l143_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.5f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1122,7 +2099,13 @@ fn c134_l143_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 144
 fn c135_l144_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c135_l144_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.5f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1130,7 +2113,13 @@ fn c135_l144_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 145
 fn c136_l145_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c136_l145_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((0.5f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1138,7 +2127,10 @@ fn c136_l145_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 146
 fn c137_l146_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c137_l146_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-0.5f32)), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1146,7 +2138,10 @@ fn c137_l146_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 147
 fn c138_l147_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c138_l147_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-0.5f32)), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1154,7 +2149,10 @@ fn c138_l147_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 148
 fn c139_l148_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c139_l148_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.5f32)), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1162,7 +2160,10 @@ fn c139_l148_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 149
 fn c140_l149_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c140_l149_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.5f32)), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1170,7 +2171,13 @@ fn c140_l149_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 150
 fn c141_l150_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c141_l150_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.5f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1178,7 +2185,13 @@ fn c141_l150_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 151
 fn c142_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c142_l151_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-0.5f32)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-0.5f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1186,7 +2199,10 @@ fn c142_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 152
 fn c143_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c143_l152_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.5f32)), Value::F32(f32::from_bits(4290772992))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-0.5f32)))));
     result.map(|_| ())
 }
@@ -1194,7 +2210,10 @@ fn c143_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 153
 fn c144_l153_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c144_l153_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((0.5f32)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((0.5f32)), Value::F32(f32::from_bits(2143289344))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((0.5f32)))));
     result.map(|_| ())
 }
@@ -1234,7 +2253,13 @@ fn c148_l157_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 158
 fn c149_l158_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c149_l158_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-1.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1242,7 +2267,13 @@ fn c149_l158_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 159
 fn c150_l159_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c150_l159_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-1.0f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1250,7 +2281,13 @@ fn c150_l159_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 160
 fn c151_l160_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c151_l160_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((1.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1258,7 +2295,13 @@ fn c151_l160_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 161
 fn c152_l161_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c152_l161_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((1.0f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1266,7 +2309,13 @@ fn c152_l161_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 162
 fn c153_l162_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c153_l162_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-1.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1274,7 +2323,13 @@ fn c153_l162_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 163
 fn c154_l163_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c154_l163_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-1.0f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1282,7 +2337,13 @@ fn c154_l163_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 164
 fn c155_l164_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c155_l164_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((1.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1290,7 +2351,13 @@ fn c155_l164_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 165
 fn c156_l165_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c156_l165_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((1.0f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1362,7 +2429,10 @@ fn c164_l173_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 174
 fn c165_l174_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c165_l174_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-1.0f32)), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1370,7 +2440,10 @@ fn c165_l174_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 175
 fn c166_l175_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c166_l175_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-1.0f32)), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1378,7 +2451,10 @@ fn c166_l175_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 176
 fn c167_l176_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c167_l176_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((1.0f32)), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1386,7 +2462,10 @@ fn c167_l176_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 177
 fn c168_l177_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c168_l177_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((1.0f32)), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1394,7 +2473,13 @@ fn c168_l177_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 178
 fn c169_l178_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c169_l178_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-1.0f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1402,7 +2487,13 @@ fn c169_l178_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 179
 fn c170_l179_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c170_l179_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-1.0f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1410,7 +2501,13 @@ fn c170_l179_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 180
 fn c171_l180_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c171_l180_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((1.0f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1418,7 +2515,13 @@ fn c171_l180_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 181
 fn c172_l181_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c172_l181_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((1.0f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1426,7 +2529,10 @@ fn c172_l181_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 182
 fn c173_l182_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c173_l182_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-1.0f32)), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1434,7 +2540,10 @@ fn c173_l182_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 183
 fn c174_l183_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c174_l183_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-1.0f32)), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1442,7 +2551,10 @@ fn c174_l183_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 184
 fn c175_l184_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c175_l184_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((1.0f32)), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1450,7 +2562,10 @@ fn c175_l184_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 185
 fn c176_l185_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c176_l185_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((1.0f32)), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1458,7 +2573,13 @@ fn c176_l185_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 186
 fn c177_l186_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c177_l186_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-1.0f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1466,7 +2587,13 @@ fn c177_l186_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 187
 fn c178_l187_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c178_l187_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-1.0f32)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-1.0f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1474,7 +2601,10 @@ fn c178_l187_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 188
 fn c179_l188_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c179_l188_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((1.0f32)), Value::F32(f32::from_bits(4290772992))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-1.0f32)))));
     result.map(|_| ())
 }
@@ -1482,7 +2612,10 @@ fn c179_l188_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 189
 fn c180_l189_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c180_l189_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((1.0f32)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((1.0f32)), Value::F32(f32::from_bits(2143289344))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((1.0f32)))));
     result.map(|_| ())
 }
@@ -1490,7 +2623,10 @@ fn c180_l189_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 190
 fn c181_l190_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c181_l190_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((-0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32((-0.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1498,7 +2634,10 @@ fn c181_l190_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 191
 fn c182_l191_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c182_l191_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32((0.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1506,7 +2645,10 @@ fn c182_l191_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 192
 fn c183_l192_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c183_l192_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((-0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32((-0.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1514,7 +2656,10 @@ fn c183_l192_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 193
 fn c184_l193_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c184_l193_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32((0.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1522,7 +2667,13 @@ fn c184_l193_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 194
 fn c185_l194_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c185_l194_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-6.2831855f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1530,7 +2681,13 @@ fn c185_l194_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 195
 fn c186_l195_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c186_l195_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-6.2831855f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1538,7 +2695,13 @@ fn c186_l195_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 196
 fn c187_l196_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c187_l196_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((6.2831855f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1546,7 +2709,13 @@ fn c187_l196_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 197
 fn c188_l197_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c188_l197_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((6.2831855f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1554,7 +2723,13 @@ fn c188_l197_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 198
 fn c189_l198_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c189_l198_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-6.2831855f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1562,7 +2737,13 @@ fn c189_l198_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 199
 fn c190_l199_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c190_l199_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-6.2831855f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1570,7 +2751,13 @@ fn c190_l199_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 200
 fn c191_l200_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c191_l200_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((6.2831855f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1578,7 +2765,13 @@ fn c191_l200_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 201
 fn c192_l201_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c192_l201_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((6.2831855f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1586,7 +2779,10 @@ fn c192_l201_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 202
 fn c193_l202_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c193_l202_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((-0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32((-0.5f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1594,7 +2790,10 @@ fn c193_l202_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 203
 fn c194_l203_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c194_l203_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32((0.5f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1602,7 +2801,10 @@ fn c194_l203_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 204
 fn c195_l204_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c195_l204_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((-0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32((-0.5f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1610,7 +2812,10 @@ fn c195_l204_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 205
 fn c196_l205_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c196_l205_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32((0.5f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1618,7 +2823,10 @@ fn c196_l205_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 206
 fn c197_l206_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c197_l206_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((-1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32((-1.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1626,7 +2834,10 @@ fn c197_l206_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 207
 fn c198_l207_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c198_l207_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32((1.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1634,7 +2845,10 @@ fn c198_l207_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 208
 fn c199_l208_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c199_l208_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((-1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32((-1.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1642,7 +2856,10 @@ fn c199_l208_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 209
 fn c200_l209_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c200_l209_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32((1.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1650,7 +2867,10 @@ fn c200_l209_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 210
 fn c201_l210_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c201_l210_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1658,7 +2878,10 @@ fn c201_l210_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 211
 fn c202_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c202_l211_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1666,7 +2889,10 @@ fn c202_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 212
 fn c203_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c203_l212_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1674,7 +2900,10 @@ fn c203_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 213
 fn c204_l213_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c204_l213_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1682,7 +2911,13 @@ fn c204_l213_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 214
 fn c205_l214_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c205_l214_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-6.2831855f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1690,7 +2925,13 @@ fn c205_l214_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 215
 fn c206_l215_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c206_l215_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-6.2831855f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1698,7 +2939,13 @@ fn c206_l215_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 216
 fn c207_l216_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c207_l216_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((6.2831855f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1706,7 +2953,13 @@ fn c207_l216_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 217
 fn c208_l217_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c208_l217_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((6.2831855f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1714,7 +2967,10 @@ fn c208_l217_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 218
 fn c209_l218_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c209_l218_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1722,7 +2978,10 @@ fn c209_l218_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 219
 fn c210_l219_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c210_l219_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((-6.2831855f32)), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1730,7 +2989,10 @@ fn c210_l219_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 220
 fn c211_l220_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c211_l220_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1738,7 +3000,10 @@ fn c211_l220_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 221
 fn c212_l221_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c212_l221_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32((6.2831855f32)), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1746,7 +3011,13 @@ fn c212_l221_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 222
 fn c213_l222_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c213_l222_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-6.2831855f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1754,7 +3025,13 @@ fn c213_l222_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 223
 fn c214_l223_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c214_l223_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-6.2831855f32)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-6.2831855f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1762,7 +3039,13 @@ fn c214_l223_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 224
 fn c215_l224_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c215_l224_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((6.2831855f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((-6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1770,7 +3053,13 @@ fn c215_l224_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 225
 fn c216_l225_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c216_l225_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((6.2831855f32)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((6.2831855f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32((6.2831855f32)))));
     result.map(|_| ())
 }
@@ -1778,295 +3067,694 @@ fn c216_l225_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 226
 fn c217_l226_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c217_l226_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((-0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((-0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 227
 fn c218_l227_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c218_l227_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 228
 fn c219_l228_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c219_l228_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((-0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((-0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 229
 fn c220_l229_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c220_l229_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((0.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((0.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 230
 fn c221_l230_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c221_l230_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 231
 fn c222_l231_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c222_l231_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 232
 fn c223_l232_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c223_l232_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 233
 fn c224_l233_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c224_l233_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 234
 fn c225_l234_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c225_l234_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 235
 fn c226_l235_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c226_l235_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 236
 fn c227_l236_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c227_l236_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 237
 fn c228_l237_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c228_l237_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 238
 fn c229_l238_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c229_l238_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((-0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((-0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 239
 fn c230_l239_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c230_l239_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 240
 fn c231_l240_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c231_l240_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((-0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((-0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 241
 fn c232_l241_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c232_l241_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((0.5f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((0.5f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 242
 fn c233_l242_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c233_l242_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((-1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((-1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 243
 fn c234_l243_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c234_l243_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 244
 fn c235_l244_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c235_l244_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((-1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((-1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 245
 fn c236_l245_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c236_l245_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((1.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((1.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 246
 fn c237_l246_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c237_l246_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((-6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((-6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 247
 fn c238_l247_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c238_l247_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 248
 fn c239_l248_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c239_l248_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((-6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((-6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 249
 fn c240_l249_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c240_l249_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((6.2831855f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((6.2831855f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 250
 fn c241_l250_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c241_l250_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 251
 fn c242_l251_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c242_l251_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 252
 fn c243_l252_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c243_l252_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 253
 fn c244_l253_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c244_l253_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32((340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 254
 fn c245_l254_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c245_l254_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32(f32::NEG_INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32(f32::NEG_INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 255
 fn c246_l255_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c246_l255_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32(f32::INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32(f32::INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 256
 fn c247_l256_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c247_l256_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32(f32::NEG_INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32(f32::NEG_INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 257
 fn c248_l257_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c248_l257_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32(f32::INFINITY)]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32(f32::INFINITY),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 258
 fn c249_l258_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c249_l258_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32(f32::from_bits(4290772992))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 259
 fn c250_l259_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c250_l259_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((-340282350000000000000000000000000000000.0f32)), Value::F32(f32::from_bits(2143289344))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 260
 fn c251_l260_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c251_l260_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32(f32::from_bits(4290772992))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 261
 fn c252_l261_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c252_l261_action_invoke");
-    let result = instance.call("copysign", &[Value::F32((340282350000000000000000000000000000000.0f32)), Value::F32(f32::from_bits(2143289344))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 262
 fn c253_l262_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c253_l262_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((-0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32((-0.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2074,7 +3762,10 @@ fn c253_l262_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 263
 fn c254_l263_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c254_l263_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32((0.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2082,7 +3773,10 @@ fn c254_l263_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 264
 fn c255_l264_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c255_l264_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((-0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32((-0.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2090,7 +3784,10 @@ fn c255_l264_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 265
 fn c256_l265_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c256_l265_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32((0.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2098,7 +3795,13 @@ fn c256_l265_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 266
 fn c257_l266_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c257_l266_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::NEG_INFINITY),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2106,7 +3809,13 @@ fn c257_l266_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 267
 fn c258_l267_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c258_l267_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::NEG_INFINITY),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2114,7 +3823,13 @@ fn c258_l267_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 268
 fn c259_l268_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c259_l268_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::INFINITY),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2122,7 +3837,13 @@ fn c259_l268_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 269
 fn c260_l269_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c260_l269_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::INFINITY),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2130,7 +3851,13 @@ fn c260_l269_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 270
 fn c261_l270_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c261_l270_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::NEG_INFINITY),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2138,7 +3865,13 @@ fn c261_l270_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 271
 fn c262_l271_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c262_l271_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::NEG_INFINITY),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2146,7 +3879,13 @@ fn c262_l271_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 272
 fn c263_l272_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c263_l272_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::INFINITY),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2154,7 +3893,13 @@ fn c263_l272_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 273
 fn c264_l273_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c264_l273_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::INFINITY),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2162,7 +3907,10 @@ fn c264_l273_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 274
 fn c265_l274_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c265_l274_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((-0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32((-0.5f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2170,7 +3918,10 @@ fn c265_l274_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 275
 fn c266_l275_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c266_l275_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32((0.5f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2178,7 +3929,10 @@ fn c266_l275_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 276
 fn c267_l276_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c267_l276_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((-0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32((-0.5f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2186,7 +3940,10 @@ fn c267_l276_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 277
 fn c268_l277_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c268_l277_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32((0.5f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2194,7 +3951,10 @@ fn c268_l277_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 278
 fn c269_l278_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c269_l278_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((-1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32((-1.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2202,7 +3962,10 @@ fn c269_l278_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 279
 fn c270_l279_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c270_l279_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32((1.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2210,7 +3973,10 @@ fn c270_l279_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 280
 fn c271_l280_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c271_l280_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((-1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32((-1.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2218,7 +3984,10 @@ fn c271_l280_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 281
 fn c272_l281_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c272_l281_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32((1.0f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2226,7 +3995,10 @@ fn c272_l281_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 282
 fn c273_l282_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c273_l282_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2234,7 +4006,10 @@ fn c273_l282_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 283
 fn c274_l283_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c274_l283_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2242,7 +4017,10 @@ fn c274_l283_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 284
 fn c275_l284_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c275_l284_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32((-6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2250,7 +4028,10 @@ fn c275_l284_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 285
 fn c276_l285_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c276_l285_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32((6.2831855f32))],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2258,7 +4039,13 @@ fn c276_l285_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 286
 fn c277_l286_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c277_l286_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::NEG_INFINITY),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2266,7 +4053,13 @@ fn c277_l286_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 287
 fn c278_l287_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c278_l287_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::NEG_INFINITY),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2274,7 +4067,13 @@ fn c278_l287_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 288
 fn c279_l288_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c279_l288_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::INFINITY),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2282,7 +4081,13 @@ fn c279_l288_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 289
 fn c280_l289_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c280_l289_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::INFINITY),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2290,7 +4095,10 @@ fn c280_l289_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 290
 fn c281_l290_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c281_l290_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2298,7 +4106,10 @@ fn c281_l290_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 291
 fn c282_l291_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c282_l291_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::NEG_INFINITY), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2306,7 +4117,10 @@ fn c282_l291_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 292
 fn c283_l292_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c283_l292_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32(f32::NEG_INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2314,7 +4128,10 @@ fn c283_l292_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 293
 fn c284_l293_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c284_l293_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::INFINITY), Value::F32(f32::INFINITY)],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2322,7 +4139,13 @@ fn c284_l293_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 294
 fn c285_l294_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c285_l294_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::NEG_INFINITY),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2330,7 +4153,13 @@ fn c285_l294_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 295
 fn c286_l295_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c286_l295_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::NEG_INFINITY), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::NEG_INFINITY),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2338,7 +4167,13 @@ fn c286_l295_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 296
 fn c287_l296_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c287_l296_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::INFINITY),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2346,7 +4181,13 @@ fn c287_l296_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 297
 fn c288_l297_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c288_l297_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::INFINITY), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::INFINITY),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     assert_eq!(result, Ok(Some(Value::F32(f32::INFINITY))));
     result.map(|_| ())
 }
@@ -2354,504 +4195,810 @@ fn c288_l297_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 298
 fn c289_l298_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c289_l298_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((-0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((-0.0f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 299
 fn c290_l299_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c290_l299_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::from_bits(4290772992)), Value::F32((0.0f32))],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 300
 fn c291_l300_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c291_l300_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((-0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((-0.0f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 301
 fn c292_l301_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c292_l301_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((0.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::from_bits(2143289344)), Value::F32((0.0f32))],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 302
 fn c293_l302_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c293_l302_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 303
 fn c294_l303_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c294_l303_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 304
 fn c295_l304_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c295_l304_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((-0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 305
 fn c296_l305_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c296_l305_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((0.000000000000000000000000000000000000000000001f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((0.000000000000000000000000000000000000000000001f32)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 306
 fn c297_l306_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c297_l306_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 307
 fn c298_l307_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c298_l307_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 308
 fn c299_l308_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c299_l308_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((-0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 309
 fn c300_l309_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c300_l309_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((0.000000000000000000000000000000000000011754944f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((0.000000000000000000000000000000000000011754944f32)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 310
 fn c301_l310_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c301_l310_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((-0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((-0.5f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 311
 fn c302_l311_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c302_l311_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::from_bits(4290772992)), Value::F32((0.5f32))],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 312
 fn c303_l312_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c303_l312_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((-0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((-0.5f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 313
 fn c304_l313_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c304_l313_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((0.5f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::from_bits(2143289344)), Value::F32((0.5f32))],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 314
 fn c305_l314_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c305_l314_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((-1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((-1.0f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 315
 fn c306_l315_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c306_l315_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::from_bits(4290772992)), Value::F32((1.0f32))],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 316
 fn c307_l316_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c307_l316_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((-1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((-1.0f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 317
 fn c308_l317_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c308_l317_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((1.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[Value::F32(f32::from_bits(2143289344)), Value::F32((1.0f32))],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 318
 fn c309_l318_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c309_l318_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((-6.2831855f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 319
 fn c310_l319_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c310_l319_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((6.2831855f32)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 320
 fn c311_l320_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c311_l320_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((-6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((-6.2831855f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 321
 fn c312_l321_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c312_l321_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((6.2831855f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((6.2831855f32)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 322
 fn c313_l322_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c313_l322_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 323
 fn c314_l323_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c314_l323_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 324
 fn c315_l324_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c315_l324_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((-340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((-340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 325
 fn c316_l325_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c316_l325_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32((340282350000000000000000000000000000000.0f32))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32((340282350000000000000000000000000000000.0f32)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 326
 fn c317_l326_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c317_l326_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32(f32::NEG_INFINITY),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 327
 fn c318_l327_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c318_l327_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32(f32::INFINITY),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 328
 fn c319_l328_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c319_l328_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32(f32::NEG_INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32(f32::NEG_INFINITY),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 329
 fn c320_l329_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c320_l329_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32(f32::INFINITY)]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32(f32::INFINITY),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 330
 fn c321_l330_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c321_l330_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 331
 fn c322_l331_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c322_l331_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(4290772992)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(4290772992)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 332
 fn c323_l332_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c323_l332_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32(f32::from_bits(4290772992))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32(f32::from_bits(4290772992)),
+        ],
+    );
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
 // Line 333
 fn c324_l333_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c324_l333_action_invoke");
-    let result = instance.call("copysign", &[Value::F32(f32::from_bits(2143289344)), Value::F32(f32::from_bits(2143289344))]);
+    let result = instance.call(
+        "copysign",
+        &[
+            Value::F32(f32::from_bits(2143289344)),
+            Value::F32(f32::from_bits(2143289344)),
+        ],
+    );
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -2874,32 +5021,72 @@ fn c326_l335_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 336
 fn c327_l336_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c327_l336_action_invoke");
-    let result = instance.call("abs", &[Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "abs",
+        &[Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32),
+        )],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 337
 fn c328_l337_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c328_l337_action_invoke");
-    let result = instance.call("abs", &[Value::F32((0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "abs",
+        &[Value::F32(
+            (0.000000000000000000000000000000000000000000001f32),
+        )],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 338
 fn c329_l338_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c329_l338_action_invoke");
-    let result = instance.call("abs", &[Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "abs",
+        &[Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32),
+        )],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 339
 fn c330_l339_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c330_l339_action_invoke");
-    let result = instance.call("abs", &[Value::F32((0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "abs",
+        &[Value::F32(
+            (0.000000000000000000000000000000000000011754944f32),
+        )],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
@@ -2954,16 +5141,32 @@ fn c336_l345_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 346
 fn c337_l346_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c337_l346_action_invoke");
-    let result = instance.call("abs", &[Value::F32((-340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "abs",
+        &[Value::F32((-340282350000000000000000000000000000000.0f32))],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 347
 fn c338_l347_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c338_l347_action_invoke");
-    let result = instance.call("abs", &[Value::F32((340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "abs",
+        &[Value::F32((340282350000000000000000000000000000000.0f32))],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
@@ -2988,12 +5191,15 @@ fn c341_l350_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c341_l350_action_invoke");
     let result = instance.call("abs", &[Value::F32(f32::from_bits(4290772992))]);
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -3002,12 +5208,15 @@ fn c342_l351_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c342_l351_action_invoke");
     let result = instance.call("abs", &[Value::F32(f32::from_bits(2143289344))]);
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -3030,32 +5239,72 @@ fn c344_l353_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 354
 fn c345_l354_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c345_l354_action_invoke");
-    let result = instance.call("neg", &[Value::F32((-0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "neg",
+        &[Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32),
+        )],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 355
 fn c346_l355_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c346_l355_action_invoke");
-    let result = instance.call("neg", &[Value::F32((0.000000000000000000000000000000000000000000001f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000000000001f32)))));
+    let result = instance.call(
+        "neg",
+        &[Value::F32(
+            (0.000000000000000000000000000000000000000000001f32),
+        )],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000000000001f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 356
 fn c347_l356_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c347_l356_action_invoke");
-    let result = instance.call("neg", &[Value::F32((-0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "neg",
+        &[Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32),
+        )],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 357
 fn c348_l357_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c348_l357_action_invoke");
-    let result = instance.call("neg", &[Value::F32((0.000000000000000000000000000000000000011754944f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-0.000000000000000000000000000000000000011754944f32)))));
+    let result = instance.call(
+        "neg",
+        &[Value::F32(
+            (0.000000000000000000000000000000000000011754944f32),
+        )],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-0.000000000000000000000000000000000000011754944f32)
+        )))
+    );
     result.map(|_| ())
 }
 
@@ -3110,16 +5359,32 @@ fn c354_l363_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 364
 fn c355_l364_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c355_l364_action_invoke");
-    let result = instance.call("neg", &[Value::F32((-340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "neg",
+        &[Value::F32((-340282350000000000000000000000000000000.0f32))],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
 // Line 365
 fn c356_l365_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c356_l365_action_invoke");
-    let result = instance.call("neg", &[Value::F32((340282350000000000000000000000000000000.0f32))]);
-    assert_eq!(result, Ok(Some(Value::F32((-340282350000000000000000000000000000000.0f32)))));
+    let result = instance.call(
+        "neg",
+        &[Value::F32((340282350000000000000000000000000000000.0f32))],
+    );
+    assert_eq!(
+        result,
+        Ok(Some(Value::F32(
+            (-340282350000000000000000000000000000000.0f32)
+        )))
+    );
     result.map(|_| ())
 }
 
@@ -3144,12 +5409,15 @@ fn c359_l368_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c359_l368_action_invoke");
     let result = instance.call("neg", &[Value::F32(f32::from_bits(4290772992))]);
     let expected = f32::from_bits(2143289344);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 
@@ -3158,12 +5426,15 @@ fn c360_l369_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c360_l369_action_invoke");
     let result = instance.call("neg", &[Value::F32(f32::from_bits(2143289344))]);
     let expected = f32::from_bits(4290772992);
-                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
-                                assert!((result as f32).is_nan());
-            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
-            } else {
-              panic!("Unexpected result type {:?}", result);
-            }
+    if let Value::F32(result) = result.clone().unwrap().unwrap() {
+        assert!((result as f32).is_nan());
+        assert_eq!(
+            (result as f32).is_sign_positive(),
+            (expected as f32).is_sign_positive()
+        );
+    } else {
+        panic!("Unexpected result type {:?}", result);
+    }
     result.map(|_| ())
 }
 

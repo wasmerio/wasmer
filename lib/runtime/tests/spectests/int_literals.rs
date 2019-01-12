@@ -5,18 +5,14 @@
     warnings,
     dead_code
 )]
-use wabt::wat2wasm;
 use std::{f32, f64};
+use wabt::wat2wasm;
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{Instance, module::Module};
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{module::Module, Instance};
 
-use crate::spectests::_common::{
-    generate_imports,
-    NaNCheck,
-};
-
+use crate::spectests::_common::{generate_imports, NaNCheck};
 
 // Line 1
 fn create_module_1() -> Instance {
@@ -141,8 +137,11 @@ fn create_module_1() -> Instance {
       (export \"i64-hex-sep2\" (func 29)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    module
+        .instantiate(generate_imports())
+        .expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -393,161 +392,281 @@ fn c30_l69_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 72
 #[test]
 fn c31_l72_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 76
 #[test]
 fn c32_l76_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 43, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 43, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 80
 #[test]
 fn c33_l80_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 45, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 45, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 84
 #[test]
 fn c34_l84_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 57, 57, 95, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 57, 57, 95, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 88
 #[test]
 fn c35_l88_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 92
 #[test]
 fn c36_l92_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 96
 #[test]
 fn c37_l96_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 100
 #[test]
 fn c38_l100_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 104
 #[test]
 fn c39_l104_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 48, 48, 95, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 48, 48, 95, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 108
 #[test]
 fn c40_l108_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 51, 50, 32, 40, 105, 51, 50, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 113
 #[test]
 fn c41_l113_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 117
 #[test]
 fn c42_l117_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 43, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 43, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 121
 #[test]
 fn c43_l121_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 45, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 45, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 125
 #[test]
 fn c44_l125_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 57, 57, 95, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 57, 57, 95, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 129
 #[test]
 fn c45_l129_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 49, 95, 95, 48, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 133
 #[test]
 fn c46_l133_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 95, 48, 120, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 137
 #[test]
 fn c47_l137_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 48, 95, 120, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 141
 #[test]
 fn c48_l141_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 95, 49, 48, 48, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 145
 #[test]
 fn c49_l145_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 48, 48, 95, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 48, 48, 95, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 // Line 149
 #[test]
 fn c50_l149_assert_malformed() {
-    let wasm_binary = [40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110, 115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41];
+    let wasm_binary = [
+        40, 103, 108, 111, 98, 97, 108, 32, 105, 54, 52, 32, 40, 105, 54, 52, 46, 99, 111, 110,
+        115, 116, 32, 48, 120, 102, 102, 95, 95, 102, 102, 102, 102, 41, 41,
+    ];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(compilation.is_err(), "WASM should not compile as is malformed");
+    assert!(
+        compilation.is_err(),
+        "WASM should not compile as is malformed"
+    );
 }
 
 #[test]
