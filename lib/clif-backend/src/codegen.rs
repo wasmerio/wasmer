@@ -529,7 +529,7 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
         // Get the pointer type based on machine's pointer size.
         let ptr_type = self.pointer_type();
 
-        // The `callee` value is an index into a table of function pointers.
+        // The `callee` value is an index into a table of Anyfunc structures.
         let entry_addr = pos.ins().table_addr(ptr_type, table, callee, 0);
 
         let mflags = ir::MemFlags::trusted();

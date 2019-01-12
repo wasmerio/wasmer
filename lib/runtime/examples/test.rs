@@ -31,7 +31,7 @@ fn create_module_1() -> Box<Instance> {
       (func (;0;) (type 0) (result i64)
         i64.const 356)
       (func (;1;) (type 0) (result i64)
-        i32.const 1
+        i32.const 0
         call_indirect (type 0))
       (table (;0;) 2 anyfunc)
       (export \"type-i64\" (func 1))

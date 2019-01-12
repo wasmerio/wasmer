@@ -84,8 +84,6 @@ impl Instance {
     ) -> Result<Option<Value>, String> {
         let (func_ref, ctx, signature) = self.get_func_from_index(func_index);
 
-        println!("func_ref: {:?}", func_ref);
-
         let func_ptr = CodePtr::from_ptr(func_ref.inner() as _);
         let vmctx_ptr = match ctx {
             Context::External(vmctx) => vmctx,

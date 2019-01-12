@@ -121,8 +121,6 @@ impl LocalBacking {
                             }
                         };
 
-                        println!("func_data: {:#?}", func_data);
-
                         elements[init.offset + i] = vm::Anyfunc { func_data, sig_id };
                     }
                 }
