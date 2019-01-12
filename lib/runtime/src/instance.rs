@@ -43,7 +43,7 @@ impl Instance {
             vmctx,
         });
 
-        // Initialize the vm::Ctx in-place after the import_backing
+        // Initialize the vm::Ctx in-place after the backing
         // has been boxed.
         *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing);
 
