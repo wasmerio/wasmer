@@ -105,7 +105,7 @@ pub struct Global {
 }
 
 /// A wasm memory.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Memory {
     /// The minimum number of allowed pages.
     pub min: u32,
@@ -118,6 +118,12 @@ pub struct Memory {
 impl Memory {
     pub fn is_static_heap(&self) -> bool {
         self.max.is_some()
+    }
+
+    pub(crate) fn fits_in_imported(&self, imported: &Memory) -> bool {
+        self.shared == imported.shared
+        && self.max == imported.max
+        && self.min <= imported.min
     }
 }
 

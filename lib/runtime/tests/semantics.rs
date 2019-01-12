@@ -11,24 +11,22 @@ mod tests {
     #[test]
     #[ignore]
     fn test_stack_overflow() {
-        let module_str = "(module
-      (type (;0;) (func (result i64)))
-      (func (;0;) (type 0) (result i64)
-        i64.const 356)
-      (func (;1;) (type 0) (result i64)
-        i32.const 1
+        let module_str = r#"(module
+      (type (;0;) (func))
+      (func (;0;) (type 0)
+        i32.const 0
         call_indirect (type 0))
-      (table (;0;) 2 anyfunc)
-      (export \"type-i64\" (func 1))
-      (elem (;0;) (i32.const 0) 0 1))
-    ";
+      (table (;0;) 1 anyfunc)
+      (export "stack-overflow" (func 0))
+      (elem (;0;) (i32.const 0) 0))
+    "#;
         let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
         let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
             .expect("WASM can't be compiled");
         let mut instance = module
             .instantiate(Rc::new(Imports::new()))
             .expect("WASM can't be instantiated");
-        let result = instance.call("type-i64", &[]);
+        let result = instance.call("stack-overflow", &[]);
         assert!(
             result.is_err(),
             "should fail with error due to stack overflow"

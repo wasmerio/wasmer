@@ -2,12 +2,8 @@ use std::rc::Rc;
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
-    export::{Context, Export},
     import::Imports,
-    module::Module,
-    table::TableBacking,
-    types::{ElementType, FuncSig, Table, Type, Value},
-    FuncRef, Instance,
+    Instance,
 };
 
 fn main() {

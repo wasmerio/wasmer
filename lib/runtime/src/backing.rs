@@ -195,30 +195,37 @@ fn import_memories(
     vmctx: *mut vm::Ctx,
 ) -> Result<Box<[vm::ImportedMemory]>, String> {
     let mut memories = Vec::with_capacity(module.imported_memories.len());
-    for (_index, (ImportName { namespace, name }, _memory)) in &module.imported_memories {
+    for (_index, (ImportName { namespace, name }, expected_memory_desc)) in &module.imported_memories {
         let memory_import = imports.get(namespace, name);
         match memory_import {
             Some(Export::Memory {
                 local,
                 ctx,
-                memory: _,
+                memory: memory_desc,
             }) => {
-                memories.push(vm::ImportedMemory {
-                    memory: local,
-                    vmctx: match ctx {
-                        Context::External(ctx) => ctx,
-                        Context::Internal => vmctx,
-                    },
-                });
+                if expected_memory_desc.fits_in_imported(&memory_desc) {
+                    memories.push(vm::ImportedMemory {
+                        memory: local,
+                        vmctx: match ctx {
+                            Context::External(ctx) => ctx,
+                            Context::Internal => vmctx,
+                        },
+                    });
+                } else {
+                    return Err(format!(
+                        "incorrect memory description for {}:{}",
+                        namespace, name,
+                    ));
+                }
             }
             Some(_) => {
                 return Err(format!(
-                    "incorrect import memory type for {}:{}",
+                    "incorrect import type for {}:{}",
                     namespace, name
                 ));
             }
             None => {
-                return Err(format!("memory not found: {}:{}", namespace, name));
+                return Err(format!("import not found: {}:{}", namespace, name));
             }
         }
     }
