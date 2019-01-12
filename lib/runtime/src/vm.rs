@@ -30,7 +30,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    pub fn new(local_backing: &mut LocalBacking, import_backing: &mut ImportBacking) -> Self {
+    pub unsafe fn new(local_backing: &mut LocalBacking, import_backing: &mut ImportBacking) -> Self {
         Self {
             memories: local_backing.vm_memories.as_mut_ptr(),
             tables: local_backing.vm_tables.as_mut_ptr(),
