@@ -52,6 +52,10 @@ impl ModuleInner {
     pub(crate) fn is_imported_function(&self, func_index: FuncIndex) -> bool {
         func_index.index() < self.imported_functions.len()
     }
+
+    pub(crate) fn is_imported_memory(&self, memory_index: MemoryIndex) -> bool {
+        memory_index.index() < self.imported_memories.len()
+    }
 }
 
 impl Deref for Module {

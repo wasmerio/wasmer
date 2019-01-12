@@ -176,26 +176,54 @@ impl ImportBacking {
         vmctx: *mut vm::Ctx,
     ) -> Result<Self, String> {
         assert!(
-            module.imported_memories.len() == 0,
-            "imported memories not yet supported"
-        );
-        assert!(
             module.imported_tables.len() == 0,
             "imported tables not yet supported"
         );
 
         Ok(ImportBacking {
             functions: import_functions(module, imports, vmctx)?,
-            memories: vec![].into_boxed_slice(),
+            memories: import_memories(module, imports, vmctx)?,
             tables: vec![].into_boxed_slice(),
             globals: import_globals(module, imports)?,
         })
     }
 }
 
-// fn import_memories(module: &Module, imports: &dyn ImportResolver) -> Result<Box<[vm::ImportedMemory]>, String> {
-
-// }
+fn import_memories(
+    module: &Module,
+    imports: &dyn ImportResolver,
+    vmctx: *mut vm::Ctx,
+) -> Result<Box<[vm::ImportedMemory]>, String> {
+    let mut memories = Vec::with_capacity(module.imported_memories.len());
+    for (_index, (ImportName { namespace, name }, _memory)) in &module.imported_memories {
+        let memory_import = imports.get(namespace, name);
+        match memory_import {
+            Some(Export::Memory {
+                local,
+                ctx,
+                memory: _,
+            }) => {
+                memories.push(vm::ImportedMemory {
+                    memory: local,
+                    vmctx: match ctx {
+                        Context::External(ctx) => ctx,
+                        Context::Internal => vmctx,
+                    },
+                });
+            }
+            Some(_) => {
+                return Err(format!(
+                    "incorrect import memory type for {}:{}",
+                    namespace, name
+                ));
+            }
+            None => {
+                return Err(format!("memory not found: {}:{}", namespace, name));
+            }
+        }
+    }
+    Ok(memories.into_boxed_slice())
+}
 
 fn import_functions(
     module: &Module,

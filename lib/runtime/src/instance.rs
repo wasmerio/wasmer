@@ -4,7 +4,7 @@ use crate::{
     export::{Context, Export},
     import::ImportResolver,
     module::{ExportIndex, Module},
-    types::{FuncIndex, FuncSig, MapIndex, Type, Value},
+    types::{FuncIndex, FuncSig, MapIndex, Memory, MemoryIndex, Type, Value},
     vm,
 };
 use hashbrown::hash_map;
@@ -160,7 +160,19 @@ impl Instance {
                     signature,
                 }
             }
-            ExportIndex::Memory(_memory_index) => unimplemented!(),
+            ExportIndex::Memory(memory_index) => {
+                let (local, ctx, memory) = self.get_memory_from_index(*memory_index);
+                Export::Memory {
+                    local,
+                    ctx: match ctx {
+                        Context::Internal => {
+                            Context::External(&*self.vmctx as *const vm::Ctx as *mut vm::Ctx)
+                        }
+                        ctx @ Context::External(_) => ctx,
+                    },
+                    memory,
+                }
+            }
             ExportIndex::Global(_global_index) => unimplemented!(),
             ExportIndex::Table(_table_index) => unimplemented!(),
         }
@@ -194,6 +206,35 @@ impl Instance {
         let signature = self.module.sig_registry.lookup_func_sig(sig_index).clone();
 
         (FuncRef(func_ptr), ctx, signature)
+    }
+
+    fn get_memory_from_index(
+        &self,
+        mem_index: MemoryIndex,
+    ) -> (*mut vm::LocalMemory, Context, Memory) {
+        if self.module.is_imported_memory(mem_index) {
+            let &(_, mem) = &self
+                .module
+                .imported_memories
+                .get(mem_index)
+                .expect("missing imported memory index");
+            let vm::ImportedMemory { memory, vmctx } =
+                &self.import_backing.memories[mem_index.index()];
+            (*memory, Context::External(*vmctx), *mem)
+        } else {
+            //           let vm_mem = .memories[mem_index.index() as usize];
+            let vm_mem =
+                unsafe { &mut (*self.vmctx.local_backing).memories[mem_index.index() as usize] };
+            (
+                &mut vm_mem.into_vm_memory(),
+                Context::Internal,
+                *self
+                    .module
+                    .memories
+                    .get(mem_index)
+                    .expect("broken invariant, memories"),
+            )
+        }
     }
 }
 
