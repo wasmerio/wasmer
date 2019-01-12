@@ -5,17 +5,21 @@
     warnings,
     dead_code
 )]
-use std::{f32, f64};
 use wabt::wat2wasm;
+use std::{f32, f64};
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{module::Module, Instance};
+use wasmer_runtime::{Instance, module::Module};
+use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::spectests::_common::{generate_imports, NaNCheck};
+use crate::spectests::_common::{
+    generate_imports,
+    NaNCheck,
+};
+
 
 // Line 4
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param f64) (result f64)))
       (type (;1;) (func (param f64 f64) (result f64)))
@@ -34,11 +38,8 @@ fn create_module_1() -> Box<Instance> {
       (export \"copysign\" (func 2)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -209,10 +210,7 @@ fn c20_l29_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 30
 fn c21_l30_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c21_l30_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-0.0f64)), Value::F64((-6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.0f64)), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-0.0f64)))));
     result.map(|_| ())
 }
@@ -220,10 +218,7 @@ fn c21_l30_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 31
 fn c22_l31_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c22_l31_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-0.0f64)), Value::F64((6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.0f64)), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((0.0f64)))));
     result.map(|_| ())
 }
@@ -231,10 +226,7 @@ fn c22_l31_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 32
 fn c23_l32_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c23_l32_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((0.0f64)), Value::F64((-6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.0f64)), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-0.0f64)))));
     result.map(|_| ())
 }
@@ -242,10 +234,7 @@ fn c23_l32_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 33
 fn c24_l33_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c24_l33_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((0.0f64)), Value::F64((6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.0f64)), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((0.0f64)))));
     result.map(|_| ())
 }
@@ -285,10 +274,7 @@ fn c28_l37_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 38
 fn c29_l38_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c29_l38_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-0.0f64)), Value::F64(f64::NEG_INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.0f64)), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((-0.0f64)))));
     result.map(|_| ())
 }
@@ -296,10 +282,7 @@ fn c29_l38_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 39
 fn c30_l39_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c30_l39_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-0.0f64)), Value::F64(f64::INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.0f64)), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((0.0f64)))));
     result.map(|_| ())
 }
@@ -307,10 +290,7 @@ fn c30_l39_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 40
 fn c31_l40_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c31_l40_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((0.0f64)), Value::F64(f64::NEG_INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.0f64)), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((-0.0f64)))));
     result.map(|_| ())
 }
@@ -318,10 +298,7 @@ fn c31_l40_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 41
 fn c32_l41_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c32_l41_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((0.0f64)), Value::F64(f64::INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.0f64)), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((0.0f64)))));
     result.map(|_| ())
 }
@@ -329,13 +306,7 @@ fn c32_l41_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 42
 fn c33_l42_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c33_l42_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-0.0f64)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.0f64)), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64((-0.0f64)))));
     result.map(|_| ())
 }
@@ -343,13 +314,7 @@ fn c33_l42_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 43
 fn c34_l43_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c34_l43_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-0.0f64)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.0f64)), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64((0.0f64)))));
     result.map(|_| ())
 }
@@ -357,13 +322,7 @@ fn c34_l43_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 44
 fn c35_l44_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c35_l44_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((0.0f64)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.0f64)), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64((-0.0f64)))));
     result.map(|_| ())
 }
@@ -371,13 +330,7 @@ fn c35_l44_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 45
 fn c36_l45_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c36_l45_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((0.0f64)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.0f64)), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64((0.0f64)))));
     result.map(|_| ())
 }
@@ -1121,10 +1074,7 @@ fn c128_l137_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 138
 fn c129_l138_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c129_l138_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-0.5f64)), Value::F64((-6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.5f64)), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-0.5f64)))));
     result.map(|_| ())
 }
@@ -1132,10 +1082,7 @@ fn c129_l138_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 139
 fn c130_l139_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c130_l139_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-0.5f64)), Value::F64((6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.5f64)), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((0.5f64)))));
     result.map(|_| ())
 }
@@ -1143,10 +1090,7 @@ fn c130_l139_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 140
 fn c131_l140_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c131_l140_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((0.5f64)), Value::F64((-6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.5f64)), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-0.5f64)))));
     result.map(|_| ())
 }
@@ -1154,10 +1098,7 @@ fn c131_l140_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 141
 fn c132_l141_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c132_l141_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((0.5f64)), Value::F64((6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.5f64)), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((0.5f64)))));
     result.map(|_| ())
 }
@@ -1197,10 +1138,7 @@ fn c136_l145_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 146
 fn c137_l146_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c137_l146_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-0.5f64)), Value::F64(f64::NEG_INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.5f64)), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((-0.5f64)))));
     result.map(|_| ())
 }
@@ -1208,10 +1146,7 @@ fn c137_l146_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 147
 fn c138_l147_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c138_l147_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-0.5f64)), Value::F64(f64::INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.5f64)), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((0.5f64)))));
     result.map(|_| ())
 }
@@ -1219,10 +1154,7 @@ fn c138_l147_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 148
 fn c139_l148_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c139_l148_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((0.5f64)), Value::F64(f64::NEG_INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.5f64)), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((-0.5f64)))));
     result.map(|_| ())
 }
@@ -1230,10 +1162,7 @@ fn c139_l148_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 149
 fn c140_l149_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c140_l149_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((0.5f64)), Value::F64(f64::INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.5f64)), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((0.5f64)))));
     result.map(|_| ())
 }
@@ -1241,13 +1170,7 @@ fn c140_l149_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 150
 fn c141_l150_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c141_l150_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-0.5f64)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.5f64)), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64((-0.5f64)))));
     result.map(|_| ())
 }
@@ -1255,13 +1178,7 @@ fn c141_l150_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 151
 fn c142_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c142_l151_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-0.5f64)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-0.5f64)), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64((0.5f64)))));
     result.map(|_| ())
 }
@@ -1269,13 +1186,7 @@ fn c142_l151_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 152
 fn c143_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c143_l152_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((0.5f64)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.5f64)), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64((-0.5f64)))));
     result.map(|_| ())
 }
@@ -1283,13 +1194,7 @@ fn c143_l152_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 153
 fn c144_l153_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c144_l153_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((0.5f64)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((0.5f64)), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64((0.5f64)))));
     result.map(|_| ())
 }
@@ -1457,10 +1362,7 @@ fn c164_l173_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 174
 fn c165_l174_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c165_l174_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-1.0f64)), Value::F64((-6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-1.0f64)), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-1.0f64)))));
     result.map(|_| ())
 }
@@ -1468,10 +1370,7 @@ fn c165_l174_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 175
 fn c166_l175_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c166_l175_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-1.0f64)), Value::F64((6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-1.0f64)), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((1.0f64)))));
     result.map(|_| ())
 }
@@ -1479,10 +1378,7 @@ fn c166_l175_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 176
 fn c167_l176_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c167_l176_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((1.0f64)), Value::F64((-6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((1.0f64)), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-1.0f64)))));
     result.map(|_| ())
 }
@@ -1490,10 +1386,7 @@ fn c167_l176_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 177
 fn c168_l177_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c168_l177_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((1.0f64)), Value::F64((6.283185307179586f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((1.0f64)), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((1.0f64)))));
     result.map(|_| ())
 }
@@ -1533,10 +1426,7 @@ fn c172_l181_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 182
 fn c173_l182_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c173_l182_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-1.0f64)), Value::F64(f64::NEG_INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((-1.0f64)), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((-1.0f64)))));
     result.map(|_| ())
 }
@@ -1544,10 +1434,7 @@ fn c173_l182_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 183
 fn c174_l183_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c174_l183_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-1.0f64)), Value::F64(f64::INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((-1.0f64)), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((1.0f64)))));
     result.map(|_| ())
 }
@@ -1555,10 +1442,7 @@ fn c174_l183_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 184
 fn c175_l184_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c175_l184_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((1.0f64)), Value::F64(f64::NEG_INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((1.0f64)), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((-1.0f64)))));
     result.map(|_| ())
 }
@@ -1566,10 +1450,7 @@ fn c175_l184_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 185
 fn c176_l185_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c176_l185_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((1.0f64)), Value::F64(f64::INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64((1.0f64)), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((1.0f64)))));
     result.map(|_| ())
 }
@@ -1577,13 +1458,7 @@ fn c176_l185_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 186
 fn c177_l186_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c177_l186_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-1.0f64)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-1.0f64)), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64((-1.0f64)))));
     result.map(|_| ())
 }
@@ -1591,13 +1466,7 @@ fn c177_l186_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 187
 fn c178_l187_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c178_l187_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-1.0f64)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-1.0f64)), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64((1.0f64)))));
     result.map(|_| ())
 }
@@ -1605,13 +1474,7 @@ fn c178_l187_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 188
 fn c179_l188_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c179_l188_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((1.0f64)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((1.0f64)), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64((-1.0f64)))));
     result.map(|_| ())
 }
@@ -1619,13 +1482,7 @@ fn c179_l188_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 189
 fn c180_l189_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c180_l189_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((1.0f64)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((1.0f64)), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64((1.0f64)))));
     result.map(|_| ())
 }
@@ -1633,10 +1490,7 @@ fn c180_l189_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 190
 fn c181_l190_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c181_l190_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-6.283185307179586f64)), Value::F64((-0.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64((-0.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1644,10 +1498,7 @@ fn c181_l190_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 191
 fn c182_l191_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c182_l191_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-6.283185307179586f64)), Value::F64((0.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64((0.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1655,10 +1506,7 @@ fn c182_l191_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 192
 fn c183_l192_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c183_l192_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((6.283185307179586f64)), Value::F64((-0.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64((-0.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1666,10 +1514,7 @@ fn c183_l192_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 193
 fn c184_l193_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c184_l193_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((6.283185307179586f64)), Value::F64((0.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64((0.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1741,10 +1586,7 @@ fn c192_l201_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 202
 fn c193_l202_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c193_l202_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-6.283185307179586f64)), Value::F64((-0.5f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64((-0.5f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1752,10 +1594,7 @@ fn c193_l202_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 203
 fn c194_l203_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c194_l203_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-6.283185307179586f64)), Value::F64((0.5f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64((0.5f64))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1763,10 +1602,7 @@ fn c194_l203_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 204
 fn c195_l204_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c195_l204_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((6.283185307179586f64)), Value::F64((-0.5f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64((-0.5f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1774,10 +1610,7 @@ fn c195_l204_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 205
 fn c196_l205_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c196_l205_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((6.283185307179586f64)), Value::F64((0.5f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64((0.5f64))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1785,10 +1618,7 @@ fn c196_l205_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 206
 fn c197_l206_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c197_l206_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-6.283185307179586f64)), Value::F64((-1.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64((-1.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1796,10 +1626,7 @@ fn c197_l206_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 207
 fn c198_l207_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c198_l207_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((-6.283185307179586f64)), Value::F64((1.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64((1.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1807,10 +1634,7 @@ fn c198_l207_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 208
 fn c199_l208_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c199_l208_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((6.283185307179586f64)), Value::F64((-1.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64((-1.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1818,10 +1642,7 @@ fn c199_l208_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 209
 fn c200_l209_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c200_l209_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64((6.283185307179586f64)), Value::F64((1.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64((1.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1829,13 +1650,7 @@ fn c200_l209_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 210
 fn c201_l210_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c201_l210_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-6.283185307179586f64)),
-            Value::F64((-6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1843,13 +1658,7 @@ fn c201_l210_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 211
 fn c202_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c202_l211_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-6.283185307179586f64)),
-            Value::F64((6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1857,13 +1666,7 @@ fn c202_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 212
 fn c203_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c203_l212_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((6.283185307179586f64)),
-            Value::F64((-6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1871,13 +1674,7 @@ fn c203_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 213
 fn c204_l213_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c204_l213_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((6.283185307179586f64)),
-            Value::F64((6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1917,13 +1714,7 @@ fn c208_l217_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 218
 fn c209_l218_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c209_l218_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-6.283185307179586f64)),
-            Value::F64(f64::NEG_INFINITY),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1931,13 +1722,7 @@ fn c209_l218_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 219
 fn c210_l219_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c210_l219_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-6.283185307179586f64)),
-            Value::F64(f64::INFINITY),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1945,13 +1730,7 @@ fn c210_l219_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 220
 fn c211_l220_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c211_l220_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((6.283185307179586f64)),
-            Value::F64(f64::NEG_INFINITY),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1959,13 +1738,7 @@ fn c211_l220_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 221
 fn c212_l221_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c212_l221_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((6.283185307179586f64)),
-            Value::F64(f64::INFINITY),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1973,13 +1746,7 @@ fn c212_l221_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 222
 fn c213_l222_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c213_l222_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-6.283185307179586f64)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -1987,13 +1754,7 @@ fn c213_l222_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 223
 fn c214_l223_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c214_l223_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((-6.283185307179586f64)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((-6.283185307179586f64)), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -2001,13 +1762,7 @@ fn c214_l223_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 224
 fn c215_l224_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c215_l224_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((6.283185307179586f64)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64((-6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -2015,13 +1770,7 @@ fn c215_l224_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 225
 fn c216_l225_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c216_l225_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64((6.283185307179586f64)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64((6.283185307179586f64)), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64((6.283185307179586f64)))));
     result.map(|_| ())
 }
@@ -2317,10 +2066,7 @@ fn c252_l261_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 262
 fn c253_l262_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c253_l262_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::NEG_INFINITY), Value::F64((-0.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64((-0.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2328,10 +2074,7 @@ fn c253_l262_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 263
 fn c254_l263_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c254_l263_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::NEG_INFINITY), Value::F64((0.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64((0.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2339,10 +2082,7 @@ fn c254_l263_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 264
 fn c255_l264_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c255_l264_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::INFINITY), Value::F64((-0.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64((-0.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2350,10 +2090,7 @@ fn c255_l264_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 265
 fn c256_l265_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c256_l265_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::INFINITY), Value::F64((0.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64((0.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2425,10 +2162,7 @@ fn c264_l273_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 274
 fn c265_l274_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c265_l274_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::NEG_INFINITY), Value::F64((-0.5f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64((-0.5f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2436,10 +2170,7 @@ fn c265_l274_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 275
 fn c266_l275_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c266_l275_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::NEG_INFINITY), Value::F64((0.5f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64((0.5f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2447,10 +2178,7 @@ fn c266_l275_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 276
 fn c267_l276_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c267_l276_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::INFINITY), Value::F64((-0.5f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64((-0.5f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2458,10 +2186,7 @@ fn c267_l276_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 277
 fn c268_l277_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c268_l277_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::INFINITY), Value::F64((0.5f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64((0.5f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2469,10 +2194,7 @@ fn c268_l277_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 278
 fn c269_l278_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c269_l278_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::NEG_INFINITY), Value::F64((-1.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64((-1.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2480,10 +2202,7 @@ fn c269_l278_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 279
 fn c270_l279_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c270_l279_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::NEG_INFINITY), Value::F64((1.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64((1.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2491,10 +2210,7 @@ fn c270_l279_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 280
 fn c271_l280_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c271_l280_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::INFINITY), Value::F64((-1.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64((-1.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2502,10 +2218,7 @@ fn c271_l280_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 281
 fn c272_l281_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c272_l281_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::INFINITY), Value::F64((1.0f64))],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64((1.0f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2513,13 +2226,7 @@ fn c272_l281_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 282
 fn c273_l282_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c273_l282_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::NEG_INFINITY),
-            Value::F64((-6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2527,13 +2234,7 @@ fn c273_l282_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 283
 fn c274_l283_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c274_l283_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::NEG_INFINITY),
-            Value::F64((6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2541,13 +2242,7 @@ fn c274_l283_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 284
 fn c275_l284_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c275_l284_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::INFINITY),
-            Value::F64((-6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64((-6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2555,13 +2250,7 @@ fn c275_l284_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 285
 fn c276_l285_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c276_l285_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::INFINITY),
-            Value::F64((6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64((6.283185307179586f64))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2601,10 +2290,7 @@ fn c280_l289_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 290
 fn c281_l290_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c281_l290_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::NEG_INFINITY), Value::F64(f64::NEG_INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2612,10 +2298,7 @@ fn c281_l290_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 291
 fn c282_l291_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c282_l291_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::NEG_INFINITY), Value::F64(f64::INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2623,10 +2306,7 @@ fn c282_l291_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 292
 fn c283_l292_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c283_l292_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::INFINITY), Value::F64(f64::NEG_INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64(f64::NEG_INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2634,10 +2314,7 @@ fn c283_l292_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 293
 fn c284_l293_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c284_l293_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[Value::F64(f64::INFINITY), Value::F64(f64::INFINITY)],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64(f64::INFINITY)]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2645,13 +2322,7 @@ fn c284_l293_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 294
 fn c285_l294_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c285_l294_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::NEG_INFINITY),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2659,13 +2330,7 @@ fn c285_l294_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 295
 fn c286_l295_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c286_l295_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::NEG_INFINITY),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::NEG_INFINITY), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2673,13 +2338,7 @@ fn c286_l295_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 296
 fn c287_l296_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c287_l296_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::INFINITY),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64(f64::from_bits(18444492273895866368))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::NEG_INFINITY))));
     result.map(|_| ())
 }
@@ -2687,13 +2346,7 @@ fn c287_l296_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 297
 fn c288_l297_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c288_l297_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::INFINITY),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::INFINITY), Value::F64(f64::from_bits(9221120237041090560))]);
     assert_eq!(result, Ok(Some(Value::F64(f64::INFINITY))));
     result.map(|_| ())
 }
@@ -2701,92 +2354,56 @@ fn c288_l297_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 298
 fn c289_l298_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c289_l298_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64((-0.0f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((-0.0f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 299
 fn c290_l299_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c290_l299_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64((0.0f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((0.0f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 300
 fn c291_l300_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c291_l300_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64((-0.0f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((-0.0f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 301
 fn c292_l301_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c292_l301_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64((0.0f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((0.0f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2795,15 +2412,12 @@ fn c293_l302_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c293_l302_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2812,15 +2426,12 @@ fn c294_l303_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c294_l303_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2829,15 +2440,12 @@ fn c295_l304_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c295_l304_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2846,15 +2454,12 @@ fn c296_l305_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c296_l305_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2863,15 +2468,12 @@ fn c297_l306_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c297_l306_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2880,15 +2482,12 @@ fn c298_l307_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c298_l307_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2897,15 +2496,12 @@ fn c299_l308_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c299_l308_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((-0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2914,291 +2510,180 @@ fn c300_l309_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c300_l309_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000022250738585072014f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 310
 fn c301_l310_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c301_l310_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64((-0.5f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((-0.5f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 311
 fn c302_l311_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c302_l311_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64((0.5f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((0.5f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 312
 fn c303_l312_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c303_l312_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64((-0.5f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((-0.5f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 313
 fn c304_l313_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c304_l313_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64((0.5f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((0.5f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 314
 fn c305_l314_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c305_l314_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64((-1.0f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((-1.0f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 315
 fn c306_l315_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c306_l315_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64((1.0f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((1.0f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 316
 fn c307_l316_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c307_l316_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64((-1.0f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((-1.0f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 317
 fn c308_l317_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c308_l317_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64((1.0f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((1.0f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 318
 fn c309_l318_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c309_l318_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64((-6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((-6.283185307179586f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 319
 fn c310_l319_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c310_l319_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64((6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((6.283185307179586f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 320
 fn c311_l320_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c311_l320_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64((-6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((-6.283185307179586f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 321
 fn c312_l321_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c312_l321_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64((6.283185307179586f64)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((6.283185307179586f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -3207,15 +2692,12 @@ fn c313_l322_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c313_l322_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -3224,15 +2706,12 @@ fn c314_l323_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c314_l323_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -3241,15 +2720,12 @@ fn c315_l324_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c315_l324_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((-179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -3258,199 +2734,124 @@ fn c316_l325_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c316_l325_action_invoke");
     let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64((179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0f64))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 326
 fn c317_l326_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c317_l326_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64(f64::NEG_INFINITY),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64(f64::NEG_INFINITY)]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 327
 fn c318_l327_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c318_l327_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64(f64::INFINITY),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64(f64::INFINITY)]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 328
 fn c319_l328_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c319_l328_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64(f64::NEG_INFINITY),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64(f64::NEG_INFINITY)]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 329
 fn c320_l329_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c320_l329_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64(f64::INFINITY),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64(f64::INFINITY)]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 330
 fn c321_l330_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c321_l330_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64(f64::from_bits(18444492273895866368))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 331
 fn c322_l331_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c322_l331_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(18444492273895866368)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(18444492273895866368)), Value::F64(f64::from_bits(9221120237041090560))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 332
 fn c323_l332_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c323_l332_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64(f64::from_bits(18444492273895866368)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64(f64::from_bits(18444492273895866368))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
 // Line 333
 fn c324_l333_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c324_l333_action_invoke");
-    let result = instance.call(
-        "copysign",
-        &[
-            Value::F64(f64::from_bits(9221120237041090560)),
-            Value::F64(f64::from_bits(9221120237041090560)),
-        ],
-    );
+    let result = instance.call("copysign", &[Value::F64(f64::from_bits(9221120237041090560)), Value::F64(f64::from_bits(9221120237041090560))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -3587,15 +2988,12 @@ fn c341_l350_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c341_l350_action_invoke");
     let result = instance.call("abs", &[Value::F64(f64::from_bits(18444492273895866368))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -3604,15 +3002,12 @@ fn c342_l351_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c342_l351_action_invoke");
     let result = instance.call("abs", &[Value::F64(f64::from_bits(9221120237041090560))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -3749,15 +3144,12 @@ fn c359_l368_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c359_l368_action_invoke");
     let result = instance.call("neg", &[Value::F64(f64::from_bits(18444492273895866368))]);
     let expected = f64::from_bits(9221120237041090560);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -3766,15 +3158,12 @@ fn c360_l369_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c360_l369_action_invoke");
     let result = instance.call("neg", &[Value::F64(f64::from_bits(9221120237041090560))]);
     let expected = f64::from_bits(18444492273895866368);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 

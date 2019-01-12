@@ -29,7 +29,7 @@ use wasmer_runtime::{
         TableIndex as WasmerTableIndex, Type as WasmerType,
     },
     vm::{self, Ctx as WasmerVMContext},
-    LinearMemory,
+    memory::LinearMemory,
 };
 
 /// The converter namespace contains functions for converting a Cranelift module

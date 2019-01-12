@@ -5,17 +5,21 @@
     warnings,
     dead_code
 )]
-use std::{f32, f64};
 use wabt::wat2wasm;
+use std::{f32, f64};
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{module::Module, Instance};
+use wasmer_runtime::{Instance, module::Module};
+use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::spectests::_common::{generate_imports, NaNCheck};
+use crate::spectests::_common::{
+    generate_imports,
+    NaNCheck,
+};
+
 
 // Line 1
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32 i64)))
@@ -223,11 +227,8 @@ fn create_module_1() -> Box<Instance> {
       (export \"f64_store\" (func 22)))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -518,16 +519,8 @@ fn c35_l175_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 176
 fn c36_l176_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c36_l176_action_invoke");
-    let result = instance.call(
-        "f32_load",
-        &[Value::F32((340282350000000000000000000000000000000.0f32))],
-    );
-    assert_eq!(
-        result,
-        Ok(Some(Value::F32(
-            (340282350000000000000000000000000000000.0f32)
-        )))
-    );
+    let result = instance.call("f32_load", &[Value::F32((340282350000000000000000000000000000000.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
     result.map(|_| ())
 }
 
@@ -750,16 +743,8 @@ fn c63_l211_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 212
 fn c64_l212_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c64_l212_action_invoke");
-    let result = instance.call(
-        "f32_store",
-        &[Value::F32((340282350000000000000000000000000000000.0f32))],
-    );
-    assert_eq!(
-        result,
-        Ok(Some(Value::F32(
-            (340282350000000000000000000000000000000.0f32)
-        )))
-    );
+    let result = instance.call("f32_store", &[Value::F32((340282350000000000000000000000000000000.0f32))]);
+    assert_eq!(result, Ok(Some(Value::F32((340282350000000000000000000000000000000.0f32)))));
     result.map(|_| ())
 }
 

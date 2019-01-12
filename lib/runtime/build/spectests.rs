@@ -268,7 +268,7 @@ fn test_module_{}() {{
         // self.module_calls.insert(self.last_module, vec![]);
         self.buffer.push_str(
             format!(
-                "fn create_module_{}() -> Box<Instance> {{
+                "fn create_module_{}() -> Instance {{
     let module_str = \"{}\";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
@@ -583,7 +583,7 @@ fn {}_assert_malformed() {{
 #[test]
 fn {}() {{
     let mut instance = create_module_{}();
-    let result = {}(&mut*instance);
+    let result = {}(&mut instance);
     assert!(result.is_err());
 }}\n",
                 trap_func_name,

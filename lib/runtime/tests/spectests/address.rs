@@ -5,17 +5,21 @@
     warnings,
     dead_code
 )]
-use std::{f32, f64};
 use wabt::wat2wasm;
+use std::{f32, f64};
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{module::Module, Instance};
+use wasmer_runtime::{Instance, module::Module};
+use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::spectests::_common::{generate_imports, NaNCheck};
+use crate::spectests::_common::{
+    generate_imports,
+    NaNCheck,
+};
+
 
 // Line 3
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param i32) (result i32)))
       (type (;1;) (func (param i32)))
@@ -148,11 +152,8 @@ fn create_module_1() -> Box<Instance> {
       (data (;0;) (i32.const 0) \"abcdefghijklmnopqrstuvwxyz\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -756,14 +757,14 @@ fn c74_l191_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c75_l192_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c75_l192_action_invoke");
     let result = instance.call("32_good5", &[Value::I32(65508 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c75_l192_assert_trap() {
     let mut instance = create_module_1();
-    let result = c75_l192_action_invoke(&mut *instance);
+    let result = c75_l192_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -771,14 +772,14 @@ fn c75_l192_assert_trap() {
 fn c76_l194_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c76_l194_action_invoke");
     let result = instance.call("8u_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c76_l194_assert_trap() {
     let mut instance = create_module_1();
-    let result = c76_l194_action_invoke(&mut *instance);
+    let result = c76_l194_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -786,14 +787,14 @@ fn c76_l194_assert_trap() {
 fn c77_l195_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c77_l195_action_invoke");
     let result = instance.call("8s_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c77_l195_assert_trap() {
     let mut instance = create_module_1();
-    let result = c77_l195_action_invoke(&mut *instance);
+    let result = c77_l195_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -801,14 +802,14 @@ fn c77_l195_assert_trap() {
 fn c78_l196_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c78_l196_action_invoke");
     let result = instance.call("16u_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c78_l196_assert_trap() {
     let mut instance = create_module_1();
-    let result = c78_l196_action_invoke(&mut *instance);
+    let result = c78_l196_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -816,14 +817,14 @@ fn c78_l196_assert_trap() {
 fn c79_l197_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c79_l197_action_invoke");
     let result = instance.call("16s_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c79_l197_assert_trap() {
     let mut instance = create_module_1();
-    let result = c79_l197_action_invoke(&mut *instance);
+    let result = c79_l197_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -831,14 +832,14 @@ fn c79_l197_assert_trap() {
 fn c80_l198_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c80_l198_action_invoke");
     let result = instance.call("32_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c80_l198_assert_trap() {
     let mut instance = create_module_1();
-    let result = c80_l198_action_invoke(&mut *instance);
+    let result = c80_l198_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -846,14 +847,14 @@ fn c80_l198_assert_trap() {
 fn c81_l200_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c81_l200_action_invoke");
     let result = instance.call("8u_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c81_l200_assert_trap() {
     let mut instance = create_module_1();
-    let result = c81_l200_action_invoke(&mut *instance);
+    let result = c81_l200_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -861,14 +862,14 @@ fn c81_l200_assert_trap() {
 fn c82_l201_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c82_l201_action_invoke");
     let result = instance.call("8s_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c82_l201_assert_trap() {
     let mut instance = create_module_1();
-    let result = c82_l201_action_invoke(&mut *instance);
+    let result = c82_l201_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -876,14 +877,14 @@ fn c82_l201_assert_trap() {
 fn c83_l202_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c83_l202_action_invoke");
     let result = instance.call("16u_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c83_l202_assert_trap() {
     let mut instance = create_module_1();
-    let result = c83_l202_action_invoke(&mut *instance);
+    let result = c83_l202_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -891,14 +892,14 @@ fn c83_l202_assert_trap() {
 fn c84_l203_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c84_l203_action_invoke");
     let result = instance.call("16s_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c84_l203_assert_trap() {
     let mut instance = create_module_1();
-    let result = c84_l203_action_invoke(&mut *instance);
+    let result = c84_l203_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -906,31 +907,23 @@ fn c84_l203_assert_trap() {
 fn c85_l204_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c85_l204_action_invoke");
     let result = instance.call("32_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c85_l204_assert_trap() {
     let mut instance = create_module_1();
-    let result = c85_l204_action_invoke(&mut *instance);
+    let result = c85_l204_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
 // Line 207
 #[test]
 fn c86_l207_assert_malformed() {
-    let wasm_binary = [
-        40, 109, 101, 109, 111, 114, 121, 32, 49, 41, 40, 102, 117, 110, 99, 32, 40, 100, 114, 111,
-        112, 32, 40, 105, 51, 50, 46, 108, 111, 97, 100, 32, 111, 102, 102, 115, 101, 116, 61, 52,
-        50, 57, 52, 57, 54, 55, 50, 57, 54, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32,
-        48, 41, 41, 41, 41,
-    ];
+    let wasm_binary = [40, 109, 101, 109, 111, 114, 121, 32, 49, 41, 40, 102, 117, 110, 99, 32, 40, 100, 114, 111, 112, 32, 40, 105, 51, 50, 46, 108, 111, 97, 100, 32, 111, 102, 102, 115, 101, 116, 61, 52, 50, 57, 52, 57, 54, 55, 50, 57, 54, 32, 40, 105, 51, 50, 46, 99, 111, 110, 115, 116, 32, 48, 41, 41, 41, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 216
@@ -1015,7 +1008,7 @@ fn test_module_1() {
     c73_l190_action_invoke(&mut instance);
     c74_l191_action_invoke(&mut instance);
 }
-fn create_module_2() -> Box<Instance> {
+fn create_module_2() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param i32) (result i64)))
       (type (;1;) (func (param i32)))
@@ -1198,11 +1191,8 @@ fn create_module_2() -> Box<Instance> {
       (data (;0;) (i32.const 0) \"abcdefghijklmnopqrstuvwxyz\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_2(instance: &mut Instance) {
@@ -2046,14 +2036,14 @@ fn c191_l478_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c192_l479_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c192_l479_action_invoke");
     let result = instance.call("64_good5", &[Value::I32(65504 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c192_l479_assert_trap() {
     let mut instance = create_module_2();
-    let result = c192_l479_action_invoke(&mut *instance);
+    let result = c192_l479_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2061,14 +2051,14 @@ fn c192_l479_assert_trap() {
 fn c193_l481_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c193_l481_action_invoke");
     let result = instance.call("8u_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c193_l481_assert_trap() {
     let mut instance = create_module_2();
-    let result = c193_l481_action_invoke(&mut *instance);
+    let result = c193_l481_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2076,14 +2066,14 @@ fn c193_l481_assert_trap() {
 fn c194_l482_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c194_l482_action_invoke");
     let result = instance.call("8s_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c194_l482_assert_trap() {
     let mut instance = create_module_2();
-    let result = c194_l482_action_invoke(&mut *instance);
+    let result = c194_l482_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2091,14 +2081,14 @@ fn c194_l482_assert_trap() {
 fn c195_l483_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c195_l483_action_invoke");
     let result = instance.call("16u_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c195_l483_assert_trap() {
     let mut instance = create_module_2();
-    let result = c195_l483_action_invoke(&mut *instance);
+    let result = c195_l483_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2106,14 +2096,14 @@ fn c195_l483_assert_trap() {
 fn c196_l484_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c196_l484_action_invoke");
     let result = instance.call("16s_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c196_l484_assert_trap() {
     let mut instance = create_module_2();
-    let result = c196_l484_action_invoke(&mut *instance);
+    let result = c196_l484_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2121,14 +2111,14 @@ fn c196_l484_assert_trap() {
 fn c197_l485_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c197_l485_action_invoke");
     let result = instance.call("32u_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c197_l485_assert_trap() {
     let mut instance = create_module_2();
-    let result = c197_l485_action_invoke(&mut *instance);
+    let result = c197_l485_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2136,14 +2126,14 @@ fn c197_l485_assert_trap() {
 fn c198_l486_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c198_l486_action_invoke");
     let result = instance.call("32s_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c198_l486_assert_trap() {
     let mut instance = create_module_2();
-    let result = c198_l486_action_invoke(&mut *instance);
+    let result = c198_l486_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2151,14 +2141,14 @@ fn c198_l486_assert_trap() {
 fn c199_l487_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c199_l487_action_invoke");
     let result = instance.call("64_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c199_l487_assert_trap() {
     let mut instance = create_module_2();
-    let result = c199_l487_action_invoke(&mut *instance);
+    let result = c199_l487_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2166,14 +2156,14 @@ fn c199_l487_assert_trap() {
 fn c200_l489_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c200_l489_action_invoke");
     let result = instance.call("8u_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c200_l489_assert_trap() {
     let mut instance = create_module_2();
-    let result = c200_l489_action_invoke(&mut *instance);
+    let result = c200_l489_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2181,14 +2171,14 @@ fn c200_l489_assert_trap() {
 fn c201_l490_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c201_l490_action_invoke");
     let result = instance.call("8s_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c201_l490_assert_trap() {
     let mut instance = create_module_2();
-    let result = c201_l490_action_invoke(&mut *instance);
+    let result = c201_l490_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2196,14 +2186,14 @@ fn c201_l490_assert_trap() {
 fn c202_l491_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c202_l491_action_invoke");
     let result = instance.call("16u_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c202_l491_assert_trap() {
     let mut instance = create_module_2();
-    let result = c202_l491_action_invoke(&mut *instance);
+    let result = c202_l491_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2211,14 +2201,14 @@ fn c202_l491_assert_trap() {
 fn c203_l492_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c203_l492_action_invoke");
     let result = instance.call("16s_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c203_l492_assert_trap() {
     let mut instance = create_module_2();
-    let result = c203_l492_action_invoke(&mut *instance);
+    let result = c203_l492_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2226,14 +2216,14 @@ fn c203_l492_assert_trap() {
 fn c204_l493_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c204_l493_action_invoke");
     let result = instance.call("32u_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c204_l493_assert_trap() {
     let mut instance = create_module_2();
-    let result = c204_l493_action_invoke(&mut *instance);
+    let result = c204_l493_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2241,14 +2231,14 @@ fn c204_l493_assert_trap() {
 fn c205_l494_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c205_l494_action_invoke");
     let result = instance.call("32s_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c205_l494_assert_trap() {
     let mut instance = create_module_2();
-    let result = c205_l494_action_invoke(&mut *instance);
+    let result = c205_l494_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2256,14 +2246,14 @@ fn c205_l494_assert_trap() {
 fn c206_l495_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c206_l495_action_invoke");
     let result = instance.call("64_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c206_l495_assert_trap() {
     let mut instance = create_module_2();
-    let result = c206_l495_action_invoke(&mut *instance);
+    let result = c206_l495_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2379,7 +2369,7 @@ fn test_module_2() {
     c190_l477_action_invoke(&mut instance);
     c191_l478_action_invoke(&mut instance);
 }
-fn create_module_3() -> Box<Instance> {
+fn create_module_3() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param i32) (result f32)))
       (type (;1;) (func (param i32)))
@@ -2412,11 +2402,8 @@ fn create_module_3() -> Box<Instance> {
       (data (;0;) (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\a0\\7f\\01\\00\\d0\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_3(instance: &mut Instance) {
@@ -2461,15 +2448,12 @@ fn c212_l527_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c212_l527_action_invoke");
     let result = instance.call("32_good5", &[Value::I32(0 as i32)]);
     let expected = f32::from_bits(2144337921);
-    if let Value::F32(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f32).is_nan());
-        assert_eq!(
-            (result as f32).is_sign_positive(),
-            (expected as f32).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F32(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f32).is_nan());
+            assert_eq!((result as f32).is_sign_positive(), (expected as f32).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2549,14 +2533,14 @@ fn c221_l538_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c222_l539_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c222_l539_action_invoke");
     let result = instance.call("32_good5", &[Value::I32(65525 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c222_l539_assert_trap() {
     let mut instance = create_module_3();
-    let result = c222_l539_action_invoke(&mut *instance);
+    let result = c222_l539_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2564,14 +2548,14 @@ fn c222_l539_assert_trap() {
 fn c223_l541_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c223_l541_action_invoke");
     let result = instance.call("32_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c223_l541_assert_trap() {
     let mut instance = create_module_3();
-    let result = c223_l541_action_invoke(&mut *instance);
+    let result = c223_l541_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2579,14 +2563,14 @@ fn c223_l541_assert_trap() {
 fn c224_l542_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c224_l542_action_invoke");
     let result = instance.call("32_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c224_l542_assert_trap() {
     let mut instance = create_module_3();
-    let result = c224_l542_action_invoke(&mut *instance);
+    let result = c224_l542_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2612,7 +2596,7 @@ fn test_module_3() {
     c220_l537_action_invoke(&mut instance);
     c221_l538_action_invoke(&mut instance);
 }
-fn create_module_4() -> Box<Instance> {
+fn create_module_4() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param i32) (result f64)))
       (type (;1;) (func (param i32)))
@@ -2645,11 +2629,8 @@ fn create_module_4() -> Box<Instance> {
       (data (;0;) (i32.const 0) \"\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\00\\f4\\7f\\01\\00\\00\\00\\00\\00\\fc\\7f\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_4(instance: &mut Instance) {
@@ -2694,15 +2675,12 @@ fn c230_l574_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c230_l574_action_invoke");
     let result = instance.call("64_good5", &[Value::I32(0 as i32)]);
     let expected = f64::from_bits(9222246136947933185);
-    if let Value::F64(result) = result.clone().unwrap().unwrap() {
-        assert!((result as f64).is_nan());
-        assert_eq!(
-            (result as f64).is_sign_positive(),
-            (expected as f64).is_sign_positive()
-        );
-    } else {
-        panic!("Unexpected result type {:?}", result);
-    }
+                                if let Value::F64(result) = result.clone().unwrap().unwrap() {
+                                assert!((result as f64).is_nan());
+            assert_eq!((result as f64).is_sign_positive(), (expected as f64).is_sign_positive());
+            } else {
+              panic!("Unexpected result type {:?}", result);
+            }
     result.map(|_| ())
 }
 
@@ -2782,14 +2760,14 @@ fn c239_l585_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c240_l586_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c240_l586_action_invoke");
     let result = instance.call("64_good5", &[Value::I32(65511 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c240_l586_assert_trap() {
     let mut instance = create_module_4();
-    let result = c240_l586_action_invoke(&mut *instance);
+    let result = c240_l586_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2797,14 +2775,14 @@ fn c240_l586_assert_trap() {
 fn c241_l588_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c241_l588_action_invoke");
     let result = instance.call("64_bad", &[Value::I32(0 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c241_l588_assert_trap() {
     let mut instance = create_module_4();
-    let result = c241_l588_action_invoke(&mut *instance);
+    let result = c241_l588_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -2812,14 +2790,14 @@ fn c241_l588_assert_trap() {
 fn c242_l589_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c242_l589_action_invoke");
     let result = instance.call("64_bad", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c242_l589_assert_trap() {
     let mut instance = create_module_4();
-    let result = c242_l589_action_invoke(&mut *instance);
+    let result = c242_l589_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 

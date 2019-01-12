@@ -5,17 +5,21 @@
     warnings,
     dead_code
 )]
-use std::{f32, f64};
 use wabt::wat2wasm;
+use std::{f32, f64};
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{module::Module, Instance};
+use wasmer_runtime::{Instance, module::Module};
+use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::spectests::_common::{generate_imports, NaNCheck};
+use crate::spectests::_common::{
+    generate_imports,
+    NaNCheck,
+};
+
 
 // Line 5
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (memory (;0;) 1)
       (data (;0;) (i32.const 0) \"\")
@@ -32,11 +36,8 @@ fn create_module_1() -> Box<Instance> {
       (data (;11;) (i32.const 0) \"abc\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -52,17 +53,14 @@ fn test_module_1() {
     // We group the calls together
     start_module_1(&mut instance);
 }
-fn create_module_2() -> Box<Instance> {
+fn create_module_2() -> Instance {
     let module_str = "(module
       (memory (;0;) 1)
       (data (;0;) (i32.const 0) \"a\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_2(instance: &mut Instance) {
@@ -78,17 +76,14 @@ fn test_module_2() {
     // We group the calls together
     start_module_2(&mut instance);
 }
-fn create_module_3() -> Box<Instance> {
+fn create_module_3() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 1))
       (data (;0;) (i32.const 0) \"a\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_3(instance: &mut Instance) {
@@ -104,7 +99,7 @@ fn test_module_3() {
     // We group the calls together
     start_module_3(&mut instance);
 }
-fn create_module_4() -> Box<Instance> {
+fn create_module_4() -> Instance {
     let module_str = "(module
       (memory (;0;) 1)
       (data (;0;) (i32.const 0) \"a\")
@@ -114,11 +109,8 @@ fn create_module_4() -> Box<Instance> {
       (data (;4;) (i32.const 3) \"c\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_4(instance: &mut Instance) {
@@ -134,7 +126,7 @@ fn test_module_4() {
     // We group the calls together
     start_module_4(&mut instance);
 }
-fn create_module_5() -> Box<Instance> {
+fn create_module_5() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 1))
       (data (;0;) (i32.const 0) \"a\")
@@ -145,11 +137,8 @@ fn create_module_5() -> Box<Instance> {
       (data (;5;) (i32.const 1) \"h\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_5(instance: &mut Instance) {
@@ -165,18 +154,15 @@ fn test_module_5() {
     // We group the calls together
     start_module_5(&mut instance);
 }
-fn create_module_6() -> Box<Instance> {
+fn create_module_6() -> Instance {
     let module_str = "(module
       (memory (;0;) 1)
       (data (;0;) (i32.const 0) \"a\")
       (data (;1;) (i32.const 65535) \"b\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_6(instance: &mut Instance) {
@@ -192,18 +178,15 @@ fn test_module_6() {
     // We group the calls together
     start_module_6(&mut instance);
 }
-fn create_module_7() -> Box<Instance> {
+fn create_module_7() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 1))
       (data (;0;) (i32.const 0) \"a\")
       (data (;1;) (i32.const 65535) \"b\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_7(instance: &mut Instance) {
@@ -219,17 +202,14 @@ fn test_module_7() {
     // We group the calls together
     start_module_7(&mut instance);
 }
-fn create_module_8() -> Box<Instance> {
+fn create_module_8() -> Instance {
     let module_str = "(module
       (memory (;0;) 2)
       (data (;0;) (i32.const 131071) \"a\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_8(instance: &mut Instance) {
@@ -245,17 +225,14 @@ fn test_module_8() {
     // We group the calls together
     start_module_8(&mut instance);
 }
-fn create_module_9() -> Box<Instance> {
+fn create_module_9() -> Instance {
     let module_str = "(module
       (memory (;0;) 0)
       (data (;0;) (i32.const 0) \"\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_9(instance: &mut Instance) {
@@ -271,17 +248,14 @@ fn test_module_9() {
     // We group the calls together
     start_module_9(&mut instance);
 }
-fn create_module_10() -> Box<Instance> {
+fn create_module_10() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 0))
       (data (;0;) (i32.const 0) \"\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_10(instance: &mut Instance) {
@@ -297,17 +271,14 @@ fn test_module_10() {
     // We group the calls together
     start_module_10(&mut instance);
 }
-fn create_module_11() -> Box<Instance> {
+fn create_module_11() -> Instance {
     let module_str = "(module
       (memory (;0;) 0 0)
       (data (;0;) (i32.const 0) \"\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_11(instance: &mut Instance) {
@@ -323,17 +294,14 @@ fn test_module_11() {
     // We group the calls together
     start_module_11(&mut instance);
 }
-fn create_module_12() -> Box<Instance> {
+fn create_module_12() -> Instance {
     let module_str = "(module
       (memory (;0;) 1)
       (data (;0;) (i32.const 65536) \"\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_12(instance: &mut Instance) {
@@ -349,17 +317,14 @@ fn test_module_12() {
     // We group the calls together
     start_module_12(&mut instance);
 }
-fn create_module_13() -> Box<Instance> {
+fn create_module_13() -> Instance {
     let module_str = "(module
       (memory (;0;) 0)
       (data (;0;) (i32.const 0) \"\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_13(instance: &mut Instance) {
@@ -375,17 +340,14 @@ fn test_module_13() {
     // We group the calls together
     start_module_13(&mut instance);
 }
-fn create_module_14() -> Box<Instance> {
+fn create_module_14() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 0))
       (data (;0;) (i32.const 0) \"\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_14(instance: &mut Instance) {
@@ -401,17 +363,14 @@ fn test_module_14() {
     // We group the calls together
     start_module_14(&mut instance);
 }
-fn create_module_15() -> Box<Instance> {
+fn create_module_15() -> Instance {
     let module_str = "(module
       (memory (;0;) 0 0)
       (data (;0;) (i32.const 0) \"\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_15(instance: &mut Instance) {
@@ -427,17 +386,14 @@ fn test_module_15() {
     // We group the calls together
     start_module_15(&mut instance);
 }
-fn create_module_16() -> Box<Instance> {
+fn create_module_16() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 0))
       (data (;0;) (i32.const 0) \"a\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_16(instance: &mut Instance) {
@@ -453,17 +409,14 @@ fn test_module_16() {
     // We group the calls together
     start_module_16(&mut instance);
 }
-fn create_module_17() -> Box<Instance> {
+fn create_module_17() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 0 3))
       (data (;0;) (i32.const 0) \"a\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_17(instance: &mut Instance) {
@@ -479,17 +432,14 @@ fn test_module_17() {
     // We group the calls together
     start_module_17(&mut instance);
 }
-fn create_module_18() -> Box<Instance> {
+fn create_module_18() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 0))
       (data (;0;) (i32.const 1) \"a\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_18(instance: &mut Instance) {
@@ -505,17 +455,14 @@ fn test_module_18() {
     // We group the calls together
     start_module_18(&mut instance);
 }
-fn create_module_19() -> Box<Instance> {
+fn create_module_19() -> Instance {
     let module_str = "(module
       (import \"spectest\" \"memory\" (memory (;0;) 0 3))
       (data (;0;) (i32.const 1) \"a\"))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_19(instance: &mut Instance) {
@@ -562,9 +509,7 @@ fn c33_l289_assert_invalid() {
 // Line 298
 #[test]
 fn c34_l298_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 6, 1, 0, 66, 0, 11, 0,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 6, 1, 0, 66, 0, 11, 0];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -572,9 +517,7 @@ fn c34_l298_assert_invalid() {
 // Line 306
 #[test]
 fn c35_l306_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 104, 11, 0,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 104, 11, 0];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -582,9 +525,7 @@ fn c35_l306_assert_invalid() {
 // Line 314
 #[test]
 fn c36_l314_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 5, 1, 0, 1, 11, 0,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 5, 1, 0, 1, 11, 0];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -592,9 +533,7 @@ fn c36_l314_assert_invalid() {
 // Line 322
 #[test]
 fn c37_l322_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 1, 65, 0, 11, 0,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 1, 65, 0, 11, 0];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -602,9 +541,7 @@ fn c37_l322_assert_invalid() {
 // Line 330
 #[test]
 fn c38_l330_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 1, 11, 0,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 0, 1, 11, 7, 1, 0, 65, 0, 1, 11, 0];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }

@@ -5,17 +5,21 @@
     warnings,
     dead_code
 )]
-use std::{f32, f64};
 use wabt::wat2wasm;
+use std::{f32, f64};
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{module::Module, Instance};
+use wasmer_runtime::{Instance, module::Module};
+use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::spectests::_common::{generate_imports, NaNCheck};
+use crate::spectests::_common::{
+    generate_imports,
+    NaNCheck,
+};
+
 
 // Line 3
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (type (;0;) (func))
       (type (;1;) (func))
@@ -33,11 +37,8 @@ fn create_module_1() -> Box<Instance> {
       (type (;13;) (func (param f32 f64 i32))))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -48,29 +49,17 @@ fn start_module_1(instance: &mut Instance) {
 // Line 44
 #[test]
 fn c1_l44_assert_malformed() {
-    let wasm_binary = [
-        40, 116, 121, 112, 101, 32, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116,
-        32, 105, 51, 50, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 41, 41,
-    ];
+    let wasm_binary = [40, 116, 121, 112, 101, 32, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 105, 51, 50, 41, 32, 40, 112, 97, 114, 97, 109, 32, 105, 51, 50, 41, 41, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 48
 #[test]
 fn c2_l48_assert_malformed() {
-    let wasm_binary = [
-        40, 116, 121, 112, 101, 32, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116,
-        32, 36, 120, 32, 105, 51, 50, 41, 41, 41,
-    ];
+    let wasm_binary = [40, 116, 121, 112, 101, 32, 40, 102, 117, 110, 99, 32, 40, 114, 101, 115, 117, 108, 116, 32, 36, 120, 32, 105, 51, 50, 41, 41, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 53

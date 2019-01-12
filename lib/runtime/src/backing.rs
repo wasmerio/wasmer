@@ -205,7 +205,7 @@ fn import_memories(
             }) => {
                 if expected_memory_desc.fits_in_imported(&memory_desc) {
                     memories.push(vm::ImportedMemory {
-                        memory: local,
+                        memory: local.inner(),
                         vmctx: match ctx {
                             Context::External(ctx) => ctx,
                             Context::Internal => vmctx,
@@ -284,7 +284,7 @@ fn import_globals(
         match import {
             Some(Export::Global { local, global }) => {
                 if &global == global_desc {
-                    globals.push(vm::ImportedGlobal { global: local });
+                    globals.push(vm::ImportedGlobal { global: local.inner() });
                 } else {
                     return Err(format!(
                         "unexpected global description for {:?}:{:?}",

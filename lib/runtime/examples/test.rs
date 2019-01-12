@@ -21,7 +21,7 @@ fn generate_imports() -> Rc<Imports> {
     Rc::new(imports)
 }
 
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (type (;0;) (func (result i64)))
       (func (;0;) (type 0) (result i64)

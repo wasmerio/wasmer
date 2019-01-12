@@ -5,17 +5,21 @@
     warnings,
     dead_code
 )]
-use std::{f32, f64};
 use wabt::wat2wasm;
+use std::{f32, f64};
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{module::Module, Instance};
+use wasmer_runtime::{Instance, module::Module};
+use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::spectests::_common::{generate_imports, NaNCheck};
+use crate::spectests::_common::{
+    generate_imports,
+    NaNCheck,
+};
+
 
 // Line 3
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param i32 i32) (result i32)))
       (type (;1;) (func))
@@ -634,11 +638,8 @@ fn create_module_1() -> Box<Instance> {
       (elem (;0;) (i32.const 0) 61))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -969,14 +970,7 @@ fn c40_l354_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 356
 fn c41_l356_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c41_l356_action_invoke");
-    let result = instance.call(
-        "as-call-first",
-        &[
-            Value::I32(3 as i32),
-            Value::I32(1 as i32),
-            Value::I32(2 as i32),
-        ],
-    );
+    let result = instance.call("as-call-first", &[Value::I32(3 as i32), Value::I32(1 as i32), Value::I32(2 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(2 as i32))));
     result.map(|_| ())
 }
@@ -984,14 +978,7 @@ fn c41_l356_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 357
 fn c42_l357_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c42_l357_action_invoke");
-    let result = instance.call(
-        "as-call-mid1",
-        &[
-            Value::I32(3 as i32),
-            Value::I32(1 as i32),
-            Value::I32(2 as i32),
-        ],
-    );
+    let result = instance.call("as-call-mid1", &[Value::I32(3 as i32), Value::I32(1 as i32), Value::I32(2 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(2 as i32))));
     result.map(|_| ())
 }
@@ -999,14 +986,7 @@ fn c42_l357_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 358
 fn c43_l358_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c43_l358_action_invoke");
-    let result = instance.call(
-        "as-call-mid2",
-        &[
-            Value::I32(0 as i32),
-            Value::I32(3 as i32),
-            Value::I32(1 as i32),
-        ],
-    );
+    let result = instance.call("as-call-mid2", &[Value::I32(0 as i32), Value::I32(3 as i32), Value::I32(1 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(2 as i32))));
     result.map(|_| ())
 }
@@ -1014,14 +994,7 @@ fn c43_l358_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 359
 fn c44_l359_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c44_l359_action_invoke");
-    let result = instance.call(
-        "as-call-last",
-        &[
-            Value::I32(10 as i32),
-            Value::I32(9 as i32),
-            Value::I32(-1 as i32),
-        ],
-    );
+    let result = instance.call("as-call-last", &[Value::I32(10 as i32), Value::I32(9 as i32), Value::I32(-1 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(20 as i32))));
     result.map(|_| ())
 }
@@ -1029,14 +1002,7 @@ fn c44_l359_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 360
 fn c45_l360_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c45_l360_action_invoke");
-    let result = instance.call(
-        "as-call-everywhere",
-        &[
-            Value::I32(2 as i32),
-            Value::I32(1 as i32),
-            Value::I32(5 as i32),
-        ],
-    );
+    let result = instance.call("as-call-everywhere", &[Value::I32(2 as i32), Value::I32(1 as i32), Value::I32(5 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(-2 as i32))));
     result.map(|_| ())
 }
@@ -1316,10 +1282,7 @@ fn c79_l404_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 406
 fn c80_l406_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c80_l406_action_invoke");
-    let result = instance.call(
-        "as-store-first",
-        &[Value::I32(0 as i32), Value::I32(1 as i32)],
-    );
+    let result = instance.call("as-store-first", &[Value::I32(0 as i32), Value::I32(1 as i32)]);
     assert_eq!(result, Ok(None));
     result.map(|_| ())
 }
@@ -1327,10 +1290,7 @@ fn c80_l406_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 407
 fn c81_l407_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c81_l407_action_invoke");
-    let result = instance.call(
-        "as-store-mid",
-        &[Value::I32(0 as i32), Value::I32(2 as i32)],
-    );
+    let result = instance.call("as-store-mid", &[Value::I32(0 as i32), Value::I32(2 as i32)]);
     assert_eq!(result, Ok(None));
     result.map(|_| ())
 }
@@ -1338,10 +1298,7 @@ fn c81_l407_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 408
 fn c82_l408_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c82_l408_action_invoke");
-    let result = instance.call(
-        "as-store-last",
-        &[Value::I32(0 as i32), Value::I32(3 as i32)],
-    );
+    let result = instance.call("as-store-last", &[Value::I32(0 as i32), Value::I32(3 as i32)]);
     assert_eq!(result, Ok(None));
     result.map(|_| ())
 }
@@ -1349,10 +1306,7 @@ fn c82_l408_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 409
 fn c83_l409_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c83_l409_action_invoke");
-    let result = instance.call(
-        "as-store-everywhere",
-        &[Value::I32(0 as i32), Value::I32(4 as i32)],
-    );
+    let result = instance.call("as-store-everywhere", &[Value::I32(0 as i32), Value::I32(4 as i32)]);
     assert_eq!(result, Ok(None));
     result.map(|_| ())
 }
@@ -1360,9 +1314,7 @@ fn c83_l409_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 412
 #[test]
 fn c84_l412_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 5, 1, 3, 0, 1, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 5, 1, 3, 0, 1, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1370,9 +1322,7 @@ fn c84_l412_assert_invalid() {
 // Line 416
 #[test]
 fn c85_l416_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 5, 1, 3, 0, 1, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 5, 1, 3, 0, 1, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1380,9 +1330,7 @@ fn c85_l416_assert_invalid() {
 // Line 420
 #[test]
 fn c86_l420_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 5, 1, 3, 0, 1, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 5, 1, 3, 0, 1, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1390,9 +1338,7 @@ fn c86_l420_assert_invalid() {
 // Line 424
 #[test]
 fn c87_l424_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 5, 1, 3, 0, 1, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 5, 1, 3, 0, 1, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }

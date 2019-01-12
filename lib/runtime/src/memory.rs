@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 use crate::{
     mmap::{Mmap, Protect},
     types::Memory,
-    vm::LocalMemory,
+    vm,
 };
 
 /// A linear memory instance.
@@ -38,16 +38,16 @@ pub struct LinearMemory {
 
 /// It holds the raw bytes of memory accessed by a WebAssembly Instance
 impl LinearMemory {
-    pub const PAGE_SIZE: u32 = 65_536;
-    pub const MAX_PAGES: u32 = 65_536;
+    pub(crate) const PAGE_SIZE: u32 = 65_536;
+    pub(crate) const MAX_PAGES: u32 = 65_536;
     pub const DEFAULT_HEAP_SIZE: usize = 1 << 32; // 4 GiB
     pub const DEFAULT_GUARD_SIZE: usize = 1 << 31; // 2 GiB
-    pub const DEFAULT_SIZE: usize = Self::DEFAULT_HEAP_SIZE + Self::DEFAULT_GUARD_SIZE; // 6 GiB
+    pub(crate) const DEFAULT_SIZE: usize = Self::DEFAULT_HEAP_SIZE + Self::DEFAULT_GUARD_SIZE; // 6 GiB
 
     /// Create a new linear memory instance with specified initial and maximum number of pages.
     ///
     /// `maximum` cannot be set to more than `65536` pages.
-    pub fn new(mem: &Memory) -> Self {
+    pub(crate) fn new(mem: &Memory) -> Self {
         assert!(mem.min <= Self::MAX_PAGES);
         assert!(mem.max.is_none() || mem.max.unwrap() <= Self::MAX_PAGES);
         debug!("Instantiate LinearMemory(mem: {:?})", mem);
@@ -92,7 +92,7 @@ impl LinearMemory {
     }
 
     /// Returns an base address of this linear memory.
-    fn base(&mut self) -> *mut u8 {
+    fn base(&self) -> *mut u8 {
         self.mmap.as_ptr()
     }
 
@@ -110,8 +110,8 @@ impl LinearMemory {
         self.max.unwrap_or(Self::MAX_PAGES)
     }
 
-    pub(crate) fn into_vm_memory(&mut self) -> LocalMemory {
-        LocalMemory {
+    pub(crate) fn into_vm_memory(&self) -> vm::LocalMemory {
+        vm::LocalMemory {
             base: self.base(),
             size: self.size(),
         }

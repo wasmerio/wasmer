@@ -5,17 +5,21 @@
     warnings,
     dead_code
 )]
-use std::{f32, f64};
 use wabt::wat2wasm;
+use std::{f32, f64};
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{module::Module, Instance};
+use wasmer_runtime::{Instance, module::Module};
+use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::spectests::_common::{generate_imports, NaNCheck};
+use crate::spectests::_common::{
+    generate_imports,
+    NaNCheck,
+};
+
 
 // Line 3
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param i32 i32 i32) (result i32)))
       (type (;1;) (func))
@@ -414,11 +418,8 @@ fn create_module_1() -> Box<Instance> {
       (elem (;0;) (i32.const 0) 36))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -701,10 +702,7 @@ fn c34_l260_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 262
 fn c35_l262_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c35_l262_action_invoke");
-    let result = instance.call(
-        "as-select-first",
-        &[Value::I32(0 as i32), Value::I32(6 as i32)],
-    );
+    let result = instance.call("as-select-first", &[Value::I32(0 as i32), Value::I32(6 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(5 as i32))));
     result.map(|_| ())
 }
@@ -712,10 +710,7 @@ fn c35_l262_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 263
 fn c36_l263_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c36_l263_action_invoke");
-    let result = instance.call(
-        "as-select-first",
-        &[Value::I32(1 as i32), Value::I32(6 as i32)],
-    );
+    let result = instance.call("as-select-first", &[Value::I32(1 as i32), Value::I32(6 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(5 as i32))));
     result.map(|_| ())
 }
@@ -723,10 +718,7 @@ fn c36_l263_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 264
 fn c37_l264_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c37_l264_action_invoke");
-    let result = instance.call(
-        "as-select-second",
-        &[Value::I32(0 as i32), Value::I32(6 as i32)],
-    );
+    let result = instance.call("as-select-second", &[Value::I32(0 as i32), Value::I32(6 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(6 as i32))));
     result.map(|_| ())
 }
@@ -734,10 +726,7 @@ fn c37_l264_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 265
 fn c38_l265_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c38_l265_action_invoke");
-    let result = instance.call(
-        "as-select-second",
-        &[Value::I32(1 as i32), Value::I32(6 as i32)],
-    );
+    let result = instance.call("as-select-second", &[Value::I32(1 as i32), Value::I32(6 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(6 as i32))));
     result.map(|_| ())
 }
@@ -929,9 +918,7 @@ fn c61_l299_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 302
 #[test]
 fn c62_l302_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 5, 1, 3, 0, 15, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 5, 1, 3, 0, 15, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -939,9 +926,7 @@ fn c62_l302_assert_invalid() {
 // Line 306
 #[test]
 fn c63_l306_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 6, 1, 4, 0, 1, 15, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 6, 1, 4, 0, 1, 15, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -949,10 +934,7 @@ fn c63_l306_assert_invalid() {
 // Line 310
 #[test]
 fn c64_l310_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 7, 1, 5, 0, 66, 1, 15,
-        11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 7, 1, 5, 0, 66, 1, 15, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }

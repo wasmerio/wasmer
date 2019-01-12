@@ -5,17 +5,21 @@
     warnings,
     dead_code
 )]
-use std::{f32, f64};
 use wabt::wat2wasm;
+use std::{f32, f64};
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::types::Value;
-use wasmer_runtime::{module::Module, Instance};
+use wasmer_runtime::{Instance, module::Module};
+use wasmer_clif_backend::CraneliftCompiler;
 
-use crate::spectests::_common::{generate_imports, NaNCheck};
+use crate::spectests::_common::{
+    generate_imports,
+    NaNCheck,
+};
+
 
 // Line 3
-fn create_module_1() -> Box<Instance> {
+fn create_module_1() -> Instance {
     let module_str = "(module
       (type (;0;) (func (param i32 i32) (result i32)))
       (type (;1;) (func))
@@ -637,11 +641,8 @@ fn create_module_1() -> Box<Instance> {
       (elem (;0;) (i32.const 0) 16))
     ";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    module
-        .instantiate(generate_imports())
-        .expect("WASM can't be instantiated")
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+    module.instantiate(generate_imports()).expect("WASM can't be instantiated")
 }
 
 fn start_module_1(instance: &mut Instance) {
@@ -1029,14 +1030,14 @@ fn c47_l439_action_invoke(instance: &mut Instance) -> Result<(), String> {
 fn c48_l440_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c48_l440_action_invoke");
     let result = instance.call("as-call_indirect-last", &[Value::I32(1 as i32)]);
-
+    
     result.map(|_| ())
 }
 
 #[test]
 fn c48_l440_assert_trap() {
     let mut instance = create_module_1();
-    let result = c48_l440_action_invoke(&mut *instance);
+    let result = c48_l440_action_invoke(&mut instance);
     assert!(result.is_err());
 }
 
@@ -1243,10 +1244,7 @@ fn c73_l476_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 478
 fn c74_l478_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c74_l478_action_invoke");
-    let result = instance.call(
-        "as-binary-operand",
-        &[Value::I32(0 as i32), Value::I32(0 as i32)],
-    );
+    let result = instance.call("as-binary-operand", &[Value::I32(0 as i32), Value::I32(0 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(15 as i32))));
     result.map(|_| ())
 }
@@ -1254,10 +1252,7 @@ fn c74_l478_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 479
 fn c75_l479_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c75_l479_action_invoke");
-    let result = instance.call(
-        "as-binary-operand",
-        &[Value::I32(0 as i32), Value::I32(1 as i32)],
-    );
+    let result = instance.call("as-binary-operand", &[Value::I32(0 as i32), Value::I32(1 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(-12 as i32))));
     result.map(|_| ())
 }
@@ -1265,10 +1260,7 @@ fn c75_l479_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 480
 fn c76_l480_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c76_l480_action_invoke");
-    let result = instance.call(
-        "as-binary-operand",
-        &[Value::I32(1 as i32), Value::I32(0 as i32)],
-    );
+    let result = instance.call("as-binary-operand", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(-15 as i32))));
     result.map(|_| ())
 }
@@ -1276,10 +1268,7 @@ fn c76_l480_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 481
 fn c77_l481_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c77_l481_action_invoke");
-    let result = instance.call(
-        "as-binary-operand",
-        &[Value::I32(1 as i32), Value::I32(1 as i32)],
-    );
+    let result = instance.call("as-binary-operand", &[Value::I32(1 as i32), Value::I32(1 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(12 as i32))));
     result.map(|_| ())
 }
@@ -1303,10 +1292,7 @@ fn c79_l484_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 486
 fn c80_l486_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c80_l486_action_invoke");
-    let result = instance.call(
-        "as-compare-operand",
-        &[Value::I32(0 as i32), Value::I32(0 as i32)],
-    );
+    let result = instance.call("as-compare-operand", &[Value::I32(0 as i32), Value::I32(0 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1314,10 +1300,7 @@ fn c80_l486_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 487
 fn c81_l487_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c81_l487_action_invoke");
-    let result = instance.call(
-        "as-compare-operand",
-        &[Value::I32(0 as i32), Value::I32(1 as i32)],
-    );
+    let result = instance.call("as-compare-operand", &[Value::I32(0 as i32), Value::I32(1 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -1325,10 +1308,7 @@ fn c81_l487_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 488
 fn c82_l488_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c82_l488_action_invoke");
-    let result = instance.call(
-        "as-compare-operand",
-        &[Value::I32(1 as i32), Value::I32(0 as i32)],
-    );
+    let result = instance.call("as-compare-operand", &[Value::I32(1 as i32), Value::I32(0 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(1 as i32))));
     result.map(|_| ())
 }
@@ -1336,10 +1316,7 @@ fn c82_l488_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 489
 fn c83_l489_action_invoke(instance: &mut Instance) -> Result<(), String> {
     println!("Executing function {}", "c83_l489_action_invoke");
-    let result = instance.call(
-        "as-compare-operand",
-        &[Value::I32(1 as i32), Value::I32(1 as i32)],
-    );
+    let result = instance.call("as-compare-operand", &[Value::I32(1 as i32), Value::I32(1 as i32)]);
     assert_eq!(result, Ok(Some(Value::I32(0 as i32))));
     result.map(|_| ())
 }
@@ -1387,10 +1364,7 @@ fn c88_l496_action_invoke(instance: &mut Instance) -> Result<(), String> {
 // Line 499
 #[test]
 fn c89_l499_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4,
-        64, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4, 64, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1398,10 +1372,7 @@ fn c89_l499_assert_invalid() {
 // Line 503
 #[test]
 fn c90_l503_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4,
-        64, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4, 64, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1409,10 +1380,7 @@ fn c90_l503_assert_invalid() {
 // Line 507
 #[test]
 fn c91_l507_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4,
-        64, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4, 64, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1420,10 +1388,7 @@ fn c91_l507_assert_invalid() {
 // Line 511
 #[test]
 fn c92_l511_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4,
-        64, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4, 64, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1431,10 +1396,7 @@ fn c92_l511_assert_invalid() {
 // Line 516
 #[test]
 fn c93_l516_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4,
-        64, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4, 64, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1442,10 +1404,7 @@ fn c93_l516_assert_invalid() {
 // Line 520
 #[test]
 fn c94_l520_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4,
-        64, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 126, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4, 64, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1453,10 +1412,7 @@ fn c94_l520_assert_invalid() {
 // Line 524
 #[test]
 fn c95_l524_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4,
-        64, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 125, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4, 64, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1464,10 +1420,7 @@ fn c95_l524_assert_invalid() {
 // Line 528
 #[test]
 fn c96_l528_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4,
-        64, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 124, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 0, 4, 64, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1475,10 +1428,7 @@ fn c96_l528_assert_invalid() {
 // Line 533
 #[test]
 fn c97_l533_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 11, 1, 9, 0, 65, 1, 4, 64,
-        65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 11, 1, 9, 0, 65, 1, 4, 64, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1486,10 +1436,7 @@ fn c97_l533_assert_invalid() {
 // Line 539
 #[test]
 fn c98_l539_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 11, 1, 9, 0, 65, 1, 4, 64,
-        65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 11, 1, 9, 0, 65, 1, 4, 64, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1497,10 +1444,7 @@ fn c98_l539_assert_invalid() {
 // Line 545
 #[test]
 fn c99_l545_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 12, 1, 10, 0, 65, 1, 4, 64,
-        5, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 12, 1, 10, 0, 65, 1, 4, 64, 5, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1508,10 +1452,7 @@ fn c99_l545_assert_invalid() {
 // Line 551
 #[test]
 fn c100_l551_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1, 4, 64,
-        65, 1, 5, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1, 4, 64, 65, 1, 5, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1519,10 +1460,7 @@ fn c100_l551_assert_invalid() {
 // Line 558
 #[test]
 fn c101_l558_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 65, 1,
-        4, 127, 5, 65, 0, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 65, 1, 4, 127, 5, 65, 0, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1530,10 +1468,7 @@ fn c101_l558_assert_invalid() {
 // Line 564
 #[test]
 fn c102_l564_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 65, 1, 4,
-        127, 65, 0, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 65, 1, 4, 127, 65, 0, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1541,10 +1476,7 @@ fn c102_l564_assert_invalid() {
 // Line 570
 #[test]
 fn c103_l570_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 1, 4,
-        127, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 9, 1, 7, 0, 65, 1, 4, 127, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1552,10 +1484,7 @@ fn c103_l570_assert_invalid() {
 // Line 576
 #[test]
 fn c104_l576_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 65, 1, 4,
-        127, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 11, 1, 9, 0, 65, 1, 4, 127, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1563,10 +1492,7 @@ fn c104_l576_assert_invalid() {
 // Line 583
 #[test]
 fn c105_l583_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 13, 1, 11, 0, 65, 1,
-        4, 127, 1, 5, 65, 0, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 13, 1, 11, 0, 65, 1, 4, 127, 1, 5, 65, 0, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1574,10 +1500,7 @@ fn c105_l583_assert_invalid() {
 // Line 589
 #[test]
 fn c106_l589_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 13, 1, 11, 0, 65, 1,
-        4, 127, 65, 0, 5, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 13, 1, 11, 0, 65, 1, 4, 127, 65, 0, 5, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1585,10 +1508,7 @@ fn c106_l589_assert_invalid() {
 // Line 595
 #[test]
 fn c107_l595_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 65, 1,
-        4, 127, 1, 5, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 12, 1, 10, 0, 65, 1, 4, 127, 1, 5, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1596,10 +1516,7 @@ fn c107_l595_assert_invalid() {
 // Line 602
 #[test]
 fn c108_l602_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1,
-        4, 127, 66, 1, 5, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1, 4, 127, 66, 1, 5, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1607,10 +1524,7 @@ fn c108_l602_assert_invalid() {
 // Line 608
 #[test]
 fn c109_l608_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1,
-        4, 127, 65, 1, 5, 66, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1, 4, 127, 65, 1, 5, 66, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1618,10 +1532,7 @@ fn c109_l608_assert_invalid() {
 // Line 614
 #[test]
 fn c110_l614_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1,
-        4, 127, 66, 1, 5, 66, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1, 4, 127, 66, 1, 5, 66, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1629,10 +1540,7 @@ fn c110_l614_assert_invalid() {
 // Line 620
 #[test]
 fn c111_l620_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 21, 1, 19, 0, 65, 1,
-        4, 127, 66, 1, 5, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 21, 1, 19, 0, 65, 1, 4, 127, 66, 1, 5, 68, 0, 0, 0, 0, 0, 0, 240, 63, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1640,10 +1548,7 @@ fn c111_l620_assert_invalid() {
 // Line 627
 #[test]
 fn c112_l627_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 65, 0,
-        4, 126, 0, 0, 0, 27, 5, 66, 0, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 65, 0, 4, 126, 0, 0, 0, 27, 5, 66, 0, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1651,10 +1556,7 @@ fn c112_l627_assert_invalid() {
 // Line 637
 #[test]
 fn c113_l637_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 65, 1,
-        4, 126, 66, 0, 5, 0, 0, 0, 27, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 65, 1, 4, 126, 66, 0, 5, 0, 0, 0, 27, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1662,10 +1564,7 @@ fn c113_l637_assert_invalid() {
 // Line 647
 #[test]
 fn c114_l647_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 65, 1,
-        4, 126, 0, 0, 0, 27, 5, 0, 0, 0, 27, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 65, 1, 4, 126, 0, 0, 0, 27, 5, 0, 0, 0, 27, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1673,10 +1572,7 @@ fn c114_l647_assert_invalid() {
 // Line 658
 #[test]
 fn c115_l658_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1,
-        4, 127, 12, 0, 5, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1, 4, 127, 12, 0, 5, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1684,10 +1580,7 @@ fn c115_l658_assert_invalid() {
 // Line 664
 #[test]
 fn c116_l664_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1,
-        4, 127, 65, 1, 5, 12, 0, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 14, 1, 12, 0, 65, 1, 4, 127, 65, 1, 5, 12, 0, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1695,10 +1588,7 @@ fn c116_l664_assert_invalid() {
 // Line 670
 #[test]
 fn c117_l670_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 65, 1,
-        4, 127, 12, 0, 65, 1, 5, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 65, 1, 4, 127, 12, 0, 65, 1, 5, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1706,10 +1596,7 @@ fn c117_l670_assert_invalid() {
 // Line 679
 #[test]
 fn c118_l679_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 65, 1,
-        4, 127, 65, 1, 5, 12, 0, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 16, 1, 14, 0, 65, 1, 4, 127, 65, 1, 5, 12, 0, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1717,10 +1604,7 @@ fn c118_l679_assert_invalid() {
 // Line 688
 #[test]
 fn c119_l688_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 17, 1, 15, 0, 65, 1,
-        4, 127, 1, 12, 0, 65, 1, 5, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 17, 1, 15, 0, 65, 1, 4, 127, 1, 12, 0, 65, 1, 5, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1728,10 +1612,7 @@ fn c119_l688_assert_invalid() {
 // Line 697
 #[test]
 fn c120_l697_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 17, 1, 15, 0, 65, 1,
-        4, 127, 65, 1, 5, 1, 12, 0, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 17, 1, 15, 0, 65, 1, 4, 127, 65, 1, 5, 1, 12, 0, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1739,10 +1620,7 @@ fn c120_l697_assert_invalid() {
 // Line 707
 #[test]
 fn c121_l707_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 65, 1,
-        4, 127, 66, 1, 12, 0, 65, 1, 5, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 65, 1, 4, 127, 66, 1, 12, 0, 65, 1, 5, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1750,10 +1628,7 @@ fn c121_l707_assert_invalid() {
 // Line 716
 #[test]
 fn c122_l716_assert_invalid() {
-    let wasm_binary = [
-        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 65, 1,
-        4, 127, 65, 1, 5, 66, 1, 12, 0, 65, 1, 11, 11,
-    ];
+    let wasm_binary = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 127, 3, 2, 1, 0, 10, 18, 1, 16, 0, 65, 1, 4, 127, 65, 1, 5, 66, 1, 12, 0, 65, 1, 11, 11];
     let module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
     assert!(module.is_err(), "WASM should not compile as is invalid");
 }
@@ -1761,139 +1636,81 @@ fn c122_l716_assert_invalid() {
 // Line 727
 #[test]
 fn c123_l727_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 110, 100, 32, 36, 108, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 731
 #[test]
 fn c124_l731_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 110, 100, 32, 36, 108, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 735
 #[test]
 fn c125_l735_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 108, 115, 101, 32, 36, 108, 32, 101, 110,
-        100, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 108, 115, 101, 32, 36, 108, 32, 101, 110, 100, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 739
 #[test]
 fn c126_l739_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 108, 115, 101, 32, 36, 108, 32,
-        101, 110, 100, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 108, 115, 101, 32, 36, 108, 32, 101, 110, 100, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 743
 #[test]
 fn c127_l743_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 108, 115, 101, 32, 101, 110, 100, 32, 36,
-        108, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 108, 115, 101, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 747
 #[test]
 fn c128_l747_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 108, 115, 101, 32, 36, 108, 32, 101, 110,
-        100, 32, 36, 108, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 108, 115, 101, 32, 36, 108, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 751
 #[test]
 fn c129_l751_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 108, 115, 101, 32, 36, 108, 49, 32, 101, 110,
-        100, 32, 36, 108, 50, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 101, 108, 115, 101, 32, 36, 108, 49, 32, 101, 110, 100, 32, 36, 108, 50, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 755
 #[test]
 fn c130_l755_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 108, 115, 101, 32, 101, 110, 100,
-        32, 36, 108, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 108, 115, 101, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 759
 #[test]
 fn c131_l759_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 108, 115, 101, 32, 36, 97, 32,
-        101, 110, 100, 32, 36, 108, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 108, 115, 101, 32, 36, 97, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 // Line 763
 #[test]
 fn c132_l763_assert_malformed() {
-    let wasm_binary = [
-        40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 108, 115, 101, 32, 36, 108, 32,
-        101, 110, 100, 32, 36, 108, 41,
-    ];
+    let wasm_binary = [40, 102, 117, 110, 99, 32, 105, 102, 32, 36, 97, 32, 101, 108, 115, 101, 32, 36, 108, 32, 101, 110, 100, 32, 36, 108, 41];
     let compilation = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new());
-    assert!(
-        compilation.is_err(),
-        "WASM should not compile as is malformed"
-    );
+    assert!(compilation.is_err(), "WASM should not compile as is malformed");
 }
 
 #[test]

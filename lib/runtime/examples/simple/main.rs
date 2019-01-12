@@ -4,10 +4,10 @@ use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     self as runtime,
-    export::{Context, Export},
+    export::{Context, Export, FuncPointer},
     import::Imports,
     types::{FuncSig, Type, Value},
-    vm, FuncRef,
+    vm,
 };
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
@@ -20,7 +20,7 @@ fn main() -> Result<(), String> {
     env_namespace.insert(
         "print_i32",
         Export::Function {
-            func: unsafe { FuncRef::new(print_num as _) },
+            func: unsafe { FuncPointer::new(print_num as _) },
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![Type::I32],
