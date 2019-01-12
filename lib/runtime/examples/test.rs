@@ -21,7 +21,7 @@ fn generate_imports() -> Rc<Imports> {
     // let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
     // let instance = module.instantiate(Rc::new(Imports::new())).expect("WASM can't be instantiated");
     let imports = Imports::new();
-    // imports.register_instance("spectest", instance);
+    // imports.register("spectest", instance);
     Rc::new(imports)
 }
 

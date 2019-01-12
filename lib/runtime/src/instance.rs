@@ -2,7 +2,7 @@ use crate::recovery::call_protected;
 use crate::{
     backing::{ImportBacking, LocalBacking},
     export::{Context, Export},
-    import::ImportResolver,
+    import::{ImportResolver, Namespace},
     module::{ExportIndex, Module},
     types::{FuncIndex, FuncSig, MapIndex, Memory, MemoryIndex, Type, Value},
     vm,
@@ -130,16 +130,6 @@ impl Instance {
         })
     }
 
-    pub fn get_export(&self, name: &str) -> Result<Export, String> {
-        let export_index = self
-            .module
-            .exports
-            .get(name)
-            .ok_or_else(|| format!("there is no export with that name: {}", name))?;
-
-        Ok(self.get_export_from_index(export_index))
-    }
-
     pub fn exports(&self) -> ExportIter {
         ExportIter::new(self)
     }
@@ -235,6 +225,14 @@ impl Instance {
                     .expect("broken invariant, memories"),
             )
         }
+    }
+}
+
+impl Namespace for Box<Instance> {
+    fn get_export(&self, name: &str) -> Option<Export> {
+        let export_index = self.module.exports.get(name)?;
+
+        Some(self.get_export_from_index(export_index))
     }
 }
 

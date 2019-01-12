@@ -1,3 +1,4 @@
+use hashbrown::HashMap;
 use std::rc::Rc;
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
@@ -15,9 +16,8 @@ fn main() -> Result<(), String> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let inner_module = runtime::compile(&wasm_binary, &CraneliftCompiler::new())?;
 
-    let mut imports = Imports::new();
-    imports.register_export(
-        "env",
+    let mut env_namespace = HashMap::new();
+    env_namespace.insert(
         "print_i32",
         Export::Function {
             func: unsafe { FuncRef::new(print_num as _) },
@@ -28,13 +28,15 @@ fn main() -> Result<(), String> {
             },
         },
     );
+    let mut imports = Imports::new();
+    imports.register("env", env_namespace);
 
     let imports = Rc::new(imports);
 
     let inner_instance = inner_module.instantiate(imports)?;
 
     let mut outer_imports = Imports::new();
-    outer_imports.register_instance("env", inner_instance);
+    outer_imports.register("env", inner_instance);
     let outer_imports = Rc::new(outer_imports);
     let outer_module = runtime::compile(EXAMPLE_WASM, &CraneliftCompiler::new())?;
     let mut outer_instance = outer_module.instantiate(outer_imports)?;
@@ -57,15 +59,3 @@ static IMPORT_MODULE: &str = r#"
     get_local $p0
     call $print_i32))
 "#;
-
-fn generate_imports() -> Rc<Imports> {
-    let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
-    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
-        .expect("WASM can't be compiled");
-    let instance = module
-        .instantiate(Rc::new(Imports::new()))
-        .expect("WASM can't be instantiated");
-    let mut imports = Imports::new();
-    imports.register_instance("env", instance);
-    Rc::new(imports)
-}
