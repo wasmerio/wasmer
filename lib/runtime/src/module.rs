@@ -59,6 +59,10 @@ impl ModuleInner {
     pub(crate) fn is_imported_table(&self, table_index: TableIndex) -> bool {
         table_index.index() < self.imported_tables.len()
     }
+
+    pub(crate) fn is_imported_global(&self, global_index: GlobalIndex) -> bool {
+        global_index.index() < self.imported_globals.len()
+    }
 }
 
 #[doc(hidden)]

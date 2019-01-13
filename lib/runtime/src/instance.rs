@@ -1,10 +1,15 @@
 use crate::recovery::call_protected;
 use crate::{
     backing::{ImportBacking, LocalBacking},
-    export::{Context, Export, ExportIter, FuncPointer, MemoryPointer, TablePointer},
+    export::{
+        Context, Export, ExportIter, FuncPointer, GlobalPointer, MemoryPointer, TablePointer,
+    },
     import::{Imports, Namespace},
     module::{ExportIndex, Module, ModuleInner},
-    types::{FuncIndex, FuncSig, MapIndex, Memory, MemoryIndex, Table, TableIndex, Type, Value},
+    types::{
+        FuncIndex, FuncSig, GlobalDesc, GlobalIndex, MapIndex, Memory, MemoryIndex, Table,
+        TableIndex, Type, Value,
+    },
     vm,
 };
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
@@ -169,7 +174,10 @@ impl InstanceInner {
                     memory,
                 }
             }
-            ExportIndex::Global(_global_index) => unimplemented!(),
+            ExportIndex::Global(global_index) => {
+                let (local, global) = self.get_global_from_index(module, *global_index);
+                Export::Global { local, global }
+            }
             ExportIndex::Table(table_index) => {
                 let (local, ctx, table) = self.get_table_from_index(module, *table_index);
                 Export::Table {
@@ -243,6 +251,31 @@ impl InstanceInner {
                     .memories
                     .get(mem_index)
                     .expect("broken invariant, memories"),
+            )
+        }
+    }
+
+    fn get_global_from_index(
+        &mut self,
+        module: &ModuleInner,
+        global_index: GlobalIndex,
+    ) -> (GlobalPointer, GlobalDesc) {
+        if module.is_imported_global(global_index) {
+            let &(_, desc) = &module
+                .imported_globals
+                .get(global_index)
+                .expect("missing imported global index");
+            let vm::ImportedGlobal { global } = &self.import_backing.globals[global_index.index()];
+            (unsafe { GlobalPointer::new(*global) }, *desc)
+        } else {
+            let vm_global = &mut self.backing.vm_globals[global_index.index() as usize];
+            (
+                unsafe { GlobalPointer::new(vm_global) },
+                module
+                    .globals
+                    .get(global_index)
+                    .expect("broken invariant, globals")
+                    .desc,
             )
         }
     }

@@ -158,7 +158,7 @@ impl LocalBacking {
         imports: &ImportBacking,
         mut globals: Box<[vm::LocalGlobal]>,
     ) -> Box<[vm::LocalGlobal]> {
-        for (to, (_, from)) in globals.iter_mut().zip(module.globals.into_iter()) {
+        for (to, (global_index, from)) in globals.iter_mut().zip(module.globals.into_iter()) {
             to.data = match from.init {
                 Initializer::Const(Value::I32(x)) => x as u64,
                 Initializer::Const(Value::I64(x)) => x as u64,
@@ -166,6 +166,9 @@ impl LocalBacking {
                 Initializer::Const(Value::F64(x)) => x.to_bits(),
                 Initializer::GetGlobal(index) => unsafe {
                     (*imports.globals[index.index()].global).data
+                },
+                Initializer::Import => unsafe {
+                    (*imports.globals[global_index.index()].global).data
                 },
             };
         }

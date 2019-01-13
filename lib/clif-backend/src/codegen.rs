@@ -148,8 +148,8 @@ pub mod converter {
             F64Const(val) => Const(f64::from_bits(val).into()),
             GlobalInit::GetGlobal(index) => {
                 WasmerInitializer::GetGlobal(WasmerGlobalIndex::new(index.index()))
-            }
-            Import => unimplemented!("TODO: imported globals are not supported yet!"),
+            },
+            GlobalInit::Import => WasmerInitializer::Import
         };
 
         WasmerGlobal { desc, init }

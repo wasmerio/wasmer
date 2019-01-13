@@ -95,6 +95,8 @@ pub enum Initializer {
     Const(Value),
     /// Corresponds to a `get_global` instruction.
     GetGlobal(GlobalIndex),
+    /// Initialized externally
+    Import,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
