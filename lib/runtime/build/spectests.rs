@@ -2,7 +2,8 @@
 //! WebAssembly spec tests. It will convert the files indicated in TESTS
 //! from "/spectests/{MODULE}.wast" to "/src/spectests/{MODULE}.rs".
 use std::collections::HashMap;
-use std::fs;
+use std::{fs, env, io::Write};
+use std::fs::File;
 use std::path::PathBuf;
 use wabt::script::{Action, Command, CommandKind, ModuleBinary, ScriptParser, Value};
 use wabt::wasm2wat;
@@ -72,6 +73,88 @@ const TESTS: &[&str] = &[
     "spectests/types.wast",
     "spectests/unwind.wast",
 ];
+
+static COMMON: &'static str = r##"
+use std::{{f32, f64}};
+use wabt::wat2wasm;
+use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_runtime::import::Imports;
+use wasmer_runtime::types::Value;
+use wasmer_runtime::{{Instance, module::Module}};
+
+static IMPORT_MODULE: &str = r#"
+(module
+  (type $t0 (func (param i32)))
+  (type $t1 (func))
+  (func $print_i32 (export "print_i32") (type $t0) (param $lhs i32))
+  (func $print (export "print") (type $t1))
+  (table $table (export "table") 10 anyfunc)
+  (memory $memory (export "memory") 1)
+  (global $global_i32 (export "global_i32") i32 (i32.const 666)))
+"#;
+
+pub fn generate_imports() -> Imports {
+    let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
+    let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+    let instance = module
+        .instantiate(&Imports::new())
+        .expect("WASM can't be instantiated");
+    let mut imports = Imports::new();
+    imports.register("spectest", instance);
+    imports
+}
+
+/// Bit pattern of an f32 value:
+///     1-bit sign + 8-bit mantissa + 23-bit exponent = 32 bits
+///
+/// Bit pattern of an f64 value:
+///     1-bit sign + 11-bit mantissa + 52-bit exponent = 64 bits
+///
+/// NOTE: On some old platforms (PA-RISC, some MIPS) quiet NaNs (qNaN) have
+/// their mantissa MSB unset and set for signaling NaNs (sNaN).
+///
+/// Links:
+///     * https://en.wikipedia.org/wiki/Floating-point_arithmetic
+///     * https://github.com/WebAssembly/spec/issues/286
+///     * https://en.wikipedia.org/wiki/NaN
+///
+pub trait NaNCheck {
+    fn is_quiet_nan(&self) -> bool;
+    fn is_canonical_nan(&self) -> bool;
+}
+
+impl NaNCheck for f32 {
+    /// The MSB of the mantissa must be set for a NaN to be a quiet NaN.
+    fn is_quiet_nan(&self) -> bool {
+        let bit_mask = 0b1 << 22; // Used to check if 23rd bit is set, which is MSB of the mantissa
+        self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
+    }
+
+    /// For a NaN to be canonical, its mantissa bits must all be unset
+    fn is_canonical_nan(&self) -> bool {
+        let bit_mask: u32 = 0b1____0000_0000____011_1111_1111_1111_1111_1111;
+        let masked_value = self.to_bits() ^ bit_mask;
+        masked_value == 0xFFFF_FFFF || masked_value == 0x7FFF_FFFF
+    }
+}
+
+impl NaNCheck for f64 {
+    /// The MSB of the mantissa must be set for a NaN to be a quiet NaN.
+    fn is_quiet_nan(&self) -> bool {
+        let bit_mask = 0b1 << 51; // Used to check if 52st bit is set, which is MSB of the mantissa
+        self.is_nan() && (self.to_bits() & bit_mask) == bit_mask
+    }
+
+    /// For a NaN to be canonical, its mantissa bits must all be unset
+    fn is_canonical_nan(&self) -> bool {
+        let bit_mask: u64 =
+            0b1____000_0000_0000____0111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111;
+        let masked_value = self.to_bits() ^ bit_mask;
+        masked_value == 0x7FFF_FFFF_FFFF_FFFF || masked_value == 0xFFF_FFFF_FFFF_FFFF
+    }
+}
+"##;
 
 fn wabt2rust_type(v: &Value) -> String {
     match v {
@@ -172,7 +255,6 @@ struct WastTestGenerator {
     last_module: i32,
     last_line: u64,
     command_no: i32,
-    filename: String,
     script_parser: ScriptParser,
     module_calls: HashMap<i32, Vec<String>>,
     buffer: String,
@@ -188,7 +270,6 @@ impl WastTestGenerator {
             last_module: 0,
             last_line: 0,
             command_no: 0,
-            filename: filename.to_string(),
             script_parser: script,
             buffer: buffer,
             module_calls: HashMap::new(),
@@ -197,25 +278,24 @@ impl WastTestGenerator {
 
     fn consume(&mut self) {
         self.buffer.push_str(BANNER);
-        self.buffer.push_str(&format!(
-            "// Test based on spectests/{}
-#![allow(
-    warnings,
-    dead_code
-)]
-use wabt::wat2wasm;
-use std::{{f32, f64}};
+//         self.buffer.push_str(&format!(
+//             "// Test based on spectests/{}
+// #![allow(
+//     warnings,
+//     dead_code
+// )]
+// //use wabt::wat2wasm;
+// use std::{{f32, f64}};
 
-use wasmer_runtime::types::Value;
-use wasmer_runtime::{{Instance, module::Module}};
-use wasmer_clif_backend::CraneliftCompiler;
+// use wasmer_runtime::types::Value;
+// use wasmer_runtime::{{Instance, module::Module}};
 
-use crate::spectests::_common::{{
-    generate_imports,
-    NaNCheck,
-}};\n\n",
-            self.filename
-        ));
+// //use crate::spectests::_common::{{
+// //    generate_imports,
+// //    NaNCheck,
+// //}};\n\n",
+//             self.filename
+//         ));
         while let Some(Command { line, kind }) = &self.script_parser.next().unwrap() {
             self.last_line = line.clone();
             self.buffer
@@ -655,71 +735,29 @@ fn {}() {{
     }
 }
 
-fn wast_to_rust(wast_filepath: &str) -> (String, i32) {
-    let wast_filepath = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), wast_filepath);
-    let path = PathBuf::from(&wast_filepath);
-    let script_name: String = String::from(path.file_stem().unwrap().to_str().unwrap());
-    let rust_test_filepath = format!(
-        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/spectests/{}.rs"),
-        script_name.clone().as_str()
-    );
-    if script_name == "_common" {
-        panic!("_common is a reserved name for the _common module. Please use other name for the spectest.");
-    }
+fn generate_spectest(out: &mut File, test_name: &str, wast: &PathBuf) -> std::io::Result<()> {
+    out.write(format!("mod test_{} {{\nuse super::*;\n", test_name).as_bytes())?;
 
-    let wast_modified = fs::metadata(&wast_filepath)
-        .expect("Can't get wast file metadata")
-        .modified()
-        .expect("Can't get wast file modified date");
-    let _should_modify = match fs::metadata(&rust_test_filepath) {
-        Ok(m) => {
-            m.modified()
-                .expect("Can't get rust test file modified date")
-                < wast_modified
-        }
-        Err(_) => true,
-    };
-
-    // panic!("SOULD MODIFY {:?} {:?}", should_modify, rust_test_filepath);
-
-    // if true {
-    // should_modify
-    let mut generator = WastTestGenerator::new(&path);
+    let mut generator = WastTestGenerator::new(wast);
     generator.consume();
     let generated_script = generator.finalize();
-    fs::write(&rust_test_filepath, generated_script.as_bytes()).unwrap();
-    // }
-    (script_name, generator.command_no)
+    out.write(generated_script.as_bytes())?;
+
+    out.write("\n}\n".as_bytes())?;
+
+    Ok(())
 }
 
-pub fn build() {
-    let rust_test_modpath = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/spectests/mod.rs");
+pub fn build() -> std::io::Result<()> {
+    let mut out_file = File::create(format!("{}/spectests.rs", env::var("OUT_DIR").unwrap()))?;
 
-    let mut modules: Vec<String> = Vec::new();
-    // modules.reserve_exact(TESTS.len());
+    out_file.write(COMMON.as_bytes())?;
 
     for test in TESTS.iter() {
-        let (module_name, number_commands) = wast_to_rust(test);
-        if number_commands > 200 {
-            modules.push(format!(
-                "#[cfg(not(feature = \"fast-tests\"))]
-mod {};",
-                module_name
-            ));
-        } else {
-            modules.push(format!("mod {};", module_name));
-        }
+        let mut wast_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        wast_path.push(test);
+        generate_spectest(&mut out_file, test.split("/").last().unwrap().split(".").next().unwrap(), &wast_path)?
     }
 
-    modules.insert(0, BANNER.to_string());
-    modules.insert(1, "// The _common module is not autogenerated, as it provides common functions for the spectests\nmod _common;".to_string());
-    // We add an empty line
-    modules.push("".to_string());
-
-    let modfile: String = modules.join("\n");
-    let source = fs::read(&rust_test_modpath).unwrap();
-    // We only modify the mod file if has changed
-    if source != modfile.as_bytes() {
-        fs::write(&rust_test_modpath, modfile.as_bytes()).unwrap();
-    }
+    Ok(())
 }

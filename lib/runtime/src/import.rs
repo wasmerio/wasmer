@@ -5,17 +5,6 @@ pub trait Namespace {
     fn get_export(&self, name: &str) -> Option<Export>;
 }
 
-impl Namespace for HashMap<String, Export> {
-    fn get_export(&self, name: &str) -> Option<Export> {
-        self.get(name).cloned()
-    }
-}
-impl<'a> Namespace for HashMap<&'a str, Export> {
-    fn get_export(&self, name: &str) -> Option<Export> {
-        self.get(name).cloned()
-    }
-}
-
 pub struct Imports {
     map: HashMap<String, Box<dyn Namespace>>,
 }
@@ -43,5 +32,27 @@ impl Imports {
 
     pub fn get_namespace(&self, namespace: &str) -> Option<&dyn Namespace> {
         self.map.get(namespace).map(|namespace| &**namespace)
+    }
+}
+
+pub struct NamespaceMap {
+    map: HashMap<String, Export>
+}
+
+impl NamespaceMap {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, name: impl Into<String>, export: Export) -> Option<Export> {
+        self.map.insert(name.into(), export)
+    }
+}
+
+impl Namespace for NamespaceMap {
+    fn get_export(&self, name: &str) -> Option<Export> {
+        self.map.get(name).cloned()
     }
 }

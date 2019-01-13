@@ -1,10 +1,9 @@
-use hashbrown::HashMap;
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     self as runtime,
     export::{Context, Export, FuncPointer},
-    import::Imports,
+    import::{Imports, NamespaceMap},
     types::{FuncSig, Type, Value},
     vm,
 };
@@ -15,7 +14,7 @@ fn main() -> Result<(), String> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let inner_module = runtime::compile(&wasm_binary, &CraneliftCompiler::new())?;
 
-    let mut env_namespace = HashMap::new();
+    let mut env_namespace = NamespaceMap::new();
     env_namespace.insert(
         "print_i32",
         Export::Function {
