@@ -265,17 +265,15 @@ impl InstanceInner {
                 *tab,
             )
         } else {
-            unimplemented!(); // TODO into_vm_tables requires &mut self
-                              //            let vm_table = &self.inner.backing.tables[table_index.index() as usize];
-                              //            (
-                              //                unsafe { TablePointer::new(&mut vm_table.into_vm_table()) },
-                              //                Context::Internal,
-                              //                *self
-                              //                    .module
-                              //                    .tables
-                              //                    .get(table_index)
-                              //                    .expect("broken invariant, tables"),
-                              //            )
+            let vm_table = &mut self.backing.tables[table_index.index() as usize];
+            (
+                unsafe { TablePointer::new(&mut vm_table.into_vm_table()) },
+                Context::Internal,
+                *module
+                    .tables
+                    .get(table_index)
+                    .expect("broken invariant, tables"),
+            )
         }
     }
 }
