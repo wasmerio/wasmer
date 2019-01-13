@@ -1,10 +1,10 @@
 use crate::recovery::call_protected;
 use crate::{
     backing::{ImportBacking, LocalBacking},
-    export::{Context, Export, ExportIter, FuncPointer, MemoryPointer},
+    export::{Context, Export, ExportIter, FuncPointer, MemoryPointer, TablePointer},
     import::{Imports, Namespace},
     module::{ExportIndex, Module, ModuleInner},
-    types::{FuncIndex, FuncSig, MapIndex, Memory, MemoryIndex, Type, Value},
+    types::{FuncIndex, FuncSig, MapIndex, Memory, MemoryIndex, Table, TableIndex, Type, Value},
     vm,
 };
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
@@ -168,7 +168,19 @@ impl Instance {
                 }
             }
             ExportIndex::Global(_global_index) => unimplemented!(),
-            ExportIndex::Table(_table_index) => unimplemented!(),
+            ExportIndex::Table(table_index) => {
+                let (local, ctx, table) = self.get_table_from_index(*table_index);
+                Export::Table {
+                    local,
+                    ctx: match ctx {
+                        Context::Internal => {
+                            Context::External(&*self.inner.vmctx as *const vm::Ctx as *mut vm::Ctx)
+                        }
+                        ctx @ Context::External(_) => ctx,
+                    },
+                    table,
+                }
+            },
         }
     }
 
@@ -227,6 +239,35 @@ impl Instance {
                     .get(mem_index)
                     .expect("broken invariant, memories"),
             )
+        }
+    }
+
+    fn get_table_from_index(&self, table_index: TableIndex) -> (TablePointer, Context, Table) {
+        if self.module.is_imported_table(table_index) {
+            let &(_, tab) = &self
+                .module
+                .imported_tables
+                .get(table_index)
+                .expect("missing imported table index");
+            let vm::ImportedTable { table, vmctx } =
+                &self.inner.import_backing.tables[table_index.index()];
+            (
+                unsafe { TablePointer::new(*table) },
+                Context::External(*vmctx),
+                *tab,
+            )
+        } else {
+            unimplemented!(); // TODO into_vm_tables requires &mut self
+//            let vm_table = &self.inner.backing.tables[table_index.index() as usize];
+//            (
+//                unsafe { TablePointer::new(&mut vm_table.into_vm_table()) },
+//                Context::Internal,
+//                *self
+//                    .module
+//                    .tables
+//                    .get(table_index)
+//                    .expect("broken invariant, tables"),
+//            )
         }
     }
 }

@@ -188,15 +188,11 @@ impl ImportBacking {
         imports: &Imports,
         vmctx: *mut vm::Ctx,
     ) -> Result<Self, String> {
-        assert!(
-            module.imported_tables.len() == 0,
-            "imported tables not yet supported"
-        );
 
         Ok(ImportBacking {
             functions: import_functions(module, imports, vmctx)?,
             memories: import_memories(module, imports, vmctx)?,
-            tables: vec![].into_boxed_slice(),
+            tables: import_tables(module, imports, vmctx)?,
             globals: import_globals(module, imports)?,
         })
     }
@@ -244,6 +240,50 @@ fn import_memories(
         }
     }
     Ok(memories.into_boxed_slice())
+}
+
+fn import_tables(
+    module: &ModuleInner,
+    imports: &Imports,
+    vmctx: *mut vm::Ctx,
+) -> Result<Box<[vm::ImportedTable]>, String> {
+    let mut tables = Vec::with_capacity(module.imported_tables.len());
+    for (_index, (ImportName { namespace, name }, expected_table_desc)) in
+        &module.imported_tables
+        {
+            let table_import = imports
+                .get_namespace(namespace)
+                .and_then(|namespace| namespace.get_export(name));
+            match table_import {
+                Some(Export::Table {
+                         local,
+                         ctx,
+                         table: table_desc,
+                     }) => {
+                    if expected_table_desc.fits_in_imported(&table_desc) {
+                        tables.push(vm::ImportedTable {
+                            table: local.inner(),
+                            vmctx: match ctx {
+                                Context::External(ctx) => ctx,
+                                Context::Internal => vmctx,
+                            },
+                        });
+                    } else {
+                        return Err(format!(
+                            "incorrect table description for {}:{}",
+                            namespace, name,
+                        ));
+                    }
+                }
+                Some(_) => {
+                    return Err(format!("incorrect import type for {}:{}", namespace, name));
+                }
+                None => {
+                    return Err(format!("import not found: {}:{}", namespace, name));
+                }
+            }
+        }
+    Ok(tables.into_boxed_slice())
 }
 
 fn import_functions(

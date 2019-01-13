@@ -80,6 +80,12 @@ pub struct Table {
     pub max: Option<u32>,
 }
 
+impl Table {
+    pub(crate) fn fits_in_imported(&self, imported: &Table) -> bool {
+        self.max == imported.max && self.min <= imported.min
+    }
+}
+
 /// A global value initializer.
 /// Overtime, this will be able to represent more and more
 /// complex expressions.

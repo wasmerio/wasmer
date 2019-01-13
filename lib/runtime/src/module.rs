@@ -56,6 +56,10 @@ impl ModuleInner {
     pub(crate) fn is_imported_memory(&self, memory_index: MemoryIndex) -> bool {
         memory_index.index() < self.imported_memories.len()
     }
+
+    pub(crate) fn is_imported_table(&self, table_index: TableIndex) -> bool {
+        table_index.index() < self.imported_tables.len()
+    }
 }
 
 #[doc(hidden)]
