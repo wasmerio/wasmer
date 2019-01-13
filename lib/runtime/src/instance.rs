@@ -152,9 +152,7 @@ impl InstanceInner {
                 Export::Function {
                     func,
                     ctx: match ctx {
-                        Context::Internal => {
-                            Context::External(&*self.vmctx as *const vm::Ctx as *mut vm::Ctx)
-                        }
+                        Context::Internal => Context::External(&mut *self.vmctx),
                         ctx @ Context::External(_) => ctx,
                     },
                     signature,
@@ -165,9 +163,7 @@ impl InstanceInner {
                 Export::Memory {
                     local,
                     ctx: match ctx {
-                        Context::Internal => {
-                            Context::External(&*self.vmctx as *const vm::Ctx as *mut vm::Ctx)
-                        }
+                        Context::Internal => Context::External(&mut *self.vmctx),
                         ctx @ Context::External(_) => ctx,
                     },
                     memory,
@@ -175,18 +171,16 @@ impl InstanceInner {
             }
             ExportIndex::Global(_global_index) => unimplemented!(),
             ExportIndex::Table(table_index) => {
-                let (local, ctx, table) = self.get_table_from_index(*table_index);
+                let (local, ctx, table) = self.get_table_from_index(module, *table_index);
                 Export::Table {
                     local,
                     ctx: match ctx {
-                        Context::Internal => {
-                            Context::External(&*self.inner.vmctx as *const vm::Ctx as *mut vm::Ctx)
-                        }
+                        Context::Internal => Context::External(&mut *self.vmctx),
                         ctx @ Context::External(_) => ctx,
                     },
                     table,
                 }
-            },
+            }
         }
     }
 
@@ -253,15 +247,18 @@ impl InstanceInner {
         }
     }
 
-    fn get_table_from_index(&self, table_index: TableIndex) -> (TablePointer, Context, Table) {
-        if self.module.is_imported_table(table_index) {
-            let &(_, tab) = &self
-                .module
+    fn get_table_from_index(
+        &mut self,
+        module: &ModuleInner,
+        table_index: TableIndex,
+    ) -> (TablePointer, Context, Table) {
+        if module.is_imported_table(table_index) {
+            let &(_, tab) = &module
                 .imported_tables
                 .get(table_index)
                 .expect("missing imported table index");
             let vm::ImportedTable { table, vmctx } =
-                &self.inner.import_backing.tables[table_index.index()];
+                &self.import_backing.tables[table_index.index()];
             (
                 unsafe { TablePointer::new(*table) },
                 Context::External(*vmctx),
@@ -269,16 +266,16 @@ impl InstanceInner {
             )
         } else {
             unimplemented!(); // TODO into_vm_tables requires &mut self
-//            let vm_table = &self.inner.backing.tables[table_index.index() as usize];
-//            (
-//                unsafe { TablePointer::new(&mut vm_table.into_vm_table()) },
-//                Context::Internal,
-//                *self
-//                    .module
-//                    .tables
-//                    .get(table_index)
-//                    .expect("broken invariant, tables"),
-//            )
+                              //            let vm_table = &self.inner.backing.tables[table_index.index() as usize];
+                              //            (
+                              //                unsafe { TablePointer::new(&mut vm_table.into_vm_table()) },
+                              //                Context::Internal,
+                              //                *self
+                              //                    .module
+                              //                    .tables
+                              //                    .get(table_index)
+                              //                    .expect("broken invariant, tables"),
+                              //            )
         }
     }
 }
