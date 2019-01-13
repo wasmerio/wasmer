@@ -29,13 +29,13 @@ fn main() -> Result<(), String> {
     let mut imports = Imports::new();
     imports.register("env", env_namespace);
 
-    let inner_instance = inner_module.instantiate(&imports)?;
+    let inner_instance = inner_module.instantiate(&mut imports)?;
 
     let mut outer_imports = Imports::new();
     outer_imports.register("env", inner_instance);
 
     let outer_module = runtime::compile(EXAMPLE_WASM, &CraneliftCompiler::new())?;
-    let mut outer_instance = outer_module.instantiate(&outer_imports)?;
+    let mut outer_instance = outer_module.instantiate(&mut outer_imports)?;
     let ret = outer_instance.call("main", &[Value::I32(42)])?;
     println!("ret: {:?}", ret);
 

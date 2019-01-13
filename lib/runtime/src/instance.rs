@@ -11,7 +11,7 @@ use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
 use std::rc::Rc;
 use std::{iter, mem};
 
-struct InstanceInner {
+pub(crate) struct InstanceInner {
     #[allow(dead_code)]
     pub(crate) backing: LocalBacking,
     import_backing: ImportBacking,
@@ -24,13 +24,13 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub(crate) fn new(module: Rc<ModuleInner>, imports: &Imports) -> Result<Instance, String> {
+    pub(crate) fn new(module: Rc<ModuleInner>, imports: &mut Imports) -> Result<Instance, String> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
         let mut vmctx = unsafe { Box::new(mem::uninitialized()) };
 
-        let import_backing = ImportBacking::new(&module, &*imports, &mut *vmctx)?;
+        let import_backing = ImportBacking::new(&module, imports, &mut *vmctx)?;
         let backing = LocalBacking::new(&module, &import_backing, &mut *vmctx);
 
         // When Pin is stablized, this will use `Box::pinned` instead of `Box::new`.
@@ -75,8 +75,8 @@ impl Instance {
         self.call_with_index(func_index, args)
     }
 
-    pub fn exports(&self) -> ExportIter {
-        ExportIter::new(self)
+    pub fn exports(&mut self) -> ExportIter {
+        ExportIter::new(&self.module, &mut self.inner)
     }
 
     pub fn module(&self) -> Module {
@@ -90,7 +90,7 @@ impl Instance {
         func_index: FuncIndex,
         args: &[Value],
     ) -> Result<Option<Value>, String> {
-        let (func_ref, ctx, signature) = self.get_func_from_index(func_index);
+        let (func_ref, ctx, signature) = self.inner.get_func_from_index(&self.module, func_index);
 
         let func_ptr = CodePtr::from_ptr(func_ref.inner() as _);
         let vmctx_ptr = match ctx {
@@ -137,17 +137,23 @@ impl Instance {
                 })
         })
     }
+}
 
-    pub(crate) fn get_export_from_index(&self, export_index: &ExportIndex) -> Export {
+impl InstanceInner {
+    pub(crate) fn get_export_from_index(
+        &mut self,
+        module: &ModuleInner,
+        export_index: &ExportIndex,
+    ) -> Export {
         match export_index {
             ExportIndex::Func(func_index) => {
-                let (func, ctx, signature) = self.get_func_from_index(*func_index);
+                let (func, ctx, signature) = self.get_func_from_index(module, *func_index);
 
                 Export::Function {
                     func,
                     ctx: match ctx {
                         Context::Internal => {
-                            Context::External(&*self.inner.vmctx as *const vm::Ctx as *mut vm::Ctx)
+                            Context::External(&*self.vmctx as *const vm::Ctx as *mut vm::Ctx)
                         }
                         ctx @ Context::External(_) => ctx,
                     },
@@ -155,12 +161,12 @@ impl Instance {
                 }
             }
             ExportIndex::Memory(memory_index) => {
-                let (local, ctx, memory) = self.get_memory_from_index(*memory_index);
+                let (local, ctx, memory) = self.get_memory_from_index(module, *memory_index);
                 Export::Memory {
                     local,
                     ctx: match ctx {
                         Context::Internal => {
-                            Context::External(&*self.inner.vmctx as *const vm::Ctx as *mut vm::Ctx)
+                            Context::External(&*self.vmctx as *const vm::Ctx as *mut vm::Ctx)
                         }
                         ctx @ Context::External(_) => ctx,
                     },
@@ -184,24 +190,27 @@ impl Instance {
         }
     }
 
-    fn get_func_from_index(&self, func_index: FuncIndex) -> (FuncPointer, Context, FuncSig) {
-        let sig_index = *self
-            .module
+    fn get_func_from_index(
+        &mut self,
+        module: &ModuleInner,
+        func_index: FuncIndex,
+    ) -> (FuncPointer, Context, FuncSig) {
+        let sig_index = *module
             .func_assoc
             .get(func_index)
             .expect("broken invariant, incorrect func index");
 
-        let (func_ptr, ctx) = if self.module.is_imported_function(func_index) {
-            let imported_func = &self.inner.import_backing.functions[func_index.index()];
+        let (func_ptr, ctx) = if module.is_imported_function(func_index) {
+            let imported_func = &self.import_backing.functions[func_index.index()];
             (
                 imported_func.func as *const _,
                 Context::External(imported_func.vmctx),
             )
         } else {
             (
-                self.module
+                module
                     .func_resolver
-                    .get(&self.module, func_index)
+                    .get(&module, func_index)
                     .expect("broken invariant, func resolver not synced with module.exports")
                     .cast()
                     .as_ptr() as *const _,
@@ -209,32 +218,34 @@ impl Instance {
             )
         };
 
-        let signature = self.module.sig_registry.lookup_func_sig(sig_index).clone();
+        let signature = module.sig_registry.lookup_func_sig(sig_index).clone();
 
         (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
 
-    fn get_memory_from_index(&self, mem_index: MemoryIndex) -> (MemoryPointer, Context, Memory) {
-        if self.module.is_imported_memory(mem_index) {
-            let &(_, mem) = &self
-                .module
+    fn get_memory_from_index(
+        &mut self,
+        module: &ModuleInner,
+        mem_index: MemoryIndex,
+    ) -> (MemoryPointer, Context, Memory) {
+        if module.is_imported_memory(mem_index) {
+            let &(_, mem) = &module
                 .imported_memories
                 .get(mem_index)
                 .expect("missing imported memory index");
             let vm::ImportedMemory { memory, vmctx } =
-                &self.inner.import_backing.memories[mem_index.index()];
+                &self.import_backing.memories[mem_index.index()];
             (
                 unsafe { MemoryPointer::new(*memory) },
                 Context::External(*vmctx),
                 *mem,
             )
         } else {
-            let vm_mem = &self.inner.backing.memories[mem_index.index() as usize];
+            let vm_mem = &mut self.backing.memories[mem_index.index() as usize];
             (
                 unsafe { MemoryPointer::new(&mut vm_mem.into_vm_memory()) },
                 Context::Internal,
-                *self
-                    .module
+                *module
                     .memories
                     .get(mem_index)
                     .expect("broken invariant, memories"),
@@ -273,10 +284,10 @@ impl Instance {
 }
 
 impl Namespace for Instance {
-    fn get_export(&self, name: &str) -> Option<Export> {
+    fn get_export(&mut self, name: &str) -> Option<Export> {
         let export_index = self.module.exports.get(name)?;
 
-        Some(self.get_export_from_index(export_index))
+        Some(self.inner.get_export_from_index(&self.module, export_index))
     }
 }
 

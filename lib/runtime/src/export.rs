@@ -1,7 +1,9 @@
 use crate::{
+    instance::InstanceInner,
     module::ExportIndex,
+    module::ModuleInner,
     types::{FuncSig, GlobalDesc, Memory, Table},
-    vm, Instance,
+    vm,
 };
 use hashbrown::hash_map;
 
@@ -99,15 +101,17 @@ impl GlobalPointer {
 }
 
 pub struct ExportIter<'a> {
-    instance: &'a Instance,
+    inner: &'a mut InstanceInner,
     iter: hash_map::Iter<'a, String, ExportIndex>,
+    module: &'a ModuleInner,
 }
 
 impl<'a> ExportIter<'a> {
-    pub(crate) fn new(instance: &'a Instance) -> Self {
+    pub(crate) fn new(module: &'a ModuleInner, inner: &'a mut InstanceInner) -> Self {
         Self {
-            instance,
-            iter: instance.module.exports.iter(),
+            inner,
+            iter: module.exports.iter(),
+            module: module,
         }
     }
 }
@@ -118,7 +122,7 @@ impl<'a> Iterator for ExportIter<'a> {
         let (name, export_index) = self.iter.next()?;
         Some((
             name.clone(),
-            self.instance.get_export_from_index(export_index),
+            self.inner.get_export_from_index(&self.module, export_index),
         ))
     }
 }

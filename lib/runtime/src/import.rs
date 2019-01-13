@@ -2,7 +2,7 @@ use crate::export::Export;
 use hashbrown::{hash_map::Entry, HashMap};
 
 pub trait Namespace {
-    fn get_export(&self, name: &str) -> Option<Export>;
+    fn get_export(&mut self, name: &str) -> Option<Export>;
 }
 
 pub struct Imports {
@@ -30,13 +30,15 @@ impl Imports {
         }
     }
 
-    pub fn get_namespace(&self, namespace: &str) -> Option<&dyn Namespace> {
-        self.map.get(namespace).map(|namespace| &**namespace)
+    pub fn get_namespace(&mut self, namespace: &str) -> Option<&mut (dyn Namespace + 'static)> {
+        self.map
+            .get_mut(namespace)
+            .map(|namespace| &mut **namespace)
     }
 }
 
 pub struct NamespaceMap {
-    map: HashMap<String, Export>
+    map: HashMap<String, Export>,
 }
 
 impl NamespaceMap {
@@ -52,7 +54,7 @@ impl NamespaceMap {
 }
 
 impl Namespace for NamespaceMap {
-    fn get_export(&self, name: &str) -> Option<Export> {
+    fn get_export(&mut self, name: &str) -> Option<Export> {
         self.map.get(name).cloned()
     }
 }

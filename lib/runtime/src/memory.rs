@@ -89,7 +89,7 @@ impl LinearMemory {
     }
 
     /// Returns an base address of this linear memory.
-    fn base(&self) -> *mut u8 {
+    fn base(&mut self) -> *mut u8 {
         self.mmap.as_ptr()
     }
 
@@ -107,7 +107,7 @@ impl LinearMemory {
         self.max.unwrap_or(Self::MAX_PAGES)
     }
 
-    pub(crate) fn into_vm_memory(&self) -> vm::LocalMemory {
+    pub(crate) fn into_vm_memory(&mut self) -> vm::LocalMemory {
         vm::LocalMemory {
             base: self.base(),
             size: self.size(),

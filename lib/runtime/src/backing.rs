@@ -185,7 +185,7 @@ pub struct ImportBacking {
 impl ImportBacking {
     pub fn new(
         module: &ModuleInner,
-        imports: &Imports,
+        imports: &mut Imports,
         vmctx: *mut vm::Ctx,
     ) -> Result<Self, String> {
 
@@ -200,7 +200,7 @@ impl ImportBacking {
 
 fn import_memories(
     module: &ModuleInner,
-    imports: &Imports,
+    imports: &mut Imports,
     vmctx: *mut vm::Ctx,
 ) -> Result<Box<[vm::ImportedMemory]>, String> {
     let mut memories = Vec::with_capacity(module.imported_memories.len());
@@ -288,7 +288,7 @@ fn import_tables(
 
 fn import_functions(
     module: &ModuleInner,
-    imports: &Imports,
+    imports: &mut Imports,
     vmctx: *mut vm::Ctx,
 ) -> Result<Box<[vm::ImportedFunc]>, String> {
     let mut functions = Vec::with_capacity(module.imported_functions.len());
@@ -332,7 +332,7 @@ fn import_functions(
 
 fn import_globals(
     module: &ModuleInner,
-    imports: &Imports,
+    imports: &mut Imports,
 ) -> Result<Box<[vm::ImportedGlobal]>, String> {
     let mut globals = Vec::with_capacity(module.imported_globals.len());
     for (_, (ImportName { namespace, name }, global_desc)) in &module.imported_globals {

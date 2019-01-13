@@ -2,9 +2,9 @@
 //! WebAssembly spec tests. It will convert the files indicated in TESTS
 //! from "/spectests/{MODULE}.wast" to "/src/spectests/{MODULE}.rs".
 use std::collections::HashMap;
-use std::{fs, env, io::Write};
 use std::fs::File;
 use std::path::PathBuf;
+use std::{env, fs, io::Write};
 use wabt::script::{Action, Command, CommandKind, ModuleBinary, ScriptParser, Value};
 use wabt::wasm2wat;
 
@@ -98,7 +98,7 @@ pub fn generate_imports() -> Imports {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     let instance = module
-        .instantiate(&Imports::new())
+        .instantiate(&mut Imports::new())
         .expect("WASM can't be instantiated");
     let mut imports = Imports::new();
     imports.register("spectest", instance);
@@ -278,24 +278,24 @@ impl WastTestGenerator {
 
     fn consume(&mut self) {
         self.buffer.push_str(BANNER);
-//         self.buffer.push_str(&format!(
-//             "// Test based on spectests/{}
-// #![allow(
-//     warnings,
-//     dead_code
-// )]
-// //use wabt::wat2wasm;
-// use std::{{f32, f64}};
+        //         self.buffer.push_str(&format!(
+        //             "// Test based on spectests/{}
+        // #![allow(
+        //     warnings,
+        //     dead_code
+        // )]
+        // //use wabt::wat2wasm;
+        // use std::{{f32, f64}};
 
-// use wasmer_runtime::types::Value;
-// use wasmer_runtime::{{Instance, module::Module}};
+        // use wasmer_runtime::types::Value;
+        // use wasmer_runtime::{{Instance, module::Module}};
 
-// //use crate::spectests::_common::{{
-// //    generate_imports,
-// //    NaNCheck,
-// //}};\n\n",
-//             self.filename
-//         ));
+        // //use crate::spectests::_common::{{
+        // //    generate_imports,
+        // //    NaNCheck,
+        // //}};\n\n",
+        //             self.filename
+        //         ));
         while let Some(Command { line, kind }) = &self.script_parser.next().unwrap() {
             self.last_line = line.clone();
             self.buffer
@@ -352,7 +352,7 @@ fn test_module_{}() {{
     let module_str = \"{}\";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
-    module.instantiate(&generate_imports()).expect(\"WASM can't be instantiated\")
+    module.instantiate(&mut generate_imports()).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
                 // We do this to ident four spaces, so it looks aligned to the function body
@@ -756,7 +756,11 @@ pub fn build() -> std::io::Result<()> {
     for test in TESTS.iter() {
         let mut wast_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         wast_path.push(test);
-        generate_spectest(&mut out_file, test.split("/").last().unwrap().split(".").next().unwrap(), &wast_path)?
+        generate_spectest(
+            &mut out_file,
+            test.split("/").last().unwrap().split(".").next().unwrap(),
+            &wast_path,
+        )?
     }
 
     Ok(())
