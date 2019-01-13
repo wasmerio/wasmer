@@ -1,36 +1,40 @@
-use crate::backing::{ImportBacking, LocalBacking};
+use crate::backing::ImportBacking;
+pub use crate::backing::LocalBacking;
 use std::{mem, ptr};
 
 #[derive(Debug)]
 #[repr(C)]
 pub struct Ctx {
     /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
-    pub memories: *mut LocalMemory,
+    pub(crate) memories: *mut LocalMemory,
 
     /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
-    pub tables: *mut LocalTable,
+    pub(crate) tables: *mut LocalTable,
 
     /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
-    pub globals: *mut LocalGlobal,
+    pub(crate) globals: *mut LocalGlobal,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-    pub imported_memories: *mut ImportedMemory,
+    pub(crate) imported_memories: *mut ImportedMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    pub imported_tables: *mut ImportedTable,
+    pub(crate) imported_tables: *mut ImportedTable,
 
     /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-    pub imported_globals: *mut ImportedGlobal,
+    pub(crate) imported_globals: *mut ImportedGlobal,
 
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
-    pub imported_funcs: *mut ImportedFunc,
+    pub(crate) imported_funcs: *mut ImportedFunc,
 
     /// The parent instance.
     pub local_backing: *mut LocalBacking,
 }
 
 impl Ctx {
-    pub unsafe fn new(local_backing: &mut LocalBacking, import_backing: &mut ImportBacking) -> Self {
+    pub unsafe fn new(
+        local_backing: &mut LocalBacking,
+        import_backing: &mut ImportBacking,
+    ) -> Self {
         Self {
             memories: local_backing.vm_memories.as_mut_ptr(),
             tables: local_backing.vm_tables.as_mut_ptr(),

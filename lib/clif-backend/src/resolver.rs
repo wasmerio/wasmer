@@ -177,7 +177,7 @@ impl FuncResolver {
 impl backend::FuncResolver for FuncResolver {
     fn get(
         &self,
-        _module: &wasmer_runtime::module::Module,
+        _module: &wasmer_runtime::module::ModuleInner,
         index: FuncIndex,
     ) -> Option<NonNull<vm::Func>> {
         self.lookup(index)

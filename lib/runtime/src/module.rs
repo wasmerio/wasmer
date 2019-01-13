@@ -1,6 +1,6 @@
 use crate::{
     backend::FuncResolver,
-    import::ImportResolver,
+    import::Imports,
     sig_registry::SigRegistry,
     types::{
         FuncIndex, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex, SigIndex,
@@ -9,10 +9,10 @@ use crate::{
     Instance,
 };
 use hashbrown::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
 
 /// This is used to instantiate a new webassembly module.
+#[doc(hidden)]
 pub struct ModuleInner {
     pub func_resolver: Box<dyn FuncResolver>,
     pub memories: Map<MemoryIndex, Memory>,
@@ -37,14 +37,13 @@ pub struct ModuleInner {
 pub struct Module(Rc<ModuleInner>);
 
 impl Module {
-    #[inline]
-    pub fn new(inner: ModuleInner) -> Self {
-        Module(Rc::new(inner))
+    pub(crate) fn new(inner: Rc<ModuleInner>) -> Self {
+        Module(inner)
     }
 
     /// Instantiate a webassembly module with the provided imports.
-    pub fn instantiate(&self, imports: Rc<dyn ImportResolver>) -> Result<Instance, String> {
-        Instance::new(Module(Rc::clone(&self.0)), imports)
+    pub fn instantiate(&self, imports: &Imports) -> Result<Instance, String> {
+        Instance::new(Rc::clone(&self.0), imports)
     }
 }
 
@@ -58,14 +57,7 @@ impl ModuleInner {
     }
 }
 
-impl Deref for Module {
-    type Target = ModuleInner;
-
-    fn deref(&self) -> &ModuleInner {
-        &*self.0
-    }
-}
-
+#[doc(hidden)]
 #[derive(Debug, Clone)]
 pub struct ImportName {
     pub namespace: String,

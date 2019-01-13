@@ -5,7 +5,9 @@ pub unsafe extern "C" fn memory_grow_static(
     by_pages: u32,
     ctx: *mut vm::Ctx,
 ) -> i32 {
-    if let Some(old) = (*(*ctx).local_backing).memories[memory_index as usize].grow_static(by_pages)
+    if let Some(old) = (*(*ctx).local_backing)
+        .memory(memory_index)
+        .grow_static(by_pages)
     {
         // Store the new size back into the vmctx.
         (*(*ctx).memories.add(memory_index as usize)).size =
@@ -17,7 +19,7 @@ pub unsafe extern "C" fn memory_grow_static(
 }
 
 pub unsafe extern "C" fn memory_size(memory_index: u32, ctx: *mut vm::Ctx) -> u32 {
-    (*(*ctx).local_backing).memories[memory_index as usize].pages()
+    (*(*ctx).local_backing).memory(memory_index).pages()
 }
 
 pub unsafe extern "C" fn memory_grow_dynamic(
@@ -25,8 +27,9 @@ pub unsafe extern "C" fn memory_grow_dynamic(
     by_pages: u32,
     ctx: *mut vm::Ctx,
 ) -> i32 {
-    if let Some(old) =
-        (*(*ctx).local_backing).memories[memory_index as usize].grow_dynamic(by_pages)
+    if let Some(old) = (*(*ctx).local_backing)
+        .memory(memory_index)
+        .grow_dynamic(by_pages)
     {
         // Store the new size back into the vmctx.
         (*(*ctx).memories.add(memory_index as usize)).size =

@@ -2,8 +2,8 @@ use crate::recovery::call_protected;
 use crate::{
     backing::{ImportBacking, LocalBacking},
     export::{Context, Export, ExportIter, FuncPointer, MemoryPointer},
-    import::{ImportResolver, Namespace},
-    module::{ExportIndex, Module},
+    import::{Imports, Namespace},
+    module::{ExportIndex, Module, ModuleInner},
     types::{FuncIndex, FuncSig, MapIndex, Memory, MemoryIndex, Type, Value},
     vm,
 };
@@ -14,19 +14,17 @@ use std::{iter, mem};
 struct InstanceInner {
     #[allow(dead_code)]
     pub(crate) backing: LocalBacking,
-    #[allow(dead_code)]
-    imports: Rc<dyn ImportResolver>,
     import_backing: ImportBacking,
     vmctx: Box<vm::Ctx>,
 }
 
 pub struct Instance {
-    pub module: Module,
+    pub(crate) module: Rc<ModuleInner>,
     inner: Box<InstanceInner>,
 }
 
 impl Instance {
-    pub(crate) fn new(module: Module, imports: Rc<dyn ImportResolver>) -> Result<Instance, String> {
+    pub(crate) fn new(module: Rc<ModuleInner>, imports: &Imports) -> Result<Instance, String> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
@@ -38,16 +36,13 @@ impl Instance {
         // When Pin is stablized, this will use `Box::pinned` instead of `Box::new`.
         let mut inner = Box::new(InstanceInner {
             backing,
-            imports,
             import_backing,
             vmctx,
         });
 
         // Initialize the vm::Ctx in-place after the backing
         // has been boxed.
-        *inner.vmctx = unsafe {
-            vm::Ctx::new(&mut inner.backing, &mut inner.import_backing)
-        };
+        *inner.vmctx = unsafe { vm::Ctx::new(&mut inner.backing, &mut inner.import_backing) };
 
         let mut instance = Instance { module, inner };
 
@@ -82,6 +77,10 @@ impl Instance {
 
     pub fn exports(&self) -> ExportIter {
         ExportIter::new(self)
+    }
+
+    pub fn module(&self) -> Module {
+        Module::new(Rc::clone(&self.module))
     }
 }
 

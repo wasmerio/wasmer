@@ -272,7 +272,7 @@ fn test_module_{}() {{
     let module_str = \"{}\";
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
-    module.instantiate(generate_imports()).expect(\"WASM can't be instantiated\")
+    module.instantiate(&generate_imports()).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
                 // We do this to ident four spaces, so it looks aligned to the function body

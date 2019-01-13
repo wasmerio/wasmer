@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::import::Imports;
@@ -14,16 +13,16 @@ static IMPORT_MODULE: &str = r#"
   (global $global_i32 (export "global_i32") i32 (i32.const 666)))
 "#;
 
-pub fn generate_imports() -> Rc<Imports> {
+pub fn generate_imports() -> Imports {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     let instance = module
-        .instantiate(Rc::new(Imports::new()))
+        .instantiate(&Imports::new())
         .expect("WASM can't be instantiated");
     let mut imports = Imports::new();
     imports.register("spectest", instance);
-    Rc::new(imports)
+    imports
 }
 
 /// Bit pattern of an f32 value:

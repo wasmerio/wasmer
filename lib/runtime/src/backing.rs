@@ -1,8 +1,8 @@
 use crate::{
     export::{Context, Export},
-    import::ImportResolver,
+    import::Imports,
     memory::LinearMemory,
-    module::{ImportName, Module},
+    module::{ImportName, ModuleInner},
     table::{TableBacking, TableElements},
     types::{Initializer, MapIndex, Value},
     vm,
@@ -10,16 +10,26 @@ use crate::{
 
 #[derive(Debug)]
 pub struct LocalBacking {
-    pub memories: Box<[LinearMemory]>,
-    pub tables: Box<[TableBacking]>,
+    pub(crate) memories: Box<[LinearMemory]>,
+    pub(crate) tables: Box<[TableBacking]>,
 
-    pub vm_memories: Box<[vm::LocalMemory]>,
-    pub vm_tables: Box<[vm::LocalTable]>,
-    pub vm_globals: Box<[vm::LocalGlobal]>,
+    pub(crate) vm_memories: Box<[vm::LocalMemory]>,
+    pub(crate) vm_tables: Box<[vm::LocalTable]>,
+    pub(crate) vm_globals: Box<[vm::LocalGlobal]>,
 }
 
 impl LocalBacking {
-    pub fn new(module: &Module, imports: &ImportBacking, vmctx: *mut vm::Ctx) -> Self {
+    pub fn memory(&mut self, index: u32) -> &mut LinearMemory {
+        &mut self.memories[index as usize]
+    }
+
+    pub fn table(&mut self, index: u32) -> &mut TableBacking {
+        &mut self.tables[index as usize]
+    }
+}
+
+impl LocalBacking {
+    pub(crate) fn new(module: &ModuleInner, imports: &ImportBacking, vmctx: *mut vm::Ctx) -> Self {
         let mut memories = Self::generate_memories(module);
         let mut tables = Self::generate_tables(module);
         let globals = Self::generate_globals(module);
@@ -38,7 +48,7 @@ impl LocalBacking {
         }
     }
 
-    fn generate_memories(module: &Module) -> Box<[LinearMemory]> {
+    fn generate_memories(module: &ModuleInner) -> Box<[LinearMemory]> {
         let mut memories = Vec::with_capacity(module.memories.len());
 
         for (_, mem) in &module.memories {
@@ -59,7 +69,10 @@ impl LocalBacking {
         memories.into_boxed_slice()
     }
 
-    fn finalize_memories(module: &Module, memories: &mut [LinearMemory]) -> Box<[vm::LocalMemory]> {
+    fn finalize_memories(
+        module: &ModuleInner,
+        memories: &mut [LinearMemory],
+    ) -> Box<[vm::LocalMemory]> {
         for init in &module.data_initializers {
             assert!(init.base.is_none(), "global base not supported yet");
             assert!(init.offset + init.data.len() <= memories[init.memory_index.index()].size());
@@ -82,7 +95,7 @@ impl LocalBacking {
             .into_boxed_slice()
     }
 
-    fn generate_tables(module: &Module) -> Box<[TableBacking]> {
+    fn generate_tables(module: &ModuleInner) -> Box<[TableBacking]> {
         let mut tables = Vec::with_capacity(module.tables.len());
 
         for (_, table) in &module.tables {
@@ -94,7 +107,7 @@ impl LocalBacking {
     }
 
     fn finalize_tables(
-        module: &Module,
+        module: &ModuleInner,
         imports: &ImportBacking,
         tables: &mut [TableBacking],
         vmctx: *mut vm::Ctx,
@@ -134,14 +147,14 @@ impl LocalBacking {
             .into_boxed_slice()
     }
 
-    fn generate_globals(module: &Module) -> Box<[vm::LocalGlobal]> {
+    fn generate_globals(module: &ModuleInner) -> Box<[vm::LocalGlobal]> {
         let globals = vec![vm::LocalGlobal::null(); module.globals.len()];
 
         globals.into_boxed_slice()
     }
 
     fn finalize_globals(
-        module: &Module,
+        module: &ModuleInner,
         imports: &ImportBacking,
         mut globals: Box<[vm::LocalGlobal]>,
     ) -> Box<[vm::LocalGlobal]> {
@@ -171,8 +184,8 @@ pub struct ImportBacking {
 
 impl ImportBacking {
     pub fn new(
-        module: &Module,
-        imports: &dyn ImportResolver,
+        module: &ModuleInner,
+        imports: &Imports,
         vmctx: *mut vm::Ctx,
     ) -> Result<Self, String> {
         assert!(
@@ -190,15 +203,17 @@ impl ImportBacking {
 }
 
 fn import_memories(
-    module: &Module,
-    imports: &dyn ImportResolver,
+    module: &ModuleInner,
+    imports: &Imports,
     vmctx: *mut vm::Ctx,
 ) -> Result<Box<[vm::ImportedMemory]>, String> {
     let mut memories = Vec::with_capacity(module.imported_memories.len());
     for (_index, (ImportName { namespace, name }, expected_memory_desc)) in
         &module.imported_memories
     {
-        let memory_import = imports.get(namespace, name);
+        let memory_import = imports
+            .get_namespace(namespace)
+            .and_then(|namespace| namespace.get_export(name));
         match memory_import {
             Some(Export::Memory {
                 local,
@@ -232,15 +247,17 @@ fn import_memories(
 }
 
 fn import_functions(
-    module: &Module,
-    imports: &dyn ImportResolver,
+    module: &ModuleInner,
+    imports: &Imports,
     vmctx: *mut vm::Ctx,
 ) -> Result<Box<[vm::ImportedFunc]>, String> {
     let mut functions = Vec::with_capacity(module.imported_functions.len());
     for (index, ImportName { namespace, name }) in &module.imported_functions {
         let sig_index = module.func_assoc[index];
         let expected_sig = module.sig_registry.lookup_func_sig(sig_index);
-        let import = imports.get(namespace, name);
+        let import = imports
+            .get_namespace(namespace)
+            .and_then(|namespace| namespace.get_export(name));
         match import {
             Some(Export::Function {
                 func,
@@ -274,12 +291,14 @@ fn import_functions(
 }
 
 fn import_globals(
-    module: &Module,
-    imports: &dyn ImportResolver,
+    module: &ModuleInner,
+    imports: &Imports,
 ) -> Result<Box<[vm::ImportedGlobal]>, String> {
     let mut globals = Vec::with_capacity(module.imported_globals.len());
     for (_, (ImportName { namespace, name }, global_desc)) in &module.imported_globals {
-        let import = imports.get(namespace, name);
+        let import = imports
+            .get_namespace(namespace)
+            .and_then(|namespace| namespace.get_export(name));
         match import {
             Some(Export::Global { local, global }) => {
                 if &global == global_desc {

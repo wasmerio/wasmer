@@ -1,8 +1,3 @@
-//! The webassembly::Memory() constructor creates a new Memory object which is
-//! a structure that holds the raw bytes of memory accessed by a
-//! webassembly::Instance.
-//! A memory created by Rust or in WebAssembly code will be accessible and
-//! mutable from both Rust and WebAssembly.
 use std::ops::{Deref, DerefMut};
 
 use crate::{
@@ -40,7 +35,9 @@ pub struct LinearMemory {
 impl LinearMemory {
     pub(crate) const PAGE_SIZE: u32 = 65_536;
     pub(crate) const MAX_PAGES: u32 = 65_536;
+    #[doc(hidden)]
     pub const DEFAULT_HEAP_SIZE: usize = 1 << 32; // 4 GiB
+    #[doc(hidden)]
     pub const DEFAULT_GUARD_SIZE: usize = 1 << 31; // 2 GiB
     pub(crate) const DEFAULT_SIZE: usize = Self::DEFAULT_HEAP_SIZE + Self::DEFAULT_GUARD_SIZE; // 6 GiB
 

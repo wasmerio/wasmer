@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod tests {
-
-    use std::rc::Rc;
     use wabt::wat2wasm;
     use wasmer_clif_backend::CraneliftCompiler;
     use wasmer_runtime::import::Imports;
@@ -24,7 +22,7 @@ mod tests {
         let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
             .expect("WASM can't be compiled");
         let mut instance = module
-            .instantiate(Rc::new(Imports::new()))
+            .instantiate(&Imports::new())
             .expect("WASM can't be instantiated");
         let result = instance.call("stack-overflow", &[]);
         assert!(

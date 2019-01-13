@@ -25,7 +25,7 @@ fn create_module_1() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -53,7 +53,7 @@ fn create_module_2() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -82,7 +82,7 @@ fn create_module_3() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -109,7 +109,7 @@ fn create_module_4() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -138,7 +138,7 @@ fn create_module_5() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -166,7 +166,7 @@ fn create_module_6() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -193,7 +193,7 @@ fn create_module_7() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -220,7 +220,7 @@ fn create_module_8() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -247,7 +247,7 @@ fn create_module_9() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -274,7 +274,7 @@ fn create_module_10() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -301,7 +301,7 @@ fn create_module_11() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -332,7 +332,7 @@ fn create_module_12() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -442,7 +442,7 @@ fn create_module_13() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -469,7 +469,7 @@ fn create_module_14() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -497,7 +497,7 @@ fn create_module_15() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -523,7 +523,7 @@ fn create_module_16() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -549,7 +549,7 @@ fn create_module_17() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -575,7 +575,7 @@ fn create_module_18() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -601,7 +601,7 @@ fn create_module_19() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -627,7 +627,7 @@ fn create_module_20() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -653,7 +653,7 @@ fn create_module_21() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -679,7 +679,7 @@ fn create_module_22() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -773,7 +773,7 @@ fn create_module_23() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -800,7 +800,7 @@ fn create_module_24() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -826,7 +826,7 @@ fn create_module_25() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -852,7 +852,7 @@ fn create_module_26() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -878,7 +878,7 @@ fn create_module_27() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -904,7 +904,7 @@ fn create_module_28() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -930,7 +930,7 @@ fn create_module_29() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -956,7 +956,7 @@ fn create_module_30() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -982,7 +982,7 @@ fn create_module_31() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1008,7 +1008,7 @@ fn create_module_32() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1034,7 +1034,7 @@ fn create_module_33() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1060,7 +1060,7 @@ fn create_module_34() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1086,7 +1086,7 @@ fn create_module_35() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1112,7 +1112,7 @@ fn create_module_36() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1191,7 +1191,7 @@ fn create_module_37() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1218,7 +1218,7 @@ fn create_module_38() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1244,7 +1244,7 @@ fn create_module_39() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1270,7 +1270,7 @@ fn create_module_40() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1296,7 +1296,7 @@ fn create_module_41() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1322,7 +1322,7 @@ fn create_module_42() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1348,7 +1348,7 @@ fn create_module_43() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1374,7 +1374,7 @@ fn create_module_44() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1400,7 +1400,7 @@ fn create_module_45() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1426,7 +1426,7 @@ fn create_module_46() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1452,7 +1452,7 @@ fn create_module_47() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1478,7 +1478,7 @@ fn create_module_48() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1504,7 +1504,7 @@ fn create_module_49() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -1530,7 +1530,7 @@ fn create_module_50() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 

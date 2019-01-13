@@ -8,7 +8,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
-use wasmer_runtime::{backend::Compiler, module::Module};
+use wasmer_runtime::{backend::Compiler, module::ModuleInner};
 use wasmparser::{self, WasmDecoder};
 
 use self::codegen::converter;
@@ -23,8 +23,8 @@ impl CraneliftCompiler {
 }
 
 impl Compiler for CraneliftCompiler {
-    // Compiles wasm binary to a wasmer module
-    fn compile(&self, wasm: &[u8]) -> Result<Module, String> {
+    // Compiles wasm binary to a wasmer module.
+    fn compile(&self, wasm: &[u8]) -> Result<ModuleInner, String> {
         validate(wasm)?;
 
         let isa = get_isa();
@@ -35,7 +35,7 @@ impl Compiler for CraneliftCompiler {
         let wasmer_module = converter::convert_module(cranelift_module);
 
         // Return new wasmer module
-        Ok(Module::new(wasmer_module))
+        Ok(wasmer_module)
     }
 }
 
