@@ -54,6 +54,12 @@ jobs:
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
             make lint
+      - run:
+          name: Execute integration tests
+          command: |
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+            ./integration_tests/nginx/test.sh
 
   test-and-build:
     docker:
