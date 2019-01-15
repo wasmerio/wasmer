@@ -118,38 +118,29 @@ pub struct EmscriptenGlobals {
 
 impl EmscriptenGlobals {
     pub fn new() -> Self {
-        let mut data = Vec::new();
-
-        data.push((
-            "STACKTOP".into(),
-            LocalGlobal { data: stacktop(STATIC_BUMP) as _ },
-            GlobalDesc { mutable: false, ty: I32 }),
-        );
-
-        data.push((
-            "DYNAMICTOP_PTR".into(),
-            LocalGlobal { data: dynamictop_ptr(STATIC_BUMP) as _ },
-            GlobalDesc { mutable: false, ty: I32 }),
-        );
-
-        data.push((
-            "Infinity".into(),
-            LocalGlobal { data: std::f64::INFINITY.to_bits() },
-            GlobalDesc { mutable: false, ty: F64 },
-        ));
-
-        data.push((
-            "NaN".into(),
-            LocalGlobal { data: std::f64::NAN.to_bits() },
-            GlobalDesc { mutable: false, ty: F64 },
-        ));
-
-        data.push((
-            "tableBase".into(),
-            LocalGlobal { data: 0 },
-            GlobalDesc { mutable: false, ty: I32 },
-        ));
-
+        let mut data = vec![
+            (
+                "STACKTOP".into(),
+                 LocalGlobal { data: stacktop(STATIC_BUMP) as _ },
+                 GlobalDesc { mutable: false, ty: I32 }
+            ),
+            (
+                "Infinity".into(),
+                LocalGlobal { data: std::f64::INFINITY.to_bits() },
+                GlobalDesc { mutable: false, ty: F64 },
+            ),
+            (
+                "NaN".into(),
+                LocalGlobal { data: std::f64::NAN.to_bits() },
+                GlobalDesc { mutable: false, ty: F64 },
+            ),
+            (
+                "tableBase".into(),
+                LocalGlobal { data: 0 },
+                GlobalDesc { mutable: false, ty: I32 },
+            ),
+        ];
+        
         Self {
             data,
         }
