@@ -1,4 +1,7 @@
-use crate::types::{FuncSig, Map, SigIndex};
+use crate::{
+    structures::Map,
+    types::{FuncSig, SigIndex},
+};
 use hashbrown::HashMap;
 
 #[derive(Debug)]

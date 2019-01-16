@@ -93,7 +93,7 @@ impl LinearMemory {
         self.mmap.as_ptr()
     }
 
-    /// Returns a number of allocated wasm pages.
+    /// Returns the size in bytes
     pub(crate) fn size(&self) -> usize {
         self.current as usize * Self::PAGE_SIZE as usize
     }

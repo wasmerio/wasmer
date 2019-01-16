@@ -1,4 +1,4 @@
-use crate::{module::ModuleInner, types::FuncIndex, vm};
+use crate::{module::ModuleInner, types::LocalFuncIndex, vm};
 use std::ptr::NonNull;
 
 pub use crate::mmap::{Mmap, Protect};
@@ -10,5 +10,9 @@ pub trait Compiler {
 }
 
 pub trait FuncResolver {
-    fn get(&self, module: &ModuleInner, index: FuncIndex) -> Option<NonNull<vm::Func>>;
+    fn get(
+        &self,
+        module: &ModuleInner,
+        local_func_index: LocalFuncIndex,
+    ) -> Option<NonNull<vm::Func>>;
 }

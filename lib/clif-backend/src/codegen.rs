@@ -25,9 +25,9 @@ use wasmer_runtime::{
     types::{
         ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
         Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
-        Initializer as WasmerInitializer, Map, MapIndex, Memory as WasmerMemory,
-        MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex, Table as WasmerTable,
-        TableIndex as WasmerTableIndex, Type as WasmerType,
+        GlobalInit as WasmerGlobalInit, Initializer as WasmerInitializer, Map,
+        Memory as WasmerMemory, MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex,
+        Table as WasmerTable, TableIndex as WasmerTableIndex, Type as WasmerType, TypedIndex,
     },
     vm::{self, Ctx as WasmerVMContext},
 };
@@ -142,14 +142,14 @@ pub mod converter {
 
         // TODO: WasmerGlobal does not support `Import` as Global values.
         let init = match global.initializer {
-            I32Const(val) => Const(val.into()),
-            I64Const(val) => Const(val.into()),
-            F32Const(val) => Const(f32::from_bits(val).into()),
-            F64Const(val) => Const(f64::from_bits(val).into()),
-            GlobalInit::GetGlobal(index) => {
-                WasmerInitializer::GetGlobal(WasmerGlobalIndex::new(index.index()))
-            },
-            GlobalInit::Import => WasmerInitializer::Import
+            I32Const(val) => WasmerGlobalInit::Init(Const(val.into())),
+            I64Const(val) => WasmerGlobalInit::Init(Const(val.into())),
+            F32Const(val) => WasmerGlobalInit::Init(Const(f32::from_bits(val).into())),
+            F64Const(val) => WasmerGlobalInit::Init(Const(f64::from_bits(val).into())),
+            GlobalInit::GetGlobal(index) => WasmerGlobalInit::Init(WasmerInitializer::GetGlobal(
+                WasmerGlobalIndex::new(index.index()),
+            )),
+            GlobalInit::Import => WasmerGlobalInit::Import,
         };
 
         WasmerGlobal { desc, init }
@@ -173,6 +173,7 @@ pub mod converter {
 
     /// Converts a Cranelift table to a Wasmer table.
     pub fn convert_memory(memory: Memory) -> WasmerMemory {
+        println!("codegen memory: {:?}", memory);
         WasmerMemory {
             shared: memory.shared,
             min: memory.minimum,
@@ -350,29 +351,71 @@ impl<'environment> FuncEnvironmentTrait for FuncEnvironment<'environment> {
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared globals.
-    fn make_global(&mut self, func: &mut ir::Function, index: GlobalIndex) -> GlobalVariable {
+    fn make_global(
+        &mut self,
+        func: &mut ir::Function,
+        global_index: GlobalIndex,
+    ) -> GlobalVariable {
         // Create VMContext value.
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
-        let ptr_size = self.pointer_bytes();
-        let globals_offset = WasmerVMContext::offset_globals();
 
-        // Load value at (vmctx + globals_offset), i.e. the address at Ctx.globals.
-        let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-            base: vmctx,
-            offset: Offset32::new(globals_offset as i32),
-            global_type: self.pointer_type(),
-            readonly: false,
-        });
+        if global_index.index() < self.module.imported_globals.len() {
+            // imported global
 
-        // *Ctx.globals -> [ u8, u8, .. ]
-        // Based on the index provided, we need to know the offset into globals array
-        let offset = index.index() * ptr_size as usize;
+            let imported_globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                base: vmctx,
+                offset: (vm::Ctx::offset_imported_globals() as i32).into(),
+                global_type: self.pointer_type(),
+                readonly: true,
+            });
 
-        // Create global variable based on the data above.
-        GlobalVariable::Memory {
-            gv: globals_base_addr,
-            offset: (offset as i32).into(),
-            ty: self.module.get_global(index).ty,
+            let offset = global_index.index() * vm::ImportedGlobal::size() as usize;
+
+            let imported_global_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                base: imported_globals_base_addr,
+                offset: (offset as i64).into(),
+                global_type: self.pointer_type(),
+            });
+
+            let local_global_addr = func.create_global_value(ir::GlobalValueData::Load {
+                base: imported_global_addr,
+                offset: (vm::ImportedGlobal::offset_global() as i32).into(),
+                global_type: self.pointer_type(),
+                readonly: true,
+            });
+
+            GlobalVariable::Memory {
+                gv: local_global_addr,
+                offset: (vm::LocalGlobal::offset_data() as i32).into(),
+                ty: self.module.get_global(global_index).ty,
+            }
+        } else {
+            // locally defined global
+
+            let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                base: vmctx,
+                offset: (vm::Ctx::offset_globals() as i32).into(),
+                global_type: self.pointer_type(),
+                readonly: true,
+            });
+
+            // *Ctx.globals -> [ u8, u8, .. ]
+            // Based on the index provided, we need to know the offset into globals array
+            let offset = (global_index.index() - self.module.imported_globals.len())
+                * vm::LocalGlobal::size() as usize;
+
+            let local_global_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                base: globals_base_addr,
+                offset: (offset as i64).into(),
+                global_type: self.pointer_type(),
+            });
+
+            // Create global variable based on the data above.
+            GlobalVariable::Memory {
+                gv: local_global_addr,
+                offset: (vm::LocalGlobal::offset_data() as i32).into(),
+                ty: self.module.get_global(global_index).ty,
+            }
         }
     }
 
@@ -870,13 +913,18 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
         elements: Vec<FuncIndex>,
     ) {
         // Convert Cranelift GlobalIndex to wamser GlobalIndex
-        let base = base.map(|index| WasmerGlobalIndex::new(index.index()));
+        // let base = base.map(|index| WasmerGlobalIndex::new(index.index()));
+        let base = match base {
+            Some(global_index) => {
+                WasmerInitializer::GetGlobal(WasmerGlobalIndex::new(global_index.index()))
+            }
+            None => WasmerInitializer::Const((offset as i32).into()),
+        };
 
         // Add table initializer to list of table initializers
         self.table_initializers.push(TableInitializer {
             table_index: WasmerTableIndex::new(table_index.index()),
             base,
-            offset,
             elements: elements
                 .iter()
                 .map(|index| WasmerFuncIndex::new(index.index()))

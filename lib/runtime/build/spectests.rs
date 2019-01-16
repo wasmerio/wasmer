@@ -88,8 +88,8 @@ static IMPORT_MODULE: &str = r#"
   (type $t1 (func))
   (func $print_i32 (export "print_i32") (type $t0) (param $lhs i32))
   (func $print (export "print") (type $t1))
-  (table $table (export "table") 10 anyfunc)
-  (memory $memory (export "memory") 1)
+  (table $table (export "table") 10 20 anyfunc)
+  (memory $memory (export "memory") 1 2)
   (global $global_i32 (export "global_i32") i32 (i32.const 666)))
 "#;
 
@@ -350,6 +350,7 @@ fn test_module_{}() {{
             format!(
                 "fn create_module_{}() -> Instance {{
     let module_str = \"{}\";
+    println!(\"{{}}\", module_str);
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
     module.instantiate(&mut generate_imports()).expect(\"WASM can't be instantiated\")

@@ -201,6 +201,10 @@ impl LocalGlobal {
     pub fn null() -> Self {
         Self { data: 0 }
     }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -212,6 +216,10 @@ pub struct ImportedGlobal {
 impl ImportedGlobal {
     pub fn offset_global() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
     }
 }
 

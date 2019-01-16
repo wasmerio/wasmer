@@ -7,15 +7,15 @@ use std::ptr::{write_unaligned, NonNull};
 use wasmer_runtime::{
     self,
     backend::{self, Mmap, Protect},
-    types::{FuncIndex, Map, MapIndex},
+    types::{LocalFuncIndex, Map, TypedIndex},
     vm, vmcalls,
 };
 
 #[allow(dead_code)]
 pub struct FuncResolverBuilder {
     resolver: FuncResolver,
-    relocations: Map<FuncIndex, Vec<Relocation>>,
-    trap_sinks: Map<FuncIndex, TrapSink>,
+    relocations: Map<LocalFuncIndex, Vec<Relocation>>,
+    trap_sinks: Map<LocalFuncIndex, TrapSink>,
 }
 
 impl FuncResolverBuilder {
@@ -158,15 +158,13 @@ impl FuncResolverBuilder {
 /// Resolves a function index to a function address.
 pub struct FuncResolver {
     num_imported_funcs: usize,
-    map: Map<FuncIndex, usize>,
+    map: Map<LocalFuncIndex, usize>,
     memory: Mmap,
 }
 
 impl FuncResolver {
-    fn lookup(&self, index: FuncIndex) -> Option<NonNull<vm::Func>> {
-        let offset = *self
-            .map
-            .get(FuncIndex::new(index.index() - self.num_imported_funcs))?;
+    fn lookup(&self, local_func_index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
+        let offset = *self.map.get(local_func_index)?;
         let ptr = unsafe { self.memory.as_ptr().add(offset) };
 
         NonNull::new(ptr).map(|nonnull| nonnull.cast())

@@ -7,7 +7,7 @@ use crate::{
     import::{Imports, Namespace},
     module::{ExportIndex, Module, ModuleInner},
     types::{
-        FuncIndex, FuncSig, GlobalDesc, GlobalIndex, MapIndex, Memory, MemoryIndex, Table,
+        FuncIndex, FuncSig, GlobalDesc, GlobalIndex, LocalOrImport, Memory, MemoryIndex, Table,
         TableIndex, Type, Value,
     },
     vm,
@@ -202,22 +202,23 @@ impl InstanceInner {
             .get(func_index)
             .expect("broken invariant, incorrect func index");
 
-        let (func_ptr, ctx) = if module.is_imported_function(func_index) {
-            let imported_func = &self.import_backing.functions[func_index.index()];
-            (
-                imported_func.func as *const _,
-                Context::External(imported_func.vmctx),
-            )
-        } else {
-            (
+        let (func_ptr, ctx) = match func_index.local_or_import(module) {
+            LocalOrImport::Local(local_func_index) => (
                 module
                     .func_resolver
-                    .get(&module, func_index)
+                    .get(&module, local_func_index)
                     .expect("broken invariant, func resolver not synced with module.exports")
                     .cast()
                     .as_ptr() as *const _,
                 Context::Internal,
-            )
+            ),
+            LocalOrImport::Import(imported_func_index) => {
+                let imported_func = &self.import_backing.functions[imported_func_index];
+                (
+                    imported_func.func as *const _,
+                    Context::External(imported_func.vmctx),
+                )
+            }
         };
 
         let signature = module.sig_registry.lookup_func_sig(sig_index).clone();
@@ -230,28 +231,31 @@ impl InstanceInner {
         module: &ModuleInner,
         mem_index: MemoryIndex,
     ) -> (MemoryPointer, Context, Memory) {
-        if module.is_imported_memory(mem_index) {
-            let &(_, mem) = &module
-                .imported_memories
-                .get(mem_index)
-                .expect("missing imported memory index");
-            let vm::ImportedMemory { memory, vmctx } =
-                &self.import_backing.memories[mem_index.index()];
-            (
-                unsafe { MemoryPointer::new(*memory) },
-                Context::External(*vmctx),
-                *mem,
-            )
-        } else {
-            let vm_mem = &mut self.backing.memories[mem_index.index() as usize];
-            (
-                unsafe { MemoryPointer::new(&mut vm_mem.into_vm_memory()) },
-                Context::Internal,
-                *module
-                    .memories
-                    .get(mem_index)
-                    .expect("broken invariant, memories"),
-            )
+        match mem_index.local_or_import(module) {
+            LocalOrImport::Local(local_mem_index) => {
+                let vm_mem = &mut self.backing.memories[local_mem_index];
+                (
+                    unsafe { MemoryPointer::new(&mut vm_mem.into_vm_memory()) },
+                    Context::Internal,
+                    *module
+                        .memories
+                        .get(local_mem_index)
+                        .expect("broken invariant, memories"),
+                )
+            }
+            LocalOrImport::Import(imported_mem_index) => {
+                let &(_, mem) = &module
+                    .imported_memories
+                    .get(imported_mem_index)
+                    .expect("missing imported memory index");
+                let vm::ImportedMemory { memory, vmctx } =
+                    &self.import_backing.memories[imported_mem_index];
+                (
+                    unsafe { MemoryPointer::new(*memory) },
+                    Context::External(*vmctx),
+                    *mem,
+                )
+            }
         }
     }
 
@@ -260,23 +264,27 @@ impl InstanceInner {
         module: &ModuleInner,
         global_index: GlobalIndex,
     ) -> (GlobalPointer, GlobalDesc) {
-        if module.is_imported_global(global_index) {
-            let &(_, desc) = &module
-                .imported_globals
-                .get(global_index)
-                .expect("missing imported global index");
-            let vm::ImportedGlobal { global } = &self.import_backing.globals[global_index.index()];
-            (unsafe { GlobalPointer::new(*global) }, *desc)
-        } else {
-            let vm_global = &mut self.backing.vm_globals[global_index.index() as usize];
-            (
-                unsafe { GlobalPointer::new(vm_global) },
-                module
-                    .globals
-                    .get(global_index)
-                    .expect("broken invariant, globals")
-                    .desc,
-            )
+        match global_index.local_or_import(module) {
+            LocalOrImport::Local(local_global_index) => {
+                let vm_global = &mut self.backing.vm_globals[local_global_index];
+                (
+                    unsafe { GlobalPointer::new(vm_global) },
+                    module
+                        .globals
+                        .get(local_global_index)
+                        .expect("broken invariant, globals")
+                        .desc,
+                )
+            }
+            LocalOrImport::Import(imported_global_index) => {
+                let &(_, imported_global) = &module
+                    .imported_globals
+                    .get(imported_global_index)
+                    .expect("missing imported global index");
+                let vm::ImportedGlobal { global } =
+                    &self.import_backing.globals[imported_global_index];
+                (unsafe { GlobalPointer::new(*global) }, imported_global.desc)
+            }
         }
     }
 
@@ -285,28 +293,31 @@ impl InstanceInner {
         module: &ModuleInner,
         table_index: TableIndex,
     ) -> (TablePointer, Context, Table) {
-        if module.is_imported_table(table_index) {
-            let &(_, tab) = &module
-                .imported_tables
-                .get(table_index)
-                .expect("missing imported table index");
-            let vm::ImportedTable { table, vmctx } =
-                &self.import_backing.tables[table_index.index()];
-            (
-                unsafe { TablePointer::new(*table) },
-                Context::External(*vmctx),
-                *tab,
-            )
-        } else {
-            let vm_table = &mut self.backing.tables[table_index.index() as usize];
-            (
-                unsafe { TablePointer::new(&mut vm_table.into_vm_table()) },
-                Context::Internal,
-                *module
-                    .tables
-                    .get(table_index)
-                    .expect("broken invariant, tables"),
-            )
+        match table_index.local_or_import(module) {
+            LocalOrImport::Local(local_table_index) => {
+                let vm_table = &mut self.backing.tables[local_table_index];
+                (
+                    unsafe { TablePointer::new(&mut vm_table.into_vm_table()) },
+                    Context::Internal,
+                    *module
+                        .tables
+                        .get(local_table_index)
+                        .expect("broken invariant, tables"),
+                )
+            }
+            LocalOrImport::Import(imported_table_index) => {
+                let &(_, tab) = &module
+                    .imported_tables
+                    .get(imported_table_index)
+                    .expect("missing imported table index");
+                let vm::ImportedTable { table, vmctx } =
+                    &self.import_backing.tables[imported_table_index];
+                (
+                    unsafe { TablePointer::new(*table) },
+                    Context::External(*vmctx),
+                    *tab,
+                )
+            }
         }
     }
 }

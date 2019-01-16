@@ -1,7 +1,7 @@
-use crate::{memory::LinearMemory, vm};
+use crate::{memory::LinearMemory, structures::TypedIndex, types::LocalMemoryIndex, vm};
 
 pub unsafe extern "C" fn memory_grow_static(
-    memory_index: u32,
+    memory_index: LocalMemoryIndex,
     by_pages: u32,
     ctx: *mut vm::Ctx,
 ) -> i32 {
@@ -10,7 +10,7 @@ pub unsafe extern "C" fn memory_grow_static(
         .grow_static(by_pages)
     {
         // Store the new size back into the vmctx.
-        (*(*ctx).memories.add(memory_index as usize)).size =
+        (*(*ctx).memories.add(memory_index.index())).size =
             (old as usize + by_pages as usize) * LinearMemory::PAGE_SIZE as usize;
         old
     } else {
@@ -18,12 +18,12 @@ pub unsafe extern "C" fn memory_grow_static(
     }
 }
 
-pub unsafe extern "C" fn memory_size(memory_index: u32, ctx: *mut vm::Ctx) -> u32 {
+pub unsafe extern "C" fn memory_size(memory_index: LocalMemoryIndex, ctx: *mut vm::Ctx) -> u32 {
     (*(*ctx).local_backing).memory(memory_index).pages()
 }
 
 pub unsafe extern "C" fn memory_grow_dynamic(
-    memory_index: u32,
+    memory_index: LocalMemoryIndex,
     by_pages: u32,
     ctx: *mut vm::Ctx,
 ) -> i32 {
@@ -32,7 +32,7 @@ pub unsafe extern "C" fn memory_grow_dynamic(
         .grow_dynamic(by_pages)
     {
         // Store the new size back into the vmctx.
-        (*(*ctx).memories.add(memory_index as usize)).size =
+        (*(*ctx).memories.add(memory_index.index())).size =
             (old as usize + by_pages as usize) * LinearMemory::PAGE_SIZE as usize;
         old
     } else {

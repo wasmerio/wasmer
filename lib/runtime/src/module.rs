@@ -2,9 +2,11 @@ use crate::{
     backend::FuncResolver,
     import::Imports,
     sig_registry::SigRegistry,
+    structures::Map,
     types::{
-        FuncIndex, Global, GlobalDesc, GlobalIndex, Map, MapIndex, Memory, MemoryIndex, SigIndex,
-        Table, TableIndex,
+        FuncIndex, Global, GlobalIndex, ImportedFuncIndex, ImportedGlobal, ImportedGlobalIndex,
+        ImportedMemoryIndex, ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex,
+        LocalTableIndex, Memory, MemoryIndex, SigIndex, Table, TableIndex,
     },
     Instance,
 };
@@ -15,14 +17,16 @@ use std::rc::Rc;
 #[doc(hidden)]
 pub struct ModuleInner {
     pub func_resolver: Box<dyn FuncResolver>,
-    pub memories: Map<MemoryIndex, Memory>,
-    pub globals: Map<GlobalIndex, Global>,
-    pub tables: Map<TableIndex, Table>,
+    // This are strictly local and the typsystem ensures that.
+    pub memories: Map<LocalMemoryIndex, Memory>,
+    pub globals: Map<LocalGlobalIndex, Global>,
+    pub tables: Map<LocalTableIndex, Table>,
 
-    pub imported_functions: Map<FuncIndex, ImportName>,
-    pub imported_memories: Map<MemoryIndex, (ImportName, Memory)>,
-    pub imported_tables: Map<TableIndex, (ImportName, Table)>,
-    pub imported_globals: Map<GlobalIndex, (ImportName, GlobalDesc)>,
+    // These are strictly imported and the typesystem ensures that.
+    pub imported_functions: Map<ImportedFuncIndex, ImportName>,
+    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, Memory)>,
+    pub imported_tables: Map<ImportedTableIndex, (ImportName, Table)>,
+    pub imported_globals: Map<ImportedGlobalIndex, (ImportName, ImportedGlobal)>,
 
     pub exports: HashMap<String, ExportIndex>,
 
@@ -47,23 +51,7 @@ impl Module {
     }
 }
 
-impl ModuleInner {
-    pub(crate) fn is_imported_function(&self, func_index: FuncIndex) -> bool {
-        func_index.index() < self.imported_functions.len()
-    }
-
-    pub(crate) fn is_imported_memory(&self, memory_index: MemoryIndex) -> bool {
-        memory_index.index() < self.imported_memories.len()
-    }
-
-    pub(crate) fn is_imported_table(&self, table_index: TableIndex) -> bool {
-        table_index.index() < self.imported_tables.len()
-    }
-
-    pub(crate) fn is_imported_global(&self, global_index: GlobalIndex) -> bool {
-        global_index.index() < self.imported_globals.len()
-    }
-}
+impl ModuleInner {}
 
 #[doc(hidden)]
 #[derive(Debug, Clone)]
@@ -90,7 +78,7 @@ pub enum ExportIndex {
 }
 
 /// A data initializer for linear memory.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DataInitializer {
     /// The index of the memory to initialize.
     pub memory_index: MemoryIndex,
@@ -103,14 +91,12 @@ pub struct DataInitializer {
 }
 
 /// A WebAssembly table initializer.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct TableInitializer {
     /// The index of a table to initialize.
     pub table_index: TableIndex,
-    /// Optionally, a global variable giving a base index.
-    pub base: Option<GlobalIndex>,
-    /// The offset to add to the base.
-    pub offset: usize,
+    /// Either a constant offset or a `get_global`
+    pub base: Initializer,
     /// The values to write into the table elements.
     pub elements: Vec<FuncIndex>,
 }

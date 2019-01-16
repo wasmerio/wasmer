@@ -1,9 +1,4 @@
-use std::marker::PhantomData;
-use std::{
-    iter, mem,
-    ops::{Index, IndexMut},
-    slice,
-};
+use crate::{module::ModuleInner, structures::TypedIndex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
@@ -82,21 +77,22 @@ pub struct Table {
 
 impl Table {
     pub(crate) fn fits_in_imported(&self, imported: &Table) -> bool {
-        self.max == imported.max && self.min <= imported.min
+        // TODO: We should define implementation limits.
+        let imported_max = imported.max.unwrap_or(u32::max_value());
+        let self_max = self.max.unwrap_or(u32::max_value());
+        self.ty == imported.ty && imported_max <= self_max && self.min <= imported.min
     }
 }
 
-/// A global value initializer.
-/// Overtime, this will be able to represent more and more
+/// A const value initializer.
+/// Over time, this will be able to represent more and more
 /// complex expressions.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Initializer {
     /// Corresponds to a `const.*` instruction.
     Const(Value),
     /// Corresponds to a `get_global` instruction.
-    GetGlobal(GlobalIndex),
-    /// Initialized externally
-    Import,
+    GetGlobal(ImportedGlobalIndex),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,11 +101,23 @@ pub struct GlobalDesc {
     pub ty: Type,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ImportedGlobalInit {
+    GetGlobal(ImportedGlobalIndex),
+    Import,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportedGlobal {
+    pub desc: GlobalDesc,
+    pub init: ImportedGlobalInit,
+}
+
 /// A wasm global.
 #[derive(Debug, Clone)]
 pub struct Global {
     pub desc: GlobalDesc,
-    pub init: Initializer,
+    pub init: Value,
 }
 
 /// A wasm memory.
@@ -129,11 +137,15 @@ impl Memory {
     }
 
     pub(crate) fn fits_in_imported(&self, imported: &Memory) -> bool {
-        self.shared == imported.shared && self.max == imported.max && self.min <= imported.min
+        let imported_max = imported.max.unwrap_or(65_536);
+        let self_max = self.max.unwrap_or(65_536);
+
+        self.shared == imported.shared && imported_max <= self_max && self.min <= imported.min
     }
 }
 
-/// A wasm func.
+/// The signature of a function that is either implemented
+/// in a wasm module or exposed to wasm by the host.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FuncSig {
     pub params: Vec<Type>,
@@ -151,158 +163,17 @@ impl FuncSig {
     }
 }
 
-pub trait MapIndex {
-    fn new(index: usize) -> Self;
-    fn index(&self) -> usize;
+pub trait LocalImport {
+    type Local: TypedIndex;
+    type Import: TypedIndex;
 }
 
-/// Dense item map
-#[derive(Debug, Clone)]
-pub struct Map<I, T>
-where
-    I: MapIndex,
-{
-    elems: Vec<T>,
-    _marker: PhantomData<I>,
-}
-
-impl<I, T> Map<I, T>
-where
-    I: MapIndex,
-{
-    pub fn new() -> Self {
-        Self {
-            elems: Vec::new(),
-            _marker: PhantomData,
-        }
-    }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            elems: Vec::with_capacity(capacity),
-            _marker: PhantomData,
-        }
-    }
-
-    pub fn get(&self, index: I) -> Option<&T> {
-        self.elems.get(index.index())
-    }
-
-    pub fn len(&self) -> usize {
-        self.elems.len()
-    }
-
-    pub fn push(&mut self, value: T) -> I {
-        let len = self.len();
-        self.elems.push(value);
-        I::new(len)
-    }
-
-    pub fn as_ptr(&self) -> *const T {
-        self.elems.as_ptr()
-    }
-
-    pub fn reserve_exact(&mut self, size: usize) {
-        self.elems.reserve_exact(size);
-    }
-
-    pub fn iter(&self) -> Iter<T, I> {
-        Iter::new(self.elems.iter())
-    }
-}
-
-impl<I, T> Index<I> for Map<I, T>
-where
-    I: MapIndex,
-{
-    type Output = T;
-    fn index(&self, index: I) -> &T {
-        &self.elems[index.index()]
-    }
-}
-
-impl<I, T> IndexMut<I> for Map<I, T>
-where
-    I: MapIndex,
-{
-    fn index_mut(&mut self, index: I) -> &mut T {
-        &mut self.elems[index.index()]
-    }
-}
-
-impl<'a, I, T> IntoIterator for &'a Map<I, T>
-where
-    I: MapIndex,
-{
-    type Item = (I, &'a T);
-    type IntoIter = Iter<'a, T, I>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Iter::new(self.elems.iter())
-    }
-}
-
-impl<'a, I, T> IntoIterator for &'a mut Map<I, T>
-where
-    I: MapIndex,
-{
-    type Item = (I, &'a mut T);
-    type IntoIter = IterMut<'a, T, I>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        IterMut::new(self.elems.iter_mut())
-    }
-}
-
-pub struct Iter<'a, T: 'a, I: MapIndex> {
-    enumerated: iter::Enumerate<slice::Iter<'a, T>>,
-    _marker: PhantomData<I>,
-}
-
-impl<'a, T: 'a, I: MapIndex> Iter<'a, T, I> {
-    fn new(iter: slice::Iter<'a, T>) -> Self {
-        Self {
-            enumerated: iter.enumerate(),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, T: 'a, I: MapIndex> Iterator for Iter<'a, T, I> {
-    type Item = (I, &'a T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.enumerated.next().map(|(i, v)| (I::new(i), v))
-    }
-}
-
-pub struct IterMut<'a, T: 'a, I: MapIndex> {
-    enumerated: iter::Enumerate<slice::IterMut<'a, T>>,
-    _marker: PhantomData<I>,
-}
-
-impl<'a, T: 'a, I: MapIndex> IterMut<'a, T, I> {
-    fn new(iter: slice::IterMut<'a, T>) -> Self {
-        Self {
-            enumerated: iter.enumerate(),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, T: 'a, I: MapIndex> Iterator for IterMut<'a, T, I> {
-    type Item = (I, &'a mut T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.enumerated.next().map(|(i, v)| (I::new(i), v))
-    }
-}
-
+#[rustfmt::skip]
 macro_rules! define_map_index {
     ($ty:ident) => {
         #[derive(Debug, Copy, Clone, PartialEq, Eq)]
         pub struct $ty (u32);
-        impl MapIndex for $ty {
+        impl TypedIndex for $ty {
             fn new(index: usize) -> Self {
                 $ty (index as _)
             }
@@ -312,20 +183,72 @@ macro_rules! define_map_index {
             }
         }
     };
-    ($($ty:ident,)*) => {
+    ($($normal_ty:ident,)* | local: $($local_ty:ident,)* | imported: $($imported_ty:ident,)*) => {
         $(
-            define_map_index!($ty);
+            define_map_index!($normal_ty);
+            define_map_index!($local_ty);
+            define_map_index!($imported_ty);
+
+            impl LocalImport for $normal_ty {
+                type Local = $local_ty;
+                type Import = $imported_ty;
+            }
         )*
     };
 }
 
-define_map_index![FuncIndex, MemoryIndex, TableIndex, SigIndex,];
+#[rustfmt::skip]
+define_map_index![
+    FuncIndex, MemoryIndex, TableIndex, GlobalIndex,
+    | local: LocalFuncIndex, LocalMemoryIndex, LocalTableIndex, LocalGlobalIndex,
+    | imported: ImportedFuncIndex, ImportedMemoryIndex, ImportedTableIndex, ImportedGlobalIndex,
+];
+
+#[rustfmt::skip]
+macro_rules! define_local_or_import {
+    ($ty:ident, $local_ty:ident, $imported_ty:ident, $imports:ident) => {
+        impl $ty {
+            pub fn local_or_import(self, module: &ModuleInner) -> LocalOrImport<$ty> {
+                if self.index() < module.$imports.len() {
+                    LocalOrImport::Import(<Self as LocalImport>::Import::new(self.index()))
+                } else {
+                    LocalOrImport::Local(<Self as LocalImport>::Local::new(self.index() - module.$imports.len()))
+                }
+            }
+        }
+
+        impl $local_ty {
+            pub fn convert_up(self, module: &ModuleInner) -> $ty {
+                $ty ((self.index() + module.$imports.len()) as u32)
+            }
+        }
+
+        impl $imported_ty {
+            pub fn convert_up(self, _module: &ModuleInner) -> $ty {
+                $ty (self.index() as u32)
+            }
+        }
+    };
+    ($(($ty:ident | ($local_ty:ident, $imported_ty:ident): $imports:ident),)*) => {
+        $(
+            define_local_or_import!($ty, $local_ty, $imported_ty, $imports);
+        )*
+    };
+}
+
+#[rustfmt::skip]
+define_local_or_import![
+    (FuncIndex | (LocalFuncIndex, ImportedFuncIndex): imported_functions),
+    (MemoryIndex | (LocalMemoryIndex, ImportedMemoryIndex): imported_memories),
+    (TableIndex | (LocalTableIndex, ImportedTableIndex): imported_tables),
+    (GlobalIndex | (LocalGlobalIndex, ImportedGlobalIndex): imported_globals),
+];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct GlobalIndex(u32);
-impl MapIndex for GlobalIndex {
+pub struct SigIndex(u32);
+impl TypedIndex for SigIndex {
     fn new(index: usize) -> Self {
-        GlobalIndex(index as _)
+        SigIndex(index as _)
     }
 
     fn index(&self) -> usize {
@@ -333,88 +256,10 @@ impl MapIndex for GlobalIndex {
     }
 }
 
-#[derive(Debug, Clone)]
-enum MonoVecInner<T> {
-    None,
-    Inline(T),
-    Heap(Vec<T>),
-}
-
-/// A type that can hold zero items,
-/// one item, or many items.
-#[derive(Debug, Clone)]
-pub struct MonoVec<T> {
-    inner: MonoVecInner<T>,
-}
-
-impl<T> MonoVec<T> {
-    pub fn new() -> Self {
-        Self {
-            inner: MonoVecInner::None,
-        }
-    }
-
-    pub fn new_inline(item: T) -> Self {
-        Self {
-            inner: MonoVecInner::Inline(item),
-        }
-    }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        match capacity {
-            0 | 1 => Self::new(),
-            _ => Self {
-                inner: MonoVecInner::Heap(Vec::with_capacity(capacity)),
-            },
-        }
-    }
-
-    pub fn push(&mut self, item: T) {
-        let uninit = unsafe { mem::uninitialized() };
-        let prev = mem::replace(&mut self.inner, uninit);
-        let next = match prev {
-            MonoVecInner::None => MonoVecInner::Inline(item),
-            MonoVecInner::Inline(previous_item) => MonoVecInner::Heap(vec![previous_item, item]),
-            MonoVecInner::Heap(mut v) => {
-                v.push(item);
-                MonoVecInner::Heap(v)
-            }
-        };
-        let uninit = mem::replace(&mut self.inner, next);
-        mem::forget(uninit);
-    }
-
-    pub fn pop(&mut self) -> Option<T> {
-        match self.inner {
-            MonoVecInner::None => None,
-            MonoVecInner::Inline(ref mut item) => {
-                let uninit = unsafe { mem::uninitialized() };
-                let item = mem::replace(item, uninit);
-                let uninit = mem::replace(&mut self.inner, MonoVecInner::None);
-                mem::forget(uninit);
-                Some(item)
-            }
-            MonoVecInner::Heap(ref mut v) => v.pop(),
-        }
-    }
-
-    pub fn as_slice(&self) -> &[T] {
-        match self.inner {
-            MonoVecInner::None => unsafe {
-                slice::from_raw_parts(mem::align_of::<T>() as *const T, 0)
-            },
-            MonoVecInner::Inline(ref item) => slice::from_ref(item),
-            MonoVecInner::Heap(ref v) => &v[..],
-        }
-    }
-
-    pub fn as_slice_mut(&mut self) -> &mut [T] {
-        match self.inner {
-            MonoVecInner::None => unsafe {
-                slice::from_raw_parts_mut(mem::align_of::<T>() as *mut T, 0)
-            },
-            MonoVecInner::Inline(ref mut item) => slice::from_mut(item),
-            MonoVecInner::Heap(ref mut v) => &mut v[..],
-        }
-    }
+pub enum LocalOrImport<T>
+where
+    T: LocalImport,
+{
+    Local(T::Local),
+    Import(T::Import),
 }

@@ -16,6 +16,7 @@ pub mod module;
 mod recovery;
 mod sig_registry;
 mod sighandler;
+pub mod structures;
 pub mod table;
 pub mod types;
 pub mod vm;

@@ -2,6 +2,7 @@ pub mod codegen;
 mod libcalls;
 mod relocation;
 mod resolver;
+// mod module;
 
 use cranelift_codegen::{
     isa,
