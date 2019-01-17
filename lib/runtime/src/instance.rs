@@ -31,7 +31,10 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub(crate) fn new(module: Rc<ModuleInner>, mut imports: Box<Imports>) -> Result<Instance, String> {
+    pub(crate) fn new(
+        module: Rc<ModuleInner>,
+        mut imports: Box<Imports>,
+    ) -> Result<Instance, String> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.

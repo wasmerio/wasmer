@@ -1,5 +1,5 @@
 pub use crate::{
-    backing::{LocalBacking, ImportBacking},
+    backing::{ImportBacking, LocalBacking},
     types::LocalMemoryIndex,
 };
 use std::{mem, ptr};
