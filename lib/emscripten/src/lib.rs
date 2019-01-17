@@ -119,6 +119,17 @@ macro_rules! func {
     }};
 }
 
+macro_rules! global {
+    ($value:ident) => {{
+        unsafe {
+            GlobalPointer::new(
+                // NOTE: Taking a shortcut here. LocalGlobal is a struct containing just u64.
+                std::mem::transmute::<&u64, *mut LocalGlobal>($value)
+            )
+        }
+    }};
+}
+
 pub struct EmscriptenGlobals<'a> {
     pub data: HashMap<&'a str, HashMap<&'a str, (u64, Type)>>, // <namespace, <field_name, (global_value, type)>>
 }
@@ -149,24 +160,84 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
     let mut imports = Imports::new();
     let mut env_namespace = NamespaceMap::new();
     let mut asm_namespace = NamespaceMap::new();
+    let mut global_namespace = NamespaceMap::new();
 
     // Add globals.
-//    for ()
+    // NOTE: There is really no need for checks, these globals should always be available.
+    let env_globals = globals.data.get("env").unwrap();
+    let global_globals = globals.data.get("global").unwrap();
 
-    // for (name, global, desc) in &globals.data {
-    //     let global_ptr = unsafe {
-    //         GlobalPointer::new(
-    //             std::mem::transmute::<&LocalGlobal, *mut LocalGlobal>(global)
-    //         )
-    //     };
+    let (value, ty) = env_globals.get("STACKTOP").unwrap();
+    env_namespace.insert(
+        "STACKTOP".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            }
+        },
+    );
 
-    //     let export = Export::Global {
-    //         local: global_ptr,
-    //         global: desc.clone(),
-    //     };
+    let (value, ty) = env_globals.get("STACK_MAX").unwrap();
+    env_namespace.insert(
+        "STACK_MAX".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            }
+        },
+    );
 
-    //     imports.register_export("env", name.clone(), export);
-    // }
+    let (value, ty) = env_globals.get("DYNAMICTOP_PTR").unwrap();
+    env_namespace.insert(
+        "DYNAMICTOP_PTR".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            }
+        },
+    );
+
+    let (value, ty) = env_globals.get("tableBase").unwrap();
+    env_namespace.insert(
+        "tableBase".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            }
+        },
+    );
+
+    let (value, ty) = global_globals.get("Infinity").unwrap();
+    global_namespace.insert(
+        "Infinity".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            }
+        },
+    );
+
+    let (value, ty) = global_globals.get("NaN").unwrap();
+    global_namespace.insert(
+        "NaN".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            }
+        },
+    );
 
     // Print function
     env_namespace.insert(
@@ -193,6 +264,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             },
         },
     );
+
     // Lock
     env_namespace.insert(
         "___lock",
