@@ -1,5 +1,6 @@
 use crate::backing::ImportBacking;
 pub use crate::backing::LocalBacking;
+use std::ffi::c_void;
 use std::{mem, ptr};
 
 #[derive(Debug)]
@@ -26,8 +27,22 @@ pub struct Ctx {
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub(crate) imported_funcs: *mut ImportedFunc,
 
-    /// The parent instance.
+    /// The local backing of the instance that created this vmctx.
     pub local_backing: *mut LocalBacking,
+
+    /// Host data
+    pub data: *mut c_void,
+
+    /// Host data finalizer
+    pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
+}
+
+impl Drop for Ctx {
+    fn drop(&mut self) {
+        if let Some(finalizer) = self.data_finalizer {
+            finalizer(self.data);
+        }
+    }
 }
 
 impl Ctx {
@@ -46,6 +61,30 @@ impl Ctx {
             imported_funcs: import_backing.functions.as_mut_ptr(),
 
             local_backing,
+            data: ptr::null_mut(),
+            data_finalizer: None,
+        }
+    }
+
+    pub unsafe fn new_with_data(
+        local_backing: &mut LocalBacking,
+        import_backing: &mut ImportBacking,
+        data: *mut c_void,
+        data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
+    ) -> Self {
+        Self {
+            memories: local_backing.vm_memories.as_mut_ptr(),
+            tables: local_backing.vm_tables.as_mut_ptr(),
+            globals: local_backing.vm_globals.as_mut_ptr(),
+
+            imported_memories: import_backing.memories.as_mut_ptr(),
+            imported_tables: import_backing.tables.as_mut_ptr(),
+            imported_globals: import_backing.globals.as_mut_ptr(),
+            imported_funcs: import_backing.functions.as_mut_ptr(),
+
+            local_backing,
+            data,
+            data_finalizer,
         }
     }
 
@@ -422,4 +461,68 @@ mod vm_offset_tests {
             offset_of!(Anyfunc => sig_id).get_byte_offset(),
         );
     }
+}
+
+#[cfg(test)]
+mod vm_ctx_tests {
+    use super::{Ctx, ImportBacking, LocalBacking};
+    use crate::structures::Map;
+    use std::ffi::c_void;
+
+    struct TestData {
+        x: u32,
+        y: bool,
+        str: String,
+    }
+
+    extern "C" fn test_data_finalizer(data: *mut c_void) {
+        let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
+        assert_eq!(test_data.x, 10);
+        assert_eq!(test_data.y, true);
+        assert_eq!(test_data.str, "Test".to_string());
+        println!("hello from finalizer");
+        drop(test_data);
+    }
+
+    #[test]
+    fn test_callback_on_drop() {
+        let mut data = TestData {
+            x: 10,
+            y: true,
+            str: "Test".to_string(),
+        };
+        let mut local_backing = LocalBacking {
+            memories: Map::new().into_boxed_map(),
+            tables: Map::new().into_boxed_map(),
+            vm_memories: Map::new().into_boxed_map(),
+            vm_tables: Map::new().into_boxed_map(),
+            vm_globals: Map::new().into_boxed_map(),
+        };
+        let mut import_backing = ImportBacking {
+            functions: Map::new().into_boxed_map(),
+            memories: Map::new().into_boxed_map(),
+            tables: Map::new().into_boxed_map(),
+            globals: Map::new().into_boxed_map(),
+        };
+        let data = &mut data as *mut _ as *mut c_void;
+        let ctx = unsafe {
+            Ctx::new_with_data(
+                &mut local_backing,
+                &mut import_backing,
+                data,
+                Some(test_data_finalizer),
+            )
+        };
+        let ctx_test_data = cast_test_data(ctx.data);
+        assert_eq!(ctx_test_data.x, 10);
+        assert_eq!(ctx_test_data.y, true);
+        assert_eq!(ctx_test_data.str, "Test".to_string());
+        drop(ctx);
+    }
+
+    fn cast_test_data(data: *mut c_void) -> &'static mut TestData {
+        let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
+        test_data
+    }
+
 }
