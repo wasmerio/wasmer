@@ -42,7 +42,7 @@ impl LocalBacking {
 
         let vm_memories = Self::finalize_memories(module, imports, &mut memories);
         let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx);
-        let vm_globals = Self::finalize_globals(module, globals);
+        let vm_globals = Self::finalize_globals(module, imports, globals);
 
         Self {
             memories,
@@ -86,16 +86,27 @@ impl LocalBacking {
             .iter()
             .filter(|init| init.data.len() > 0)
         {
-            assert!(init.base.is_none(), "global base not supported yet");
+            let init_base = match init.base {
+                Initializer::Const(Value::I32(offset)) => offset as u32,
+                Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
+                Initializer::GetGlobal(imported_global_index) => {
+                    if module.imported_globals[imported_global_index].1.ty == Type::I32 {
+                        unsafe { (*imports.globals[imported_global_index].global).data as u32 }
+                    } else {
+                        panic!("unsupported global type for initialzer")
+                    }
+                }
+            } as usize;
 
             match init.memory_index.local_or_import(module) {
                 LocalOrImport::Local(local_memory_index) => {
                     let memory_desc = &module.memories[local_memory_index];
-                    let data_top = init.offset + init.data.len();
-                    assert!(memory_desc.min as usize >= data_top);
+                    let data_top = init_base + init.data.len();
+                    println!("data_top: {}", data_top);
+                    assert!((memory_desc.min * LinearMemory::PAGE_SIZE) as usize >= data_top);
                     let mem: &mut LinearMemory = &mut memories[local_memory_index];
 
-                    let to_init = &mut mem[init.offset..init.offset + init.data.len()];
+                    let to_init = &mut mem[init_base..init_base + init.data.len()];
                     to_init.copy_from_slice(&init.data);
                 }
                 LocalOrImport::Import(imported_memory_index) => {
@@ -130,12 +141,12 @@ impl LocalBacking {
         tables: &mut SliceMap<LocalTableIndex, TableBacking>,
         vmctx: *mut vm::Ctx,
     ) -> BoxedMap<LocalTableIndex, vm::LocalTable> {
-        for init in &module.table_initializers {
+        for init in &module.elem_initializers {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
                 Initializer::GetGlobal(imported_global_index) => {
-                    if module.imported_globals[imported_global_index].1.desc.ty == Type::I32 {
+                    if module.imported_globals[imported_global_index].1.ty == Type::I32 {
                         unsafe { (*imports.globals[imported_global_index].global).data as u32 }
                     } else {
                         panic!("unsupported global type for initialzer")
@@ -243,14 +254,20 @@ impl LocalBacking {
 
     fn finalize_globals(
         module: &ModuleInner,
+        imports: &ImportBacking,
         mut globals: BoxedMap<LocalGlobalIndex, vm::LocalGlobal>,
     ) -> BoxedMap<LocalGlobalIndex, vm::LocalGlobal> {
-        for ((_, to), (_, from)) in globals.iter_mut().zip(module.globals.into_iter()) {
+        for ((_, to), (_, from)) in globals.iter_mut().zip(module.globals.iter()) {
             to.data = match from.init {
-                Value::I32(x) => x as u64,
-                Value::I64(x) => x as u64,
-                Value::F32(x) => x.to_bits() as u64,
-                Value::F64(x) => x.to_bits(),
+                Initializer::Const(ref value) => match value {
+                    Value::I32(x) => *x as u64,
+                    Value::I64(x) => *x as u64,
+                    Value::F32(x) => x.to_bits() as u64,
+                    Value::F64(x) => x.to_bits(),
+                },
+                Initializer::GetGlobal(imported_global_index) => unsafe {
+                    (*imports.globals[imported_global_index].global).data
+                },
             };
         }
 
@@ -416,13 +433,13 @@ fn import_globals(
     imports: &mut Imports,
 ) -> Result<BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>, String> {
     let mut globals = Map::with_capacity(module.imported_globals.len());
-    for (_, (ImportName { namespace, name }, imported_global)) in &module.imported_globals {
+    for (_, (ImportName { namespace, name }, imported_global_desc)) in &module.imported_globals {
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
         match import {
             Some(Export::Global { local, global }) => {
-                if global == imported_global.desc {
+                if global == *imported_global_desc {
                     globals.push(vm::ImportedGlobal {
                         global: local.inner(),
                     });

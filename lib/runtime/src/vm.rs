@@ -127,6 +127,10 @@ impl LocalTable {
     pub fn offset_current_elements() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -145,6 +149,10 @@ impl ImportedTable {
 
     pub fn offset_vmctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
     }
 }
 
@@ -166,6 +174,10 @@ impl LocalMemory {
     pub fn offset_size() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -183,6 +195,10 @@ impl ImportedMemory {
 
     pub fn offset_vmctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
     }
 }
 
@@ -256,6 +272,10 @@ impl Anyfunc {
 
     pub fn offset_sig_id() -> u8 {
         2 * (mem::size_of::<usize>() as u8)
+    }
+
+    pub fn size() -> u8 {
+        mem::size_of::<Self>() as u8
     }
 }
 

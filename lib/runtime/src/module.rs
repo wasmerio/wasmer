@@ -4,7 +4,7 @@ use crate::{
     sig_registry::SigRegistry,
     structures::Map,
     types::{
-        FuncIndex, Global, GlobalIndex, ImportedFuncIndex, ImportedGlobal, ImportedGlobalIndex,
+        FuncIndex, Global, GlobalDesc, GlobalIndex, ImportedFuncIndex, ImportedGlobalIndex,
         ImportedMemoryIndex, ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex,
         LocalTableIndex, Memory, MemoryIndex, SigIndex, Table, TableIndex,
     },
@@ -26,12 +26,13 @@ pub struct ModuleInner {
     pub imported_functions: Map<ImportedFuncIndex, ImportName>,
     pub imported_memories: Map<ImportedMemoryIndex, (ImportName, Memory)>,
     pub imported_tables: Map<ImportedTableIndex, (ImportName, Table)>,
-    pub imported_globals: Map<ImportedGlobalIndex, (ImportName, ImportedGlobal)>,
+    pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDesc)>,
 
     pub exports: HashMap<String, ExportIndex>,
 
     pub data_initializers: Vec<DataInitializer>,
-    pub table_initializers: Vec<TableInitializer>,
+    pub elem_initializers: Vec<TableInitializer>,
+
     pub start_func: Option<FuncIndex>,
 
     pub func_assoc: Map<FuncIndex, SigIndex>,
@@ -82,10 +83,8 @@ pub enum ExportIndex {
 pub struct DataInitializer {
     /// The index of the memory to initialize.
     pub memory_index: MemoryIndex,
-    /// Optionally a globalvalue base to initialize at.
-    pub base: Option<GlobalIndex>,
-    /// A constant offset to initialize at.
-    pub offset: usize,
+    /// Either a constant offset or a `get_global`
+    pub base: Initializer,
     /// The initialization data.
     pub data: Vec<u8>,
 }

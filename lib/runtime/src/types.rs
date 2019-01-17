@@ -101,23 +101,11 @@ pub struct GlobalDesc {
     pub ty: Type,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ImportedGlobalInit {
-    GetGlobal(ImportedGlobalIndex),
-    Import,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ImportedGlobal {
-    pub desc: GlobalDesc,
-    pub init: ImportedGlobalInit,
-}
-
 /// A wasm global.
 #[derive(Debug, Clone)]
 pub struct Global {
     pub desc: GlobalDesc,
-    pub init: Value,
+    pub init: Initializer,
 }
 
 /// A wasm memory.
@@ -174,10 +162,12 @@ macro_rules! define_map_index {
         #[derive(Debug, Copy, Clone, PartialEq, Eq)]
         pub struct $ty (u32);
         impl TypedIndex for $ty {
+            #[doc(hidden)]
             fn new(index: usize) -> Self {
                 $ty (index as _)
             }
 
+            #[doc(hidden)]
             fn index(&self) -> usize {
                 self.0 as usize
             }
@@ -247,10 +237,12 @@ define_local_or_import![
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SigIndex(u32);
 impl TypedIndex for SigIndex {
+    #[doc(hidden)]
     fn new(index: usize) -> Self {
         SigIndex(index as _)
     }
 
+    #[doc(hidden)]
     fn index(&self) -> usize {
         self.0 as usize
     }
@@ -262,4 +254,23 @@ where
 {
     Local(T::Local),
     Import(T::Import),
+}
+
+impl<T> LocalOrImport<T>
+where
+    T: LocalImport,
+{
+    pub fn local(self) -> Option<T::Local> {
+        match self {
+            LocalOrImport::Local(local) => Some(local),
+            LocalOrImport::Import(_) => None,
+        }
+    }
+
+    pub fn import(self) -> Option<T::Import> {
+        match self {
+            LocalOrImport::Import(import) => Some(import),
+            LocalOrImport::Local(_) => None,
+        }
+    }
 }

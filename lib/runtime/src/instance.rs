@@ -277,13 +277,16 @@ impl InstanceInner {
                 )
             }
             LocalOrImport::Import(imported_global_index) => {
-                let &(_, imported_global) = &module
+                let &(_, imported_global_desc) = &module
                     .imported_globals
                     .get(imported_global_index)
                     .expect("missing imported global index");
                 let vm::ImportedGlobal { global } =
                     &self.import_backing.globals[imported_global_index];
-                (unsafe { GlobalPointer::new(*global) }, imported_global.desc)
+                (
+                    unsafe { GlobalPointer::new(*global) },
+                    *imported_global_desc,
+                )
             }
         }
     }

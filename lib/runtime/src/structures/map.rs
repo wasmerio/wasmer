@@ -4,7 +4,7 @@ use std::{
     marker::PhantomData,
     mem,
     ops::{Deref, DerefMut},
-    slice,
+    slice, vec,
 };
 
 /// Dense item map
@@ -43,6 +43,10 @@ where
         let len = self.len();
         self.elems.push(value);
         K::new(len)
+    }
+
+    pub fn next_index(&self) -> K {
+        K::new(self.len())
     }
 
     pub fn reserve_exact(&mut self, size: usize) {
@@ -102,6 +106,49 @@ where
 {
     fn deref_mut(&mut self) -> &mut SliceMap<K, V> {
         unsafe { mem::transmute::<&mut [V], _>(self.elems.as_mut_slice()) }
+    }
+}
+
+pub struct IntoIter<K, V>
+where
+    K: TypedIndex,
+{
+    enumerated: iter::Enumerate<vec::IntoIter<V>>,
+    _marker: PhantomData<K>,
+}
+
+impl<K, V> IntoIter<K, V>
+where
+    K: TypedIndex,
+{
+    pub(in crate::structures) fn new(into_iter: vec::IntoIter<V>) -> Self {
+        Self {
+            enumerated: into_iter.enumerate(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<K, V> Iterator for IntoIter<K, V>
+where
+    K: TypedIndex,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<(K, V)> {
+        self.enumerated.next().map(|(i, v)| (K::new(i), v))
+    }
+}
+
+impl<K, V> IntoIterator for Map<K, V>
+where
+    K: TypedIndex,
+{
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter::new(self.elems.into_iter())
     }
 }
 

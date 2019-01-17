@@ -25,10 +25,11 @@ use wasmer_runtime::{
     types::{
         ElementType as WasmerElementType, FuncIndex as WasmerFuncIndex, FuncSig as WasmerSignature,
         Global as WasmerGlobal, GlobalDesc as WasmerGlobalDesc, GlobalIndex as WasmerGlobalIndex,
-        GlobalInit as WasmerGlobalInit, Initializer as WasmerInitializer, Map,
+        GlobalInit as WasmerGlobalInit, Initializer as WasmerInitializer,
         Memory as WasmerMemory, MemoryIndex as WasmerMemoryIndex, SigIndex as WasmerSignatureIndex,
-        Table as WasmerTable, TableIndex as WasmerTableIndex, Type as WasmerType, TypedIndex,
+        Table as WasmerTable, TableIndex as WasmerTableIndex, Type as WasmerType,
     },
+    structures::{TypedIndex, Map},
     vm::{self, Ctx as WasmerVMContext},
 };
 
@@ -94,7 +95,7 @@ pub mod converter {
             imported_globals,
             exports,
             data_initializers,
-            table_initializers,
+            elem_initializers,
             start_func,
             sig_registry,
             ..
@@ -112,7 +113,7 @@ pub mod converter {
             imported_globals,
             exports,
             data_initializers,
-            table_initializers,
+            elem_initializers,
             start_func,
             func_assoc,
             sig_registry,
@@ -255,7 +256,7 @@ pub struct CraneliftModule {
     pub data_initializers: Vec<DataInitializer>,
 
     // Function indices to add to table.
-    pub table_initializers: Vec<TableInitializer>,
+    pub elem_initializers: Vec<TableInitializer>,
 
     // The start function index.
     pub start_func: Option<WasmerFuncIndex>,
@@ -289,7 +290,7 @@ impl CraneliftModule {
             imported_globals: Map::new(),
             exports: HashMap::new(),
             data_initializers: Vec::new(),
-            table_initializers: Vec::new(),
+            elem_initializers: Vec::new(),
             start_func: None,
             sig_registry: SigRegistry::new(),
         };
@@ -922,7 +923,7 @@ impl<'data> ModuleEnvironment<'data> for CraneliftModule {
         };
 
         // Add table initializer to list of table initializers
-        self.table_initializers.push(TableInitializer {
+        self.elem_initializers.push(TableInitializer {
             table_index: WasmerTableIndex::new(table_index.index()),
             base,
             elements: elements

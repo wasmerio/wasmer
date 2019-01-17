@@ -4,6 +4,7 @@
 //! function addrs in runtime with the functions we need.
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
+use wasmer_runtime::{structures::TypedIndex, types::LocalFuncIndex};
 
 pub use cranelift_codegen::binemit::Reloc;
 
@@ -22,11 +23,11 @@ pub struct Relocation {
 /// Specify the type of relocation
 #[derive(Debug, Clone)]
 pub enum RelocationType {
-    Normal(u32),
+    Normal(LocalFuncIndex),
     Intrinsic(String),
     LibCall(LibCall),
-    GrowMemory,
-    CurrentMemory,
+    StaticGrowMemory,
+    StaticCurrentMemory,
 }
 
 /// Implementation of a relocation sink that just saves all the information for later
@@ -61,22 +62,33 @@ impl binemit::RelocSink for RelocSink {
                     reloc,
                     offset,
                     addend,
-                    target: RelocationType::Normal(index as _),
+                    target: RelocationType::Normal(LocalFuncIndex::new(index as usize)),
                 });
             }
-            ExternalName::TestCase { length, ascii } => {
-                let (slice, _) = ascii.split_at(length as usize);
-                let name = String::from_utf8(slice.to_vec()).unwrap();
-                let relocation_type = match name.as_str() {
-                    "current_memory" => RelocationType::CurrentMemory,
-                    "grow_memory" => RelocationType::GrowMemory,
-                    _ => RelocationType::Intrinsic(name),
+            ExternalName::User {
+                namespace: 1,
+                index,
+            } => {
+                let target = match index {
+                    0 => RelocationType::StaticGrowMemory,
+                    1 => RelocationType::StaticCurrentMemory,
+                    _ => unimplemented!(),
                 };
                 self.func_relocs.push(Relocation {
                     reloc,
                     offset,
                     addend,
-                    target: relocation_type,
+                    target,
+                });
+            }
+            ExternalName::TestCase { length, ascii } => {
+                let (slice, _) = ascii.split_at(length as usize);
+                let name = String::from_utf8(slice.to_vec()).unwrap();
+                self.func_relocs.push(Relocation {
+                    reloc,
+                    offset,
+                    addend,
+                    target: RelocationType::Intrinsic(name),
                 });
             }
             ExternalName::LibCall(libcall) => {

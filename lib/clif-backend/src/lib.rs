@@ -1,8 +1,10 @@
-pub mod codegen;
+// pub mod codegen;
+mod func_env;
 mod libcalls;
+mod module;
+mod module_env;
 mod relocation;
 mod resolver;
-// mod module;
 
 use cranelift_codegen::{
     isa,
@@ -11,9 +13,6 @@ use cranelift_codegen::{
 use target_lexicon::Triple;
 use wasmer_runtime::{backend::Compiler, module::ModuleInner};
 use wasmparser::{self, WasmDecoder};
-
-use self::codegen::converter;
-use self::codegen::CraneliftModule;
 
 pub struct CraneliftCompiler {}
 
@@ -29,14 +28,12 @@ impl Compiler for CraneliftCompiler {
         validate(wasm)?;
 
         let isa = get_isa();
-        // Generate a Cranlift module from wasm binary
-        let cranelift_module = CraneliftModule::from_bytes(&wasm.to_vec(), isa.frontend_config())?;
 
-        // Convert Cranelift module to wasmer module
-        let wasmer_module = converter::convert_module(cranelift_module);
+        let mut module = module::Module::empty();
+        let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
+        let func_bodies = module_env.translate(wasm)?;
 
-        // Return new wasmer module
-        Ok(wasmer_module)
+        module.compile(&*isa, func_bodies)
     }
 }
 
@@ -61,11 +58,11 @@ fn validate(bytes: &[u8]) -> Result<(), String> {
     loop {
         let state = parser.read();
         match *state {
-            wasmparser::ParserState::EndWasm => return Ok(()),
+            wasmparser::ParserState::EndWasm => break Ok(()),
             wasmparser::ParserState::Error(err) => {
                 return Err(format!("Validation error: {}", err.message));
             }
-            _ => (),
+            _ => {}
         }
     }
 }

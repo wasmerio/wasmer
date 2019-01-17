@@ -7,7 +7,8 @@ use std::ptr::{write_unaligned, NonNull};
 use wasmer_runtime::{
     self,
     backend::{self, Mmap, Protect},
-    types::{LocalFuncIndex, Map, TypedIndex},
+    structures::Map,
+    types::LocalFuncIndex,
     vm, vmcalls,
 };
 
@@ -21,8 +22,7 @@ pub struct FuncResolverBuilder {
 impl FuncResolverBuilder {
     pub fn new(
         isa: &isa::TargetIsa,
-        function_bodies: Vec<ir::Function>,
-        num_imported_funcs: usize,
+        function_bodies: Map<LocalFuncIndex, ir::Function>,
     ) -> Result<Self, String> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
         let mut relocations = Map::with_capacity(function_bodies.len());
@@ -31,7 +31,7 @@ impl FuncResolverBuilder {
         let mut ctx = Context::new();
         let mut total_size = 0;
 
-        for func in function_bodies.into_iter() {
+        for (_, func) in function_bodies {
             ctx.func = func;
             let mut code_buf = Vec::new();
             let mut reloc_sink = RelocSink::new();
@@ -71,11 +71,7 @@ impl FuncResolverBuilder {
         }
 
         Ok(Self {
-            resolver: FuncResolver {
-                num_imported_funcs,
-                map,
-                memory,
-            },
+            resolver: FuncResolver { map, memory },
             relocations,
             trap_sinks,
         })
@@ -85,17 +81,14 @@ impl FuncResolverBuilder {
         for (index, relocs) in self.relocations.iter() {
             for ref reloc in relocs {
                 let target_func_address: isize = match reloc.target {
-                    RelocationType::Normal(func_index) => {
+                    RelocationType::Normal(local_func_index) => {
                         // This will always be an internal function
                         // because imported functions are not
                         // called in this way.
-                        self.resolver
-                            .lookup(FuncIndex::new(func_index as _))
-                            .unwrap()
-                            .as_ptr() as isize
+                        self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
                     }
-                    RelocationType::CurrentMemory => vmcalls::memory_size as isize,
-                    RelocationType::GrowMemory => vmcalls::memory_grow_static as isize,
+                    RelocationType::StaticCurrentMemory => vmcalls::memory_size as isize,
+                    RelocationType::StaticGrowMemory => vmcalls::memory_grow_static as isize,
                     RelocationType::LibCall(libcall) => match libcall {
                         ir::LibCall::CeilF32 => libcalls::ceilf32 as isize,
                         ir::LibCall::FloorF32 => libcalls::floorf32 as isize,
@@ -157,7 +150,6 @@ impl FuncResolverBuilder {
 
 /// Resolves a function index to a function address.
 pub struct FuncResolver {
-    num_imported_funcs: usize,
     map: Map<LocalFuncIndex, usize>,
     memory: Mmap,
 }
@@ -176,7 +168,7 @@ impl backend::FuncResolver for FuncResolver {
     fn get(
         &self,
         _module: &wasmer_runtime::module::ModuleInner,
-        index: FuncIndex,
+        index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
         self.lookup(index)
     }
