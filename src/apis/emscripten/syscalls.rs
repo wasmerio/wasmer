@@ -336,7 +336,7 @@ pub extern "C" fn ___syscall102(
             unsafe {
                 ioctl(fd, FIOCLEX);
             };
-            
+
             type T = u32;
             let payload = 1 as *const T as *const c_void;
             unsafe {
