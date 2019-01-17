@@ -20,14 +20,21 @@ pub struct Relocation {
     pub target: RelocationType,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum VmCall {
+    LocalStaticMemoryGrow,
+    LocalStaticMemorySize,
+    ImportedStaticMemoryGrow,
+    ImportedStaticMemorySize,
+}
+
 /// Specify the type of relocation
 #[derive(Debug, Clone)]
 pub enum RelocationType {
     Normal(LocalFuncIndex),
     Intrinsic(String),
     LibCall(LibCall),
-    StaticGrowMemory,
-    StaticCurrentMemory,
+    VmCall(VmCall),
 }
 
 /// Implementation of a relocation sink that just saves all the information for later
@@ -69,11 +76,13 @@ impl binemit::RelocSink for RelocSink {
                 namespace: 1,
                 index,
             } => {
-                let target = match index {
-                    0 => RelocationType::StaticGrowMemory,
-                    1 => RelocationType::StaticCurrentMemory,
+                let target = RelocationType::VmCall(match index {
+                    0 => VmCall::LocalStaticMemoryGrow,
+                    1 => VmCall::LocalStaticMemorySize,
+                    2 => VmCall::ImportedStaticMemoryGrow,
+                    3 => VmCall::ImportedStaticMemorySize,
                     _ => unimplemented!(),
-                };
+                });
                 self.func_relocs.push(Relocation {
                     reloc,
                     offset,

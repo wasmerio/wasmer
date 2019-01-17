@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{
     mmap::{Mmap, Protect},
-    types::Memory,
+    types::{LocalMemoryIndex, Memory},
     vm,
 };
 
@@ -107,10 +107,11 @@ impl LinearMemory {
         self.max.unwrap_or(Self::MAX_PAGES)
     }
 
-    pub(crate) fn into_vm_memory(&mut self) -> vm::LocalMemory {
+    pub(crate) fn into_vm_memory(&mut self, index: LocalMemoryIndex) -> vm::LocalMemory {
         vm::LocalMemory {
             base: self.base(),
             size: self.size(),
+            index,
         }
     }
 

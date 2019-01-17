@@ -12,7 +12,7 @@ use crate::{
     },
     vm,
 };
-use std::slice;
+use std::{mem, slice};
 
 #[derive(Debug)]
 pub struct LocalBacking {
@@ -106,20 +106,27 @@ impl LocalBacking {
                     assert!((memory_desc.min * LinearMemory::PAGE_SIZE) as usize >= data_top);
                     let mem: &mut LinearMemory = &mut memories[local_memory_index];
 
-                    let to_init = &mut mem[init_base..init_base + init.data.len()];
-                    to_init.copy_from_slice(&init.data);
+                    let mem_init_view = &mut mem[init_base..init_base + init.data.len()];
+                    mem_init_view.copy_from_slice(&init.data);
                 }
                 LocalOrImport::Import(imported_memory_index) => {
-                    let _ = imported_memory_index;
-                    let _ = imports;
-                    unimplemented!()
+                    let vm_imported_memory = imports.imported_memory(imported_memory_index);
+                    unsafe {
+                        let local_memory = &(*vm_imported_memory.memory);
+                        let memory_slice =
+                            slice::from_raw_parts_mut(local_memory.base, local_memory.size);
+
+                        let mem_init_view =
+                            &mut memory_slice[init_base..init_base + init.data.len()];
+                        mem_init_view.copy_from_slice(&init.data);
+                    }
                 }
             }
         }
 
         memories
             .iter_mut()
-            .map(|(_, mem)| mem.into_vm_memory())
+            .map(|(index, mem)| mem.into_vm_memory(index))
             .collect::<Map<_, _>>()
             .into_boxed_map()
     }
@@ -154,24 +161,17 @@ impl LocalBacking {
                 }
             } as usize;
 
-            assert!(
-                init_base + init.elements.len()
-                    <= match init.table_index.local_or_import(module) {
-                        LocalOrImport::Local(local_table_index) => {
-                            module.tables[local_table_index].min
-                        }
-                        LocalOrImport::Import(imported_table_index) => {
-                            let (_, table_desc) = module.imported_tables[imported_table_index];
-                            table_desc.min
-                        }
-                    } as usize
-            );
-
             match init.table_index.local_or_import(module) {
                 LocalOrImport::Local(local_table_index) => {
                     let table = &mut tables[local_table_index];
                     match table.elements {
                         TableElements::Anyfunc(ref mut elements) => {
+                            if elements.len() < init_base + init.elements.len() {
+                                // Grow the table if it's too small.
+                                elements
+                                    .resize(init_base + init.elements.len(), vm::Anyfunc::null());
+                            }
+
                             for (i, &func_index) in init.elements.iter().enumerate() {
                                 let sig_index = module.func_assoc[func_index];
                                 let sig_id = vm::SigId(sig_index.index() as u32);
@@ -196,20 +196,33 @@ impl LocalBacking {
                     }
                 }
                 LocalOrImport::Import(imported_table_index) => {
-                    let imported_table = &imports.tables[imported_table_index];
-
-                    let imported_local_table_slice = unsafe {
-                        let imported_local_table = (*imported_table).table;
-
-                        slice::from_raw_parts_mut(
-                            (*imported_local_table).base as *mut vm::Anyfunc,
-                            (*imported_local_table).current_elements,
-                        )
-                    };
-
                     let (_, table_description) = module.imported_tables[imported_table_index];
                     match table_description.ty {
                         ElementType::Anyfunc => {
+                            let imported_table = &imports.tables[imported_table_index];
+                            let imported_local_table = (*imported_table).table;
+
+                            let mut elements = unsafe {
+                                Vec::from_raw_parts(
+                                    (*imported_local_table).base as *mut vm::Anyfunc,
+                                    (*imported_local_table).current_elements,
+                                    (*imported_local_table).capacity,
+                                )
+                            };
+
+                            if elements.len() < init_base + init.elements.len() {
+                                // Grow the table if it's too small.
+                                elements
+                                    .resize(init_base + init.elements.len(), vm::Anyfunc::null());
+                                // Since the vector may have changed location after reallocating,
+                                // we must fix the base, current_elements, and capacity fields.
+                                unsafe {
+                                    (*imported_local_table).base = elements.as_mut_ptr() as *mut u8;
+                                    (*imported_local_table).current_elements = elements.len();
+                                    (*imported_local_table).capacity = elements.capacity();
+                                }
+                            }
+
                             for (i, &func_index) in init.elements.iter().enumerate() {
                                 let sig_index = module.func_assoc[func_index];
                                 let sig_id = vm::SigId(sig_index.index() as u32);
@@ -228,9 +241,13 @@ impl LocalBacking {
                                     }
                                 };
 
-                                imported_local_table_slice[init_base + i] =
-                                    vm::Anyfunc { func_data, sig_id };
+                                elements[init_base + i] = vm::Anyfunc { func_data, sig_id };
                             }
+
+                            // println!("imported elements: {:#?}", elements);
+
+                            // THIS IS EXTREMELY IMPORTANT.
+                            mem::forget(elements);
                         }
                     }
                 }
@@ -277,10 +294,10 @@ impl LocalBacking {
 
 #[derive(Debug)]
 pub struct ImportBacking {
-    pub functions: BoxedMap<ImportedFuncIndex, vm::ImportedFunc>,
-    pub memories: BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>,
-    pub tables: BoxedMap<ImportedTableIndex, vm::ImportedTable>,
-    pub globals: BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>,
+    pub(crate) functions: BoxedMap<ImportedFuncIndex, vm::ImportedFunc>,
+    pub(crate) memories: BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>,
+    pub(crate) tables: BoxedMap<ImportedTableIndex, vm::ImportedTable>,
+    pub(crate) globals: BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>,
 }
 
 impl ImportBacking {
@@ -295,6 +312,10 @@ impl ImportBacking {
             tables: import_tables(module, imports, vmctx)?,
             globals: import_globals(module, imports)?,
         })
+    }
+
+    pub fn imported_memory(&self, memory_index: ImportedMemoryIndex) -> vm::ImportedMemory {
+        self.memories[memory_index].clone()
     }
 }
 

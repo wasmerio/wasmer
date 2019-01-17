@@ -4,7 +4,7 @@ use crate::types::{ElementType, Table};
 #[derive(Debug, Clone)]
 pub enum TableElements {
     /// This is intended to be a caller-checked Anyfunc.
-    Anyfunc(Box<[vm::Anyfunc]>),
+    Anyfunc(Vec<vm::Anyfunc>),
 }
 
 #[derive(Debug)]
@@ -16,12 +16,20 @@ pub struct TableBacking {
 impl TableBacking {
     pub fn new(table: &Table) -> Self {
         match table.ty {
-            ElementType::Anyfunc => Self {
-                elements: TableElements::Anyfunc(
-                    vec![vm::Anyfunc::null(); table.min as usize].into_boxed_slice(),
-                ),
-                max: table.max,
-            },
+            ElementType::Anyfunc => {
+                let initial_table_backing_len = match table.max {
+                    Some(max) => max,
+                    None => table.min,
+                } as usize;
+
+                Self {
+                    elements: TableElements::Anyfunc(vec![
+                        vm::Anyfunc::null();
+                        initial_table_backing_len
+                    ]),
+                    max: table.max,
+                }
+            }
         }
     }
 
@@ -30,6 +38,7 @@ impl TableBacking {
             TableElements::Anyfunc(ref mut funcs) => vm::LocalTable {
                 base: funcs.as_mut_ptr() as *mut u8,
                 current_elements: funcs.len(),
+                capacity: funcs.capacity(),
             },
         }
     }

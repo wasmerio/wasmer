@@ -235,7 +235,7 @@ impl InstanceInner {
             LocalOrImport::Local(local_mem_index) => {
                 let vm_mem = &mut self.backing.memories[local_mem_index];
                 (
-                    unsafe { MemoryPointer::new(&mut vm_mem.into_vm_memory()) },
+                    unsafe { MemoryPointer::new(&mut vm_mem.into_vm_memory(local_mem_index)) },
                     Context::Internal,
                     *module
                         .memories

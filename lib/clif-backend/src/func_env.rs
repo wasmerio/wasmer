@@ -4,7 +4,6 @@ use cranelift_codegen::{
     ir::{self, InstBuilder},
     isa,
 };
-use cranelift_entity::EntityRef;
 use cranelift_wasm::{self, FuncEnvironment, ModuleEnvironment};
 use wasmer_runtime::{
     memory::LinearMemory,
@@ -105,7 +104,6 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                     });
 
                 let offset = imported_global_index.index() * vm::ImportedGlobal::size() as usize;
-
                 let imported_global_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
                     base: imported_globals_base_addr,
                     offset: (offset as i64).into(),
@@ -282,7 +280,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             LocalOrImport::Import(imported_table_index) => {
                 let imported_tables_base = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
-                    offset: (vm::Ctx::offset_imported_memories() as i32).into(),
+                    offset: (vm::Ctx::offset_imported_tables() as i32).into(),
                     global_type: ptr_type,
                     readonly: true,
                 });
@@ -525,9 +523,9 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
     fn translate_memory_grow(
         &mut self,
         mut pos: FuncCursor,
-        index: cranelift_wasm::MemoryIndex,
+        clif_mem_index: cranelift_wasm::MemoryIndex,
         _heap: ir::Heap,
-        val: ir::Value,
+        by_value: ir::Value,
     ) -> cranelift_wasm::WasmResult<ir::Value> {
         let signature = pos.func.import_signature(ir::Signature {
             call_conv: self.target_config().default_call_conv,
@@ -539,26 +537,42 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             returns: vec![ir::AbiParam::new(ir::types::I32)],
         });
 
-        let grow_mem_func = pos.func.import_function(ir::ExtFuncData {
-            // `ir::ExternalName` for static_grow_memory`
-            name: ir::ExternalName::user(1, 0),
+        let mem_index: MemoryIndex = Converter(clif_mem_index).into();
+
+        let (name, mem_index) = match mem_index.local_or_import(self.env.module) {
+            LocalOrImport::Local(local_mem_index) => {
+                (
+                    // local_static_memory_grow
+                    ir::ExternalName::user(1, 0),
+                    local_mem_index.index(),
+                )
+            }
+            LocalOrImport::Import(imported_mem_index) => {
+                (
+                    // imported_static_memory_grow
+                    ir::ExternalName::user(1, 2),
+                    imported_mem_index.index(),
+                )
+            }
+        };
+
+        let mem_grow_func = pos.func.import_function(ir::ExtFuncData {
+            name,
             signature,
             colocated: false,
         });
 
-        // Create a memory index value.
-        let memory_index = pos.ins().iconst(ir::types::I32, index.index() as i64);
+        let const_mem_index = pos.ins().iconst(ir::types::I32, mem_index as i64);
 
-        // Create a VMContext value.
         let vmctx = pos
             .func
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("missing vmctx parameter");
 
-        // Insert call instructions for `grow_memory`.
-        let call_inst = pos.ins().call(grow_mem_func, &[memory_index, val, vmctx]);
+        let call_inst = pos
+            .ins()
+            .call(mem_grow_func, &[const_mem_index, by_value, vmctx]);
 
-        // Return value.
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
@@ -570,9 +584,40 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
     fn translate_memory_size(
         &mut self,
         mut pos: FuncCursor,
-        index: cranelift_wasm::MemoryIndex,
+        clif_mem_index: cranelift_wasm::MemoryIndex,
         _heap: ir::Heap,
     ) -> cranelift_wasm::WasmResult<ir::Value> {
+        // let signature = pos.func.import_signature(ir::Signature {
+        //     call_conv: self.target_config().default_call_conv,
+        //     params: vec![
+        //         ir::AbiParam::new(ir::types::I32),
+        //         ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
+        //     ],
+        //     returns: vec![ir::AbiParam::new(ir::types::I32)],
+        // });
+
+        // let size_mem_func = pos.func.import_function(ir::ExtFuncData {
+        //     // `ir::ExternalName` for static_grow_memory`
+        //     name: ir::ExternalName::user(1, 1),
+        //     signature,
+        //     colocated: false,
+        // });
+
+        // // Create a memory index value.
+        // let memory_index = pos.ins().iconst(ir::types::I32, index.index() as i64);
+
+        // // Create a VMContext value.
+        // let vmctx = pos
+        //     .func
+        //     .special_param(ir::ArgumentPurpose::VMContext)
+        //     .expect("missing vmctx parameter");
+
+        // // Insert call instructions for `grow_memory`.
+        // let call_inst = pos.ins().call(size_mem_func, &[memory_index, vmctx]);
+
+        // // Return value.
+        // Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
+
         let signature = pos.func.import_signature(ir::Signature {
             call_conv: self.target_config().default_call_conv,
             params: vec![
@@ -582,26 +627,39 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             returns: vec![ir::AbiParam::new(ir::types::I32)],
         });
 
-        let size_mem_func = pos.func.import_function(ir::ExtFuncData {
-            // `ir::ExternalName` for static_grow_memory`
-            name: ir::ExternalName::user(1, 1),
+        let mem_index: MemoryIndex = Converter(clif_mem_index).into();
+
+        let (name, mem_index) = match mem_index.local_or_import(self.env.module) {
+            LocalOrImport::Local(local_mem_index) => {
+                (
+                    // local_static_memory_size
+                    ir::ExternalName::user(1, 1),
+                    local_mem_index.index(),
+                )
+            }
+            LocalOrImport::Import(imported_mem_index) => {
+                (
+                    // imported_static_memory_size
+                    ir::ExternalName::user(1, 3),
+                    imported_mem_index.index(),
+                )
+            }
+        };
+
+        let mem_grow_func = pos.func.import_function(ir::ExtFuncData {
+            name,
             signature,
             colocated: false,
         });
 
-        // Create a memory index value.
-        let memory_index = pos.ins().iconst(ir::types::I32, index.index() as i64);
-
-        // Create a VMContext value.
+        let const_mem_index = pos.ins().iconst(ir::types::I32, mem_index as i64);
         let vmctx = pos
             .func
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("missing vmctx parameter");
 
-        // Insert call instructions for `grow_memory`.
-        let call_inst = pos.ins().call(size_mem_func, &[memory_index, vmctx]);
+        let call_inst = pos.ins().call(mem_grow_func, &[const_mem_index, vmctx]);
 
-        // Return value.
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 }

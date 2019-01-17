@@ -1,5 +1,5 @@
-use crate::backing::ImportBacking;
-pub use crate::backing::LocalBacking;
+pub use crate::backing::{ImportBacking, LocalBacking};
+use crate::types::LocalMemoryIndex;
 use std::ffi::c_void;
 use std::{mem, ptr};
 
@@ -29,10 +29,11 @@ pub struct Ctx {
 
     /// The local backing of the instance that created this vmctx.
     pub local_backing: *mut LocalBacking,
+    /// The import backing of the parent instance.
+    pub import_backing: *mut ImportBacking,
 
     /// Host data
     pub data: *mut c_void,
-
     /// Host data finalizer
     pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
 }
@@ -61,6 +62,8 @@ impl Ctx {
             imported_funcs: import_backing.functions.as_mut_ptr(),
 
             local_backing,
+            import_backing,
+
             data: ptr::null_mut(),
             data_finalizer: None,
         }
@@ -83,6 +86,8 @@ impl Ctx {
             imported_funcs: import_backing.functions.as_mut_ptr(),
 
             local_backing,
+            import_backing,
+
             data,
             data_finalizer,
         }
@@ -156,6 +161,8 @@ pub struct LocalTable {
     pub base: *mut u8,
     /// Number of elements in the table (NOT necessarily the size of the table in bytes!).
     pub current_elements: usize,
+    /// The number of elements that can fit into the memory allocated for this table.
+    pub capacity: usize,
 }
 
 impl LocalTable {
@@ -203,6 +210,8 @@ pub struct LocalMemory {
     pub base: *mut u8,
     /// Current size of this linear memory in bytes.
     pub size: usize,
+    /// The local memory index.
+    pub index: LocalMemoryIndex,
 }
 
 impl LocalMemory {

@@ -1,5 +1,5 @@
 use crate::libcalls;
-use crate::relocation::{Reloc, RelocSink, Relocation, RelocationType, TrapSink};
+use crate::relocation::{Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall};
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
 use std::mem;
@@ -87,8 +87,6 @@ impl FuncResolverBuilder {
                         // called in this way.
                         self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
                     }
-                    RelocationType::StaticCurrentMemory => vmcalls::memory_size as isize,
-                    RelocationType::StaticGrowMemory => vmcalls::memory_grow_static as isize,
                     RelocationType::LibCall(libcall) => match libcall {
                         ir::LibCall::CeilF32 => libcalls::ceilf32 as isize,
                         ir::LibCall::FloorF32 => libcalls::floorf32 as isize,
@@ -106,6 +104,16 @@ impl FuncResolverBuilder {
                     RelocationType::Intrinsic(ref name) => {
                         panic!("unexpected intrinsic {}", name);
                     }
+                    RelocationType::VmCall(vmcall) => match vmcall {
+                        VmCall::LocalStaticMemoryGrow => vmcalls::local_static_memory_grow as _,
+                        VmCall::LocalStaticMemorySize => vmcalls::local_static_memory_size as _,
+                        VmCall::ImportedStaticMemoryGrow => {
+                            vmcalls::imported_static_memory_grow as _
+                        }
+                        VmCall::ImportedStaticMemorySize => {
+                            vmcalls::imported_static_memory_size as _
+                        }
+                    },
                 };
 
                 // We need the address of the current function
