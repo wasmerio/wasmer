@@ -99,7 +99,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     debug!("webassembly - creating instance");
 
-    let mut instance = module.instantiate(&mut import_object)
+    let mut instance = module.instantiate(import_object)
         .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(
