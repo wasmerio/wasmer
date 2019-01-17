@@ -6,7 +6,7 @@ pub mod utils;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     backend::Compiler,
-    module::Module,
+    module::{Module, ModuleInner},
     import::Imports,
     instance::Instance,
 };
@@ -17,6 +17,7 @@ use cranelift_codegen::{
 use std::panic;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::rc::Rc;
 use target_lexicon;
 use wasmparser;
 use wasmparser::WasmDecoder;
@@ -122,11 +123,11 @@ pub fn instantiate_streaming(
 /// webassembly::CompileError.
 pub fn compile(buffer_source: &[u8]) -> Result<Arc<Module>, ErrorKind> {
     let compiler = &CraneliftCompiler {};
-    let module = compiler
+    let module_inner = compiler
         .compile(buffer_source)
         .map_err(|e| ErrorKind::CompileError(e))?;
 
-    Ok(Arc::new(module))
+    Ok(Arc::new(Module(Rc::new(module_inner))))
 }
 
 /// The webassembly::validate() function validates a given typed
@@ -230,7 +231,7 @@ pub fn start_instance(
     path: &str,
     args: Vec<&str>,
 ) -> Result<(), String> {
-    let main_name = if is_emscripten_module(&instance.module) {
+    let main_name = if is_emscripten_module(&module) {
         "_main"
     } else {
         "main"

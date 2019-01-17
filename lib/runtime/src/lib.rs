@@ -3,7 +3,7 @@
 extern crate field_offset;
 
 #[macro_use]
-mod macros;
+pub mod macros;
 #[doc(hidden)]
 pub mod backend;
 mod backing;

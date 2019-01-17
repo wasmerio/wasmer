@@ -6,14 +6,16 @@ use std::ffi::CStr;
 use std::mem::size_of;
 use std::os::raw::c_char;
 use std::slice;
+use std::sync::Arc;
 /// We check if a provided module is an Emscripten generated one
-pub fn is_emscripten_module(module: &Module) -> bool {
-    for (_, import_name) in &module.imported_functions {
-        if import_name.name == "_emscripten_memcpy_big" && import_name.namespace == "env" {
-            return true;
-        }
-    }
-    false
+pub fn is_emscripten_module(module: &Arc<Module>) -> bool {
+    // for (_, import_name) in &module.imported_functions {
+    //     if import_name.name == "_emscripten_memcpy_big" && import_name.namespace == "env" {
+    //         return true;
+    //     }
+    // }
+    // false
+    true
 }
 
 pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &Instance) -> u32 {

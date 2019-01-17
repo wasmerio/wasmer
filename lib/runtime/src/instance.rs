@@ -24,7 +24,7 @@ pub(crate) struct InstanceInner {
 }
 
 pub struct Instance {
-    pub(crate) module: Rc<ModuleInner>,
+    pub module: Rc<ModuleInner>,
     inner: Box<InstanceInner>,
     #[allow(dead_code)]
     imports: Box<Imports>,
