@@ -4,7 +4,7 @@ use wasmer_runtime::{import::Imports, Instance};
 
 fn main() {
     let mut instance = create_module_1();
-    let result = instance.call("get-0-ref", &[]);
+    let result = instance.call("get-0", &[]);
     println!("result: {:?}", result);
 }
 
@@ -33,7 +33,7 @@ fn create_module_1() -> Instance {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(&mut generate_imports())
+        .instantiate(generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -53,7 +53,7 @@ pub fn generate_imports() -> Imports {
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     let instance = module
-        .instantiate(&mut Imports::new())
+        .instantiate(Imports::new())
         .expect("WASM can't be instantiated");
     let mut imports = Imports::new();
     imports.register("spectest", instance);

@@ -47,8 +47,8 @@ impl Module {
     }
 
     /// Instantiate a webassembly module with the provided imports.
-    pub fn instantiate(&self, imports: &mut Imports) -> Result<Instance, String> {
-        Instance::new(Rc::clone(&self.0), imports)
+    pub fn instantiate(&self, imports: Imports) -> Result<Instance, String> {
+        Instance::new(Rc::clone(&self.0), Box::new(imports))
     }
 }
 

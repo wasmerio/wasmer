@@ -22,7 +22,7 @@ mod tests {
         let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
             .expect("WASM can't be compiled");
         let mut instance = module
-            .instantiate(&mut Imports::new())
+            .instantiate(Imports::new())
             .expect("WASM can't be instantiated");
         let result = instance.call("stack-overflow", &[]);
         assert!(

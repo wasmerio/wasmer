@@ -26,16 +26,18 @@ pub(crate) struct InstanceInner {
 pub struct Instance {
     pub(crate) module: Rc<ModuleInner>,
     inner: Box<InstanceInner>,
+    #[allow(dead_code)]
+    imports: Box<Imports>,
 }
 
 impl Instance {
-    pub(crate) fn new(module: Rc<ModuleInner>, imports: &mut Imports) -> Result<Instance, String> {
+    pub(crate) fn new(module: Rc<ModuleInner>, mut imports: Box<Imports>) -> Result<Instance, String> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
         let mut vmctx = unsafe { Box::new(mem::uninitialized()) };
 
-        let import_backing = ImportBacking::new(&module, imports, &mut *vmctx)?;
+        let import_backing = ImportBacking::new(&module, &mut imports, &mut *vmctx)?;
         let backing = LocalBacking::new(&module, &import_backing, &mut *vmctx);
 
         // When Pin is stablized, this will use `Box::pinned` instead of `Box::new`.
@@ -49,7 +51,11 @@ impl Instance {
         // has been boxed.
         *inner.vmctx = unsafe { vm::Ctx::new(&mut inner.backing, &mut inner.import_backing) };
 
-        let mut instance = Instance { module, inner };
+        let mut instance = Instance {
+            module,
+            inner,
+            imports,
+        };
 
         if let Some(start_index) = instance.module.start_func {
             instance.call_with_index(start_index, &[])?;
