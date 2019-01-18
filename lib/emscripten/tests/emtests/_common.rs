@@ -8,48 +8,32 @@ macro_rules! assert_emscripten_output {
             stdio::StdioCapturer
         };
 
+        use std::sync::Arc;
+
         let wasm_bytes = include_bytes!($file);
 
         let module = wasmer_runtime::compile(&wasm_bytes[..], &CraneliftCompiler::new())
             .expect("WASM can't be compiled");
 
-//        let module = compile(&wasm_bytes[..])
-//            .map_err(|err| format!("Can't create the WebAssembly module: {}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
+        let module = Arc::new(module);
 
         let emscripten_globals = EmscriptenGlobals::new();
         let import_object = generate_emscripten_env(&emscripten_globals);
 
         let mut instance = module.instantiate(import_object)
-            .map_err(|err| format!("Can't instantiate the WebAssembly module: {:?}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
-
-//        start_instance(
-//            Arc::clone(&module),
-//            &mut instance,
-//            $name,
-//            $args,
-//        );
-
-        assert!(false, "Emscripten tests are mocked");
+            .expect("Can't instantiate the WebAssembly module");
 
          let capturer = StdioCapturer::new();
 
         instance.call("_main", &[]).map(|_o| ()).unwrap();
-        // TODO handle start instance logic
-//         start_instance(
-//             Arc::clone(&result_object.module),
-//             &mut result_object.instance,
-//             $name,
-//             $args,
-//         )
-//         .unwrap();
-         let output = capturer.end().unwrap().0;
-         let expected_output = include_str!($expected);
-         assert!(false, "Emscripten tests are mocked");
-         assert!(
-             output.contains(expected_output),
-             "Output: `{}` does not contain expected output: `{}`",
-             output,
-             expected_output
-         );
+
+        let output = capturer.end().unwrap().0;
+        let expected_output = include_str!($expected);
+        assert!(
+            output.contains(expected_output),
+            "Output: `{}` does not contain expected output: `{}`",
+            output,
+            expected_output
+        );
     }};
 }
