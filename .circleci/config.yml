@@ -70,8 +70,8 @@ jobs:
       #       tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
       #       export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
-          name: Upgrade Brew
-          command: brew upgrade || true
+          name: Update Brew
+          command: brew update || true
       - run:
           name: Install crate dependencies
           command: |
@@ -172,8 +172,8 @@ jobs:
       #       tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
       #       export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
-          name: Upgrade Brew
-          command: brew upgrade || true
+          name: Update Brew
+          command: brew update || true
       - run:
           name: Install crate dependencies
           command: |
