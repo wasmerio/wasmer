@@ -28,6 +28,7 @@ use self::error::CompileResult;
 pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;
+pub use self::error::Result;
 use std::rc::Rc;
 
 /// Compile a webassembly module using the provided compiler.

@@ -12,7 +12,7 @@ use structopt::StructOpt;
 
 use wasmer::*;
 use wasmer_emscripten;
-use wasmer_runtime;
+use wasmer_runtime as runtime;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]
@@ -65,14 +65,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     if !webassembly::utils::is_wasm_binary(&wasm_binary) {
         wasm_binary = wabt::wat2wasm(wasm_binary)
-            .map_err(|err| format!("Can't convert from wast to wasm: {:?}", err))?;
+            .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
     let isa = webassembly::get_isa();
 
     debug!("webassembly - creating module");
     let module = webassembly::compile(&wasm_binary[..])
-        .map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
+        .map_err(|e| format!("{:?}", e))?;
 
     let abi = if wasmer_emscripten::is_emscripten_module(&module) {
         webassembly::InstanceABI::Emscripten
@@ -100,14 +100,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     let mut instance = module
         .instantiate(import_object)
-        .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
+        .map_err(|e| format!("{:?}", e))?;
 
-    webassembly::start_instance(
-        Arc::clone(&module),
+    Ok(webassembly::start_instance(
+        &module,
         &mut instance,
         options.path.to_str().unwrap(),
         options.args.iter().map(|arg| arg.as_str()).collect(),
-    )
+    ).map_err(|e| format!("{:?}", e))?)
 }
 
 fn run(options: Run) {
@@ -115,7 +115,7 @@ fn run(options: Run) {
         Ok(()) => {}
         Err(message) => {
             // let name = options.path.as_os_str().to_string_lossy();
-            println!("{}", message);
+            println!("{:?}", message);
             exit(1);
         }
     }

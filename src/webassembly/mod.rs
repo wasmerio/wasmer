@@ -1,14 +1,14 @@
-pub mod errors;
 pub mod libcalls;
 pub mod relocation;
 pub mod utils;
 
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
-    backend::Compiler,
+    self as runtime,
     import::Imports,
     instance::Instance,
     module::{Module, ModuleInner},
+    error::{Result, CallResult},
 };
 
 use cranelift_codegen::{
@@ -23,14 +23,12 @@ use target_lexicon;
 use wasmparser;
 use wasmparser::WasmDecoder;
 
-pub use self::errors::{Error, ErrorKind};
-
 use wasmer_emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
     /// This Module can be instantiated again
-    pub module: Arc<Module>,
+    pub module: Module,
     /// A webassembly::Instance object that contains all the Exported WebAssembly
     /// functions.
     pub instance: Box<Instance>,
@@ -70,7 +68,7 @@ pub fn instantiate(
     buffer_source: &[u8],
     import_object: &Imports,
     options: Option<InstanceOptions>,
-) -> Result<ResultObject, ErrorKind> {
+) -> Result<ResultObject> {
     debug!("webassembly - creating instance");
 
     //let instance = Instance::new(&module, import_object, options)?;
@@ -107,7 +105,7 @@ pub fn instantiate(
 pub fn instantiate_streaming(
     _buffer_source: Vec<u8>,
     _import_object: Imports,
-) -> Result<ResultObject, ErrorKind> {
+) -> Result<ResultObject> {
     unimplemented!();
 }
 
@@ -121,40 +119,11 @@ pub fn instantiate_streaming(
 /// Errors:
 /// If the operation fails, the Result rejects with a
 /// webassembly::CompileError.
-pub fn compile(buffer_source: &[u8]) -> Result<Arc<Module>, ErrorKind> {
-    let compiler = &CraneliftCompiler {};
-    let module_inner = compiler
-        .compile(buffer_source)
-        .map_err(|e| ErrorKind::CompileError(e))?;
+pub fn compile(buffer_source: &[u8]) -> Result<Module> {
+    let compiler = CraneliftCompiler::new();
+    let module = runtime::compile(buffer_source, &compiler)?;
 
-    Ok(Arc::new(Module(Rc::new(module_inner))))
-}
-
-/// The webassembly::validate() function validates a given typed
-/// array of WebAssembly binary code, returning whether the bytes
-/// form a valid wasm module (true) or not (false).
-/// Params:
-/// * `buffer_source`: A `&[u8]` containing the
-///   binary code of the .wasm module you want to compile.
-pub fn validate(buffer_source: &[u8]) -> bool {
-    validate_or_error(buffer_source).is_ok()
-}
-
-pub fn validate_or_error(bytes: &[u8]) -> Result<(), ErrorKind> {
-    let mut parser = wasmparser::ValidatingParser::new(bytes, None);
-    loop {
-        let state = parser.read();
-        match *state {
-            wasmparser::ParserState::EndWasm => return Ok(()),
-            wasmparser::ParserState::Error(err) => {
-                return Err(ErrorKind::CompileError(format!(
-                    "Validation error: {}",
-                    err.message
-                )));
-            }
-            _ => (),
-        }
-    }
+    Ok(module)
 }
 
 pub fn get_isa() -> Box<isa::TargetIsa> {
@@ -226,19 +195,19 @@ pub fn get_isa() -> Box<isa::TargetIsa> {
 // }
 
 pub fn start_instance(
-    module: Arc<Module>,
+    module: &Module,
     instance: &mut Instance,
     path: &str,
     args: Vec<&str>,
-) -> Result<(), String> {
-    let main_name = if is_emscripten_module(&module) {
+) -> CallResult<()> {
+    let main_name = if is_emscripten_module(module) {
         "_main"
     } else {
         "main"
     };
 
     // TODO handle args
-    instance.call(main_name, &[]).map(|o| ())
+    instance.call(main_name, &[])?;
     // TODO atinit and atexit for emscripten
 
     //    if let Some(ref emscripten_data) = &instance.emscripten_data {
@@ -284,4 +253,5 @@ pub fn start_instance(
     //        let main: extern "C" fn(&Instance) = get_instance_function!(instance, func_index);
     //        call_protected!(main(&instance)).map_err(|err| format!("{}", err))
     //    }
+    Ok(())
 }
