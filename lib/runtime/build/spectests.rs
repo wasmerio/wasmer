@@ -741,7 +741,6 @@ fn {}() {{
 }
 
 fn generate_spectest(out: &mut File, test_name: &str, wast: &PathBuf) -> std::io::Result<()> {
-
     let mut generator = WastTestGenerator::new(wast);
     generator.consume();
     let generated_script = generator.finalize();
