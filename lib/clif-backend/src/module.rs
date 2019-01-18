@@ -10,6 +10,7 @@ use std::{
 use wasmer_runtime::{
     backend::FuncResolver,
     backend::SigRegistry,
+    error::CompileResult,
     module::ModuleInner,
     structures::{Map, TypedIndex},
     types::{
@@ -67,7 +68,7 @@ impl Module {
         mut self,
         isa: &isa::TargetIsa,
         functions: Map<LocalFuncIndex, ir::Function>,
-    ) -> Result<ModuleInner, String> {
+    ) -> CompileResult<ModuleInner> {
         // we have to deduplicate `module.func_assoc`
         let func_assoc = &mut self.module.func_assoc;
         let sig_registry = &self.module.sig_registry;

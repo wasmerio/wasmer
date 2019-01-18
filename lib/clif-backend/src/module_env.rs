@@ -5,6 +5,7 @@ use crate::{
 use cranelift_codegen::{ir, isa};
 use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
 use wasmer_runtime::{
+    error::{CompileError, CompileResult},
     module::{DataInitializer, ExportIndex, ImportName, TableInitializer},
     structures::{Map, TypedIndex},
     types::{
@@ -32,8 +33,9 @@ impl<'module, 'isa> ModuleEnv<'module, 'isa> {
         }
     }
 
-    pub fn translate(mut self, wasm: &[u8]) -> Result<Map<LocalFuncIndex, ir::Function>, String> {
-        translate_module(wasm, &mut self).map_err(|e| e.to_string())?;
+    pub fn translate(mut self, wasm: &[u8]) -> CompileResult<Map<LocalFuncIndex, ir::Function>> {
+        translate_module(wasm, &mut self)
+            .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         Ok(self.func_bodies)
     }
 }

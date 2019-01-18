@@ -1,4 +1,5 @@
 use crate::{
+    error::{LinkError, LinkResult},
     export::{Context, Export},
     import::Imports,
     memory::LinearMemory,
@@ -102,7 +103,6 @@ impl LocalBacking {
                 LocalOrImport::Local(local_memory_index) => {
                     let memory_desc = &module.memories[local_memory_index];
                     let data_top = init_base + init.data.len();
-                    println!("data_top: {}", data_top);
                     assert!((memory_desc.min * LinearMemory::PAGE_SIZE) as usize >= data_top);
                     let mem: &mut LinearMemory = &mut memories[local_memory_index];
 
@@ -306,7 +306,7 @@ impl ImportBacking {
         module: &ModuleInner,
         imports: &mut Imports,
         vmctx: *mut vm::Ctx,
-    ) -> Result<Self, String> {
+    ) -> LinkResult<Self> {
         Ok(ImportBacking {
             functions: import_functions(module, imports, vmctx)?,
             memories: import_memories(module, imports, vmctx)?,
@@ -324,7 +324,7 @@ fn import_functions(
     module: &ModuleInner,
     imports: &mut Imports,
     vmctx: *mut vm::Ctx,
-) -> Result<BoxedMap<ImportedFuncIndex, vm::ImportedFunc>, String> {
+) -> LinkResult<BoxedMap<ImportedFuncIndex, vm::ImportedFunc>> {
     let mut functions = Map::with_capacity(module.imported_functions.len());
     for (index, ImportName { namespace, name }) in &module.imported_functions {
         let sig_index = module.func_assoc[index.convert_up(module)];
@@ -347,18 +347,33 @@ fn import_functions(
                         },
                     });
                 } else {
-                    return Err(format!(
-                        "unexpected signature for {:?}:{:?}",
-                        namespace, name
-                    ));
+                    Err(LinkError::IncorrectImportSignature {
+                        namespace: namespace.clone(),
+                        name: name.clone(),
+                        expected: expected_sig.clone(),
+                        found: signature.clone(),
+                    })?
                 }
             }
-            Some(_) => {
-                return Err(format!("incorrect import type for {}:{}", namespace, name));
+            Some(export_type) => {
+                let export_type_name = match export_type {
+                    Export::Function { .. } => "function",
+                    Export::Memory { .. } => "memory",
+                    Export::Table { .. } => "table",
+                    Export::Global { .. } => "global",
+                }
+                .to_string();
+                Err(LinkError::IncorrectImportType {
+                    namespace: namespace.clone(),
+                    name: name.clone(),
+                    expected: "function".to_string(),
+                    found: export_type_name,
+                })?
             }
-            None => {
-                return Err(format!("import not found: {}:{}", namespace, name));
-            }
+            None => Err(LinkError::ImportNotFound {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })?,
         }
     }
     Ok(functions.into_boxed_map())
@@ -368,7 +383,7 @@ fn import_memories(
     module: &ModuleInner,
     imports: &mut Imports,
     vmctx: *mut vm::Ctx,
-) -> Result<BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>, String> {
+) -> LinkResult<BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>> {
     let mut memories = Map::with_capacity(module.imported_memories.len());
     for (_index, (ImportName { namespace, name }, expected_memory_desc)) in
         &module.imported_memories
@@ -391,18 +406,33 @@ fn import_memories(
                         },
                     });
                 } else {
-                    return Err(format!(
-                        "incorrect memory description for {}:{}",
-                        namespace, name,
-                    ));
+                    Err(LinkError::IncorrectMemoryDescription {
+                        namespace: namespace.clone(),
+                        name: name.clone(),
+                        expected: expected_memory_desc.clone(),
+                        found: memory_desc.clone(),
+                    })?
                 }
             }
-            Some(_) => {
-                return Err(format!("incorrect import type for {}:{}", namespace, name));
+            Some(export_type) => {
+                let export_type_name = match export_type {
+                    Export::Function { .. } => "function",
+                    Export::Memory { .. } => "memory",
+                    Export::Table { .. } => "table",
+                    Export::Global { .. } => "global",
+                }
+                .to_string();
+                Err(LinkError::IncorrectImportType {
+                    namespace: namespace.clone(),
+                    name: name.clone(),
+                    expected: "memory".to_string(),
+                    found: export_type_name,
+                })?
             }
-            None => {
-                return Err(format!("import not found: {}:{}", namespace, name));
-            }
+            None => Err(LinkError::ImportNotFound {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })?,
         }
     }
     Ok(memories.into_boxed_map())
@@ -412,7 +442,7 @@ fn import_tables(
     module: &ModuleInner,
     imports: &mut Imports,
     vmctx: *mut vm::Ctx,
-) -> Result<BoxedMap<ImportedTableIndex, vm::ImportedTable>, String> {
+) -> LinkResult<BoxedMap<ImportedTableIndex, vm::ImportedTable>> {
     let mut tables = Map::with_capacity(module.imported_tables.len());
     for (_index, (ImportName { namespace, name }, expected_table_desc)) in &module.imported_tables {
         let table_import = imports
@@ -433,18 +463,33 @@ fn import_tables(
                         },
                     });
                 } else {
-                    return Err(format!(
-                        "incorrect table description for {}:{}",
-                        namespace, name,
-                    ));
+                    Err(LinkError::IncorrectTableDescription {
+                        namespace: namespace.clone(),
+                        name: name.clone(),
+                        expected: expected_table_desc.clone(),
+                        found: table_desc.clone(),
+                    })?
                 }
             }
-            Some(_) => {
-                return Err(format!("incorrect import type for {}:{}", namespace, name));
+            Some(export_type) => {
+                let export_type_name = match export_type {
+                    Export::Function { .. } => "function",
+                    Export::Memory { .. } => "memory",
+                    Export::Table { .. } => "table",
+                    Export::Global { .. } => "global",
+                }
+                .to_string();
+                Err(LinkError::IncorrectImportType {
+                    namespace: namespace.clone(),
+                    name: name.clone(),
+                    expected: "table".to_string(),
+                    found: export_type_name,
+                })?
             }
-            None => {
-                return Err(format!("import not found: {}:{}", namespace, name));
-            }
+            None => Err(LinkError::ImportNotFound {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })?,
         }
     }
     Ok(tables.into_boxed_map())
@@ -453,7 +498,7 @@ fn import_tables(
 fn import_globals(
     module: &ModuleInner,
     imports: &mut Imports,
-) -> Result<BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>, String> {
+) -> LinkResult<BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>> {
     let mut globals = Map::with_capacity(module.imported_globals.len());
     for (_, (ImportName { namespace, name }, imported_global_desc)) in &module.imported_globals {
         let import = imports
@@ -466,18 +511,33 @@ fn import_globals(
                         global: local.inner(),
                     });
                 } else {
-                    return Err(format!(
-                        "unexpected global description for {:?}:{:?}",
-                        namespace, name
-                    ));
+                    Err(LinkError::IncorrectGlobalDescription {
+                        namespace: namespace.clone(),
+                        name: name.clone(),
+                        expected: imported_global_desc.clone(),
+                        found: global.clone(),
+                    })?
                 }
             }
-            Some(_) => {
-                return Err(format!("incorrect import type for {}:{}", namespace, name));
+            Some(export_type) => {
+                let export_type_name = match export_type {
+                    Export::Function { .. } => "function",
+                    Export::Memory { .. } => "memory",
+                    Export::Table { .. } => "table",
+                    Export::Global { .. } => "global",
+                }
+                .to_string();
+                Err(LinkError::IncorrectImportType {
+                    namespace: namespace.clone(),
+                    name: name.clone(),
+                    expected: "global".to_string(),
+                    found: export_type_name,
+                })?
             }
-            None => {
-                return Err(format!("import not found: {}:{}", namespace, name));
-            }
+            None => Err(LinkError::ImportNotFound {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })?,
         }
     }
     Ok(globals.into_boxed_map())

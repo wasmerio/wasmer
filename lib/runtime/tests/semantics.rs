@@ -2,7 +2,10 @@
 mod tests {
     use wabt::wat2wasm;
     use wasmer_clif_backend::CraneliftCompiler;
-    use wasmer_runtime::import::Imports;
+    use wasmer_runtime::{
+        error::{CallError, RuntimeError},
+        import::Imports,
+    };
 
     // The semantics of stack overflow are documented at:
     // https://webassembly.org/docs/semantics/#stack-overflow
@@ -25,15 +28,16 @@ mod tests {
             .instantiate(Imports::new())
             .expect("WASM can't be instantiated");
         let result = instance.call("stack-overflow", &[]);
-        assert!(
-            result.is_err(),
-            "should fail with error due to stack overflow"
-        );
-        // TODO The kind of error and message needs to be defined, not spec defined, maybe RuntimeError or RangeError
-        if let Err(message) = result {
-            assert!(!message.contains("segmentation violation"));
-            assert!(!message.contains("bus error"));
+
+        match result {
+            Err(err) => match *err {
+                CallError::Runtime(RuntimeError::Unknown { msg }) => {
+                    assert!(!msg.contains("segmentation violation"));
+                    assert!(!msg.contains("bus error"));
+                }
+                _ => unimplemented!(),
+            },
+            Ok(_) => panic!("should fail with error due to stack overflow"),
         }
     }
-
 }

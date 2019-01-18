@@ -7,6 +7,7 @@ pub mod macros;
 #[doc(hidden)]
 pub mod backend;
 mod backing;
+pub mod error;
 pub mod export;
 pub mod import;
 pub mod instance;
@@ -23,14 +24,15 @@ pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
 
-pub use self::import::Imports;
+use self::error::CompileResult;
 pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;
+pub use self::error::Result;
 use std::rc::Rc;
 
 /// Compile a webassembly module using the provided compiler.
-pub fn compile(wasm: &[u8], compiler: &dyn backend::Compiler) -> Result<module::Module, String> {
+pub fn compile(wasm: &[u8], compiler: &dyn backend::Compiler) -> CompileResult<module::Module> {
     compiler
         .compile(wasm)
         .map(|inner| module::Module::new(Rc::new(inner)))
