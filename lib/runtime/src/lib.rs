@@ -23,6 +23,7 @@ pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
 
+pub use self::import::Imports;
 pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;

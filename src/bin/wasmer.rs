@@ -12,7 +12,7 @@ use structopt::StructOpt;
 
 use wasmer::*;
 use wasmer_runtime;
-use wasmer_emscripten;
+// use wasmer_emscripten;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]
@@ -74,16 +74,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|err| format!("Can't create the WebAssembly module: {}", err))?;
 
-    let abi = if wasmer_emscripten::is_emscripten_module(&module) {
-        webassembly::InstanceABI::Emscripten
+    let (abi, import_object) = if false {
+        // wasmer_emscripten::is_emscripten_module(&module)
+        // (webassembly::InstanceABI::Emscripten, wasmer_emscripten::generate_emscripten_env())
+        (
+            webassembly::InstanceABI::None,
+            wasmer_runtime::Imports::new(),
+        )
     } else {
-        webassembly::InstanceABI::None
-    };
-
-    let import_object = if abi == webassembly::InstanceABI::Emscripten {
-        wasmer_emscripten::generate_emscripten_env()
-    } else {
-        wasmer_runtime::Imports::new()
+        (
+            webassembly::InstanceABI::None,
+            wasmer_runtime::Imports::new(),
+        )
     };
 
     let instance_options = webassembly::InstanceOptions {
@@ -92,12 +94,13 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         mock_missing_tables: true,
         abi: abi,
         show_progressbar: true,
-//        isa: isa,
+        //        isa: isa,
     };
 
     debug!("webassembly - creating instance");
 
-    let mut instance = module.instantiate(&import_object)
+    let mut instance = module
+        .instantiate(import_object)
         .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(
