@@ -7,7 +7,6 @@ build = "build/mod.rs"
 
 [dependencies]
 hashbrown = "0.1"
-libffi = "0.6.4"
 nix = "0.12.0"
 page_size = "0.4.1"
 errno = "0.2.4"

@@ -4,10 +4,10 @@
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
 
-use crate::{
+use wasmer_runtime::{
     error::{RuntimeError, RuntimeResult},
-    sighandler::install_sighandler,
 };
+use crate::call::sighandler::install_sighandler;
 use nix::libc::siginfo_t;
 use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 use std::cell::{Cell, UnsafeCell};

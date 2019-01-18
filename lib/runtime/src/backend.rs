@@ -2,6 +2,7 @@ use crate::{
     error::CompileResult,
     error::RuntimeResult,
     module::ModuleInner,
+    backing::ImportBacking,
     types::{FuncIndex, LocalFuncIndex, Value},
     vm,
 };
@@ -54,6 +55,7 @@ pub trait ProtectedCaller {
         func_index: FuncIndex,
         params: &[Value],
         returns: &mut [Value],
+        import_backing: &ImportBacking,
         vmctx: *mut vm::Ctx,
         _: Token,
     ) -> RuntimeResult<()>;
@@ -62,13 +64,9 @@ pub trait ProtectedCaller {
 pub trait FuncResolver {
     /// This returns a pointer to the function designated by the `local_func_index`
     /// parameter.
-    ///
-    /// The existance of the Token parameter ensures that this can only be called from
-    /// within the runtime crate.
     fn get(
         &self,
         module: &ModuleInner,
         local_func_index: LocalFuncIndex,
-        _: Token,
     ) -> Option<NonNull<vm::Func>>;
 }

@@ -4,7 +4,7 @@
 //!
 //! Please read more about this here: https://github.com/CraneStation/wasmtime/issues/15
 //! This code is inspired by: https://github.com/pepyakin/wasmtime/commit/625a2b6c0815b21996e111da51b9664feb174622
-use crate::recovery;
+use crate::call::recovery;
 use nix::libc::{c_void, siginfo_t};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGFPE, SIGILL, SIGSEGV,

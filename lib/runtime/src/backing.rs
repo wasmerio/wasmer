@@ -1,5 +1,4 @@
 use crate::{
-    backend::Token,
     error::{LinkError, LinkResult},
     export::{Context, Export},
     import::Imports,
@@ -179,17 +178,14 @@ impl LocalBacking {
                                 let sig_id = vm::SigId(sig_index.index() as u32);
 
                                 let func_data = match func_index.local_or_import(module) {
-                                    LocalOrImport::Local(local_func_index) => {
-                                        let token = Token::generate();
-                                        vm::ImportedFunc {
-                                            func: module
-                                                .func_resolver
-                                                .get(module, local_func_index, token)
-                                                .unwrap()
-                                                .as_ptr(),
-                                            vmctx,
-                                        }
-                                    }
+                                    LocalOrImport::Local(local_func_index) => vm::ImportedFunc {
+                                        func: module
+                                            .func_resolver
+                                            .get(module, local_func_index)
+                                            .unwrap()
+                                            .as_ptr(),
+                                        vmctx,
+                                    },
                                     LocalOrImport::Import(imported_func_index) => {
                                         imports.functions[imported_func_index].clone()
                                     }
@@ -233,17 +229,14 @@ impl LocalBacking {
                                 let sig_id = vm::SigId(sig_index.index() as u32);
 
                                 let func_data = match func_index.local_or_import(module) {
-                                    LocalOrImport::Local(local_func_index) => {
-                                        let token = Token::generate();
-                                        vm::ImportedFunc {
-                                            func: module
-                                                .func_resolver
-                                                .get(module, local_func_index, token)
-                                                .unwrap()
-                                                .as_ptr(),
-                                            vmctx,
-                                        }
-                                    }
+                                    LocalOrImport::Local(local_func_index) => vm::ImportedFunc {
+                                        func: module
+                                            .func_resolver
+                                            .get(module, local_func_index)
+                                            .unwrap()
+                                            .as_ptr(),
+                                        vmctx,
+                                    },
                                     LocalOrImport::Import(imported_func_index) => {
                                         imports.functions[imported_func_index].clone()
                                     }
@@ -320,6 +313,10 @@ impl ImportBacking {
             tables: import_tables(module, imports, vmctx)?,
             globals: import_globals(module, imports)?,
         })
+    }
+
+    pub fn imported_func(&self, func_index: ImportedFuncIndex) -> vm::ImportedFunc {
+        self.functions[func_index].clone()
     }
 
     pub fn imported_memory(&self, memory_index: ImportedMemoryIndex) -> vm::ImportedMemory {

@@ -5,6 +5,7 @@ mod module;
 mod module_env;
 mod relocation;
 mod resolver;
+mod call;
 
 use cranelift_codegen::{
     isa,
