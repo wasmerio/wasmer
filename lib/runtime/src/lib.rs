@@ -32,7 +32,8 @@ use std::rc::Rc;
 
 /// Compile a webassembly module using the provided compiler.
 pub fn compile(wasm: &[u8], compiler: &dyn backend::Compiler) -> CompileResult<module::Module> {
+    let token = backend::Token::generate();
     compiler
-        .compile(wasm)
+        .compile(wasm, token)
         .map(|inner| module::Module::new(Rc::new(inner)))
 }
