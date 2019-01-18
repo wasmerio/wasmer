@@ -1,29 +1,47 @@
 macro_rules! assert_emscripten_output {
     ($file:expr, $name:expr, $args:expr, $expected:expr) => {{
-        use wasmer_emscripten::generate_emscripten_env;
-        // use wasmer::common::stdio::StdioCapturer;
-        use wasmer_runtime::{Import, Imports, FuncRef};
-        use wasmer_runtime::table::TableBacking;
-        use wasmer_runtime::{Instance, module::Module};
+        // TODO: Cyclic Dep!
+        use wasmer::{
+            webassembly::{
+                compile,
+                start_instance,
+            },
+            common::stdio::StdioCapturer,
+        };
+
+        use wasmer_runtime::{
+            instance::Instance,
+            module::Module,
+            table::TableBacking
+        };
+
         use wasmer_clif_backend::CraneliftCompiler;
+        use wasmer_emscripten::{
+            EmscriptenGlobals,
+            generate_emscripten_env,
+        };
 
         use std::sync::Arc;
 
         let wasm_bytes = include_bytes!($file);
-        let import_object = generate_emscripten_env();
-//         let options = Some(InstanceOptions {
-//             mock_missing_imports: true,
-//             mock_missing_globals: true,
-//             mock_missing_tables: true,
-//             abi: InstanceABI::Emscripten,
-//             show_progressbar: false,
-// //            isa: get_isa(),
-//         });
-//         let mut result_object = instantiate(&wasm_bytes.to_vec(), &import_object, options)
-//             .expect("Not compiled properly");
 
-        let module = wasmer_runtime::compile(&wasm_bytes[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-        let instance = module.instantiate(&import_object).expect("WASM can't be instantiated");
+        let module = compile(&wasm_bytes[..])
+            .map_err(|err| format!("Can't create the WebAssembly module: {}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
+
+        let emscripten_globals = EmscriptenGlobals::new();
+        let mut import_object = generate_emscripten_env(&emscripten_globals);
+
+        let mut instance = module.instantiate(import_object)
+            .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
+
+        start_instance(
+            Arc::clone(&module),
+            &mut instance,
+            $name,
+            $args,
+        );
+
+        assert!(false, "Emscripten tests are mocked");
 
         // let capturer = StdioCapturer::new();
         // start_instance(
@@ -35,7 +53,7 @@ macro_rules! assert_emscripten_output {
         // .unwrap();
         // let output = capturer.end().unwrap().0;
         // let expected_output = include_str!($expected);
-        assert!(false, "Emscripten tests are mocked");
+        // assert!(false, "Emscripten tests are mocked");
         // assert!(
         //     output.contains(expected_output),
         //     "Output: `{}` does not contain expected output: `{}`",

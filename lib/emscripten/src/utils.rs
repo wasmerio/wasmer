@@ -143,13 +143,19 @@ pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat
 mod tests {
     use super::is_emscripten_module;
     use wasmer_clif_backend::CraneliftCompiler;
+    use wasmer_runtime::{
+        compile,
+        module::Module,
+    };
     use wabt::wat2wasm;
+    use std::sync::Arc;
 
     #[test]
     fn should_detect_emscripten_files() {
         const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
         let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
-        let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module = compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module = Arc::new(module);
         assert!(is_emscripten_module(&module));
     }
 
@@ -157,7 +163,8 @@ mod tests {
     fn should_detect_non_emscripten_files() {
         const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
         let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
-        let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module = compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module = Arc::new(module);
         assert!(!is_emscripten_module(&module));
     }
 }
