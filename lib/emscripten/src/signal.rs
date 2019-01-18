@@ -1,6 +1,7 @@
 // use super::varargs::VarArgs;
 use wasmer_runtime::Instance;
 
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _sigemptyset(set: u32, instance: &mut Instance) -> i32 {
     debug!("emscripten::_sigemptyset");
     let set_addr = instance.memory_offset_addr(0, set as _) as *mut u32;
@@ -15,6 +16,7 @@ pub extern "C" fn _sigaction(signum: u32, act: u32, oldact: u32, _instance: &mut
     0
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _sigaddset(set: u32, signum: u32, instance: &mut Instance) -> i32 {
     debug!("emscripten::_sigaddset {}, {}", set, signum);
     let set_addr = instance.memory_offset_addr(0, set as _) as *mut u32;

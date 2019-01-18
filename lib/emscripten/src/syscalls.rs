@@ -295,6 +295,7 @@ pub extern "C" fn ___syscall64() -> pid_t {
 }
 
 // socketcall
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall102(
     which: c_int,
     mut varargs: VarArgs,
@@ -553,6 +554,7 @@ pub extern "C" fn ___syscall102(
 }
 
 /// wait4
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall114(
     _which: c_int,
     mut varargs: VarArgs,
@@ -588,6 +590,7 @@ pub extern "C" fn ___syscall122(
 }
 
 // select
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall142(
     which: c_int,
     mut varargs: VarArgs,
@@ -655,6 +658,7 @@ pub extern "C" fn ___syscall140(
 }
 
 /// readv
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall145(
     which: c_int,
     mut varargs: VarArgs,
@@ -700,6 +704,7 @@ pub extern "C" fn ___syscall145(
 }
 
 // writev
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall146(
     which: c_int,
     mut varargs: VarArgs,

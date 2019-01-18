@@ -84,6 +84,7 @@ impl Ctx {
         }
     }
 
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_memories() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -131,6 +132,7 @@ pub struct ImportedFunc {
 }
 
 impl ImportedFunc {
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -157,6 +159,7 @@ pub struct LocalTable {
 }
 
 impl LocalTable {
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -180,6 +183,7 @@ pub struct ImportedTable {
 }
 
 impl ImportedTable {
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_table() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -206,6 +210,7 @@ pub struct LocalMemory {
 }
 
 impl LocalMemory {
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -228,6 +233,7 @@ pub struct ImportedMemory {
 }
 
 impl ImportedMemory {
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_memory() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -249,6 +255,7 @@ pub struct LocalGlobal {
 }
 
 impl LocalGlobal {
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_data() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -269,6 +276,7 @@ pub struct ImportedGlobal {
 }
 
 impl ImportedGlobal {
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_global() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -301,6 +309,7 @@ impl Anyfunc {
         }
     }
 
+    #[allow(clippy::erasing_op)] // TODO
     pub fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }

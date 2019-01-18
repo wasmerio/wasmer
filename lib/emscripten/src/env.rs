@@ -73,6 +73,7 @@ pub extern "C" fn _unsetenv(name: c_int, instance: &mut Instance) {
     unsafe { unsetenv(name_addr) };
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
 
@@ -110,6 +111,7 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
     }
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _getgrnam(name_ptr: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
 
@@ -189,6 +191,7 @@ pub extern "C" fn _getpagesize() -> u32 {
     16384
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___build_environment(environ: c_int, instance: &mut Instance) {
     debug!("emscripten::___build_environment {}", environ);
     const MAX_ENV_VALUES: u32 = 64;

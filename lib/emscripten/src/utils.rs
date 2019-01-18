@@ -112,6 +112,7 @@ pub struct GuestStat {
     st_ino: u64,
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat) {
     let stat_ptr = instance.memory_offset_addr(0, buf as _) as *mut GuestStat;
     (*stat_ptr).st_dev = stat.st_dev as _;
