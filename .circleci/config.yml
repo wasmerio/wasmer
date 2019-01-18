@@ -62,7 +62,7 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v4-cargo-cache-darwin-{{ arch }}-brew
+            - v4-cargo-cache-darwin-{{ arch }}-brew-3
       # - run:
       #     name: Install CMAKE
       #     command: |
@@ -75,12 +75,12 @@ jobs:
       - run:
           name: Install crate dependencies
           command: |
-            brew install autoconf automake libtool cmake
+            brew install autoconf automake libtool cmake libffi
       - save_cache:
           paths:
             - /usr/local/Homebrew
-            - /usr/local/Cellar
-          key: v4-cargo-cache-darwin-{{ arch }}-brew
+            # - /usr/local/Cellar
+          key: v4-cargo-cache-darwin-{{ arch }}-brew-3
       - run:
           name: Install Rust
           command: |
@@ -164,7 +164,7 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v4-cargo-cache-darwin-{{ arch }}-brew
+            - v4-cargo-cache-darwin-{{ arch }}-brew-3
       # - run:
       #     name: Install CMAKE
       #     command: |
@@ -177,12 +177,12 @@ jobs:
       - run:
           name: Install crate dependencies
           command: |
-            brew install autoconf automake libtool cmake
+            brew install autoconf automake libtool cmake libffi
       - save_cache:
           paths:
             - /usr/local/Homebrew
-            - /usr/local/Cellar
-          key: v4-cargo-cache-darwin-{{ arch }}-brew
+            # - /usr/local/Cellar
+          key: v4-cargo-cache-darwin-{{ arch }}-brew-3
       - run:
           name: Install Rust
           command: |
@@ -295,16 +295,11 @@ workflows:
           filters:
             branches:
               only: master
-      # :
-      #     filters:
-      #       tags:
-      #         only: /^\d+\.\d+\.\d+$/
-
       - publish-github-release:
           requires:
             - lint
             - test-and-build
             - test-and-build-macos
           filters:
-            tags:
-              only: /^\d+\.\d+\.\d+$/
+            branches:
+              only: master
