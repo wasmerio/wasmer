@@ -307,12 +307,38 @@ impl ImportBacking {
         imports: &mut Imports,
         vmctx: *mut vm::Ctx,
     ) -> LinkResult<Self> {
-        Ok(ImportBacking {
-            functions: import_functions(module, imports, vmctx)?,
-            memories: import_memories(module, imports, vmctx)?,
-            tables: import_tables(module, imports, vmctx)?,
-            globals: import_globals(module, imports)?,
-        })
+        let mut link_errors = vec![];
+
+        let functions = import_functions(module, imports, vmctx).unwrap_or_else(|le| {
+            link_errors.extend(le);
+            Map::new().into_boxed_map()
+        });
+
+        let memories = import_memories(module, imports, vmctx).unwrap_or_else(|le| {
+            link_errors.extend(le);
+            Map::new().into_boxed_map()
+        });
+
+        let tables = import_tables(module, imports, vmctx).unwrap_or_else(|le| {
+            link_errors.extend(le);
+            Map::new().into_boxed_map()
+        });
+
+        let globals = import_globals(module, imports).unwrap_or_else(|le| {
+            link_errors.extend(le);
+            Map::new().into_boxed_map()
+        });
+
+        if link_errors.len() > 0 {
+            Err(link_errors)
+        } else {
+            Ok(ImportBacking {
+                functions,
+                memories,
+                tables,
+                globals,
+            })
+        }
     }
 
     pub fn imported_memory(&self, memory_index: ImportedMemoryIndex) -> vm::ImportedMemory {
@@ -325,6 +351,7 @@ fn import_functions(
     imports: &mut Imports,
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedFuncIndex, vm::ImportedFunc>> {
+    let mut link_errors = vec![];
     let mut functions = Map::with_capacity(module.imported_functions.len());
     for (index, ImportName { namespace, name }) in &module.imported_functions {
         let sig_index = module.func_assoc[index.convert_up(module)];
@@ -347,12 +374,12 @@ fn import_functions(
                         },
                     });
                 } else {
-                    Err(LinkError::IncorrectImportSignature {
+                    link_errors.push(LinkError::IncorrectImportSignature {
                         namespace: namespace.clone(),
                         name: name.clone(),
                         expected: expected_sig.clone(),
                         found: signature.clone(),
-                    })?
+                    });
                 }
             }
             Some(export_type) => {
@@ -363,20 +390,27 @@ fn import_functions(
                     Export::Global { .. } => "global",
                 }
                 .to_string();
-                Err(LinkError::IncorrectImportType {
+                link_errors.push(LinkError::IncorrectImportType {
                     namespace: namespace.clone(),
                     name: name.clone(),
                     expected: "function".to_string(),
                     found: export_type_name,
-                })?
+                });
             }
-            None => Err(LinkError::ImportNotFound {
-                namespace: namespace.clone(),
-                name: name.clone(),
-            })?,
+            None => {
+                link_errors.push(LinkError::ImportNotFound {
+                    namespace: namespace.clone(),
+                    name: name.clone(),
+                });
+            }
         }
     }
-    Ok(functions.into_boxed_map())
+
+    if link_errors.len() > 0 {
+        Err(link_errors)
+    } else {
+        Ok(functions.into_boxed_map())
+    }
 }
 
 fn import_memories(
@@ -384,6 +418,7 @@ fn import_memories(
     imports: &mut Imports,
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>> {
+    let mut link_errors = vec![];
     let mut memories = Map::with_capacity(module.imported_memories.len());
     for (_index, (ImportName { namespace, name }, expected_memory_desc)) in
         &module.imported_memories
@@ -406,12 +441,12 @@ fn import_memories(
                         },
                     });
                 } else {
-                    Err(LinkError::IncorrectMemoryDescription {
+                    link_errors.push(LinkError::IncorrectMemoryDescription {
                         namespace: namespace.clone(),
                         name: name.clone(),
                         expected: expected_memory_desc.clone(),
                         found: memory_desc.clone(),
-                    })?
+                    });
                 }
             }
             Some(export_type) => {
@@ -422,20 +457,27 @@ fn import_memories(
                     Export::Global { .. } => "global",
                 }
                 .to_string();
-                Err(LinkError::IncorrectImportType {
+                link_errors.push(LinkError::IncorrectImportType {
                     namespace: namespace.clone(),
                     name: name.clone(),
                     expected: "memory".to_string(),
                     found: export_type_name,
-                })?
+                });
             }
-            None => Err(LinkError::ImportNotFound {
-                namespace: namespace.clone(),
-                name: name.clone(),
-            })?,
+            None => {
+                link_errors.push(LinkError::ImportNotFound {
+                    namespace: namespace.clone(),
+                    name: name.clone(),
+                });
+            }
         }
     }
-    Ok(memories.into_boxed_map())
+
+    if link_errors.len() > 0 {
+        Err(link_errors)
+    } else {
+        Ok(memories.into_boxed_map())
+    }
 }
 
 fn import_tables(
@@ -443,6 +485,7 @@ fn import_tables(
     imports: &mut Imports,
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedTableIndex, vm::ImportedTable>> {
+    let mut link_errors = vec![];
     let mut tables = Map::with_capacity(module.imported_tables.len());
     for (_index, (ImportName { namespace, name }, expected_table_desc)) in &module.imported_tables {
         let table_import = imports
@@ -463,12 +506,12 @@ fn import_tables(
                         },
                     });
                 } else {
-                    Err(LinkError::IncorrectTableDescription {
+                    link_errors.push(LinkError::IncorrectTableDescription {
                         namespace: namespace.clone(),
                         name: name.clone(),
                         expected: expected_table_desc.clone(),
                         found: table_desc.clone(),
-                    })?
+                    });
                 }
             }
             Some(export_type) => {
@@ -479,26 +522,34 @@ fn import_tables(
                     Export::Global { .. } => "global",
                 }
                 .to_string();
-                Err(LinkError::IncorrectImportType {
+                link_errors.push(LinkError::IncorrectImportType {
                     namespace: namespace.clone(),
                     name: name.clone(),
                     expected: "table".to_string(),
                     found: export_type_name,
-                })?
+                });
             }
-            None => Err(LinkError::ImportNotFound {
-                namespace: namespace.clone(),
-                name: name.clone(),
-            })?,
+            None => {
+                link_errors.push(LinkError::ImportNotFound {
+                    namespace: namespace.clone(),
+                    name: name.clone(),
+                });
+            }
         }
     }
-    Ok(tables.into_boxed_map())
+
+    if link_errors.len() > 0 {
+        Err(link_errors)
+    } else {
+        Ok(tables.into_boxed_map())
+    }
 }
 
 fn import_globals(
     module: &ModuleInner,
     imports: &mut Imports,
 ) -> LinkResult<BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>> {
+    let mut link_errors = vec![];
     let mut globals = Map::with_capacity(module.imported_globals.len());
     for (_, (ImportName { namespace, name }, imported_global_desc)) in &module.imported_globals {
         let import = imports
@@ -511,12 +562,12 @@ fn import_globals(
                         global: local.inner(),
                     });
                 } else {
-                    Err(LinkError::IncorrectGlobalDescription {
+                    link_errors.push(LinkError::IncorrectGlobalDescription {
                         namespace: namespace.clone(),
                         name: name.clone(),
                         expected: imported_global_desc.clone(),
                         found: global.clone(),
-                    })?
+                    });
                 }
             }
             Some(export_type) => {
@@ -527,18 +578,25 @@ fn import_globals(
                     Export::Global { .. } => "global",
                 }
                 .to_string();
-                Err(LinkError::IncorrectImportType {
+                link_errors.push(LinkError::IncorrectImportType {
                     namespace: namespace.clone(),
                     name: name.clone(),
                     expected: "global".to_string(),
                     found: export_type_name,
-                })?
+                });
             }
-            None => Err(LinkError::ImportNotFound {
-                namespace: namespace.clone(),
-                name: name.clone(),
-            })?,
+            None => {
+                link_errors.push(LinkError::ImportNotFound {
+                    namespace: namespace.clone(),
+                    name: name.clone(),
+                });
+            }
         }
     }
-    Ok(globals.into_boxed_map())
+
+    if link_errors.len() > 0 {
+        Err(link_errors)
+    } else {
+        Ok(globals.into_boxed_map())
+    }
 }

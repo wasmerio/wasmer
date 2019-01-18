@@ -2,7 +2,7 @@ use crate::types::{FuncSig, GlobalDesc, Memory, MemoryIndex, Table, TableIndex, 
 
 pub type Result<T> = std::result::Result<T, Box<Error>>;
 pub type CompileResult<T> = std::result::Result<T, Box<CompileError>>;
-pub type LinkResult<T> = std::result::Result<T, Box<LinkError>>;
+pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
 pub type RuntimeResult<T> = std::result::Result<T, Box<RuntimeError>>;
 pub type CallResult<T> = std::result::Result<T, Box<CallError>>;
 
@@ -120,7 +120,7 @@ impl PartialEq for CallError {
 #[derive(Debug, Clone)]
 pub enum Error {
     CompileError(CompileError),
-    LinkError(LinkError),
+    LinkError(Vec<LinkError>),
     RuntimeError(RuntimeError),
     CallError(CallError),
 }
@@ -137,9 +137,9 @@ impl From<Box<CompileError>> for Box<Error> {
     }
 }
 
-impl From<Box<LinkError>> for Box<Error> {
-    fn from(link_err: Box<LinkError>) -> Self {
-        Box::new(Error::LinkError(*link_err))
+impl From<Vec<LinkError>> for Box<Error> {
+    fn from(link_err: Vec<LinkError>) -> Self {
+        Box::new(Error::LinkError(link_err))
     }
 }
 
