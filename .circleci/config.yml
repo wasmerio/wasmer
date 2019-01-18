@@ -34,6 +34,7 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v4-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Install CMAKE
           command: |
@@ -47,6 +48,11 @@ jobs:
           name: Install libffi dependencies
           command: |
             brew install autoconf automake libtool
+      - save_cache:
+          paths:
+            - /usr/local/Homebrew
+            - /usr/local/Cellar
+          key: v4-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Install Rust
           command: |
@@ -80,8 +86,6 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-            - /usr/local/Homebrew
-            - /usr/local/Cellar
           key: v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build:
@@ -139,6 +143,7 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v4-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Install CMAKE
           command: |
@@ -152,6 +157,11 @@ jobs:
           name: Install libffi dependencies
           command: |
             brew install autoconf automake libtool
+      - save_cache:
+          paths:
+            - /usr/local/Homebrew
+            - /usr/local/Cellar
+          key: v4-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Install Rust
           command: |
@@ -193,8 +203,6 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-            - /usr/local/Homebrew
-            - /usr/local/Cellar
           key: v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-rust-nightly:
