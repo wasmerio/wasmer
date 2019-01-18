@@ -4,21 +4,26 @@ extern crate wasmer_runtime;
 #[macro_use]
 use wasmer_runtime::macros;
 
-use wasmer_runtime::{
-    import::{Imports, NamespaceMap},
-    export::{Export, Context, GlobalPointer, FuncPointer},
-    types::{
-        FuncSig, Type::{self, *}, Value,
-        GlobalDesc,
-    },
-    vm::{self, LocalGlobal, Func},
-    memory::LinearMemory,
-};
 use byteorder::{ByteOrder, LittleEndian};
+use hashbrown::{hash_map::Entry, HashMap};
 use libc::c_int;
 use std::cell::UnsafeCell;
 use std::mem;
-use hashbrown::{hash_map::Entry, HashMap};
+use wasmer_runtime::{
+    export::{Context, Export, FuncPointer, GlobalPointer},
+    import::{Imports, NamespaceMap},
+    memory::LinearMemory,
+    types::{
+        FuncSig, GlobalDesc,
+        Type::{self, *},
+        Value,
+    },
+    vm::{self, Func, LocalGlobal},
+};
+
+//#[cfg(test)]
+mod file_descriptor;
+pub mod stdio;
 
 // EMSCRIPTEN APIS
 mod env;
@@ -124,7 +129,7 @@ macro_rules! global {
         unsafe {
             GlobalPointer::new(
                 // NOTE: Taking a shortcut here. LocalGlobal is a struct containing just u64.
-                std::mem::transmute::<&u64, *mut LocalGlobal>($value)
+                std::mem::transmute::<&u64, *mut LocalGlobal>($value),
             )
         }
     }};
@@ -134,7 +139,7 @@ pub struct EmscriptenGlobals<'a> {
     pub data: HashMap<&'a str, HashMap<&'a str, (u64, Type)>>, // <namespace, <field_name, (global_value, type)>>
 }
 
-impl <'a> EmscriptenGlobals<'a> {
+impl<'a> EmscriptenGlobals<'a> {
     pub fn new() -> Self {
         let mut data = HashMap::new();
         let mut env_namepace = HashMap::new();
@@ -150,9 +155,7 @@ impl <'a> EmscriptenGlobals<'a> {
         data.insert("env", env_namepace);
         data.insert("global", global_namepace);
 
-        Self {
-            data,
-        }
+        Self { data }
     }
 }
 
@@ -175,7 +178,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             global: GlobalDesc {
                 mutable: false,
                 ty: ty.clone(),
-            }
+            },
         },
     );
 
@@ -187,7 +190,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             global: GlobalDesc {
                 mutable: false,
                 ty: ty.clone(),
-            }
+            },
         },
     );
 
@@ -199,7 +202,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             global: GlobalDesc {
                 mutable: false,
                 ty: ty.clone(),
-            }
+            },
         },
     );
 
@@ -211,7 +214,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             global: GlobalDesc {
                 mutable: false,
                 ty: ty.clone(),
-            }
+            },
         },
     );
 
@@ -223,7 +226,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             global: GlobalDesc {
                 mutable: false,
                 ty: ty.clone(),
-            }
+            },
         },
     );
 
@@ -235,7 +238,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             global: GlobalDesc {
                 mutable: false,
                 ty: ty.clone(),
-            }
+            },
         },
     );
 
@@ -251,7 +254,6 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             },
         },
     );
-
 
     env_namespace.insert(
         "putchar",
