@@ -57,6 +57,13 @@ you can run:
 make spectests
 ```
 
+You can also run integration tests with:
+
+```sh
+make integration-tests
+```
+
+
 ## Roadmap
 
 Wasmer is an open project guided by strong principles, aiming to be modular, flexible and fast. It is open to the community to help set its direction.

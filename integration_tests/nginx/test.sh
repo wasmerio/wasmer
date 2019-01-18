@@ -1,7 +1,5 @@
 #! /bin/bash
 
-# Build the release and run nginx
-make release
 nohup ./target/release/wasmer run examples/nginx/nginx.wasm -- -p integration_tests/nginx/ -c nginx.conf &
 sleep 3s
 

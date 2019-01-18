@@ -21,6 +21,11 @@ build:
 install:
 	cargo install --path .
 
+integration-tests: release
+	echo "Running Integration Tests"
+	# Commented for now until we fix emscripten
+	# ./integration_tests/nginx/test.sh
+
 lint:
 	cargo fmt --all -- --check
 	cargo clippy --all
