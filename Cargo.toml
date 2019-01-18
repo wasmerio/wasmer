@@ -1,7 +1,7 @@
 [package]
 name = "wasmer"
 version = "0.1.4"
-authors = ["Syrus Akbary <me@syrusakbary.com>"]
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
 publish = true

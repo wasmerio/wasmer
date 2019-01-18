@@ -1,13 +1,7 @@
 [package]
 name = "wasmer-runtime"
 version = "0.1.0"
-authors = [
-    "Lachlan Sneff <lachlan.sneff@gmail.com>",
-    "Steve Akinyemi <steve@wasmer.io>",
-    "Mackenzie Clark <mackenzie@wasmer.io>",
-    "Brandon Fish <brandon@wasmer.io>",
-    "Syrus Akbary <syrus@wasmer.io>"
-]
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 build = "build/mod.rs"
 
