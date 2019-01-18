@@ -276,6 +276,10 @@ impl WastTestGenerator {
         }
     }
 
+    fn is_fat_test(&self) -> bool {
+        self.command_no > 200
+    }
+
     fn consume(&mut self) {
         self.buffer.push_str(BANNER);
         //         self.buffer.push_str(&format!(
@@ -737,14 +741,16 @@ fn {}() {{
 }
 
 fn generate_spectest(out: &mut File, test_name: &str, wast: &PathBuf) -> std::io::Result<()> {
-    out.write(format!("mod test_{} {{\nuse super::*;\n", test_name).as_bytes())?;
 
     let mut generator = WastTestGenerator::new(wast);
     generator.consume();
     let generated_script = generator.finalize();
-    out.write(generated_script.as_bytes())?;
 
-    out.write("\n}\n".as_bytes())?;
+    if !generator.is_fat_test() {
+        out.write(format!("mod test_{} {{\nuse super::*;\n", test_name).as_bytes())?;
+        out.write(generated_script.as_bytes())?;
+        out.write("\n}\n".as_bytes())?;
+    }
 
     Ok(())
 }
