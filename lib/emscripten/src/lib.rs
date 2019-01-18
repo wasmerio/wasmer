@@ -20,6 +20,8 @@ mod file_descriptor;
 pub mod stdio;
 
 // EMSCRIPTEN APIS
+#[macro_use]
+mod macros;
 mod env;
 mod errno;
 mod exception;
@@ -89,44 +91,6 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
 
     let mem = &mut memory[dynamictop_ptr..dynamictop_ptr_offset];
     LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
-}
-
-macro_rules! mock_external {
-    ($namespace:ident, $name:ident) => {{
-        extern "C" fn _mocked_fn() -> i32 {
-            debug!("emscripten::{} <mock>", stringify!($name));
-            -1
-        }
-
-        $namespace.insert(
-            stringify!($name),
-            Export::Function {
-                func: unsafe { FuncPointer::new(_mocked_fn as _) },
-                ctx: Context::Internal,
-                signature: FuncSig {
-                    params: vec![],
-                    returns: vec![I32],
-                },
-            },
-        );
-    }};
-}
-
-macro_rules! func {
-    ($namespace:ident, $function:ident) => {{
-        unsafe { FuncPointer::new($namespace::$function as _) }
-    }};
-}
-
-macro_rules! global {
-    ($value:ident) => {{
-        unsafe {
-            GlobalPointer::new(
-                // NOTE: Taking a shortcut here. LocalGlobal is a struct containing just u64.
-                std::mem::transmute::<&u64, *mut LocalGlobal>($value),
-            )
-        }
-    }};
 }
 
 pub struct EmscriptenGlobals<'a> {
@@ -268,7 +232,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             func: func!(lock, ___lock),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![I32, I32],
+                params: vec![I32],
                 returns: vec![],
             },
         },
@@ -389,7 +353,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32],
-                returns: vec![I32],
+                returns: vec![],
             },
         },
     );
@@ -796,7 +760,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             func: func!(process, abort_stack_overflow),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32],
                 returns: vec![],
             },
         },
@@ -929,7 +893,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![],
-                returns: vec![],
+                returns: vec![I32],
             },
         },
     );
@@ -953,7 +917,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![],
-                returns: vec![],
+                returns: vec![I32],
             },
         },
     );
@@ -976,7 +940,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             func: func!(memory, ___map_file),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
@@ -1380,84 +1344,84 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
         },
     );
 
-    mock_external!(env_namespace, _waitpid);
-    mock_external!(env_namespace, _utimes);
-    mock_external!(env_namespace, _usleep);
-    // mock_external!(env_namespace, _time);
-    // mock_external!(env_namespace, _sysconf);
-    // mock_external!(env_namespace, _strftime);
-    mock_external!(env_namespace, _sigsuspend);
-    // mock_external!(env_namespace, _sigprocmask);
-    // mock_external!(env_namespace, _sigemptyset);
-    // mock_external!(env_namespace, _sigaddset);
-    // mock_external!(env_namespace, _sigaction);
-    mock_external!(env_namespace, _setitimer);
-    mock_external!(env_namespace, _setgroups);
-    mock_external!(env_namespace, _setgrent);
-    mock_external!(env_namespace, _sem_wait);
-    mock_external!(env_namespace, _sem_post);
-    mock_external!(env_namespace, _sem_init);
-    mock_external!(env_namespace, _sched_yield);
-    mock_external!(env_namespace, _raise);
-    mock_external!(env_namespace, _mktime);
-    // mock_external!(env_namespace, _localtime_r);
-    // mock_external!(env_namespace, _localtime);
-    mock_external!(env_namespace, _llvm_stacksave);
-    mock_external!(env_namespace, _llvm_stackrestore);
-    mock_external!(env_namespace, _kill);
-    mock_external!(env_namespace, _gmtime_r);
-    // mock_external!(env_namespace, _gettimeofday);
-    // mock_external!(env_namespace, _getpagesize);
-    mock_external!(env_namespace, _getgrent);
-    mock_external!(env_namespace, _getaddrinfo);
-    // mock_external!(env_namespace, _fork);
-    // mock_external!(env_namespace, _exit);
-    mock_external!(env_namespace, _execve);
-    mock_external!(env_namespace, _endgrent);
-    // mock_external!(env_namespace, _clock_gettime);
-    mock_external!(env_namespace, ___syscall97);
-    mock_external!(env_namespace, ___syscall91);
-    mock_external!(env_namespace, ___syscall85);
-    mock_external!(env_namespace, ___syscall75);
-    mock_external!(env_namespace, ___syscall66);
-    // mock_external!(env_namespace, ___syscall64);
-    // mock_external!(env_namespace, ___syscall63);
-    // mock_external!(env_namespace, ___syscall60);
-    // mock_external!(env_namespace, ___syscall54);
-    // mock_external!(env_namespace, ___syscall39);
-    mock_external!(env_namespace, ___syscall38);
-    // mock_external!(env_namespace, ___syscall340);
-    mock_external!(env_namespace, ___syscall334);
-    mock_external!(env_namespace, ___syscall300);
-    mock_external!(env_namespace, ___syscall295);
-    mock_external!(env_namespace, ___syscall272);
-    mock_external!(env_namespace, ___syscall268);
-    // mock_external!(env_namespace, ___syscall221);
-    mock_external!(env_namespace, ___syscall220);
-    // mock_external!(env_namespace, ___syscall212);
-    // mock_external!(env_namespace, ___syscall201);
-    mock_external!(env_namespace, ___syscall199);
-    // mock_external!(env_namespace, ___syscall197);
-    mock_external!(env_namespace, ___syscall196);
-    // mock_external!(env_namespace, ___syscall195);
-    mock_external!(env_namespace, ___syscall194);
-    mock_external!(env_namespace, ___syscall191);
-    // mock_external!(env_namespace, ___syscall181);
-    // mock_external!(env_namespace, ___syscall180);
-    mock_external!(env_namespace, ___syscall168);
-    // mock_external!(env_namespace, ___syscall146);
-    // mock_external!(env_namespace, ___syscall145);
-    // mock_external!(env_namespace, ___syscall142);
-    mock_external!(env_namespace, ___syscall140);
-    // mock_external!(env_namespace, ___syscall122);
-    // mock_external!(env_namespace, ___syscall102);
-    // mock_external!(env_namespace, ___syscall20);
-    mock_external!(env_namespace, ___syscall15);
-    mock_external!(env_namespace, ___syscall10);
-    mock_external!(env_namespace, _dlopen);
-    mock_external!(env_namespace, _dlclose);
-    mock_external!(env_namespace, _dlsym);
-    mock_external!(env_namespace, _dlerror);
+    // mock_external!(env_namespace, _waitpid);
+    // mock_external!(env_namespace, _utimes);
+    // mock_external!(env_namespace, _usleep);
+    // // mock_external!(env_namespace, _time);
+    // // mock_external!(env_namespace, _sysconf);
+    // // mock_external!(env_namespace, _strftime);
+    // mock_external!(env_namespace, _sigsuspend);
+    // // mock_external!(env_namespace, _sigprocmask);
+    // // mock_external!(env_namespace, _sigemptyset);
+    // // mock_external!(env_namespace, _sigaddset);
+    // // mock_external!(env_namespace, _sigaction);
+    // mock_external!(env_namespace, _setitimer);
+    // mock_external!(env_namespace, _setgroups);
+    // mock_external!(env_namespace, _setgrent);
+    // mock_external!(env_namespace, _sem_wait);
+    // mock_external!(env_namespace, _sem_post);
+    // mock_external!(env_namespace, _sem_init);
+    // mock_external!(env_namespace, _sched_yield);
+    // mock_external!(env_namespace, _raise);
+    // mock_external!(env_namespace, _mktime);
+    // // mock_external!(env_namespace, _localtime_r);
+    // // mock_external!(env_namespace, _localtime);
+    // mock_external!(env_namespace, _llvm_stacksave);
+    // mock_external!(env_namespace, _llvm_stackrestore);
+    // mock_external!(env_namespace, _kill);
+    // mock_external!(env_namespace, _gmtime_r);
+    // // mock_external!(env_namespace, _gettimeofday);
+    // // mock_external!(env_namespace, _getpagesize);
+    // mock_external!(env_namespace, _getgrent);
+    // mock_external!(env_namespace, _getaddrinfo);
+    // // mock_external!(env_namespace, _fork);
+    // // mock_external!(env_namespace, _exit);
+    // mock_external!(env_namespace, _execve);
+    // mock_external!(env_namespace, _endgrent);
+    // // mock_external!(env_namespace, _clock_gettime);
+    // mock_external!(env_namespace, ___syscall97);
+    // mock_external!(env_namespace, ___syscall91);
+    // mock_external!(env_namespace, ___syscall85);
+    // mock_external!(env_namespace, ___syscall75);
+    // mock_external!(env_namespace, ___syscall66);
+    // // mock_external!(env_namespace, ___syscall64);
+    // // mock_external!(env_namespace, ___syscall63);
+    // // mock_external!(env_namespace, ___syscall60);
+    // // mock_external!(env_namespace, ___syscall54);
+    // // mock_external!(env_namespace, ___syscall39);
+    // mock_external!(env_namespace, ___syscall38);
+    // // mock_external!(env_namespace, ___syscall340);
+    // mock_external!(env_namespace, ___syscall334);
+    // mock_external!(env_namespace, ___syscall300);
+    // mock_external!(env_namespace, ___syscall295);
+    // mock_external!(env_namespace, ___syscall272);
+    // mock_external!(env_namespace, ___syscall268);
+    // // mock_external!(env_namespace, ___syscall221);
+    // mock_external!(env_namespace, ___syscall220);
+    // // mock_external!(env_namespace, ___syscall212);
+    // // mock_external!(env_namespace, ___syscall201);
+    // mock_external!(env_namespace, ___syscall199);
+    // // mock_external!(env_namespace, ___syscall197);
+    // mock_external!(env_namespace, ___syscall196);
+    // // mock_external!(env_namespace, ___syscall195);
+    // mock_external!(env_namespace, ___syscall194);
+    // mock_external!(env_namespace, ___syscall191);
+    // // mock_external!(env_namespace, ___syscall181);
+    // // mock_external!(env_namespace, ___syscall180);
+    // mock_external!(env_namespace, ___syscall168);
+    // // mock_external!(env_namespace, ___syscall146);
+    // // mock_external!(env_namespace, ___syscall145);
+    // // mock_external!(env_namespace, ___syscall142);
+    // mock_external!(env_namespace, ___syscall140);
+    // // mock_external!(env_namespace, ___syscall122);
+    // // mock_external!(env_namespace, ___syscall102);
+    // // mock_external!(env_namespace, ___syscall20);
+    // mock_external!(env_namespace, ___syscall15);
+    mock_external!(env_namespace, ___syscall10, [ I32, I32 => I32 ]);
+    // mock_external!(env_namespace, _dlopen);
+    // mock_external!(env_namespace, _dlclose);
+    // mock_external!(env_namespace, _dlsym);
+    // mock_external!(env_namespace, _dlerror);
 
     imports.register("env", env_namespace);
     imports.register("asm2wasm", asm_namespace);
