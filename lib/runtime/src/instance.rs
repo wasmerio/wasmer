@@ -13,8 +13,8 @@ use crate::{
     },
     vm,
 };
-use std::rc::Rc;
 use std::mem;
+use std::rc::Rc;
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -201,17 +201,15 @@ impl InstanceInner {
             .expect("broken invariant, incorrect func index");
 
         let (func_ptr, ctx) = match func_index.local_or_import(module) {
-            LocalOrImport::Local(local_func_index) => {
-                (
-                    module
-                        .func_resolver
-                        .get(&module, local_func_index)
-                        .expect("broken invariant, func resolver not synced with module.exports")
-                        .cast()
-                        .as_ptr() as *const _,
-                    Context::Internal,
-                )
-            }
+            LocalOrImport::Local(local_func_index) => (
+                module
+                    .func_resolver
+                    .get(&module, local_func_index)
+                    .expect("broken invariant, func resolver not synced with module.exports")
+                    .cast()
+                    .as_ptr() as *const _,
+                Context::Internal,
+            ),
             LocalOrImport::Import(imported_func_index) => {
                 let imported_func = &self.import_backing.functions[imported_func_index];
                 (

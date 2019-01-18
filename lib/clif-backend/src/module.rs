@@ -1,4 +1,4 @@
-use crate::resolver::FuncResolverBuilder;
+use crate::{call::Caller, resolver::FuncResolverBuilder};
 use cranelift_codegen::{ir, isa};
 use cranelift_entity::EntityRef;
 use cranelift_wasm;
@@ -8,26 +8,42 @@ use std::{
     ptr::NonNull,
 };
 use wasmer_runtime::{
-    backend::FuncResolver,
     backend::SigRegistry,
-    error::CompileResult,
+    backend::{FuncResolver, ProtectedCaller, Token},
+    error::{CompileResult, RuntimeResult},
     module::ModuleInner,
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
+        Value,
     },
-    vm,
+    vm::{self, ImportBacking},
 };
 
-struct PlaceholderFuncResolver;
+struct Placeholder;
 
-impl FuncResolver for PlaceholderFuncResolver {
+impl FuncResolver for Placeholder {
     fn get(
         &self,
         _module: &ModuleInner,
         _local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
         None
+    }
+}
+
+impl ProtectedCaller for Placeholder {
+    fn call(
+        &self,
+        _module: &ModuleInner,
+        _func_index: FuncIndex,
+        _params: &[Value],
+        _returns: &mut [Value],
+        _import_backing: &ImportBacking,
+        _vmctx: *mut vm::Ctx,
+        _: Token,
+    ) -> RuntimeResult<()> {
+        Ok(())
     }
 }
 
@@ -41,7 +57,9 @@ impl Module {
         Self {
             module: ModuleInner {
                 // this is a placeholder
-                func_resolver: Box::new(PlaceholderFuncResolver),
+                func_resolver: Box::new(Placeholder),
+                protected_caller: Box::new(Placeholder),
+
                 memories: Map::new(),
                 globals: Map::new(),
                 tables: Map::new(),
@@ -78,6 +96,9 @@ impl Module {
 
         let func_resolver_builder = FuncResolverBuilder::new(isa, functions)?;
         self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
+
+        self.module.protected_caller = Box::new(Caller::new(&self.module));
+
         Ok(self.module)
     }
 }

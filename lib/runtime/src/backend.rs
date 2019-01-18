@@ -1,8 +1,8 @@
 use crate::{
+    backing::ImportBacking,
     error::CompileResult,
     error::RuntimeResult,
     module::ModuleInner,
-    backing::ImportBacking,
     types::{FuncIndex, LocalFuncIndex, Value},
     vm,
 };

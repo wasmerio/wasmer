@@ -2,17 +2,17 @@ mod recovery;
 mod sighandler;
 
 use crate::call::recovery::call_protected;
+use hashbrown::HashSet;
+use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
+use std::iter;
 use wasmer_runtime::{
-    backend::{Token, ProtectedCaller},
-    types::{FuncIndex, Value, Type, FuncSig, LocalOrImport},
-    module::ModuleInner,
-    error::{RuntimeResult},
+    backend::{ProtectedCaller, Token},
+    error::RuntimeResult,
     export::Context,
+    module::{ExportIndex, ModuleInner},
+    types::{FuncIndex, FuncSig, LocalOrImport, Type, Value},
     vm::{self, ImportBacking},
 };
-use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
-use hashbrown::HashSet;
-use std::iter;
 
 pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
@@ -20,7 +20,14 @@ pub struct Caller {
 
 impl Caller {
     pub fn new(module: &ModuleInner) -> Self {
-        
+        let mut func_export_set = HashSet::new();
+        for export_index in module.exports.values() {
+            if let ExportIndex::Func(func_index) = export_index {
+                func_export_set.insert(*func_index);
+            }
+        }
+
+        Self { func_export_set }
     }
 }
 
@@ -66,7 +73,7 @@ impl ProtectedCaller for Caller {
 
         call_protected(|| {
             // Only supports zero or one return values for now.
-            // To support multiple returns, we will have to 
+            // To support multiple returns, we will have to
             // generate trampolines instead of using libffi.
             match signature.returns.first() {
                 Some(ty) => {
@@ -77,7 +84,7 @@ impl ProtectedCaller for Caller {
                         Type::F64 => Value::F64(unsafe { libffi_call(code_ptr, &libffi_args) }),
                     };
                     returns[0] = val;
-                },
+                }
                 // call with no returns
                 None => unsafe {
                     libffi_call::<()>(code_ptr, &libffi_args);
@@ -86,7 +93,6 @@ impl ProtectedCaller for Caller {
         })
     }
 }
-
 
 fn get_func_from_index<'a>(
     module: &'a ModuleInner,
@@ -99,17 +105,15 @@ fn get_func_from_index<'a>(
         .expect("broken invariant, incorrect func index");
 
     let (func_ptr, ctx) = match func_index.local_or_import(module) {
-        LocalOrImport::Local(local_func_index) => {
-            (
-                module
-                    .func_resolver
-                    .get(&module, local_func_index)
-                    .expect("broken invariant, func resolver not synced with module.exports")
-                    .cast()
-                    .as_ptr() as *const _,
-                Context::Internal,
-            )
-        }
+        LocalOrImport::Local(local_func_index) => (
+            module
+                .func_resolver
+                .get(&module, local_func_index)
+                .expect("broken invariant, func resolver not synced with module.exports")
+                .cast()
+                .as_ptr() as *const _,
+            Context::Internal,
+        ),
         LocalOrImport::Import(imported_func_index) => {
             let imported_func = import_backing.imported_func(imported_func_index);
             (

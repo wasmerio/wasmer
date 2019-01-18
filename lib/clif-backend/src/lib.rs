@@ -1,11 +1,11 @@
 // pub mod codegen;
+mod call;
 mod func_env;
 mod libcalls;
 mod module;
 mod module_env;
 mod relocation;
 mod resolver;
-mod call;
 
 use cranelift_codegen::{
     isa,

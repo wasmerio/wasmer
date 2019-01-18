@@ -19,6 +19,7 @@ use std::rc::Rc;
 pub struct ModuleInner {
     pub func_resolver: Box<dyn FuncResolver>,
     pub protected_caller: Box<dyn ProtectedCaller>,
+
     // This are strictly local and the typsystem ensures that.
     pub memories: Map<LocalMemoryIndex, Memory>,
     pub globals: Map<LocalGlobalIndex, Global>,

@@ -4,14 +4,12 @@
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
 
-use wasmer_runtime::{
-    error::{RuntimeError, RuntimeResult},
-};
 use crate::call::sighandler::install_sighandler;
 use nix::libc::siginfo_t;
 use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 use std::cell::{Cell, UnsafeCell};
 use std::sync::Once;
+use wasmer_runtime::error::{RuntimeError, RuntimeResult};
 
 extern "C" {
     pub fn setjmp(env: *mut ::nix::libc::c_void) -> ::nix::libc::c_int;
