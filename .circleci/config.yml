@@ -20,6 +20,9 @@ jobs:
           command: |
             rustup component add rustfmt
             rustup component add clippy
+      - run:
+          name: Execute lints
+          command: make lint
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -27,9 +30,6 @@ jobs:
             - target/debug/build
             - target/debug/deps
           key: lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Execute lints
-          command: make lint
 
   test:
     docker:
