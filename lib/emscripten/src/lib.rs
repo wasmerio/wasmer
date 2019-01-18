@@ -113,7 +113,9 @@ impl<'a> EmscriptenGlobals<'a> {
         data.insert("env", env_namepace);
         data.insert("global", global_namepace);
 
-        Self { data }
+        Self {
+            data
+        }
     }
 }
 
@@ -244,7 +246,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             func: func!(lock, ___unlock),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![I32, I32],
+                params: vec![I32],
                 returns: vec![],
             },
         },
@@ -256,7 +258,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             func: func!(lock, ___wait),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![I32, I32],
+                params: vec![I32, I32, I32, I32],
                 returns: vec![],
             },
         },
@@ -808,7 +810,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             func: func!(process, _system),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32],
                 returns: vec![I32],
             },
         },
@@ -820,11 +822,12 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             func: func!(process, _popen),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
     );
+
     // Signal
     env_namespace.insert(
         "_sigemptyset",
@@ -880,7 +883,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             func: func!(signal, _signal),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![I32],
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
@@ -1181,7 +1184,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32, I32],
-                returns: vec![I32],
+                returns: vec![F64],
             },
         },
     );
@@ -1319,7 +1322,31 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
         },
     );
 
-    //
+    env_namespace.insert(
+        "_llvm_log10_f32",
+        Export::Function {
+            func: func!(math, _llvm_log10_f32),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![F64],
+                returns: vec![F64],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_llvm_log2_f32",
+        Export::Function {
+            func: func!(math, _llvm_log2_f32),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![F64],
+                returns: vec![F64],
+            },
+        },
+    );
+
+    // Jmp
     env_namespace.insert(
         "__setjmp",
         Export::Function {
@@ -1363,13 +1390,13 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
     // mock_external!(env_namespace, _sem_init);
     // mock_external!(env_namespace, _sched_yield);
     // mock_external!(env_namespace, _raise);
-    // mock_external!(env_namespace, _mktime);
+    mock_external!(env_namespace, _mktime, [I32 => I32]);
     // // mock_external!(env_namespace, _localtime_r);
     // // mock_external!(env_namespace, _localtime);
     // mock_external!(env_namespace, _llvm_stacksave);
     // mock_external!(env_namespace, _llvm_stackrestore);
     // mock_external!(env_namespace, _kill);
-    // mock_external!(env_namespace, _gmtime_r);
+    mock_external!(env_namespace, _gmtime_r, [I32, I32 => I32]);
     // // mock_external!(env_namespace, _gettimeofday);
     // // mock_external!(env_namespace, _getpagesize);
     // mock_external!(env_namespace, _getgrent);
@@ -1380,7 +1407,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
     // mock_external!(env_namespace, _endgrent);
     // // mock_external!(env_namespace, _clock_gettime);
     // mock_external!(env_namespace, ___syscall97);
-    // mock_external!(env_namespace, ___syscall91);
+    mock_external!(env_namespace, ___syscall91, [I32, I32 => I32]);
     // mock_external!(env_namespace, ___syscall85);
     // mock_external!(env_namespace, ___syscall75);
     // mock_external!(env_namespace, ___syscall66);
@@ -1389,7 +1416,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
     // // mock_external!(env_namespace, ___syscall60);
     // // mock_external!(env_namespace, ___syscall54);
     // // mock_external!(env_namespace, ___syscall39);
-    // mock_external!(env_namespace, ___syscall38);
+    mock_external!(env_namespace, ___syscall38, [I32, I32 => I32]);
     // // mock_external!(env_namespace, ___syscall340);
     // mock_external!(env_namespace, ___syscall334);
     // mock_external!(env_namespace, ___syscall300);
@@ -1417,11 +1444,11 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
     // // mock_external!(env_namespace, ___syscall102);
     // // mock_external!(env_namespace, ___syscall20);
     // mock_external!(env_namespace, ___syscall15);
-    mock_external!(env_namespace, ___syscall10, [ I32, I32 => I32 ]);
-    // mock_external!(env_namespace, _dlopen);
-    // mock_external!(env_namespace, _dlclose);
-    // mock_external!(env_namespace, _dlsym);
-    // mock_external!(env_namespace, _dlerror);
+    mock_external!(env_namespace, ___syscall10, [I32, I32 => I32]);
+    mock_external!(env_namespace, _dlopen, [I32, I32 => I32]);
+    mock_external!(env_namespace, _dlclose, [I32 => I32]);
+    mock_external!(env_namespace, _dlsym, [I32, I32 => I32]);
+    mock_external!(env_namespace, _dlerror, [ => I32]);
 
     imports.register("env", env_namespace);
     imports.register("asm2wasm", asm_namespace);
