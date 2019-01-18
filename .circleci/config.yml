@@ -62,7 +62,7 @@ jobs:
       - restore_cache:
           keys:
             - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v5-cargo-cache-darwin-{{ arch }}
+            - v5-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Update Brew
           command: brew update || true
@@ -74,7 +74,7 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/Homebrew
-          key: v5-cargo-cache-darwin-{{ arch }}
+          key: v5-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Install Rust
           command: |
@@ -156,7 +156,7 @@ jobs:
       - restore_cache:
           keys:
             - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v5-cargo-cache-darwin-{{ arch }}
+            - v5-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Update Brew
           command: brew update || true
@@ -168,7 +168,7 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/Homebrew
-          key: v5-cargo-cache-darwin-{{ arch }}
+          key: v5-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Install Rust
           command: |
