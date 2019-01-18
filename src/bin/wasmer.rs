@@ -6,14 +6,14 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
-use std::sync::Arc;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use structopt::StructOpt;
 
 use wasmer::*;
-use wasmer_runtime;
 use wasmer_emscripten;
+use wasmer_runtime;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]
@@ -99,7 +99,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     debug!("webassembly - creating instance");
 
-    let mut instance = module.instantiate(import_object)
+    let mut instance = module
+        .instantiate(import_object)
         .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(

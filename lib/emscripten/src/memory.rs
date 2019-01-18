@@ -1,6 +1,6 @@
 use super::process::abort_with_message;
-use wasmer_runtime::Instance;
 use libc::{c_int, c_void, memcpy, size_t};
+use wasmer_runtime::Instance;
 
 /// emscripten: _emscripten_memcpy_big
 pub extern "C" fn _emscripten_memcpy_big(

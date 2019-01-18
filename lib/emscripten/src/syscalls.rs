@@ -1,6 +1,5 @@
 use super::utils::copy_stat_into_wasm;
 use super::varargs::VarArgs;
-use wasmer_runtime::Instance;
 use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
@@ -71,6 +70,7 @@ use libc::{
     SO_REUSEADDR,
     TIOCGWINSZ,
 };
+use wasmer_runtime::Instance;
 
 use super::env;
 use std::mem;

@@ -1,5 +1,5 @@
-use wasmer_runtime::Instance;
 use libc::c_int;
+use wasmer_runtime::Instance;
 
 // NOTE: Not implemented by Emscripten
 pub extern "C" fn ___lock(which: c_int, varargs: c_int, _instance: &mut Instance) {

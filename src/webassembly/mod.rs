@@ -6,9 +6,9 @@ pub mod utils;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     backend::Compiler,
-    module::{Module, ModuleInner},
     import::Imports,
     instance::Instance,
+    module::{Module, ModuleInner},
 };
 
 use cranelift_codegen::{
@@ -16,9 +16,9 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use std::panic;
+use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::rc::Rc;
 use target_lexicon;
 use wasmparser;
 use wasmparser::WasmDecoder;
