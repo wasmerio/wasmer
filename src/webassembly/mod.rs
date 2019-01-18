@@ -10,6 +10,7 @@ use wasmer_runtime::{
     import::Imports,
     instance::Instance,
 };
+
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
@@ -35,7 +36,6 @@ pub struct ResultObject {
     pub instance: Box<Instance>,
 }
 
-
 pub struct InstanceOptions {
     // Shall we mock automatically the imported functions if they don't exist?
     pub mock_missing_imports: bool,
@@ -43,7 +43,7 @@ pub struct InstanceOptions {
     pub mock_missing_tables: bool,
     pub abi: InstanceABI,
     pub show_progressbar: bool,
-//    pub isa: Box<isa::TargetIsa>, TODO isa
+    //    pub isa: Box<isa::TargetIsa>, TODO isa
 }
 
 #[derive(PartialEq)]
@@ -75,10 +75,10 @@ pub fn instantiate(
 
     //let instance = Instance::new(&module, import_object, options)?;
     unimplemented!()
-//    let instance = wasmer_runtime::instantiate(buffer_source, &CraneliftCompiler::new(), import_object)
-//        .map_err(|e| ErrorKind::CompileError(e))?;
-//
-//    let isa = get_isa();
+    //    let instance = wasmer_runtime::instantiate(buffer_source, &CraneliftCompiler::new(), import_object)
+    //        .map_err(|e| ErrorKind::CompileError(e))?;
+    //
+    //    let isa = get_isa();
     //    let abi = if is_emscripten_module(&instance.module) {
     //        InstanceABI::Emscripten
     //    } else {
@@ -94,11 +94,11 @@ pub fn instantiate(
     //        isa,
     //    });
 
-//    debug!("webassembly - instance created");
-//    Ok(ResultObject {
-//        module: Arc::clone(&instance.module),
-//        instance,
-//    })
+    //    debug!("webassembly - instance created");
+    //    Ok(ResultObject {
+    //        module: Arc::clone(&instance.module),
+    //        instance,
+    //    })
 }
 
 /// The webassembly::instantiate_streaming() function compiles and instantiates
@@ -173,23 +173,23 @@ pub fn get_isa() -> Box<isa::TargetIsa> {
     isa::lookup(triple!("x86_64")).unwrap().finish(flags)
 }
 
-fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) -> (u32, u32) {
-    let argc = args.len() + 1;
+// fn store_module_arguments(path: &str, args: Vec<&str>, instance: &mut Instance) -> (u32, u32) {
+//     let argc = args.len() + 1;
 
-    let (argv_offset, argv_slice): (_, &mut [u32]) =
-        unsafe { allocate_on_stack(((argc + 1) * 4) as u32, instance) };
-    assert!(!argv_slice.is_empty());
+//     let (argv_offset, argv_slice): (_, &mut [u32]) =
+//         unsafe { allocate_on_stack(((argc + 1) * 4) as u32, instance) };
+//     assert!(!argv_slice.is_empty());
 
-    argv_slice[0] = unsafe { allocate_cstr_on_stack(path, instance).0 };
+//     argv_slice[0] = unsafe { allocate_cstr_on_stack(path, instance).0 };
 
-    for (slot, arg) in argv_slice[1..argc].iter_mut().zip(args.iter()) {
-        *slot = unsafe { allocate_cstr_on_stack(&arg, instance).0 };
-    }
+//     for (slot, arg) in argv_slice[1..argc].iter_mut().zip(args.iter()) {
+//         *slot = unsafe { allocate_cstr_on_stack(&arg, instance).0 };
+//     }
 
-    argv_slice[argc] = 0;
+//     argv_slice[argc] = 0;
 
-    (argc as u32, argv_offset)
-}
+//     (argc as u32, argv_offset)
+// }
 
 // fn get_module_arguments(options: &Run, instance: &mut webassembly::Instance) -> (u32, u32) {
 //     // Application Arguments

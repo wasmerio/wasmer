@@ -18,7 +18,6 @@ This process will do something similar to:
 ```
 # Generate the .wasm file
 emcc localtime.c -o localtime.js
-# Delte the js file, as we don't need it
+# Delete the js file, as we don't need it
 rm localtime.js
 ```
-
