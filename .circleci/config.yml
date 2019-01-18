@@ -75,7 +75,7 @@ jobs:
       - run:
           name: Install crate dependencies
           command: |
-            brew install autoconf automake libtool cmake libffi
+            brew install autoconf glibtool glibtoolize cmake libffi || true
       - save_cache:
           paths:
             - /usr/local/Homebrew
@@ -177,7 +177,7 @@ jobs:
       - run:
           name: Install crate dependencies
           command: |
-            brew install autoconf automake libtool cmake libffi
+            brew install autoconf glibtool glibtoolize cmake libffi || true
       - save_cache:
           paths:
             - /usr/local/Homebrew
