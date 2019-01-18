@@ -5,10 +5,10 @@ pub mod utils;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     self as runtime,
+    error::{CallResult, Result},
     import::Imports,
     instance::Instance,
     module::{Module, ModuleInner},
-    error::{Result, CallResult},
 };
 
 use cranelift_codegen::{

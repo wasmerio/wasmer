@@ -71,8 +71,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let isa = webassembly::get_isa();
 
     debug!("webassembly - creating module");
-    let module = webassembly::compile(&wasm_binary[..])
-        .map_err(|e| format!("{:?}", e))?;
+    let module = webassembly::compile(&wasm_binary[..]).map_err(|e| format!("{:?}", e))?;
 
     let abi = if wasmer_emscripten::is_emscripten_module(&module) {
         webassembly::InstanceABI::Emscripten
@@ -107,7 +106,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         &mut instance,
         options.path.to_str().unwrap(),
         options.args.iter().map(|arg| arg.as_str()).collect(),
-    ).map_err(|e| format!("{:?}", e))?)
+    )
+    .map_err(|e| format!("{:?}", e))?)
 }
 
 fn run(options: Run) {
