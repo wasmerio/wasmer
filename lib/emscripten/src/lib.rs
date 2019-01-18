@@ -1,14 +1,29 @@
 #[macro_use]
 extern crate wasmer_runtime;
 
-use wasmer_runtime::LinearMemory;
-use wasmer_runtime::types::{FuncSig, Type, Value};
-use wasmer_runtime::{Import, Imports, Instance, FuncRef};
-/// NOTE: TODO: These emscripten api implementation only support wasm32 for now because they assume offsets are u32
+#[macro_use]
+use wasmer_runtime::macros;
+
 use byteorder::{ByteOrder, LittleEndian};
+use hashbrown::{hash_map::Entry, HashMap};
 use libc::c_int;
 use std::cell::UnsafeCell;
 use std::mem;
+use wasmer_runtime::{
+    export::{Context, Export, FuncPointer, GlobalPointer},
+    import::{Imports, NamespaceMap},
+    memory::LinearMemory,
+    types::{
+        FuncSig, GlobalDesc,
+        Type::{self, *},
+        Value,
+    },
+    vm::{self, Func, LocalGlobal},
+};
+
+//#[cfg(test)]
+mod file_descriptor;
+pub mod stdio;
 
 // EMSCRIPTEN APIS
 mod env;
@@ -54,14 +69,14 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
     static_bump + DYNAMICTOP_PTR_DIFF
 }
 
-pub struct EmscriptenData {
-    pub malloc: extern "C" fn(i32, &Instance) -> u32,
-    pub free: extern "C" fn(i32, &mut Instance),
-    pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
-    pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
-    pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
-    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
-}
+//pub struct EmscriptenData {
+//    pub malloc: extern "C" fn(i32, &Instance) -> u32,
+//    pub free: extern "C" fn(i32, &mut Instance),
+//    pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
+//    pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
+//    pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
+//    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
+//}
 
 pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
@@ -83,1217 +98,1375 @@ pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
 }
 
 macro_rules! mock_external {
-    ($import:ident, $name:ident) => {{
-        use wasmer_runtime::types::{FuncSig, Type};
-        use wasmer_runtime::Import;
+    ($namespace:ident, $name:ident) => {{
         extern "C" fn _mocked_fn() -> i32 {
             debug!("emscripten::{} <mock>", stringify!($name));
             -1
         }
-        $import.add(
-            "env".to_string(),
-            stringify!($name).to_string(),
-            Import::Func(
-                unsafe { FuncRef::new(_mocked_fn as _) },
-                FuncSig {
+
+        $namespace.insert(
+            stringify!($name),
+            Export::Function {
+                func: unsafe { FuncPointer::new(_mocked_fn as _) },
+                ctx: Context::Internal,
+                signature: FuncSig {
                     params: vec![],
-                    returns: vec![Type::I32],
+                    returns: vec![I32],
                 },
-            ),
+            },
         );
     }};
 }
 
-pub fn generate_emscripten_env() -> Imports {
-    let mut import_object = Imports::new();
+macro_rules! func {
+    ($namespace:ident, $function:ident) => {{
+        unsafe { FuncPointer::new($namespace::$function as _) }
+    }};
+}
 
-    //    import_object.add(
-    //        "spectest".to_string(),
-    //        "print_i32".to_string(),
-    //        Import::Func(
-    //            print_i32 as _,
-    //            FuncSig {
-    //                params: vec![Type::I32],
-    //                returns: vec![],
-    //            },
-    //        ),
-    //    );
-    //
-    //    import_object.add(
-    //        "spectest".to_string(),
-    //        "global_i32".to_string(),
-    //        Import::Global(Value::I64(GLOBAL_I32 as _)),
-    //    );
+macro_rules! global {
+    ($value:ident) => {{
+        unsafe {
+            GlobalPointer::new(
+                // NOTE: Taking a shortcut here. LocalGlobal is a struct containing just u64.
+                std::mem::transmute::<&u64, *mut LocalGlobal>($value),
+            )
+        }
+    }};
+}
 
-    // Globals
-    import_object.add(
-        "env".to_string(),
+pub struct EmscriptenGlobals<'a> {
+    pub data: HashMap<&'a str, HashMap<&'a str, (u64, Type)>>, // <namespace, <field_name, (global_value, type)>>
+}
+
+impl<'a> EmscriptenGlobals<'a> {
+    pub fn new() -> Self {
+        let mut data = HashMap::new();
+        let mut env_namepace = HashMap::new();
+        let mut global_namepace = HashMap::new();
+
+        env_namepace.insert("STACKTOP", (stacktop(STATIC_BUMP) as _, I32));
+        env_namepace.insert("STACK_MAX", (stack_max(STATIC_BUMP) as _, I32));
+        env_namepace.insert("DYNAMICTOP_PTR", (dynamictop_ptr(STATIC_BUMP) as _, I32));
+        env_namepace.insert("tableBase", (0, I32));
+        global_namepace.insert("Infinity", (std::f64::INFINITY.to_bits() as _, F64));
+        global_namepace.insert("NaN", (std::f64::NAN.to_bits() as _, F64));
+
+        data.insert("env", env_namepace);
+        data.insert("global", global_namepace);
+
+        Self { data }
+    }
+}
+
+pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
+    let mut imports = Imports::new();
+    let mut env_namespace = NamespaceMap::new();
+    let mut asm_namespace = NamespaceMap::new();
+    let mut global_namespace = NamespaceMap::new();
+
+    // Add globals.
+    // NOTE: There is really no need for checks, these globals should always be available.
+    let env_globals = globals.data.get("env").unwrap();
+    let global_globals = globals.data.get("global").unwrap();
+
+    let (value, ty) = env_globals.get("STACKTOP").unwrap();
+    env_namespace.insert(
         "STACKTOP".to_string(),
-        Import::Global(Value::I64(stacktop(STATIC_BUMP) as _)),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
     );
-    import_object.add(
-        "env".to_string(),
+
+    let (value, ty) = env_globals.get("STACK_MAX").unwrap();
+    env_namespace.insert(
         "STACK_MAX".to_string(),
-        Import::Global(Value::I64(stack_max(STATIC_BUMP) as _)),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
     );
-    import_object.add(
-        "env".to_string(),
+
+    let (value, ty) = env_globals.get("DYNAMICTOP_PTR").unwrap();
+    env_namespace.insert(
         "DYNAMICTOP_PTR".to_string(),
-        Import::Global(Value::I64(dynamictop_ptr(STATIC_BUMP) as _)),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
     );
-    import_object.add(
-        "global".to_string(),
-        "Infinity".to_string(),
-        Import::Global(Value::I64(std::f64::INFINITY.to_bits() as _)),
-    );
-    import_object.add(
-        "global".to_string(),
-        "NaN".to_string(),
-        Import::Global(Value::I64(std::f64::NAN.to_bits() as _)),
-    );
-    import_object.add(
-        "env".to_string(),
+
+    let (value, ty) = env_globals.get("tableBase").unwrap();
+    env_namespace.insert(
         "tableBase".to_string(),
-        Import::Global(Value::I64(0)),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
     );
-    //    // Print functions
 
-    import_object.add(
-        "env".to_string(),
-        "printf".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(io::printf as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+    let (value, ty) = global_globals.get("Infinity").unwrap();
+    global_namespace.insert(
+        "Infinity".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "putchar".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(io::putchar as _) },
-            FuncSig {
-                params: vec![Type::I32],
+
+    let (value, ty) = global_globals.get("NaN").unwrap();
+    global_namespace.insert(
+        "NaN".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
+    );
+
+    // Print function
+    env_namespace.insert(
+        "printf",
+        Export::Function {
+            func: func!(io, printf),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "putchar",
+        Export::Function {
+            func: func!(io, putchar),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    //    // Lock
-    import_object.add(
-        "env".to_string(),
-        "___lock".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(lock::___lock as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
+
+    // Lock
+    env_namespace.insert(
+        "___lock",
+        Export::Function {
+            func: func!(lock, ___lock),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___unlock".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(lock::___unlock as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
+
+    env_namespace.insert(
+        "___unlock",
+        Export::Function {
+            func: func!(lock, ___unlock),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___wait".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(lock::___wait as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
+
+    env_namespace.insert(
+        "___wait",
+        Export::Function {
+            func: func!(lock, ___wait),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    //    // Env
-    import_object.add(
-        "env".to_string(),
-        "_getenv".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::_getenv as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
+    // Env
+    env_namespace.insert(
+        "_getenv",
+        Export::Function {
+            func: func!(env, _getenv),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_setenv".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::_setenv as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32, Type::I32],
+
+    env_namespace.insert(
+        "_setenv",
+        Export::Function {
+            func: func!(env, _setenv),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_putenv".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::_putenv as _) },
-            FuncSig {
-                params: vec![Type::I32],
+
+    env_namespace.insert(
+        "_putenv",
+        Export::Function {
+            func: func!(env, _putenv),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_unsetenv".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::_unsetenv as _) },
-            FuncSig {
-                params: vec![Type::I32],
+
+    env_namespace.insert(
+        "_unsetenv",
+        Export::Function {
+            func: func!(env, _unsetenv),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_getpwnam".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::_getpwnam as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "_getpwnam",
+        Export::Function {
+            func: func!(env, _getpwnam),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_getgrnam".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::_getgrnam as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "_getgrnam",
+        Export::Function {
+            func: func!(env, _getgrnam),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___buildEnvironment".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::___build_environment as _) },
-            FuncSig {
-                params: vec![Type::I32],
+
+    env_namespace.insert(
+        "___buildEnvironment",
+        Export::Function {
+            func: func!(env, ___build_environment),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    //    // Errno
-    import_object.add(
-        "env".to_string(),
-        "___setErrNo".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(errno::___seterrno as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
+    // Errno
+    env_namespace.insert(
+        "___setErrNo",
+        Export::Function {
+            func: func!(errno, ___seterrno),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    //    // Syscalls
-    import_object.add(
-        "env".to_string(),
-        "___syscall1".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall1 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
+    // Syscalls
+    env_namespace.insert(
+        "___syscall1",
+        Export::Function {
+            func: func!(syscalls, ___syscall1),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall3".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall3 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall3",
+        Export::Function {
+            func: func!(syscalls, ___syscall3),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall4".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall4 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall4",
+        Export::Function {
+            func: func!(syscalls, ___syscall4),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall5".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall5 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall5",
+        Export::Function {
+            func: func!(syscalls, ___syscall5),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall6".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall6 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall6",
+        Export::Function {
+            func: func!(syscalls, ___syscall6),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall12".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall12 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall12",
+        Export::Function {
+            func: func!(syscalls, ___syscall12),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall20".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall20 as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "___syscall20",
+        Export::Function {
+            func: func!(syscalls, ___syscall20),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
-                returns: vec![Type::I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall39".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall39 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall39",
+        Export::Function {
+            func: func!(syscalls, ___syscall39),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall40".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall40 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall40",
+        Export::Function {
+            func: func!(syscalls, ___syscall40),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall54".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall54 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall54",
+        Export::Function {
+            func: func!(syscalls, ___syscall54),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall57".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall57 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall57",
+        Export::Function {
+            func: func!(syscalls, ___syscall57),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall63".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall63 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall63",
+        Export::Function {
+            func: func!(syscalls, ___syscall63),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall64".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall64 as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "___syscall64",
+        Export::Function {
+            func: func!(syscalls, ___syscall64),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
-                returns: vec![Type::I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall102".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall102 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall102",
+        Export::Function {
+            func: func!(syscalls, ___syscall102),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall114".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall114 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall114",
+        Export::Function {
+            func: func!(syscalls, ___syscall114),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall122".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall122 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall122",
+        Export::Function {
+            func: func!(syscalls, ___syscall122),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall140".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall140 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall140",
+        Export::Function {
+            func: func!(syscalls, ___syscall140),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall142".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall142 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall142",
+        Export::Function {
+            func: func!(syscalls, ___syscall142),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall145".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall145 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall145",
+        Export::Function {
+            func: func!(syscalls, ___syscall145),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall146".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall146 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall146",
+        Export::Function {
+            func: func!(syscalls, ___syscall146),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall180".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall180 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall180",
+        Export::Function {
+            func: func!(syscalls, ___syscall180),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall181".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall181 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall181",
+        Export::Function {
+            func: func!(syscalls, ___syscall181),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall192".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall192 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall192",
+        Export::Function {
+            func: func!(syscalls, ___syscall192),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall195".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall195 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall195",
+        Export::Function {
+            func: func!(syscalls, ___syscall195),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall197".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall197 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall197",
+        Export::Function {
+            func: func!(syscalls, ___syscall197),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall201".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall201 as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "___syscall201",
+        Export::Function {
+            func: func!(syscalls, ___syscall201),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
-                returns: vec![Type::I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall202".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall202 as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "___syscall202",
+        Export::Function {
+            func: func!(syscalls, ___syscall202),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
-                returns: vec![Type::I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall212".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall212 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall212",
+        Export::Function {
+            func: func!(syscalls, ___syscall212),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall221".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall221 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall221",
+        Export::Function {
+            func: func!(syscalls, ___syscall221),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall330".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall330 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall330",
+        Export::Function {
+            func: func!(syscalls, ___syscall330),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___syscall340".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(syscalls::___syscall340 as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
+
+    env_namespace.insert(
+        "___syscall340",
+        Export::Function {
+            func: func!(syscalls, ___syscall340),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    //    // Process
-    import_object.add(
-        "env".to_string(),
-        "abort".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(process::em_abort as _) },
-            FuncSig {
-                params: vec![Type::I32],
+    // Process
+    env_namespace.insert(
+        "abort",
+        Export::Function {
+            func: func!(process, em_abort),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_abort".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(process::_abort as _) },
-            FuncSig {
-                params: vec![],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "abortStackOverflow".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(process::abort_stack_overflow as _) },
-            FuncSig {
-                params: vec![],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_llvm_trap".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(process::_llvm_trap as _) },
-            FuncSig {
-                params: vec![],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_fork".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(process::_fork as _) },
-            FuncSig {
-                params: vec![],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_exit".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(process::_exit as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_system".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(process::_system as _) },
-            FuncSig {
-                params: vec![],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_popen".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(process::_popen as _) },
-            FuncSig {
-                params: vec![],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    //    // Signal
-    import_object.add(
-        "env".to_string(),
-        "_sigemptyset".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(signal::_sigemptyset as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_sigaddset".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(signal::_sigaddset as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_sigprocmask".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(signal::_sigprocmask as _) },
-            FuncSig {
-                params: vec![],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_sigaction".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(signal::_sigaction as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_signal".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(signal::_signal as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    //    // Memory
-    import_object.add(
-        "env".to_string(),
-        "abortOnCannotGrowMemory".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(memory::abort_on_cannot_grow_memory as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "_abort",
+        Export::Function {
+            func: func!(process, _abort),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_emscripten_memcpy_big".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(memory::_emscripten_memcpy_big as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "enlargeMemory".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(memory::enlarge_memory as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "abortStackOverflow",
+        Export::Function {
+            func: func!(process, abort_stack_overflow),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "getTotalMemory".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(memory::get_total_memory as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "_llvm_trap",
+        Export::Function {
+            func: func!(process, _llvm_trap),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
-                returns: vec![Type::I32],
+                returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___map_file".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(memory::___map_file as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "_fork",
+        Export::Function {
+            func: func!(process, _fork),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
-                returns: vec![Type::I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    //    // Exception
-    import_object.add(
-        "env".to_string(),
-        "___cxa_allocate_exception".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(exception::___cxa_allocate_exception as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "___cxa_allocate_exception".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(exception::___cxa_throw as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32, Type::I32],
+
+    env_namespace.insert(
+        "_exit",
+        Export::Function {
+            func: func!(process, _exit),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
                 returns: vec![],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "___cxa_throw".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(exception::___cxa_throw as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32, Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    //    // NullFuncs
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_ii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_ii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_iii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_iii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_iiii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_iiii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_iiiii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_iiiii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_iiiiii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_iiiiii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_v".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_v as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_vi".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_vi as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_vii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_vii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_viii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_viii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_viiii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_viiii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_viiiii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_viiiii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "nullFunc_viiiiii".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(nullfunc::nullfunc_viiiiii as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![],
-            },
-        ),
-    );
-    //    // Time
-    import_object.add(
-        "env".to_string(),
-        "_gettimeofday".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_gettimeofday as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_clock_gettime".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_clock_gettime as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "___clock_gettime".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::___clock_gettime as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_clock".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_clock as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "_system",
+        Export::Function {
+            func: func!(process, _system),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
-                returns: vec![Type::I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_difftime".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_difftime as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_asctime".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_asctime as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_asctime_r".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_asctime_r as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_localtime".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_localtime as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_time".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_time as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_strftime".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_strftime as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32, Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_localtime_r".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(time::_localtime_r as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
-                returns: vec![Type::I32],
-            },
-        ),
-    );
-    import_object.add(
-        "env".to_string(),
-        "_getpagesize".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::_getpagesize as _) },
-            FuncSig {
+
+    env_namespace.insert(
+        "_popen",
+        Export::Function {
+            func: func!(process, _popen),
+            ctx: Context::Internal,
+            signature: FuncSig {
                 params: vec![],
-                returns: vec![Type::I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_sysconf".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(env::_sysconf as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
+    // Signal
+    env_namespace.insert(
+        "_sigemptyset",
+        Export::Function {
+            func: func!(signal, _sigemptyset),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    //    // Math
-    import_object.add(
-        "env".to_string(),
-        "_llvm_log10_f64".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(math::_llvm_log10_f64 as _) },
-            FuncSig {
-                params: vec![Type::F64],
-                returns: vec![Type::F64],
+
+    env_namespace.insert(
+        "_sigaddset",
+        Export::Function {
+            func: func!(signal, _sigaddset),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "_llvm_log2_f64".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new( math::_llvm_log2_f64 as _) },
-            FuncSig {
-                params: vec![Type::F64],
-                returns: vec![Type::F64],
+
+    env_namespace.insert(
+        "_sigprocmask",
+        Export::Function {
+            func: func!(signal, _sigprocmask),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "asm2wasm".to_string(),
-        "f64-rem".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(math::f64_rem as _) },
-            FuncSig {
-                params: vec![Type::F64, Type::F64],
-                returns: vec![Type::F64],
+
+    env_namespace.insert(
+        "_sigaction",
+        Export::Function {
+            func: func!(signal, _sigaction),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
+
+    env_namespace.insert(
+        "_signal",
+        Export::Function {
+            func: func!(signal, _signal),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+    // Memory
+    env_namespace.insert(
+        "abortOnCannotGrowMemory",
+        Export::Function {
+            func: func!(memory, abort_on_cannot_grow_memory),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_emscripten_memcpy_big",
+        Export::Function {
+            func: func!(memory, _emscripten_memcpy_big),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "enlargeMemory",
+        Export::Function {
+            func: func!(memory, enlarge_memory),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "getTotalMemory",
+        Export::Function {
+            func: func!(memory, get_total_memory),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___map_file",
+        Export::Function {
+            func: func!(memory, ___map_file),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![I32],
+            },
+        },
+    );
+    // Exception
+    env_namespace.insert(
+        "___cxa_allocate_exception",
+        Export::Function {
+            func: func!(exception, ___cxa_allocate_exception),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___cxa_allocate_exception",
+        Export::Function {
+            func: func!(exception, ___cxa_throw),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___cxa_throw",
+        Export::Function {
+            func: func!(exception, ___cxa_throw),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![],
+            },
+        },
+    );
+    // NullFuncs
+    env_namespace.insert(
+        "nullFunc_ii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_ii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_iii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_iii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_iiii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_iiii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_iiiii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_iiiii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_iiiiii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_iiiiii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_v",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_v),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_vi",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_vi),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_vii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_vii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_viii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_viii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_viiii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_viiii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_viiiii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_viiiii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "nullFunc_viiiiii",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_viiiiii),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+    // Time
+    env_namespace.insert(
+        "_gettimeofday",
+        Export::Function {
+            func: func!(time, _gettimeofday),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_clock_gettime",
+        Export::Function {
+            func: func!(time, _clock_gettime),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___clock_gettime",
+        Export::Function {
+            func: func!(time, ___clock_gettime),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_clock",
+        Export::Function {
+            func: func!(time, _clock),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_difftime",
+        Export::Function {
+            func: func!(time, _difftime),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_asctime",
+        Export::Function {
+            func: func!(time, _asctime),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_asctime_r",
+        Export::Function {
+            func: func!(time, _asctime_r),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_localtime",
+        Export::Function {
+            func: func!(time, _localtime),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_time",
+        Export::Function {
+            func: func!(time, _time),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_strftime",
+        Export::Function {
+            func: func!(time, _strftime),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_localtime_r",
+        Export::Function {
+            func: func!(time, _localtime_r),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_getpagesize",
+        Export::Function {
+            func: func!(env, _getpagesize),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_sysconf",
+        Export::Function {
+            func: func!(env, _sysconf),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    // Math
+    asm_namespace.insert(
+        "f64-rem",
+        Export::Function {
+            func: func!(math, f64_rem),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![F64, F64],
+                returns: vec![F64],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_llvm_log10_f64",
+        Export::Function {
+            func: func!(math, _llvm_log10_f64),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![F64],
+                returns: vec![F64],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_llvm_log2_f64",
+        Export::Function {
+            func: func!(math, _llvm_log2_f64),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![F64],
+                returns: vec![F64],
+            },
+        },
+    );
+
     //
-    import_object.add(
-        "env".to_string(),
-        "__setjmp".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(jmp::__setjmp as _) },
-            FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
+    env_namespace.insert(
+        "__setjmp",
+        Export::Function {
+            func: func!(jmp, __setjmp),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
             },
-        ),
+        },
     );
-    import_object.add(
-        "env".to_string(),
-        "__longjmp".to_string(),
-        Import::Func(
-            unsafe { FuncRef::new(jmp::__longjmp as _) },
-            FuncSig {
-                params: vec![Type::I32, Type::I32],
+
+    env_namespace.insert(
+        "__longjmp",
+        Export::Function {
+            func: func!(jmp, __longjmp),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
                 returns: vec![],
             },
-        ),
+        },
     );
 
-    mock_external!(import_object, _waitpid);
-    mock_external!(import_object, _utimes);
-    mock_external!(import_object, _usleep);
-    // mock_external!(import_object, _time);
-    // mock_external!(import_object, _sysconf);
-    // mock_external!(import_object, _strftime);
-    mock_external!(import_object, _sigsuspend);
-    // mock_external!(import_object, _sigprocmask);
-    // mock_external!(import_object, _sigemptyset);
-    // mock_external!(import_object, _sigaddset);
-    // mock_external!(import_object, _sigaction);
-    mock_external!(import_object, _setitimer);
-    mock_external!(import_object, _setgroups);
-    mock_external!(import_object, _setgrent);
-    mock_external!(import_object, _sem_wait);
-    mock_external!(import_object, _sem_post);
-    mock_external!(import_object, _sem_init);
-    mock_external!(import_object, _sched_yield);
-    mock_external!(import_object, _raise);
-    mock_external!(import_object, _mktime);
-    // mock_external!(import_object, _localtime_r);
-    // mock_external!(import_object, _localtime);
-    mock_external!(import_object, _llvm_stacksave);
-    mock_external!(import_object, _llvm_stackrestore);
-    mock_external!(import_object, _kill);
-    mock_external!(import_object, _gmtime_r);
-    // mock_external!(import_object, _gettimeofday);
-    // mock_external!(import_object, _getpagesize);
-    mock_external!(import_object, _getgrent);
-    mock_external!(import_object, _getaddrinfo);
-    // mock_external!(import_object, _fork);
-    // mock_external!(import_object, _exit);
-    mock_external!(import_object, _execve);
-    mock_external!(import_object, _endgrent);
-    // mock_external!(import_object, _clock_gettime);
-    mock_external!(import_object, ___syscall97);
-    mock_external!(import_object, ___syscall91);
-    mock_external!(import_object, ___syscall85);
-    mock_external!(import_object, ___syscall75);
-    mock_external!(import_object, ___syscall66);
-    // mock_external!(import_object, ___syscall64);
-    // mock_external!(import_object, ___syscall63);
-    // mock_external!(import_object, ___syscall60);
-    // mock_external!(import_object, ___syscall54);
-    // mock_external!(import_object, ___syscall39);
-    mock_external!(import_object, ___syscall38);
-    // mock_external!(import_object, ___syscall340);
-    mock_external!(import_object, ___syscall334);
-    mock_external!(import_object, ___syscall300);
-    mock_external!(import_object, ___syscall295);
-    mock_external!(import_object, ___syscall272);
-    mock_external!(import_object, ___syscall268);
-    // mock_external!(import_object, ___syscall221);
-    mock_external!(import_object, ___syscall220);
-    // mock_external!(import_object, ___syscall212);
-    // mock_external!(import_object, ___syscall201);
-    mock_external!(import_object, ___syscall199);
-    // mock_external!(import_object, ___syscall197);
-    mock_external!(import_object, ___syscall196);
-    // mock_external!(import_object, ___syscall195);
-    mock_external!(import_object, ___syscall194);
-    mock_external!(import_object, ___syscall191);
-    // mock_external!(import_object, ___syscall181);
-    // mock_external!(import_object, ___syscall180);
-    mock_external!(import_object, ___syscall168);
-    // mock_external!(import_object, ___syscall146);
-    // mock_external!(import_object, ___syscall145);
-    // mock_external!(import_object, ___syscall142);
-    mock_external!(import_object, ___syscall140);
-    // mock_external!(import_object, ___syscall122);
-    // mock_external!(import_object, ___syscall102);
-    // mock_external!(import_object, ___syscall20);
-    mock_external!(import_object, ___syscall15);
-    mock_external!(import_object, ___syscall10);
-    mock_external!(import_object, _dlopen);
-    mock_external!(import_object, _dlclose);
-    mock_external!(import_object, _dlsym);
-    mock_external!(import_object, _dlerror);
+    mock_external!(env_namespace, _waitpid);
+    mock_external!(env_namespace, _utimes);
+    mock_external!(env_namespace, _usleep);
+    // mock_external!(env_namespace, _time);
+    // mock_external!(env_namespace, _sysconf);
+    // mock_external!(env_namespace, _strftime);
+    mock_external!(env_namespace, _sigsuspend);
+    // mock_external!(env_namespace, _sigprocmask);
+    // mock_external!(env_namespace, _sigemptyset);
+    // mock_external!(env_namespace, _sigaddset);
+    // mock_external!(env_namespace, _sigaction);
+    mock_external!(env_namespace, _setitimer);
+    mock_external!(env_namespace, _setgroups);
+    mock_external!(env_namespace, _setgrent);
+    mock_external!(env_namespace, _sem_wait);
+    mock_external!(env_namespace, _sem_post);
+    mock_external!(env_namespace, _sem_init);
+    mock_external!(env_namespace, _sched_yield);
+    mock_external!(env_namespace, _raise);
+    mock_external!(env_namespace, _mktime);
+    // mock_external!(env_namespace, _localtime_r);
+    // mock_external!(env_namespace, _localtime);
+    mock_external!(env_namespace, _llvm_stacksave);
+    mock_external!(env_namespace, _llvm_stackrestore);
+    mock_external!(env_namespace, _kill);
+    mock_external!(env_namespace, _gmtime_r);
+    // mock_external!(env_namespace, _gettimeofday);
+    // mock_external!(env_namespace, _getpagesize);
+    mock_external!(env_namespace, _getgrent);
+    mock_external!(env_namespace, _getaddrinfo);
+    // mock_external!(env_namespace, _fork);
+    // mock_external!(env_namespace, _exit);
+    mock_external!(env_namespace, _execve);
+    mock_external!(env_namespace, _endgrent);
+    // mock_external!(env_namespace, _clock_gettime);
+    mock_external!(env_namespace, ___syscall97);
+    mock_external!(env_namespace, ___syscall91);
+    mock_external!(env_namespace, ___syscall85);
+    mock_external!(env_namespace, ___syscall75);
+    mock_external!(env_namespace, ___syscall66);
+    // mock_external!(env_namespace, ___syscall64);
+    // mock_external!(env_namespace, ___syscall63);
+    // mock_external!(env_namespace, ___syscall60);
+    // mock_external!(env_namespace, ___syscall54);
+    // mock_external!(env_namespace, ___syscall39);
+    mock_external!(env_namespace, ___syscall38);
+    // mock_external!(env_namespace, ___syscall340);
+    mock_external!(env_namespace, ___syscall334);
+    mock_external!(env_namespace, ___syscall300);
+    mock_external!(env_namespace, ___syscall295);
+    mock_external!(env_namespace, ___syscall272);
+    mock_external!(env_namespace, ___syscall268);
+    // mock_external!(env_namespace, ___syscall221);
+    mock_external!(env_namespace, ___syscall220);
+    // mock_external!(env_namespace, ___syscall212);
+    // mock_external!(env_namespace, ___syscall201);
+    mock_external!(env_namespace, ___syscall199);
+    // mock_external!(env_namespace, ___syscall197);
+    mock_external!(env_namespace, ___syscall196);
+    // mock_external!(env_namespace, ___syscall195);
+    mock_external!(env_namespace, ___syscall194);
+    mock_external!(env_namespace, ___syscall191);
+    // mock_external!(env_namespace, ___syscall181);
+    // mock_external!(env_namespace, ___syscall180);
+    mock_external!(env_namespace, ___syscall168);
+    // mock_external!(env_namespace, ___syscall146);
+    // mock_external!(env_namespace, ___syscall145);
+    // mock_external!(env_namespace, ___syscall142);
+    mock_external!(env_namespace, ___syscall140);
+    // mock_external!(env_namespace, ___syscall122);
+    // mock_external!(env_namespace, ___syscall102);
+    // mock_external!(env_namespace, ___syscall20);
+    mock_external!(env_namespace, ___syscall15);
+    mock_external!(env_namespace, ___syscall10);
+    mock_external!(env_namespace, _dlopen);
+    mock_external!(env_namespace, _dlclose);
+    mock_external!(env_namespace, _dlsym);
+    mock_external!(env_namespace, _dlerror);
 
-    import_object
+    imports.register("env", env_namespace);
+    imports.register("asm2wasm", asm_namespace);
+
+    imports
 }
