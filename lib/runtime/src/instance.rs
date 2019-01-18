@@ -138,7 +138,7 @@ impl Instance {
             .chain(iter::once(libffi_arg(&vmctx_ptr)))
             .collect();
 
-        call_protected(|| {
+        Ok(call_protected(|| {
             signature
                 .returns
                 .first()
@@ -155,8 +155,7 @@ impl Instance {
                     }
                     None
                 })
-        })
-        .map_err(|e| CallError::Runtime(e).into())
+        })?)
     }
 }
 

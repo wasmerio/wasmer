@@ -2,6 +2,7 @@ use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     self as runtime,
+    error::Result,
     export::{Context, Export, FuncPointer},
     import::{Imports, NamespaceMap},
     types::{FuncSig, Type, Value},
@@ -10,7 +11,7 @@ use wasmer_runtime::{
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
-fn main() -> Result<(), String> {
+fn main() -> Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let inner_module = runtime::compile(&wasm_binary, &CraneliftCompiler::new())?;
 

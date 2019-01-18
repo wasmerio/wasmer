@@ -81,6 +81,7 @@ use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::import::Imports;
 use wasmer_runtime::types::Value;
 use wasmer_runtime::{{Instance, module::Module}};
+use wasmer_runtime::error::Result;
 
 static IMPORT_MODULE: &str = r#"
 (module
@@ -606,11 +607,12 @@ fn {}_assert_malformed() {{
                 let func_name = format!("{}_action_invoke", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {func_name}(instance: &mut Instance) -> Result<(), String> {{
+                        "fn {func_name}(instance: &mut Instance) -> Result<()> {{
     println!(\"Executing function {{}}\", \"{func_name}\");
     let result = instance.call(\"{field}\", &[{args_values}]);
     {assertion}
-    result.map(|_| ())
+    result?;
+    Ok(())
 }}\n",
                         func_name = func_name,
                         field = field,
