@@ -26,6 +26,9 @@ impl Caller {
                 func_export_set.insert(*func_index);
             }
         }
+        if let Some(start_func_index) = module.start_func {
+            func_export_set.insert(start_func_index);
+        }
 
         Self { func_export_set }
     }
