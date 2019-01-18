@@ -1,6 +1,5 @@
 use super::utils::copy_stat_into_wasm;
 use super::varargs::VarArgs;
-use wasmer_runtime::Instance;
 use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
@@ -68,8 +67,10 @@ use libc::{
     F_GETFD,
     F_SETFD,
     SOL_SOCKET,
+    SO_REUSEADDR,
     TIOCGWINSZ,
 };
+use wasmer_runtime::Instance;
 
 use super::env;
 use std::mem;
@@ -294,6 +295,7 @@ pub extern "C" fn ___syscall64() -> pid_t {
 }
 
 // socketcall
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall102(
     which: c_int,
     mut varargs: VarArgs,
@@ -336,18 +338,17 @@ pub extern "C" fn ___syscall102(
             unsafe {
                 ioctl(fd, FIOCLEX);
             };
-            if cfg!(target_os = "darwin") {
-                type T = u32;
-                let payload = 1 as *const T as *const c_void;
-                unsafe {
-                    setsockopt(
-                        fd,
-                        SOL_SOCKET,
-                        SO_NOSIGPIPE,
-                        payload,
-                        mem::size_of::<T>() as socklen_t,
-                    );
-                };
+
+            type T = u32;
+            let payload = 1 as *const T as *const c_void;
+            unsafe {
+                setsockopt(
+                    fd,
+                    SOL_SOCKET,
+                    SO_NOSIGPIPE,
+                    payload,
+                    mem::size_of::<T>() as socklen_t,
+                );
             };
 
             debug!(
@@ -364,12 +365,7 @@ pub extern "C" fn ___syscall102(
             let address: u32 = socket_varargs.get(instance);
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
-            // unsafe {
-            //     debug!(
-            //         "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
-            //         (*address).sin_family, (*address).sin_port, (*address).sin_addr.s_addr
-            //     );
-            // }
+
             // we convert address as a sockaddr (even if this is incorrect), to bypass the type
             // issue with libc bind
 
@@ -437,25 +433,13 @@ pub extern "C" fn ___syscall102(
                 (*address_linux).sa_family = (*address).sa_family as u16;
                 (*address_linux).sa_data = (*address).sa_data;
             };
-            // // Debug received address
-            // unsafe {
-            //     let proper_address = address as *const GuestSockaddrIn;
-            //     debug!(
-            //         "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
-            //         (*proper_address).sin_family, (*proper_address).sin_port, (*proper_address).sin_addr.s_addr
-            //     );
-            //     debug!(
-            //         "=> address.sa_family: {:?}",
-            //         (*address).sa_family
-            //     );
-            // }
+
             // set_cloexec
             unsafe {
                 ioctl(fd, FIOCLEX);
             };
             debug!("fd: {}", fd);
-            // nix::unistd::write(fd, "Hello, World!".as_bytes()).unwrap();
-            // nix::unistd::fsync(fd).unwrap();
+
             fd
         }
         6 => {
@@ -515,19 +499,18 @@ pub extern "C" fn ___syscall102(
             //      name: Em passes SO_ACCEPTCONN, but Nginx complains about REUSEADDR
             //      https://github.com/openbsd/src/blob/master/sys/sys/socket.h#L156
             // setsockopt (socket: c_int, level: c_int, name: c_int, value: *const c_void, option_len: socklen_t) -> c_int
+
             let socket: i32 = socket_varargs.get(instance);
-            // SOL_SOCKET = 0xffff in BSD
-            let level: i32 = 0xffff;
+            // SOL_SOCKET = 0xffff (BSD, Linux)
+            let level: i32 = SOL_SOCKET;
             let _: u32 = socket_varargs.get(instance);
-            // SO_ACCEPTCONN = 0x4
-            let name: i32 = 0x4;
+            // SO_REUSEADDR = 0x4 (BSD, Linux)
+            let name: i32 = SO_REUSEADDR;
             let _: u32 = socket_varargs.get(instance);
             let value: u32 = socket_varargs.get(instance);
             let option_len: u32 = socket_varargs.get(instance);
             let value_addr = instance.memory_offset_addr(0, value as usize) as *mut c_void; // Endian problem
             let ret = unsafe { setsockopt(socket, level, name, value_addr, option_len) };
-
-            // debug!("option_value = {:?}", unsafe { *(value_addr as *const u32) });
 
             debug!("=> socketfd: {}, level: {} (SOL_SOCKET/0xffff), name: {} (SO_REUSEADDR/4), value_addr: {:?}, option_len: {} = status: {}", socket, level, name, value_addr, option_len, ret);
             ret
@@ -571,6 +554,7 @@ pub extern "C" fn ___syscall102(
 }
 
 /// wait4
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall114(
     _which: c_int,
     mut varargs: VarArgs,
@@ -606,6 +590,7 @@ pub extern "C" fn ___syscall122(
 }
 
 // select
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall142(
     which: c_int,
     mut varargs: VarArgs,
@@ -673,6 +658,7 @@ pub extern "C" fn ___syscall140(
 }
 
 /// readv
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall145(
     which: c_int,
     mut varargs: VarArgs,
@@ -718,6 +704,7 @@ pub extern "C" fn ___syscall145(
 }
 
 // writev
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall146(
     which: c_int,
     mut varargs: VarArgs,

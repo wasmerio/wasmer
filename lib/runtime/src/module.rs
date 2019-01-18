@@ -40,7 +40,7 @@ pub struct ModuleInner {
     pub sig_registry: SigRegistry,
 }
 
-pub struct Module(Rc<ModuleInner>);
+pub struct Module(pub Rc<ModuleInner>);
 
 impl Module {
     pub(crate) fn new(inner: Rc<ModuleInner>) -> Self {

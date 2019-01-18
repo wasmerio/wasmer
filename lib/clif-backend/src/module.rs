@@ -33,7 +33,7 @@ impl FuncResolver for PlaceholderFuncResolver {
 
 /// This contains all of the items in a `ModuleInner` except the `func_resolver`.
 pub struct Module {
-    module: ModuleInner,
+    pub module: ModuleInner,
 }
 
 impl Module {

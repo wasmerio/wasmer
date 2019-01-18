@@ -8,10 +8,10 @@ extern crate libc;
 extern crate region;
 extern crate structopt;
 extern crate wabt;
-extern crate wasmparser;
 extern crate wasmer_clif_backend;
 extern crate wasmer_runtime;
-extern crate wasmer_emscripten;
+extern crate wasmparser;
+// extern crate wasmer_emscripten;
 #[macro_use]
 extern crate target_lexicon;
 extern crate byteorder;

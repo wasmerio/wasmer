@@ -1,4 +1,4 @@
-use wasmer_runtime::{Instance, module::Module};
+use wasmer_runtime::{module::Module, Instance};
 //use wasmer_runtime::Instance;
 use super::env;
 use libc::stat;
@@ -6,10 +6,11 @@ use std::ffi::CStr;
 use std::mem::size_of;
 use std::os::raw::c_char;
 use std::slice;
+use std::sync::Arc;
 /// We check if a provided module is an Emscripten generated one
-pub fn is_emscripten_module(module: &Module) -> bool {
-    for (_, import_name) in &module.imported_functions {
-        if import_name.name == "_emscripten_memcpy_big" && import_name.module == "env" {
+pub fn is_emscripten_module(module: &Arc<Module>) -> bool {
+    for (_, import_name) in &module.0.imported_functions {
+        if import_name.name == "_emscripten_memcpy_big" && import_name.namespace == "env" {
             return true;
         }
     }
@@ -50,14 +51,14 @@ pub unsafe fn allocate_on_stack<'a, T: Copy>(
     instance: &'a Instance,
 ) -> (u32, &'a mut [T]) {
     unimplemented!("allocate_on_stack not implemented")
-//    let offset = (instance.emscripten_data().as_ref().unwrap().stack_alloc)(
-//        count * (size_of::<T>() as u32),
-//        instance,
-//    );
-//    let addr = instance.memory_offset_addr(0, offset as _) as *mut T;
-//    let slice = slice::from_raw_parts_mut(addr, count as usize);
-//
-//    (offset, slice)
+    //    let offset = (instance.emscripten_data().as_ref().unwrap().stack_alloc)(
+    //        count * (size_of::<T>() as u32),
+    //        instance,
+    //    );
+    //    let addr = instance.memory_offset_addr(0, offset as _) as *mut T;
+    //    let slice = slice::from_raw_parts_mut(addr, count as usize);
+    //
+    //    (offset, slice)
 }
 
 pub unsafe fn allocate_cstr_on_stack<'a>(s: &str, instance: &'a Instance) -> (u32, &'a [u8]) {
@@ -111,6 +112,7 @@ pub struct GuestStat {
     st_ino: u64,
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat) {
     let stat_ptr = instance.memory_offset_addr(0, buf as _) as *mut GuestStat;
     (*stat_ptr).st_dev = stat.st_dev as _;
@@ -141,14 +143,18 @@ pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat
 #[cfg(test)]
 mod tests {
     use super::is_emscripten_module;
-    use wasmer_clif_backend::CraneliftCompiler;
+    use std::sync::Arc;
     use wabt::wat2wasm;
+    use wasmer_clif_backend::CraneliftCompiler;
+    use wasmer_runtime::{compile, module::Module};
 
     #[test]
     fn should_detect_emscripten_files() {
         const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
         let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
-        let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module =
+            compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module = Arc::new(module);
         assert!(is_emscripten_module(&module));
     }
 
@@ -156,7 +162,9 @@ mod tests {
     fn should_detect_non_emscripten_files() {
         const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
         let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
-        let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module =
+            compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module = Arc::new(module);
         assert!(!is_emscripten_module(&module));
     }
 }

@@ -142,6 +142,7 @@ impl LocalBacking {
         tables.into_boxed_map()
     }
 
+    #[allow(clippy::cast_ptr_alignment)]
     fn finalize_tables(
         module: &ModuleInner,
         imports: &ImportBacking,

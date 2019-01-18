@@ -11,8 +11,8 @@ use std::sync::Arc;
 use structopt::StructOpt;
 
 use wasmer::*;
-use wasmer_runtime;
 use wasmer_emscripten;
+use wasmer_runtime;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]
@@ -80,10 +80,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         webassembly::InstanceABI::None
     };
 
-    let import_object = if abi == webassembly::InstanceABI::Emscripten {
-        wasmer_emscripten::generate_emscripten_env()
+    let emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
+
+    let mut import_object = if abi == webassembly::InstanceABI::Emscripten {
+        wasmer_emscripten::generate_emscripten_env(&emscripten_globals)
     } else {
-        wasmer_runtime::Imports::new()
+        wasmer_runtime::import::Imports::new()
     };
 
     let instance_options = webassembly::InstanceOptions {
@@ -92,12 +94,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         mock_missing_tables: true,
         abi: abi,
         show_progressbar: true,
-//        isa: isa,
     };
 
     debug!("webassembly - creating instance");
 
-    let mut instance = module.instantiate(&import_object)
+    let mut instance = module
+        .instantiate(import_object)
         .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err))?;
 
     webassembly::start_instance(
