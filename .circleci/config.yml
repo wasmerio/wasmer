@@ -4,7 +4,7 @@ jobs:
   test:
     docker:
       - image: circleci/rust:latest
-
+    resource_class: medium+
     steps:
       - checkout
       - restore_cache:
@@ -28,7 +28,7 @@ jobs:
   test-macos:
     macos:
       xcode: "9.0"
-
+    resource_class: medium+
     steps:
       - checkout
       - restore_cache:
@@ -77,7 +77,7 @@ jobs:
   test-and-build:
     docker:
       - image: circleci/rust:latest
-
+    resource_class: medium+
     steps:
       - checkout
       - restore_cache:
@@ -122,7 +122,7 @@ jobs:
   test-and-build-macos:
     macos:
       xcode: "9.0"
-
+    resource_class: medium+
     steps:
       - checkout
       - restore_cache:
@@ -189,7 +189,7 @@ jobs:
   test-rust-nightly:
     docker:
       - image: circleci/rust:latest
-
+    resource_class: medium+
     steps:
       - checkout
       - restore_cache:

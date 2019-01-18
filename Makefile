@@ -29,7 +29,8 @@ precommit: lint test
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all -- --test-threads=1 $(runargs)
+	# cargo test --all -- --test-threads=1 $(runargs)
+	cargo test -p wasmer-runtime -- --test-threads=1 $(runargs)
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
