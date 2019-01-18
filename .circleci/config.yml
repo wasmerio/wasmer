@@ -8,7 +8,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - lint-{{ arch }}-{{ checksum "Cargo.lock" }}-2
       - run: 
           name: Install dependencies
           command: |
@@ -29,7 +29,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: lint-{{ arch }}-{{ checksum "Cargo.lock" }}-2
 
   test:
     docker:
@@ -75,8 +75,7 @@ jobs:
       - run:
           name: Install crate dependencies
           command: |
-            brew unlink libtool
-            brew uninstall libtool && brew install libtool || true
+            brew install libtool || true
             brew install autoconf cmake libffi || true
       - save_cache:
           paths:
@@ -179,8 +178,7 @@ jobs:
       - run:
           name: Install crate dependencies
           command: |
-            brew unlink libtool
-            brew uninstall libtool && brew install libtool || true
+            brew install libtool || true
             brew install autoconf cmake libffi || true
       - save_cache:
           paths:
