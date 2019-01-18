@@ -1,5 +1,6 @@
 use crate::{
     backend::FuncResolver,
+    error::Result,
     import::Imports,
     sig_registry::SigRegistry,
     structures::Map,
@@ -47,7 +48,7 @@ impl Module {
     }
 
     /// Instantiate a webassembly module with the provided imports.
-    pub fn instantiate(&self, imports: Imports) -> Result<Instance, String> {
+    pub fn instantiate(&self, imports: Imports) -> Result<Instance> {
         Instance::new(Rc::clone(&self.0), Box::new(imports))
     }
 }
