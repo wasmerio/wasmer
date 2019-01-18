@@ -4,7 +4,10 @@
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
 
-use crate::sighandler::install_sighandler;
+use crate::{
+    error::{RuntimeError, RuntimeResult},
+    sighandler::install_sighandler,
+};
 use nix::libc::siginfo_t;
 use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 use std::cell::{Cell, UnsafeCell};
@@ -23,7 +26,7 @@ thread_local! {
     pub static CAUGHT_ADDRESS: Cell<usize> = Cell::new(0);
 }
 
-pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, String> {
+pub fn call_protected<T>(f: impl FnOnce() -> T) -> RuntimeResult<T> {
     unsafe {
         let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
         let prev_jmp_buf = *jmp_buf;
@@ -45,7 +48,11 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> Result<T, String> {
                 Err(_) => "error while getting the Signal",
                 _ => "unkown trapped signal",
             };
-            Err(format!("trap at {:#x} - {}", addr, signal))
+            // When the trap-handler is fully implemented, this will return more information.
+            Err(RuntimeError::Unknown {
+                msg: format!("trap at {:#x} - {}", addr, signal),
+            }
+            .into())
         } else {
             let ret = f(); // TODO: Switch stack?
             *jmp_buf = prev_jmp_buf;

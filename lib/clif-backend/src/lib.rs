@@ -11,7 +11,11 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
-use wasmer_runtime::{backend::Compiler, module::ModuleInner};
+use wasmer_runtime::{
+    backend::Compiler,
+    error::{CompileError, CompileResult},
+    module::ModuleInner,
+};
 use wasmparser::{self, WasmDecoder};
 
 pub struct CraneliftCompiler {}
@@ -24,7 +28,7 @@ impl CraneliftCompiler {
 
 impl Compiler for CraneliftCompiler {
     // Compiles wasm binary to a wasmer module.
-    fn compile(&self, wasm: &[u8]) -> Result<ModuleInner, String> {
+    fn compile(&self, wasm: &[u8]) -> CompileResult<ModuleInner> {
         validate(wasm)?;
 
         let isa = get_isa();
@@ -53,15 +57,15 @@ fn get_isa() -> Box<isa::TargetIsa> {
     isa::lookup(Triple::host()).unwrap().finish(flags)
 }
 
-fn validate(bytes: &[u8]) -> Result<(), String> {
+fn validate(bytes: &[u8]) -> CompileResult<()> {
     let mut parser = wasmparser::ValidatingParser::new(bytes, None);
     loop {
         let state = parser.read();
         match *state {
             wasmparser::ParserState::EndWasm => break Ok(()),
-            wasmparser::ParserState::Error(err) => {
-                return Err(format!("Validation error: {}", err.message));
-            }
+            wasmparser::ParserState::Error(err) => Err(CompileError::ValidationError {
+                msg: err.message.to_string(),
+            })?,
             _ => {}
         }
     }

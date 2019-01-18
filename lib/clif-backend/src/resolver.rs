@@ -7,6 +7,7 @@ use std::ptr::{write_unaligned, NonNull};
 use wasmer_runtime::{
     self,
     backend::{self, Mmap, Protect},
+    error::{CompileError, CompileResult},
     structures::Map,
     types::LocalFuncIndex,
     vm, vmcalls,
@@ -23,7 +24,7 @@ impl FuncResolverBuilder {
     pub fn new(
         isa: &isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
-    ) -> Result<Self, String> {
+    ) -> CompileResult<Self> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
         let mut relocations = Map::with_capacity(function_bodies.len());
         let mut trap_sinks = Map::with_capacity(function_bodies.len());
@@ -38,7 +39,7 @@ impl FuncResolverBuilder {
             let mut trap_sink = TrapSink::new();
 
             ctx.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
-                .map_err(|e| format!("compile error: {}", e.to_string()))?;
+                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
             ctx.clear();
             // Round up each function's size to pointer alignment.
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
@@ -48,11 +49,24 @@ impl FuncResolverBuilder {
             trap_sinks.push(trap_sink);
         }
 
-        let mut memory = Mmap::with_size(total_size)?;
+        let mut memory = Mmap::with_size(total_size)
+            .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         unsafe {
-            memory.protect(0..memory.size(), Protect::ReadWrite)?;
+            memory
+                .protect(0..memory.size(), Protect::ReadWrite)
+                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         }
 
+        // Normally, excess memory due to alignment and page-rounding would
+        // be filled with null-bytes. On x86 (and x86_64),
+        // "\x00\x00" disassembles to "add byte ptr [eax],al".
+        //
+        // If the instruction pointer falls out of its designated area,
+        // it would be better if it would immediately crash instead of
+        // continuing on and causing non-local issues.
+        //
+        // "\xCC" disassembles to "int3", which will immediately cause
+        // an interrupt that we can catch if we want.
         for i in unsafe { memory.as_slice_mut() } {
             *i = 0xCC;
         }
@@ -77,7 +91,7 @@ impl FuncResolverBuilder {
         })
     }
 
-    pub fn finalize(mut self) -> Result<FuncResolver, String> {
+    pub fn finalize(mut self) -> CompileResult<FuncResolver> {
         for (index, relocs) in self.relocations.iter() {
             for ref reloc in relocs {
                 let target_func_address: isize = match reloc.target {
@@ -98,11 +112,17 @@ impl FuncResolverBuilder {
                         ir::LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
                         ir::LibCall::Probestack => libcalls::__rust_probestack as isize,
                         _ => {
-                            panic!("unexpected libcall {}", libcall);
+                            Err(CompileError::InternalError {
+                                msg: format!("unexpected libcall: {}", libcall),
+                            })?
+                            // panic!("unexpected libcall {}", libcall);
                         }
                     },
                     RelocationType::Intrinsic(ref name) => {
-                        panic!("unexpected intrinsic {}", name);
+                        Err(CompileError::InternalError {
+                            msg: format!("unexpected intrinsic: {}", name),
+                        })?
+                        // panic!("unexpected intrinsic {}", name);
                     }
                     RelocationType::VmCall(vmcall) => match vmcall {
                         VmCall::LocalStaticMemoryGrow => vmcalls::local_static_memory_grow as _,
@@ -141,7 +161,9 @@ impl FuncResolverBuilder {
                             (target_func_address - reloc_address + reloc_addend) as i32;
                         write_unaligned(reloc_address as *mut i32, reloc_delta_i32);
                     },
-                    _ => panic!("unsupported reloc kind"),
+                    _ => Err(CompileError::InternalError {
+                        msg: format!("unsupported reloc kind: {}", reloc.reloc),
+                    })?,
                 }
             }
         }
@@ -149,7 +171,8 @@ impl FuncResolverBuilder {
         unsafe {
             self.resolver
                 .memory
-                .protect(0..self.resolver.memory.size(), Protect::ReadExec)?;
+                .protect(0..self.resolver.memory.size(), Protect::ReadExec)
+                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;;
         }
 
         Ok(self.resolver)
