@@ -6,7 +6,6 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use structopt::StructOpt;
