@@ -248,9 +248,9 @@ impl InstanceInner {
     ) -> (MemoryPointer, Context, Memory) {
         match mem_index.local_or_import(module) {
             LocalOrImport::Local(local_mem_index) => {
-                let vm_mem = &mut self.backing.memories[local_mem_index];
+                let vm_mem = &mut self.backing.vm_memories[local_mem_index];
                 (
-                    unsafe { MemoryPointer::new(&mut vm_mem.into_vm_memory(local_mem_index)) },
+                    unsafe { MemoryPointer::new(vm_mem) },
                     Context::Internal,
                     *module
                         .memories
@@ -313,9 +313,9 @@ impl InstanceInner {
     ) -> (TablePointer, Context, Table) {
         match table_index.local_or_import(module) {
             LocalOrImport::Local(local_table_index) => {
-                let vm_table = &mut self.backing.tables[local_table_index];
+                let vm_table = &mut self.backing.vm_tables[local_table_index];
                 (
-                    unsafe { TablePointer::new(&mut vm_table.into_vm_table()) },
+                    unsafe { TablePointer::new(vm_table) },
                     Context::Internal,
                     *module
                         .tables

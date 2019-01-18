@@ -307,29 +307,34 @@ impl ImportBacking {
         imports: &mut Imports,
         vmctx: *mut vm::Ctx,
     ) -> LinkResult<Self> {
+        let mut failed = false;
         let mut link_errors = vec![];
 
         let functions = import_functions(module, imports, vmctx).unwrap_or_else(|le| {
+            failed = true;
             link_errors.extend(le);
             Map::new().into_boxed_map()
         });
 
         let memories = import_memories(module, imports, vmctx).unwrap_or_else(|le| {
+            failed = true;
             link_errors.extend(le);
             Map::new().into_boxed_map()
         });
 
         let tables = import_tables(module, imports, vmctx).unwrap_or_else(|le| {
+            failed = true;
             link_errors.extend(le);
             Map::new().into_boxed_map()
         });
 
         let globals = import_globals(module, imports).unwrap_or_else(|le| {
+            failed = true;
             link_errors.extend(le);
             Map::new().into_boxed_map()
         });
 
-        if link_errors.len() > 0 {
+        if failed {
             Err(link_errors)
         } else {
             Ok(ImportBacking {

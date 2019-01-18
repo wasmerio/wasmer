@@ -351,9 +351,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
             let mut func = ir::Function::with_name_signature(name, sig);
 
-            println!("translating function");
             func_translator.translate(body_bytes, &mut func, &mut func_env)?;
-            println!("done translating function");
 
             func
         };

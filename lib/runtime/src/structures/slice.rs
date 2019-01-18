@@ -7,6 +7,7 @@ use std::{
 /// This is a dynamically-sized slice
 /// that can only be indexed by the
 /// correct index type.
+#[derive(Debug)]
 pub struct SliceMap<K, V>
 where
     K: TypedIndex,
