@@ -25,6 +25,7 @@ const CLOCK_MONOTONIC: libc::clockid_t = 1;
 const CLOCK_MONOTONIC_COARSE: libc::clockid_t = 6;
 
 /// emscripten: _gettimeofday
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
     debug!("emscripten::_gettimeofday {} {}", tp, tz);
     #[repr(C)]
@@ -49,6 +50,7 @@ pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -
 }
 
 /// emscripten: _clock_gettime
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _clock_gettime(
     clk_id: libc::clockid_t,
     tp: c_int,
@@ -124,6 +126,7 @@ pub extern "C" fn _tvset() {
 }
 
 /// formats time as a C string
+#[allow(clippy::cast_ptr_alignment)]
 unsafe extern "C" fn fmt_time(time: u32, instance: &Instance) -> *const c_char {
     let date = &*(instance.memory_offset_addr(0, time as _) as *mut guest_tm);
 
@@ -181,6 +184,7 @@ pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u3
 }
 
 /// emscripten: _localtime
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
     debug!("emscripten::_localtime {}", time_p);
     // NOTE: emscripten seems to want tzset() called in this function
@@ -217,6 +221,7 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
     }
 }
 /// emscripten: _localtime_r
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance) -> c_int {
     debug!("emscripten::_localtime_r {}", time_p);
 
@@ -253,6 +258,7 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
 }
 
 /// emscripten: _time
+#[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _time(time_p: u32, instance: &mut Instance) -> time_t {
     debug!("emscripten::_time {}", time_p);
 

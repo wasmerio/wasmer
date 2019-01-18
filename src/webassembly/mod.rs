@@ -4,15 +4,19 @@ pub mod relocation;
 pub mod utils;
 
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime;
-use wasmer_runtime::{backend::Compiler, module::Module};
-use wasmer_runtime::{Imports, Instance};
+use wasmer_runtime::{
+    backend::Compiler,
+    import::Imports,
+    instance::Instance,
+    module::{Module, ModuleInner},
+};
 
 use cranelift_codegen::{
     isa,
     settings::{self, Configurable},
 };
 use std::panic;
+use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 use target_lexicon;
@@ -21,7 +25,7 @@ use wasmparser::WasmDecoder;
 
 pub use self::errors::{Error, ErrorKind};
 
-// use wasmer_emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
+use wasmer_emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -118,10 +122,12 @@ pub fn instantiate_streaming(
 /// If the operation fails, the Result rejects with a
 /// webassembly::CompileError.
 pub fn compile(buffer_source: &[u8]) -> Result<Arc<Module>, ErrorKind> {
-    let module = wasmer_runtime::compile(&buffer_source, &CraneliftCompiler::new())
+    let compiler = &CraneliftCompiler {};
+    let module_inner = compiler
+        .compile(buffer_source)
         .map_err(|e| ErrorKind::CompileError(e))?;
 
-    Ok(Arc::new(module))
+    Ok(Arc::new(Module(Rc::new(module_inner))))
 }
 
 /// The webassembly::validate() function validates a given typed
@@ -225,8 +231,7 @@ pub fn start_instance(
     path: &str,
     args: Vec<&str>,
 ) -> Result<(), String> {
-    let main_name = if false {
-        // is_emscripten_module(&instance.module)
+    let main_name = if is_emscripten_module(&module) {
         "_main"
     } else {
         "main"

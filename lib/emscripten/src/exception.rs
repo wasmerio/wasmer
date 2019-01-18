@@ -1,5 +1,5 @@
-use super::process::_abort;
 use super::env;
+use super::process::_abort;
 use wasmer_runtime::Instance;
 
 /// emscripten: ___cxa_allocate_exception

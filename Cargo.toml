@@ -52,11 +52,11 @@ libffi = "0.6.4"
 time = "0.1.41"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-runtime = { path = "lib/runtime" }
-# wasmer-emscripten = { path = "lib/emscripten" }
+wasmer-emscripten = { path = "lib/emscripten" }
 libc = { git = "https://github.com/rust-lang/libc" }
 
 [workspace]
-members = ["lib/clif-backend", "lib/runtime"] # "lib/emscripten"
+members = ["lib/clif-backend", "lib/runtime", "lib/emscripten"]
 
 [build-dependencies]
 wabt = "0.7.2"
