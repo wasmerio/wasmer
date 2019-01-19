@@ -6,13 +6,11 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
-use std::sync::Arc;
 
 use structopt::StructOpt;
 
 use wasmer::*;
 use wasmer_emscripten;
-use wasmer_runtime as runtime;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "WASM execution runtime.")]
@@ -81,7 +79,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     let emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
 
-    let mut import_object = if abi == webassembly::InstanceABI::Emscripten {
+    let import_object = if abi == webassembly::InstanceABI::Emscripten {
         wasmer_emscripten::generate_emscripten_env(&emscripten_globals)
     } else {
         wasmer_runtime::import::Imports::new()

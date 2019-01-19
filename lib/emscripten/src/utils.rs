@@ -3,10 +3,8 @@ use wasmer_runtime::{module::Module, Instance};
 use super::env;
 use libc::stat;
 use std::ffi::CStr;
-use std::mem::size_of;
 use std::os::raw::c_char;
 use std::slice;
-use std::sync::Arc;
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
     for (_, import_name) in &module.0.imported_functions {

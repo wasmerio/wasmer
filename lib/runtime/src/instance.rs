@@ -350,7 +350,7 @@ impl Namespace for Instance {
 
 // TODO Remove this later, only needed for compilation till emscripten is updated
 impl Instance {
-    pub fn memory_offset_addr(&self, index: usize, offset: usize) -> *const u8 {
+    pub fn memory_offset_addr(&self, _index: usize, _offset: usize) -> *const u8 {
         unimplemented!()
     }
 }

@@ -198,12 +198,12 @@ pub extern "C" fn ___build_environment(environ: c_int, instance: &mut Instance) 
     const TOTAL_ENV_SIZE: u32 = 1024;
     let mut environment = instance.memory_offset_addr(0, environ as _) as *mut c_int;
     unsafe {
-        let (pool_offset, pool_slice): (u32, &mut [u8]) =
+        let (pool_offset, _pool_slice): (u32, &mut [u8]) =
             allocate_on_stack(TOTAL_ENV_SIZE as u32, instance);
-        let (env_offset, env_slice): (u32, &mut [u8]) =
+        let (env_offset, _env_slice): (u32, &mut [u8]) =
             allocate_on_stack((MAX_ENV_VALUES * 4) as u32, instance);
         let mut env_ptr = instance.memory_offset_addr(0, env_offset as _) as *mut c_int;
-        let mut pool_ptr = instance.memory_offset_addr(0, pool_offset as _) as *mut c_int;
+        let mut _pool_ptr = instance.memory_offset_addr(0, pool_offset as _) as *mut c_int;
         *env_ptr = pool_offset as i32;
         *environment = env_offset as i32;
 

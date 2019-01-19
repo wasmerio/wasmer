@@ -1,13 +1,8 @@
 #[macro_use]
 extern crate wasmer_runtime;
 
-#[macro_use]
-use wasmer_runtime::macros;
-
 use byteorder::{ByteOrder, LittleEndian};
-use hashbrown::{hash_map::Entry, HashMap};
-use libc::c_int;
-use std::cell::UnsafeCell;
+use hashbrown::HashMap;
 use std::mem;
 use wasmer_runtime::{
     export::{Context, Export, FuncPointer, GlobalPointer},
@@ -16,9 +11,8 @@ use wasmer_runtime::{
     types::{
         FuncSig, GlobalDesc,
         Type::{self, *},
-        Value,
     },
-    vm::{self, Func, LocalGlobal},
+    vm::LocalGlobal,
 };
 
 //#[cfg(test)]
