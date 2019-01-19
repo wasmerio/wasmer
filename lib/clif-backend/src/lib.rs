@@ -1,4 +1,3 @@
-// pub mod codegen;
 mod func_env;
 mod libcalls;
 mod module;

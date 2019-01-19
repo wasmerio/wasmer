@@ -8,15 +8,6 @@ fn main() {
     println!("result: {:?}", result);
 }
 
-// fn generate_imports() -> Imports {
-//     // let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
-//     // let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
-//     // let instance = module.instantiate(Rc::new(Imports::new())).expect("WASM can't be instantiated");
-//     let imports = Imports::new();
-//     // imports.register("spectest", instance);
-//     imports
-// }
-
 fn create_module_1() -> Instance {
     let module_str = r#"(module
       (type (;0;) (func (result i32)))
