@@ -1,5 +1,4 @@
 extern crate structopt;
-extern crate wasmer;
 
 use std::fs::File;
 use std::io;
