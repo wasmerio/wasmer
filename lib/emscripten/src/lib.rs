@@ -38,6 +38,13 @@ mod syscalls;
 mod time;
 mod utils;
 mod varargs;
+mod memory_layout;
+pub mod host_data;
+
+pub use self::host_data::{
+    EmscriptenImports,
+    EmscriptenData,
+};
 
 pub use self::storage::align_memory;
 pub use self::utils::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
@@ -64,15 +71,6 @@ fn dynamic_base(static_bump: u32) -> u32 {
 fn dynamictop_ptr(static_bump: u32) -> u32 {
     static_bump + DYNAMICTOP_PTR_DIFF
 }
-
-//pub struct EmscriptenData {
-//    pub malloc: extern "C" fn(i32, &Instance) -> u32,
-//    pub free: extern "C" fn(i32, &mut Instance),
-//    pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
-//    pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
-//    pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
-//    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
-//}
 
 pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;

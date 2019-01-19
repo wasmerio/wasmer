@@ -1,4 +1,4 @@
-/********************  Mock Function Macro Implementation ********************/
+/******************** Mock Function Macro Implementation ********************/
 
 #[macro_export]
 macro_rules! mock_external {
@@ -53,7 +53,7 @@ macro_rules! ret_value {
     (F64) => { -1.0 };
 }
 
-/********************  Export Pointers ********************/
+/******************** Export Pointers ********************/
 
 #[macro_export]
 macro_rules! func {
@@ -74,3 +74,11 @@ macro_rules! global {
     }};
 }
 
+
+/******************** Debug ********************/
+
+#[macro_export]
+macro_rules! debug {
+    ($fmt:expr) => (if cfg!(any(debug_assertions, feature="debug")) { println!(concat!("wasmer-emscripten(:{})::", $fmt), line!()) });
+    ($fmt:expr, $($arg:tt)*) => (if cfg!(any(debug_assertions, feature="debug")) { println!(concat!("wasmer-emscripten(:{})::", $fmt, "\n"), line!(), $($arg)*) });
+}

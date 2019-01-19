@@ -38,7 +38,7 @@ impl Imports {
 }
 
 pub struct NamespaceMap {
-    map: HashMap<String, Export>,
+    pub map: HashMap<String, Export>,
 }
 
 impl NamespaceMap {
