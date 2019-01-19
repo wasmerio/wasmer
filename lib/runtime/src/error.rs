@@ -80,8 +80,10 @@ impl PartialEq for LinkError {
 #[derive(Debug, Clone)]
 pub enum RuntimeError {
     OutOfBoundsAccess { memory: MemoryIndex, addr: u32 },
+    TableOutOfBounds { table: TableIndex },
     IndirectCallSignature { table: TableIndex },
     IndirectCallToNull { table: TableIndex },
+    IllegalArithmeticOperation,
     Unknown { msg: String },
 }
 

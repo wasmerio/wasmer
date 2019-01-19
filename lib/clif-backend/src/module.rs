@@ -94,10 +94,10 @@ impl Module {
             *sig_index = sig_registry.lookup_deduplicated_sigindex(*sig_index);
         });
 
-        let func_resolver_builder = FuncResolverBuilder::new(isa, functions)?;
+        let (func_resolver_builder, handler_data) = FuncResolverBuilder::new(isa, functions)?;
         self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
 
-        self.module.protected_caller = Box::new(Caller::new(&self.module));
+        self.module.protected_caller = Box::new(Caller::new(&self.module, handler_data));
 
         Ok(self.module)
     }

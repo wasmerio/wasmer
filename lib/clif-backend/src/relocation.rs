@@ -3,10 +3,10 @@
 //! any other calls that this function is doing, so we can "patch" the
 //! function addrs in runtime with the functions we need.
 use cranelift_codegen::binemit;
-use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
-use wasmer_runtime::{structures::TypedIndex, types::LocalFuncIndex};
-
 pub use cranelift_codegen::binemit::Reloc;
+use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
+use hashbrown::HashMap;
+use wasmer_runtime::{structures::TypedIndex, types::LocalFuncIndex};
 
 #[derive(Debug, Clone)]
 pub struct Relocation {
@@ -133,30 +133,50 @@ impl RelocSink {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct TrapData {
-    pub offset: usize,
-    pub code: TrapCode,
+    pub trapcode: TrapCode,
+    pub srcloc: SourceLoc,
 }
 
 /// Simple implementation of a TrapSink
 /// that saves the info for later.
 pub struct TrapSink {
-    trap_datas: Vec<TrapData>,
+    trap_datas: HashMap<usize, TrapData>,
 }
 
 impl TrapSink {
     pub fn new() -> TrapSink {
         TrapSink {
-            trap_datas: Vec::new(),
+            trap_datas: HashMap::new(),
         }
+    }
+
+    pub fn lookup(&self, offset: usize) -> Option<TrapData> {
+        self.trap_datas.get(&offset).cloned()
+    }
+
+    pub fn drain_local(&mut self, current_func_offset: usize, local: &mut LocalTrapSink) {
+        local.trap_datas.drain(..).for_each(|(offset, trap_data)| {
+            self.trap_datas
+                .insert(current_func_offset + offset, trap_data);
+        });
     }
 }
 
-impl binemit::TrapSink for TrapSink {
-    fn trap(&mut self, offset: u32, _: SourceLoc, code: TrapCode) {
-        self.trap_datas.push(TrapData {
-            offset: offset as usize,
-            code,
-        });
+pub struct LocalTrapSink {
+    trap_datas: Vec<(usize, TrapData)>,
+}
+
+impl LocalTrapSink {
+    pub fn new() -> Self {
+        LocalTrapSink { trap_datas: vec![] }
+    }
+}
+
+impl binemit::TrapSink for LocalTrapSink {
+    fn trap(&mut self, offset: u32, srcloc: SourceLoc, trapcode: TrapCode) {
+        self.trap_datas
+            .push((offset as usize, TrapData { trapcode, srcloc }));
     }
 }

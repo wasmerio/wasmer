@@ -1,6 +1,8 @@
 mod recovery;
 mod sighandler;
 
+pub use self::recovery::HandlerData;
+
 use crate::call::recovery::call_protected;
 use hashbrown::HashSet;
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
@@ -16,10 +18,11 @@ use wasmer_runtime::{
 
 pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
+    handler_data: HandlerData,
 }
 
 impl Caller {
-    pub fn new(module: &ModuleInner) -> Self {
+    pub fn new(module: &ModuleInner, handler_data: HandlerData) -> Self {
         let mut func_export_set = HashSet::new();
         for export_index in module.exports.values() {
             if let ExportIndex::Func(func_index) = export_index {
@@ -30,7 +33,10 @@ impl Caller {
             func_export_set.insert(start_func_index);
         }
 
-        Self { func_export_set }
+        Self {
+            func_export_set,
+            handler_data,
+        }
     }
 }
 
@@ -74,7 +80,7 @@ impl ProtectedCaller for Caller {
 
         let code_ptr = CodePtr::from_ptr(func_ptr as _);
 
-        call_protected(|| {
+        call_protected(&self.handler_data, || {
             // Only supports zero or one return values for now.
             // To support multiple returns, we will have to
             // generate trampolines instead of using libffi.

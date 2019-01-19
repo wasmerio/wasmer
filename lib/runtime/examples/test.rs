@@ -4,7 +4,7 @@ use wasmer_runtime::{import::Imports, Instance};
 
 fn main() {
     let mut instance = create_module_1();
-    let result = instance.call("get-0", &[]);
+    let result = instance.call("call-overwritten", &[]);
     println!("result: {:?}", result);
 }
 
@@ -19,15 +19,15 @@ fn main() {
 
 fn create_module_1() -> Instance {
     let module_str = r#"(module
-      (type (;0;) (func (result i32)))
-      (import "spectest" "global_i32" (global (;0;) i32))
-      (func (;0;) (type 0) (result i32)
-        get_global 0)
-      (func (;1;) (type 0) (result i32)
-        get_global 1)
-      (global (;1;) i32 (get_global 0))
-      (export "get-0" (func 0))
-      (export "get-0-ref" (func 1)))
+    (type (;0;) (func (result i32)))
+    (type (;1;) (func))
+    (table 10 anyfunc)
+    (elem (i32.const 0) 0)
+    (func (;0;) (type 0) (i32.const 65))
+    (func (;1;) (type 1))
+    (func (export "call-overwritten") (type 0)
+        (call_indirect (type 0) (i32.const 0))
+    ))
     "#;
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
