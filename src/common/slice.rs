@@ -85,14 +85,14 @@ impl<T> Index<usize> for BoundedSlice<T> {
     type Output = T;
     fn index(&self, index: usize) -> &T {
         self.get(index)
-            .expect(&format!("index: {} was out of bounds.", index))
+            .unwrap_or_else(|| panic!("index: {} was out of bounds.", index))
     }
 }
 
 impl<T> IndexMut<usize> for BoundedSlice<T> {
     fn index_mut(&mut self, index: usize) -> &mut T {
         self.get_mut(index)
-            .expect(&format!("index: {} was out of bounds.", index))
+            .unwrap_or_else(|| panic!("index: {} was out of bounds.", index))
     }
 }
 
