@@ -1,5 +1,3 @@
-pub mod libcalls;
-pub mod relocation;
 pub mod utils;
 
 use wasmer_clif_backend::CraneliftCompiler;
