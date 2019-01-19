@@ -8,22 +8,11 @@ use wasmer_runtime::{
     error::{CallResult, Result},
     import::Imports,
     instance::Instance,
-    module::{Module, ModuleInner},
+    module::Module,
 };
 
-use cranelift_codegen::{
-    isa,
-    settings::{self, Configurable},
-};
 use std::panic;
-use std::rc::Rc;
-use std::str::FromStr;
-use std::sync::Arc;
-use target_lexicon;
-use wasmparser;
-use wasmparser::WasmDecoder;
-
-use wasmer_emscripten::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
+use wasmer_emscripten::is_emscripten_module;
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -32,16 +21,6 @@ pub struct ResultObject {
     /// A webassembly::Instance object that contains all the Exported WebAssembly
     /// functions.
     pub instance: Box<Instance>,
-}
-
-pub struct InstanceOptions {
-    // Shall we mock automatically the imported functions if they don't exist?
-    pub mock_missing_imports: bool,
-    pub mock_missing_globals: bool,
-    pub mock_missing_tables: bool,
-    pub abi: InstanceABI,
-    pub show_progressbar: bool,
-    //    pub isa: Box<isa::TargetIsa>, TODO isa
 }
 
 #[derive(PartialEq)]
@@ -64,39 +43,18 @@ pub enum InstanceABI {
 /// If the operation fails, the Result rejects with a
 /// webassembly::CompileError, webassembly::LinkError, or
 /// webassembly::RuntimeError, depending on the cause of the failure.
-pub fn instantiate(
-    buffer_source: &[u8],
-    import_object: &Imports,
-    options: Option<InstanceOptions>,
-) -> Result<ResultObject> {
-    debug!("webassembly - creating instance");
+pub fn instantiate(buffer_source: &[u8], import_object: Imports) -> Result<ResultObject> {
+    debug!("webassembly - compiling module");
+    let module = compile(&buffer_source[..])?;
 
-    //let instance = Instance::new(&module, import_object, options)?;
-    unimplemented!()
-    //    let instance = wasmer_runtime::instantiate(buffer_source, &CraneliftCompiler::new(), import_object)
-    //        .map_err(|e| ErrorKind::CompileError(e))?;
-    //
-    //    let isa = get_isa();
-    //    let abi = if is_emscripten_module(&instance.module) {
-    //        InstanceABI::Emscripten
-    //    } else {
-    //        InstanceABI::None
-    //    };
-    //
-    //    let options = options.unwrap_or_else(|| InstanceOptions {
-    //        mock_missing_imports: false,
-    //        mock_missing_globals: false,
-    //        mock_missing_tables: false,
-    //        abi,
-    //        show_progressbar: false,
-    //        isa,
-    //    });
+    debug!("webassembly - instantiating");
+    let instance = module.instantiate(import_object)?;
 
-    //    debug!("webassembly - instance created");
-    //    Ok(ResultObject {
-    //        module: Arc::clone(&instance.module),
-    //        instance,
-    //    })
+    debug!("webassembly - instance created");
+    Ok(ResultObject {
+        module,
+        instance: Box::new(instance),
+    })
 }
 
 /// The webassembly::instantiate_streaming() function compiles and instantiates
@@ -122,31 +80,16 @@ pub fn instantiate_streaming(
 pub fn compile(buffer_source: &[u8]) -> Result<Module> {
     let compiler = CraneliftCompiler::new();
     let module = runtime::compile(buffer_source, &compiler)?;
-
     Ok(module)
 }
 
-pub fn get_isa() -> Box<isa::TargetIsa> {
-    let flags = {
-        let mut builder = settings::builder();
-        builder.set("opt_level", "best").unwrap();
-
-        if cfg!(not(test)) {
-            builder.set("enable_verifier", "false").unwrap();
-        }
-
-        let flags = settings::Flags::new(builder);
-        debug_assert_eq!(flags.opt_level(), settings::OptLevel::Best);
-        flags
-    };
-    isa::lookup(triple!("x86_64")).unwrap().finish(flags)
-}
-
-pub fn start_instance(
+/// Performs common instance operations needed when an instance is first run
+/// including data setup, handling arguments and calling a main function
+pub fn run_instance(
     module: &Module,
     instance: &mut Instance,
-    path: &str,
-    args: Vec<&str>,
+    _path: &str,
+    _args: Vec<&str>,
 ) -> CallResult<()> {
     let main_name = if is_emscripten_module(module) {
         "_main"

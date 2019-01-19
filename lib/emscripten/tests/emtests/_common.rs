@@ -20,7 +20,7 @@ macro_rules! assert_emscripten_output {
         let import_object = generate_emscripten_env(&emscripten_globals);
 
         let mut instance = module.instantiate(import_object)
-            .map_err(|err| format!("Can't instantiate the WebAssembly module: {}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
+            .map_err(|err| format!("Can't instantiate the WebAssembly module: {:?}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
 
 //        start_instance(
 //            Arc::clone(&module),

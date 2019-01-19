@@ -9,11 +9,12 @@ use std::process::exit;
 
 use structopt::StructOpt;
 
+use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "wasmer", about = "WASM execution runtime.")]
+#[structopt(name = "wasmer", about = "Wasm execution runtime.")]
 /// The options for the wasmer Command Line Interface
 enum CLIOptions {
     /// Run a WebAssembly file. Formats accepted: wasm, wast
@@ -49,7 +50,7 @@ fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
     Ok(buffer)
 }
 
-/// Execute a WASM/WAT file
+/// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
     let wasm_path = &options.path;
 
@@ -66,53 +67,37 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    let isa = webassembly::get_isa();
+    let module = webassembly::compile(&wasm_binary[..])
+        .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
-    debug!("webassembly - creating module");
-    let module = webassembly::compile(&wasm_binary[..]).map_err(|e| format!("{:?}", e))?;
-
-    let abi = if wasmer_emscripten::is_emscripten_module(&module) {
-        webassembly::InstanceABI::Emscripten
+    let (_abi, import_object) = if wasmer_emscripten::is_emscripten_module(&module) {
+        let emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
+        (
+            InstanceABI::Emscripten,
+            wasmer_emscripten::generate_emscripten_env(&emscripten_globals),
+        )
     } else {
-        webassembly::InstanceABI::None
+        (InstanceABI::None, wasmer_runtime::import::Imports::new())
     };
-
-    let emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
-
-    let import_object = if abi == webassembly::InstanceABI::Emscripten {
-        wasmer_emscripten::generate_emscripten_env(&emscripten_globals)
-    } else {
-        wasmer_runtime::import::Imports::new()
-    };
-
-    let instance_options = webassembly::InstanceOptions {
-        mock_missing_imports: true,
-        mock_missing_globals: true,
-        mock_missing_tables: true,
-        abi: abi,
-        show_progressbar: true,
-    };
-
-    debug!("webassembly - creating instance");
 
     let mut instance = module
         .instantiate(import_object)
-        .map_err(|e| format!("{:?}", e))?;
+        .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
-    Ok(webassembly::start_instance(
+    webassembly::run_instance(
         &module,
         &mut instance,
         options.path.to_str().unwrap(),
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
-    .map_err(|e| format!("{:?}", e))?)
+    .map_err(|e| format!("{:?}", e))?;
+    Ok(())
 }
 
 fn run(options: Run) {
     match execute_wasm(&options) {
         Ok(()) => {}
         Err(message) => {
-            // let name = options.path.as_os_str().to_string_lossy();
             println!("{:?}", message);
             exit(1);
         }
