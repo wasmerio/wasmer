@@ -24,6 +24,7 @@ pub(crate) struct InstanceInner {
     vmctx: Box<vm::Ctx>,
 }
 
+/// A WebAssembly instance
 pub struct Instance {
     pub module: Rc<ModuleInner>,
     inner: Box<InstanceInner>,

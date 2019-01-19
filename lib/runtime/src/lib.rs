@@ -31,7 +31,7 @@ pub use self::instance::Instance;
 pub use self::module::Module;
 use std::rc::Rc;
 
-/// Compile a webassembly module using the provided compiler.
+/// Compile a WebAssembly module using the provided compiler.
 pub fn compile(wasm: &[u8], compiler: &dyn backend::Compiler) -> CompileResult<module::Module> {
     compiler
         .compile(wasm)

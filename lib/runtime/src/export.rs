@@ -111,7 +111,7 @@ impl<'a> ExportIter<'a> {
         Self {
             inner,
             iter: module.exports.iter(),
-            module: module,
+            module,
         }
     }
 }
