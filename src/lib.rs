@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate error_chain;
 extern crate cranelift_codegen;
 extern crate cranelift_entity;
 extern crate cranelift_native;
@@ -12,8 +10,6 @@ extern crate wasmer_clif_backend;
 extern crate wasmer_runtime;
 extern crate wasmparser;
 // extern crate wasmer_emscripten;
-#[macro_use]
-extern crate target_lexicon;
 extern crate byteorder;
 extern crate console;
 #[cfg_attr(test, macro_use)]
