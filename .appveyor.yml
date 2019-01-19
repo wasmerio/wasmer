@@ -90,8 +90,7 @@ install:
   # rename this do get it out sh.exe out of the path
   - rename "C:\Program Files\Git\usr\bin\sh.exe" sh2.exe
   # install some extra tools for libffi-sys
-  - set PATH=C:\msys64\usr\bin;%PATH%
-  - C:\msys64\usr\bin\bash -lc "pacman --noconfirm -S automake autoconf texinfo mingw-w64-x86_64-clang libtool"
+  - C:\MinGW\bin\mingw-get install autotools autoconf automake
   # * set RUST_BACKTRACE for enhanced error messages
   - set RUST_BACKTRACE=1
   # * show versions
