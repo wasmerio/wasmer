@@ -174,7 +174,7 @@ pub mod converter {
 
     /// Converts a Cranelift table to a Wasmer table.
     pub fn convert_memory(memory: Memory) -> WasmerMemory {
-        println!("codegen memory: {:?}", memory);
+        debug!("codegen memory: {:?}", memory);
         WasmerMemory {
             shared: memory.shared,
             min: memory.minimum,
@@ -315,7 +315,6 @@ impl<'environment> FuncEnvironment<'environment> {
 
     /// Creates a signature with VMContext as the last param
     pub fn generate_signature(&self, sig_index: SignatureIndex) -> ir::Signature {
-        // Get signature
         let mut signature = self.module.signatures[sig_index.index()].clone();
 
         // Add the vmctx parameter type to it
@@ -324,7 +323,6 @@ impl<'environment> FuncEnvironment<'environment> {
             ir::ArgumentPurpose::VMContext,
         ));
 
-        // Return signature
         signature
     }
 }
