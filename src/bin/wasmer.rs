@@ -97,7 +97,7 @@ fn run(options: Run) {
     match execute_wasm(&options) {
         Ok(()) => {}
         Err(message) => {
-            println!("{:?}", message);
+            eprintln!("{:?}", message);
             exit(1);
         }
     }
