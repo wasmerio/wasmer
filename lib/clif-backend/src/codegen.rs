@@ -314,9 +314,9 @@ impl<'environment> FuncEnvironment<'environment> {
     }
 
     /// Creates a signature with VMContext as the last param
-    pub fn generate_signature(&self, sigidx: SignatureIndex) -> ir::Signature {
+    pub fn generate_signature(&self, sig_index: SignatureIndex) -> ir::Signature {
         // Get signature
-        let mut signature = self.module.signatures[sigidx.index()].clone();
+        let mut signature = self.module.signatures[sig_index.index()].clone();
 
         // Add the vmctx parameter type to it
         signature.params.push(ir::AbiParam::special(
