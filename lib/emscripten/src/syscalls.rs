@@ -366,9 +366,6 @@ pub extern "C" fn ___syscall102(
             let address_len: u32 = socket_varargs.get(instance);
             let address = instance.memory_offset_addr(0, address as usize) as *mut sockaddr;
 
-            // we convert address as a sockaddr (even if this is incorrect), to bypass the type
-            // issue with libc bind
-
             // Debug received address
             unsafe {
                 let proper_address = address as *const GuestSockaddrIn;
@@ -438,6 +435,7 @@ pub extern "C" fn ___syscall102(
             unsafe {
                 ioctl(fd, FIOCLEX);
             };
+
             debug!("fd: {}", fd);
 
             fd
