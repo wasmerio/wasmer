@@ -57,9 +57,9 @@ use crate::macros;
 /// by a webassembly instance.
 pub struct EmscriptenData {
     // Memories owned by the Emscripten environment.
-    pub memories: HashMap<String, HashMap<String, (Vec<u8>, LocalMemory, Export)>>,
+    pub memories: HashMap<String, HashMap<String, (Vec<u8>, Box<LocalMemory>, Export)>>,
     // Tables owned by the Emscripten environment.
-    pub tables: HashMap<String, HashMap<String, (Vec<u8>, LocalTable, Export)>>,
+    pub tables: HashMap<String, HashMap<String, (Vec<u8>, Box<LocalTable>, Export)>>,
     // Globals owned by the Emscripten environment.
     pub globals: HashMap<String, HashMap<String, (LocalGlobal, Export)>>,
 }
@@ -74,9 +74,9 @@ impl EmscriptenData {
     }
 
     /// Generates owned memories based on imports definition.
-    pub fn generate_memories(module: &Module) -> HashMap<String, HashMap<String, (Vec<u8>, LocalMemory, Export)>> {
+    pub fn generate_memories(module: &Module) -> HashMap<String, HashMap<String, (Vec<u8>, Box<LocalMemory>, Export)>> {
         let imported_memories = &module.0.imported_memories;
-        let mut memories: HashMap<String, HashMap<String, (Vec<u8>, LocalMemory, Export)>> = HashMap::new();
+        let mut memories: HashMap<String, HashMap<String, (Vec<u8>, Box<LocalMemory>, Export)>> = HashMap::new();
 
         // Iterate imported memories.
         for (index, (name, memory)) in imported_memories.iter() {
@@ -84,23 +84,25 @@ impl EmscriptenData {
             let ImportName { namespace, name } = name.clone();
             let Memory { min, max, shared } = memory.clone();
 
+            let size = (min * LinearMemory::PAGE_SIZE) as usize;
+
             // TODO: Protect memory!
             // Create owned memory.
-            let mut memory = vec![0; min as _];
+            let mut memory = vec![0; size];
 
             // Create a LocalMemory that references the owned memory.
-            let local_memory = LocalMemory {
+            let mut local_memory = Box::new(LocalMemory {
                 base: memory.as_mut_ptr(),
-                size: min as _,
+                size,
                 index: LocalMemoryIndex::new(index.index()),
-            };
+            });
 
             // Create an export interface for owned memory.
             // This can be reused later when generating an environment imports.
             let export = Export::Memory {
                 local: unsafe {
                     MemoryPointer::new(
-                        std::mem::transmute::<&LocalMemory, *mut LocalMemory>(&local_memory)
+                        std::mem::transmute::<&mut LocalMemory, *mut LocalMemory>(local_memory.as_mut())
                     )
                 },
                 ctx: Context::Internal,
@@ -124,9 +126,9 @@ impl EmscriptenData {
     }
 
     /// Generates owned tables based on imports definition.
-    pub fn generate_tables(module: &Module) -> HashMap<String, HashMap<String, (Vec<u8>, LocalTable, Export)>> {
+    pub fn generate_tables(module: &Module) -> HashMap<String, HashMap<String, (Vec<u8>, Box<LocalTable>, Export)>> {
         let imported_tables = &module.0.imported_tables;
-        let mut tables: HashMap<String, HashMap<String, (Vec<u8>, LocalTable, Export)>> = HashMap::new();
+        let mut tables: HashMap<String, HashMap<String, (Vec<u8>, Box<LocalTable>, Export)>> = HashMap::new();
 
         // Iterate imported memories.
         for (_, (name, table)) in imported_tables.iter() {
@@ -138,18 +140,18 @@ impl EmscriptenData {
             let mut table = vec![0; min as _];
 
             // Create a LocalTable that references the owned table.
-            let local_table = LocalTable {
+            let mut local_table = Box::new(LocalTable {
                 base: table.as_mut_ptr(),
                 current_elements: min as _,
                 capacity: max.unwrap_or(min) as _,
-            };
+            });
 
             // Create an export interface for owned table.
             // This can be reused later when generating an environment imports.
             let export = Export::Table {
                 local: unsafe {
                     TablePointer::new(
-                        std::mem::transmute::<&LocalTable, *mut LocalTable>(&local_table)
+                        std::mem::transmute::<&mut LocalTable, *mut LocalTable>(local_table.as_mut())
                     )
                 },
                 ctx: Context::Internal,

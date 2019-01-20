@@ -33,7 +33,7 @@ pub struct LinearMemory {
 
 /// It holds the raw bytes of memory accessed by a WebAssembly Instance
 impl LinearMemory {
-    pub(crate) const PAGE_SIZE: u32 = 65_536;
+    pub const PAGE_SIZE: u32 = 65_536;
     pub(crate) const MAX_PAGES: u32 = 65_536;
     #[doc(hidden)]
     pub const DEFAULT_HEAP_SIZE: usize = 1 << 32; // 4 GiB
