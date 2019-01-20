@@ -115,14 +115,12 @@ impl FuncResolverBuilder {
                             Err(CompileError::InternalError {
                                 msg: format!("unexpected libcall: {}", libcall),
                             })?
-                            // panic!("unexpected libcall {}", libcall);
                         }
                     },
                     RelocationType::Intrinsic(ref name) => {
                         Err(CompileError::InternalError {
                             msg: format!("unexpected intrinsic: {}", name),
                         })?
-                        // panic!("unexpected intrinsic {}", name);
                     }
                     RelocationType::VmCall(vmcall) => match vmcall {
                         VmCall::LocalStaticMemoryGrow => vmcalls::local_static_memory_grow as _,
