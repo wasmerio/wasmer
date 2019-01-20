@@ -111,17 +111,13 @@ impl FuncResolverBuilder {
                         ir::LibCall::TruncF64 => libcalls::truncf64 as isize,
                         ir::LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
                         ir::LibCall::Probestack => libcalls::__rust_probestack as isize,
-                        _ => {
-                            Err(CompileError::InternalError {
-                                msg: format!("unexpected libcall: {}", libcall),
-                            })?
-                        }
+                        _ => Err(CompileError::InternalError {
+                            msg: format!("unexpected libcall: {}", libcall),
+                        })?,
                     },
-                    RelocationType::Intrinsic(ref name) => {
-                        Err(CompileError::InternalError {
-                            msg: format!("unexpected intrinsic: {}", name),
-                        })?
-                    }
+                    RelocationType::Intrinsic(ref name) => Err(CompileError::InternalError {
+                        msg: format!("unexpected intrinsic: {}", name),
+                    })?,
                     RelocationType::VmCall(vmcall) => match vmcall {
                         VmCall::LocalStaticMemoryGrow => vmcalls::local_static_memory_grow as _,
                         VmCall::LocalStaticMemorySize => vmcalls::local_static_memory_size as _,
