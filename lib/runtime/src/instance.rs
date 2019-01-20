@@ -94,6 +94,36 @@ impl Instance {
         self.call_with_index(func_index, args)
     }
 
+    /// Get the index of an exported webassembly function given the export name.
+    /// Pass arguments by wrapping each one in the `Value` enum.
+    /// The returned value is also returned in a `Value`.
+    ///
+    /// This will eventually return `Result<Option<Vec<Value>>, String>` in
+    /// order to support multi-value returns.
+    pub fn get_func_index(&self, name: &str) -> CallResult<FuncIndex> {
+        let export_index =
+            self.module
+                .exports
+                .get(name)
+                .ok_or_else(|| CallError::NoSuchExport {
+                    name: name.to_string(),
+                })?;
+
+        if let ExportIndex::Func(func_index) = export_index {
+            Ok(*func_index)
+        } else {
+            Err(CallError::ExportNotFunc {
+                name: name.to_string(),
+            }.into())
+        }
+    }
+
+    pub fn get_func_signature(&self, func_index: FuncIndex,) -> FuncSig {
+        let (_, _, signature) = self.inner.get_func_from_index(&self.module, func_index);
+
+        signature
+    }
+
     pub fn exports(&mut self) -> ExportIter {
         ExportIter::new(&self.module, &mut self.inner)
     }
@@ -210,7 +240,7 @@ impl InstanceInner {
     }
 
     fn get_func_from_index(
-        &mut self,
+        &self,
         module: &ModuleInner,
         func_index: FuncIndex,
     ) -> (FuncPointer, Context, FuncSig) {

@@ -103,6 +103,7 @@ pub enum CallError {
     Signature { expected: FuncSig, found: Vec<Type> },
     NoSuchExport { name: String },
     ExportNotFunc { name: String },
+    BadMainSignature { found: Vec<Type> },
     Runtime(RuntimeError),
 }
 
