@@ -27,7 +27,7 @@ install:
   - set PATH=C:\projects\wasmer\mingw64\bin;%PATH%
   # copy some binaries
   # copy libs from gcc toolchain to rust toolchain (more specifically, "crt2.o" and "dllcrt2.o" are needed)
-  - if defined MSYS_MINGWDIR copy /y "C:\projects\wasmer\mingw64\%ARCH%-w64-mingw32\lib\*.o" "%USERPROFILE%\.rustup\toolchains\stable-x86_64-pc-windows-gnu\lib\rustlib\x86_64-pc-windows-gnu\lib" >NUL
+  - copy /y "C:\projects\wasmer\mingw64\%ARCH%-w64-mingw32\lib\*.o" "%USERPROFILE%\.rustup\toolchains\stable-x86_64-pc-windows-gnu\lib\rustlib\x86_64-pc-windows-gnu\lib" >NUL
   # setup msys2
   - set PATH=%PATH%;C:\msys64\mingw64\bin # access libraries
   - set PATH=%PATH%;C:\msys64\usr\bin # access pacman
