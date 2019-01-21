@@ -1,8 +1,11 @@
 pub use crate::{
     backing::{ImportBacking, LocalBacking},
-    types::LocalMemoryIndex,
+    module::ModuleInner,
+    types::{
+        MemoryIndex, LocalMemoryIndex, LocalOrImport,
+    },
 };
-use std::{ffi::c_void, mem, ptr};
+use std::{ffi::c_void, mem, ptr, slice};
 
 #[derive(Debug)]
 #[repr(C)]
@@ -28,10 +31,10 @@ pub struct Ctx {
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub(crate) imported_funcs: *mut ImportedFunc,
 
-    /// The local backing of the parent instance.
-    pub local_backing: *mut LocalBacking,
-    /// The import backing of the parent instance.
-    pub import_backing: *mut ImportBacking,
+    pub(crate) local_backing: *mut LocalBacking,
+    pub(crate) import_backing: *mut ImportBacking,
+    module: *const ModuleInner,
+    
 
     pub data: *mut c_void,
     pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
@@ -41,6 +44,7 @@ impl Ctx {
     pub unsafe fn new(
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
+        module: &ModuleInner,
     ) -> Self {
         Self {
             memories: local_backing.vm_memories.as_mut_ptr(),
@@ -54,6 +58,7 @@ impl Ctx {
 
             local_backing,
             import_backing,
+            module,
 
             data: ptr::null_mut(),
             data_finalizer: None,
@@ -63,6 +68,7 @@ impl Ctx {
     pub unsafe fn new_with_data(
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
+        module: &ModuleInner,
         data: *mut c_void,
         data_finalizer: extern "C" fn(*mut c_void),
     ) -> Self {
@@ -78,12 +84,34 @@ impl Ctx {
 
             local_backing,
             import_backing,
+            module,
 
             data,
             data_finalizer: Some(data_finalizer),
         }
     }
 
+    pub fn memory<'a>(&'a mut self, mem_index: MemoryIndex) -> &'a mut [u8] {
+        let module = unsafe { &*self.module };
+        match mem_index.local_or_import(module) {
+            LocalOrImport::Local(local_mem_index) => {
+                let local_backing = unsafe { &mut *self.local_backing };
+                &mut local_backing.memories[local_mem_index][..]
+            },
+            LocalOrImport::Import(import_mem_index) => {
+                let import_backing = unsafe { &mut *self.import_backing };
+                let vm_memory_import = import_backing.memories[import_mem_index].clone();
+                unsafe {
+                    let memory = &*vm_memory_import.memory;
+
+                    slice::from_raw_parts_mut(memory.base, memory.size)
+                }
+            },
+        }
+    }
+}
+
+impl Ctx {
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_memories() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
