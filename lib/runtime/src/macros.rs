@@ -19,7 +19,7 @@ macro_rules! export_func {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![$($crate::__export_func_convert_type!($params),)*],
-                returns: vec![$($crate::__export_func_convert_type!($params),)*],
+                returns: vec![$($crate::__export_func_convert_type!($returns),)*],
             },
         }
     }};
