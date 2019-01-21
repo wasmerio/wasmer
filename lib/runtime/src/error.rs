@@ -2,11 +2,7 @@ use crate::types::{FuncSig, GlobalDesc, Memory, MemoryIndex, Table, TableIndex, 
 
 pub type Result<T> = std::result::Result<T, Box<Error>>;
 pub type CompileResult<T> = std::result::Result<T, Box<CompileError>>;
-<<<<<<< HEAD
 pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
-=======
-pub type LinkResult<T> = std::result::Result<T, Box<LinkError>>;
->>>>>>> feature/vm_refactor_trap_handler
 pub type RuntimeResult<T> = std::result::Result<T, Box<RuntimeError>>;
 pub type CallResult<T> = std::result::Result<T, Box<CallError>>;
 

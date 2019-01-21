@@ -412,10 +412,6 @@ fn import_functions(
                     name: name.clone(),
                 });
             }
-            None => Err(LinkError::ImportNotFound {
-                namespace: namespace.clone(),
-                name: name.clone(),
-            })?,
         }
     }
 
@@ -483,10 +479,6 @@ fn import_memories(
                     name: name.clone(),
                 });
             }
-            None => Err(LinkError::ImportNotFound {
-                namespace: namespace.clone(),
-                name: name.clone(),
-            })?,
         }
     }
 
@@ -552,10 +544,6 @@ fn import_tables(
                     name: name.clone(),
                 });
             }
-            None => Err(LinkError::ImportNotFound {
-                namespace: namespace.clone(),
-                name: name.clone(),
-            })?,
         }
     }
 
@@ -612,10 +600,6 @@ fn import_globals(
                     name: name.clone(),
                 });
             }
-            None => Err(LinkError::ImportNotFound {
-                namespace: namespace.clone(),
-                name: name.clone(),
-            })?,
         }
     }
 

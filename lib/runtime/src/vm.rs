@@ -1,7 +1,7 @@
-pub use crate::{
-    backing::{ImportBacking, LocalBacking},
+pub use crate::backing::{ImportBacking, LocalBacking};
+use crate::{
     module::ModuleInner,
-    types::{LocalMemoryIndex, LocalOrImport, MemoryIndex, TableIndex},
+    types::{LocalMemoryIndex, LocalOrImport, MemoryIndex},
 };
 use std::{ffi::c_void, mem, ptr, slice};
 
@@ -564,8 +564,9 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{FuncResolver, SigRegistry};
-        use crate::types::LocalFuncIndex;
+        use crate::backend::{FuncResolver, ProtectedCaller, SigRegistry, Token};
+        use crate::error::RuntimeResult;
+        use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
         use std::ptr::NonNull;
         struct Placeholder;
@@ -578,9 +579,24 @@ mod vm_ctx_tests {
                 None
             }
         }
+        impl ProtectedCaller for Placeholder {
+            fn call(
+                &self,
+                _module: &ModuleInner,
+                _func_index: FuncIndex,
+                _params: &[Value],
+                _returns: &mut [Value],
+                _import_backing: &ImportBacking,
+                _vmctx: *mut Ctx,
+                _: Token,
+            ) -> RuntimeResult<()> {
+                Ok(())
+            }
+        }
 
         ModuleInner {
             func_resolver: Box::new(Placeholder),
+            protected_caller: Box::new(Placeholder),
             memories: Map::new(),
             globals: Map::new(),
             tables: Map::new(),
