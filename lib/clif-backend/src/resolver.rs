@@ -6,7 +6,10 @@ use std::mem;
 use std::ptr::{write_unaligned, NonNull};
 use wasmer_runtime::{
     self,
-    backend::{self, Mmap, Protect},
+    backend::{
+        self,
+        sys::{Memory, Protect},
+    },
     error::{CompileError, CompileResult},
     structures::Map,
     types::LocalFuncIndex,
@@ -49,7 +52,7 @@ impl FuncResolverBuilder {
             trap_sinks.push(trap_sink);
         }
 
-        let mut memory = Mmap::with_size(total_size)
+        let mut memory = Memory::with_size(total_size)
             .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         unsafe {
             memory
@@ -176,7 +179,7 @@ impl FuncResolverBuilder {
 /// Resolves a function index to a function address.
 pub struct FuncResolver {
     map: Map<LocalFuncIndex, usize>,
-    memory: Mmap,
+    memory: Memory,
 }
 
 impl FuncResolver {

@@ -1145,6 +1145,7 @@ dependencies = [
  "page_size 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.1.0",
+ "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -5,12 +5,12 @@ use std::ops::Range;
 use std::{ptr, slice};
 
 #[derive(Debug)]
-pub struct Mmap {
+pub struct Memory {
     ptr: *mut u8,
     size: usize,
 }
 
-impl Mmap {
+impl Memory {
     pub fn with_size(size: usize) -> Result<Self, String> {
         if size == 0 {
             return Ok(Self {
@@ -43,6 +43,7 @@ impl Mmap {
     }
 
     pub unsafe fn protect(&mut self, range: Range<usize>, protect: Protect) -> Result<(), String> {
+        let protect = protect.to_protect_const();
         let page_size = page_size::get();
         let start = self
             .ptr
@@ -75,7 +76,7 @@ impl Mmap {
     }
 }
 
-impl Drop for Mmap {
+impl Drop for Memory {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
             let success = unsafe { libc::munmap(self.ptr as _, self.size) };
@@ -87,12 +88,21 @@ impl Drop for Mmap {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {
-    None = 0,
-    Read = 1,
-    Write = 2,
-    ReadWrite = 1 | 2,
-    Exec = 4,
-    ReadExec = 1 | 4,
+    None,
+    Read,
+    ReadWrite,
+    ReadExec,
+}
+
+impl Protect {
+    fn to_protect_const(self) -> u32 {
+        match self {
+            Protect::None => 0,
+            Protect::Read => 1,
+            Protect::ReadWrite => 1 | 2,
+            Protect::ReadExec => 1 | 4,
+        }
+    }
 }
 
 /// Round `size` up to the nearest multiple of `page_size`.

@@ -572,8 +572,8 @@ mod vm_ctx_tests {
         impl FuncResolver for Placeholder {
             fn get(
                 &self,
-                module: &ModuleInner,
-                local_func_index: LocalFuncIndex,
+                _module: &ModuleInner,
+                _local_func_index: LocalFuncIndex,
             ) -> Option<NonNull<Func>> {
                 None
             }

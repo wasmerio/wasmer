@@ -1,7 +1,9 @@
 use crate::{error::CompileResult, module::ModuleInner, types::LocalFuncIndex, vm};
 use std::ptr::NonNull;
 
-pub use crate::mmap::{Mmap, Protect};
+pub mod sys {
+    pub use crate::sys::*;
+}
 pub use crate::sig_registry::SigRegistry;
 
 pub trait Compiler {

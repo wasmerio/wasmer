@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
-    mmap::{Mmap, Protect},
+    sys,
     types::{LocalMemoryIndex, Memory},
     vm,
 };
@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug)]
 pub struct LinearMemory {
     /// The actual memory allocation.
-    mmap: Mmap,
+    memory: sys::Memory,
 
     /// The current number of wasm pages.
     current: u32,
@@ -66,21 +66,22 @@ impl LinearMemory {
             )
         };
 
-        let mut mmap = Mmap::with_size(mmap_size).unwrap();
+        let mut memory = sys::Memory::with_size(mmap_size).unwrap();
 
         // map initial pages as readwrite since the inital mmap is mapped as not accessible.
         if initial_pages != 0 {
             unsafe {
-                mmap.protect(
-                    0..(initial_pages as usize * Self::PAGE_SIZE as usize),
-                    Protect::ReadWrite,
-                )
-                .expect("unable to make memory accessible");
+                memory
+                    .protect(
+                        0..(initial_pages as usize * Self::PAGE_SIZE as usize),
+                        sys::Protect::ReadWrite,
+                    )
+                    .expect("unable to make memory accessible");
             }
         }
 
         Self {
-            mmap,
+            memory,
             current: initial_pages,
             max: mem.max,
             offset_guard_size,
@@ -90,7 +91,7 @@ impl LinearMemory {
 
     /// Returns an base address of this linear memory.
     fn base(&mut self) -> *mut u8 {
-        self.mmap.as_ptr()
+        self.memory.as_ptr()
     }
 
     /// Returns the size in bytes
@@ -146,21 +147,23 @@ impl LinearMemory {
 
         let new_bytes = (new_pages * Self::PAGE_SIZE) as usize;
 
-        if new_bytes > self.mmap.size() - self.offset_guard_size {
-            let mmap_size = new_bytes.checked_add(self.offset_guard_size)?;
-            let mut new_mmap = Mmap::with_size(mmap_size).ok()?;
+        if new_bytes > self.memory.size() - self.offset_guard_size {
+            let memory_size = new_bytes.checked_add(self.offset_guard_size)?;
+            let mut new_memory = sys::Memory::with_size(memory_size).ok()?;
 
             unsafe {
-                new_mmap.protect(0..new_bytes, Protect::ReadWrite).ok()?;
+                new_memory
+                    .protect(0..new_bytes, sys::Protect::ReadWrite)
+                    .ok()?;
             }
 
-            let copy_size = self.mmap.size() - self.offset_guard_size;
+            let copy_size = self.memory.size() - self.offset_guard_size;
             unsafe {
-                new_mmap.as_slice_mut()[..copy_size]
-                    .copy_from_slice(&self.mmap.as_slice()[..copy_size]);
+                new_memory.as_slice_mut()[..copy_size]
+                    .copy_from_slice(&self.memory.as_slice()[..copy_size]);
             }
 
-            self.mmap = new_mmap;
+            self.memory = new_memory;
         }
 
         self.current = new_pages;
@@ -197,8 +200,8 @@ impl LinearMemory {
         let new_bytes = (new_pages * Self::PAGE_SIZE) as usize;
 
         unsafe {
-            self.mmap
-                .protect(prev_bytes..new_bytes, Protect::ReadWrite)
+            self.memory
+                .protect(prev_bytes..new_bytes, sys::Protect::ReadWrite)
                 .ok()?;
         }
 
@@ -211,12 +214,12 @@ impl LinearMemory {
 impl Deref for LinearMemory {
     type Target = [u8];
     fn deref(&self) -> &[u8] {
-        unsafe { self.mmap.as_slice() }
+        unsafe { self.memory.as_slice() }
     }
 }
 
 impl DerefMut for LinearMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { self.mmap.as_slice_mut() }
+        unsafe { self.memory.as_slice_mut() }
     }
 }
