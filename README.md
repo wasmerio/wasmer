@@ -37,7 +37,7 @@ cd wasmer
 
 # install tools
 # make sure that `python` is accessible.
-cargo install
+cargo install --path .
 ```
 
 ## Testing
