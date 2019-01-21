@@ -1,7 +1,7 @@
 use crate::{
     error::{LinkError, LinkResult},
     export::{Context, Export},
-    import::Imports,
+    import::ImportObject,
     memory::LinearMemory,
     module::{ImportName, ModuleInner},
     structures::{BoxedMap, Map, SliceMap, TypedIndex},
@@ -304,7 +304,7 @@ pub struct ImportBacking {
 impl ImportBacking {
     pub fn new(
         module: &ModuleInner,
-        imports: &mut Imports,
+        imports: &mut ImportObject,
         vmctx: *mut vm::Ctx,
     ) -> LinkResult<Self> {
         let mut failed = false;
@@ -357,7 +357,7 @@ impl ImportBacking {
 
 fn import_functions(
     module: &ModuleInner,
-    imports: &mut Imports,
+    imports: &mut ImportObject,
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedFuncIndex, vm::ImportedFunc>> {
     let mut link_errors = vec![];
@@ -424,7 +424,7 @@ fn import_functions(
 
 fn import_memories(
     module: &ModuleInner,
-    imports: &mut Imports,
+    imports: &mut ImportObject,
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>> {
     let mut link_errors = vec![];
@@ -491,7 +491,7 @@ fn import_memories(
 
 fn import_tables(
     module: &ModuleInner,
-    imports: &mut Imports,
+    imports: &mut ImportObject,
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedTableIndex, vm::ImportedTable>> {
     let mut link_errors = vec![];
@@ -556,7 +556,7 @@ fn import_tables(
 
 fn import_globals(
     module: &ModuleInner,
-    imports: &mut Imports,
+    imports: &mut ImportObject,
 ) -> LinkResult<BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>> {
     let mut link_errors = vec![];
     let mut globals = Map::with_capacity(module.imported_globals.len());

@@ -1,25 +1,25 @@
 use crate::export::Export;
 use hashbrown::{hash_map::Entry, HashMap};
 
-pub trait Namespace {
+pub trait LikeNamespace {
     fn get_export(&mut self, name: &str) -> Option<Export>;
 }
 
-pub struct Imports {
-    map: HashMap<String, Box<dyn Namespace>>,
+pub struct ImportObject {
+    map: HashMap<String, Box<dyn LikeNamespace>>,
 }
 
-impl Imports {
+impl ImportObject {
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
         }
     }
 
-    pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn Namespace>>
+    pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
     where
         S: Into<String>,
-        N: Namespace + 'static,
+        N: LikeNamespace + 'static,
     {
         match self.map.entry(name.into()) {
             Entry::Vacant(empty) => {
@@ -30,18 +30,18 @@ impl Imports {
         }
     }
 
-    pub fn get_namespace(&mut self, namespace: &str) -> Option<&mut (dyn Namespace + 'static)> {
+    pub fn get_namespace(&mut self, namespace: &str) -> Option<&mut (dyn LikeNamespace + 'static)> {
         self.map
             .get_mut(namespace)
             .map(|namespace| &mut **namespace)
     }
 }
 
-pub struct NamespaceMap {
+pub struct Namespace {
     map: HashMap<String, Export>,
 }
 
-impl NamespaceMap {
+impl Namespace {
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
@@ -53,7 +53,7 @@ impl NamespaceMap {
     }
 }
 
-impl Namespace for NamespaceMap {
+impl LikeNamespace for Namespace {
     fn get_export(&mut self, name: &str) -> Option<Export> {
         self.map.get(name).cloned()
     }

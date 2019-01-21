@@ -78,7 +78,7 @@ static COMMON: &'static str = r##"
 use std::{{f32, f64}};
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime::import::Imports;
+use wasmer_runtime::import::ImportObject;
 use wasmer_runtime::types::Value;
 use wasmer_runtime::{{Instance, module::Module}};
 use wasmer_runtime::error::Result;
@@ -94,14 +94,14 @@ static IMPORT_MODULE: &str = r#"
   (global $global_i32 (export "global_i32") i32 (i32.const 666)))
 "#;
 
-pub fn generate_imports() -> Imports {
+pub fn generate_imports() -> ImportObject {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     let instance = module
-        .instantiate(Imports::new())
+        .instantiate(ImportObject::new())
         .expect("WASM can't be instantiated");
-    let mut imports = Imports::new();
+    let mut imports = ImportObject::new();
     imports.register("spectest", instance);
     imports
 }

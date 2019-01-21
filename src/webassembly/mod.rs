@@ -4,7 +4,7 @@ use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     self as runtime,
     error::{CallResult, Result},
-    import::Imports,
+    import::ImportObject,
     instance::Instance,
     module::Module,
 };
@@ -41,7 +41,7 @@ pub enum InstanceABI {
 /// If the operation fails, the Result rejects with a
 /// webassembly::CompileError, webassembly::LinkError, or
 /// webassembly::RuntimeError, depending on the cause of the failure.
-pub fn instantiate(buffer_source: &[u8], import_object: Imports) -> Result<ResultObject> {
+pub fn instantiate(buffer_source: &[u8], import_object: ImportObject) -> Result<ResultObject> {
     debug!("webassembly - compiling module");
     let module = compile(&buffer_source[..])?;
 
@@ -60,7 +60,7 @@ pub fn instantiate(buffer_source: &[u8], import_object: Imports) -> Result<Resul
 /// This is the most efficient, optimized way to load wasm code.
 pub fn instantiate_streaming(
     _buffer_source: Vec<u8>,
-    _import_object: Imports,
+    _import_object: ImportObject,
 ) -> Result<ResultObject> {
     unimplemented!();
 }

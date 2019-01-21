@@ -3,7 +3,7 @@
 extern crate field_offset;
 
 #[macro_use]
-pub mod macros;
+mod macros;
 #[doc(hidden)]
 pub mod backend;
 mod backing;
@@ -28,6 +28,17 @@ pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;
 use std::rc::Rc;
+
+pub mod prelude {
+    pub use crate::export_func;
+    pub use crate::import::{ImportObject, Namespace};
+    pub use crate::types::{
+        FuncIndex, GlobalIndex, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
+        ImportedTableIndex, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+        MemoryIndex, TableIndex, Type, Value,
+    };
+    pub use crate::vm;
+}
 
 /// Compile a webassembly module using the provided compiler.
 pub fn compile(wasm: &[u8], compiler: &dyn backend::Compiler) -> CompileResult<module::Module> {

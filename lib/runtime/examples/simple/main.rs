@@ -1,13 +1,6 @@
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime::{
-    self as runtime,
-    error::Result,
-    export::{Context, Export, FuncPointer},
-    import::{Imports, NamespaceMap},
-    types::{FuncSig, Type, Value},
-    vm,
-};
+use wasmer_runtime::{self as runtime, error::Result, prelude::*};
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
@@ -15,24 +8,20 @@ fn main() -> Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let inner_module = runtime::compile(&wasm_binary, &CraneliftCompiler::new())?;
 
-    let mut env_namespace = NamespaceMap::new();
-    env_namespace.insert(
-        "print_i32",
-        Export::Function {
-            func: unsafe { FuncPointer::new(print_num as _) },
-            ctx: Context::Internal,
-            signature: FuncSig {
-                params: vec![Type::I32],
-                returns: vec![Type::I32],
-            },
-        },
-    );
-    let mut imports = Imports::new();
+    let mut env_namespace = Namespace::new();
+    env_namespace.insert("print_i32", unsafe {
+        export_func!(
+            print_num,
+            [I32] -> [I32]
+        )
+    });
+
+    let mut imports = ImportObject::new();
     imports.register("env", env_namespace);
 
     let inner_instance = inner_module.instantiate(imports)?;
 
-    let mut outer_imports = Imports::new();
+    let mut outer_imports = ImportObject::new();
     outer_imports.register("env", inner_instance);
 
     let outer_module = runtime::compile(EXAMPLE_WASM, &CraneliftCompiler::new())?;

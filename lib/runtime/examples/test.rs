@@ -1,6 +1,6 @@
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime::{import::Imports, Instance};
+use wasmer_runtime::{import::ImportObject, Instance};
 
 fn main() {
     let mut instance = create_module_1();
@@ -42,14 +42,14 @@ static IMPORT_MODULE: &str = r#"
   (global $global_i32 (export "global_i32") i32 (i32.const 666)))
 "#;
 
-pub fn generate_imports() -> Imports {
+pub fn generate_imports() -> ImportObject {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     let instance = module
-        .instantiate(Imports::new())
+        .instantiate(ImportObject::new())
         .expect("WASM can't be instantiated");
-    let mut imports = Imports::new();
+    let mut imports = ImportObject::new();
     imports.register("spectest", instance);
     imports
 }

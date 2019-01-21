@@ -4,7 +4,7 @@ mod tests {
     use wasmer_clif_backend::CraneliftCompiler;
     use wasmer_runtime::{
         error::{CallError, RuntimeError},
-        import::Imports,
+        import::ImportObject,
     };
 
     // The semantics of stack overflow are documented at:
@@ -25,7 +25,7 @@ mod tests {
         let module = wasmer_runtime::compile(&wasm_binary[..], &CraneliftCompiler::new())
             .expect("WASM can't be compiled");
         let mut instance = module
-            .instantiate(Imports::new())
+            .instantiate(ImportObject::new())
             .expect("WASM can't be instantiated");
         let result = instance.call("stack-overflow", &[]);
 

@@ -1,7 +1,7 @@
 use crate::{
     backend::{FuncResolver, ProtectedCaller},
     error::Result,
-    import::Imports,
+    import::ImportObject,
     sig_registry::SigRegistry,
     structures::Map,
     types::{
@@ -50,7 +50,7 @@ impl Module {
     }
 
     /// Instantiate a WebAssembly module with the provided imports.
-    pub fn instantiate(&self, imports: Imports) -> Result<Instance> {
+    pub fn instantiate(&self, imports: ImportObject) -> Result<Instance> {
         Instance::new(Rc::clone(&self.0), Box::new(imports))
     }
 }

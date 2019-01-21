@@ -5,7 +5,7 @@ use crate::{
     export::{
         Context, Export, ExportIter, FuncPointer, GlobalPointer, MemoryPointer, TablePointer,
     },
-    import::{Imports, Namespace},
+    import::{ImportObject, LikeNamespace},
     module::{ExportIndex, Module, ModuleInner},
     types::{
         FuncIndex, FuncSig, GlobalDesc, GlobalIndex, LocalOrImport, Memory, MemoryIndex, Table,
@@ -28,11 +28,11 @@ pub struct Instance {
     pub module: Rc<ModuleInner>,
     inner: Box<InstanceInner>,
     #[allow(dead_code)]
-    imports: Box<Imports>,
+    imports: Box<ImportObject>,
 }
 
 impl Instance {
-    pub(crate) fn new(module: Rc<ModuleInner>, mut imports: Box<Imports>) -> Result<Instance> {
+    pub(crate) fn new(module: Rc<ModuleInner>, mut imports: Box<ImportObject>) -> Result<Instance> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
@@ -325,7 +325,7 @@ impl InstanceInner {
     }
 }
 
-impl Namespace for Instance {
+impl LikeNamespace for Instance {
     fn get_export(&mut self, name: &str) -> Option<Export> {
         let export_index = self.module.exports.get(name)?;
 

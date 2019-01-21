@@ -6,7 +6,7 @@ use hashbrown::HashMap;
 use std::mem;
 use wasmer_runtime::{
     export::{Context, Export, FuncPointer, GlobalPointer},
-    import::{Imports, NamespaceMap},
+    import::{ImportObject, NamespaceMap},
     memory::LinearMemory,
     types::{
         FuncSig, GlobalDesc,
@@ -153,8 +153,8 @@ impl<'a> EmscriptenGlobals<'a> {
     }
 }
 
-pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> Imports {
-    let mut imports = Imports::new();
+pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
+    let mut imports = ImportObject::new();
     let mut env_namespace = NamespaceMap::new();
     let mut asm_namespace = NamespaceMap::new();
     let mut global_namespace = NamespaceMap::new();
