@@ -12,14 +12,14 @@ macro_rules! export_func {
             vm,
         };
 
-        let func: extern fn( $( $crate::__export_func_convert_type!($params), )* &mut vm::Ctx) -> ($( $crate::__export_func_convert_type!($returns) )*) = $func;
+        let func: extern fn( $( $params, )* &mut vm::Ctx) -> ($( $returns )*) = $func;
 
         Export::Function {
             func: unsafe { FuncPointer::new(func as _) },
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![$(Type::$params,)*],
-                returns: vec![$(Type::$params,)*],
+                params: vec![$($crate::__export_func_convert_type!($params),)*],
+                returns: vec![$($crate::__export_func_convert_type!($params),)*],
             },
         }
     }};
@@ -28,16 +28,25 @@ macro_rules! export_func {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __export_func_convert_type {
-    (I32) => {
-        i32
+    (i32) => {
+        Type::I32
     };
-    (I64) => {
-        i64
+    (u32) => {
+        Type::I32
     };
-    (F32) => {
-        f32
+    (i64) => {
+        Type::I64
     };
-    (F64) => {
-        f64
+    (u64) => {
+        Type::I32
+    };
+    (f32) => {
+        Type::F32
+    };
+    (f64) => {
+        Type::F64
+    };
+    ($x:ty) => {
+        compile_error!("Only `i32`, `u32`, `i64`, `u64`, `f32`, and `f64` are supported for argument and return types")
     };
 }

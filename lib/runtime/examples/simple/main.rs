@@ -13,7 +13,7 @@ fn main() -> Result<()> {
         "print_i32",
         export_func!(
             print_num,
-            [I32] -> [I32]
+            [i32] -> [i32]
         ),
     );
 
