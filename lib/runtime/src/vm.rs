@@ -1,6 +1,7 @@
 pub use crate::backing::{ImportBacking, LocalBacking};
 use crate::{
     module::ModuleInner,
+    structures::TypedIndex,
     types::{LocalMemoryIndex, LocalOrImport, MemoryIndex},
 };
 use std::{ffi::c_void, mem, ptr, slice};
@@ -88,8 +89,9 @@ impl Ctx {
         }
     }
 
-    pub fn memory<'a>(&'a mut self, mem_index: MemoryIndex) -> &'a mut [u8] {
+    pub fn memory<'a>(&'a mut self, mem_index: u32) -> &'a mut [u8] {
         let module = unsafe { &*self.module };
+        let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
             LocalOrImport::Local(local_mem_index) => {
                 let local_backing = unsafe { &mut *self.local_backing };
