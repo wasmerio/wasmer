@@ -500,6 +500,7 @@ mod vm_offset_tests {
 #[cfg(test)]
 mod vm_ctx_tests {
     use super::{Ctx, ImportBacking, LocalBacking};
+    use crate::module::ModuleInner;
     use crate::structures::Map;
     use std::ffi::c_void;
 
@@ -538,11 +539,13 @@ mod vm_ctx_tests {
             tables: Map::new().into_boxed_map(),
             globals: Map::new().into_boxed_map(),
         };
+        let module = generate_module();
         let data = &mut data as *mut _ as *mut c_void;
         let ctx = unsafe {
             Ctx::new_with_data(
                 &mut local_backing,
                 &mut import_backing,
+                &module,
                 data,
                 test_data_finalizer,
             )
@@ -557,5 +560,46 @@ mod vm_ctx_tests {
     fn cast_test_data(data: *mut c_void) -> &'static mut TestData {
         let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
         test_data
+    }
+
+    fn generate_module() -> ModuleInner {
+        use super::Func;
+        use crate::backend::{FuncResolver, SigRegistry};
+        use crate::types::LocalFuncIndex;
+        use hashbrown::HashMap;
+        use std::ptr::NonNull;
+        struct Placeholder;
+        impl FuncResolver for Placeholder {
+            fn get(
+                &self,
+                module: &ModuleInner,
+                local_func_index: LocalFuncIndex,
+            ) -> Option<NonNull<Func>> {
+                None
+            }
+        }
+
+        ModuleInner {
+            func_resolver: Box::new(Placeholder),
+            memories: Map::new(),
+            globals: Map::new(),
+            tables: Map::new(),
+
+            // These are strictly imported and the typesystem ensures that.
+            imported_functions: Map::new(),
+            imported_memories: Map::new(),
+            imported_tables: Map::new(),
+            imported_globals: Map::new(),
+
+            exports: HashMap::new(),
+
+            data_initializers: Vec::new(),
+            elem_initializers: Vec::new(),
+
+            start_func: None,
+
+            func_assoc: Map::new(),
+            sig_registry: SigRegistry::new(),
+        }
     }
 }
