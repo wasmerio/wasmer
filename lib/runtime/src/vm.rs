@@ -29,9 +29,9 @@ pub struct Ctx {
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub(crate) imported_funcs: *mut ImportedFunc,
 
-    pub(crate) local_backing: *mut LocalBacking,
-    pub(crate) import_backing: *mut ImportBacking,
-    module: *const ModuleInner,
+    pub local_backing: *mut LocalBacking,
+    pub import_backing: *mut ImportBacking,
+    pub module: *const ModuleInner,
 
     pub data: *mut c_void,
     pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
@@ -88,7 +88,7 @@ impl Ctx {
         }
     }
 
-    pub fn memory<'a>(&'a mut self, mem_index: MemoryIndex) -> &'a mut [u8] {
+    pub fn memory(&mut self, mem_index: MemoryIndex) -> &mut [u8] {
         let module = unsafe { &*self.module };
         match mem_index.local_or_import(module) {
             LocalOrImport::Local(local_mem_index) => {

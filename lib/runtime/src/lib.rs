@@ -14,7 +14,7 @@ pub mod instance;
 pub mod memory;
 mod mmap;
 pub mod module;
-mod recovery;
+pub mod recovery;
 mod sig_registry;
 mod sighandler;
 pub mod structures;

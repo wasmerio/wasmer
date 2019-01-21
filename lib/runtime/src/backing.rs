@@ -295,7 +295,7 @@ impl LocalBacking {
 
 #[derive(Debug)]
 pub struct ImportBacking {
-    pub(crate) functions: BoxedMap<ImportedFuncIndex, vm::ImportedFunc>,
+    pub functions: BoxedMap<ImportedFuncIndex, vm::ImportedFunc>,
     pub(crate) memories: BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>,
     pub(crate) tables: BoxedMap<ImportedTableIndex, vm::ImportedTable>,
     pub(crate) globals: BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>,

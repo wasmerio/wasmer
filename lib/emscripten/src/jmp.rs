@@ -1,15 +1,15 @@
 use libc::{c_int, c_void};
-use wasmer_runtime::Instance;
+use wasmer_runtime::{vm::Ctx};
 
 /// setjmp
-pub extern "C" fn __setjmp(env_addr: u32, instance: &mut Instance) -> c_int {
+pub extern "C" fn __setjmp(env_addr: u32, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::__setjmp (setjmp)");
     unimplemented!()
     //    unsafe {
     //        // Rather than using the env as the holder of the jump buffer pointer,
     //        // we use the environment address to store the index relative to jumps
     //        // so the address of the jump it's outside the wasm memory itself.
-    //        let jump_index = instance.memory_offset_addr(0, env_addr as usize) as *mut i8;
+    //        let jump_index = vmctx.memory(MemoryIndex::new(0))[env_addr as usize] as *mut i8;
     //        // We create the jump buffer outside of the wasm memory
     //        let jump_buf: UnsafeCell<[c_int; 27]> = UnsafeCell::new([0; 27]);
     //        let mut jumps = &mut instance.emscripten_data().as_mut().unwrap().jumps;
@@ -23,12 +23,12 @@ pub extern "C" fn __setjmp(env_addr: u32, instance: &mut Instance) -> c_int {
 }
 
 /// longjmp
-pub extern "C" fn __longjmp(env_addr: u32, val: c_int, instance: &mut Instance) -> ! {
+pub extern "C" fn __longjmp(env_addr: u32, val: c_int, vmctx: &mut Ctx) -> ! {
     debug!("emscripten::__longjmp (longjmp) {}", val);
     unimplemented!()
     //    unsafe {
     //        // We retrieve the jump index from the env address
-    //        let jump_index = instance.memory_offset_addr(0, env_addr as usize) as *mut i8;
+    //        let jump_index = vmctx.memory(MemoryIndex::new(0))[env_addr as usize] as *mut i8;
     //        let mut jumps = &mut instance.emscripten_data().as_mut().unwrap().jumps;
     //        // We get the real jump buffer from the jumps vector, using the retrieved index
     //        let mut jump_buf = &jumps[*jump_index as usize];

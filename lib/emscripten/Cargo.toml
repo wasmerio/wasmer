@@ -9,6 +9,7 @@ build = "build/mod.rs"
 hashbrown = "0.1"
 wasmer-runtime = { path = "../runtime" }
 libc = { git = "https://github.com/rust-lang/libc" }
+libffi = "0.6.4"
 byteorder = "1"
 time = "0.1.41"
 

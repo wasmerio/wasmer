@@ -1,20 +1,20 @@
 use super::process::abort_with_message;
 use libc::{c_int, c_void, memcpy, size_t};
-use wasmer_runtime::Instance;
+use wasmer_runtime::{vm::Ctx, types::MemoryIndex, structures::TypedIndex};
 
 /// emscripten: _emscripten_memcpy_big
 pub extern "C" fn _emscripten_memcpy_big(
     dest: u32,
     src: u32,
     len: u32,
-    instance: &mut Instance,
+    vmctx: &mut Ctx,
 ) -> u32 {
     debug!(
         "emscripten::_emscripten_memcpy_big {}, {}, {}",
         dest, src, len
     );
-    let dest_addr = instance.memory_offset_addr(0, dest as usize) as *mut c_void;
-    let src_addr = instance.memory_offset_addr(0, src as usize) as *mut c_void;
+    let dest_addr = vmctx.memory(MemoryIndex::new(0))[dest as usize] as *mut c_void;
+    let src_addr = vmctx.memory(MemoryIndex::new(0))[src as usize] as *mut c_void;
     unsafe {
         memcpy(dest_addr, src_addr, len as size_t);
     }
@@ -22,15 +22,17 @@ pub extern "C" fn _emscripten_memcpy_big(
 }
 
 /// emscripten: getTotalMemory
-pub extern "C" fn get_total_memory(_instance: &mut Instance) -> u32 {
+pub extern "C" fn get_total_memory(_vmctx: &mut Ctx) -> u32 {
     debug!("emscripten::get_total_memory");
     // instance.memories[0].current_pages()
+    // TODO: Fix implementation
     16_777_216
 }
 
 /// emscripten: enlargeMemory
-pub extern "C" fn enlarge_memory(_instance: &mut Instance) {
+pub extern "C" fn enlarge_memory(_vmctx: &mut Ctx) {
     debug!("emscripten::enlarge_memory");
+    // TODO: Fix implementation
     // instance.memories[0].grow(100);
 }
 

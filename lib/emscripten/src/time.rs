@@ -6,7 +6,7 @@ use std::time::SystemTime;
 use time;
 
 use super::env;
-use wasmer_runtime::Instance;
+use wasmer_runtime::{vm::Ctx, types::MemoryIndex, structures::TypedIndex};
 
 #[cfg(target_os = "linux")]
 use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
@@ -26,7 +26,7 @@ const CLOCK_MONOTONIC_COARSE: libc::clockid_t = 6;
 
 /// emscripten: _gettimeofday
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -> c_int {
+pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::_gettimeofday {} {}", tp, tz);
     #[repr(C)]
     struct GuestTimeVal {
@@ -41,7 +41,7 @@ pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -
     unsafe {
         let now = SystemTime::now();
         let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
-        let timeval_struct_ptr = instance.memory_offset_addr(0, tp as _) as *mut GuestTimeVal;
+        let timeval_struct_ptr = vmctx.memory(MemoryIndex::new(0))[tp as usize] as *mut GuestTimeVal;
 
         (*timeval_struct_ptr).tv_sec = since_epoch.as_secs() as _;
         (*timeval_struct_ptr).tv_usec = since_epoch.subsec_nanos() as _;
@@ -54,7 +54,7 @@ pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, instance: &mut Instance) -
 pub extern "C" fn _clock_gettime(
     clk_id: libc::clockid_t,
     tp: c_int,
-    instance: &mut Instance,
+    vmctx: &mut Ctx,
 ) -> c_int {
     debug!("emscripten::_clock_gettime {} {}", clk_id, tp);
     #[repr(C)]
@@ -76,7 +76,7 @@ pub extern "C" fn _clock_gettime(
     };
 
     unsafe {
-        let timespec_struct_ptr = instance.memory_offset_addr(0, tp as _) as *mut GuestTimeSpec;
+        let timespec_struct_ptr = vmctx.memory(MemoryIndex::new(0))[tp as usize] as *mut GuestTimeSpec;
         (*timespec_struct_ptr).tv_sec = timespec.sec as _;
         (*timespec_struct_ptr).tv_nsec = timespec.nsec as _;
     }
@@ -87,10 +87,10 @@ pub extern "C" fn _clock_gettime(
 pub extern "C" fn ___clock_gettime(
     clk_id: libc::clockid_t,
     tp: c_int,
-    instance: &mut Instance,
+    vmctx: &mut Ctx,
 ) -> c_int {
     debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
-    _clock_gettime(clk_id, tp, instance)
+    _clock_gettime(clk_id, tp, vmctx)
 }
 
 /// emscripten: _clock
@@ -127,8 +127,8 @@ pub extern "C" fn _tvset() {
 
 /// formats time as a C string
 #[allow(clippy::cast_ptr_alignment)]
-unsafe extern "C" fn fmt_time(time: u32, instance: &Instance) -> *const c_char {
-    let date = &*(instance.memory_offset_addr(0, time as _) as *mut guest_tm);
+unsafe extern "C" fn fmt_time(time: u32, vmctx: &mut Ctx) -> *const c_char {
+    let date = &*(vmctx.memory(MemoryIndex::new(0))[time as usize] as *mut guest_tm);
 
     let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     let months = vec![
@@ -152,21 +152,21 @@ unsafe extern "C" fn fmt_time(time: u32, instance: &Instance) -> *const c_char {
 }
 
 /// emscripten: _asctime
-pub extern "C" fn _asctime(time: u32, instance: &mut Instance) -> u32 {
+pub extern "C" fn _asctime(time: u32, vmctx: &mut Ctx) -> u32 {
     debug!("emscripten::_asctime {}", time);
 
     unsafe {
-        let time_str_ptr = fmt_time(time, instance);
-        copy_cstr_into_wasm(instance, time_str_ptr)
+        let time_str_ptr = fmt_time(time, vmctx);
+        copy_cstr_into_wasm(vmctx, time_str_ptr)
 
-        // let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
+        // let c_str = vmctx.memory(MemoryIndex::new(0))[res as usize] as *mut i8;
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }
 }
 
 /// emscripten: _asctime_r
-pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u32 {
+pub extern "C" fn _asctime_r(time: u32, buf: u32, vmctx: &mut Ctx) -> u32 {
     debug!("emscripten::_asctime_r {}, {}", time, buf);
 
     unsafe {
@@ -174,10 +174,10 @@ pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u3
         //      to write out more than 26 bytes (including the null terminator).
         //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
         //      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.
-        let time_str_ptr = fmt_time(time, instance);
-        write_to_buf(time_str_ptr, buf, 26, instance)
+        let time_str_ptr = fmt_time(time, vmctx);
+        write_to_buf(time_str_ptr, buf, 26, vmctx)
 
-        // let c_str = instance.memory_offset_addr(0, res as _) as *mut i8;
+        // let c_str = vmctx.memory(MemoryIndex::new(0))[res as usize] as *mut i8;
         // use std::ffi::CStr;
         // debug!("#### cstr = {:?}", CStr::from_ptr(c_str));
     }
@@ -185,21 +185,21 @@ pub extern "C" fn _asctime_r(time: u32, buf: u32, instance: &mut Instance) -> u3
 
 /// emscripten: _localtime
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
+pub extern "C" fn _localtime(time_p: u32, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::_localtime {}", time_p);
     // NOTE: emscripten seems to want tzset() called in this function
     //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
     let timespec = unsafe {
-        let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
+        let time_p_addr = vmctx.memory(MemoryIndex::new(0))[time_p as usize] as *mut i64;
         let seconds = *time_p_addr.clone();
         time::Timespec::new(seconds, 0)
     };
     let result_tm = time::at(timespec);
 
     unsafe {
-        let tm_struct_offset = env::call_malloc(mem::size_of::<guest_tm>() as _, instance);
-        let tm_struct_ptr = instance.memory_offset_addr(0, tm_struct_offset as _) as *mut guest_tm;
+        let tm_struct_offset = env::call_malloc(mem::size_of::<guest_tm>() as _, vmctx);
+        let tm_struct_ptr = vmctx.memory(MemoryIndex::new(0))[tm_struct_offset as usize] as *mut guest_tm;
         // debug!(
         //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
         //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
@@ -222,14 +222,14 @@ pub extern "C" fn _localtime(time_p: u32, instance: &mut Instance) -> c_int {
 }
 /// emscripten: _localtime_r
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance) -> c_int {
+pub extern "C" fn _localtime_r(time_p: u32, result: u32, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::_localtime_r {}", time_p);
 
     // NOTE: emscripten seems to want tzset() called in this function
     //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
     unsafe {
-        let seconds = instance.memory_offset_addr(0, time_p as _) as *const i32;
+        let seconds = vmctx.memory(MemoryIndex::new(0))[time_p as usize] as *const i32;
         let timespec = time::Timespec::new(*seconds as _, 0);
         let result_tm = time::at(timespec);
 
@@ -239,7 +239,7 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
         //     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
         // );
 
-        let result_addr = instance.memory_offset_addr(0, result as _) as *mut guest_tm;
+        let result_addr = vmctx.memory(MemoryIndex::new(0))[result as usize] as *mut guest_tm;
 
         (*result_addr).tm_sec = result_tm.tm_sec;
         (*result_addr).tm_min = result_tm.tm_min;
@@ -259,11 +259,11 @@ pub extern "C" fn _localtime_r(time_p: u32, result: u32, instance: &mut Instance
 
 /// emscripten: _time
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn _time(time_p: u32, instance: &mut Instance) -> time_t {
+pub extern "C" fn _time(time_p: u32, vmctx: &mut Ctx) -> time_t {
     debug!("emscripten::_time {}", time_p);
 
     unsafe {
-        let time_p_addr = instance.memory_offset_addr(0, time_p as _) as *mut i64;
+        let time_p_addr = vmctx.memory(MemoryIndex::new(0))[time_p as usize] as *mut i64;
         libc_time(time_p_addr)
     }
 }
@@ -274,7 +274,7 @@ pub extern "C" fn _strftime(
     maxsize: u32,
     format_ptr: c_int,
     tm_ptr: c_int,
-    _instance: &mut Instance,
+    _vmctx: &mut Ctx,
 ) -> time_t {
     debug!(
         "emscripten::_strftime {} {} {} {}",
