@@ -76,7 +76,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             wasmer_emscripten::generate_emscripten_env(&emscripten_globals),
         )
     } else {
-        (InstanceABI::None, wasmer_runtime::import::ImportObject::new())
+        (
+            InstanceABI::None,
+            wasmer_runtime::import::ImportObject::new(),
+        )
     };
 
     let mut instance = module

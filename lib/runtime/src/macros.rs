@@ -20,4 +20,7 @@ macro_rules! export_func {
             },
         }
     }};
+    ($func:ident, [ $( $params:ident ),* ]) => {{
+        export_func($func, [$($params,)*] -> [])
+    }};
 }
