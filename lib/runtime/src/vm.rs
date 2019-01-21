@@ -1,9 +1,7 @@
 pub use crate::{
     backing::{ImportBacking, LocalBacking},
     module::ModuleInner,
-    types::{
-        MemoryIndex, LocalMemoryIndex, LocalOrImport,
-    },
+    types::{LocalMemoryIndex, LocalOrImport, MemoryIndex, TableIndex},
 };
 use std::{ffi::c_void, mem, ptr, slice};
 
@@ -34,7 +32,6 @@ pub struct Ctx {
     pub(crate) local_backing: *mut LocalBacking,
     pub(crate) import_backing: *mut ImportBacking,
     module: *const ModuleInner,
-    
 
     pub data: *mut c_void,
     pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
@@ -97,7 +94,7 @@ impl Ctx {
             LocalOrImport::Local(local_mem_index) => {
                 let local_backing = unsafe { &mut *self.local_backing };
                 &mut local_backing.memories[local_mem_index][..]
-            },
+            }
             LocalOrImport::Import(import_mem_index) => {
                 let import_backing = unsafe { &mut *self.import_backing };
                 let vm_memory_import = import_backing.memories[import_mem_index].clone();
@@ -106,7 +103,7 @@ impl Ctx {
 
                     slice::from_raw_parts_mut(memory.base, memory.size)
                 }
-            },
+            }
         }
     }
 }
