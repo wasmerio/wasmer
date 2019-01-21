@@ -1,5 +1,5 @@
-use crate::recovery::call_protected;
 use crate::{
+    backend::Token,
     backing::{ImportBacking, LocalBacking},
     error::{CallError, CallResult, Result},
     export::{
@@ -9,13 +9,12 @@ use crate::{
     module::{ExportIndex, Module, ModuleInner},
     types::{
         FuncIndex, FuncSig, GlobalDesc, GlobalIndex, LocalOrImport, Memory, MemoryIndex, Table,
-        TableIndex, Type, Value,
+        TableIndex, Value,
     },
     vm,
 };
-use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
+use std::mem;
 use std::rc::Rc;
-use std::{iter, mem};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -69,11 +68,11 @@ impl Instance {
 
     /// Call an exported webassembly function given the export name.
     /// Pass arguments by wrapping each one in the `Value` enum.
-    /// The returned value is also returned in a `Value`.
+    /// The returned values are also each wrapped in a `Value`.
     ///
-    /// This will eventually return `Result<Option<Vec<Value>>, String>` in
-    /// order to support multi-value returns.
-    pub fn call(&mut self, name: &str, args: &[Value]) -> CallResult<Option<Value>> {
+    /// This returns `CallResult<Vec<Value>>` in order to support
+    /// the future multi-value returns webassembly feature.
+    pub fn call(&mut self, name: &str, args: &[Value]) -> CallResult<Vec<Value>> {
         let export_index =
             self.module
                 .exports
@@ -104,23 +103,13 @@ impl Instance {
 }
 
 impl Instance {
-    fn call_with_index(
-        &mut self,
-        func_index: FuncIndex,
-        args: &[Value],
-    ) -> CallResult<Option<Value>> {
-        let (func_ref, ctx, signature) = self.inner.get_func_from_index(&self.module, func_index);
-
-        let func_ptr = CodePtr::from_ptr(func_ref.inner() as _);
-        let vmctx_ptr = match ctx {
-            Context::External(vmctx) => vmctx,
-            Context::Internal => &mut *self.inner.vmctx,
-        };
-
-        assert!(
-            signature.returns.len() <= 1,
-            "multi-value returns not yet supported"
-        );
+    fn call_with_index(&mut self, func_index: FuncIndex, args: &[Value]) -> CallResult<Vec<Value>> {
+        let sig_index = *self
+            .module
+            .func_assoc
+            .get(func_index)
+            .expect("broken invariant, incorrect func index");
+        let signature = self.module.sig_registry.lookup_func_sig(sig_index);
 
         if !signature.check_sig(args) {
             Err(CallError::Signature {
@@ -129,35 +118,29 @@ impl Instance {
             })?
         }
 
-        let libffi_args: Vec<_> = args
-            .iter()
-            .map(|val| match val {
-                Value::I32(ref x) => libffi_arg(x),
-                Value::I64(ref x) => libffi_arg(x),
-                Value::F32(ref x) => libffi_arg(x),
-                Value::F64(ref x) => libffi_arg(x),
-            })
-            .chain(iter::once(libffi_arg(&vmctx_ptr)))
-            .collect();
+        // Create an output vector that's full of dummy values.
+        let mut returns = vec![Value::I32(0); signature.returns.len()];
 
-        Ok(call_protected(|| {
-            signature
-                .returns
-                .first()
-                .map(|ty| match ty {
-                    Type::I32 => Value::I32(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::I64 => Value::I64(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::F32 => Value::F32(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                    Type::F64 => Value::F64(unsafe { libffi_call(func_ptr, &libffi_args) }),
-                })
-                .or_else(|| {
-                    // call with no returns
-                    unsafe {
-                        libffi_call::<()>(func_ptr, &libffi_args);
-                    }
-                    None
-                })
-        })?)
+        let vmctx = match func_index.local_or_import(&self.module) {
+            LocalOrImport::Local(_) => &mut *self.inner.vmctx,
+            LocalOrImport::Import(imported_func_index) => {
+                self.inner.import_backing.functions[imported_func_index].vmctx
+            }
+        };
+
+        let token = Token::generate();
+
+        self.module.protected_caller.call(
+            &self.module,
+            func_index,
+            args,
+            &mut returns,
+            &self.inner.import_backing,
+            vmctx,
+            token,
+        )?;
+
+        Ok(returns)
     }
 }
 

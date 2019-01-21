@@ -1,5 +1,5 @@
 use crate::{
-    backend::FuncResolver,
+    backend::{FuncResolver, ProtectedCaller},
     error::Result,
     import::Imports,
     sig_registry::SigRegistry,
@@ -18,6 +18,8 @@ use std::rc::Rc;
 #[doc(hidden)]
 pub struct ModuleInner {
     pub func_resolver: Box<dyn FuncResolver>,
+    pub protected_caller: Box<dyn ProtectedCaller>,
+
     // This are strictly local and the typsystem ensures that.
     pub memories: Map<LocalMemoryIndex, Memory>,
     pub globals: Map<LocalGlobalIndex, Global>,

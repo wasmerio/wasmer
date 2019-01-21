@@ -1,10 +1,8 @@
-//! We install signal handlers to handle WebAssembly traps within
-//! our Rust code. Otherwise we will have errors that stop the Rust process
-//! such as `process didn't exit successfully: ... (signal: 8, SIGFPE: erroneous arithmetic operation)`
+//! Installing signal handlers allows us to handle traps and out-of-bounds memory
+//! accesses that occur when runniing webassembly.
 //!
-//! Please read more about this here: https://github.com/CraneStation/wasmtime/issues/15
 //! This code is inspired by: https://github.com/pepyakin/wasmtime/commit/625a2b6c0815b21996e111da51b9664feb174622
-use crate::recovery;
+use crate::call::recovery;
 use nix::libc::{c_void, siginfo_t};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
@@ -25,9 +23,9 @@ pub unsafe fn install_sighandler() {
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
     siginfo: *mut siginfo_t,
-    _ucontext: *mut c_void,
+    ucontext: *mut c_void,
 ) {
     unsafe {
-        recovery::do_unwind(signum, siginfo);
+        recovery::do_unwind(signum, siginfo, ucontext);
     }
 }

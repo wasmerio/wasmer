@@ -1,5 +1,8 @@
+use crate::call::HandlerData;
 use crate::libcalls;
-use crate::relocation::{Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall};
+use crate::relocation::{
+    LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall,
+};
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
 use std::mem;
@@ -20,17 +23,18 @@ use wasmer_runtime::{
 pub struct FuncResolverBuilder {
     resolver: FuncResolver,
     relocations: Map<LocalFuncIndex, Vec<Relocation>>,
-    trap_sinks: Map<LocalFuncIndex, TrapSink>,
 }
 
 impl FuncResolverBuilder {
     pub fn new(
         isa: &isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
-    ) -> CompileResult<Self> {
+    ) -> CompileResult<(Self, HandlerData)> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
         let mut relocations = Map::with_capacity(function_bodies.len());
-        let mut trap_sinks = Map::with_capacity(function_bodies.len());
+
+        let mut trap_sink = TrapSink::new();
+        let mut local_trap_sink = LocalTrapSink::new();
 
         let mut ctx = Context::new();
         let mut total_size = 0;
@@ -39,17 +43,20 @@ impl FuncResolverBuilder {
             ctx.func = func;
             let mut code_buf = Vec::new();
             let mut reloc_sink = RelocSink::new();
-            let mut trap_sink = TrapSink::new();
 
-            ctx.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink)
+            ctx.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut local_trap_sink)
                 .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
             ctx.clear();
+
+            // Clear the local trap sink and consolidate all trap info
+            // into a single location.
+            trap_sink.drain_local(total_size, &mut local_trap_sink);
+
             // Round up each function's size to pointer alignment.
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
 
             compiled_functions.push(code_buf);
             relocations.push(reloc_sink.func_relocs);
-            trap_sinks.push(trap_sink);
         }
 
         let mut memory = Memory::with_size(total_size)
@@ -87,11 +94,15 @@ impl FuncResolverBuilder {
             previous_end = new_end;
         }
 
-        Ok(Self {
-            resolver: FuncResolver { map, memory },
-            relocations,
-            trap_sinks,
-        })
+        let handler_data = HandlerData::new(trap_sink, memory.as_ptr() as _, memory.size());
+
+        Ok((
+            Self {
+                resolver: FuncResolver { map, memory },
+                relocations,
+            },
+            handler_data,
+        ))
     }
 
     pub fn finalize(mut self) -> CompileResult<FuncResolver> {

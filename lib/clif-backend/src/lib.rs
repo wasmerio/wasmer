@@ -1,3 +1,5 @@
+// pub mod codegen;
+mod call;
 mod func_env;
 mod libcalls;
 mod module;
@@ -11,7 +13,7 @@ use cranelift_codegen::{
 };
 use target_lexicon::Triple;
 use wasmer_runtime::{
-    backend::Compiler,
+    backend::{Compiler, Token},
     error::{CompileError, CompileResult},
     module::ModuleInner,
 };
@@ -27,7 +29,7 @@ impl CraneliftCompiler {
 
 impl Compiler for CraneliftCompiler {
     // Compiles wasm binary to a wasmer module.
-    fn compile(&self, wasm: &[u8]) -> CompileResult<ModuleInner> {
+    fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner> {
         validate(wasm)?;
 
         let isa = get_isa();

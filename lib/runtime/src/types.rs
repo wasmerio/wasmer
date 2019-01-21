@@ -159,7 +159,7 @@ pub trait LocalImport {
 #[rustfmt::skip]
 macro_rules! define_map_index {
     ($ty:ident) => {
-        #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
         pub struct $ty (u32);
         impl TypedIndex for $ty {
             #[doc(hidden)]

@@ -13,9 +13,7 @@ pub mod import;
 pub mod instance;
 pub mod memory;
 pub mod module;
-mod recovery;
 mod sig_registry;
-mod sighandler;
 pub mod structures;
 mod sys;
 pub mod table;
@@ -31,9 +29,10 @@ pub use self::instance::Instance;
 pub use self::module::Module;
 use std::rc::Rc;
 
-/// Compile a WebAssembly module using the provided compiler.
+/// Compile a webassembly module using the provided compiler.
 pub fn compile(wasm: &[u8], compiler: &dyn backend::Compiler) -> CompileResult<module::Module> {
+    let token = backend::Token::generate();
     compiler
-        .compile(wasm)
+        .compile(wasm, token)
         .map(|inner| module::Module::new(Rc::new(inner)))
 }

@@ -346,6 +346,10 @@ impl ImportBacking {
         }
     }
 
+    pub fn imported_func(&self, func_index: ImportedFuncIndex) -> vm::ImportedFunc {
+        self.functions[func_index].clone()
+    }
+
     pub fn imported_memory(&self, memory_index: ImportedMemoryIndex) -> vm::ImportedMemory {
         self.memories[memory_index].clone()
     }
@@ -408,6 +412,10 @@ fn import_functions(
                     name: name.clone(),
                 });
             }
+            None => Err(LinkError::ImportNotFound {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })?,
         }
     }
 
@@ -475,6 +483,10 @@ fn import_memories(
                     name: name.clone(),
                 });
             }
+            None => Err(LinkError::ImportNotFound {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })?,
         }
     }
 
@@ -540,6 +552,10 @@ fn import_tables(
                     name: name.clone(),
                 });
             }
+            None => Err(LinkError::ImportNotFound {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })?,
         }
     }
 
@@ -596,6 +612,10 @@ fn import_globals(
                     name: name.clone(),
                 });
             }
+            None => Err(LinkError::ImportNotFound {
+                namespace: namespace.clone(),
+                name: name.clone(),
+            })?,
         }
     }
 

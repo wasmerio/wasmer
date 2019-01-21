@@ -439,7 +439,7 @@ fn {}_assert_invalid() {{
                     format!(
                         "fn {func_name}(instance: &mut Instance) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = instance.call(\"{field}\", &[{args_values}]).unwrap().expect(\"Missing result in {func_name}\");
+    let result = instance.call(\"{field}\", &[{args_values}]).unwrap().first().expect(\"Missing result in {func_name}\").clone();
     {assertion}
 }}\n",
                         func_name=func_name,
@@ -498,7 +498,7 @@ fn {}_assert_invalid() {{
                     format!(
                         "fn {func_name}(instance: &mut Instance) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
-    let result = instance.call(\"{field}\", &[{args_values}]).unwrap().expect(\"Missing result in {func_name}\");
+    let result = instance.call(\"{field}\", &[{args_values}]).unwrap().first().expect(\"Missing result in {func_name}\").clone();
     {assertion}
 }}\n",
                         func_name=func_name,
@@ -561,10 +561,10 @@ fn {}_assert_malformed() {{
                         } else {
                             "should not use this expect result".to_string()
                         };
-                        let expected_some_result = if expected.len() > 0 {
-                            format!("Ok(Some({}))", wabt2rust_value(&expected[0]))
+                        let expected_vec_result = if expected.len() > 0 {
+                            format!("Ok(vec![{}])", wabt2rust_value(&expected[0]))
                         } else {
-                            "Ok(None)".to_string()
+                            "Ok(vec![])".to_string()
                         };
                         let return_type = if expected.len() > 0 {
                             wabt2rust_type(&expected[0])
@@ -584,9 +584,9 @@ fn {}_assert_malformed() {{
                         let assertion = if expected.len() > 0 && is_nan(&expected[0]) {
                             format!(
                                 "let expected = {expected_result};
-                                if let {return_type_destructure} = result.clone().unwrap().unwrap() {{
-                                assert!((result as {return_type}).is_nan());
-            assert_eq!((result as {return_type}).is_sign_positive(), (expected as {return_type}).is_sign_positive());
+                                if let {return_type_destructure} = result.clone().unwrap().first().unwrap() {{
+                                assert!((*result as {return_type}).is_nan());
+            assert_eq!((*result as {return_type}).is_sign_positive(), (expected as {return_type}).is_sign_positive());
             }} else {{
               panic!(\"Unexpected result type {{:?}}\", result);
             }}",
@@ -595,7 +595,7 @@ fn {}_assert_malformed() {{
                                 return_type_destructure=return_type_destructure
                             )
                         } else {
-                            format!("assert_eq!(result, {});", expected_some_result)
+                            format!("assert_eq!(result, {});", expected_vec_result)
                         };
                         (func_return, assertion)
                     }
