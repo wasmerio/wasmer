@@ -9,10 +9,13 @@ macro_rules! export_func {
         use wasmer_runtime::{
             export::{Context, Export, FuncPointer},
             types::{FuncSig, Type},
+            vm,
         };
 
+        let func: extern fn( $( $crate::__export_func_convert_type!($params), )* &mut vm::Ctx) -> ($( $crate::__export_func_convert_type!($returns) )*) = $func;
+
         Export::Function {
-            func: FuncPointer::new($func as _),
+            func: unsafe { FuncPointer::new(func as _) },
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![$(Type::$params,)*],
@@ -20,4 +23,21 @@ macro_rules! export_func {
             },
         }
     }};
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __export_func_convert_type {
+    (I32) => {
+        i32
+    };
+    (I64) => {
+        i64
+    };
+    (F32) => {
+        f32
+    };
+    (F64) => {
+        f64
+    };
 }

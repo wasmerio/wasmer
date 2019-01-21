@@ -23,7 +23,9 @@ pub mod vm;
 pub mod vmcalls;
 
 use self::error::CompileResult;
+#[doc(inline)]
 pub use self::error::Result;
+#[doc(inline)]
 pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;

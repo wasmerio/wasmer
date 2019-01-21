@@ -9,12 +9,13 @@ fn main() -> Result<()> {
     let inner_module = runtime::compile(&wasm_binary, &CraneliftCompiler::new())?;
 
     let mut env_namespace = Namespace::new();
-    env_namespace.insert("print_i32", unsafe {
+    env_namespace.insert(
+        "print_i32",
         export_func!(
             print_num,
             [I32] -> [I32]
-        )
-    });
+        ),
+    );
 
     let mut imports = ImportObject::new();
     imports.register("env", env_namespace);
@@ -32,7 +33,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-extern "C" fn print_num(n: i32, _vmctx: *mut vm::Ctx) -> i32 {
+extern "C" fn print_num(n: i32, _vmctx: &mut vm::Ctx) -> i32 {
     println!("print_num({})", n);
     n + 1
 }
