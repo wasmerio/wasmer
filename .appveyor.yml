@@ -14,15 +14,25 @@ environment:
       CHANNEL: stable
 
 install:
-  - curl -sSf -o rustup-init.exe https://win.rustup.rs
-  - rustup-init.exe --default-host %TARGET% --default-toolchain %CHANNEL% -y
+  # setup rust
+  - curl -sSf -o rustup-init.exe https://win.rustup.rs/
+  - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
-  - set PATH=C:\msys64\usr\bin;%PATH%
-  - C:\msys64\usr\bin\bash -lc "pacman --noconfirm -S automake autoconf texinfo mingw-w64-x86_64-clang libtool"
-  - rustc -Vv
+  - rustup target install x86_64-pc-windows-gnu
+  - rustc -V
   - cargo -V
-  - cd %APPVEYOR_BUILD_FOLDER%
-  - git submodule update --init --recursive
+  # Work around https://github.com/rust-lang/rust/issues/49078
+  - curl -sSf -o mingw-w64.7z https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/x86_64-6.3.0-release-posix-seh-rt_v5-rev2.7z
+  - 7z x mingw-w64.7z
+  - set PATH=%PATH%;C:\projects\pf-sandbox\mingw64\bin
+  # setup msys2
+  - set PATH=%PATH%;C:\msys64\mingw64\bin # access libraries
+  - set PATH=%PATH%;C:\msys64\usr\bin # access pacman
+  - echo %PATH%
+  - pacman --noconfirm -Syu --force
+  - pacman --noconfirm -Syu --force
+  - pacman --noconfirm -Syu mingw64/mingw-w64-x86_64-pkg-config mingw64/mingw-w64-x86_64-libusb mingw-w64-x86_64-gcc mingw-w64-x86_64-gtk3 mingw-w64-x86_64-cmake mingw-w64-x86_64-make --force
+
 
 cache:
   - C:\Users\appveyor\.cargo
