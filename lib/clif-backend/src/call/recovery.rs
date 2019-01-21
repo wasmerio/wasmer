@@ -87,10 +87,21 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                         TrapCode::IndirectCallToNull => RuntimeError::IndirectCallToNull {
                             table: TableIndex::new(0),
                         },
-                        TrapCode::HeapOutOfBounds => RuntimeError::OutOfBoundsAccess {
-                            memory: MemoryIndex::new(0),
-                            addr: 0,
-                        },
+                        TrapCode::HeapOutOfBounds => {
+                            let addr =
+                                (faulting_addr as usize) - (handler_data.buffer_ptr as usize);
+                            if addr <= handler_data.buffer_size {
+                                // in the memory
+                                RuntimeError::OutOfBoundsAccess {
+                                    memory: MemoryIndex::new(0),
+                                    addr: addr as u32,
+                                }
+                            } else {
+                                // if there's an invalid access outside of the memory, including guard pages
+                                // just kill the process.
+                                panic!("invalid memory access, way out of bounds")
+                            }
+                        }
                         TrapCode::TableOutOfBounds => RuntimeError::TableOutOfBounds {
                             table: TableIndex::new(0),
                         },
@@ -99,11 +110,17 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                         },
                     },
                     Ok(SIGSEGV) | Ok(SIGBUS) => {
-                        // I'm too lazy right now to actually check if the address is within one of the memories,
-                        // so just say that it's a memory-out-of-bounds access for now
-                        RuntimeError::OutOfBoundsAccess {
-                            memory: MemoryIndex::new(0),
-                            addr: 0,
+                        let addr = (faulting_addr as usize) - (handler_data.buffer_ptr as usize);
+                        if addr <= handler_data.buffer_size {
+                            // in the memory
+                            RuntimeError::OutOfBoundsAccess {
+                                memory: MemoryIndex::new(0),
+                                addr: addr as u32,
+                            }
+                        } else {
+                            // if there's an invalid access outside of the memory, including guard pages
+                            // just kill the process.
+                            panic!("invalid memory access, way out of bounds")
                         }
                     }
                     Ok(SIGFPE) => RuntimeError::IllegalArithmeticOperation,
