@@ -1,12 +1,12 @@
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime_core::{self as wasmer_runtime, error::Result, prelude::*};
+use wasmer_runtime_core::{error::Result, prelude::*};
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
 fn main() -> Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
-    let inner_module = wasmer_runtime::compile(&wasm_binary, &CraneliftCompiler::new())?;
+    let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
 
     let import_object = imports! {
         "env" => {
@@ -20,7 +20,7 @@ fn main() -> Result<()> {
         "env" => inner_instance,
     };
 
-    let outer_module = wasmer_runtime::compile(EXAMPLE_WASM, &CraneliftCompiler::new())?;
+    let outer_module = wasmer_runtime_core::compile_with(EXAMPLE_WASM, &CraneliftCompiler::new())?;
     let mut outer_instance = outer_module.instantiate(outer_imports)?;
     let ret = outer_instance.call("main", &[Value::I32(42)])?;
     println!("ret: {:?}", ret);
