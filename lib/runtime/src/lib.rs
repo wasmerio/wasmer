@@ -1,5 +1,5 @@
-extern crate wasmer_runtime_core;
 extern crate wasmer_clif_backend;
+extern crate wasmer_runtime_core;
 
 pub use wasmer_runtime_core::*;
 
