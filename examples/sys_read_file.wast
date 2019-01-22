@@ -1,8 +1,3 @@
-(; USAGE
- ; This wasm program takes emscripten-compatible imports.
- ; There's an accompanying `em_read_file.wasm` that you can run in wasmer.
- ;)
-
 (module
     (type $t1 (func (param i32)))
     (type $t2 (func (param i32 i32 i32) (result i32)))
@@ -10,14 +5,13 @@
     (type $t4 (func (param i32 i32) (result i32)))
     (func (;0;) $putchar (import "env" "putchar") (type $t1))
     (func (;1;) $printf (import "env" "printf") (type $t4))
-    (func (;2;) $sys_open (import "env" "___syscall5") (type $t2))
-    (func (;3;) $sys_read (import "env" "___syscall3") (type $t2))
-    (func (;4;) $sys_close (import "env" "___syscall6") (type $t3))
-    (func (;5;) $sys_exit (import "env" "___syscall1") (type $t1))
-    (func (;6;) $sys_memcpy (import "env" "_emscripten_memcpy_big") (type $t2))
+    (func (;2;) $sys_open (import "env" "sys_open") (type $t2))
+    (func (;3;) $sys_read (import "env" "sys_read") (type $t2))
+    (func (;4;) $sys_close (import "env" "sys_close") (type $t3))
+    (func (;5;) $sys_exit (import "env" "sys_exit") (type $t1))
     (memory 1)
     (data $filename (i32.const 0) "/Users/xxxx/Desktop/hello.txt\00")
-    (func (;7;) $main (export "_main")
+    (func (;6;) $main (export "_main")
         ;; declare variables
         (local $string_buf_addr i32)
         (local $string_buf_len i32)
