@@ -18,7 +18,7 @@ pub use wasmer_runtime_core::validate;
 #[cfg(feature = "wasmer-clif-backend")]
 pub fn compile(wasm: &[u8]) -> error::CompileResult<module::Module> {
     use wasmer_clif_backend::CraneliftCompiler;
-    wasmer_runtime_core::compile(&wasm[..], &CraneliftCompiler::new())
+    wasmer_runtime_core::compile_with(&wasm[..], &CraneliftCompiler::new())
 }
 
 /// The `instantiate(...)` function allows you to compile and
@@ -42,6 +42,6 @@ pub fn instantiate(
     wasm: &[u8],
     import_object: import::ImportObject,
 ) -> error::Result<instance::Instance> {
-    let module = compile(wasm);
+    let module = compile(wasm)?;
     module.instantiate(import_object)
 }
