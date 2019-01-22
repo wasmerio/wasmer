@@ -41,12 +41,14 @@ use super::{
     time,
     utils,
     varargs,
-    memory_layout::{
+    storage::{
         stacktop,
         stack_max,
         dynamic_base,
+        statictop,
         dynamictop_ptr,
         STATIC_BUMP,
+        memory_base,
     },
 };
 #[macro_use]
@@ -184,7 +186,14 @@ impl EmscriptenData {
         known_globals.insert("STACKTOP".into(), stacktop(STATIC_BUMP) as _);
         known_globals.insert("STACK_MAX".into(), stack_max(STATIC_BUMP) as _);
         known_globals.insert("DYNAMICTOP_PTR".into(), dynamictop_ptr(STATIC_BUMP) as _);
+        // Emscripten has two versions of `memoryBase`.
+        known_globals.insert("memoryBase".into(), memory_base() as _);
+        known_globals.insert("__memory_base".into(), memory_base() as _);
+        // tempDoublePtr.
+        known_globals.insert("tempDoublePtr".into(), stacktop(STATIC_BUMP) as _);
+        // Emscripten has two versions of `tableBase`.
         known_globals.insert("tableBase".into(), 0);
+        known_globals.insert("__table_base".into(), 0);
         known_globals.insert("Infinity".into(), std::f64::INFINITY.to_bits() as _);
         known_globals.insert("NaN".into(), std::f64::NAN.to_bits() as _);
 
@@ -247,6 +256,8 @@ impl EmscriptenImports {
         keys.extend(tables.keys().into_iter().cloned());
         keys.extend(globals.keys().into_iter().cloned());
         keys.extend(functions.keys().into_iter().cloned());
+
+        println!("globals = {:#?}", globals);
 
         // Remove duplicate entires.
         let set: HashSet<_> = keys.drain(..).collect();
