@@ -118,9 +118,6 @@ impl Instance {
             })?
         }
 
-        // Create an output vector that's full of dummy values.
-        let mut returns = vec![Value::I32(0); signature.returns.len()];
-
         let vmctx = match func_index.local_or_import(&self.module) {
             LocalOrImport::Local(_) => &mut *self.inner.vmctx,
             LocalOrImport::Import(imported_func_index) => {
@@ -130,11 +127,10 @@ impl Instance {
 
         let token = Token::generate();
 
-        self.module.protected_caller.call(
+        let returns = self.module.protected_caller.call(
             &self.module,
             func_index,
             args,
-            &mut returns,
             &self.inner.import_backing,
             vmctx,
             token,

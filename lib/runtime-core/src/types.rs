@@ -234,7 +234,7 @@ define_local_or_import![
     (GlobalIndex | (LocalGlobalIndex, ImportedGlobalIndex): imported_globals),
 ];
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SigIndex(u32);
 impl TypedIndex for SigIndex {
     #[doc(hidden)]

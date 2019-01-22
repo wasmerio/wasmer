@@ -1,4 +1,4 @@
-use crate::{call::Caller, resolver::FuncResolverBuilder};
+use crate::{call::Caller, resolver::FuncResolverBuilder, trampoline::Trampolines};
 use cranelift_codegen::{ir, isa};
 use cranelift_entity::EntityRef;
 use cranelift_wasm;
@@ -38,12 +38,11 @@ impl ProtectedCaller for Placeholder {
         _module: &ModuleInner,
         _func_index: FuncIndex,
         _params: &[Value],
-        _returns: &mut [Value],
         _import_backing: &ImportBacking,
         _vmctx: *mut vm::Ctx,
         _: Token,
-    ) -> RuntimeResult<()> {
-        Ok(())
+    ) -> RuntimeResult<Vec<Value>> {
+        Ok(vec![])
     }
 }
 
@@ -97,7 +96,10 @@ impl Module {
         let (func_resolver_builder, handler_data) = FuncResolverBuilder::new(isa, functions)?;
         self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
 
-        self.module.protected_caller = Box::new(Caller::new(&self.module, handler_data));
+        let trampolines = Trampolines::new(isa, &self.module);
+
+        self.module.protected_caller =
+            Box::new(Caller::new(&self.module, handler_data, trampolines));
 
         Ok(self.module)
     }

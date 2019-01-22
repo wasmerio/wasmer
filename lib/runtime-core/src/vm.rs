@@ -587,12 +587,11 @@ mod vm_ctx_tests {
                 _module: &ModuleInner,
                 _func_index: FuncIndex,
                 _params: &[Value],
-                _returns: &mut [Value],
                 _import_backing: &ImportBacking,
                 _vmctx: *mut Ctx,
                 _: Token,
-            ) -> RuntimeResult<()> {
-                Ok(())
+            ) -> RuntimeResult<Vec<Value>> {
+                Ok(vec![])
             }
         }
 
