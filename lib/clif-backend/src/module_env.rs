@@ -4,7 +4,7 @@ use crate::{
 };
 use cranelift_codegen::{ir, isa};
 use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     error::{CompileError, CompileResult},
     module::{DataInitializer, ExportIndex, ImportName, TableInitializer},
     structures::{Map, TypedIndex},

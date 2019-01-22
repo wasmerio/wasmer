@@ -1,7 +1,7 @@
 use libc::{abort, c_char, c_int, exit, pid_t, EAGAIN};
 
 use std::ffi::CStr;
-use wasmer_runtime::Instance;
+use wasmer_runtime_core::Instance;
 
 pub extern "C" fn abort_with_message(message: &str) {
     debug!("emscripten::abort_with_message");

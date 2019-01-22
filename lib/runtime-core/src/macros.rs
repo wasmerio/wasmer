@@ -6,7 +6,7 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! export_func {
     ($func:ident, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ]) => {{
-        use wasmer_runtime::{
+        use wasmer_runtime_core::{
             export::{Context, Export, FuncPointer},
             types::{FuncSig, Type},
             vm,
@@ -54,7 +54,7 @@ macro_rules! __export_func_convert_type {
 #[macro_export]
 macro_rules! imports {
     ( $( $ns_name:expr => $ns:tt, )* ) => {{
-        use wasmer_runtime::{
+        use wasmer_runtime_core::{
             import::{ImportObject, Namespace},
         };
 

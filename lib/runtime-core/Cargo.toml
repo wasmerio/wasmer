@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-runtime"
+name = "wasmer-runtime-core"
 version = "0.1.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"

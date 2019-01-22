@@ -6,7 +6,7 @@ use std::time::SystemTime;
 use time;
 
 use super::env;
-use wasmer_runtime::Instance;
+use wasmer_runtime_core::Instance;
 
 #[cfg(target_os = "linux")]
 use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};

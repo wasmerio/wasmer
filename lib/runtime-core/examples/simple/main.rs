@@ -1,6 +1,6 @@
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime::{self as runtime, error::Result, prelude::*};
+use wasmer_runtime_core::{self as runtime, error::Result, prelude::*};
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 

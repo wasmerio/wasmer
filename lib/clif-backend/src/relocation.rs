@@ -6,7 +6,7 @@ use cranelift_codegen::binemit;
 pub use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
 use hashbrown::HashMap;
-use wasmer_runtime::{structures::TypedIndex, types::LocalFuncIndex};
+use wasmer_runtime_core::{structures::TypedIndex, types::LocalFuncIndex};
 
 #[derive(Debug, Clone)]
 pub struct Relocation {

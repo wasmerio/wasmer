@@ -1,5 +1,5 @@
 use libc::{c_int, c_void};
-use wasmer_runtime::Instance;
+use wasmer_runtime_core::Instance;
 
 /// setjmp
 pub extern "C" fn __setjmp(env_addr: u32, instance: &mut Instance) -> c_int {

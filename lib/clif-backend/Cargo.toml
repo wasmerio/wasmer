@@ -5,7 +5,7 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 
 [dependencies]
-wasmer-runtime = { path = "../runtime" }
+wasmer-runtime-core = { path = "../runtime-core" }
 cranelift-native = "0.26.0"
 cranelift-codegen = "0.26.0"
 cranelift-entity = "0.26.0"

@@ -10,7 +10,7 @@ macro_rules! assert_emscripten_output {
 
         let wasm_bytes = include_bytes!($file);
 
-        let module = wasmer_runtime::compile(&wasm_bytes[..], &CraneliftCompiler::new())
+        let module = wasmer_runtime_core::compile(&wasm_bytes[..], &CraneliftCompiler::new())
             .expect("WASM can't be compiled");
 
 //        let module = compile(&wasm_bytes[..])

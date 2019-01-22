@@ -8,7 +8,7 @@ use std::mem;
 use std::os::raw::c_char;
 
 use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use wasmer_runtime::{types::Value, Instance};
+use wasmer_runtime_core::{types::Value, Instance};
 //use super::EmscriptenData;
 
 //impl Instance {

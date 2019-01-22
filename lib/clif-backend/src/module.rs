@@ -7,7 +7,7 @@ use std::{
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     backend::SigRegistry,
     backend::{FuncResolver, ProtectedCaller, Token},
     error::{CompileResult, RuntimeResult},

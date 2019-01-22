@@ -1,5 +1,5 @@
-use wasmer_runtime::{module::Module, Instance};
-//use wasmer_runtime::Instance;
+use wasmer_runtime_core::{module::Module, Instance};
+//use wasmer_runtime_core::Instance;
 use super::env;
 use libc::stat;
 use std::ffi::CStr;
@@ -144,7 +144,7 @@ mod tests {
     use std::sync::Arc;
     use wabt::wat2wasm;
     use wasmer_clif_backend::CraneliftCompiler;
-    use wasmer_runtime::{compile, module::Module};
+    use wasmer_runtime_core::{compile, module::Module};
 
     #[test]
     fn should_detect_emscripten_files() {

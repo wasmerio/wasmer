@@ -1099,7 +1099,7 @@ dependencies = [
  "wabt 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.1.0",
  "wasmer-emscripten 0.1.1",
- "wasmer-runtime 0.1.0",
+ "wasmer-runtime-core 0.1.0",
  "wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1117,7 +1117,7 @@ dependencies = [
  "libffi 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "target-lexicon 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime 0.1.0",
+ "wasmer-runtime-core 0.1.0",
  "wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1132,11 +1132,11 @@ dependencies = [
  "time 0.1.41 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.1.0",
- "wasmer-runtime 0.1.0",
+ "wasmer-runtime-core 0.1.0",
 ]
 
 [[package]]
-name = "wasmer-runtime"
+name = "wasmer-runtime-core"
 version = "0.1.0"
 dependencies = [
  "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",

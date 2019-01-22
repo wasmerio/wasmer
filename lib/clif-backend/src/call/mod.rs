@@ -7,7 +7,7 @@ use crate::call::recovery::call_protected;
 use hashbrown::HashSet;
 use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
 use std::iter;
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     backend::{ProtectedCaller, Token},
     error::RuntimeResult,
     export::Context,

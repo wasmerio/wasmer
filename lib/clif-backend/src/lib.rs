@@ -12,7 +12,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     backend::{Compiler, Token},
     error::{CompileError, CompileResult},
     module::ModuleInner,

@@ -7,7 +7,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
 use std::mem;
 use std::ptr::{write_unaligned, NonNull};
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     self,
     backend::{
         self,
@@ -206,7 +206,7 @@ impl FuncResolver {
 impl backend::FuncResolver for FuncResolver {
     fn get(
         &self,
-        _module: &wasmer_runtime::module::ModuleInner,
+        _module: &wasmer_runtime_core::module::ModuleInner,
         index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
         self.lookup(index)

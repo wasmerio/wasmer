@@ -5,7 +5,7 @@ use cranelift_codegen::{
     isa,
 };
 use cranelift_wasm::{self, FuncEnvironment, ModuleEnvironment};
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     memory::LinearMemory,
     structures::TypedIndex,
     types::{FuncIndex, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex},

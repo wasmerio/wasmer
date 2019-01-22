@@ -7,7 +7,7 @@ endif
 
 # This will re-generate the Rust test files based on spectests/*.wast
 spectests:
-	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime
+	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core
 
 emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten
@@ -36,7 +36,7 @@ test:
 	# We use one thread so the emscripten stdouts doesn't collide
 	# cargo test --all -- --test-threads=1 $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
-	cargo test -p wasmer-runtime -- --test-threads=1 $(runargs)
+	cargo test -p wasmer-runtime-core -- --test-threads=1 $(runargs)
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows

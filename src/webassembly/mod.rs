@@ -1,7 +1,7 @@
 pub mod utils;
 
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     self as runtime,
     error::{CallResult, Result},
     import::ImportObject,

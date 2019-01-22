@@ -1,6 +1,6 @@
 use libc::printf as _printf;
 
-use wasmer_runtime::Instance;
+use wasmer_runtime_core::Instance;
 
 /// putchar
 pub use libc::putchar;

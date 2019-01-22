@@ -1,10 +1,10 @@
 #[macro_use]
-extern crate wasmer_runtime;
+extern crate wasmer_runtime_core;
 
 use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
 use std::mem;
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer, GlobalPointer},
     import::{ImportObject, Namespace},
     memory::LinearMemory,
