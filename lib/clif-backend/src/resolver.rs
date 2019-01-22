@@ -8,7 +8,7 @@ use wasmer_runtime::{
     self,
     backend::{self, Mmap, Protect},
     error::{CompileError, CompileResult},
-    structures::Map,
+    structures::{Map, TypedIndex},
     types::LocalFuncIndex,
     vm, vmcalls,
 };
@@ -18,12 +18,14 @@ pub struct FuncResolverBuilder {
     resolver: FuncResolver,
     relocations: Map<LocalFuncIndex, Vec<Relocation>>,
     trap_sinks: Map<LocalFuncIndex, TrapSink>,
+    import_len: usize,
 }
 
 impl FuncResolverBuilder {
     pub fn new(
         isa: &isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
+        import_len: usize,
     ) -> CompileResult<Self> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
         let mut relocations = Map::with_capacity(function_bodies.len());
@@ -88,6 +90,7 @@ impl FuncResolverBuilder {
             resolver: FuncResolver { map, memory },
             relocations,
             trap_sinks,
+            import_len,
         })
     }
 
@@ -96,20 +99,11 @@ impl FuncResolverBuilder {
             for ref reloc in relocs {
                 let target_func_address: isize = match reloc.target {
                     RelocationType::Normal(local_func_index) => {
-                        // This will always be an internal function
-                        // because imported functions are not
-                        // called in this way.
-                        println!("function norm: {:?}", local_func_index);
+                        // Adjust from wasm-wide function index to index of locally-defined functions only.
+                        let local_func_index = LocalFuncIndex::new(local_func_index.index() - self.import_len);
 
-                        // TODO: Fix ut-of-bound index issue lua.wasm
-                        // self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
-                        let r = match self.resolver.lookup(local_func_index) {
-                            Some(value) => value.as_ptr() as isize,
-                            None => 0,
-                        };
-                        println!("function norm end");
-                        r
-                    }
+                        self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
+                    },
                     RelocationType::LibCall(libcall) => match libcall {
                         ir::LibCall::CeilF32 => libcalls::ceilf32 as isize,
                         ir::LibCall::FloorF32 => libcalls::floorf32 as isize,
@@ -170,7 +164,6 @@ impl FuncResolverBuilder {
                 }
             }
         }
-        println!("resolver end");
 
         unsafe {
             self.resolver

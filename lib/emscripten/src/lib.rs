@@ -38,7 +38,6 @@ mod syscalls;
 mod time;
 mod utils;
 mod varargs;
-mod memory_layout;
 pub mod host_data;
 
 pub use self::host_data::{
