@@ -45,3 +45,6 @@ pub fn instantiate(
     let module = compile(wasm)?;
     module.instantiate(import_object)
 }
+
+/// The current version of this crate
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
