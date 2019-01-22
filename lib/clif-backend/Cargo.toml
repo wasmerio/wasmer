@@ -1,0 +1,21 @@
+[package]
+name = "wasmer-clif-backend"
+version = "0.1.0"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+
+[dependencies]
+wasmer-runtime = { path = "../runtime" }
+cranelift-native = "0.26.0"
+cranelift-codegen = "0.26.0"
+cranelift-entity = "0.26.0"
+cranelift-wasm = "0.26.0"
+hashbrown = "0.1"
+target-lexicon = "0.2.0"
+wasmparser = "0.23.0"
+byteorder = "1"
+nix = "0.12.0"
+# We depend on libffi for now.
+# This will be removed asap.
+libffi = "0.6.4"
+

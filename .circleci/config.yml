@@ -1,83 +1,127 @@
 version: 2
 jobs:
   # Job used for testing
-  test:
+  lint:
     docker:
       - image: circleci/rust:latest
-
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run: sudo apt-get install -y cmake
-      - run: make test
-      - run: rustup component add rustfmt
-      - run: make lint
+            - v5-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run: 
+          name: Install dependencies
+          command: |
+            sudo apt-get install -y cmake
+            sudo apt-get install texinfo
+            sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
+      - run:
+          name: Install lint deps
+          command: |
+            rustup component add rustfmt
+            rustup component add clippy
+      - run:
+          name: Execute lints
+          command: make lint
       - save_cache:
           paths:
             - /usr/local/cargo/registry
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v5-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
 
-  test-macos:
-    macos:
-      xcode: "9.0"
-
+  test:
+    docker:
+      - image: circleci/rust:latest
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Install CMAKE
+            - v5-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run: 
+          name: Install dependencies
           command: |
-            curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
-            tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            sudo apt-get install -y cmake
+            sudo apt-get install texinfo
+            sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
+      - run: make test
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: v5-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+
+  test-macos:
+    macos:
+      xcode: "9.0"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v5-cargo-cache-darwin-{{ arch }}-brew
+      - run:
+          name: Update Brew
+          command: brew update || true
+      - run:
+          name: Install crate dependencies
+          command: |
+            brew install libtool || true
+            brew install autoconf cmake libffi || true
+      - save_cache:
+          paths:
+            - /usr/local/Homebrew
+          key: v5-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Install Rust
           command: |
             curl https://sh.rustup.rs -sSf | sh -s -- -y
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
-            rustup component add rustfmt
       - run:
           name: Execute tests
           command: |
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
-            make lint
       - run:
           name: Execute integration tests
           command: |
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
-            ./integration_tests/nginx/test.sh
+            make integration-tests
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+            - target/release/.fingerprint
+            - target/release/build
+            - target/release/deps
+          key: v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build:
     docker:
       - image: circleci/rust:latest
-
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run: sudo apt-get install -y cmake
+            - v5-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run: 
+          name: Install dependencies
+          command: |
+            sudo apt-get install -y cmake
+            sudo apt-get install texinfo
+            sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run:
           name: Execute tests
           command: make test
-      - run: rustup component add rustfmt
-      - run:
-          name: Execute lints
-          command: make lint
       - run:
           name: Make release build
           command: |
@@ -101,44 +145,47 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v4-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - /usr/local/Homebrew
+          key: v5-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build-macos:
     macos:
       xcode: "9.0"
-
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v5-cargo-cache-darwin-{{ arch }}-brew
       - run:
-          name: Install CMAKE
+          name: Update Brew
+          command: brew update || true
+      - run:
+          name: Install crate dependencies
           command: |
-            curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
-            tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            brew install libtool || true
+            brew install autoconf cmake libffi || true
+      - save_cache:
+          paths:
+            - /usr/local/Homebrew
+          key: v5-cargo-cache-darwin-{{ arch }}-brew
       - run:
           name: Install Rust
           command: |
             curl https://sh.rustup.rs -sSf | sh -s -- -y
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
-            rustup component add rustfmt
       - run:
           name: Execute tests
           command: |
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
-            make lint
       - run:
           name: Make release build
           command: |
-            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             make release
             mkdir -p artifacts
@@ -158,18 +205,22 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v4-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-rust-nightly:
     docker:
       - image: circleci/rust:latest
-
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
-      - run: sudo apt-get install -y cmake
+            - v5-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+      - run: 
+          name: Install dependencies
+          command: |
+            sudo apt-get install -y cmake
+            sudo apt-get install texinfo
+            sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run: rustup default nightly
       - run: make test
       - save_cache:
@@ -178,7 +229,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v4-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+          key: v5-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
 
   publish-github-release:
     docker:
@@ -210,6 +261,7 @@ workflows:
   version: 2
   main:
     jobs:
+      - lint
       - test:
           filters:
             branches:
@@ -230,15 +282,11 @@ workflows:
           filters:
             branches:
               only: master
-      # :
-      #     filters:
-      #       tags:
-      #         only: /^\d+\.\d+\.\d+$/
-
       - publish-github-release:
           requires:
+            - lint
             - test-and-build
             - test-and-build-macos
           filters:
-            tags:
-              only: /^\d+\.\d+\.\d+$/
+            branches:
+              only: master

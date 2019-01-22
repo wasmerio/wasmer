@@ -7,10 +7,10 @@ endif
 
 # This will re-generate the Rust test files based on spectests/*.wast
 spectests:
-	WASM_GENERATE_SPECTESTS=1 cargo build
+	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime
 
 emtests:
-	WASM_GENERATE_EMTESTS=1 cargo build
+	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten
 
 # clean:
 #     rm -rf artifacts
@@ -21,14 +21,22 @@ build:
 install:
 	cargo install --path .
 
+integration-tests: release
+	echo "Running Integration Tests"
+	# Commented for now until we fix emscripten
+	# ./integration_tests/nginx/test.sh
+
 lint:
-	cargo fmt -- --check
+	cargo fmt --all -- --check
+	cargo clippy --all
 
 precommit: lint test
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test -- --test-threads=1 $(runargs) 
+	# cargo test --all -- --test-threads=1 $(runargs)
+	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
+	cargo test -p wasmer-runtime -- --test-threads=1 $(runargs)
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
