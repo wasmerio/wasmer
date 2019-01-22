@@ -43,9 +43,28 @@ pub mod prelude {
 }
 
 /// Compile a webassembly module using the provided compiler.
-pub fn compile(wasm: &[u8], compiler: &dyn backend::Compiler) -> CompileResult<module::Module> {
+pub fn compile_with(
+    wasm: &[u8],
+    compiler: &dyn backend::Compiler,
+) -> CompileResult<module::Module> {
     let token = backend::Token::generate();
     compiler
         .compile(wasm, token)
         .map(|inner| module::Module::new(Rc::new(inner)))
+}
+
+/// This function performs validation as defined by the
+/// WebAssembly specification and returns true if validation
+/// succeeded, false if validation failed.
+pub fn validate(wasm: &[u8]) -> bool {
+    use wasmparser::WasmDecoder;
+    let mut parser = wasmparser::ValidatingParser::new(wasm, None);
+    loop {
+        let state = parser.read();
+        match *state {
+            wasmparser::ParserState::EndWasm => break true,
+            wasmparser::ParserState::Error(_) => break false,
+            _ => {}
+        }
+    }
 }
