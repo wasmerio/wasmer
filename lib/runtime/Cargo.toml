@@ -6,4 +6,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core" }
-wasmer-clif-backend = { path = "../clif-backend" }
+wasmer-clif-backend = { path = "../clif-backend", optional = true }
+
+[features]
+default = ["wasmer-clif-backend"]
