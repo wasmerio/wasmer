@@ -20,11 +20,22 @@ curl https://get.wasmer.io -sSfL | sh
 `wasmer` can execute both the standard binary format (`.wasm`) and the text
 format defined by the WebAssembly reference interpreter (`.wat`).
 
-Once installed, you will be able to run any wasm module (_including Nginx!_):
+Once installed, you will be able to run any WebAssembly files (_including Nginx, and Lua!_):
 
 ```sh
+# Run Lua
+wasmer run examples/lua.wasm
+
+# Run Nginx
 wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
 ```
+
+## Code Structure
+
+Wasmer is structured into different directories:
+
+- [`src`](./src): code related to the wasmer excutable binary itself
+- [`lib`](./lib): modularized libraries that Wasmer uses under the hood
 
 ## Building & Running
 
@@ -63,7 +74,6 @@ You can also run integration tests with:
 make integration-tests
 ```
 
-
 ## Roadmap
 
 Wasmer is an open project guided by strong principles, aiming to be modular, flexible and fast. It is open to the community to help set its direction.
@@ -72,9 +82,9 @@ Below are some of the goals (written with order) of this project:
 
 - [x] It should be 100% compatible with the [WebAssembly Spectest](https://github.com/wasmerio/wasmer/tree/master/spectests)
 - [x] It should be fast _(partially achieved)_
-- [ ] Support Emscripten calls _(on the works)_
+- [x] Support Emscripten calls _(on the works)_
 - [ ] Support Rust ABI calls
-
+- [ ] Support GO ABI calls
 
 ## Architecture
 
