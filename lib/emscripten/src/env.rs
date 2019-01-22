@@ -225,8 +225,10 @@ use wasmer_runtime::{
 
 /// TODO: May need to implement some sort of trampoline or caching or rethinking of the
 /// the implementation as a whole.
+///
 /// Calls an exported function from within the vm context.
 pub fn call(vmctx: &Ctx, name: &str, args: &[Value]) -> CallResult<Option<Value>> {
+    println!("Hello");
     let module = unsafe { &*vmctx.module };
     let export_index = module
             .exports

@@ -37,6 +37,7 @@ impl Imports {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct NamespaceMap {
     pub map: HashMap<String, Export>,
 }

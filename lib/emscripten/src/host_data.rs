@@ -485,7 +485,7 @@ impl EmscriptenImports {
                 func: func!(syscalls, ___syscall1),
                 ctx: Context::Internal,
                 signature: FuncSig {
-                    params: vec![I32, I32],
+                    params: vec![I32],
                     returns: vec![],
                 },
             },
@@ -497,7 +497,7 @@ impl EmscriptenImports {
                 func: func!(syscalls, ___syscall3),
                 ctx: Context::Internal,
                 signature: FuncSig {
-                    params: vec![I32, I32],
+                    params: vec![I32, I32, I32],
                     returns: vec![I32],
                 },
             },
@@ -521,7 +521,7 @@ impl EmscriptenImports {
                 func: func!(syscalls, ___syscall5),
                 ctx: Context::Internal,
                 signature: FuncSig {
-                    params: vec![I32, I32],
+                    params: vec![I32, I32, I32],
                     returns: vec![I32],
                 },
             },
@@ -533,7 +533,7 @@ impl EmscriptenImports {
                 func: func!(syscalls, ___syscall6),
                 ctx: Context::Internal,
                 signature: FuncSig {
-                    params: vec![I32, I32],
+                    params: vec![I32],
                     returns: vec![I32],
                 },
             },
@@ -1489,6 +1489,8 @@ impl EmscriptenImports {
                 },
             },
         );
+
+        println!("env_namespace = {:#?}", env_namespace);
 
         // mock_external!(env_namespace, _waitpid);
         // mock_external!(env_namespace, _utimes);
