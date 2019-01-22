@@ -180,7 +180,7 @@ impl FuncResolverBuilder {
             self.resolver
                 .memory
                 .protect(0..self.resolver.memory.size(), Protect::ReadExec)
-                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;;
+                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         }
 
         Ok(self.resolver)

@@ -56,11 +56,10 @@ pub trait ProtectedCaller {
         module: &ModuleInner,
         func_index: FuncIndex,
         params: &[Value],
-        returns: &mut [Value],
         import_backing: &ImportBacking,
         vmctx: *mut vm::Ctx,
         _: Token,
-    ) -> RuntimeResult<()>;
+    ) -> RuntimeResult<Vec<Value>>;
 }
 
 pub trait FuncResolver {
