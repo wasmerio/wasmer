@@ -147,8 +147,8 @@ pub fn call_malloc(size: i32, instance: &mut Instance) -> u32 {
     let ret = instance
         .call("_malloc", &[Value::I32(size)])
         .expect("_malloc call failed");
-    if let Some(Value::I32(ptr)) = ret {
-        ptr as u32
+    if let [Value::I32(x)] = ret.as_slice() {
+        *x as u32
     } else {
         panic!("unexpected value from _malloc: {:?}", ret);
     }
@@ -161,8 +161,8 @@ pub fn call_memalign(alignment: u32, size: u32, instance: &mut Instance) -> u32 
             &[Value::I32(alignment as i32), Value::I32(size as i32)],
         )
         .expect("_memalign call failed");
-    if let Some(Value::I32(res)) = ret {
-        res as u32
+    if let [Value::I32(x)] = ret.as_slice() {
+        *x as u32
     } else {
         panic!("unexpected value from _memalign {:?}", ret);
     }
@@ -179,8 +179,8 @@ pub fn call_memset(pointer: u32, value: i32, size: u32, instance: &mut Instance)
             ],
         )
         .expect("_memset call failed");
-    if let Some(Value::I32(res)) = ret {
-        res as u32
+    if let [Value::I32(x)] = ret.as_slice() {
+        *x as u32
     } else {
         panic!("unexpected value from _memset {:?}", ret);
     }

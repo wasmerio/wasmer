@@ -6,7 +6,7 @@ use hashbrown::HashMap;
 use std::mem;
 use wasmer_runtime::{
     export::{Context, Export, FuncPointer, GlobalPointer},
-    import::{ImportObject, NamespaceMap},
+    import::{ImportObject, Namespace},
     memory::LinearMemory,
     types::{
         FuncSig, GlobalDesc,
@@ -15,6 +15,8 @@ use wasmer_runtime::{
     vm::LocalGlobal,
 };
 
+#[macro_use]
+mod macros;
 //#[cfg(test)]
 mod file_descriptor;
 pub mod stdio;
@@ -155,9 +157,9 @@ impl<'a> EmscriptenGlobals<'a> {
 
 pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
     let mut imports = ImportObject::new();
-    let mut env_namespace = NamespaceMap::new();
-    let mut asm_namespace = NamespaceMap::new();
-    let mut global_namespace = NamespaceMap::new();
+    let mut env_namespace = Namespace::new();
+    let mut asm_namespace = Namespace::new();
+    let mut global_namespace = Namespace::new();
 
     // Add globals.
     // NOTE: There is really no need for checks, these globals should always be available.
