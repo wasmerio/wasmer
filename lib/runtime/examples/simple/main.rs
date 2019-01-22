@@ -8,22 +8,17 @@ fn main() -> Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let inner_module = runtime::compile(&wasm_binary, &CraneliftCompiler::new())?;
 
-    let mut env_namespace = Namespace::new();
-    env_namespace.insert(
-        "print_i32",
-        export_func!(
-            print_num,
-            [i32] -> [i32]
-        ),
-    );
+    let import_object = imports! {
+        "env" => {
+            "print_i32" => print_num<[i32] -> [i32]>,
+        },
+    };
 
-    let mut imports = ImportObject::new();
-    imports.register("env", env_namespace);
+    let inner_instance = inner_module.instantiate(import_object)?;
 
-    let inner_instance = inner_module.instantiate(imports)?;
-
-    let mut outer_imports = ImportObject::new();
-    outer_imports.register("env", inner_instance);
+    let outer_imports = imports! {
+        "env" => inner_instance,
+    };
 
     let outer_module = runtime::compile(EXAMPLE_WASM, &CraneliftCompiler::new())?;
     let mut outer_instance = outer_module.instantiate(outer_imports)?;

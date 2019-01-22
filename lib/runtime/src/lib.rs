@@ -32,7 +32,6 @@ pub use self::module::Module;
 use std::rc::Rc;
 
 pub mod prelude {
-    pub use crate::export_func;
     pub use crate::import::{ImportObject, Namespace};
     pub use crate::types::{
         FuncIndex, GlobalIndex, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
@@ -40,6 +39,7 @@ pub mod prelude {
         MemoryIndex, TableIndex, Type, Value,
     };
     pub use crate::vm;
+    pub use crate::{export_func, imports};
 }
 
 /// Compile a webassembly module using the provided compiler.

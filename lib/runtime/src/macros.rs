@@ -50,3 +50,40 @@ macro_rules! __export_func_convert_type {
         compile_error!("Only `i32`, `u32`, `i64`, `u64`, `f32`, and `f64` are supported for argument and return types")
     };
 }
+
+#[macro_export]
+macro_rules! imports {
+    ( $( $ns_name:expr => $ns:tt, )* ) => {{
+        use wasmer_runtime::{
+            import::{ImportObject, Namespace},
+        };
+
+        let mut import_object = ImportObject::new();
+
+        $({
+            let ns = $crate::__imports_internal!($ns);
+
+            import_object.register($ns_name, ns);
+        })*
+
+        import_object
+    }};
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __imports_internal {
+    ( { $( $imp_name:expr => $func:ident < [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] >, )* } ) => {{
+        let mut ns = Namespace::new();
+        $(
+            ns.insert($imp_name, $crate::export_func!(
+                $func,
+                [ $( $params ),* ] -> [ $( $returns )* ]
+            ));
+        )*
+        ns
+    }};
+    ($ns:ident) => {
+        $ns
+    };
+}
