@@ -1,6 +1,5 @@
 pub mod utils;
 
-use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::{
     self as runtime,
     error::{CallResult, Result},
@@ -76,8 +75,7 @@ pub fn instantiate_streaming(
 /// If the operation fails, the Result rejects with a
 /// webassembly::CompileError.
 pub fn compile(buffer_source: &[u8]) -> Result<Module> {
-    let compiler = CraneliftCompiler::new();
-    let module = runtime::compile(buffer_source, &compiler)?;
+    let module = runtime::compile(buffer_source)?;
     Ok(module)
 }
 

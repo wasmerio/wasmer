@@ -1,51 +1,47 @@
-#[cfg(test)]
-#[macro_use]
-extern crate field_offset;
-
-#[macro_use]
-mod macros;
-#[doc(hidden)]
-pub mod backend;
-mod backing;
-pub mod error;
-pub mod export;
-pub mod import;
-pub mod instance;
-pub mod memory;
-pub mod module;
-mod sig_registry;
-pub mod structures;
-mod sys;
-pub mod table;
-pub mod types;
-pub mod vm;
-#[doc(hidden)]
-pub mod vmcalls;
-
-use self::error::CompileResult;
 #[doc(inline)]
-pub use self::error::Result;
-#[doc(inline)]
-pub use self::instance::Instance;
-#[doc(inline)]
-pub use self::module::Module;
-use std::rc::Rc;
+pub use wasmer_runtime_core::*;
 
-pub mod prelude {
-    pub use crate::import::{ImportObject, Namespace};
-    pub use crate::types::{
-        FuncIndex, GlobalIndex, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
-        ImportedTableIndex, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-        MemoryIndex, TableIndex, Type, Value,
-    };
-    pub use crate::vm;
-    pub use crate::{export_func, imports};
+pub use wasmer_runtime_core::instance::Instance;
+pub use wasmer_runtime_core::module::Module;
+pub use wasmer_runtime_core::validate;
+
+/// The `compile(...)` function compiles a `Module`
+/// from WebAssembly binary code.  This function is useful if it
+/// is necessary to a compile a module before it can be instantiated
+/// (otherwise, the webassembly::instantiate() function should be used).
+///
+/// Params:
+/// * `wasm`: A `&[u8]` containing the
+///   binary code of the wasm module you want to compile.
+/// Errors:
+/// If the operation fails, the function returns `Err(error::CompileError::...).`
+#[cfg(feature = "wasmer-clif-backend")]
+pub fn compile(wasm: &[u8]) -> error::CompileResult<module::Module> {
+    use wasmer_clif_backend::CraneliftCompiler;
+    wasmer_runtime_core::compile_with(&wasm[..], &CraneliftCompiler::new())
 }
 
-/// Compile a webassembly module using the provided compiler.
-pub fn compile(wasm: &[u8], compiler: &dyn backend::Compiler) -> CompileResult<module::Module> {
-    let token = backend::Token::generate();
-    compiler
-        .compile(wasm, token)
-        .map(|inner| module::Module::new(Rc::new(inner)))
+/// The `instantiate(...)` function allows you to compile and
+/// instantiate WebAssembly code in one go.
+///
+/// Params:
+/// * `wasm`: A `&[u8]` containing the
+///   binary code of the wasm module you want to compile.
+/// * `import_object`: An object containing the values to be imported
+///   into the newly-created Instance, such as functions or
+///   webassembly::Memory objects. There must be one matching property
+///   for each declared import of the compiled module or else a
+///   webassembly::LinkError is thrown.
+/// Errors:
+/// If the operation fails, the function returns a
+/// `error::CompileError`, `error::LinkError`, or
+/// `error::RuntimeError` (all combined into an `error::Error`),
+/// depending on the cause of the failure.
+#[cfg(feature = "wasmer-clif-backend")]
+pub fn instantiate(
+    wasm: &[u8],
+    import_object: import::ImportObject,
+) -> error::Result<instance::Instance> {
+    let module = compile(wasm)?;
+    module.instantiate(import_object)
 }

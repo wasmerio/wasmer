@@ -1,5 +1,5 @@
 // use super::varargs::VarArgs;
-use wasmer_runtime::Instance;
+use wasmer_runtime_core::Instance;
 
 #[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn _sigemptyset(set: u32, instance: &mut Instance) -> i32 {

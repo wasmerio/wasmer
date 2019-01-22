@@ -1,5 +1,5 @@
 use std::mem;
-use wasmer_runtime::Instance;
+use wasmer_runtime_core::Instance;
 
 #[repr(transparent)]
 pub struct VarArgs {

@@ -78,7 +78,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     } else {
         (
             InstanceABI::None,
-            wasmer_runtime::import::ImportObject::new(),
+            wasmer_runtime_core::import::ImportObject::new(),
         )
     };
 

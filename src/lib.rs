@@ -1,4 +1,4 @@
-extern crate wasmer_runtime;
+extern crate wasmer_runtime_core;
 // extern crate wasmer_emscripten;
 
 #[macro_use]

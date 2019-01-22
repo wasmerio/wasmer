@@ -1,4 +1,4 @@
-use wasmer_runtime::Instance;
+use wasmer_runtime_core::Instance;
 
 // TODO: Need to implement.
 

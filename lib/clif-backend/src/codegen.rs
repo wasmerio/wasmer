@@ -16,7 +16,7 @@ use cranelift_wasm::{
 use hashbrown::HashMap;
 use std::mem;
 use target_lexicon;
-use wasmer_runtime::{
+use wasmer_runtime_core::{
     backend::SigRegistry,
     memory::LinearMemory,
     module::{

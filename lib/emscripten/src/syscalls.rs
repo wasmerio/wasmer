@@ -70,7 +70,7 @@ use libc::{
     SO_REUSEADDR,
     TIOCGWINSZ,
 };
-use wasmer_runtime::Instance;
+use wasmer_runtime_core::Instance;
 
 use super::env;
 use std::mem;
