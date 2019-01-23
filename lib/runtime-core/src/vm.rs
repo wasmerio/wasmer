@@ -6,6 +6,9 @@ use crate::{
 };
 use std::{ffi::c_void, mem, ptr, slice};
 
+/// The context of the currently running WebAssembly instance.
+///
+///
 #[derive(Debug)]
 #[repr(C)]
 pub struct Ctx {
@@ -39,6 +42,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
+    #[doc(hidden)]
     pub unsafe fn new(
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
@@ -63,6 +67,7 @@ impl Ctx {
         }
     }
 
+    #[doc(hidden)]
     pub unsafe fn new_with_data(
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
@@ -89,6 +94,25 @@ impl Ctx {
         }
     }
 
+    /// This exposes the specified memory of the WebAssembly instance
+    /// as a mutable slice.
+    ///
+    /// WebAssembly will soon support multiple linear memories, so this
+    /// forces the user to specify.
+    ///
+    /// # Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{
+    /// #     vm::Ctx,
+    /// #     error::Result,
+    /// # };
+    /// extern fn host_func(ctx: &mut Ctx) {
+    ///     let first_memory = ctx.memory(0);
+    ///     // Set the first byte of that linear memory.
+    ///     first_memory[0] = 42;
+    /// }
+    /// ```
     pub fn memory<'a>(&'a mut self, mem_index: u32) -> &'a mut [u8] {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
@@ -110,6 +134,7 @@ impl Ctx {
     }
 }
 
+#[doc(hidden)]
 impl Ctx {
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_memories() -> u8 {

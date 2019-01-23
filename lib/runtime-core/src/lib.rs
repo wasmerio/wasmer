@@ -42,10 +42,12 @@ pub mod prelude {
     pub use crate::{export_func, imports};
 }
 
-/// Compile a `module` using the provided compiler from
+/// Compile a [`Module`] using the provided compiler from
 /// WebAssembly binary code. This function is useful if it
 /// is necessary to a compile a module before it can be instantiated
 /// and must be used if you wish to use a different backend from the default.
+///
+/// [`Module`]: struct.Module.html
 pub fn compile_with(
     wasm: &[u8],
     compiler: &dyn backend::Compiler,
@@ -56,9 +58,9 @@ pub fn compile_with(
         .map(|inner| module::Module::new(Rc::new(inner)))
 }
 
-/// This function performs validation as defined by the
-/// WebAssembly specification and returns true if validation
-/// succeeded, false if validation failed.
+/// Perform validation as defined by the
+/// WebAssembly specification. Returns `true` if validation
+/// succeeded, `false` if validation failed.
 pub fn validate(wasm: &[u8]) -> bool {
     use wasmparser::WasmDecoder;
     let mut parser = wasmparser::ValidatingParser::new(wasm, None);

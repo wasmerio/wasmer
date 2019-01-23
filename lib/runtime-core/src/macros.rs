@@ -51,6 +51,29 @@ macro_rules! __export_func_convert_type {
     };
 }
 
+/// Generate an [`ImportObject`] safely.
+///
+/// [`ImportObject`]: struct.ImportObject.html
+///
+/// # Note:
+/// The `import` macro currently only supports
+/// importing functions.
+///
+///
+/// # Usage:
+/// ```
+/// # use wasmer_runtime_core::imports;
+/// # use wasmer_runtime_core::vm::Ctx;
+/// let import_object = imports! {
+///     "env" => {
+///         "foo" => foo<[i32] -> [i32]>,
+///     },
+/// };
+///
+/// extern fn foo(n: i32, _: &mut Ctx) -> i32 {
+///     n
+/// }
+/// ```
 #[macro_export]
 macro_rules! imports {
     ( $( $ns_name:expr => $ns:tt, )* ) => {{
