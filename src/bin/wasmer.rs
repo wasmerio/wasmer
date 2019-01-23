@@ -10,7 +10,11 @@ use structopt::StructOpt;
 
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
-use wasmer_emscripten;
+use wasmer_emscripten::{
+    EmscriptenData,
+    EmscriptenImportObject,
+};
+use wasmer_runtime;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -69,11 +73,20 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
+    let abi = if wasmer_emscripten::is_emscripten_module(&module) {
+        webassembly::InstanceABI::Emscripten
+    } else {
+        webassembly::InstanceABI::None
+    };
+
+    // let emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
+    let emscripten_data = EmscriptenData::new(&module);
+
     let (_abi, import_object) = if wasmer_emscripten::is_emscripten_module(&module) {
         let emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
         (
             InstanceABI::Emscripten,
-            wasmer_emscripten::generate_emscripten_env(&emscripten_globals),
+            EmscriptenImportObject::generate(&emscripten_data),
         )
     } else {
         (

@@ -2,12 +2,12 @@ pub mod utils;
 
 use wasmer_runtime::{
     self as runtime,
-    error::{CallResult, Result},
+    error::{CallResult, CallError, Result},
     import::ImportObject,
     instance::Instance,
     module::Module,
+    types::{Value, Type, FuncSig},
 };
-
 use std::panic;
 use wasmer_emscripten::is_emscripten_module;
 
@@ -85,17 +85,49 @@ pub fn run_instance(
     module: &Module,
     instance: &mut Instance,
     _path: &str,
-    _args: Vec<&str>,
+    args: Vec<&str>,
 ) -> CallResult<()> {
+    // Get main name.
     let main_name = if is_emscripten_module(module) {
         "_main"
     } else {
         "main"
     };
 
-    // TODO handle args
-    instance.call(main_name, &[])?;
-    // TODO atinit and atexit for emscripten
+    // Get main functin arguments.
+    let main_args = get_main_args(main_name, args, instance)?;
 
+    // Call main function
+    instance.call(main_name, &main_args[..])?;
+
+    // TODO atinit and atexit for emscripten
     Ok(())
+}
+
+/// Passes arguments from the host to the WebAssembly instance.
+fn get_main_args(main_name: &str, _args: Vec<&str>, instance: &Instance) -> CallResult<Vec<Value>> {
+    // Getting main function signature.
+    let func_index = instance.get_func_index(main_name)?;
+    let func_sig = instance.get_func_signature(func_index);
+    let params = func_sig.params;
+    let params_len = params.len();
+
+    // Check for a (i32, i32) sig.
+    if params_len == 2 && params[0] == Type::I32 && params[1] == Type::I32 {
+        // TODO: Copy args to wasm memory.
+        return Ok(vec![Value::I32(0), Value::I32(0)])
+    }
+
+    // Check for a () sig.
+    if params_len == 0 {
+        return Ok(vec![])
+    }
+
+    Err(CallError::Signature {
+        expected: FuncSig {
+            params: vec![Type::I32, Type::I32],
+            returns: vec![]
+        },
+        found: params
+    }.into())
 }
