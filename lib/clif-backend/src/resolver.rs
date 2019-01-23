@@ -14,7 +14,7 @@ use wasmer_runtime_core::{
         sys::{Memory, Protect},
     },
     error::{CompileError, CompileResult},
-    structures::Map,
+    structures::{Map, TypedIndex},
     types::LocalFuncIndex,
     vm, vmcalls,
 };
@@ -23,12 +23,14 @@ use wasmer_runtime_core::{
 pub struct FuncResolverBuilder {
     resolver: FuncResolver,
     relocations: Map<LocalFuncIndex, Vec<Relocation>>,
+    import_len: usize,
 }
 
 impl FuncResolverBuilder {
     pub fn new(
         isa: &isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
+        import_len: usize,
     ) -> CompileResult<(Self, HandlerData)> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
         let mut relocations = Map::with_capacity(function_bodies.len());
@@ -100,6 +102,7 @@ impl FuncResolverBuilder {
             Self {
                 resolver: FuncResolver { map, memory },
                 relocations,
+                import_len,
             },
             handler_data,
         ))
@@ -113,6 +116,10 @@ impl FuncResolverBuilder {
                         // This will always be an internal function
                         // because imported functions are not
                         // called in this way.
+                        // Adjust from wasm-wide function index to index of locally-defined functions only.
+                        let local_func_index =
+                            LocalFuncIndex::new(local_func_index.index() - self.import_len);
+
                         self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
                     }
                     RelocationType::LibCall(libcall) => match libcall {
