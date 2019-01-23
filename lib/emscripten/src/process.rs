@@ -1,7 +1,7 @@
 use libc::{abort, c_char, c_int, exit, pid_t, EAGAIN};
 
 use std::ffi::CStr;
-use wasmer_runtime_core::Instance;
+use wasmer_runtime_core::vm::Ctx;
 
 pub extern "C" fn abort_with_message(message: &str) {
     debug!("emscripten::abort_with_message");
@@ -16,7 +16,7 @@ pub extern "C" fn _abort() {
     }
 }
 
-pub extern "C" fn _fork(_instance: &mut Instance) -> pid_t {
+pub extern "C" fn _fork(_vmctx: &mut Ctx) -> pid_t {
     debug!("emscripten::_fork");
     // unsafe {
     //     fork()
@@ -24,14 +24,14 @@ pub extern "C" fn _fork(_instance: &mut Instance) -> pid_t {
     -1
 }
 
-pub extern "C" fn _exit(status: c_int, _instance: &mut Instance) -> ! {
+pub extern "C" fn _exit(status: c_int, _vmctx: &mut Ctx) -> ! {
     debug!("emscripten::_exit {}", status);
     unsafe { exit(status) }
 }
 
-pub extern "C" fn em_abort(message: u32, instance: &mut Instance) {
+pub extern "C" fn em_abort(message: u32, vmctx: &mut Ctx) {
     debug!("emscripten::em_abort {}", message);
-    let message_addr = instance.memory_offset_addr(0, message as usize) as *mut c_char;
+    let message_addr = vmctx.memory(0)[message as usize] as *mut c_char;
     unsafe {
         let message = CStr::from_ptr(message_addr)
             .to_str()
