@@ -45,10 +45,7 @@ pub unsafe fn copy_cstr_into_wasm(vmctx: &mut Ctx, cstr: *const c_char) -> u32 {
     space_offset
 }
 
-pub unsafe fn allocate_on_stack<'a, T: Copy>(
-    count: u32,
-    vmctx: &'a Ctx,
-) -> (u32, &'a mut [T]) {
+pub unsafe fn allocate_on_stack<'a, T: Copy>(count: u32, vmctx: &'a Ctx) -> (u32, &'a mut [T]) {
     unimplemented!("allocate_on_stack not implemented")
     //    let offset = (instance.emscripten_data().as_ref().unwrap().stack_alloc)(
     //        count * (size_of::<T>() as u32),
@@ -71,10 +68,7 @@ pub unsafe fn allocate_cstr_on_stack<'a>(s: &str, vmctx: &'a Ctx) -> (u32, &'a [
     (offset, slice)
 }
 
-pub unsafe fn copy_terminated_array_of_cstrs(
-    _vmctx: &mut Ctx,
-    cstrs: *mut *mut c_char,
-) -> u32 {
+pub unsafe fn copy_terminated_array_of_cstrs(_vmctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
     let total_num = {
         let mut ptr = cstrs;
         let mut counter = 0;
@@ -151,8 +145,8 @@ mod tests {
     fn should_detect_emscripten_files() {
         const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
         let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
-        let module =
-            compile_with(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module = compile_with(&wasm_binary[..], &CraneliftCompiler::new())
+            .expect("WASM can't be compiled");
         let module = Arc::new(module);
         assert!(is_emscripten_module(&module));
     }
@@ -161,8 +155,8 @@ mod tests {
     fn should_detect_non_emscripten_files() {
         const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
         let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
-        let module =
-            compile_with(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        let module = compile_with(&wasm_binary[..], &CraneliftCompiler::new())
+            .expect("WASM can't be compiled");
         let module = Arc::new(module);
         assert!(!is_emscripten_module(&module));
     }

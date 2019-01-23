@@ -97,8 +97,7 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, vmctx: &mut Ctx) -> c_int {
         let passwd = &*libc_getpwnam(name.as_ptr());
         let passwd_struct_offset = call_malloc(mem::size_of::<GuestPasswd>() as _, vmctx);
 
-        let passwd_struct_ptr =
-            vmctx.memory(0)[passwd_struct_offset as usize] as *mut GuestPasswd;
+        let passwd_struct_ptr = vmctx.memory(0)[passwd_struct_offset as usize] as *mut GuestPasswd;
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(vmctx, passwd.pw_name);
         (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(vmctx, passwd.pw_passwd);
         (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(vmctx, passwd.pw_gecos);
@@ -132,8 +131,7 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, vmctx: &mut Ctx) -> c_int {
         let group = &*libc_getgrnam(name.as_ptr());
         let group_struct_offset = call_malloc(mem::size_of::<GuestGroup>() as _, vmctx);
 
-        let group_struct_ptr =
-            vmctx.memory(0)[group_struct_offset as usize] as *mut GuestGroup;
+        let group_struct_ptr = vmctx.memory(0)[group_struct_offset as usize] as *mut GuestGroup;
         (*group_struct_ptr).gr_name = copy_cstr_into_wasm(vmctx, group.gr_name);
         (*group_struct_ptr).gr_passwd = copy_cstr_into_wasm(vmctx, group.gr_passwd);
         (*group_struct_ptr).gr_gid = group.gr_gid;
@@ -223,4 +221,3 @@ pub extern "C" fn _sysconf(name: c_int, _vmctx: &mut Ctx) -> c_long {
     // TODO: Implement like emscripten expects regarding memory/page size
     unsafe { sysconf(name) }
 }
-

@@ -25,6 +25,7 @@ pub mod stdio;
 mod env;
 mod errno;
 mod exception;
+pub mod host_data;
 mod io;
 mod jmp;
 mod lock;
@@ -38,12 +39,8 @@ mod syscalls;
 mod time;
 mod utils;
 mod varargs;
-pub mod host_data;
 
-pub use self::host_data::{
-    EmscriptenImportObject,
-    EmscriptenData,
-};
+pub use self::host_data::{EmscriptenData, EmscriptenImportObject};
 
 pub use self::storage::align_memory;
 pub use self::utils::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
@@ -110,9 +107,7 @@ impl<'a> EmscriptenGlobals<'a> {
         data.insert("env", env_namepace);
         data.insert("global", global_namepace);
 
-        Self {
-            data
-        }
+        Self { data }
     }
 }
 

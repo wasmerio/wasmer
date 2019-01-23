@@ -3,12 +3,7 @@ use libc::{c_int, c_void, memcpy, size_t};
 use wasmer_runtime_core::vm::Ctx;
 
 /// emscripten: _emscripten_memcpy_big
-pub extern "C" fn _emscripten_memcpy_big(
-    dest: u32,
-    src: u32,
-    len: u32,
-    vmctx: &mut Ctx,
-) -> u32 {
+pub extern "C" fn _emscripten_memcpy_big(dest: u32, src: u32, len: u32, vmctx: &mut Ctx) -> u32 {
     debug!(
         "emscripten::_emscripten_memcpy_big {}, {}, {}",
         dest, src, len

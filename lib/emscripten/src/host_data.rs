@@ -1,55 +1,28 @@
-
-use std::mem;
-use wasmer_runtime_core::{
-    export::{Context, Export, FuncPointer, GlobalPointer, TablePointer, MemoryPointer},
-    import::{ImportObject, Namespace},
-    memory::LinearMemory,
-    types::{
-        FuncSig,
-        Type::{self, *},
-        Value,
-        Memory,
-        GlobalDesc,
-        Table,
-        LocalMemoryIndex,
-        ImportedMemoryIndex,
+use super::{
+    env, errno, exception, io, jmp, lock, math, memory, nullfunc, process, signal, storage,
+    storage::{
+        dynamic_base, dynamictop_ptr, memory_base, stack_max, stacktop, statictop, STATIC_BUMP,
     },
-    vm::{Func, LocalGlobal, LocalMemory, LocalTable},
-    module::{Module, ImportName},
-    structures::TypedIndex,
-};
-use hashbrown::{
-    hash_map::{Entry, Values},
-    HashMap,
-    HashSet,
+    syscalls, time, utils, varargs,
 };
 use crate::storage::align_memory;
-use super::{
-    env,
-    errno,
-    exception,
-    io,
-    jmp,
-    lock,
-    math,
-    memory,
-    nullfunc,
-    process,
-    signal,
-    storage,
-    syscalls,
-    time,
-    utils,
-    varargs,
-    storage::{
-        stacktop,
-        stack_max,
-        dynamic_base,
-        statictop,
-        dynamictop_ptr,
-        STATIC_BUMP,
-        memory_base,
+use hashbrown::{
+    hash_map::{Entry, Values},
+    HashMap, HashSet,
+};
+use std::mem;
+use wasmer_runtime_core::{
+    export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer, TablePointer},
+    import::{ImportObject, Namespace},
+    memory::LinearMemory,
+    module::{ImportName, Module},
+    structures::TypedIndex,
+    types::{
+        FuncSig, GlobalDesc, ImportedMemoryIndex, LocalMemoryIndex, Memory, Table,
+        Type::{self, *},
+        Value,
     },
+    vm::{Func, LocalGlobal, LocalMemory, LocalTable},
 };
 
 /// TODO: Abstract to HostData that takes in or registers known data and generates missing data.
@@ -70,13 +43,20 @@ impl EmscriptenData {
         let memories = EmscriptenData::generate_memories(module);
         let tables = EmscriptenData::generate_tables(module);
         let globals = EmscriptenData::generate_globals(module);
-        Self { memories, tables, globals }
+        Self {
+            memories,
+            tables,
+            globals,
+        }
     }
 
     /// Generates owned memories based on imports definition.
-    pub fn generate_memories(module: &Module) -> HashMap<String, HashMap<String, (Vec<u8>, Box<LocalMemory>, Export)>> {
+    pub fn generate_memories(
+        module: &Module,
+    ) -> HashMap<String, HashMap<String, (Vec<u8>, Box<LocalMemory>, Export)>> {
         let imported_memories = &module.0.imported_memories;
-        let mut memories: HashMap<String, HashMap<String, (Vec<u8>, Box<LocalMemory>, Export)>> = HashMap::new();
+        let mut memories: HashMap<String, HashMap<String, (Vec<u8>, Box<LocalMemory>, Export)>> =
+            HashMap::new();
 
         // Iterate imported memories.
         for (index, (name, memory)) in imported_memories.iter() {
@@ -101,9 +81,9 @@ impl EmscriptenData {
             // This can be reused later when generating an environment imports.
             let export = Export::Memory {
                 local: unsafe {
-                    MemoryPointer::new(
-                        std::mem::transmute::<&mut LocalMemory, *mut LocalMemory>(local_memory.as_mut())
-                    )
+                    MemoryPointer::new(std::mem::transmute::<&mut LocalMemory, *mut LocalMemory>(
+                        local_memory.as_mut(),
+                    ))
                 },
                 ctx: Context::Internal,
                 memory: Memory { min, max, shared },
@@ -126,9 +106,12 @@ impl EmscriptenData {
     }
 
     /// Generates owned tables based on imports definition.
-    pub fn generate_tables(module: &Module) -> HashMap<String, HashMap<String, (Vec<u8>, Box<LocalTable>, Export)>> {
+    pub fn generate_tables(
+        module: &Module,
+    ) -> HashMap<String, HashMap<String, (Vec<u8>, Box<LocalTable>, Export)>> {
         let imported_tables = &module.0.imported_tables;
-        let mut tables: HashMap<String, HashMap<String, (Vec<u8>, Box<LocalTable>, Export)>> = HashMap::new();
+        let mut tables: HashMap<String, HashMap<String, (Vec<u8>, Box<LocalTable>, Export)>> =
+            HashMap::new();
 
         // Iterate imported memories.
         for (_, (name, table)) in imported_tables.iter() {
@@ -150,9 +133,9 @@ impl EmscriptenData {
             // This can be reused later when generating an environment imports.
             let export = Export::Table {
                 local: unsafe {
-                    TablePointer::new(
-                        std::mem::transmute::<&mut LocalTable, *mut LocalTable>(local_table.as_mut())
-                    )
+                    TablePointer::new(std::mem::transmute::<&mut LocalTable, *mut LocalTable>(
+                        local_table.as_mut(),
+                    ))
                 },
                 ctx: Context::Internal,
                 table: Table { ty, min, max },
@@ -175,7 +158,9 @@ impl EmscriptenData {
     }
 
     /// Generates owned globals based on known data and imports definition.
-    pub fn generate_globals(module: &Module) -> HashMap<String, HashMap<String, (LocalGlobal, Export)>> {
+    pub fn generate_globals(
+        module: &Module,
+    ) -> HashMap<String, HashMap<String, (LocalGlobal, Export)>> {
         let imported_globals = &module.0.imported_globals;
         let mut globals: HashMap<String, HashMap<String, (LocalGlobal, Export)>> = HashMap::new();
         let mut known_globals: HashMap<String, u64> = HashMap::new();
@@ -213,9 +198,9 @@ impl EmscriptenData {
             // This can be reused later when generating an environment imports.
             let export = Export::Global {
                 local: unsafe {
-                    GlobalPointer::new(
-                        std::mem::transmute::<&LocalGlobal, *mut LocalGlobal>(&local_global)
-                    )
+                    GlobalPointer::new(std::mem::transmute::<&LocalGlobal, *mut LocalGlobal>(
+                        &local_global,
+                    ))
                 },
                 global: GlobalDesc { mutable, ty },
             };
@@ -247,7 +232,11 @@ impl EmscriptenImportObject {
         let mut imports = ImportObject::new();
         let mut keys = Vec::new();
         let functions = EmscriptenImportObject::get_functions();
-        let EmscriptenData { memories, tables, globals } = data;
+        let EmscriptenData {
+            memories,
+            tables,
+            globals,
+        } = data;
 
         // Combine all keys.
         keys.extend(memories.keys().into_iter().cloned());
