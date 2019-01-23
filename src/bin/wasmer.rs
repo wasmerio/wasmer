@@ -10,10 +10,7 @@ use structopt::StructOpt;
 
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
-use wasmer_emscripten::{
-    EmscriptenData,
-    EmscriptenImportObject,
-};
+use wasmer_emscripten::{EmscriptenData, EmscriptenImportObject};
 use wasmer_runtime;
 
 #[derive(Debug, StructOpt)]

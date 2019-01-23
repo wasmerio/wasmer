@@ -1,15 +1,15 @@
 pub mod utils;
 
+use std::panic;
+use wasmer_emscripten::is_emscripten_module;
 use wasmer_runtime::{
     self as runtime,
-    error::{CallResult, CallError, Result},
+    error::{CallError, CallResult, Result},
     import::ImportObject,
     instance::Instance,
     module::Module,
-    types::{Value, Type, FuncSig},
+    types::{FuncSig, Type, Value},
 };
-use std::panic;
-use wasmer_emscripten::is_emscripten_module;
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -115,19 +115,20 @@ fn get_main_args(main_name: &str, _args: Vec<&str>, instance: &Instance) -> Call
     // Check for a (i32, i32) sig.
     if params_len == 2 && params[0] == Type::I32 && params[1] == Type::I32 {
         // TODO: Copy args to wasm memory.
-        return Ok(vec![Value::I32(0), Value::I32(0)])
+        return Ok(vec![Value::I32(0), Value::I32(0)]);
     }
 
     // Check for a () sig.
     if params_len == 0 {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
 
     Err(CallError::Signature {
         expected: FuncSig {
             params: vec![Type::I32, Type::I32],
-            returns: vec![]
+            returns: vec![],
         },
-        found: params
-    }.into())
+        found: params,
+    }
+    .into())
 }
