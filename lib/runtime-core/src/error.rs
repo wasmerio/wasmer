@@ -179,6 +179,12 @@ impl From<Box<RuntimeError>> for Box<CallError> {
     }
 }
 
+impl From<Box<ResolveError>> for Box<CallError> {
+    fn from(resolve_err: Box<ResolveError>) -> Self {
+        Box::new(CallError::Resolve(*resolve_err))
+    }
+}
+
 impl From<CompileError> for Box<Error> {
     fn from(compile_err: CompileError) -> Self {
         Box::new(Error::CompileError(compile_err))

@@ -77,11 +77,12 @@ impl Instance {
     /// # Usage:
     /// ```
     /// # use wasmer_runtime_core::Instance;
-    /// # fn call_foo(instance: &mut Instance) -> Option<()> {
+    /// # use wasmer_runtime_core::error::CallResult;
+    /// # fn call_foo(instance: &mut Instance) -> CallResult<()> {
     /// instance
     ///     .func("foo")?
     ///     .call(&[])?;
-    /// # Some(())
+    /// # Ok(())
     /// # }
     /// ```
     pub fn func(&mut self, name: &str) -> ResolveResult<Function> {
@@ -417,11 +418,12 @@ impl<'a> Function<'a> {
     /// # Usage:
     /// ```
     /// # use wasmer_runtime_core::Instance;
-    /// # fn call_foo(instance: &mut Instance) -> Option<()> {
+    /// # use wasmer_runtime_core::error::CallResult;
+    /// # fn call_foo(instance: &mut Instance) -> CallResult<()> {
     /// instance
     ///     .func("foo")?
     ///     .call(&[])?;
-    /// # Some(())
+    /// # Ok(())
     /// # }
     /// ```
     pub fn call(&mut self, params: &[Value]) -> CallResult<Vec<Value>> {
