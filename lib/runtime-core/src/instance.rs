@@ -23,9 +23,15 @@ pub(crate) struct InstanceInner {
     vmctx: Box<vm::Ctx>,
 }
 
-/// A WebAssembly instance
+/// An instantiated WebAssembly module.
+///
+/// An `Instance` represents a WebAssembly module that
+/// has been instantiated with an [`ImportObject`] and is
+/// ready to be called.
+///
+/// [`ImportObject`]: struct.ImportObject.html
 pub struct Instance {
-    pub module: Rc<ModuleInner>,
+    module: Rc<ModuleInner>,
     inner: Box<InstanceInner>,
     #[allow(dead_code)]
     imports: Box<ImportObject>,
@@ -67,11 +73,27 @@ impl Instance {
     }
 
     /// Call an exported webassembly function given the export name.
-    /// Pass arguments by wrapping each one in the `Value` enum.
-    /// The returned values are also each wrapped in a `Value`.
+    /// Pass arguments by wrapping each one in the [`Value`] enum.
+    /// The returned values are also each wrapped in a [`Value`].
     ///
+    /// [`Value`]: enum.Value.html
+    ///
+    /// # Note:
     /// This returns `CallResult<Vec<Value>>` in order to support
     /// the future multi-value returns webassembly feature.
+    ///
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::types::Value;
+    /// # use wasmer_runtime_core::error::Result;
+    /// # use wasmer_runtime_core::Instance;
+    /// # fn call_foo(instance: &mut Instance) -> Result<()> {
+    /// // ...
+    /// let results = instance.call("foo", &[Value::I32(42)])?;
+    /// // ...
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn call(&mut self, name: &str, args: &[Value]) -> CallResult<Vec<Value>> {
         let export_index =
             self.module
@@ -329,9 +351,9 @@ impl LikeNamespace for Instance {
     }
 }
 
-// TODO Remove this later, only needed for compilation till emscripten is updated
+#[doc(hidden)]
 impl Instance {
-    pub fn memory_offset_addr(&self, _index: usize, _offset: usize) -> *const u8 {
+    pub fn memory_offset_addr(&self, _: u32, _: usize) -> *const u8 {
         unimplemented!()
     }
 }
