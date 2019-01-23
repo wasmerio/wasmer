@@ -350,3 +350,10 @@ impl LikeNamespace for Instance {
         Some(self.inner.get_export_from_index(&self.module, export_index))
     }
 }
+
+#[doc(hidden)]
+impl Instance {
+    pub fn memory_offset_addr(&self, _: u32, _: usize) -> *const u8 {
+        unimplemented!()
+    }
+}

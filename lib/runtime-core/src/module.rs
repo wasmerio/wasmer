@@ -49,7 +49,7 @@ pub struct ModuleInner {
 ///
 /// [`compile`]: fn.compile.html
 /// [`compile_with`]: fn.compile_with.html
-pub struct Module(Rc<ModuleInner>);
+pub struct Module(#[doc(hidden)] pub Rc<ModuleInner>);
 
 impl Module {
     pub(crate) fn new(inner: Rc<ModuleInner>) -> Self {

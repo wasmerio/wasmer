@@ -3,9 +3,9 @@ pub mod utils;
 use wasmer_runtime::{
     self as runtime,
     error::{CallResult, Result},
-    import::ImportObject,
-    instance::Instance,
-    module::Module,
+    ImportObject,
+    Instance,
+    Module,
 };
 
 use std::panic;
