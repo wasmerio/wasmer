@@ -25,7 +25,7 @@ pub(crate) struct InstanceInner {
 
 /// A WebAssembly instance
 pub struct Instance {
-    pub module: Rc<ModuleInner>,
+    module: Rc<ModuleInner>,
     inner: Box<InstanceInner>,
     #[allow(dead_code)]
     imports: Box<ImportObject>,
@@ -326,12 +326,5 @@ impl LikeNamespace for Instance {
         let export_index = self.module.exports.get(name)?;
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
-    }
-}
-
-// TODO Remove this later, only needed for compilation till emscripten is updated
-impl Instance {
-    pub fn memory_offset_addr(&self, _index: usize, _offset: usize) -> *const u8 {
-        unimplemented!()
     }
 }

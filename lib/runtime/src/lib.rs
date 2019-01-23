@@ -6,7 +6,7 @@ pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::validate;
 
 /// The `compile(...)` function compiles a `Module`
-/// from WebAssembly binary code.  This function is useful if it
+/// from WebAssembly binary code. This function is useful if it
 /// is necessary to a compile a module before it can be instantiated
 /// (otherwise, the webassembly::instantiate() function should be used).
 ///
