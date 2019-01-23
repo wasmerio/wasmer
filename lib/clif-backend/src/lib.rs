@@ -71,3 +71,6 @@ fn validate(bytes: &[u8]) -> CompileResult<()> {
         }
     }
 }
+
+/// The current version of this crate
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

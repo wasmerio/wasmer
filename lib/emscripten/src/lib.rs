@@ -1466,3 +1466,6 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
 
     imports
 }
+
+/// The current version of this crate
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
