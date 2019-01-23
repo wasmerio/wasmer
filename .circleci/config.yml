@@ -63,9 +63,9 @@ jobs:
           keys:
             - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
             - v5-cargo-cache-darwin-{{ arch }}-brew
-      - run:
-          name: Update Brew
-          command: brew update || true
+      # - run:
+      #     name: Update Brew
+      #     command: brew update || true
       - run:
           name: Install crate dependencies
           command: |
@@ -158,9 +158,9 @@ jobs:
           keys:
             - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
             - v5-cargo-cache-darwin-{{ arch }}-brew
-      - run:
-          name: Update Brew
-          command: brew update || true
+      # - run:
+      #     name: Update Brew
+      #     command: brew update || true
       - run:
           name: Install crate dependencies
           command: |
