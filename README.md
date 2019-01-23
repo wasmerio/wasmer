@@ -36,10 +36,63 @@ Wasmer is structured into different directories:
 
 - [`src`](./src): code related to the wasmer excutable binary itself
 - [`lib`](./lib): modularized libraries that Wasmer uses under the hood
+- [`examples`](./examples): some useful examples to getting started with wasmer
 
-## Building & Running
+## Dependencies
 
-To build this project you will need Rust and Cargo.
+Building wasmer requires [rustup](https://rustup.rs/).
+
+To install on Windows, download and run [`rustup-init.exe`](https://win.rustup.rs/)
+then follow the onscreen instructions.
+
+To install on other systems, run:
+
+```sh
+curl https://sh.rustup.rs -sSf | sh
+```
+
+### Other dependencies
+
+Please select your operating system:
+* [macOS](#macos)
+* [Debian-based Linuxes](#debian-based-linuxes)
+* [Microsoft Windows](#windows-msvc)
+
+#### macOS
+
+If you have [homebrew](https://brew.sh/) installed:
+
+``` sh
+brew install cmake
+```
+
+Or, in case you have [ports](https://www.macports.org/install.php):
+
+```sh
+sudo port install cmake
+```
+
+#### Debian-based Linuxes
+
+``` sh
+sudo apt install cmake
+```
+
+#### Windows (MSVC)
+
+Right now Windows support is *highly experimental*.
+We are working on this so Wasmer can soon be released for Windows.
+
+1. Install Python for Windows (https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
+You should change the installation to install the "Add python.exe to Path" feature.
+
+2. Install Git for Windows (https://git-scm.com/download/win). DO allow it to add git.exe to the PATH (default
+settings for the installer are fine).
+
+
+## Building
+
+Wasmer is built with [Cargo](https://crates.io/), the Rust package manager.
 
 ```sh
 # checkout code
