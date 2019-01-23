@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-clif-backend"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 
@@ -15,4 +15,3 @@ target-lexicon = "0.2.0"
 wasmparser = "0.23.0"
 byteorder = "1"
 nix = "0.12.0"
-

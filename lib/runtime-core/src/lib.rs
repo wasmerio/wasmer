@@ -73,3 +73,6 @@ pub fn validate(wasm: &[u8]) -> bool {
         }
     }
 }
+
+/// The current version of this crate
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

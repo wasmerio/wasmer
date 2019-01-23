@@ -66,9 +66,7 @@ impl Trampolines {
 
         let mut memory = Memory::with_size(total_size).unwrap();
         unsafe {
-            memory
-                .protect(0..memory.size(), Protect::ReadWrite)
-                .unwrap();
+            memory.protect(.., Protect::ReadWrite).unwrap();
         }
 
         // "\xCC" disassembles to "int3", which will immediately cause
@@ -91,7 +89,7 @@ impl Trampolines {
         }
 
         unsafe {
-            memory.protect(0..memory.size(), Protect::ReadExec).unwrap();
+            memory.protect(.., Protect::ReadExec).unwrap();
         }
 
         Self {
