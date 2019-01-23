@@ -4,15 +4,20 @@ extern crate wasmer_runtime_core;
 use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
 use std::mem;
+use std::ptr;
 use wasmer_runtime_core::{
-    export::{Context, Export, FuncPointer, GlobalPointer},
+    export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer},
     import::{ImportObject, Namespace},
     memory::LinearMemory,
     types::{
         FuncSig, GlobalDesc,
         Type::{self, *},
+        Memory,
+        LocalMemoryIndex
     },
+    structures::TypedIndex,
     vm::LocalGlobal,
+    vm::LocalMemory,
 };
 
 #[macro_use]
@@ -133,6 +138,9 @@ macro_rules! global {
 
 pub struct EmscriptenGlobals<'a> {
     pub data: HashMap<&'a str, HashMap<&'a str, (u64, Type)>>, // <namespace, <field_name, (global_value, type)>>
+    // The emscripten memory
+    pub memory: LinearMemory,
+    pub vm_memory: LocalMemory,
 }
 
 impl<'a> EmscriptenGlobals<'a> {
@@ -140,6 +148,14 @@ impl<'a> EmscriptenGlobals<'a> {
         let mut data = HashMap::new();
         let mut env_namepace = HashMap::new();
         let mut global_namepace = HashMap::new();
+
+        let memory_type = Memory {
+            min: 256,
+            max: Some(256),
+            shared: false,
+        };
+        let mut memory = LinearMemory::new(&memory_type);
+        let mut vm_memory = memory.into_vm_memory(LocalMemoryIndex::new(0));
 
         env_namepace.insert("STACKTOP", (stacktop(STATIC_BUMP) as _, I32));
         env_namepace.insert("STACK_MAX", (stack_max(STATIC_BUMP) as _, I32));
@@ -151,11 +167,11 @@ impl<'a> EmscriptenGlobals<'a> {
         data.insert("env", env_namepace);
         data.insert("global", global_namepace);
 
-        Self { data }
+        Self { data, memory, vm_memory }
     }
 }
 
-pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
+pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject {
     let mut imports = ImportObject::new();
     let mut env_namespace = Namespace::new();
     let mut asm_namespace = Namespace::new();
@@ -166,6 +182,26 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
     // NOTE: There is really no need for checks, these globals should always be available.
     let env_globals = globals.data.get("env").unwrap();
     let global_globals = globals.data.get("global").unwrap();
+
+    // Memory
+
+    let local_memory = unsafe {
+        MemoryPointer::new(&mut globals.vm_memory)
+    };
+
+    env_namespace.insert(
+        "memory".to_string(),
+        Export::Memory {
+            local: local_memory,
+            // We generate a fake Context that traps on access
+            ctx: Context::External(ptr::null_mut()),
+            memory: Memory {
+                min: 256,
+                max: Some(256),
+                shared: false,
+            }
+        },
+    );
 
     let (value, ty) = env_globals.get("STACKTOP").unwrap();
     env_namespace.insert(

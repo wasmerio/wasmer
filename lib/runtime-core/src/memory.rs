@@ -44,7 +44,7 @@ impl LinearMemory {
     /// Create a new linear memory instance with specified initial and maximum number of pages.
     ///
     /// `maximum` cannot be set to more than `65536` pages.
-    pub(crate) fn new(mem: &Memory) -> Self {
+    pub fn new(mem: &Memory) -> Self {
         assert!(mem.min <= Self::MAX_PAGES);
         assert!(mem.max.is_none() || mem.max.unwrap() <= Self::MAX_PAGES);
         debug!("Instantiate LinearMemory(mem: {:?})", mem);
@@ -108,7 +108,7 @@ impl LinearMemory {
         self.max.unwrap_or(Self::MAX_PAGES)
     }
 
-    pub(crate) fn into_vm_memory(&mut self, index: LocalMemoryIndex) -> vm::LocalMemory {
+    pub fn into_vm_memory(&mut self, index: LocalMemoryIndex) -> vm::LocalMemory {
         vm::LocalMemory {
             base: self.base(),
             size: self.size(),
