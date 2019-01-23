@@ -178,12 +178,14 @@ impl<'a> EmscriptenGlobals<'a> {
 
         let memory_base = (STATIC_BASE as u64, I32);
         let table_base = (0 as u64, I32);
+        let temp_double_ptr = (0 as u64, I32);
 
         env_namepace.insert("STACKTOP", (stacktop(STATIC_BUMP) as _, I32));
         env_namepace.insert("STACK_MAX", (stack_max(STATIC_BUMP) as _, I32));
         env_namepace.insert("DYNAMICTOP_PTR", (dynamictop_ptr(STATIC_BUMP) as _, I32));
         env_namepace.insert("memoryBase", memory_base);
         env_namepace.insert("tableBase", table_base);
+        env_namepace.insert("tempDoublePtr", temp_double_ptr);
         global_namepace.insert("Infinity", (std::f64::INFINITY.to_bits() as _, F64));
         global_namepace.insert("NaN", (std::f64::NAN.to_bits() as _, F64));
 
@@ -323,6 +325,18 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     let (value, ty) = env_globals.get("memoryBase").unwrap();
     env_namespace.insert(
         "__memory_base".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
+    );
+
+    let (value, ty) = env_globals.get("tempDoublePtr").unwrap();
+    env_namespace.insert(
+        "tempDoublePtr".to_string(),
         Export::Global {
             local: global!(value),
             global: GlobalDesc {
