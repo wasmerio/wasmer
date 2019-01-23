@@ -13,8 +13,8 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            sudo apt-get install texinfo
-            sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
+            # sudo apt-get install texinfo
+            # sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run:
           name: Install lint deps
           command: |
@@ -43,8 +43,8 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            sudo apt-get install texinfo
-            sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
+            # sudo apt-get install texinfo
+            # sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run: make test
       - save_cache:
           paths:
@@ -69,8 +69,9 @@ jobs:
       - run:
           name: Install crate dependencies
           command: |
-            brew install libtool || true
-            brew install autoconf cmake libffi || true
+            brew install cmake
+            # brew install libtool || true
+            # brew install autoconf cmake libffi || true
       - save_cache:
           paths:
             - /usr/local/Homebrew
@@ -117,8 +118,8 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            sudo apt-get install texinfo
-            sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
+            # sudo apt-get install texinfo
+            # sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run:
           name: Execute tests
           command: make test
@@ -163,8 +164,9 @@ jobs:
       - run:
           name: Install crate dependencies
           command: |
-            brew install libtool || true
-            brew install autoconf cmake libffi || true
+            brew install cmake
+            # brew install libtool || true
+            # brew install autoconf cmake libffi || true
       - save_cache:
           paths:
             - /usr/local/Homebrew
@@ -219,8 +221,8 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            sudo apt-get install texinfo
-            sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
+            # sudo apt-get install texinfo
+            # sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run: rustup default nightly
       - run: make test
       - save_cache:
