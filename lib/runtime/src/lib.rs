@@ -1,5 +1,5 @@
 pub use wasmer_runtime_core::import::ImportObject;
-pub use wasmer_runtime_core::instance::Instance;
+pub use wasmer_runtime_core::instance::{Function, Instance};
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::types::Value;
 pub use wasmer_runtime_core::vm::Ctx;
@@ -9,8 +9,9 @@ pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::error;
 pub use wasmer_runtime_core::imports;
 
-pub mod value {
-    pub use wasmer_runtime_core::types::{Type, Value};
+pub mod wasm {
+    pub use wasmer_runtime_core::instance::Function;
+    pub use wasmer_runtime_core::types::{FuncSig, Type, Value};
 }
 
 /// Compile WebAssembly binary code into a [`Module`].

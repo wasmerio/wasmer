@@ -170,10 +170,11 @@ impl Ctx {
     }
 }
 
+enum InnerFunc {}
 /// Used to provide type safety (ish) for passing around function pointers.
 /// The typesystem ensures this cannot be dereferenced since an
 /// empty enum cannot actually exist.
-pub enum Func {}
+pub struct Func(InnerFunc);
 
 /// An imported function, which contains the vmctx that owns this function.
 #[derive(Debug, Clone)]
