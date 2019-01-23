@@ -143,14 +143,14 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, vmctx: &mut Ctx) -> c_int {
 
 pub fn call_malloc(size: i32, vmctx: &mut Ctx) -> u32 {
     unimplemented!()
-//    let ret = instance
-//        .call("_malloc", &[Value::I32(size)])
-//        .expect("_malloc call failed");
-//    if let [Value::I32(x)] = ret.as_slice() {
-//        *x as u32
-//    } else {
-//        panic!("unexpected value from _malloc: {:?}", ret);
-//    }
+    //    let ret = instance
+    //        .call("_malloc", &[Value::I32(size)])
+    //        .expect("_malloc call failed");
+    //    if let [Value::I32(x)] = ret.as_slice() {
+    //        *x as u32
+    //    } else {
+    //        panic!("unexpected value from _malloc: {:?}", ret);
+    //    }
 }
 
 pub fn call_memalign(alignment: u32, size: u32, vmctx: &mut Ctx) -> u32 {
@@ -171,21 +171,21 @@ pub fn call_memalign(alignment: u32, size: u32, vmctx: &mut Ctx) -> u32 {
 
 pub fn call_memset(pointer: u32, value: i32, size: u32, vmctx: &mut Ctx) -> u32 {
     unimplemented!()
-//    let ret = instance
-//        .call(
-//            "_memset",
-//            &[
-//                Value::I32(pointer as i32),
-//                Value::I32(value),
-//                Value::I32(size as i32),
-//            ],
-//        )
-//        .expect("_memset call failed");
-//    if let [Value::I32(x)] = ret.as_slice() {
-//        *x as u32
-//    } else {
-//        panic!("unexpected value from _memset {:?}", ret);
-//    }
+    //    let ret = instance
+    //        .call(
+    //            "_memset",
+    //            &[
+    //                Value::I32(pointer as i32),
+    //                Value::I32(value),
+    //                Value::I32(size as i32),
+    //            ],
+    //        )
+    //        .expect("_memset call failed");
+    //    if let [Value::I32(x)] = ret.as_slice() {
+    //        *x as u32
+    //    } else {
+    //        panic!("unexpected value from _memset {:?}", ret);
+    //    }
 }
 
 pub extern "C" fn _getpagesize() -> u32 {

@@ -51,11 +51,7 @@ pub extern "C" fn _gettimeofday(tp: c_int, tz: c_int, vmctx: &mut Ctx) -> c_int 
 
 /// emscripten: _clock_gettime
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn _clock_gettime(
-    clk_id: libc::clockid_t,
-    tp: c_int,
-    vmctx: &mut Ctx,
-) -> c_int {
+pub extern "C" fn _clock_gettime(clk_id: libc::clockid_t, tp: c_int, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::_clock_gettime {} {}", clk_id, tp);
     #[repr(C)]
     struct GuestTimeSpec {
@@ -84,11 +80,7 @@ pub extern "C" fn _clock_gettime(
 }
 
 /// emscripten: ___clock_gettime
-pub extern "C" fn ___clock_gettime(
-    clk_id: libc::clockid_t,
-    tp: c_int,
-    vmctx: &mut Ctx,
-) -> c_int {
+pub extern "C" fn ___clock_gettime(clk_id: libc::clockid_t, tp: c_int, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
     _clock_gettime(clk_id, tp, vmctx)
 }

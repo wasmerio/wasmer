@@ -9,16 +9,12 @@ use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer, TablePointer},
     import::{ImportObject, Namespace},
     memory::LinearMemory,
+    structures::TypedIndex,
     table::TableBacking,
     types::{
-        FuncSig, GlobalDesc,
+        ElementType, FuncSig, GlobalDesc, LocalMemoryIndex, Memory, Table,
         Type::{self, *},
-        Memory,
-        LocalMemoryIndex,
-        ElementType,
-        Table,
     },
-    structures::TypedIndex,
     vm::LocalGlobal,
     vm::LocalMemory,
     vm::LocalTable,
@@ -183,7 +179,13 @@ impl<'a> EmscriptenGlobals<'a> {
         data.insert("env", env_namepace);
         data.insert("global", global_namepace);
 
-        Self { data, memory, vm_memory, table, vm_table }
+        Self {
+            data,
+            memory,
+            vm_memory,
+            table,
+            vm_table,
+        }
     }
 }
 
@@ -203,9 +205,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     let null_ctx = Context::External(ptr::null_mut());
 
     // Memory
-    let local_memory = unsafe {
-        MemoryPointer::new(&mut globals.vm_memory)
-    };
+    let local_memory = unsafe { MemoryPointer::new(&mut globals.vm_memory) };
 
     env_namespace.insert(
         "memory".to_string(),
@@ -216,14 +216,12 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
                 min: 256,
                 max: Some(256),
                 shared: false,
-            }
+            },
         },
     );
 
     // Table
-    let local_table = unsafe {
-        TablePointer::new(&mut globals.vm_table)
-    };
+    let local_table = unsafe { TablePointer::new(&mut globals.vm_table) };
 
     env_namespace.insert(
         "table".to_string(),
@@ -235,7 +233,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
                 ty: ElementType::Anyfunc,
                 min: 10,
                 max: Some(10),
-            }
+            },
         },
     );
 
