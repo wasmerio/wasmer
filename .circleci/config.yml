@@ -13,8 +13,6 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            # sudo apt-get install texinfo
-            # sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run:
           name: Install lint deps
           command: |
@@ -43,8 +41,6 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            # sudo apt-get install texinfo
-            # sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run: make test
       - save_cache:
           paths:
@@ -62,20 +58,13 @@ jobs:
       - restore_cache:
           keys:
             - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v5-cargo-cache-darwin-{{ arch }}-brew
-      # - run:
-      #     name: Update Brew
-      #     command: brew update || true
       - run:
           name: Install crate dependencies
           command: |
-            brew install cmake
-            # brew install libtool || true
-            # brew install autoconf cmake libffi || true
-      - save_cache:
-          paths:
-            - /usr/local/Homebrew
-          key: v5-cargo-cache-darwin-{{ arch }}-brew
+            # Installing cmake outside of brew to improve speed
+            curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
+            tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
           name: Install Rust
           command: |
@@ -86,6 +75,7 @@ jobs:
           name: Execute tests
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
@@ -94,6 +84,7 @@ jobs:
           name: Execute integration tests
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             make integration-tests
       - save_cache:
           paths:
@@ -118,8 +109,6 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            # sudo apt-get install texinfo
-            # sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run:
           name: Execute tests
           command: make test
@@ -146,7 +135,6 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-            - /usr/local/Homebrew
           key: v5-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build-macos:
@@ -157,20 +145,13 @@ jobs:
       - restore_cache:
           keys:
             - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v5-cargo-cache-darwin-{{ arch }}-brew
-      # - run:
-      #     name: Update Brew
-      #     command: brew update || true
       - run:
           name: Install crate dependencies
           command: |
-            brew install cmake
-            # brew install libtool || true
-            # brew install autoconf cmake libffi || true
-      - save_cache:
-          paths:
-            - /usr/local/Homebrew
-          key: v5-cargo-cache-darwin-{{ arch }}-brew
+            # Installing cmake outside of brew to improve speed
+            curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
+            tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
       - run:
           name: Install Rust
           command: |
@@ -180,6 +161,7 @@ jobs:
       - run:
           name: Execute tests
           command: |
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
@@ -188,6 +170,7 @@ jobs:
       - run:
           name: Make release build
           command: |
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             make release
             mkdir -p artifacts
@@ -221,8 +204,6 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
-            # sudo apt-get install texinfo
-            # sudo apt-get install libclang-dev llvm-3.9-dev libclang-3.9-dev clang-3.9
       - run: rustup default nightly
       - run: make test
       - save_cache:
