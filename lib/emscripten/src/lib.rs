@@ -160,6 +160,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
     let mut env_namespace = Namespace::new();
     let mut asm_namespace = Namespace::new();
     let mut global_namespace = Namespace::new();
+    let mut global_math_namespace = Namespace::new();
 
     // Add globals.
     // NOTE: There is really no need for checks, these globals should always be available.
@@ -238,6 +239,19 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
         },
     );
 
+    // Global Math
+    global_math_namespace.insert(
+        "pow",
+        Export::Function {
+            func: func!(math, pow),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![F64, F64],
+                returns: vec![F64],
+            },
+        },
+    );
+
     // Print function
     env_namespace.insert(
         "printf",
@@ -263,6 +277,19 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
         },
     );
 
+    // Assert
+    env_namespace.insert(
+        "___assert_fail",
+        Export::Function {
+            func: func!(env, ___assert_fail),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32, I32],
+                returns: vec![],
+            },
+        },
+    );
+
     // Lock
     env_namespace.insert(
         "___lock",
@@ -270,7 +297,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             func: func!(lock, ___lock),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![I32, I32],
+                params: vec![I32],
                 returns: vec![],
             },
         },
@@ -282,7 +309,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             func: func!(lock, ___unlock),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![I32, I32],
+                params: vec![I32],
                 returns: vec![],
             },
         },
@@ -319,7 +346,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32, I32, I32],
-                returns: vec![],
+                returns: vec![I32],
             },
         },
     );
@@ -331,7 +358,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32],
-                returns: vec![],
+                returns: vec![I32],
             },
         },
     );
@@ -343,7 +370,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32],
-                returns: vec![],
+                returns: vec![I32],
             },
         },
     );
@@ -391,7 +418,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32],
-                returns: vec![I32],
+                returns: vec![],
             },
         },
     );
@@ -798,7 +825,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             func: func!(process, abort_stack_overflow),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32],
                 returns: vec![],
             },
         },
@@ -931,7 +958,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![],
-                returns: vec![],
+                returns: vec![I32],
             },
         },
     );
@@ -955,7 +982,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![],
-                returns: vec![],
+                returns: vec![I32],
             },
         },
     );
@@ -1020,6 +1047,18 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
         },
     );
     // NullFuncs
+    env_namespace.insert(
+        "nullFunc_i",
+        Export::Function {
+            func: func!(nullfunc, nullfunc_i),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
     env_namespace.insert(
         "nullFunc_ii",
         Export::Function {
@@ -1450,7 +1489,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
     // mock_external!(env_namespace, ___syscall146);
     // mock_external!(env_namespace, ___syscall145);
     // mock_external!(env_namespace, ___syscall142);
-    mock_external!(env_namespace, ___syscall140);
+    // mock_external!(env_namespace, ___syscall140);
     // mock_external!(env_namespace, ___syscall122);
     // mock_external!(env_namespace, ___syscall102);
     // mock_external!(env_namespace, ___syscall20);
@@ -1463,6 +1502,8 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
 
     imports.register("env", env_namespace);
     imports.register("asm2wasm", asm_namespace);
+    imports.register("global", global_namespace);
+    imports.register("global.Math", global_math_namespace);
 
     imports
 }

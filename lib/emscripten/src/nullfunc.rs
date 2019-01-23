@@ -1,6 +1,11 @@
 use super::process::abort_with_message;
 use wasmer_runtime_core::vm::Ctx;
 
+pub extern "C" fn nullfunc_i(x: u32, _vmctx: &mut Ctx) {
+    debug!("emscripten::nullfunc_i {}", x);
+    abort_with_message("Invalid function pointer called with signature 'i'. Perhaps this is an invalid value (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an incorrect type, which will fail? (it is worth building your source files with -Werror (warnings are errors), as warnings can indicate undefined behavior which can cause this)");
+}
+
 pub extern "C" fn nullfunc_ii(x: u32, _vmctx: &mut Ctx) {
     debug!("emscripten::nullfunc_ii {}", x);
     abort_with_message("Invalid function pointer called with signature 'ii'. Perhaps this is an invalid value (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an incorrect type, which will fail? (it is worth building your source files with -Werror (warnings are errors), as warnings can indicate undefined behavior which can cause this)");

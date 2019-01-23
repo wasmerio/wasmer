@@ -25,16 +25,18 @@ pub extern "C" fn get_total_memory(_vmctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: enlargeMemory
-pub extern "C" fn enlarge_memory(_vmctx: &mut Ctx) {
+pub extern "C" fn enlarge_memory(_vmctx: &mut Ctx) -> u32 {
     debug!("emscripten::enlarge_memory");
     // instance.memories[0].grow(100);
     // TODO: Fix implementation
+    0
 }
 
 /// emscripten: abortOnCannotGrowMemory
-pub extern "C" fn abort_on_cannot_grow_memory() {
+pub extern "C" fn abort_on_cannot_grow_memory() -> u32 {
     debug!("emscripten::abort_on_cannot_grow_memory");
     abort_with_message("Cannot enlarge memory arrays!");
+    0
 }
 
 /// emscripten: ___map_file

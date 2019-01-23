@@ -1,10 +1,10 @@
 // use std::collections::HashMap;
 
-pub extern "C" fn ___seterrno(value: i32) -> i32 {
+pub extern "C" fn ___seterrno(value: i32) {
     debug!("emscripten::___seterrno {}", value);
     // TODO: Incomplete impl
     eprintln!("failed to set errno!");
-    value
+    // value
 }
 
 // pub enum ErrnoCodes {

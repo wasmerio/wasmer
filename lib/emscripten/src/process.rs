@@ -41,7 +41,7 @@ pub extern "C" fn em_abort(message: u32, vmctx: &mut Ctx) {
     }
 }
 
-pub extern "C" fn abort_stack_overflow() {
+pub extern "C" fn abort_stack_overflow(what: c_int) {
     debug!("emscripten::abort_stack_overflow");
     // TODO: Message incomplete. Need to finish em runtime data first
     abort_with_message("Stack overflow! Attempted to allocate some bytes on the stack");

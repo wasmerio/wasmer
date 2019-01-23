@@ -39,7 +39,7 @@ pub extern "C" fn _getenv(name: c_int, vmctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub extern "C" fn _setenv(name: c_int, value: c_int, overwrite: c_int, vmctx: &mut Ctx) {
+pub extern "C" fn _setenv(name: c_int, value: c_int, overwrite: c_int, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::_setenv");
 
     let name_addr = vmctx.memory(0)[name as usize] as *const c_char;
@@ -48,29 +48,29 @@ pub extern "C" fn _setenv(name: c_int, value: c_int, overwrite: c_int, vmctx: &m
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
     debug!("=> value({:?})", unsafe { CStr::from_ptr(value_addr) });
 
-    unsafe { setenv(name_addr, value_addr, overwrite) };
+    unsafe { setenv(name_addr, value_addr, overwrite) }
 }
 
 /// emscripten: _putenv // (name: *const char);
-pub extern "C" fn _putenv(name: c_int, vmctx: &mut Ctx) {
+pub extern "C" fn _putenv(name: c_int, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::_putenv");
 
     let name_addr = vmctx.memory(0)[name as usize] as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
-    unsafe { putenv(name_addr as _) };
+    unsafe { putenv(name_addr as _) }
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub extern "C" fn _unsetenv(name: c_int, vmctx: &mut Ctx) {
+pub extern "C" fn _unsetenv(name: c_int, vmctx: &mut Ctx) -> c_int {
     debug!("emscripten::_unsetenv");
 
     let name_addr = vmctx.memory(0)[name as usize] as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
-    unsafe { unsetenv(name_addr) };
+    unsafe { unsetenv(name_addr) }
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -220,4 +220,10 @@ pub extern "C" fn _sysconf(name: c_int, _vmctx: &mut Ctx) -> c_long {
     debug!("emscripten::_sysconf {}", name);
     // TODO: Implement like emscripten expects regarding memory/page size
     unsafe { sysconf(name) }
+}
+
+pub extern "C" fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _vmctx: &mut Ctx) {
+    debug!("emscripten::___assert_fail {} {} {} {}", a, b, c, d);
+    // TODO: Implement like emscripten expects regarding memory/page size
+    unimplemented!()
 }

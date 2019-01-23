@@ -15,3 +15,8 @@ pub extern "C" fn f64_rem(x: f64, y: f64) -> f64 {
     debug!("emscripten::f64-rem");
     x % y
 }
+
+// emscripten: global.Math pow
+pub extern "C" fn pow(x: f64, y: f64) -> f64 {
+    x.powf(y)
+}
