@@ -54,6 +54,13 @@ const DYNAMICTOP_PTR_DIFF: u32 = 1088;
 // TODO: make this variable
 const STATIC_BUMP: u32 = 215_536;
 
+// The address globals begin at. Very low in memory, for code size and optimization opportunities.
+// Above 0 is static memory, starting with globals.
+// Then the stack.
+// Then 'dynamic' memory for sbrk.
+const GLOBAL_BASE: u32 = 1024;
+const STATIC_BASE: u32 = GLOBAL_BASE;
+
 fn stacktop(static_bump: u32) -> u32 {
     align_memory(dynamictop_ptr(static_bump) + 4)
 }
@@ -169,10 +176,14 @@ impl<'a> EmscriptenGlobals<'a> {
         let mut table = TableBacking::new(&table_type);
         let mut vm_table = table.into_vm_table();
 
+        let memory_base = (STATIC_BASE as u64, I32);
+        let table_base = (0 as u64, I32);
+
         env_namepace.insert("STACKTOP", (stacktop(STATIC_BUMP) as _, I32));
         env_namepace.insert("STACK_MAX", (stack_max(STATIC_BUMP) as _, I32));
         env_namepace.insert("DYNAMICTOP_PTR", (dynamictop_ptr(STATIC_BUMP) as _, I32));
-        env_namepace.insert("tableBase", (0, I32));
+        env_namepace.insert("memoryBase", memory_base);
+        env_namepace.insert("tableBase", table_base);
         global_namepace.insert("Infinity", (std::f64::INFINITY.to_bits() as _, F64));
         global_namepace.insert("NaN", (std::f64::NAN.to_bits() as _, F64));
 
@@ -276,6 +287,42 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     let (value, ty) = env_globals.get("tableBase").unwrap();
     env_namespace.insert(
         "tableBase".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
+    );
+
+    let (value, ty) = env_globals.get("tableBase").unwrap();
+    env_namespace.insert(
+        "__table_base".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
+    );
+
+    let (value, ty) = env_globals.get("memoryBase").unwrap();
+    env_namespace.insert(
+        "memoryBase".to_string(),
+        Export::Global {
+            local: global!(value),
+            global: GlobalDesc {
+                mutable: false,
+                ty: ty.clone(),
+            },
+        },
+    );
+
+    let (value, ty) = env_globals.get("memoryBase").unwrap();
+    env_namespace.insert(
+        "__memory_base".to_string(),
         Export::Global {
             local: global!(value),
             global: GlobalDesc {
