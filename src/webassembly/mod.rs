@@ -107,28 +107,28 @@ pub fn run_instance(
 /// Passes arguments from the host to the WebAssembly instance.
 fn get_main_args(main_name: &str, _args: Vec<&str>, instance: &Instance) -> CallResult<Vec<Value>> {
     // Getting main function signature.
-    let func_index = instance.get_func_index(main_name)?;
-    let func_sig = instance.get_func_signature(func_index);
-    let params = func_sig.params;
-    let params_len = params.len();
-
-    // Check for a (i32, i32) sig.
-    if params_len == 2 && params[0] == Type::I32 && params[1] == Type::I32 {
-        // TODO: Copy args to wasm memory.
-        return Ok(vec![Value::I32(0), Value::I32(0)]);
-    }
-
-    // Check for a () sig.
-    if params_len == 0 {
-        return Ok(vec![]);
-    }
-
-    Err(CallError::Signature {
-        expected: FuncSig {
-            params: vec![Type::I32, Type::I32],
-            returns: vec![],
-        },
-        found: params,
-    }
-    .into())
+    //    let func_index = instance.get_func_index(main_name)?;
+    //    let func_sig = instance.get_func_signature(func_index);
+    //    let params = func_sig.params;
+    //    let params_len = params.len();
+    //
+    //    // Check for a (i32, i32) sig.
+    //    if params_len == 2 && params[0] == Type::I32 && params[1] == Type::I32 {
+    //        // TODO: Copy args to wasm memory.
+    //        return Ok(vec![Value::I32(0), Value::I32(0)]);
+    //    }
+    //
+    //    // Check for a () sig.
+    //    if params_len == 0 {
+    return Ok(vec![]);
+    //    }
+    //
+    //    Err(CallError::Signature {
+    //        expected: FuncSig {
+    //            params: vec![Type::I32, Type::I32],
+    //            returns: vec![],
+    //        },
+    //        found: params,
+    //    }
+    //    .into())
 }
