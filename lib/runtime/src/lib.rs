@@ -55,3 +55,6 @@ pub fn instantiate(wasm: &[u8], import_object: ImportObject) -> error::Result<In
     let module = compile(wasm)?;
     module.instantiate(import_object)
 }
+
+/// The current version of this crate
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
