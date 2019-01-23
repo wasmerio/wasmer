@@ -6,18 +6,22 @@ use hashbrown::HashMap;
 use std::mem;
 use std::ptr;
 use wasmer_runtime_core::{
-    export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer},
+    export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer, TablePointer},
     import::{ImportObject, Namespace},
     memory::LinearMemory,
+    table::TableBacking,
     types::{
         FuncSig, GlobalDesc,
         Type::{self, *},
         Memory,
-        LocalMemoryIndex
+        LocalMemoryIndex,
+        ElementType,
+        Table,
     },
     structures::TypedIndex,
     vm::LocalGlobal,
     vm::LocalMemory,
+    vm::LocalTable,
 };
 
 #[macro_use]
@@ -141,6 +145,9 @@ pub struct EmscriptenGlobals<'a> {
     // The emscripten memory
     pub memory: LinearMemory,
     pub vm_memory: LocalMemory,
+    // The emscripten table
+    pub table: TableBacking,
+    pub vm_table: LocalTable,
 }
 
 impl<'a> EmscriptenGlobals<'a> {
@@ -149,6 +156,7 @@ impl<'a> EmscriptenGlobals<'a> {
         let mut env_namepace = HashMap::new();
         let mut global_namepace = HashMap::new();
 
+        // Memory initialization
         let memory_type = Memory {
             min: 256,
             max: Some(256),
@@ -156,6 +164,14 @@ impl<'a> EmscriptenGlobals<'a> {
         };
         let mut memory = LinearMemory::new(&memory_type);
         let mut vm_memory = memory.into_vm_memory(LocalMemoryIndex::new(0));
+
+        let table_type = Table {
+            ty: ElementType::Anyfunc,
+            min: 10,
+            max: Some(10),
+        };
+        let mut table = TableBacking::new(&table_type);
+        let mut vm_table = table.into_vm_table();
 
         env_namepace.insert("STACKTOP", (stacktop(STATIC_BUMP) as _, I32));
         env_namepace.insert("STACK_MAX", (stack_max(STATIC_BUMP) as _, I32));
@@ -167,7 +183,7 @@ impl<'a> EmscriptenGlobals<'a> {
         data.insert("env", env_namepace);
         data.insert("global", global_namepace);
 
-        Self { data, memory, vm_memory }
+        Self { data, memory, vm_memory, table, vm_table }
     }
 }
 
@@ -183,8 +199,10 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     let env_globals = globals.data.get("env").unwrap();
     let global_globals = globals.data.get("global").unwrap();
 
-    // Memory
+    // We generate a fake Context that traps on access
+    let null_ctx = Context::External(ptr::null_mut());
 
+    // Memory
     let local_memory = unsafe {
         MemoryPointer::new(&mut globals.vm_memory)
     };
@@ -193,12 +211,30 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "memory".to_string(),
         Export::Memory {
             local: local_memory,
-            // We generate a fake Context that traps on access
-            ctx: Context::External(ptr::null_mut()),
+            ctx: null_ctx,
             memory: Memory {
                 min: 256,
                 max: Some(256),
                 shared: false,
+            }
+        },
+    );
+
+    // Table
+    let local_table = unsafe {
+        TablePointer::new(&mut globals.vm_table)
+    };
+
+    env_namespace.insert(
+        "table".to_string(),
+        Export::Table {
+            local: local_table,
+            // We generate a fake Context that traps on access
+            ctx: null_ctx,
+            table: Table {
+                ty: ElementType::Anyfunc,
+                min: 10,
+                max: Some(10),
             }
         },
     );
