@@ -8,7 +8,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v5-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: 
           name: Install dependencies
           command: |
@@ -27,7 +27,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v5-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test:
     docker:
@@ -36,7 +36,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v5-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: 
           name: Install dependencies
           command: |
@@ -48,7 +48,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v5-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-macos:
     macos:
@@ -57,7 +57,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v6-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Install crate dependencies
           command: |
@@ -88,14 +88,14 @@ jobs:
             make integration-tests
       - save_cache:
           paths:
-            - /usr/local/cargo/registry
+            - ~/.cargo/registry/
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v6-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build:
     docker:
@@ -104,7 +104,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v5-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v6-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run: 
           name: Install dependencies
           command: |
@@ -135,7 +135,7 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v5-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v6-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build-macos:
     macos:
@@ -144,7 +144,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v6-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Install crate dependencies
           command: |
@@ -183,14 +183,14 @@ jobs:
             - artifacts
       - save_cache:
           paths:
-            - /usr/local/cargo/registry
+            - ~/.cargo/registry/
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v5-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v6-cargo-cache-darwin-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-rust-nightly:
     docker:
@@ -199,7 +199,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v5-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+            - v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
       - run: 
           name: Install dependencies
           command: |
@@ -212,7 +212,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v5-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+          key: v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
 
   publish-github-release:
     docker:
