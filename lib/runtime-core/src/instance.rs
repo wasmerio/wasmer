@@ -16,17 +16,17 @@ use crate::{
 use std::mem;
 use std::rc::Rc;
 
-pub(crate) struct InstanceInner {
+pub struct InstanceInner {
     #[allow(dead_code)]
     pub(crate) backing: LocalBacking,
     import_backing: ImportBacking,
-    vmctx: Box<vm::Ctx>,
+    pub vmctx: Box<vm::Ctx>,
 }
 
 /// A WebAssembly instance
 pub struct Instance {
     pub module: Rc<ModuleInner>,
-    inner: Box<InstanceInner>,
+    pub inner: Box<InstanceInner>,
     #[allow(dead_code)]
     imports: Box<ImportObject>,
 }
@@ -137,6 +137,33 @@ impl Instance {
         )?;
 
         Ok(returns)
+    }
+
+    pub fn get_signature(&self, name: &str) -> CallResult<&FuncSig> {
+        let export_index =
+            self.module
+                .exports
+                .get(name)
+                .ok_or_else(|| CallError::NoSuchExport {
+                    name: name.to_string(),
+                })?;
+
+        let func_index = if let ExportIndex::Func(func_index) = export_index {
+            *func_index
+        } else {
+            return Err(CallError::ExportNotFunc {
+                name: name.to_string(),
+            }
+            .into());
+        };
+
+        let sig_index = *self
+            .module
+            .func_assoc
+            .get(func_index)
+            .expect("broken invariant, incorrect func index");
+
+        Ok(self.module.sig_registry.lookup_func_sig(sig_index))
     }
 }
 
