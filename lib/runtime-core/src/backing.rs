@@ -60,7 +60,6 @@ impl LocalBacking {
 
         for (_, mem) in &module.memories {
             // If we use emscripten, we set a fixed initial and maximum
-            debug!("Instance - init memory ({}, {:?})", mem.min, mem.max);
             // let memory = if options.abi == InstanceABI::Emscripten {
             //     // We use MAX_PAGES, so at the end the result is:
             //     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
