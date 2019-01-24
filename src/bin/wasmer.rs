@@ -61,7 +61,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
     })?;
 
-    if !webassembly::utils::is_wasm_binary(&wasm_binary) {
+    if !utils::is_wasm_binary(&wasm_binary) {
         wasm_binary = wabt::wat2wasm(wasm_binary)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }

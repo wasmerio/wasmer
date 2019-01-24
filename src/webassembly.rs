@@ -1,5 +1,3 @@
-pub mod utils;
-
 use std::panic;
 use wasmer_runtime::{
     self as runtime,

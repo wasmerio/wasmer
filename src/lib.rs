@@ -6,3 +6,4 @@ mod macros;
 #[macro_use]
 pub mod update;
 pub mod webassembly;
+pub mod utils;
