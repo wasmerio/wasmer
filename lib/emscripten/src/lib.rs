@@ -6,9 +6,9 @@ use hashbrown::HashMap;
 use libc::c_int;
 use std::cell::UnsafeCell;
 use std::{ffi::c_void, mem, ptr};
-use std::{mem::size_of, panic, slice};
+use std::{mem::size_of, slice};
 use wasmer_runtime_core::{
-    error::{CallError, CallResult, ResolveError},
+    error::{CallResult, ResolveError},
     export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer, TablePointer},
     import::{ImportObject, Namespace},
     instance::Instance,
@@ -120,7 +120,7 @@ impl EmscriptenData {
 }
 
 pub fn run_emscripten_instance(
-    module: &Module,
+    _module: &Module,
     instance: &mut Instance,
     _path: &str,
     args: Vec<&str>,
@@ -332,7 +332,7 @@ impl<'a> EmscriptenGlobals<'a> {
             shared: false,
         };
         let mut memory = LinearMemory::new(&memory_type);
-        let mut vm_memory = memory.into_vm_memory(LocalMemoryIndex::new(0));
+        let vm_memory = memory.into_vm_memory(LocalMemoryIndex::new(0));
 
         let table_type = Table {
             ty: ElementType::Anyfunc,
@@ -340,7 +340,7 @@ impl<'a> EmscriptenGlobals<'a> {
             max: Some(10),
         };
         let mut table = TableBacking::new(&table_type);
-        let mut vm_table = table.into_vm_table();
+        let vm_table = table.into_vm_table();
 
         let memory_base = (STATIC_BASE as u64, I32);
         let table_base = (0 as u64, I32);

@@ -13,7 +13,7 @@ pub extern "C" fn __setjmp(env_addr: u32, ctx: &mut Ctx) -> c_int {
         let jump_index = ctx.memory(0)[env_addr as usize] as *mut i8;
         // We create the jump buffer outside of the wasm memory
         let jump_buf: UnsafeCell<[c_int; 27]> = UnsafeCell::new([0; 27]);
-        let mut jumps = &mut get_emscripten_data(ctx).jumps;
+        let jumps = &mut get_emscripten_data(ctx).jumps;
         let result = setjmp(jump_buf.get() as _);
         // We set the jump index to be the last value of jumps
         *jump_index = jumps.len() as _;
@@ -29,9 +29,9 @@ pub extern "C" fn __longjmp(env_addr: u32, val: c_int, ctx: &mut Ctx) -> ! {
     unsafe {
         // We retrieve the jump index from the env address
         let jump_index = ctx.memory(0)[env_addr as usize] as *mut i8;
-        let mut jumps = &mut get_emscripten_data(ctx).jumps;
+        let jumps = &mut get_emscripten_data(ctx).jumps;
         // We get the real jump buffer from the jumps vector, using the retrieved index
-        let mut jump_buf = &jumps[*jump_index as usize];
+        let jump_buf = &jumps[*jump_index as usize];
         longjmp(jump_buf.get() as _, val)
     };
 }

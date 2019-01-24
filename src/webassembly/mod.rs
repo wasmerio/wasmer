@@ -1,9 +1,8 @@
 pub mod utils;
 
-use std::{mem::size_of, panic, slice};
+use std::panic;
 use wasmer_runtime::{
     self as runtime,
-    error::CallError,
     error::{CallResult, Result},
     ImportObject, Instance, Module,
 };
@@ -87,7 +86,7 @@ pub fn run_instance(
     args: Vec<&str>,
 ) -> CallResult<()> {
     if is_emscripten_module(module) {
-        run_emscripten_instance(module, instance, path, args);
+        run_emscripten_instance(module, instance, path, args)?;
     } else {
         instance.call("main", &[])?;
     };

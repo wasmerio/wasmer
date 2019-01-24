@@ -1,6 +1,6 @@
 use super::env;
 use super::process::_abort;
-use wasmer_runtime_core::{vm::Ctx, Instance};
+use wasmer_runtime_core::vm::Ctx;
 
 /// emscripten: ___cxa_allocate_exception
 pub extern "C" fn ___cxa_allocate_exception(size: u32, vmctx: &mut Ctx) -> u32 {
@@ -10,7 +10,7 @@ pub extern "C" fn ___cxa_allocate_exception(size: u32, vmctx: &mut Ctx) -> u32 {
 
 /// emscripten: ___cxa_throw
 /// TODO: We don't have support for exceptions yet
-pub extern "C" fn ___cxa_throw(_ptr: u32, ty: u32, destructor: u32, vmctx: &mut Ctx) {
+pub extern "C" fn ___cxa_throw(_ptr: u32, _ty: u32, _destructor: u32, _vmctx: &mut Ctx) {
     debug!("emscripten::___cxa_throw");
     _abort();
 }

@@ -9,7 +9,7 @@ use std::os::raw::c_char;
 
 use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
 use super::EmscriptenData;
-use wasmer_runtime_core::{types::Value, vm::Ctx};
+use wasmer_runtime_core::vm::Ctx;
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
@@ -157,13 +157,13 @@ pub extern "C" fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
     debug!("emscripten::___build_environment {}", environ);
     const MAX_ENV_VALUES: u32 = 64;
     const TOTAL_ENV_SIZE: u32 = 1024;
-    let mut environment = ctx.memory(0)[environ as usize] as *mut c_int;
+    let environment = ctx.memory(0)[environ as usize] as *mut c_int;
     unsafe {
         let (pool_offset, _pool_slice): (u32, &mut [u8]) =
             allocate_on_stack(TOTAL_ENV_SIZE as u32, ctx);
         let (env_offset, _env_slice): (u32, &mut [u8]) =
             allocate_on_stack((MAX_ENV_VALUES * 4) as u32, ctx);
-        let mut env_ptr = ctx.memory(0)[env_offset as usize] as *mut c_int;
+        let env_ptr = ctx.memory(0)[env_offset as usize] as *mut c_int;
         let mut _pool_ptr = ctx.memory(0)[pool_offset as usize] as *mut c_int;
         *env_ptr = pool_offset as i32;
         *environment = env_offset as i32;
