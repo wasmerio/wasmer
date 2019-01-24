@@ -3,8 +3,9 @@ extern crate wasmer_runtime_core;
 
 use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
-use std::mem;
-use std::ptr;
+use libc::c_int;
+use std::cell::UnsafeCell;
+use std::{ffi::c_void, mem, ptr};
 use std::{mem::size_of, panic, slice};
 use wasmer_runtime_core::{
     error::{CallError, CallResult, ResolveError},
@@ -20,6 +21,7 @@ use wasmer_runtime_core::{
         Type::{self, *},
         Value,
     },
+    vm::Ctx,
     vm::LocalGlobal,
     vm::LocalMemory,
     vm::LocalTable,
@@ -82,14 +84,40 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
     static_bump + DYNAMICTOP_PTR_DIFF
 }
 
-//pub struct EmscriptenData {
-//    pub malloc: extern "C" fn(i32, &Instance) -> u32,
-//    pub free: extern "C" fn(i32, &mut Instance),
-//    pub memalign: extern "C" fn(u32, u32, &mut Instance) -> u32,
-//    pub memset: extern "C" fn(u32, i32, u32, &mut Instance) -> u32,
-//    pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
-//    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
-//}
+pub struct EmscriptenData {
+    pub malloc: extern "C" fn(i32, &mut Ctx) -> u32,
+    pub free: extern "C" fn(i32, &mut Ctx),
+    pub memalign: extern "C" fn(u32, u32, &mut Ctx) -> u32,
+    pub memset: extern "C" fn(u32, i32, u32, &mut Ctx) -> u32,
+    pub stack_alloc: extern "C" fn(u32, &mut Ctx) -> u32,
+    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
+}
+
+impl EmscriptenData {
+    pub fn new(instance: &mut Instance) -> Self {
+        unsafe {
+            let malloc_func = instance.func("_malloc").unwrap();
+            let malloc_addr = malloc_func.raw() as *const u8;
+            let free_func = instance.func("_free").unwrap();
+            let free_addr = free_func.raw() as *const u8;
+            let memalign_func = instance.func("_memalign").unwrap();
+            let memalign_addr = memalign_func.raw() as *const u8;
+            let memset_func = instance.func("_memset").unwrap();
+            let memset_addr = memset_func.raw() as *const u8;
+            let stack_alloc_func = instance.func("stackAlloc").unwrap();
+            let stack_alloc_addr = stack_alloc_func.raw() as *const u8;
+
+            EmscriptenData {
+                malloc: mem::transmute(malloc_addr),
+                free: mem::transmute(free_addr),
+                memalign: mem::transmute(memalign_addr),
+                memset: mem::transmute(memset_addr),
+                stack_alloc: mem::transmute(stack_alloc_addr),
+                jumps: Vec::new(),
+            }
+        }
+    }
+}
 
 pub fn run_emscripten_instance(
     module: &Module,
@@ -97,7 +125,9 @@ pub fn run_emscripten_instance(
     _path: &str,
     args: Vec<&str>,
 ) -> CallResult<()> {
-    // TODO atinit and atexit for emscripten
+    let mut data = EmscriptenData::new(instance);
+    let data_ptr = &mut data as *mut _ as *mut c_void;
+    instance.ctx().data = data_ptr;
 
     // Get main arguments.
     let main_args = get_main_args("_main", args, instance).unwrap();

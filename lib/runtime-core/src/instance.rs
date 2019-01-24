@@ -227,7 +227,6 @@ impl Instance {
 
         Ok(returns)
     }
-
 }
 
 impl InstanceInner {
