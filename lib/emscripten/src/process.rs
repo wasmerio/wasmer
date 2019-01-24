@@ -16,7 +16,7 @@ pub extern "C" fn _abort() {
     }
 }
 
-pub extern "C" fn _fork(_vmctx: &mut Ctx) -> pid_t {
+pub extern "C" fn _fork(_ctx: &mut Ctx) -> pid_t {
     debug!("emscripten::_fork");
     // unsafe {
     //     fork()
@@ -24,14 +24,14 @@ pub extern "C" fn _fork(_vmctx: &mut Ctx) -> pid_t {
     -1
 }
 
-pub extern "C" fn _exit(status: c_int, _vmctx: &mut Ctx) -> ! {
+pub extern "C" fn _exit(status: c_int, _ctx: &mut Ctx) -> ! {
     debug!("emscripten::_exit {}", status);
     unsafe { exit(status) }
 }
 
-pub extern "C" fn em_abort(message: u32, vmctx: &mut Ctx) {
+pub extern "C" fn em_abort(message: u32, ctx: &mut Ctx) {
     debug!("emscripten::em_abort {}", message);
-    let message_addr = vmctx.memory(0)[message as usize] as *mut c_char;
+    let message_addr = emscripten_memory_pointer!(ctx.memory(0), message) as *mut c_char;
     unsafe {
         let message = CStr::from_ptr(message_addr)
             .to_str()

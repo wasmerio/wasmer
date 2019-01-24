@@ -7,8 +7,8 @@ pub struct VarArgs {
 }
 
 impl VarArgs {
-    pub fn get<T: Sized>(&mut self, vmctx: &mut Ctx) -> T {
-        let ptr = vmctx.memory(0)[self.pointer as usize];
+    pub fn get<T: Sized>(&mut self, ctx: &mut Ctx) -> T {
+        let ptr = emscripten_memory_pointer!(ctx.memory(0), self.pointer);
         self.pointer += mem::size_of::<T>() as u32;
         unsafe { (ptr as *const T).read() }
     }

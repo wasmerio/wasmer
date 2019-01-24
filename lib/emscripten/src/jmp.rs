@@ -10,7 +10,7 @@ pub extern "C" fn __setjmp(env_addr: u32, ctx: &mut Ctx) -> c_int {
         // Rather than using the env as the holder of the jump buffer pointer,
         // we use the environment address to store the index relative to jumps
         // so the address of the jump it's outside the wasm memory itself.
-        let jump_index = ctx.memory(0)[env_addr as usize] as *mut i8;
+        let jump_index = ctx.memory(0).as_ptr().add(env_addr as usize) as *mut i8;
         // We create the jump buffer outside of the wasm memory
         let jump_buf: UnsafeCell<[c_int; 27]> = UnsafeCell::new([0; 27]);
         let jumps = &mut get_emscripten_data(ctx).jumps;
@@ -28,7 +28,7 @@ pub extern "C" fn __longjmp(env_addr: u32, val: c_int, ctx: &mut Ctx) -> ! {
     debug!("emscripten::__longjmp (longmp)");
     unsafe {
         // We retrieve the jump index from the env address
-        let jump_index = ctx.memory(0)[env_addr as usize] as *mut i8;
+        let jump_index = emscripten_memory_pointer!(ctx.memory(0), env_addr) as *mut i8;
         let jumps = &mut get_emscripten_data(ctx).jumps;
         // We get the real jump buffer from the jumps vector, using the retrieved index
         let jump_buf = &jumps[*jump_index as usize];

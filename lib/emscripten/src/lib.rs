@@ -1556,7 +1556,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     env_namespace.insert(
         "___clock_gettime",
         Export::Function {
-            func: func!(time, ___clock_gettime),
+            func: func!(time, _clock_gettime),
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32, I32],
