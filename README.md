@@ -15,6 +15,8 @@ Install Wasmer with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
+_**NEW ✨**: Now you can also embed Wasmer in your Rust application, check our [example repo](https://github.com/wasmerio/wasmer-rust-example) to see how to do it!_
+
 ### Usage
 
 `wasmer` can execute both the standard binary format (`.wasm`) and the text
@@ -54,15 +56,16 @@ curl https://sh.rustup.rs -sSf | sh
 ### Other dependencies
 
 Please select your operating system:
-* [macOS](#macos)
-* [Debian-based Linuxes](#debian-based-linuxes)
-* [Microsoft Windows](#windows-msvc)
+
+- [macOS](#macos)
+- [Debian-based Linuxes](#debian-based-linuxes)
+- [Microsoft Windows](#windows-msvc)
 
 #### macOS
 
 If you have [homebrew](https://brew.sh/) installed:
 
-``` sh
+```sh
 brew install cmake
 ```
 
@@ -74,21 +77,20 @@ sudo port install cmake
 
 #### Debian-based Linuxes
 
-``` sh
+```sh
 sudo apt install cmake
 ```
 
 #### Windows (MSVC)
 
-Right now Windows support is *highly experimental*.
+Right now Windows support is _highly experimental_.
 We are working on this so Wasmer can soon be released for Windows.
 
 1. Install Python for Windows (https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
-You should change the installation to install the "Add python.exe to Path" feature.
+   You should change the installation to install the "Add python.exe to Path" feature.
 
 2. Install Git for Windows (https://git-scm.com/download/win). DO allow it to add git.exe to the PATH (default
-settings for the installer are fine).
-
+   settings for the installer are fine).
 
 ## Building
 
