@@ -38,14 +38,14 @@
 //! #   0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,
 //! #   0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
 //! ];
-//! 
+//!
 //! use wasmer_runtime::{
 //!     instantiate,
 //!     Value,
 //!     imports,
 //!     error,
 //! };
-//! 
+//!
 //! fn main() -> error::Result<()> {
 //!     // We're not importing anything, so make an empty import object.
 //!     let import_object = imports! {};
@@ -61,14 +61,14 @@
 //!     Ok(())
 //! }
 //! ```
-//! 
+//!
 //! # Additional Notes:
-//! 
+//!
 //! The `wasmer-runtime` is build to support compiler multiple backends.
 //! Currently, we support the [Cranelift] compiler with the [`wasmer-clif-backend`] crate.
-//! 
+//!
 //! You can specify the compiler you wish to use with the [`compile_with`] function.
-//! 
+//!
 //! [Cranelift]: https://github.com/CraneStation/cranelift
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 //! [`compile_with`]: fn.compile_with.html
