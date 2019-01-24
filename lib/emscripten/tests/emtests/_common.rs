@@ -24,8 +24,6 @@ macro_rules! assert_emscripten_output {
 
          let capturer = StdioCapturer::new();
 
-        instance.call("_main", &[]).map(|_o| ()).unwrap();
-        // TODO handle start instance logic
         wasmer_emscripten::run_emscripten_instance(
             &module,
             &mut instance,
@@ -35,7 +33,7 @@ macro_rules! assert_emscripten_output {
 
          let output = capturer.end().unwrap().0;
          let expected_output = include_str!($expected);
-         assert!(false, "Emscripten tests are mocked");
+
          assert!(
              output.contains(expected_output),
              "Output: `{}` does not contain expected output: `{}`",
