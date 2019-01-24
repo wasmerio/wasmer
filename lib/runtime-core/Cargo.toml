@@ -1,7 +1,10 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.2.0"
+version = "0.1.1"
+description = "Wasmer runtime core library"
+license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 build = "build/mod.rs"
 
@@ -21,7 +24,7 @@ errno = "0.2.4"
 wabt = "0.7.2"
 
 [dev-dependencies]
-wasmer-clif-backend = { path = "../clif-backend" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.1.1" }
 wabt = "0.7.2"
 field-offset = "0.1.1"
 
