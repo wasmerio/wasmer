@@ -16,11 +16,11 @@ use crate::{
 use std::mem;
 use std::rc::Rc;
 
-pub struct InstanceInner {
+pub(crate) struct InstanceInner {
     #[allow(dead_code)]
     pub(crate) backing: LocalBacking,
     import_backing: ImportBacking,
-    pub vmctx: Box<vm::Ctx>,
+    vmctx: Box<vm::Ctx>,
 }
 
 /// A WebAssembly instance
