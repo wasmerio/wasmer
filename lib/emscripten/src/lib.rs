@@ -163,7 +163,7 @@ fn copy_string_into_wasm(instance: &mut Instance, string: String) -> CallResult<
     }
     .unwrap();
 
-    let raw_memory = instance.inner.vmctx.memory(0)[space_offset as usize] as *mut u8;
+    let raw_memory = instance.ctx().memory(0)[space_offset as usize] as *mut u8;
 
     let slice = unsafe { slice::from_raw_parts_mut(raw_memory, string_len) };
 
@@ -194,7 +194,7 @@ fn create_wasm_array(instance: &mut Instance, values: Vec<u32>) -> CallResult<u3
     }
     .unwrap();
 
-    let raw_memory = instance.inner.vmctx.memory(0)[values_offset as usize] as *mut u32;
+    let raw_memory = instance.ctx().memory(0)[values_offset as usize] as *mut u32;
 
     let slice = unsafe { slice::from_raw_parts_mut(raw_memory, values_len) };
 
@@ -213,7 +213,7 @@ fn create_wasm_array(instance: &mut Instance, values: Vec<u32>) -> CallResult<u3
     }
     .unwrap();
 
-    let raw_memory = instance.inner.vmctx.memory(0)[values_offset as usize] as *mut u32;
+    let raw_memory = instance.ctx().memory(0)[values_offset as usize] as *mut u32;
 
     unsafe { *raw_memory = values_offset };
 

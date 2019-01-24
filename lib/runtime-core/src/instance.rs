@@ -25,8 +25,8 @@ pub struct InstanceInner {
 
 /// A WebAssembly instance
 pub struct Instance {
-    pub module: Rc<ModuleInner>,
-    pub inner: Box<InstanceInner>,
+    module: Rc<ModuleInner>,
+    inner: Box<InstanceInner>,
     #[allow(dead_code)]
     imports: Box<ImportObject>,
 }
@@ -99,6 +99,10 @@ impl Instance {
 
     pub fn module(&self) -> Module {
         Module::new(Rc::clone(&self.module))
+    }
+
+    pub fn ctx(&mut self) -> &mut vm::Ctx {
+        &mut self.inner.vmctx
     }
 }
 
