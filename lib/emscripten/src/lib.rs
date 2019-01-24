@@ -5,15 +5,20 @@ use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
 use std::mem;
 use std::ptr;
+use std::{mem::size_of, panic, slice};
 use wasmer_runtime_core::{
+    error::{CallError, CallResult},
     export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer, TablePointer},
     import::{ImportObject, Namespace},
+    instance::Instance,
     memory::LinearMemory,
+    module::Module,
     structures::TypedIndex,
     table::TableBacking,
     types::{
         ElementType, FuncSig, GlobalDesc, LocalMemoryIndex, Memory, Table,
         Type::{self, *},
+        Value,
     },
     vm::LocalGlobal,
     vm::LocalMemory,
@@ -85,6 +90,135 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
 //    pub stack_alloc: extern "C" fn(u32, &Instance) -> u32,
 //    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
 //}
+
+pub fn run_emscripten_instance(
+    module: &Module,
+    instance: &mut Instance,
+    _path: &str,
+    args: Vec<&str>,
+) -> CallResult<()> {
+    // TODO atinit and atexit for emscripten
+
+    // Get main arguments.
+    let main_args = get_main_args("_main", args, instance).unwrap();
+
+    // Call main function with the arguments.
+    instance.call("_main", &main_args)?;
+
+    // TODO atinit and atexit for emscripten
+
+    Ok(())
+}
+
+/// Passes arguments from the host to the WebAssembly instance.
+fn get_main_args(
+    main_name: &str,
+    args: Vec<&str>,
+    instance: &mut Instance,
+) -> CallResult<Vec<Value>> {
+    // Getting main function signature.
+    let func_sig = instance.get_signature(main_name)?;
+    let params = &func_sig.params;
+
+    // Check for a () or (i32, i32) sig.
+    match params.as_slice() {
+        &[Type::I32, Type::I32] => {
+            // Copy strings into wasm memory and get addresses to them.
+            let string_addresses = args
+                .iter()
+                .map(|string| copy_string_into_wasm(instance, (*string).to_string()).unwrap())
+                .collect();
+
+            // Create a wasm array to the strings.
+            let array = create_wasm_array(instance, string_addresses).unwrap();
+
+            Ok(vec![
+                Value::I32(array as i32),
+                Value::I32(args.len() as i32),
+            ])
+        }
+        &[] => Ok(vec![]),
+        _ => Err(CallError::Signature {
+            expected: FuncSig {
+                params: vec![Type::I32, Type::I32],
+                returns: vec![],
+            },
+            found: params.to_vec(),
+        }
+        .into()),
+    }
+}
+
+/// Copy rust string to wasm instance.
+fn copy_string_into_wasm(instance: &mut Instance, string: String) -> CallResult<u32> {
+    let string_len = string.len();
+
+    let space_offset = instance
+        .call("_malloc", &[Value::I32((string_len as i32) + 1)])
+        .unwrap();
+
+    let space_offset = match space_offset.as_slice() {
+        &[Value::I32(res)] => Some(res as u32),
+        _ => None,
+    }
+    .unwrap();
+
+    let raw_memory = instance.inner.vmctx.memory(0)[space_offset as usize] as *mut u8;
+
+    let slice = unsafe { slice::from_raw_parts_mut(raw_memory, string_len) };
+
+    for (byte, loc) in string.bytes().zip(slice.iter_mut()) {
+        *loc = byte;
+    }
+
+    unsafe { *raw_memory.add(string_len) = 0 };
+
+    Ok(space_offset)
+}
+
+/// Create a pointer to an array of items in a wasm memory
+fn create_wasm_array(instance: &mut Instance, values: Vec<u32>) -> CallResult<u32> {
+    let values_len = values.len();
+
+    // Space to store pointers to values
+    let values_offset = instance
+        .call(
+            "_malloc",
+            &[Value::I32((size_of::<u32>() * values.len()) as i32)],
+        )
+        .unwrap();
+
+    let values_offset = match values_offset.as_slice() {
+        &[Value::I32(res)] => Some(res as u32),
+        _ => None,
+    }
+    .unwrap();
+
+    let raw_memory = instance.inner.vmctx.memory(0)[values_offset as usize] as *mut u32;
+
+    let slice = unsafe { slice::from_raw_parts_mut(raw_memory, values_len) };
+
+    for (value, loc) in values.iter().zip(slice.iter_mut()) {
+        *loc = value.clone();
+    }
+
+    // Space to store pointer to array
+    let array_offset = instance
+        .call("_malloc", &[Value::I32(size_of::<u32>() as i32)])
+        .unwrap();
+
+    let array_offset = match array_offset.as_slice() {
+        &[Value::I32(res)] => Some(res as u32),
+        _ => None,
+    }
+    .unwrap();
+
+    let raw_memory = instance.inner.vmctx.memory(0)[values_offset as usize] as *mut u32;
+
+    unsafe { *raw_memory = values_offset };
+
+    Ok(array_offset)
+}
 
 pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;

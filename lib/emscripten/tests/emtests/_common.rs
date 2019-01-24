@@ -22,26 +22,17 @@ macro_rules! assert_emscripten_output {
         let mut instance = module.instantiate(import_object)
             .map_err(|err| format!("Can't instantiate the WebAssembly module: {:?}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
 
-//        start_instance(
-//            Arc::clone(&module),
-//            &mut instance,
-//            $name,
-//            $args,
-//        );
-
-        assert!(false, "Emscripten tests are mocked");
-
          let capturer = StdioCapturer::new();
 
         instance.call("_main", &[]).map(|_o| ()).unwrap();
         // TODO handle start instance logic
-//         start_instance(
-//             Arc::clone(&result_object.module),
-//             &mut result_object.instance,
-//             $name,
-//             $args,
-//         )
-//         .unwrap();
+        wasmer_emscripten::run_emscripten_instance(
+            &module,
+            &mut instance,
+            $name,
+            $args,
+        );
+
          let output = capturer.end().unwrap().0;
          let expected_output = include_str!($expected);
          assert!(false, "Emscripten tests are mocked");
