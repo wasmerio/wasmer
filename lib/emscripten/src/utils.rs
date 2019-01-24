@@ -136,7 +136,7 @@ mod tests {
     use std::sync::Arc;
     use wabt::wat2wasm;
     use wasmer_clif_backend::CraneliftCompiler;
-    use wasmer_runtime_core::{compile_with};
+    use wasmer_runtime_core::compile_with;
 
     #[test]
     fn should_detect_emscripten_files() {

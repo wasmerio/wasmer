@@ -6,7 +6,7 @@ use hashbrown::HashMap;
 use libc::c_int;
 use std::cell::UnsafeCell;
 use std::{ffi::c_void, mem, ptr};
-use std::{mem::size_of, slice};
+use std::{fmt, mem::size_of, slice};
 use wasmer_runtime_core::{
     error::{CallResult, ResolveError},
     export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer, TablePointer},
@@ -119,6 +119,15 @@ impl EmscriptenData {
     }
 }
 
+impl fmt::Debug for EmscriptenData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("EmscriptenData")
+            .field("malloc", &(self.malloc as usize))
+            .field("free", &(self.free as usize))
+            .finish()
+    }
+}
+
 pub fn run_emscripten_instance(
     _module: &Module,
     instance: &mut Instance,
@@ -136,7 +145,7 @@ pub fn run_emscripten_instance(
     instance.call("_main", &main_args)?;
 
     // TODO atinit and atexit for emscripten
-
+    println!("{:?}", data);
     Ok(())
 }
 
