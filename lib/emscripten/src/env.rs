@@ -87,7 +87,8 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
         let passwd = &*libc_getpwnam(name.as_ptr());
         let passwd_struct_offset = call_malloc(mem::size_of::<GuestPasswd>() as _, ctx);
 
-        let passwd_struct_ptr = emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
+        let passwd_struct_ptr =
+            emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx, passwd.pw_name);
         (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx, passwd.pw_passwd);
         (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx, passwd.pw_gecos);
@@ -121,7 +122,8 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
         let group = &*libc_getgrnam(name.as_ptr());
         let group_struct_offset = call_malloc(mem::size_of::<GuestGroup>() as _, ctx);
 
-        let group_struct_ptr = emscripten_memory_pointer!(ctx.memory(0), group_struct_offset) as *mut GuestGroup;
+        let group_struct_ptr =
+            emscripten_memory_pointer!(ctx.memory(0), group_struct_offset) as *mut GuestGroup;
         (*group_struct_ptr).gr_name = copy_cstr_into_wasm(ctx, group.gr_name);
         (*group_struct_ptr).gr_passwd = copy_cstr_into_wasm(ctx, group.gr_passwd);
         (*group_struct_ptr).gr_gid = group.gr_gid;

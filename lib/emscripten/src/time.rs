@@ -73,7 +73,8 @@ pub extern "C" fn _clock_gettime(clk_id: libc::clockid_t, tp: c_int, ctx: &mut C
     };
 
     unsafe {
-        let timespec_struct_ptr = emscripten_memory_pointer!(ctx.memory(0), tp) as *mut GuestTimeSpec;
+        let timespec_struct_ptr =
+            emscripten_memory_pointer!(ctx.memory(0), tp) as *mut GuestTimeSpec;
         (*timespec_struct_ptr).tv_sec = timespec.sec as _;
         (*timespec_struct_ptr).tv_nsec = timespec.nsec as _;
     }
@@ -192,7 +193,8 @@ pub extern "C" fn _localtime(time_p: u32, ctx: &mut Ctx) -> c_int {
 
     unsafe {
         let tm_struct_offset = env::call_malloc(mem::size_of::<guest_tm>() as _, ctx);
-        let tm_struct_ptr = emscripten_memory_pointer!(ctx.memory(0), tm_struct_offset) as *mut guest_tm;
+        let tm_struct_ptr =
+            emscripten_memory_pointer!(ctx.memory(0), tm_struct_offset) as *mut guest_tm;
         // debug!(
         //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
         //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,

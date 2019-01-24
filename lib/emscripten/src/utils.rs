@@ -1,5 +1,3 @@
-use wasmer_runtime_core::{module::Module, vm::Ctx};
-//use wasmer_runtime_core::Instance;
 use super::env;
 use super::env::get_emscripten_data;
 use libc::stat;
@@ -7,6 +5,8 @@ use std::ffi::CStr;
 use std::mem::size_of;
 use std::os::raw::c_char;
 use std::slice;
+use wasmer_runtime_core::{module::Module, vm::Ctx};
+
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
     for (_, import_name) in &module.0.imported_functions {
