@@ -1,7 +1,7 @@
 use crate::{
     backend::Token,
     backing::{ImportBacking, LocalBacking},
-    error::{CallError, CallResult, Result},
+    error::{CallError, CallResult, ResolveError, ResolveResult, Result},
     export::{
         Context, Export, ExportIter, FuncPointer, GlobalPointer, MemoryPointer, TablePointer,
     },
@@ -13,8 +13,7 @@ use crate::{
     },
     vm,
 };
-use std::mem;
-use std::rc::Rc;
+use std::{mem, rc::Rc};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -72,6 +71,51 @@ impl Instance {
         Ok(instance)
     }
 
+    /// This returns the representation of a function that can be called
+    /// safely.
+    ///
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::Instance;
+    /// # use wasmer_runtime_core::error::CallResult;
+    /// # fn call_foo(instance: &mut Instance) -> CallResult<()> {
+    /// instance
+    ///     .func("foo")?
+    ///     .call(&[])?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn func(&mut self, name: &str) -> ResolveResult<Function> {
+        let export_index =
+            self.module
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
+
+        if let ExportIndex::Func(func_index) = export_index {
+            let sig_index = *self
+                .module
+                .func_assoc
+                .get(*func_index)
+                .expect("broken invariant, incorrect func index");
+            let signature = self.module.sig_registry.lookup_func_sig(sig_index);
+
+            Ok(Function {
+                signature,
+                module: &self.module,
+                instance_inner: &mut self.inner,
+                func_index: *func_index,
+            })
+        } else {
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            }
+            .into())
+        }
+    }
+
     /// Call an exported webassembly function given the export name.
     /// Pass arguments by wrapping each one in the [`Value`] enum.
     /// The returned values are also each wrapped in a [`Value`].
@@ -99,26 +143,45 @@ impl Instance {
             self.module
                 .exports
                 .get(name)
-                .ok_or_else(|| CallError::NoSuchExport {
+                .ok_or_else(|| ResolveError::ExportNotFound {
                     name: name.to_string(),
                 })?;
 
         let func_index = if let ExportIndex::Func(func_index) = export_index {
             *func_index
         } else {
-            return Err(CallError::ExportNotFunc {
+            return Err(CallError::Resolve(ResolveError::ExportWrongType {
                 name: name.to_string(),
-            }
+            })
             .into());
         };
 
         self.call_with_index(func_index, args)
     }
 
+    /// Returns a immutable reference to the
+    /// [`Ctx`] used by this Instance.
+    ///
+    /// [`Ctx`]: struct.Ctx.html
+    pub fn context(&self) -> &vm::Ctx {
+        &self.inner.vmctx
+    }
+
+    /// Returns a mutable reference to the
+    /// [`Ctx`] used by this Instance.
+    ///
+    /// [`Ctx`]: struct.Ctx.html
+    pub fn context_mut(&mut self) -> &mut vm::Ctx {
+        &mut self.inner.vmctx
+    }
+
+    /// Returns a iterator over all of the items
+    /// exported from this instance.
     pub fn exports(&mut self) -> ExportIter {
         ExportIter::new(&self.module, &mut self.inner)
     }
 
+    /// The module used to instantiate this Instance.
     pub fn module(&self) -> Module {
         Module::new(Rc::clone(&self.module))
     }
@@ -134,7 +197,7 @@ impl Instance {
         let signature = self.module.sig_registry.lookup_func_sig(sig_index);
 
         if !signature.check_sig(args) {
-            Err(CallError::Signature {
+            Err(ResolveError::Signature {
                 expected: signature.clone(),
                 found: args.iter().map(|val| val.ty()).collect(),
             })?
@@ -348,6 +411,85 @@ impl LikeNamespace for Instance {
         let export_index = self.module.exports.get(name)?;
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
+    }
+}
+
+/// A representation of an exported WebAssembly function.
+pub struct Function<'a> {
+    signature: &'a FuncSig,
+    module: &'a ModuleInner,
+    instance_inner: &'a mut InstanceInner,
+    func_index: FuncIndex,
+}
+
+impl<'a> Function<'a> {
+    /// Call an exported webassembly function safely.
+    ///
+    /// Pass arguments by wrapping each one in the [`Value`] enum.
+    /// The returned values are also each wrapped in a [`Value`].
+    ///
+    /// [`Value`]: enum.Value.html
+    ///
+    /// # Note:
+    /// This returns `CallResult<Vec<Value>>` in order to support
+    /// the future multi-value returns webassembly feature.
+    ///
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::Instance;
+    /// # use wasmer_runtime_core::error::CallResult;
+    /// # fn call_foo(instance: &mut Instance) -> CallResult<()> {
+    /// instance
+    ///     .func("foo")?
+    ///     .call(&[])?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn call(&mut self, params: &[Value]) -> CallResult<Vec<Value>> {
+        if !self.signature.check_sig(params) {
+            Err(ResolveError::Signature {
+                expected: self.signature.clone(),
+                found: params.iter().map(|val| val.ty()).collect(),
+            })?
+        }
+
+        let vmctx = match self.func_index.local_or_import(self.module) {
+            LocalOrImport::Local(_) => &mut *self.instance_inner.vmctx,
+            LocalOrImport::Import(imported_func_index) => {
+                self.instance_inner.import_backing.functions[imported_func_index].vmctx
+            }
+        };
+
+        let token = Token::generate();
+
+        let returns = self.module.protected_caller.call(
+            &self.module,
+            self.func_index,
+            params,
+            &self.instance_inner.import_backing,
+            vmctx,
+            token,
+        )?;
+
+        Ok(returns)
+    }
+
+    pub fn signature(&self) -> &FuncSig {
+        self.signature
+    }
+
+    pub fn raw(&self) -> *const vm::Func {
+        match self.func_index.local_or_import(self.module) {
+            LocalOrImport::Local(local_func_index) => self
+                .module
+                .func_resolver
+                .get(self.module, local_func_index)
+                .unwrap()
+                .as_ptr(),
+            LocalOrImport::Import(import_func_index) => {
+                self.instance_inner.import_backing.functions[import_func_index].func
+            }
+        }
     }
 }
 

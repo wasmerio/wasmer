@@ -95,6 +95,44 @@ impl Ctx {
     }
 
     /// This exposes the specified memory of the WebAssembly instance
+    /// as a immutable slice.
+    ///
+    /// WebAssembly will soon support multiple linear memories, so this
+    /// forces the user to specify.
+    ///
+    /// # Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{
+    /// #     vm::Ctx,
+    /// # };
+    /// fn read_memory(ctx: &Ctx) -> u8 {
+    ///     let first_memory = ctx.memory(0);
+    ///     // Read the first byte of that linear memory.
+    ///     first_memory[0]
+    /// }
+    /// ```
+    pub fn memory<'a>(&'a self, mem_index: u32) -> &'a [u8] {
+        let module = unsafe { &*self.module };
+        let mem_index = MemoryIndex::new(mem_index as usize);
+        match mem_index.local_or_import(module) {
+            LocalOrImport::Local(local_mem_index) => {
+                let local_backing = unsafe { &*self.local_backing };
+                &local_backing.memories[local_mem_index][..]
+            }
+            LocalOrImport::Import(import_mem_index) => {
+                let import_backing = unsafe { &mut *self.import_backing };
+                let vm_memory_import = import_backing.memories[import_mem_index].clone();
+                unsafe {
+                    let memory = &*vm_memory_import.memory;
+
+                    slice::from_raw_parts(memory.base, memory.size)
+                }
+            }
+        }
+    }
+
+    /// This exposes the specified memory of the WebAssembly instance
     /// as a mutable slice.
     ///
     /// WebAssembly will soon support multiple linear memories, so this
@@ -108,12 +146,12 @@ impl Ctx {
     /// #     error::Result,
     /// # };
     /// extern fn host_func(ctx: &mut Ctx) {
-    ///     let first_memory = ctx.memory(0);
+    ///     let first_memory = ctx.memory_mut(0);
     ///     // Set the first byte of that linear memory.
     ///     first_memory[0] = 42;
     /// }
     /// ```
-    pub fn memory<'a>(&'a mut self, mem_index: u32) -> &'a mut [u8] {
+    pub fn memory_mut<'a>(&'a mut self, mem_index: u32) -> &'a mut [u8] {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
@@ -170,10 +208,11 @@ impl Ctx {
     }
 }
 
+enum InnerFunc {}
 /// Used to provide type safety (ish) for passing around function pointers.
 /// The typesystem ensures this cannot be dereferenced since an
 /// empty enum cannot actually exist.
-pub enum Func {}
+pub struct Func(InnerFunc);
 
 /// An imported function, which contains the vmctx that owns this function.
 #[derive(Debug, Clone)]
