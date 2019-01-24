@@ -47,7 +47,6 @@ impl LinearMemory {
     pub fn new(mem: &Memory) -> Self {
         assert!(mem.min <= Self::MAX_PAGES);
         assert!(mem.max.is_none() || mem.max.unwrap() <= Self::MAX_PAGES);
-        debug!("Instantiate LinearMemory(mem: {:?})", mem);
 
         let (mmap_size, initial_pages, offset_guard_size, requires_signal_catch) = if
         /*mem.is_static_heap()*/

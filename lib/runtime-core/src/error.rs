@@ -140,6 +140,7 @@ pub enum Error {
     CompileError(CompileError),
     LinkError(Vec<LinkError>),
     RuntimeError(RuntimeError),
+    ResolveError(ResolveError),
     CallError(CallError),
 }
 
@@ -164,6 +165,12 @@ impl From<Vec<LinkError>> for Box<Error> {
 impl From<Box<RuntimeError>> for Box<Error> {
     fn from(runtime_err: Box<RuntimeError>) -> Self {
         Box::new(Error::RuntimeError(*runtime_err))
+    }
+}
+
+impl From<Box<ResolveError>> for Box<Error> {
+    fn from(resolve_err: Box<ResolveError>) -> Self {
+        Box::new(Error::ResolveError(*resolve_err))
     }
 }
 
