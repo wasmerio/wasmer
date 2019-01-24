@@ -96,16 +96,36 @@ pub struct EmscriptenData {
 impl EmscriptenData {
     pub fn new(instance: &mut Instance) -> Self {
         unsafe {
-            let malloc_func = instance.func("_malloc").unwrap();
-            let malloc_addr = malloc_func.raw() as *const u8;
-            let free_func = instance.func("_free").unwrap();
-            let free_addr = free_func.raw() as *const u8;
-            let memalign_func = instance.func("_memalign").unwrap();
-            let memalign_addr = memalign_func.raw() as *const u8;
-            let memset_func = instance.func("_memset").unwrap();
-            let memset_addr = memset_func.raw() as *const u8;
-            let stack_alloc_func = instance.func("stackAlloc").unwrap();
-            let stack_alloc_addr = stack_alloc_func.raw() as *const u8;
+            let malloc_func = instance.func("_malloc");
+            let malloc_addr = if let Ok(malloc_func) = malloc_func {
+                malloc_func.raw() as *const u8
+            } else {
+                0 as *const u8
+            };
+            let free_func = instance.func("_free");
+            let free_addr = if let Ok(free_func) = free_func {
+                free_func.raw() as *const u8
+            } else {
+                0 as *const u8
+            };
+            let memalign_func = instance.func("_memalign");
+            let memalign_addr = if let Ok(memalign_func) = memalign_func {
+                memalign_func.raw() as *const u8
+            } else {
+                0 as *const u8
+            };
+            let memset_func = instance.func("_memset");
+            let memset_addr = if let Ok(memset_func) = memset_func {
+                memset_func.raw() as *const u8
+            } else {
+                0 as *const u8
+            };
+            let stack_alloc_func = instance.func("stackAlloc");
+            let stack_alloc_addr = if let Ok(stack_alloc_func) = stack_alloc_func {
+                stack_alloc_func.raw() as *const u8
+            } else {
+                0 as *const u8
+            };
 
             EmscriptenData {
                 malloc: mem::transmute(malloc_addr),
