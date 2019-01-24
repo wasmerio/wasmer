@@ -1,5 +1,6 @@
 use crate::{module::ModuleInner, structures::TypedIndex};
 
+/// Represents a WebAssembly type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     /// The `i32` type.
@@ -12,6 +13,10 @@ pub enum Type {
     F64,
 }
 
+/// Represents a WebAssembly value.
+///
+/// As the number of types in WebAssembly expand,
+/// this structure will expand as well.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// The `i32` type.

@@ -7,7 +7,7 @@ use std::mem;
 use std::ptr;
 use std::{mem::size_of, panic, slice};
 use wasmer_runtime_core::{
-    error::{CallError, CallResult},
+    error::{CallError, CallResult, ResolveError},
     export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer, TablePointer},
     import::{ImportObject, Namespace},
     instance::Instance,
@@ -117,7 +117,9 @@ fn get_main_args(
     instance: &mut Instance,
 ) -> CallResult<Vec<Value>> {
     // Getting main function signature.
-    let func_sig = instance.get_signature(main_name)?;
+
+    let func = instance.func(main_name)?;
+    let func_sig = func.signature();
     let params = &func_sig.params;
 
     // Check for a () or (i32, i32) sig.
@@ -138,7 +140,7 @@ fn get_main_args(
             ])
         }
         &[] => Ok(vec![]),
-        _ => Err(CallError::Signature {
+        _ => Err(ResolveError::Signature {
             expected: FuncSig {
                 params: vec![Type::I32, Type::I32],
                 returns: vec![],

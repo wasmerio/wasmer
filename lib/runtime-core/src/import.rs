@@ -5,17 +5,53 @@ pub trait LikeNamespace {
     fn get_export(&mut self, name: &str) -> Option<Export>;
 }
 
+/// All of the import data used when instantiating.
+///
+/// It's suggested that you use the [`imports!`] macro
+/// instead of creating an `ImportObject` by hand.
+///
+/// [`imports!`]: macro.imports.html
+///
+/// # Usage:
+/// ```
+/// # use wasmer_runtime_core::imports;
+/// # use wasmer_runtime_core::vm::Ctx;
+/// let import_object = imports! {
+///     "env" => {
+///         "foo" => foo<[i32] -> [i32]>,
+///     },
+/// };
+///
+/// extern fn foo(n: i32, _: &mut Ctx) -> i32 {
+///     n
+/// }
+/// ```
 pub struct ImportObject {
     map: HashMap<String, Box<dyn LikeNamespace>>,
 }
 
 impl ImportObject {
+    /// Create a new `ImportObject`.  
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
         }
     }
 
+    /// Register anything that implements `LikeNamespace` as a namespace.
+    ///
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::Instance;
+    /// # use wasmer_runtime_core::import::{ImportObject, Namespace};
+    /// fn register(instance: Instance, namespace: Namespace) {
+    ///     let mut import_object = ImportObject::new();
+    ///
+    ///     import_object.register("namespace0", instance);
+    ///     import_object.register("namespace1", namespace);
+    ///     // ...
+    /// }
+    /// ```
     pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
     where
         S: Into<String>,

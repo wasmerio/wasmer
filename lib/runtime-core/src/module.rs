@@ -42,16 +42,44 @@ pub struct ModuleInner {
     pub sig_registry: SigRegistry,
 }
 
-pub struct Module(pub Rc<ModuleInner>);
+/// A compiled WebAssembly module.
+///
+/// `Module` is returned by the [`compile`] and
+/// [`compile_with`] functions.
+///
+/// [`compile`]: fn.compile.html
+/// [`compile_with`]: fn.compile_with.html
+pub struct Module(#[doc(hidden)] pub Rc<ModuleInner>);
 
 impl Module {
     pub(crate) fn new(inner: Rc<ModuleInner>) -> Self {
         Module(inner)
     }
 
-    /// Instantiate a WebAssembly module with the provided imports.
-    pub fn instantiate(&self, imports: ImportObject) -> Result<Instance> {
-        Instance::new(Rc::clone(&self.0), Box::new(imports))
+    /// Instantiate a WebAssembly module with the provided [`ImportObject`].
+    ///
+    /// [`ImportObject`]: struct.ImportObject.html
+    ///
+    /// # Note:
+    /// Instantiating a `Module` will also call the function designated as `start`
+    /// in the WebAssembly module, if there is one.
+    ///
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::error::Result;
+    /// # use wasmer_runtime_core::Module;
+    /// # use wasmer_runtime_core::imports;
+    /// # fn instantiate(module: &Module) -> Result<()> {
+    /// let import_object = imports! {
+    ///     // ...
+    /// };
+    /// let instance = module.instantiate(import_object)?;
+    /// // ...
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn instantiate(&self, import_object: ImportObject) -> Result<Instance> {
+        Instance::new(Rc::clone(&self.0), Box::new(import_object))
     }
 }
 

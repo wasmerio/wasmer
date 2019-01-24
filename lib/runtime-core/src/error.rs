@@ -5,6 +5,7 @@ pub type CompileResult<T> = std::result::Result<T, Box<CompileError>>;
 pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
 pub type RuntimeResult<T> = std::result::Result<T, Box<RuntimeError>>;
 pub type CallResult<T> = std::result::Result<T, Box<CallError>>;
+pub type ResolveResult<T> = std::result::Result<T, Box<ResolveError>>;
 
 /// This is returned when the chosen compiler is unable to
 /// successfully compile the provided webassembly module into
@@ -93,6 +94,23 @@ impl PartialEq for RuntimeError {
     }
 }
 
+/// This error type is produced by resolving a wasm function
+/// given its name.
+///
+/// Comparing two `ResolveError`s always evaluates to false.
+#[derive(Debug, Clone)]
+pub enum ResolveError {
+    Signature { expected: FuncSig, found: Vec<Type> },
+    ExportNotFound { name: String },
+    ExportWrongType { name: String },
+}
+
+impl PartialEq for ResolveError {
+    fn eq(&self, _other: &ResolveError) -> bool {
+        false
+    }
+}
+
 /// This error type is produced by calling a wasm function
 /// exported from a module.
 ///
@@ -102,9 +120,7 @@ impl PartialEq for RuntimeError {
 /// Comparing two `CallError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum CallError {
-    Signature { expected: FuncSig, found: Vec<Type> },
-    NoSuchExport { name: String },
-    ExportNotFunc { name: String },
+    Resolve(ResolveError),
     Runtime(RuntimeError),
 }
 
@@ -160,5 +176,41 @@ impl From<Box<CallError>> for Box<Error> {
 impl From<Box<RuntimeError>> for Box<CallError> {
     fn from(runtime_err: Box<RuntimeError>) -> Self {
         Box::new(CallError::Runtime(*runtime_err))
+    }
+}
+
+impl From<Box<ResolveError>> for Box<CallError> {
+    fn from(resolve_err: Box<ResolveError>) -> Self {
+        Box::new(CallError::Resolve(*resolve_err))
+    }
+}
+
+impl From<CompileError> for Box<Error> {
+    fn from(compile_err: CompileError) -> Self {
+        Box::new(Error::CompileError(compile_err))
+    }
+}
+
+impl From<RuntimeError> for Box<Error> {
+    fn from(runtime_err: RuntimeError) -> Self {
+        Box::new(Error::RuntimeError(runtime_err))
+    }
+}
+
+impl From<CallError> for Box<Error> {
+    fn from(call_err: CallError) -> Self {
+        Box::new(Error::CallError(call_err))
+    }
+}
+
+impl From<RuntimeError> for Box<CallError> {
+    fn from(runtime_err: RuntimeError) -> Self {
+        Box::new(CallError::Runtime(runtime_err))
+    }
+}
+
+impl From<ResolveError> for Box<CallError> {
+    fn from(resolve_err: ResolveError) -> Self {
+        Box::new(CallError::Resolve(resolve_err))
     }
 }

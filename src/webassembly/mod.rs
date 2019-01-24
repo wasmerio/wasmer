@@ -5,10 +5,7 @@ use wasmer_runtime::{
     self as runtime,
     error::CallError,
     error::{CallResult, Result},
-    import::ImportObject,
-    instance::Instance,
-    module::Module,
-    types::{FuncSig, Type, Value},
+    ImportObject, Instance, Module,
 };
 
 use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};

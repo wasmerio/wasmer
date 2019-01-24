@@ -65,7 +65,7 @@ impl FuncResolverBuilder {
             .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         unsafe {
             memory
-                .protect(0..memory.size(), Protect::ReadWrite)
+                .protect(.., Protect::ReadWrite)
                 .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         }
 
@@ -186,7 +186,7 @@ impl FuncResolverBuilder {
         unsafe {
             self.resolver
                 .memory
-                .protect(0..self.resolver.memory.size(), Protect::ReadExec)
+                .protect(.., Protect::ReadExec)
                 .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         }
 
