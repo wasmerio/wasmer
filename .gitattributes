@@ -1,0 +1,2 @@
+lib/emscripten/emtests/* linguist-vendored
+lib/runtime-core/spectests/* linguist-vendored
