@@ -29,7 +29,7 @@ macro_rules! assert_emscripten_output {
             &mut instance,
             $name,
             $args,
-        );
+        ).expect("run_emscripten_instance finishes");
 
          let output = capturer.end().unwrap().0;
          let expected_output = include_str!($expected);
