@@ -41,25 +41,25 @@ pub extern "C" fn em_abort(message: u32, ctx: &mut Ctx) {
     }
 }
 
-pub extern "C" fn abort_stack_overflow(_what: c_int) {
+pub extern "C" fn abort_stack_overflow(_what: c_int, _ctx: &mut Ctx) {
     debug!("emscripten::abort_stack_overflow");
     // TODO: Message incomplete. Need to finish em runtime data first
     abort_with_message("Stack overflow! Attempted to allocate some bytes on the stack");
 }
 
-pub extern "C" fn _llvm_trap() {
+pub extern "C" fn _llvm_trap(_ctx: &mut Ctx) {
     debug!("emscripten::_llvm_trap");
     abort_with_message("abort!");
 }
 
-pub extern "C" fn _system() -> c_int {
+pub extern "C" fn _system(_ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_system");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Can't call external programs");
     return EAGAIN;
 }
 
-pub extern "C" fn _popen() -> c_int {
+pub extern "C" fn _popen(_ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_popen");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Missing function: popen");

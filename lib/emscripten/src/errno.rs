@@ -1,6 +1,7 @@
 // use std::collections::HashMap;
+use wasmer_runtime_core::vm::Ctx;
 
-pub extern "C" fn ___seterrno(value: i32) {
+pub extern "C" fn ___seterrno(value: i32, _ctx: &mut Ctx) {
     debug!("emscripten::___seterrno {}", value);
     // TODO: Incomplete impl
     eprintln!("failed to set errno!");
