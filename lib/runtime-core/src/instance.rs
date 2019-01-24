@@ -90,7 +90,7 @@ impl Instance {
             self.module
                 .exports
                 .get(name)
-                .ok_or_else(|| ResolveError::NoSuchExport {
+                .ok_or_else(|| ResolveError::ExportNotFound {
                     name: name.to_string(),
                 })?;
 
@@ -143,7 +143,7 @@ impl Instance {
             self.module
                 .exports
                 .get(name)
-                .ok_or_else(|| ResolveError::NoSuchExport {
+                .ok_or_else(|| ResolveError::ExportNotFound {
                     name: name.to_string(),
                 })?;
 

@@ -101,7 +101,7 @@ impl PartialEq for RuntimeError {
 #[derive(Debug, Clone)]
 pub enum ResolveError {
     Signature { expected: FuncSig, found: Vec<Type> },
-    NoSuchExport { name: String },
+    ExportNotFound { name: String },
     ExportWrongType { name: String },
 }
 
