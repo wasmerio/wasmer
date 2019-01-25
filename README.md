@@ -137,7 +137,7 @@ Below are some of the goals (written with order) of this project:
 
 - [x] It should be 100% compatible with the [WebAssembly Spectest](https://github.com/wasmerio/wasmer/tree/master/spectests)
 - [x] It should be fast _(partially achieved)_
-- [ ] Support Emscripten calls _(on the works)_
+- [ ] Support Emscripten calls _(in the works)_
 - [ ] Support Rust ABI calls
 - [ ] Support GO ABI calls
 
