@@ -362,7 +362,7 @@ pub struct EmscriptenGlobals {
     pub vm_table: LocalTable,
 }
 
-impl<'a> EmscriptenGlobals {
+impl EmscriptenGlobals {
     pub fn new() -> Self {
         // Memory initialization
         let memory_type = Memory {
