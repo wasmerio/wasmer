@@ -26,7 +26,12 @@ pub extern "C" fn _sigaddset(set: u32, signum: u32, ctx: &mut Ctx) -> i32 {
     0
 }
 
-pub extern "C" fn _sigprocmask() -> i32 {
+pub extern "C" fn _sigsuspend(one: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_sigsuspend");
+    -1
+}
+
+pub extern "C" fn _sigprocmask(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_sigprocmask");
     0
 }

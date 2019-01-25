@@ -24,6 +24,15 @@ pub extern "C" fn _fork(_ctx: &mut Ctx) -> pid_t {
     -1
 }
 
+pub extern "C" fn _endgrent(_ctx: &mut Ctx) {
+    debug!("emscripten::_endgrent");
+}
+
+pub extern "C" fn _execve(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_execve");
+    -1
+}
+
 pub extern "C" fn _exit(status: c_int, _ctx: &mut Ctx) -> ! {
     debug!("emscripten::_exit {}", status);
     unsafe { exit(status) }
@@ -39,6 +48,64 @@ pub extern "C" fn em_abort(message: u32, ctx: &mut Ctx) {
 
         abort_with_message(message);
     }
+}
+
+pub extern "C" fn _kill(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_kill");
+    -1
+}
+
+pub extern "C" fn _llvm_stackrestore(one: i32, ctx: &mut Ctx) {
+    debug!("emscripten::_llvm_stackrestore");
+}
+
+pub extern "C" fn _raise(one: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_raise");
+    -1
+}
+
+pub extern "C" fn _sem_init(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_sem_init");
+    -1
+}
+
+pub extern "C" fn _sem_post(one: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_sem_post");
+    -1
+}
+
+pub extern "C" fn _sem_wait(one: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_sem_post");
+    -1
+}
+
+pub extern "C" fn _setgrent(ctx: &mut Ctx) {
+    debug!("emscripten::_setgrent");
+}
+
+pub extern "C" fn _setgroups(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_setgroups");
+    -1
+}
+
+pub extern "C" fn _setitimer(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_setitimer");
+    -1
+}
+
+pub extern "C" fn _usleep(one: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_usleep");
+    -1
+}
+
+pub extern "C" fn _utimes(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_utimes");
+    -1
+}
+
+pub extern "C" fn _waitpid(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_waitpid");
+    -1
 }
 
 pub extern "C" fn abort_stack_overflow(_what: c_int, _ctx: &mut Ctx) {

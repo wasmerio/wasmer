@@ -165,10 +165,25 @@ pub extern "C" fn ___syscall12(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx
     }
 }
 
+pub extern "C" fn ___syscall10(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall10");
+    -1
+}
+
+pub extern "C" fn ___syscall15(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall15");
+    -1
+}
+
 // getpid
-pub extern "C" fn ___syscall20() -> pid_t {
+pub extern "C" fn ___syscall20(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
     debug!("emscripten::___syscall20 (getpid)");
     unsafe { getpid() }
+}
+
+pub extern "C" fn ___syscall38(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall38");
+    -1
 }
 
 // mkdir
@@ -238,6 +253,11 @@ pub extern "C" fn ___syscall57(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx
     unsafe { setpgid(pid, pgid) }
 }
 
+pub extern "C" fn ___syscall60(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall60");
+    -1
+}
+
 // dup2
 pub extern "C" fn ___syscall63(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::___syscall63 (dup2) {}", which);
@@ -249,9 +269,34 @@ pub extern "C" fn ___syscall63(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx
 }
 
 // getppid
-pub extern "C" fn ___syscall64() -> pid_t {
+pub extern "C" fn ___syscall64(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
     debug!("emscripten::___syscall64 (getppid)");
     unsafe { getpid() }
+}
+
+pub extern "C" fn ___syscall66(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall66");
+    -1
+}
+
+pub extern "C" fn ___syscall75(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall75");
+    -1
+}
+
+pub extern "C" fn ___syscall85(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall85");
+    -1
+}
+
+pub extern "C" fn ___syscall91(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall91");
+    -1
+}
+
+pub extern "C" fn ___syscall97(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall97");
+    -1
 }
 
 // socketcall
@@ -507,6 +552,11 @@ pub extern "C" fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
     }
 }
 
+pub extern "C" fn ___syscall110(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall110");
+    -1
+}
+
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]
 pub extern "C" fn ___syscall114(_which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> pid_t {
@@ -668,6 +718,11 @@ pub extern "C" fn ___syscall146(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
     }
 }
 
+pub extern "C" fn ___syscall168(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall168");
+    -1
+}
+
 // pread
 pub extern "C" fn ___syscall180(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::___syscall180 (pread) {}", which);
@@ -704,6 +759,26 @@ pub extern "C" fn ___syscall181(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
         fd, buf, count, offset, status
     );
     status
+}
+
+pub extern "C" fn ___syscall191(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall191 - stub");
+    -1
+}
+
+pub extern "C" fn ___syscall194(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall194 - stub");
+    -1
+}
+
+pub extern "C" fn ___syscall196(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall194 - stub");
+    -1
+}
+
+pub extern "C" fn ___syscall199(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall199 - stub");
+    -1
 }
 
 // stat64
@@ -746,11 +821,11 @@ pub extern "C" fn ___syscall197(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
 }
 
 // getgid
-pub extern "C" fn ___syscall201() -> gid_t {
+pub extern "C" fn ___syscall201(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
     debug!("emscripten::___syscall201 (getgid)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
-        getgid()
+        getgid() as i32
     }
 }
 
@@ -776,6 +851,11 @@ pub extern "C" fn ___syscall212(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
     unsafe { chown(pathname_addr, owner, group) }
 }
 
+pub extern "C" fn ___syscall220(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall220");
+    -1
+}
+
 // fcntl64
 pub extern "C" fn ___syscall221(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::___syscall221 (fcntl64) {}", which);
@@ -786,6 +866,31 @@ pub extern "C" fn ___syscall221(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
         2 => 0,
         _ => -1,
     }
+}
+
+pub extern "C" fn ___syscall268(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall268");
+    -1
+}
+
+pub extern "C" fn ___syscall272(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall272");
+    -1
+}
+
+pub extern "C" fn ___syscall295(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall295");
+    -1
+}
+
+pub extern "C" fn ___syscall300(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall300");
+    -1
+}
+
+pub extern "C" fn ___syscall334(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::___syscall334");
+    -1
 }
 
 /// dup3

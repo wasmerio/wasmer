@@ -338,6 +338,7 @@ macro_rules! global {
 }
 
 pub struct EmscriptenGlobalsData {
+    abort: u64,
     // Env namespace
     stacktop: u64,
     stack_max: u64,
@@ -385,6 +386,7 @@ impl EmscriptenGlobals {
         let table_base = 0 as u64;
         let temp_double_ptr = 0 as u64;
         let data = EmscriptenGlobalsData {
+            abort: 0, // TODO review usage
             // env
             stacktop: stacktop(STATIC_BUMP) as _,
             stack_max: stack_max(STATIC_BUMP) as _,
@@ -448,8 +450,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             ctx: null_ctx,
             table: Table {
                 ty: ElementType::Anyfunc,
-                min: 10,
-                max: Some(10),
+                min: 8192,
+                max: Some(8192),
             },
         },
     );
@@ -502,6 +504,17 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "__table_base".to_string(),
         Export::Global {
             local: global!(globals.data.table_base),
+            global: GlobalDesc {
+                mutable: false,
+                ty: I32,
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "ABORT".to_string(),
+        Export::Global {
+            local: global!(globals.data.abort),
             global: GlobalDesc {
                 mutable: false,
                 ty: I32,
@@ -826,7 +839,19 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             func: func!(syscalls, ___syscall20),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall220",
+        Export::Function {
+            func: func!(syscalls, ___syscall220),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
@@ -848,6 +873,18 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall40",
         Export::Function {
             func: func!(syscalls, ___syscall40),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall10",
+        Export::Function {
+            func: func!(syscalls, ___syscall10),
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32, I32],
@@ -893,12 +930,24 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     );
 
     env_namespace.insert(
+        "___syscall85",
+        Export::Function {
+            func: func!(syscalls, ___syscall85),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
         "___syscall64",
         Export::Function {
             func: func!(syscalls, ___syscall64),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
@@ -1054,7 +1103,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             func: func!(syscalls, ___syscall201),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
@@ -1246,7 +1295,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             func: func!(signal, _sigprocmask),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32, I32, I32],
                 returns: vec![I32],
             },
         },
@@ -1746,71 +1795,479 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    mock_external!(env_namespace, _waitpid);
-    mock_external!(env_namespace, _utimes);
-    mock_external!(env_namespace, _usleep);
+    env_namespace.insert(
+        "___syscall110",
+        Export::Function {
+            func: func!(syscalls, ___syscall110),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall15",
+        Export::Function {
+            func: func!(syscalls, ___syscall15),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall168",
+        Export::Function {
+            func: func!(syscalls, ___syscall168),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall191",
+        Export::Function {
+            func: func!(syscalls, ___syscall191),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+    env_namespace.insert(
+        "___syscall194",
+        Export::Function {
+            func: func!(syscalls, ___syscall194),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+    env_namespace.insert(
+        "___syscall196",
+        Export::Function {
+            func: func!(syscalls, ___syscall196),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+    env_namespace.insert(
+        "___syscall199",
+        Export::Function {
+            func: func!(syscalls, ___syscall199),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall268",
+        Export::Function {
+            func: func!(syscalls, ___syscall268),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall272",
+        Export::Function {
+            func: func!(syscalls, ___syscall272),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall295",
+        Export::Function {
+            func: func!(syscalls, ___syscall295),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall300",
+        Export::Function {
+            func: func!(syscalls, ___syscall300),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall334",
+        Export::Function {
+            func: func!(syscalls, ___syscall334),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall38",
+        Export::Function {
+            func: func!(syscalls, ___syscall38),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall60",
+        Export::Function {
+            func: func!(syscalls, ___syscall60),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall66",
+        Export::Function {
+            func: func!(syscalls, ___syscall66),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall75",
+        Export::Function {
+            func: func!(syscalls, ___syscall75),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall91",
+        Export::Function {
+            func: func!(syscalls, ___syscall91),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "___syscall97",
+        Export::Function {
+            func: func!(syscalls, ___syscall97),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_endgrent",
+        Export::Function {
+            func: func!(process, _endgrent),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_execve",
+        Export::Function {
+            func: func!(process, _execve),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_getaddrinfo",
+        Export::Function {
+            func: func!(env, _getaddrinfo),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_gmtime_r",
+        Export::Function {
+            func: func!(time, _gmtime_r),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_kill",
+        Export::Function {
+            func: func!(process, _kill),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_llvm_stackrestore",
+        Export::Function {
+            func: func!(process, _llvm_stackrestore),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_mktime",
+        Export::Function {
+            func: func!(time, _mktime),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_raise",
+        Export::Function {
+            func: func!(process, _raise),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_sem_init",
+        Export::Function {
+            func: func!(process, _sem_init),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_sem_post",
+        Export::Function {
+            func: func!(process, _sem_post),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_sem_wait",
+        Export::Function {
+            func: func!(process, _sem_wait),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_setgrent",
+        Export::Function {
+            func: func!(process, _setgrent),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_setgroups",
+        Export::Function {
+            func: func!(process, _setgroups),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_setitimer",
+        Export::Function {
+            func: func!(process, _setitimer),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    //
+    env_namespace.insert(
+        "_sigsuspend",
+        Export::Function {
+            func: func!(signal, _sigsuspend),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_setitimer",
+        Export::Function {
+            func: func!(process, _setitimer),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_usleep",
+        Export::Function {
+            func: func!(process, _usleep),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_utimes",
+        Export::Function {
+            func: func!(process, _utimes),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_waitpid",
+        Export::Function {
+            func: func!(process, _waitpid),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
     // mock_external!(env_namespace, _time);
     // mock_external!(env_namespace, _sysconf);
     // mock_external!(env_namespace, _strftime);
-    mock_external!(env_namespace, _sigsuspend);
     // mock_external!(env_namespace, _sigprocmask);
     // mock_external!(env_namespace, _sigemptyset);
     // mock_external!(env_namespace, _sigaddset);
     // mock_external!(env_namespace, _sigaction);
-    mock_external!(env_namespace, _setitimer);
-    mock_external!(env_namespace, _setgroups);
-    mock_external!(env_namespace, _setgrent);
-    mock_external!(env_namespace, _sem_wait);
-    mock_external!(env_namespace, _sem_post);
-    mock_external!(env_namespace, _sem_init);
+
     mock_external!(env_namespace, _sched_yield);
-    mock_external!(env_namespace, _raise);
-    mock_external!(env_namespace, _mktime);
     // mock_external!(env_namespace, _localtime_r);
     // mock_external!(env_namespace, _localtime);
     mock_external!(env_namespace, _llvm_stacksave);
-    mock_external!(env_namespace, _llvm_stackrestore);
-    mock_external!(env_namespace, _kill);
-    mock_external!(env_namespace, _gmtime_r);
     // mock_external!(env_namespace, _gettimeofday);
     // mock_external!(env_namespace, _getpagesize);
     mock_external!(env_namespace, _getgrent);
-    mock_external!(env_namespace, _getaddrinfo);
     // mock_external!(env_namespace, _fork);
     // mock_external!(env_namespace, _exit);
-    mock_external!(env_namespace, _execve);
-    mock_external!(env_namespace, _endgrent);
     // mock_external!(env_namespace, _clock_gettime);
-    mock_external!(env_namespace, ___syscall97);
-    mock_external!(env_namespace, ___syscall91);
-    mock_external!(env_namespace, ___syscall85);
-    mock_external!(env_namespace, ___syscall75);
-    mock_external!(env_namespace, ___syscall66);
     // mock_external!(env_namespace, ___syscall64);
     // mock_external!(env_namespace, ___syscall63);
     // mock_external!(env_namespace, ___syscall60);
     // mock_external!(env_namespace, ___syscall54);
     // mock_external!(env_namespace, ___syscall39);
-    mock_external!(env_namespace, ___syscall38);
     // mock_external!(env_namespace, ___syscall340);
-    mock_external!(env_namespace, ___syscall334);
-    mock_external!(env_namespace, ___syscall300);
-    mock_external!(env_namespace, ___syscall295);
-    mock_external!(env_namespace, ___syscall272);
-    mock_external!(env_namespace, ___syscall268);
     // mock_external!(env_namespace, ___syscall221);
-    mock_external!(env_namespace, ___syscall220);
     // mock_external!(env_namespace, ___syscall212);
     // mock_external!(env_namespace, ___syscall201);
-    mock_external!(env_namespace, ___syscall199);
     // mock_external!(env_namespace, ___syscall197);
-    mock_external!(env_namespace, ___syscall196);
     // mock_external!(env_namespace, ___syscall195);
-    mock_external!(env_namespace, ___syscall194);
-    mock_external!(env_namespace, ___syscall191);
     // mock_external!(env_namespace, ___syscall181);
     // mock_external!(env_namespace, ___syscall180);
-    mock_external!(env_namespace, ___syscall168);
     // mock_external!(env_namespace, ___syscall146);
     // mock_external!(env_namespace, ___syscall145);
     // mock_external!(env_namespace, ___syscall142);
@@ -1818,8 +2275,6 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     // mock_external!(env_namespace, ___syscall122);
     // mock_external!(env_namespace, ___syscall102);
     // mock_external!(env_namespace, ___syscall20);
-    mock_external!(env_namespace, ___syscall15);
-    mock_external!(env_namespace, ___syscall10);
     mock_external!(env_namespace, _dlopen);
     mock_external!(env_namespace, _dlclose);
     mock_external!(env_namespace, _dlsym);

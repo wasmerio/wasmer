@@ -11,6 +11,11 @@ use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array
 use super::EmscriptenData;
 use wasmer_runtime_core::vm::Ctx;
 
+pub extern "C" fn _getaddrinfo(one: i32, two: i32, three: i32, four: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_getaddrinfo");
+    -1
+}
+
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
 pub extern "C" fn _getenv(name: c_int, ctx: &mut Ctx) -> u32 {
