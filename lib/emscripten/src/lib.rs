@@ -327,7 +327,7 @@ macro_rules! func {
 }
 
 macro_rules! global {
-    ($value:ident) => {{
+    ($value:expr) => {{
         unsafe {
             GlobalPointer::new(
                 // NOTE: Taking a shortcut here. LocalGlobal is a struct containing just u64.
@@ -337,20 +337,18 @@ macro_rules! global {
     }};
 }
 
-type EmscriptenDataType = (u64, Type);
-
 pub struct EmscriptenGlobalsData {
     // Env namespace
-    stacktop: EmscriptenDataType,
-    stack_max: EmscriptenDataType,
-    dynamictop_ptr: EmscriptenDataType,
-    memory_base: EmscriptenDataType,
-    table_base: EmscriptenDataType,
-    temp_double_ptr: EmscriptenDataType,
+    stacktop: u64,
+    stack_max: u64,
+    dynamictop_ptr: u64,
+    memory_base: u64,
+    table_base: u64,
+    temp_double_ptr: u64,
 
     // Global namespace
-    infinity: EmscriptenDataType,
-    nan: EmscriptenDataType,
+    infinity: u64,
+    nan: u64,
 }
 
 pub struct EmscriptenGlobals {
@@ -383,21 +381,21 @@ impl<'a> EmscriptenGlobals {
         let mut table = TableBacking::new(&table_type);
         let vm_table = table.into_vm_table();
 
-        let memory_base = (STATIC_BASE as u64, I32);
-        let table_base = (0 as u64, I32);
-        let temp_double_ptr = (0 as u64, I32);
+        let memory_base = STATIC_BASE as u64;
+        let table_base = 0 as u64;
+        let temp_double_ptr = 0 as u64;
         let data = EmscriptenGlobalsData {
             // env
-            stacktop: (stacktop(STATIC_BUMP) as _, I32),
-            stack_max: (stack_max(STATIC_BUMP) as _, I32),
-            dynamictop_ptr: (dynamictop_ptr(STATIC_BUMP) as _, I32),
+            stacktop: stacktop(STATIC_BUMP) as _,
+            stack_max: stack_max(STATIC_BUMP) as _,
+            dynamictop_ptr: dynamictop_ptr(STATIC_BUMP) as _,
             memory_base: memory_base,
             table_base: table_base,
             temp_double_ptr: temp_double_ptr,
 
             // global
-            infinity: (std::f64::INFINITY.to_bits() as _, F64),
-            nan: (std::f64::NAN.to_bits() as _, F64),
+            infinity: std::f64::INFINITY.to_bits() as _,
+            nan: std::f64::NAN.to_bits() as _,
         };
 
         Self {
@@ -456,122 +454,112 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = globals.data.stacktop;
     env_namespace.insert(
         "STACKTOP".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.stacktop),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: I32,
             },
         },
     );
 
-    let (value, ty) = globals.data.stack_max;
     env_namespace.insert(
         "STACK_MAX".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.stack_max),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: I32,
             },
         },
     );
 
-    let (value, ty) = globals.data.dynamictop_ptr;
     env_namespace.insert(
         "DYNAMICTOP_PTR".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.dynamictop_ptr),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: I32,
             },
         },
     );
 
-    let (value, ty) = globals.data.table_base;
     env_namespace.insert(
         "tableBase".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.table_base),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: I32,
             },
         },
     );
 
-    let (value, ty) = globals.data.table_base;
     env_namespace.insert(
         "__table_base".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.table_base),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: I32,
             },
         },
     );
 
-    let (value, ty) = globals.data.memory_base;
     env_namespace.insert(
         "memoryBase".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.memory_base),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: I32,
             },
         },
     );
 
-    let (value, ty) = globals.data.memory_base;
     env_namespace.insert(
         "__memory_base".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.memory_base),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: I32,
             },
         },
     );
 
-    let (value, ty) = globals.data.temp_double_ptr;
     env_namespace.insert(
         "tempDoublePtr".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.temp_double_ptr),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: I32,
             },
         },
     );
 
-    let (value, ty) = globals.data.infinity;
     global_namespace.insert(
         "Infinity".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.infinity),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: F64,
             },
         },
     );
 
-    let (value, ty) = globals.data.nan;
     global_namespace.insert(
         "NaN".to_string(),
         Export::Global {
-            local: global!(value),
+            local: global!(globals.data.nan),
             global: GlobalDesc {
                 mutable: false,
-                ty: ty.clone(),
+                ty: F64,
             },
         },
     );
