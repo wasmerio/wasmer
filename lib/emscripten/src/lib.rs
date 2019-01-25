@@ -2,7 +2,6 @@
 extern crate wasmer_runtime_core;
 
 use byteorder::{ByteOrder, LittleEndian};
-use hashbrown::HashMap;
 use libc::c_int;
 use std::cell::UnsafeCell;
 use std::{ffi::c_void, mem, ptr};
@@ -332,14 +331,31 @@ macro_rules! global {
         unsafe {
             GlobalPointer::new(
                 // NOTE: Taking a shortcut here. LocalGlobal is a struct containing just u64.
-                std::mem::transmute::<&u64, *mut LocalGlobal>($value),
+                std::mem::transmute::<&u64, *mut LocalGlobal>(&$value),
             )
         }
     }};
 }
 
-pub struct EmscriptenGlobals<'a> {
-    pub data: HashMap<&'a str, HashMap<&'a str, (u64, Type)>>, // <namespace, <field_name, (global_value, type)>>
+type EmscriptenDataType = (u64, Type);
+
+pub struct EmscriptenGlobalsData {
+    // Env namespace
+    stacktop: EmscriptenDataType,
+    stack_max: EmscriptenDataType,
+    dynamictop_ptr: EmscriptenDataType,
+    memory_base: EmscriptenDataType,
+    table_base: EmscriptenDataType,
+    temp_double_ptr: EmscriptenDataType,
+
+    // Global namespace
+    infinity: EmscriptenDataType,
+    nan: EmscriptenDataType,
+}
+
+pub struct EmscriptenGlobals {
+    // The emscripten data
+    pub data: EmscriptenGlobalsData,
     // The emscripten memory
     pub memory: LinearMemory,
     pub vm_memory: LocalMemory,
@@ -348,12 +364,8 @@ pub struct EmscriptenGlobals<'a> {
     pub vm_table: LocalTable,
 }
 
-impl<'a> EmscriptenGlobals<'a> {
+impl<'a> EmscriptenGlobals {
     pub fn new() -> Self {
-        let mut data = HashMap::new();
-        let mut env_namepace = HashMap::new();
-        let mut global_namepace = HashMap::new();
-
         // Memory initialization
         let memory_type = Memory {
             min: 256,
@@ -374,18 +386,19 @@ impl<'a> EmscriptenGlobals<'a> {
         let memory_base = (STATIC_BASE as u64, I32);
         let table_base = (0 as u64, I32);
         let temp_double_ptr = (0 as u64, I32);
+        let data = EmscriptenGlobalsData {
+            // env
+            stacktop: (stacktop(STATIC_BUMP) as _, I32),
+            stack_max: (stack_max(STATIC_BUMP) as _, I32),
+            dynamictop_ptr: (dynamictop_ptr(STATIC_BUMP) as _, I32),
+            memory_base: memory_base,
+            table_base: table_base,
+            temp_double_ptr: temp_double_ptr,
 
-        env_namepace.insert("STACKTOP", (stacktop(STATIC_BUMP) as _, I32));
-        env_namepace.insert("STACK_MAX", (stack_max(STATIC_BUMP) as _, I32));
-        env_namepace.insert("DYNAMICTOP_PTR", (dynamictop_ptr(STATIC_BUMP) as _, I32));
-        env_namepace.insert("memoryBase", memory_base);
-        env_namepace.insert("tableBase", table_base);
-        env_namepace.insert("tempDoublePtr", temp_double_ptr);
-        global_namepace.insert("Infinity", (std::f64::INFINITY.to_bits() as _, F64));
-        global_namepace.insert("NaN", (std::f64::NAN.to_bits() as _, F64));
-
-        data.insert("env", env_namepace);
-        data.insert("global", global_namepace);
+            // global
+            infinity: (std::f64::INFINITY.to_bits() as _, F64),
+            nan: (std::f64::NAN.to_bits() as _, F64),
+        };
 
         Self {
             data,
@@ -406,8 +419,6 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
     // Add globals.
     // NOTE: There is really no need for checks, these globals should always be available.
-    let env_globals = globals.data.get("env").unwrap();
-    let global_globals = globals.data.get("global").unwrap();
 
     // We generate a fake Context that traps on access
     let null_ctx = Context::External(ptr::null_mut());
@@ -445,7 +456,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = env_globals.get("STACKTOP").unwrap();
+    let (value, ty) = globals.data.stacktop;
     env_namespace.insert(
         "STACKTOP".to_string(),
         Export::Global {
@@ -457,7 +468,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = env_globals.get("STACK_MAX").unwrap();
+    let (value, ty) = globals.data.stack_max;
     env_namespace.insert(
         "STACK_MAX".to_string(),
         Export::Global {
@@ -469,7 +480,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = env_globals.get("DYNAMICTOP_PTR").unwrap();
+    let (value, ty) = globals.data.dynamictop_ptr;
     env_namespace.insert(
         "DYNAMICTOP_PTR".to_string(),
         Export::Global {
@@ -481,7 +492,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = env_globals.get("tableBase").unwrap();
+    let (value, ty) = globals.data.table_base;
     env_namespace.insert(
         "tableBase".to_string(),
         Export::Global {
@@ -493,7 +504,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = env_globals.get("tableBase").unwrap();
+    let (value, ty) = globals.data.table_base;
     env_namespace.insert(
         "__table_base".to_string(),
         Export::Global {
@@ -505,7 +516,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = env_globals.get("memoryBase").unwrap();
+    let (value, ty) = globals.data.memory_base;
     env_namespace.insert(
         "memoryBase".to_string(),
         Export::Global {
@@ -517,7 +528,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = env_globals.get("memoryBase").unwrap();
+    let (value, ty) = globals.data.memory_base;
     env_namespace.insert(
         "__memory_base".to_string(),
         Export::Global {
@@ -529,7 +540,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = env_globals.get("tempDoublePtr").unwrap();
+    let (value, ty) = globals.data.temp_double_ptr;
     env_namespace.insert(
         "tempDoublePtr".to_string(),
         Export::Global {
@@ -541,7 +552,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = global_globals.get("Infinity").unwrap();
+    let (value, ty) = globals.data.infinity;
     global_namespace.insert(
         "Infinity".to_string(),
         Export::Global {
@@ -553,7 +564,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
-    let (value, ty) = global_globals.get("NaN").unwrap();
+    let (value, ty) = globals.data.nan;
     global_namespace.insert(
         "NaN".to_string(),
         Export::Global {
