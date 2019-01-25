@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime"
-version = "0.1.3"
+version = "0.1.4"
 description = "Wasmer runtime library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -10,7 +10,7 @@ readme = "README.md"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
-wasmer-clif-backend = { path = "../clif-backend", version = "0.1.1", optional = true }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2", optional = true }
 
 [features]
 default = ["wasmer-clif-backend"]
