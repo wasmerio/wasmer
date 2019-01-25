@@ -1,4 +1,4 @@
-use crate::types::{FuncSig, GlobalDesc, Memory, MemoryIndex, Table, TableIndex, Type};
+use crate::types::{FuncSig, GlobalDesc, MemoryDesc, MemoryIndex, TableDesc, TableIndex, Type};
 
 pub type Result<T> = std::result::Result<T, Box<Error>>;
 pub type CompileResult<T> = std::result::Result<T, Box<CompileError>>;
@@ -49,14 +49,14 @@ pub enum LinkError {
     IncorrectMemoryDescription {
         namespace: String,
         name: String,
-        expected: Memory,
-        found: Memory,
+        expected: MemoryDesc,
+        found: MemoryDesc,
     },
     IncorrectTableDescription {
         namespace: String,
         name: String,
-        expected: Table,
-        found: Table,
+        expected: TableDesc,
+        found: TableDesc,
     },
     IncorrectGlobalDescription {
         namespace: String,

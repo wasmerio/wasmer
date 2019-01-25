@@ -1,4 +1,4 @@
-use crate::{module::ModuleInner, structures::TypedIndex};
+use crate::{memory::MemoryType, module::ModuleInner, structures::TypedIndex};
 
 /// Represents a WebAssembly type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -71,7 +71,7 @@ pub enum ElementType {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Table {
+pub struct TableDesc {
     /// Type of data stored in this table.
     pub ty: ElementType,
     /// The minimum number of elements that must be stored in this table.
@@ -80,8 +80,8 @@ pub struct Table {
     pub max: Option<u32>,
 }
 
-impl Table {
-    pub(crate) fn fits_in_imported(&self, imported: &Table) -> bool {
+impl TableDesc {
+    pub(crate) fn fits_in_imported(&self, imported: &TableDesc) -> bool {
         // TODO: We should define implementation limits.
         let imported_max = imported.max.unwrap_or(u32::max_value());
         let self_max = self.max.unwrap_or(u32::max_value());
@@ -115,7 +115,7 @@ pub struct Global {
 
 /// A wasm memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Memory {
+pub struct MemoryDesc {
     /// The minimum number of allowed pages.
     pub min: u32,
     /// The maximum number of allowed pages.
@@ -124,12 +124,17 @@ pub struct Memory {
     pub shared: bool,
 }
 
-impl Memory {
-    pub fn is_static_heap(&self) -> bool {
-        self.max.is_some()
+impl MemoryDesc {
+    pub fn memory_type(self) -> MemoryType {
+        match (self.max.is_some(), self.shared) {
+            (true, true) => MemoryType::SharedStatic,
+            (true, false) => MemoryType::Static,
+            (false, false) => MemoryType::Dynamic,
+            (false, true) => panic!("shared memory without a max is not allowed"),
+        }
     }
 
-    pub(crate) fn fits_in_imported(&self, imported: &Memory) -> bool {
+    pub(crate) fn fits_in_imported(&self, imported: MemoryDesc) -> bool {
         let imported_max = imported.max.unwrap_or(65_536);
         let self_max = self.max.unwrap_or(65_536);
 

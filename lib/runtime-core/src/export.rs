@@ -1,8 +1,9 @@
 use crate::{
     instance::InstanceInner,
+    memory::Memory,
     module::ExportIndex,
     module::ModuleInner,
-    types::{FuncSig, GlobalDesc, Memory, Table},
+    types::{FuncSig, GlobalDesc, TableDesc},
     vm,
 };
 use hashbrown::hash_map;
@@ -20,19 +21,15 @@ pub enum Export {
         ctx: Context,
         signature: FuncSig,
     },
-    Memory {
-        local: MemoryPointer,
-        ctx: Context,
-        memory: Memory,
-    },
+    Memory(Memory),
     Table {
         local: TablePointer,
         ctx: Context,
-        table: Table,
+        desc: TableDesc,
     },
     Global {
         local: GlobalPointer,
-        global: GlobalDesc,
+        desc: GlobalDesc,
     },
 }
 
@@ -48,22 +45,6 @@ impl FuncPointer {
     }
 
     pub(crate) fn inner(&self) -> *const vm::Func {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MemoryPointer(*mut vm::LocalMemory);
-
-impl MemoryPointer {
-    /// This needs to be unsafe because there is
-    /// no way to check whether the passed function
-    /// is valid and has the right signature.
-    pub unsafe fn new(f: *mut vm::LocalMemory) -> Self {
-        MemoryPointer(f)
-    }
-
-    pub(crate) fn inner(&self) -> *mut vm::LocalMemory {
         self.0
     }
 }

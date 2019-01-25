@@ -1,5 +1,5 @@
 use super::vm;
-use crate::types::{ElementType, Table};
+use crate::types::{ElementType, TableDesc};
 
 #[derive(Debug, Clone)]
 pub enum TableElements {
@@ -14,7 +14,7 @@ pub struct TableBacking {
 }
 
 impl TableBacking {
-    pub fn new(table: &Table) -> Self {
+    pub fn new(table: TableDesc) -> Self {
         match table.ty {
             ElementType::Anyfunc => {
                 let initial_table_backing_len = match table.max {

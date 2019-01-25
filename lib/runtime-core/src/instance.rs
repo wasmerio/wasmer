@@ -2,13 +2,12 @@ use crate::{
     backend::Token,
     backing::{ImportBacking, LocalBacking},
     error::{CallError, CallResult, ResolveError, ResolveResult, Result},
-    export::{
-        Context, Export, ExportIter, FuncPointer, GlobalPointer, MemoryPointer, TablePointer,
-    },
+    export::{Context, Export, ExportIter, FuncPointer, GlobalPointer, TablePointer},
     import::{ImportObject, LikeNamespace},
+    memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
     types::{
-        FuncIndex, FuncSig, GlobalDesc, GlobalIndex, LocalOrImport, Memory, MemoryIndex, Table,
+        FuncIndex, FuncSig, GlobalDesc, GlobalIndex, LocalOrImport, MemoryIndex, TableDesc,
         TableIndex, Value,
     },
     vm,
@@ -206,7 +205,7 @@ impl Instance {
         let vmctx = match func_index.local_or_import(&self.module) {
             LocalOrImport::Local(_) => &mut *self.inner.vmctx,
             LocalOrImport::Import(imported_func_index) => {
-                self.inner.import_backing.functions[imported_func_index].vmctx
+                self.inner.import_backing.vm_functions[imported_func_index].vmctx
             }
         };
 
@@ -245,29 +244,22 @@ impl InstanceInner {
                 }
             }
             ExportIndex::Memory(memory_index) => {
-                let (local, ctx, memory) = self.get_memory_from_index(module, *memory_index);
-                Export::Memory {
-                    local,
-                    ctx: match ctx {
-                        Context::Internal => Context::External(&mut *self.vmctx),
-                        ctx @ Context::External(_) => ctx,
-                    },
-                    memory,
-                }
+                let memory = self.get_memory_from_index(module, *memory_index);
+                Export::Memory(memory)
             }
             ExportIndex::Global(global_index) => {
-                let (local, global) = self.get_global_from_index(module, *global_index);
-                Export::Global { local, global }
+                let (local, desc) = self.get_global_from_index(module, *global_index);
+                Export::Global { local, desc }
             }
             ExportIndex::Table(table_index) => {
-                let (local, ctx, table) = self.get_table_from_index(module, *table_index);
+                let (local, ctx, desc) = self.get_table_from_index(module, *table_index);
                 Export::Table {
                     local,
                     ctx: match ctx {
                         Context::Internal => Context::External(&mut *self.vmctx),
                         ctx @ Context::External(_) => ctx,
                     },
-                    table,
+                    desc,
                 }
             }
         }
@@ -294,7 +286,7 @@ impl InstanceInner {
                 Context::Internal,
             ),
             LocalOrImport::Import(imported_func_index) => {
-                let imported_func = &self.import_backing.functions[imported_func_index];
+                let imported_func = &self.import_backing.vm_functions[imported_func_index];
                 (
                     imported_func.func as *const _,
                     Context::External(imported_func.vmctx),
@@ -307,35 +299,11 @@ impl InstanceInner {
         (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
 
-    fn get_memory_from_index(
-        &mut self,
-        module: &ModuleInner,
-        mem_index: MemoryIndex,
-    ) -> (MemoryPointer, Context, Memory) {
+    fn get_memory_from_index(&mut self, module: &ModuleInner, mem_index: MemoryIndex) -> Memory {
         match mem_index.local_or_import(module) {
-            LocalOrImport::Local(local_mem_index) => {
-                let vm_mem = &mut self.backing.vm_memories[local_mem_index];
-                (
-                    unsafe { MemoryPointer::new(vm_mem) },
-                    Context::Internal,
-                    *module
-                        .memories
-                        .get(local_mem_index)
-                        .expect("broken invariant, memories"),
-                )
-            }
+            LocalOrImport::Local(local_mem_index) => self.backing.memories[local_mem_index].clone(),
             LocalOrImport::Import(imported_mem_index) => {
-                let &(_, mem) = &module
-                    .imported_memories
-                    .get(imported_mem_index)
-                    .expect("missing imported memory index");
-                let vm::ImportedMemory { memory, vmctx } =
-                    &self.import_backing.memories[imported_mem_index];
-                (
-                    unsafe { MemoryPointer::new(*memory) },
-                    Context::External(*vmctx),
-                    *mem,
-                )
+                self.import_backing.memories[imported_mem_index].clone()
             }
         }
     }
@@ -363,7 +331,7 @@ impl InstanceInner {
                     .get(imported_global_index)
                     .expect("missing imported global index");
                 let vm::ImportedGlobal { global } =
-                    &self.import_backing.globals[imported_global_index];
+                    &self.import_backing.vm_globals[imported_global_index];
                 (
                     unsafe { GlobalPointer::new(*global) },
                     *imported_global_desc,
@@ -376,7 +344,7 @@ impl InstanceInner {
         &mut self,
         module: &ModuleInner,
         table_index: TableIndex,
-    ) -> (TablePointer, Context, Table) {
+    ) -> (TablePointer, Context, TableDesc) {
         match table_index.local_or_import(module) {
             LocalOrImport::Local(local_table_index) => {
                 let vm_table = &mut self.backing.vm_tables[local_table_index];
@@ -390,16 +358,16 @@ impl InstanceInner {
                 )
             }
             LocalOrImport::Import(imported_table_index) => {
-                let &(_, tab) = &module
+                let &(_, desc) = &module
                     .imported_tables
                     .get(imported_table_index)
                     .expect("missing imported table index");
                 let vm::ImportedTable { table, vmctx } =
-                    &self.import_backing.tables[imported_table_index];
+                    &self.import_backing.vm_tables[imported_table_index];
                 (
                     unsafe { TablePointer::new(*table) },
                     Context::External(*vmctx),
-                    *tab,
+                    *desc,
                 )
             }
         }
@@ -456,7 +424,7 @@ impl<'a> Function<'a> {
         let vmctx = match self.func_index.local_or_import(self.module) {
             LocalOrImport::Local(_) => &mut *self.instance_inner.vmctx,
             LocalOrImport::Import(imported_func_index) => {
-                self.instance_inner.import_backing.functions[imported_func_index].vmctx
+                self.instance_inner.import_backing.vm_functions[imported_func_index].vmctx
             }
         };
 
@@ -487,7 +455,7 @@ impl<'a> Function<'a> {
                 .unwrap()
                 .as_ptr(),
             LocalOrImport::Import(import_func_index) => {
-                self.instance_inner.import_backing.functions[import_func_index].func
+                self.instance_inner.import_backing.vm_functions[import_func_index].func
             }
         }
     }

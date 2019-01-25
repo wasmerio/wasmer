@@ -7,7 +7,7 @@ use crate::{
     types::{
         FuncIndex, Global, GlobalDesc, GlobalIndex, ImportedFuncIndex, ImportedGlobalIndex,
         ImportedMemoryIndex, ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex,
-        LocalTableIndex, Memory, MemoryIndex, SigIndex, Table, TableIndex,
+        LocalTableIndex, MemoryDesc, MemoryIndex, SigIndex, TableDesc, TableIndex,
     },
     Instance,
 };
@@ -21,14 +21,14 @@ pub struct ModuleInner {
     pub protected_caller: Box<dyn ProtectedCaller>,
 
     // This are strictly local and the typsystem ensures that.
-    pub memories: Map<LocalMemoryIndex, Memory>,
+    pub memories: Map<LocalMemoryIndex, MemoryDesc>,
     pub globals: Map<LocalGlobalIndex, Global>,
-    pub tables: Map<LocalTableIndex, Table>,
+    pub tables: Map<LocalTableIndex, TableDesc>,
 
     // These are strictly imported and the typesystem ensures that.
     pub imported_functions: Map<ImportedFuncIndex, ImportName>,
-    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, Memory)>,
-    pub imported_tables: Map<ImportedTableIndex, (ImportName, Table)>,
+    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, MemoryDesc)>,
+    pub imported_tables: Map<ImportedTableIndex, (ImportName, TableDesc)>,
     pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDesc)>,
 
     pub exports: HashMap<String, ExportIndex>,

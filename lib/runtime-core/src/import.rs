@@ -5,6 +5,16 @@ pub trait LikeNamespace {
     fn get_export(&mut self, name: &str) -> Option<Export>;
 }
 
+pub trait IsExport {
+    fn to_export(&mut self) -> Export;
+}
+
+impl IsExport for Export {
+    fn to_export(&mut self) -> Export {
+        self.clone()
+    }
+}
+
 /// All of the import data used when instantiating.
 ///
 /// It's suggested that you use the [`imports!`] macro
@@ -74,7 +84,7 @@ impl ImportObject {
 }
 
 pub struct Namespace {
-    map: HashMap<String, Export>,
+    map: HashMap<String, Box<dyn IsExport>>,
 }
 
 impl Namespace {
@@ -84,13 +94,19 @@ impl Namespace {
         }
     }
 
-    pub fn insert(&mut self, name: impl Into<String>, export: Export) -> Option<Export> {
-        self.map.insert(name.into(), export)
+    pub fn insert<S, E>(&mut self, name: S, export: E) -> Option<Box<dyn IsExport>>
+    where
+        S: Into<String>,
+        E: IsExport + 'static,
+    {
+        self.map.insert(name.into(), Box::new(export))
     }
 }
 
 impl LikeNamespace for Namespace {
     fn get_export(&mut self, name: &str) -> Option<Export> {
-        self.map.get(name).cloned()
+        self.map
+            .get_mut(name)
+            .map(|is_export| is_export.to_export())
     }
 }

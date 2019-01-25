@@ -2,7 +2,7 @@ pub use crate::backing::{ImportBacking, LocalBacking};
 use crate::{
     module::ModuleInner,
     structures::TypedIndex,
-    types::{LocalMemoryIndex, LocalOrImport, MemoryIndex},
+    types::{LocalOrImport, MemoryIndex},
 };
 use std::{ffi::c_void, mem, ptr, slice};
 
@@ -13,7 +13,7 @@ use std::{ffi::c_void, mem, ptr, slice};
 #[repr(C)]
 pub struct Ctx {
     /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
-    pub(crate) memories: *mut LocalMemory,
+    pub(crate) memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
     pub(crate) tables: *mut LocalTable,
@@ -22,7 +22,7 @@ pub struct Ctx {
     pub(crate) globals: *mut LocalGlobal,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-    pub(crate) imported_memories: *mut ImportedMemory,
+    pub(crate) imported_memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
     pub(crate) imported_tables: *mut ImportedTable,
@@ -33,8 +33,8 @@ pub struct Ctx {
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub(crate) imported_funcs: *mut ImportedFunc,
 
-    pub(crate) local_backing: *mut LocalBacking,
-    pub(crate) import_backing: *mut ImportBacking,
+    // pub(crate) local_backing: *mut LocalBacking,
+    // pub(crate) import_backing: *mut ImportBacking,
     module: *const ModuleInner,
 
     pub data: *mut c_void,
@@ -53,13 +53,13 @@ impl Ctx {
             tables: local_backing.vm_tables.as_mut_ptr(),
             globals: local_backing.vm_globals.as_mut_ptr(),
 
-            imported_memories: import_backing.memories.as_mut_ptr(),
-            imported_tables: import_backing.tables.as_mut_ptr(),
-            imported_globals: import_backing.globals.as_mut_ptr(),
-            imported_funcs: import_backing.functions.as_mut_ptr(),
+            imported_memories: import_backing.vm_memories.as_mut_ptr(),
+            imported_tables: import_backing.vm_tables.as_mut_ptr(),
+            imported_globals: import_backing.vm_globals.as_mut_ptr(),
+            imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
-            local_backing,
-            import_backing,
+            // local_backing,
+            // import_backing,
             module,
 
             data: ptr::null_mut(),
@@ -80,13 +80,13 @@ impl Ctx {
             tables: local_backing.vm_tables.as_mut_ptr(),
             globals: local_backing.vm_globals.as_mut_ptr(),
 
-            imported_memories: import_backing.memories.as_mut_ptr(),
-            imported_tables: import_backing.tables.as_mut_ptr(),
-            imported_globals: import_backing.globals.as_mut_ptr(),
-            imported_funcs: import_backing.functions.as_mut_ptr(),
+            imported_memories: import_backing.vm_memories.as_mut_ptr(),
+            imported_tables: import_backing.vm_tables.as_mut_ptr(),
+            imported_globals: import_backing.vm_globals.as_mut_ptr(),
+            imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
-            local_backing,
-            import_backing,
+            // local_backing,
+            // import_backing,
             module,
 
             data,
@@ -116,19 +116,14 @@ impl Ctx {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
-            LocalOrImport::Local(local_mem_index) => {
-                let local_backing = unsafe { &*self.local_backing };
-                &local_backing.memories[local_mem_index][..]
-            }
-            LocalOrImport::Import(import_mem_index) => {
-                let import_backing = unsafe { &mut *self.import_backing };
-                let vm_memory_import = import_backing.memories[import_mem_index].clone();
-                unsafe {
-                    let memory = &*vm_memory_import.memory;
-
-                    slice::from_raw_parts(memory.base, memory.size)
-                }
-            }
+            LocalOrImport::Local(local_mem_index) => unsafe {
+                let local_memory = &**self.memories.add(local_mem_index.index());
+                slice::from_raw_parts(local_memory.base, local_memory.bound)
+            },
+            LocalOrImport::Import(import_mem_index) => unsafe {
+                let local_memory = &**self.imported_memories.add(import_mem_index.index());
+                slice::from_raw_parts(local_memory.base, local_memory.bound)
+            },
         }
     }
 
@@ -155,19 +150,14 @@ impl Ctx {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
-            LocalOrImport::Local(local_mem_index) => {
-                let local_backing = unsafe { &mut *self.local_backing };
-                &mut local_backing.memories[local_mem_index][..]
-            }
-            LocalOrImport::Import(import_mem_index) => {
-                let import_backing = unsafe { &mut *self.import_backing };
-                let vm_memory_import = import_backing.memories[import_mem_index].clone();
-                unsafe {
-                    let memory = &*vm_memory_import.memory;
-
-                    slice::from_raw_parts_mut(memory.base, memory.size)
-                }
-            }
+            LocalOrImport::Local(local_mem_index) => unsafe {
+                let local_memory = &**self.memories.add(local_mem_index.index());
+                slice::from_raw_parts_mut(local_memory.base, local_memory.bound)
+            },
+            LocalOrImport::Import(import_mem_index) => unsafe {
+                let local_memory = &**self.imported_memories.add(import_mem_index.index());
+                slice::from_raw_parts_mut(local_memory.base, local_memory.bound)
+            },
         }
     }
 }
@@ -295,9 +285,11 @@ pub struct LocalMemory {
     /// Pointer to the bottom of this linear memory.
     pub base: *mut u8,
     /// Current size of this linear memory in bytes.
-    pub size: usize,
-    /// The local memory index.
-    pub index: LocalMemoryIndex,
+    pub bound: usize,
+    /// The actual memory that this represents.
+    /// This is either `*mut DynamicMemory`, `*mut StaticMemory`,
+    /// or `*mut SharedStaticMemory`.
+    pub memory: *mut (),
 }
 
 impl LocalMemory {
@@ -306,7 +298,7 @@ impl LocalMemory {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_size() -> u8 {
+    pub fn offset_bound() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -315,28 +307,28 @@ impl LocalMemory {
     }
 }
 
-#[derive(Debug, Clone)]
-#[repr(C)]
-pub struct ImportedMemory {
-    /// A pointer to the memory definition.
-    pub memory: *mut LocalMemory,
-    pub vmctx: *mut Ctx,
-}
+// #[derive(Debug, Clone)]
+// #[repr(C)]
+// pub struct ImportedMemory {
+//     /// A pointer to the memory definition.
+//     pub memory: *mut LocalMemory,
+//     pub vmctx: *mut Ctx,
+// }
 
-impl ImportedMemory {
-    #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_memory() -> u8 {
-        0 * (mem::size_of::<usize>() as u8)
-    }
+// impl ImportedMemory {
+//     #[allow(clippy::erasing_op)] // TODO
+//     pub fn offset_memory() -> u8 {
+//         0 * (mem::size_of::<usize>() as u8)
+//     }
 
-    pub fn offset_vmctx() -> u8 {
-        1 * (mem::size_of::<usize>() as u8)
-    }
+//     pub fn offset_vmctx() -> u8 {
+//         1 * (mem::size_of::<usize>() as u8)
+//     }
 
-    pub fn size() -> u8 {
-        mem::size_of::<Self>() as u8
-    }
-}
+//     pub fn size() -> u8 {
+//         mem::size_of::<Self>() as u8
+//     }
+// }
 
 /// Definition of a global used by the VM.
 #[derive(Debug, Clone)]
@@ -421,8 +413,8 @@ impl Anyfunc {
 #[cfg(test)]
 mod vm_offset_tests {
     use super::{
-        Anyfunc, Ctx, ImportedFunc, ImportedGlobal, ImportedMemory, ImportedTable, LocalGlobal,
-        LocalMemory, LocalTable,
+        Anyfunc, Ctx, ImportedFunc, ImportedGlobal, ImportedTable, LocalGlobal, LocalMemory,
+        LocalTable,
     };
 
     #[test]
@@ -510,21 +502,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            LocalMemory::offset_size() as usize,
-            offset_of!(LocalMemory => size).get_byte_offset(),
-        );
-    }
-
-    #[test]
-    fn imported_memory() {
-        assert_eq!(
-            ImportedMemory::offset_memory() as usize,
-            offset_of!(ImportedMemory => memory).get_byte_offset(),
-        );
-
-        assert_eq!(
-            ImportedMemory::offset_vmctx() as usize,
-            offset_of!(ImportedMemory => vmctx).get_byte_offset(),
+            LocalMemory::offset_bound() as usize,
+            offset_of!(LocalMemory => bound).get_byte_offset(),
         );
     }
 
@@ -600,10 +579,12 @@ mod vm_ctx_tests {
             vm_globals: Map::new().into_boxed_map(),
         };
         let mut import_backing = ImportBacking {
-            functions: Map::new().into_boxed_map(),
             memories: Map::new().into_boxed_map(),
-            tables: Map::new().into_boxed_map(),
-            globals: Map::new().into_boxed_map(),
+
+            vm_functions: Map::new().into_boxed_map(),
+            vm_memories: Map::new().into_boxed_map(),
+            vm_tables: Map::new().into_boxed_map(),
+            vm_globals: Map::new().into_boxed_map(),
         };
         let module = generate_module();
         let data = &mut data as *mut _ as *mut c_void;

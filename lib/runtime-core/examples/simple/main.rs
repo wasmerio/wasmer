@@ -36,6 +36,7 @@ extern "C" fn print_num(n: i32, _vmctx: &mut vm::Ctx) -> i32 {
 static IMPORT_MODULE: &str = r#"
 (module
   (type $t0 (func (param i32) (result i32)))
+  ;; (import "env" "memory" (memory 0 1))
   (import "env" "print_i32" (func $print_i32 (type $t0)))
   (func $print_num (export "print_num") (type $t0) (param $p0 i32) (result i32)
     get_local $p0

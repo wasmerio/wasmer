@@ -10,7 +10,7 @@ use wasmer_runtime_core::{
     structures::{Map, TypedIndex},
     types::{
         ElementType, Global, GlobalDesc, GlobalIndex, Initializer, LocalFuncIndex, LocalOrImport,
-        Memory, SigIndex, Table, Value,
+        MemoryDesc, SigIndex, TableDesc, Value,
     },
 };
 
@@ -160,7 +160,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     fn declare_table(&mut self, table: cranelift_wasm::Table) {
         use cranelift_wasm::TableElementType;
         // Add table ir to the list of tables
-        self.module.tables.push(Table {
+        self.module.tables.push(TableDesc {
             ty: match table.ty {
                 TableElementType::Func => ElementType::Anyfunc,
                 _ => unimplemented!(),
@@ -184,7 +184,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             name: name.to_string(),
         };
 
-        let imported_table = Table {
+        let imported_table = TableDesc {
             ty: match table.ty {
                 TableElementType::Func => ElementType::Anyfunc,
                 _ => unimplemented!(),
@@ -235,7 +235,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a memory to the environment
     fn declare_memory(&mut self, memory: cranelift_wasm::Memory) {
-        self.module.memories.push(Memory {
+        self.module.memories.push(MemoryDesc {
             min: memory.minimum,
             max: memory.maximum,
             shared: memory.shared,
@@ -254,7 +254,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             name: name.to_string(),
         };
 
-        let memory = Memory {
+        let memory = MemoryDesc {
             min: memory.minimum,
             max: memory.maximum,
             shared: memory.shared,

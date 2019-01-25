@@ -7,7 +7,7 @@ use std::mem;
 use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer, GlobalPointer},
     import::{ImportObject, Namespace},
-    memory::LinearMemory,
+    memory::Memory,
     types::{
         FuncSig, GlobalDesc,
         Type::{self, *},
@@ -74,7 +74,7 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
 //    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
 //}
 
-pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
+pub fn emscripten_set_up_memory(memory: &mut Memory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
     let dynamictop_ptr_offset = dynamictop_ptr + mem::size_of::<u32>();
 
