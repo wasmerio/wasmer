@@ -92,8 +92,9 @@ impl Module {
         func_assoc.iter_mut().for_each(|(_, sig_index)| {
             *sig_index = sig_registry.lookup_deduplicated_sigindex(*sig_index);
         });
-
-        let (func_resolver_builder, handler_data) = FuncResolverBuilder::new(isa, functions)?;
+        let imported_functions_len = self.module.imported_functions.len();
+        let (func_resolver_builder, handler_data) =
+            FuncResolverBuilder::new(isa, functions, imported_functions_len)?;
         self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
 
         let trampolines = Trampolines::new(isa, &self.module);
