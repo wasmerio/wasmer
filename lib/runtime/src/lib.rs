@@ -75,6 +75,7 @@
 
 pub use wasmer_runtime_core::import::ImportObject;
 pub use wasmer_runtime_core::instance::{Function, Instance};
+pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::types::Value;
 pub use wasmer_runtime_core::vm::Ctx;
@@ -86,7 +87,8 @@ pub use wasmer_runtime_core::imports;
 
 pub mod wasm {
     pub use wasmer_runtime_core::instance::Function;
-    pub use wasmer_runtime_core::types::{FuncSig, Type, Value};
+    pub use wasmer_runtime_core::memory::Memory;
+    pub use wasmer_runtime_core::types::{FuncSig, Type, Value, MemoryDesc};
 }
 
 /// Compile WebAssembly binary code into a [`Module`].
