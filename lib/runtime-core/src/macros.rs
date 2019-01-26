@@ -6,8 +6,8 @@ macro_rules! debug {
 }
 
 #[macro_export]
-macro_rules! export_func {
-    ($func:ident, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ]) => {{
+macro_rules! func {
+    ($func:ident, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] ) => {{
         use $crate::{
             export::{Context, Export, FuncPointer},
             types::{FuncSig, Type},
@@ -98,13 +98,10 @@ macro_rules! imports {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __imports_internal {
-    ( { $( $imp_name:expr => $func:ident < [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] >, )* } ) => {{
+    ( { $( $imp_name:expr => $import_item:expr, )* } ) => {{
         let mut ns = Namespace::new();
         $(
-            ns.insert($imp_name, $crate::export_func!(
-                $func,
-                [ $( $params ),* ] -> [ $( $returns )* ]
-            ));
+            ns.insert($imp_name, $import_item);
         )*
         ns
     }};

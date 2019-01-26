@@ -83,7 +83,7 @@ pub use wasmer_runtime_core::vm::Ctx;
 pub use wasmer_runtime_core::{compile_with, validate};
 
 pub use wasmer_runtime_core::error;
-pub use wasmer_runtime_core::imports;
+pub use wasmer_runtime_core::{imports, func};
 
 pub mod wasm {
     pub use wasmer_runtime_core::instance::Function;

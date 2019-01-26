@@ -37,7 +37,7 @@ impl Memory {
             MemoryType::Static => {
                 MemoryStorage::Static(StaticMemory::new(desc, &mut vm_local_memory)?)
             }
-            MemoryType::SharedStatic => unimplemented!(),
+            MemoryType::SharedStatic => unimplemented!("shared memories are not yet implemented"),
         };
 
         Some(Memory {

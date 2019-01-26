@@ -43,7 +43,6 @@ impl DynamicMemory {
         local.base = storage.memory.as_ptr();
         local.bound = desc.min as usize * WASM_PAGE_SIZE;
         local.memory = storage_ptr as *mut ();
-        println!("local: {:?}", local);
 
         Some(storage)
     }

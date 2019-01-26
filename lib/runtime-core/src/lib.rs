@@ -39,7 +39,7 @@ pub mod prelude {
         MemoryIndex, TableIndex, Type, Value,
     };
     pub use crate::vm;
-    pub use crate::{export_func, imports};
+    pub use crate::{func, imports};
 }
 
 /// Compile a [`Module`] using the provided compiler from
