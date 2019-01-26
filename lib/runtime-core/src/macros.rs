@@ -38,7 +38,7 @@ macro_rules! __export_func_convert_type {
         Type::I64
     };
     (u64) => {
-        Type::I32
+        Type::I64
     };
     (f32) => {
         Type::F32
