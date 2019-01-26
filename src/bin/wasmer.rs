@@ -69,7 +69,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
-    let (_abi, import_object) = if wasmer_emscripten::is_emscripten_module(&module) {
+    let (_abi, import_object, em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let (table_min, table_max) = wasmer_emscripten::get_emscripten_table_size(&module);
         let (memory_min, memory_max) = wasmer_emscripten::get_emscripten_memory_size(&module);
         let mut emscripten_globals =
@@ -77,11 +77,13 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         (
             InstanceABI::Emscripten,
             wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
+            Some(emscripten_globals) // TODO Em Globals is here to extend, lifetime, find better solution
         )
     } else {
         (
             InstanceABI::None,
             wasmer_runtime_core::import::ImportObject::new(),
+            None,
         )
     };
 
@@ -96,6 +98,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
     .map_err(|e| format!("{:?}", e))?;
+
     Ok(())
 }
 
