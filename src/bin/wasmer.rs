@@ -77,7 +77,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         (
             InstanceABI::Emscripten,
             wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
-            Some(emscripten_globals) // TODO Em Globals is here to extend, lifetime, find better solution
+            Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
         )
     } else {
         (
