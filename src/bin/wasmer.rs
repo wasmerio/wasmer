@@ -70,7 +70,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
     let (_abi, import_object) = if wasmer_emscripten::is_emscripten_module(&module) {
-        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
+        let (table_min, table_max) = wasmer_emscripten::get_emscripten_table_size(&module);
+        let mut emscripten_globals =
+            wasmer_emscripten::EmscriptenGlobals::new(table_min, table_max);
         (
             InstanceABI::Emscripten,
             wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),

@@ -15,8 +15,8 @@ macro_rules! assert_emscripten_output {
 
 //        let module = compile(&wasm_bytes[..])
 //            .map_err(|err| format!("Can't create the WebAssembly module: {}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
-
-        let mut emscripten_globals = EmscriptenGlobals::new();
+        let (table_min, table_max) = wasmer_emscripten::get_emscripten_table_size(&module);
+        let mut emscripten_globals = EmscriptenGlobals::new(table_min, table_max);
         let import_object = generate_emscripten_env(&mut emscripten_globals);
 
         let mut instance = module.instantiate(import_object)

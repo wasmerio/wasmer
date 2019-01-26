@@ -5,7 +5,9 @@ use std::ffi::CStr;
 use std::mem::size_of;
 use std::os::raw::c_char;
 use std::slice;
-use wasmer_runtime_core::{module::Module, vm::Ctx};
+use wasmer_runtime_core::{
+    module::Module, structures::TypedIndex, types::ImportedTableIndex, vm::Ctx,
+};
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -15,6 +17,11 @@ pub fn is_emscripten_module(module: &Module) -> bool {
         }
     }
     false
+}
+
+pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
+    let (_, table) = &module.0.imported_tables[ImportedTableIndex::new(0)];
+    (table.min, table.max)
 }
 
 pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, ctx: &mut Ctx) -> u32 {

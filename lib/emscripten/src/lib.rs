@@ -51,7 +51,9 @@ mod utils;
 mod varargs;
 
 pub use self::storage::align_memory;
-pub use self::utils::{allocate_cstr_on_stack, allocate_on_stack, is_emscripten_module};
+pub use self::utils::{
+    allocate_cstr_on_stack, allocate_on_stack, get_emscripten_table_size, is_emscripten_module,
+};
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
@@ -361,10 +363,12 @@ pub struct EmscriptenGlobals {
     // The emscripten table
     pub table: TableBacking,
     pub vm_table: LocalTable,
+    pub table_min: u32,
+    pub table_max: Option<u32>,
 }
 
 impl EmscriptenGlobals {
-    pub fn new() -> Self {
+    pub fn new(table_min: u32, table_max: Option<u32>) -> Self {
         // Memory initialization
         let memory_type = Memory {
             min: 256,
@@ -376,8 +380,8 @@ impl EmscriptenGlobals {
 
         let table_type = Table {
             ty: ElementType::Anyfunc,
-            min: 10,
-            max: Some(10),
+            min: table_min,
+            max: table_max,
         };
         let mut table = TableBacking::new(&table_type);
         let vm_table = table.into_vm_table();
@@ -406,6 +410,8 @@ impl EmscriptenGlobals {
             vm_memory,
             table,
             vm_table,
+            table_min,
+            table_max,
         }
     }
 }
@@ -450,8 +456,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             ctx: null_ctx,
             table: Table {
                 ty: ElementType::Anyfunc,
-                min: 8192,
-                max: Some(8192),
+                min: globals.table_min,
+                max: globals.table_max,
             },
         },
     );
