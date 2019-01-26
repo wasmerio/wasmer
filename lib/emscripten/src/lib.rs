@@ -52,7 +52,8 @@ mod varargs;
 
 pub use self::storage::align_memory;
 pub use self::utils::{
-    allocate_cstr_on_stack, allocate_on_stack, get_emscripten_table_size, is_emscripten_module,
+    allocate_cstr_on_stack, allocate_on_stack, get_emscripten_memory_size,
+    get_emscripten_table_size, is_emscripten_module,
 };
 
 // TODO: Magic number - how is this calculated?
@@ -365,14 +366,21 @@ pub struct EmscriptenGlobals {
     pub vm_table: LocalTable,
     pub table_min: u32,
     pub table_max: Option<u32>,
+    pub memory_min: u32,
+    pub memory_max: Option<u32>,
 }
 
 impl EmscriptenGlobals {
-    pub fn new(table_min: u32, table_max: Option<u32>) -> Self {
+    pub fn new(
+        table_min: u32,
+        table_max: Option<u32>,
+        memory_min: u32,
+        memory_max: Option<u32>,
+    ) -> Self {
         // Memory initialization
         let memory_type = Memory {
-            min: 256,
-            max: Some(256),
+            min: memory_min,
+            max: memory_max,
             shared: false,
         };
         let mut memory = LinearMemory::new(&memory_type);
@@ -412,6 +420,8 @@ impl EmscriptenGlobals {
             vm_table,
             table_min,
             table_max,
+            memory_min,
+            memory_max,
         }
     }
 }
@@ -438,8 +448,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             local: local_memory,
             ctx: null_ctx,
             memory: Memory {
-                min: 256,
-                max: Some(256),
+                min: globals.memory_min,
+                max: globals.memory_max,
                 shared: false,
             },
         },
