@@ -108,7 +108,7 @@ cargo install --path .
 
 ## Testing
 
-Thanks to [spectests](https://github.com/wasmerio/wasmer/tree/master/spectests) we can assure 100% compatibility with the WebAssembly spec test suite.
+Thanks to [spectests](https://github.com/wasmerio/wasmer/tree/master/lib/runtime-core/spectests) we can assure 100% compatibility with the WebAssembly spec test suite.
 
 Tests can be run with:
 
