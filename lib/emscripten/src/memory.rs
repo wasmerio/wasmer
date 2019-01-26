@@ -40,7 +40,7 @@ pub extern "C" fn abort_on_cannot_grow_memory(_ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: ___map_file
-pub extern "C" fn ___map_file(_ctx: &mut Ctx) -> c_int {
+pub extern "C" fn ___map_file(one: u32, two: u32, _ctx: &mut Ctx) -> c_int {
     debug!("emscripten::___map_file");
     // NOTE: TODO: Em returns -1 here as well. May need to implement properly
     -1

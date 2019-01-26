@@ -12,6 +12,6 @@ pub extern "C" fn ___unlock(what: c_int, _ctx: &mut Ctx) {
 }
 
 // NOTE: Not implemented by Emscripten
-pub extern "C" fn ___wait(_which: c_int, _varargs: c_int, _ctx: &mut Ctx) {
+pub extern "C" fn ___wait(_which: c_int, _varargs: c_int, three: u32, four: u32, _ctx: &mut Ctx) {
     debug!("emscripten::___wait");
 }

@@ -36,7 +36,7 @@ pub extern "C" fn _sigprocmask(one: i32, two: i32, three: i32, ctx: &mut Ctx) ->
     0
 }
 
-pub extern "C" fn _signal(sig: u32, _ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _signal(sig: u32, two: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_signal ({})", sig);
     0
 }

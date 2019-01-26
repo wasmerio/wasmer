@@ -119,14 +119,14 @@ pub extern "C" fn _llvm_trap(_ctx: &mut Ctx) {
     abort_with_message("abort!");
 }
 
-pub extern "C" fn _system(_ctx: &mut Ctx) -> c_int {
+pub extern "C" fn _system(one: i32, _ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_system");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Can't call external programs");
     return EAGAIN;
 }
 
-pub extern "C" fn _popen(_ctx: &mut Ctx) -> c_int {
+pub extern "C" fn _popen(one: i32, two: i32, _ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_popen");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Missing function: popen");

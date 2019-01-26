@@ -38,6 +38,7 @@ mod errno;
 mod exception;
 mod io;
 mod jmp;
+mod linking;
 mod lock;
 mod math;
 mod memory;
@@ -705,7 +706,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             func: func!(lock, ___wait),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![I32, I32],
+                params: vec![I32, I32, I32, I32],
                 returns: vec![],
             },
         },
@@ -1293,7 +1294,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             func: func!(process, _system),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32],
                 returns: vec![I32],
             },
         },
@@ -1305,7 +1306,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             func: func!(process, _popen),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
@@ -1365,7 +1366,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             func: func!(signal, _signal),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![I32],
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
@@ -1425,7 +1426,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             func: func!(memory, ___map_file),
             ctx: Context::Internal,
             signature: FuncSig {
-                params: vec![],
+                params: vec![I32, I32],
                 returns: vec![I32],
             },
         },
@@ -1678,7 +1679,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             ctx: Context::Internal,
             signature: FuncSig {
                 params: vec![I32, I32],
-                returns: vec![I32],
+                returns: vec![F64],
             },
         },
     );
@@ -2283,6 +2284,66 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
+    env_namespace.insert(
+        "_dlclose",
+        Export::Function {
+            func: func!(linking, _dlclose),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_dlopen",
+        Export::Function {
+            func: func!(linking, _dlopen),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_dlsym",
+        Export::Function {
+            func: func!(linking, _dlsym),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32, I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_llvm_log10_f32",
+        Export::Function {
+            func: func!(math, _llvm_log10_f32),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![F64],
+                returns: vec![F64],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_llvm_log2_f32",
+        Export::Function {
+            func: func!(math, _llvm_log2_f32),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![F64],
+                returns: vec![F64],
+            },
+        },
+    );
+
     // mock_external!(env_namespace, _time);
     // mock_external!(env_namespace, _sysconf);
     // mock_external!(env_namespace, _strftime);
@@ -2321,9 +2382,6 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     // mock_external!(env_namespace, ___syscall122);
     // mock_external!(env_namespace, ___syscall102);
     // mock_external!(env_namespace, ___syscall20);
-    mock_external!(env_namespace, _dlopen);
-    mock_external!(env_namespace, _dlclose);
-    mock_external!(env_namespace, _dlsym);
     mock_external!(env_namespace, _dlerror);
 
     imports.register("env", env_namespace);

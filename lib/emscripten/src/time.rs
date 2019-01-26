@@ -94,7 +94,7 @@ pub extern "C" fn _clock() -> c_int {
 }
 
 /// emscripten: _difftime
-pub extern "C" fn _difftime(t0: u32, t1: u32) -> c_int {
+pub extern "C" fn _difftime(t0: u32, t1: u32) -> f64 {
     debug!("emscripten::_difftime");
     (t0 - t1) as _
 }
