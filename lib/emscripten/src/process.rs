@@ -28,7 +28,7 @@ pub extern "C" fn _endgrent(_ctx: &mut Ctx) {
     debug!("emscripten::_endgrent");
 }
 
-pub extern "C" fn _execve(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _execve(_one: i32, _two: i32, _three: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_execve");
     -1
 }
@@ -50,60 +50,60 @@ pub extern "C" fn em_abort(message: u32, ctx: &mut Ctx) {
     }
 }
 
-pub extern "C" fn _kill(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _kill(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_kill");
     -1
 }
 
-pub extern "C" fn _llvm_stackrestore(one: i32, ctx: &mut Ctx) {
+pub extern "C" fn _llvm_stackrestore(_one: i32, _ctx: &mut Ctx) {
     debug!("emscripten::_llvm_stackrestore");
 }
 
-pub extern "C" fn _raise(one: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _raise(_one: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_raise");
     -1
 }
 
-pub extern "C" fn _sem_init(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _sem_init(_one: i32, _two: i32, _three: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_sem_init");
     -1
 }
 
-pub extern "C" fn _sem_post(one: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _sem_post(_one: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_sem_post");
     -1
 }
 
-pub extern "C" fn _sem_wait(one: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _sem_wait(_one: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_sem_post");
     -1
 }
 
-pub extern "C" fn _setgrent(ctx: &mut Ctx) {
+pub extern "C" fn _setgrent(_ctx: &mut Ctx) {
     debug!("emscripten::_setgrent");
 }
 
-pub extern "C" fn _setgroups(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _setgroups(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_setgroups");
     -1
 }
 
-pub extern "C" fn _setitimer(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _setitimer(_one: i32, _two: i32, _three: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_setitimer");
     -1
 }
 
-pub extern "C" fn _usleep(one: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _usleep(_one: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_usleep");
     -1
 }
 
-pub extern "C" fn _utimes(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _utimes(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_utimes");
     -1
 }
 
-pub extern "C" fn _waitpid(one: i32, two: i32, three: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _waitpid(_one: i32, _two: i32, _three: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_waitpid");
     -1
 }
@@ -119,14 +119,14 @@ pub extern "C" fn _llvm_trap(_ctx: &mut Ctx) {
     abort_with_message("abort!");
 }
 
-pub extern "C" fn _system(one: i32, _ctx: &mut Ctx) -> c_int {
+pub extern "C" fn _system(_one: i32, _ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_system");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Can't call external programs");
     return EAGAIN;
 }
 
-pub extern "C" fn _popen(one: i32, two: i32, _ctx: &mut Ctx) -> c_int {
+pub extern "C" fn _popen(_one: i32, _two: i32, _ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_popen");
     // TODO: May need to change this Em impl to a working version
     eprintln!("Missing function: popen");

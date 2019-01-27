@@ -12,12 +12,12 @@ pub extern "C" fn _llvm_log2_f64(value: f64, _ctx: &mut Ctx) -> f64 {
     value.log2()
 }
 
-pub extern "C" fn _llvm_log10_f32(value: f64, _ctx: &mut Ctx) -> f64 {
+pub extern "C" fn _llvm_log10_f32(_value: f64, _ctx: &mut Ctx) -> f64 {
     debug!("emscripten::_llvm_log10_f32");
     -1.0
 }
 
-pub extern "C" fn _llvm_log2_f32(value: f64, _ctx: &mut Ctx) -> f64 {
+pub extern "C" fn _llvm_log2_f32(_value: f64, _ctx: &mut Ctx) -> f64 {
     debug!("emscripten::_llvm_log10_f32");
     -1.0
 }
