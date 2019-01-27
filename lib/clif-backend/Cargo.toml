@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-clif-backend"
-version = "0.1.1"
+version = "0.1.2"
 description = "Wasmer runtime Cranelift compiler backend"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -8,7 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.1.1" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
 cranelift-native = "0.26.0"
 cranelift-codegen = "0.26.0"
 cranelift-entity = "0.26.0"
