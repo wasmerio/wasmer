@@ -191,5 +191,5 @@ pub extern "C" fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
 pub extern "C" fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _ctx: &mut Ctx) {
     debug!("emscripten::___assert_fail {} {} {} {}", a, b, c, d);
     // TODO: Implement like emscripten expects regarding memory/page size
-    unimplemented!()
+    // TODO raise an error
 }

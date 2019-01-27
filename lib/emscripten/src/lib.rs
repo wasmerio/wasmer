@@ -2344,6 +2344,30 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
     );
 
+    env_namespace.insert(
+        "_emscripten_random",
+        Export::Function {
+            func: func!(math, _emscripten_random),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![],
+                returns: vec![F64],
+            },
+        },
+    );
+
+    env_namespace.insert(
+        "_gmtime",
+        Export::Function {
+            func: func!(time, _gmtime),
+            ctx: Context::Internal,
+            signature: FuncSig {
+                params: vec![I32],
+                returns: vec![I32],
+            },
+        },
+    );
+
     // mock_external!(env_namespace, _time);
     // mock_external!(env_namespace, _sysconf);
     // mock_external!(env_namespace, _strftime);
@@ -2383,6 +2407,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     // mock_external!(env_namespace, ___syscall102);
     // mock_external!(env_namespace, ___syscall20);
     mock_external!(env_namespace, _dlerror);
+    mock_external!(env_namespace, _gmtime);
 
     imports.register("env", env_namespace);
     imports.register("asm2wasm", asm_namespace);

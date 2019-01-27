@@ -109,6 +109,11 @@ pub extern "C" fn _mktime(one: i32, ctx: &mut Ctx) -> i32 {
     -1
 }
 
+pub extern "C" fn _gmtime(one: i32, ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_gmtime");
+    -1
+}
+
 #[repr(C)]
 struct guest_tm {
     pub tm_sec: c_int,    // 0
