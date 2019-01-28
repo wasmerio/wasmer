@@ -19,7 +19,7 @@ pub struct Ctx {
     pub(crate) tables: *mut LocalTable,
 
     /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
-    pub(crate) globals: *mut LocalGlobal,
+    pub(crate) globals: *mut *mut LocalGlobal,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
     pub(crate) imported_memories: *mut *mut LocalMemory,
@@ -28,7 +28,7 @@ pub struct Ctx {
     pub(crate) imported_tables: *mut ImportedTable,
 
     /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-    pub(crate) imported_globals: *mut ImportedGlobal,
+    pub(crate) imported_globals: *mut *mut LocalGlobal,
 
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub(crate) imported_funcs: *mut ImportedFunc,
@@ -307,29 +307,6 @@ impl LocalMemory {
     }
 }
 
-// #[derive(Debug, Clone)]
-// #[repr(C)]
-// pub struct ImportedMemory {
-//     /// A pointer to the memory definition.
-//     pub memory: *mut LocalMemory,
-//     pub vmctx: *mut Ctx,
-// }
-
-// impl ImportedMemory {
-//     #[allow(clippy::erasing_op)] // TODO
-//     pub fn offset_memory() -> u8 {
-//         0 * (mem::size_of::<usize>() as u8)
-//     }
-
-//     pub fn offset_vmctx() -> u8 {
-//         1 * (mem::size_of::<usize>() as u8)
-//     }
-
-//     pub fn size() -> u8 {
-//         mem::size_of::<Self>() as u8
-//     }
-// }
-
 /// Definition of a global used by the VM.
 #[derive(Debug, Clone)]
 #[repr(C)]
@@ -345,23 +322,6 @@ impl LocalGlobal {
 
     pub fn null() -> Self {
         Self { data: 0 }
-    }
-
-    pub fn size() -> u8 {
-        mem::size_of::<Self>() as u8
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(C)]
-pub struct ImportedGlobal {
-    pub global: *mut LocalGlobal,
-}
-
-impl ImportedGlobal {
-    #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_global() -> u8 {
-        0 * (mem::size_of::<usize>() as u8)
     }
 
     pub fn size() -> u8 {
@@ -412,10 +372,7 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{
-        Anyfunc, Ctx, ImportedFunc, ImportedGlobal, ImportedTable, LocalGlobal, LocalMemory,
-        LocalTable,
-    };
+    use super::{Anyfunc, Ctx, ImportedFunc, ImportedTable, LocalGlobal, LocalMemory, LocalTable};
 
     #[test]
     fn vmctx() {
@@ -516,14 +473,6 @@ mod vm_offset_tests {
     }
 
     #[test]
-    fn imported_global() {
-        assert_eq!(
-            ImportedGlobal::offset_global() as usize,
-            offset_of!(ImportedGlobal => global).get_byte_offset(),
-        );
-    }
-
-    #[test]
     fn cc_anyfunc() {
         assert_eq!(
             Anyfunc::offset_func() as usize,
@@ -574,12 +523,15 @@ mod vm_ctx_tests {
         let mut local_backing = LocalBacking {
             memories: Map::new().into_boxed_map(),
             tables: Map::new().into_boxed_map(),
+            globals: Map::new().into_boxed_map(),
+
             vm_memories: Map::new().into_boxed_map(),
             vm_tables: Map::new().into_boxed_map(),
             vm_globals: Map::new().into_boxed_map(),
         };
         let mut import_backing = ImportBacking {
             memories: Map::new().into_boxed_map(),
+            globals: Map::new().into_boxed_map(),
 
             vm_functions: Map::new().into_boxed_map(),
             vm_memories: Map::new().into_boxed_map(),

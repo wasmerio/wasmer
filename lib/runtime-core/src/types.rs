@@ -71,7 +71,7 @@ pub enum ValueError {
 
 pub trait ValueType: Copy + Clone
 where
-    Self: Sized
+    Self: Sized,
 {
     fn into_le(self, buffer: &mut [u8]);
     fn from_le(buffer: &[u8]) -> Result<Self, ValueError>;
@@ -165,7 +165,7 @@ pub struct GlobalDesc {
 
 /// A wasm global.
 #[derive(Debug, Clone)]
-pub struct Global {
+pub struct GlobalInit {
     pub desc: GlobalDesc,
     pub init: Initializer,
 }

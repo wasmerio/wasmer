@@ -73,59 +73,59 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        match global_index.local_or_import(self.env.module) {
+        let local_global_addr = match global_index.local_or_import(self.env.module) {
             LocalOrImport::Local(local_global_index) => {
                 let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
                     offset: (vm::Ctx::offset_globals() as i32).into(),
-                    global_type: self.pointer_type(),
+                    global_type: ptr_type,
                     readonly: true,
                 });
 
-                let offset = local_global_index.index() * vm::LocalGlobal::size() as usize;
+                let offset = local_global_index.index() * mem::size_of::<*mut vm::LocalGlobal>();
 
-                let local_global_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                let local_global_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
                     base: globals_base_addr,
                     offset: (offset as i64).into(),
                     global_type: ptr_type,
                 });
 
-                // Create global variable based on the data above.
-                cranelift_wasm::GlobalVariable::Memory {
-                    gv: local_global_addr,
-                    offset: (vm::LocalGlobal::offset_data() as i32).into(),
-                    ty: self.env.get_global(clif_global_index).ty,
-                }
-            }
-            LocalOrImport::Import(imported_global_index) => {
-                let imported_globals_base_addr =
-                    func.create_global_value(ir::GlobalValueData::Load {
-                        base: vmctx,
-                        offset: (vm::Ctx::offset_imported_globals() as i32).into(),
-                        global_type: ptr_type,
-                        readonly: true,
-                    });
-
-                let offset = imported_global_index.index() * vm::ImportedGlobal::size() as usize;
-                let imported_global_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                    base: imported_globals_base_addr,
-                    offset: (offset as i64).into(),
+                func.create_global_value(ir::GlobalValueData::Load {
+                    base: local_global_ptr_ptr,
+                    offset: 0.into(),
                     global_type: ptr_type,
-                });
-
-                let local_global_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: imported_global_addr,
-                    offset: (vm::ImportedGlobal::offset_global() as i32).into(),
+                    readonly: true,
+                })
+            }
+            LocalOrImport::Import(import_global_index) => {
+                let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: (vm::Ctx::offset_imported_globals() as i32).into(),
                     global_type: ptr_type,
                     readonly: true,
                 });
 
-                cranelift_wasm::GlobalVariable::Memory {
-                    gv: local_global_addr,
-                    offset: (vm::LocalGlobal::offset_data() as i32).into(),
-                    ty: self.env.get_global(clif_global_index).ty,
-                }
+                let offset = import_global_index.index() * mem::size_of::<*mut vm::LocalGlobal>();
+
+                let local_global_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                    base: globals_base_addr,
+                    offset: (offset as i64).into(),
+                    global_type: ptr_type,
+                });
+
+                func.create_global_value(ir::GlobalValueData::Load {
+                    base: local_global_ptr_ptr,
+                    offset: 0.into(),
+                    global_type: ptr_type,
+                    readonly: true,
+                })
             }
+        };
+
+        cranelift_wasm::GlobalVariable::Memory {
+            gv: local_global_addr,
+            offset: (vm::LocalGlobal::offset_data() as i32).into(),
+            ty: self.env.get_global(clif_global_index).ty,
         }
     }
 

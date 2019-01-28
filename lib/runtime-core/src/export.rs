@@ -1,9 +1,10 @@
 use crate::{
+    global::Global,
     instance::InstanceInner,
     memory::Memory,
     module::ExportIndex,
     module::ModuleInner,
-    types::{FuncSig, GlobalDesc, TableDesc},
+    types::{FuncSig, TableDesc},
     vm,
 };
 use hashbrown::hash_map;
@@ -27,10 +28,7 @@ pub enum Export {
         ctx: Context,
         desc: TableDesc,
     },
-    Global {
-        local: GlobalPointer,
-        desc: GlobalDesc,
-    },
+    Global(Global),
 }
 
 #[derive(Debug, Clone)]
@@ -61,22 +59,6 @@ impl TablePointer {
     }
 
     pub(crate) fn inner(&self) -> *mut vm::LocalTable {
-        self.0
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct GlobalPointer(*mut vm::LocalGlobal);
-
-impl GlobalPointer {
-    /// This needs to be unsafe because there is
-    /// no way to check whether the passed function
-    /// is valid and has the right signature.
-    pub unsafe fn new(f: *mut vm::LocalGlobal) -> Self {
-        GlobalPointer(f)
-    }
-
-    pub(crate) fn inner(&self) -> *mut vm::LocalGlobal {
         self.0
     }
 }

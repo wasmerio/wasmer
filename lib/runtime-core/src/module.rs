@@ -5,14 +5,14 @@ use crate::{
     sig_registry::SigRegistry,
     structures::Map,
     types::{
-        FuncIndex, Global, GlobalDesc, GlobalIndex, ImportedFuncIndex, ImportedGlobalIndex,
+        FuncIndex, GlobalDesc, GlobalIndex, GlobalInit, ImportedFuncIndex, ImportedGlobalIndex,
         ImportedMemoryIndex, ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex,
         LocalTableIndex, MemoryDesc, MemoryIndex, SigIndex, TableDesc, TableIndex,
     },
     Instance,
 };
 use hashbrown::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
@@ -22,7 +22,7 @@ pub struct ModuleInner {
 
     // This are strictly local and the typsystem ensures that.
     pub memories: Map<LocalMemoryIndex, MemoryDesc>,
-    pub globals: Map<LocalGlobalIndex, Global>,
+    pub globals: Map<LocalGlobalIndex, GlobalInit>,
     pub tables: Map<LocalTableIndex, TableDesc>,
 
     // These are strictly imported and the typesystem ensures that.
@@ -49,10 +49,10 @@ pub struct ModuleInner {
 ///
 /// [`compile`]: fn.compile.html
 /// [`compile_with`]: fn.compile_with.html
-pub struct Module(#[doc(hidden)] pub Rc<ModuleInner>);
+pub struct Module(#[doc(hidden)] pub Arc<ModuleInner>);
 
 impl Module {
-    pub(crate) fn new(inner: Rc<ModuleInner>) -> Self {
+    pub(crate) fn new(inner: Arc<ModuleInner>) -> Self {
         Module(inner)
     }
 
@@ -79,7 +79,7 @@ impl Module {
     /// # }
     /// ```
     pub fn instantiate(&self, import_object: ImportObject) -> Result<Instance> {
-        Instance::new(Rc::clone(&self.0), Box::new(import_object))
+        Instance::new(Arc::clone(&self.0), Box::new(import_object))
     }
 }
 

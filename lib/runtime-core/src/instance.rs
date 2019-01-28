@@ -2,17 +2,17 @@ use crate::{
     backend::Token,
     backing::{ImportBacking, LocalBacking},
     error::{CallError, CallResult, ResolveError, ResolveResult, Result},
-    export::{Context, Export, ExportIter, FuncPointer, GlobalPointer, TablePointer},
+    export::{Context, Export, ExportIter, FuncPointer, TablePointer},
+    global::Global,
     import::{ImportObject, LikeNamespace},
     memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
     types::{
-        FuncIndex, FuncSig, GlobalDesc, GlobalIndex, LocalOrImport, MemoryIndex, TableDesc,
-        TableIndex, Value,
+        FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableDesc, TableIndex, Value,
     },
     vm,
 };
-use std::{mem, rc::Rc};
+use std::{mem, sync::Arc};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -29,14 +29,17 @@ pub(crate) struct InstanceInner {
 ///
 /// [`ImportObject`]: struct.ImportObject.html
 pub struct Instance {
-    module: Rc<ModuleInner>,
+    module: Arc<ModuleInner>,
     inner: Box<InstanceInner>,
     #[allow(dead_code)]
     imports: Box<ImportObject>,
 }
 
 impl Instance {
-    pub(crate) fn new(module: Rc<ModuleInner>, mut imports: Box<ImportObject>) -> Result<Instance> {
+    pub(crate) fn new(
+        module: Arc<ModuleInner>,
+        mut imports: Box<ImportObject>,
+    ) -> Result<Instance> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
@@ -182,7 +185,7 @@ impl Instance {
 
     /// The module used to instantiate this Instance.
     pub fn module(&self) -> Module {
-        Module::new(Rc::clone(&self.module))
+        Module::new(Arc::clone(&self.module))
     }
 }
 
@@ -248,8 +251,8 @@ impl InstanceInner {
                 Export::Memory(memory)
             }
             ExportIndex::Global(global_index) => {
-                let (local, desc) = self.get_global_from_index(module, *global_index);
-                Export::Global { local, desc }
+                let global = self.get_global_from_index(module, *global_index);
+                Export::Global(global)
             }
             ExportIndex::Table(table_index) => {
                 let (local, ctx, desc) = self.get_table_from_index(module, *table_index);
@@ -308,34 +311,13 @@ impl InstanceInner {
         }
     }
 
-    fn get_global_from_index(
-        &mut self,
-        module: &ModuleInner,
-        global_index: GlobalIndex,
-    ) -> (GlobalPointer, GlobalDesc) {
+    fn get_global_from_index(&mut self, module: &ModuleInner, global_index: GlobalIndex) -> Global {
         match global_index.local_or_import(module) {
             LocalOrImport::Local(local_global_index) => {
-                let vm_global = &mut self.backing.vm_globals[local_global_index];
-                (
-                    unsafe { GlobalPointer::new(vm_global) },
-                    module
-                        .globals
-                        .get(local_global_index)
-                        .expect("broken invariant, globals")
-                        .desc,
-                )
+                self.backing.globals[local_global_index].clone()
             }
-            LocalOrImport::Import(imported_global_index) => {
-                let &(_, imported_global_desc) = &module
-                    .imported_globals
-                    .get(imported_global_index)
-                    .expect("missing imported global index");
-                let vm::ImportedGlobal { global } =
-                    &self.import_backing.vm_globals[imported_global_index];
-                (
-                    unsafe { GlobalPointer::new(*global) },
-                    *imported_global_desc,
-                )
+            LocalOrImport::Import(import_global_index) => {
+                self.import_backing.globals[import_global_index].clone()
             }
         }
     }

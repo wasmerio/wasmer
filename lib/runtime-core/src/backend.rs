@@ -35,7 +35,7 @@ pub trait Compiler {
 /// The functionality exposed by this trait is expected to be used
 /// for calling functions exported by a webassembly module from
 /// host code only.
-pub trait ProtectedCaller {
+pub trait ProtectedCaller: Send + Sync {
     /// This calls the exported function designated by `local_func_index`.
     /// Important to note, this supports calling imported functions that are
     /// then exported.
@@ -62,7 +62,7 @@ pub trait ProtectedCaller {
     ) -> RuntimeResult<Vec<Value>>;
 }
 
-pub trait FuncResolver {
+pub trait FuncResolver: Send + Sync {
     /// This returns a pointer to the function designated by the `local_func_index`
     /// parameter.
     fn get(

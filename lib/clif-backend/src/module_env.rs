@@ -9,8 +9,8 @@ use wasmer_runtime_core::{
     module::{DataInitializer, ExportIndex, ImportName, TableInitializer},
     structures::{Map, TypedIndex},
     types::{
-        ElementType, Global, GlobalDesc, GlobalIndex, Initializer, LocalFuncIndex, LocalOrImport,
-        MemoryDesc, SigIndex, TableDesc, Value,
+        ElementType, GlobalDesc, GlobalIndex, GlobalInit, Initializer, LocalFuncIndex,
+        LocalOrImport, MemoryDesc, SigIndex, TableDesc, Value,
     },
 };
 
@@ -93,19 +93,21 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a global to the environment.
     fn declare_global(&mut self, global: cranelift_wasm::Global) {
-        use cranelift_wasm::GlobalInit;
-
         let desc = GlobalDesc {
             mutable: global.mutability,
             ty: Converter(global.ty).into(),
         };
 
         let init = match global.initializer {
-            GlobalInit::I32Const(x) => Initializer::Const(Value::I32(x)),
-            GlobalInit::I64Const(x) => Initializer::Const(Value::I64(x)),
-            GlobalInit::F32Const(x) => Initializer::Const(Value::F32(f32::from_bits(x))),
-            GlobalInit::F64Const(x) => Initializer::Const(Value::F64(f64::from_bits(x))),
-            GlobalInit::GetGlobal(global_index) => {
+            cranelift_wasm::GlobalInit::I32Const(x) => Initializer::Const(Value::I32(x)),
+            cranelift_wasm::GlobalInit::I64Const(x) => Initializer::Const(Value::I64(x)),
+            cranelift_wasm::GlobalInit::F32Const(x) => {
+                Initializer::Const(Value::F32(f32::from_bits(x)))
+            }
+            cranelift_wasm::GlobalInit::F64Const(x) => {
+                Initializer::Const(Value::F64(f64::from_bits(x)))
+            }
+            cranelift_wasm::GlobalInit::GetGlobal(global_index) => {
                 assert!(!desc.mutable);
                 let global_index: GlobalIndex = Converter(global_index).into();
                 let imported_global_index = global_index
@@ -118,7 +120,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add global ir to the list of globals
-        self.module.globals.push(Global { desc, init });
+        self.module.globals.push(GlobalInit { desc, init });
 
         self.globals.push(global);
     }

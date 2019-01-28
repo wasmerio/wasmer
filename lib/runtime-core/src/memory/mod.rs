@@ -6,7 +6,7 @@ use crate::{
     types::{MemoryDesc, ValueType},
     vm,
 };
-use std::{cell::RefCell, fmt, mem, ptr, slice, rc::Rc};
+use std::{cell::RefCell, fmt, mem, ptr, rc::Rc, slice};
 
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
@@ -52,8 +52,12 @@ impl Memory {
 
     pub fn grow(&mut self, delta: u32) -> Option<u32> {
         match &mut *self.storage.borrow_mut() {
-            (MemoryStorage::Dynamic(ref mut dynamic_memory), ref mut local) => dynamic_memory.grow(delta, local),
-            (MemoryStorage::Static(ref mut static_memory), ref mut local) => static_memory.grow(delta, local),
+            (MemoryStorage::Dynamic(ref mut dynamic_memory), ref mut local) => {
+                dynamic_memory.grow(delta, local)
+            }
+            (MemoryStorage::Static(ref mut static_memory), ref mut local) => {
+                static_memory.grow(delta, local)
+            }
             (MemoryStorage::SharedStatic(_), _) => unimplemented!(),
         }
     }
@@ -81,9 +85,12 @@ impl Memory {
         let bytes_size = count * mem::size_of::<T>();
 
         if offset + bytes_size <= mem_slice.len() {
-            let buffer = &mem_slice[offset .. offset + bytes_size];
+            let buffer = &mem_slice[offset..offset + bytes_size];
             let value_type_buffer = unsafe {
-                slice::from_raw_parts(buffer.as_ptr() as *const T, buffer.len() / mem::size_of::<T>())
+                slice::from_raw_parts(
+                    buffer.as_ptr() as *const T,
+                    buffer.len() / mem::size_of::<T>(),
+                )
             };
             Ok(value_type_buffer.to_vec())
         } else {
@@ -105,10 +112,9 @@ impl Memory {
         let bytes_size = values.len() * mem::size_of::<T>();
 
         if offset + bytes_size <= mem_slice.len() {
-            let u8_buffer = unsafe {
-                slice::from_raw_parts(values.as_ptr() as *const u8, bytes_size)
-            };
-            mem_slice[offset .. offset + bytes_size].copy_from_slice(u8_buffer);
+            let u8_buffer =
+                unsafe { slice::from_raw_parts(values.as_ptr() as *const u8, bytes_size) };
+            mem_slice[offset..offset + bytes_size].copy_from_slice(u8_buffer);
             Ok(())
         } else {
             Err(())
@@ -129,7 +135,10 @@ impl Memory {
         };
 
         let t_buffer = unsafe {
-            slice::from_raw_parts(mem_slice.as_ptr() as *const T, mem_slice.len() / mem::size_of::<T>())
+            slice::from_raw_parts(
+                mem_slice.as_ptr() as *const T,
+                mem_slice.len() / mem::size_of::<T>(),
+            )
         };
 
         f(t_buffer)
@@ -149,7 +158,10 @@ impl Memory {
         };
 
         let t_buffer = unsafe {
-            slice::from_raw_parts_mut(mem_slice.as_mut_ptr() as *mut T, mem_slice.len() / mem::size_of::<T>())
+            slice::from_raw_parts_mut(
+                mem_slice.as_mut_ptr() as *mut T,
+                mem_slice.len() / mem::size_of::<T>(),
+            )
         };
 
         f(t_buffer)

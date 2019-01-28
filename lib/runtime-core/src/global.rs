@@ -1,8 +1,10 @@
 use crate::{
+    export::Export,
+    import::IsExport,
     types::{GlobalDesc, Type, Value},
     vm,
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, fmt, rc::Rc};
 
 pub struct Global {
     desc: GlobalDesc,
@@ -35,7 +37,7 @@ impl Global {
 
         Self {
             desc,
-            storage: Rc::new(RefCell::new(local_global))
+            storage: Rc::new(RefCell::new(local_global)),
         }
     }
 
@@ -79,11 +81,26 @@ impl Global {
     }
 }
 
+impl IsExport for Global {
+    fn to_export(&mut self) -> Export {
+        Export::Global(self.clone())
+    }
+}
+
 impl Clone for Global {
     fn clone(&self) -> Self {
         Self {
             desc: self.desc,
             storage: Rc::clone(&self.storage),
         }
+    }
+}
+
+impl fmt::Debug for Global {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Global")
+            .field("desc", &self.desc)
+            .field("value", &self.get())
+            .finish()
     }
 }

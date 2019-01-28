@@ -1,6 +1,12 @@
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
-use wasmer_runtime_core::{error::Result, prelude::*, memory::Memory, types::MemoryDesc};
+use wasmer_runtime_core::{
+    error::Result,
+    global::Global,
+    memory::Memory,
+    prelude::*,
+    types::{MemoryDesc, Value},
+};
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
@@ -12,7 +18,10 @@ fn main() -> Result<()> {
         min: 1,
         max: Some(1),
         shared: false,
-    }).unwrap();
+    })
+    .unwrap();
+
+    let global = Global::new(Value::I32(42));
 
     memory.direct_access_mut(|slice: &mut [u32]| {
         slice[0] = 42;
@@ -22,6 +31,7 @@ fn main() -> Result<()> {
         "env" => {
             "print_i32" => func!(print_num, [i32] -> [i32]),
             "memory" => memory,
+            "global" => global,
         },
     };
 
@@ -48,9 +58,9 @@ static IMPORT_MODULE: &str = r#"
 (module
   (type $t0 (func (param i32) (result i32)))
   (import "env" "memory" (memory 1 1))
+  (import "env" "global" (global i32))
   (import "env" "print_i32" (func $print_i32 (type $t0)))
   (func $print_num (export "print_num") (type $t0) (param $p0 i32) (result i32)
-    i32.const 0
-    i32.load
+    get_global 0
     call $print_i32))
 "#;

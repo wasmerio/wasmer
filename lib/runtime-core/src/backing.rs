@@ -1,6 +1,7 @@
 use crate::{
     error::{LinkError, LinkResult},
     export::{Context, Export},
+    global::Global,
     import::ImportObject,
     memory::{Memory, WASM_PAGE_SIZE},
     module::{ImportName, ModuleInner},
@@ -9,7 +10,7 @@ use crate::{
     types::{
         ElementType, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
         ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalOrImport,
-        LocalTableIndex, Type, Value,
+        LocalTableIndex, Value,
     },
     vm,
 };
@@ -19,10 +20,11 @@ use std::{mem, slice};
 pub struct LocalBacking {
     pub(crate) memories: BoxedMap<LocalMemoryIndex, Memory>,
     pub(crate) tables: BoxedMap<LocalTableIndex, TableBacking>,
+    pub(crate) globals: BoxedMap<LocalGlobalIndex, Global>,
 
     pub(crate) vm_memories: BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory>,
     pub(crate) vm_tables: BoxedMap<LocalTableIndex, vm::LocalTable>,
-    pub(crate) vm_globals: BoxedMap<LocalGlobalIndex, vm::LocalGlobal>,
+    pub(crate) vm_globals: BoxedMap<LocalGlobalIndex, *mut vm::LocalGlobal>,
 }
 
 // impl LocalBacking {
@@ -39,15 +41,16 @@ impl LocalBacking {
     pub(crate) fn new(module: &ModuleInner, imports: &ImportBacking, vmctx: *mut vm::Ctx) -> Self {
         let mut memories = Self::generate_memories(module);
         let mut tables = Self::generate_tables(module);
-        let globals = Self::generate_globals(module);
+        let mut globals = Self::generate_globals(module, imports);
 
         let vm_memories = Self::finalize_memories(module, imports, &mut memories);
         let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx);
-        let vm_globals = Self::finalize_globals(module, imports, globals);
+        let vm_globals = Self::finalize_globals(&mut globals);
 
         Self {
             memories,
             tables,
+            globals,
 
             vm_memories,
             vm_tables,
@@ -89,9 +92,9 @@ impl LocalBacking {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
-                Initializer::GetGlobal(imported_global_index) => {
-                    if module.imported_globals[imported_global_index].1.ty == Type::I32 {
-                        unsafe { (*imports.vm_globals[imported_global_index].global).data as u32 }
+                Initializer::GetGlobal(import_global_index) => {
+                    if let Value::I32(x) = imports.globals[import_global_index].get() {
+                        x as u32
                     } else {
                         panic!("unsupported global type for initialzer")
                     }
@@ -152,9 +155,9 @@ impl LocalBacking {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
-                Initializer::GetGlobal(imported_global_index) => {
-                    if module.imported_globals[imported_global_index].1.ty == Type::I32 {
-                        unsafe { (*imports.vm_globals[imported_global_index].global).data as u32 }
+                Initializer::GetGlobal(import_global_index) => {
+                    if let Value::I32(x) = imports.globals[import_global_index].get() {
+                        x as u32
                     } else {
                         panic!("unsupported global type for initialzer")
                     }
@@ -261,45 +264,52 @@ impl LocalBacking {
             .into_boxed_map()
     }
 
-    fn generate_globals(module: &ModuleInner) -> BoxedMap<LocalGlobalIndex, vm::LocalGlobal> {
+    fn generate_globals(
+        module: &ModuleInner,
+        imports: &ImportBacking,
+    ) -> BoxedMap<LocalGlobalIndex, Global> {
         let mut globals = Map::with_capacity(module.globals.len());
 
-        globals.resize(module.globals.len(), vm::LocalGlobal::null());
+        for (_, global_init) in module.globals.iter() {
+            let value = match &global_init.init {
+                Initializer::Const(value) => value.clone(),
+                Initializer::GetGlobal(import_global_index) => {
+                    imports.globals[*import_global_index].get()
+                }
+            };
+
+            let global = if global_init.desc.mutable {
+                Global::new_mutable(value)
+            } else {
+                Global::new(value)
+            };
+
+            globals.push(global);
+        }
 
         globals.into_boxed_map()
     }
 
     fn finalize_globals(
-        module: &ModuleInner,
-        imports: &ImportBacking,
-        mut globals: BoxedMap<LocalGlobalIndex, vm::LocalGlobal>,
-    ) -> BoxedMap<LocalGlobalIndex, vm::LocalGlobal> {
-        for ((_, to), (_, from)) in globals.iter_mut().zip(module.globals.iter()) {
-            to.data = match from.init {
-                Initializer::Const(ref value) => match value {
-                    Value::I32(x) => *x as u64,
-                    Value::I64(x) => *x as u64,
-                    Value::F32(x) => x.to_bits() as u64,
-                    Value::F64(x) => x.to_bits(),
-                },
-                Initializer::GetGlobal(imported_global_index) => unsafe {
-                    (*imports.vm_globals[imported_global_index].global).data
-                },
-            };
-        }
-
+        globals: &mut SliceMap<LocalGlobalIndex, Global>,
+    ) -> BoxedMap<LocalGlobalIndex, *mut vm::LocalGlobal> {
         globals
+            .iter_mut()
+            .map(|(_, global)| global.vm_local_global())
+            .collect::<Map<_, _>>()
+            .into_boxed_map()
     }
 }
 
 #[derive(Debug)]
 pub struct ImportBacking {
     pub(crate) memories: BoxedMap<ImportedMemoryIndex, Memory>,
+    pub(crate) globals: BoxedMap<ImportedGlobalIndex, Global>,
 
     pub(crate) vm_functions: BoxedMap<ImportedFuncIndex, vm::ImportedFunc>,
     pub(crate) vm_memories: BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
     pub(crate) vm_tables: BoxedMap<ImportedTableIndex, vm::ImportedTable>,
-    pub(crate) vm_globals: BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>,
+    pub(crate) vm_globals: BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,
 }
 
 impl ImportBacking {
@@ -317,7 +327,7 @@ impl ImportBacking {
             Map::new().into_boxed_map()
         });
 
-        let (vm_memories, memories) = import_memories(module, imports).unwrap_or_else(|le| {
+        let (memories, vm_memories) = import_memories(module, imports).unwrap_or_else(|le| {
             failed = true;
             link_errors.extend(le);
             (Map::new().into_boxed_map(), Map::new().into_boxed_map())
@@ -329,10 +339,10 @@ impl ImportBacking {
             Map::new().into_boxed_map()
         });
 
-        let vm_globals = import_globals(module, imports).unwrap_or_else(|le| {
+        let (globals, vm_globals) = import_globals(module, imports).unwrap_or_else(|le| {
             failed = true;
             link_errors.extend(le);
-            Map::new().into_boxed_map()
+            (Map::new().into_boxed_map(), Map::new().into_boxed_map())
         });
 
         if failed {
@@ -340,6 +350,7 @@ impl ImportBacking {
         } else {
             Ok(ImportBacking {
                 memories,
+                globals,
 
                 vm_functions,
                 vm_memories,
@@ -425,8 +436,8 @@ fn import_memories(
     module: &ModuleInner,
     imports: &mut ImportObject,
 ) -> LinkResult<(
-    BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
     BoxedMap<ImportedMemoryIndex, Memory>,
+    BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
 )> {
     let mut link_errors = vec![];
     let mut memories = Map::with_capacity(module.imported_memories.len());
@@ -478,7 +489,7 @@ fn import_memories(
     if link_errors.len() > 0 {
         Err(link_errors)
     } else {
-        Ok((vm_memories.into_boxed_map(), memories.into_boxed_map()))
+        Ok((memories.into_boxed_map(), vm_memories.into_boxed_map()))
     }
 }
 
@@ -550,25 +561,28 @@ fn import_tables(
 fn import_globals(
     module: &ModuleInner,
     imports: &mut ImportObject,
-) -> LinkResult<BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>> {
+) -> LinkResult<(
+    BoxedMap<ImportedGlobalIndex, Global>,
+    BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,
+)> {
     let mut link_errors = vec![];
     let mut globals = Map::with_capacity(module.imported_globals.len());
+    let mut vm_globals = Map::with_capacity(module.imported_globals.len());
     for (_, (ImportName { namespace, name }, imported_global_desc)) in &module.imported_globals {
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
         match import {
-            Some(Export::Global { local, desc }) => {
-                if desc == *imported_global_desc {
-                    globals.push(vm::ImportedGlobal {
-                        global: local.inner(),
-                    });
+            Some(Export::Global(mut global)) => {
+                if global.description() == *imported_global_desc {
+                    vm_globals.push(global.vm_local_global());
+                    globals.push(global);
                 } else {
                     link_errors.push(LinkError::IncorrectGlobalDescription {
                         namespace: namespace.clone(),
                         name: name.clone(),
-                        expected: imported_global_desc.clone(),
-                        found: desc.clone(),
+                        expected: *imported_global_desc,
+                        found: global.description(),
                     });
                 }
             }
@@ -599,6 +613,6 @@ fn import_globals(
     if link_errors.len() > 0 {
         Err(link_errors)
     } else {
-        Ok(globals.into_boxed_map())
+        Ok((globals.into_boxed_map(), vm_globals.into_boxed_map()))
     }
 }
