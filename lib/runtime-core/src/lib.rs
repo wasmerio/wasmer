@@ -11,6 +11,7 @@ pub mod error;
 pub mod export;
 pub mod import;
 pub mod instance;
+pub mod global;
 pub mod memory;
 pub mod module;
 mod sig_registry;

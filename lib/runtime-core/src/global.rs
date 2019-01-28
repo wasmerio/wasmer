@@ -2,11 +2,11 @@ use crate::{
     types::{GlobalDesc, Type, Value},
     vm,
 };
-use std::{cell::UnsafeCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 pub struct Global {
     desc: GlobalDesc,
-    storage: Rc<UnsafeCell<vm::LocalGlobal>>,
+    storage: Rc<RefCell<vm::LocalGlobal>>,
 }
 
 impl Global {
@@ -35,7 +35,7 @@ impl Global {
 
         Self {
             desc,
-            storage: Rc::new(UnsafeCell::new(local_global))
+            storage: Rc::new(RefCell::new(local_global))
         }
     }
 
@@ -43,7 +43,7 @@ impl Global {
         self.desc
     }
 
-    pub fn set(&mut self, value: Value) {
+    pub fn set(&self, value: Value) {
         if self.desc.mutable {
             if self.desc.ty == value.ty() {
                 let local_global = vm::LocalGlobal {
@@ -54,9 +54,7 @@ impl Global {
                         Value::F64(x) => x.to_bits(),
                     },
                 };
-                unsafe {
-                    (*self.storage.get()) = local_global;
-                }
+                *self.storage.borrow_mut() = local_global;
             } else {
                 panic!("Wrong type for setting this global")
             }
@@ -66,7 +64,7 @@ impl Global {
     }
 
     pub fn get(&self) -> Value {
-        let data = unsafe { (*self.storage.get()).data };
+        let data = self.storage.borrow().data;
 
         match self.desc.ty {
             Type::I32 => Value::I32(data as i32),
@@ -77,7 +75,7 @@ impl Global {
     }
 
     pub(crate) fn vm_local_global(&mut self) -> *mut vm::LocalGlobal {
-        &mut *unsafe { &mut *self.storage.get() }
+        &mut *self.storage.borrow_mut()
     }
 }
 
