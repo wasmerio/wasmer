@@ -3,10 +3,10 @@ use crate::{
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
     memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
-    types::MemoryDesc,
+    types::{MemoryDesc, ValueType},
     vm,
 };
-use std::{cell::UnsafeCell, fmt, ptr, rc::Rc};
+use std::{cell::RefCell, fmt, mem, ptr, slice, rc::Rc};
 
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
@@ -19,7 +19,7 @@ pub const WASM_MAX_PAGES: usize = 65_536;
 
 pub struct Memory {
     desc: MemoryDesc,
-    storage: Rc<UnsafeCell<(MemoryStorage, Box<vm::LocalMemory>)>>,
+    storage: Rc<RefCell<(MemoryStorage, Box<vm::LocalMemory>)>>,
 }
 
 impl Memory {
@@ -42,7 +42,7 @@ impl Memory {
 
         Some(Memory {
             desc,
-            storage: Rc::new(UnsafeCell::new((memory_storage, vm_local_memory))),
+            storage: Rc::new(RefCell::new((memory_storage, vm_local_memory))),
         })
     }
 
@@ -51,40 +51,112 @@ impl Memory {
     }
 
     pub fn grow(&mut self, delta: u32) -> Option<u32> {
-        match unsafe { &mut *self.storage.get() } {
-            (MemoryStorage::Dynamic(dynamic_memory), local) => dynamic_memory.grow(delta, local),
-            (MemoryStorage::Static(static_memory), local) => static_memory.grow(delta, local),
+        match &mut *self.storage.borrow_mut() {
+            (MemoryStorage::Dynamic(ref mut dynamic_memory), ref mut local) => dynamic_memory.grow(delta, local),
+            (MemoryStorage::Static(ref mut static_memory), ref mut local) => static_memory.grow(delta, local),
             (MemoryStorage::SharedStatic(_), _) => unimplemented!(),
         }
     }
 
     /// This returns the number of pages in the memory.
     pub fn current_pages(&self) -> u32 {
-        match unsafe { &*self.storage.get() } {
-            (MemoryStorage::Dynamic(dynamic_memory), _) => dynamic_memory.current(),
-            (MemoryStorage::Static(static_memory), _) => static_memory.current(),
+        match &*self.storage.borrow() {
+            (MemoryStorage::Dynamic(ref dynamic_memory), _) => dynamic_memory.current(),
+            (MemoryStorage::Static(ref static_memory), _) => static_memory.current(),
             (MemoryStorage::SharedStatic(_), _) => unimplemented!(),
         }
     }
 
-    pub fn as_slice(&self) -> &[u8] {
-        match unsafe { &*self.storage.get() } {
-            (MemoryStorage::Dynamic(dynamic_memory), _) => dynamic_memory.as_slice(),
-            (MemoryStorage::Static(static_memory), _) => static_memory.as_slice(),
-            (MemoryStorage::SharedStatic(_), _) => panic!("cannot slice a shared memory"),
+    pub fn get<T: ValueType>(&self, offset: u32, count: usize) -> Result<Vec<T>, ()> {
+        let offset = offset as usize;
+        let borrow_ref = self.storage.borrow();
+        let memory_storage = &borrow_ref.0;
+
+        let mem_slice = match memory_storage {
+            MemoryStorage::Dynamic(ref dynamic_memory) => dynamic_memory.as_slice(),
+            MemoryStorage::Static(ref static_memory) => static_memory.as_slice(),
+            MemoryStorage::SharedStatic(_) => panic!("cannot slice a shared memory"),
+        };
+
+        let bytes_size = count * mem::size_of::<T>();
+
+        if offset + bytes_size <= mem_slice.len() {
+            let buffer = &mem_slice[offset .. offset + bytes_size];
+            let value_type_buffer = unsafe {
+                slice::from_raw_parts(buffer.as_ptr() as *const T, buffer.len() / mem::size_of::<T>())
+            };
+            Ok(value_type_buffer.to_vec())
+        } else {
+            Err(())
         }
     }
 
-    pub fn as_slice_mut(&mut self) -> &mut [u8] {
-        match unsafe { &mut *self.storage.get() } {
-            (MemoryStorage::Dynamic(dynamic_memory), _) => dynamic_memory.as_slice_mut(),
-            (MemoryStorage::Static(static_memory), _) => static_memory.as_slice_mut(),
-            (MemoryStorage::SharedStatic(_), _) => panic!("cannot slice a shared memory"),
+    pub fn set<T: ValueType>(&self, offset: u32, values: &[T]) -> Result<(), ()> {
+        let offset = offset as usize;
+        let mut borrow_ref = self.storage.borrow_mut();
+        let memory_storage = &mut borrow_ref.0;
+
+        let mem_slice = match memory_storage {
+            MemoryStorage::Dynamic(ref mut dynamic_memory) => dynamic_memory.as_slice_mut(),
+            MemoryStorage::Static(ref mut static_memory) => static_memory.as_slice_mut(),
+            MemoryStorage::SharedStatic(_) => panic!("cannot slice a shared memory"),
+        };
+
+        let bytes_size = values.len() * mem::size_of::<T>();
+
+        if offset + bytes_size <= mem_slice.len() {
+            let u8_buffer = unsafe {
+                slice::from_raw_parts(values.as_ptr() as *const u8, bytes_size)
+            };
+            mem_slice[offset .. offset + bytes_size].copy_from_slice(u8_buffer);
+            Ok(())
+        } else {
+            Err(())
         }
+    }
+
+    pub fn direct_access<T: ValueType, F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[T]) -> R,
+    {
+        let borrow_ref = self.storage.borrow();
+        let memory_storage = &borrow_ref.0;
+
+        let mem_slice = match memory_storage {
+            MemoryStorage::Dynamic(ref dynamic_memory) => dynamic_memory.as_slice(),
+            MemoryStorage::Static(ref static_memory) => static_memory.as_slice(),
+            MemoryStorage::SharedStatic(_) => panic!("cannot slice a shared memory"),
+        };
+
+        let t_buffer = unsafe {
+            slice::from_raw_parts(mem_slice.as_ptr() as *const T, mem_slice.len() / mem::size_of::<T>())
+        };
+
+        f(t_buffer)
+    }
+
+    pub fn direct_access_mut<T: ValueType, F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut [T]) -> R,
+    {
+        let mut borrow_ref = self.storage.borrow_mut();
+        let memory_storage = &mut borrow_ref.0;
+
+        let mem_slice = match memory_storage {
+            MemoryStorage::Dynamic(ref mut dynamic_memory) => dynamic_memory.as_slice_mut(),
+            MemoryStorage::Static(ref mut static_memory) => static_memory.as_slice_mut(),
+            MemoryStorage::SharedStatic(_) => panic!("cannot slice a shared memory"),
+        };
+
+        let t_buffer = unsafe {
+            slice::from_raw_parts_mut(mem_slice.as_mut_ptr() as *mut T, mem_slice.len() / mem::size_of::<T>())
+        };
+
+        f(t_buffer)
     }
 
     pub(crate) fn vm_local_memory(&mut self) -> *mut vm::LocalMemory {
-        &mut *unsafe { &mut *self.storage.get() }.1
+        &mut *self.storage.borrow_mut().1
     }
 }
 

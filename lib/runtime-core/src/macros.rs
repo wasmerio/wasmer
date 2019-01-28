@@ -64,11 +64,11 @@ macro_rules! __export_func_convert_type {
 ///
 /// # Usage:
 /// ```
-/// # use wasmer_runtime_core::imports;
+/// # use wasmer_runtime_core::{imports, func};
 /// # use wasmer_runtime_core::vm::Ctx;
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => foo<[i32] -> [i32]>,
+///         "foo" => func!(foo, [i32] -> [i32]),
 ///     },
 /// };
 ///

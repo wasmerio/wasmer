@@ -104,11 +104,8 @@ impl LocalBacking {
                     let data_top = init_base + init.data.len();
                     assert!(memory_desc.min as usize * WASM_PAGE_SIZE >= data_top);
 
-                    let mem: &mut Memory = &mut memories[local_memory_index];
-                    let mem_init_view =
-                        &mut mem.as_slice_mut()[init_base..init_base + init.data.len()];
-
-                    mem_init_view.copy_from_slice(&init.data);
+                    let mem = &memories[local_memory_index];
+                    mem.set(init_base as u32, &init.data).unwrap();
                 }
                 LocalOrImport::Import(imported_memory_index) => {
                     // Write the initialization data to the memory that

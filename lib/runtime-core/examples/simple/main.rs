@@ -8,13 +8,15 @@ fn main() -> Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
 
-    let mut memory = Memory::new(MemoryDesc {
+    let memory = Memory::new(MemoryDesc {
         min: 1,
         max: Some(1),
         shared: false,
     }).unwrap();
 
-    memory.as_slice_mut()[0] = 42;
+    memory.direct_access_mut(|slice: &mut [u32]| {
+        slice[0] = 42;
+    });
 
     let import_object = imports! {
         "env" => {
