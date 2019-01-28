@@ -284,12 +284,10 @@ pub struct EmscriptenGlobals {
 }
 
 impl EmscriptenGlobals {
-    pub fn new(
-        table_min: u32,
-        table_max: Option<u32>,
-        memory_min: u32,
-        memory_max: Option<u32>,
-    ) -> Self {
+    pub fn new(module: &Module) -> Self {
+        let (table_min, table_max) = get_emscripten_table_size(&module);
+        let (memory_min, memory_max) = get_emscripten_memory_size(&module);
+
         // Memory initialization
         let memory_type = Memory {
             min: memory_min,
