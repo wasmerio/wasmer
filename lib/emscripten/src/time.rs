@@ -99,17 +99,17 @@ pub extern "C" fn _difftime(t0: u32, t1: u32) -> f64 {
     (t0 - t1) as _
 }
 
-pub extern "C" fn _gmtime_r(one: i32, two: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _gmtime_r(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_gmtime_r");
     -1
 }
 
-pub extern "C" fn _mktime(one: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _mktime(_one: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_mktime");
     -1
 }
 
-pub extern "C" fn _gmtime(one: i32, ctx: &mut Ctx) -> i32 {
+pub extern "C" fn _gmtime(_one: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_gmtime");
     -1
 }
