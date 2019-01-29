@@ -27,7 +27,7 @@ struct GlobalSigRegistry {
 pub struct SigRegistry;
 
 impl SigRegistry {
-    pub fn lookup_sigindex<Sig>(&self, func_sig: Sig) -> SigIndex
+    pub fn lookup_sig_index<Sig>(&self, func_sig: Sig) -> SigIndex
     where
         Sig: Into<Arc<FuncSig>>,
     {

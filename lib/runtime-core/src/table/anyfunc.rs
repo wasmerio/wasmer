@@ -106,7 +106,7 @@ impl AnyfuncTable {
         if let Some(slot) = self.backing.get_mut(index as usize) {
             let anyfunc = match element.inner {
                 AnyfuncInner::Host { ptr, signature } => {
-                    let sig_index = SigRegistry.lookup_sigindex(signature);
+                    let sig_index = SigRegistry.lookup_sig_index(signature);
                     let sig_id = vm::SigId(sig_index.index() as u32);
 
                     vm::Anyfunc {
@@ -116,7 +116,7 @@ impl AnyfuncTable {
                     }
                 }
                 AnyfuncInner::Managed(ref func) => {
-                    let sig_index = SigRegistry.lookup_sigindex(Arc::clone(&func.signature));
+                    let sig_index = SigRegistry.lookup_sig_index(Arc::clone(&func.signature));
                     let sig_id = vm::SigId(sig_index.index() as u32);
 
                     vm::Anyfunc {

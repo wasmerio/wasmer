@@ -56,7 +56,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     fn declare_signature(&mut self, sig: &ir::Signature) {
         let clif_sig_index = self.signatures.push(sig.clone());
         let func_sig: FuncSig = Converter(sig).into();
-        let sig_index = self.module.sig_registry.lookup_sigindex(func_sig);
+        let sig_index = self.module.sig_registry.lookup_sig_index(func_sig);
         self.deduplicated.push(sig_index);
         self.duplicated
             .insert(sig_index, Converter(clif_sig_index).into());

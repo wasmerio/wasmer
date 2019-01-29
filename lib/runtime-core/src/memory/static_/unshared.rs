@@ -8,6 +8,17 @@ use crate::{
     vm,
 };
 
+/// This is an internal-only api.
+///
+/// A static memory allocates 6GB of *virtual* memory when created
+/// in order to allow the webassembly module to contain no bounds-checks.
+///
+/// Additionally, static memories stay at a single virtual address, so there is no need
+/// to reload its address on each use.
+///
+/// Static memories take a relatively long time to create, so if memories are short-lived,
+/// it's recommended that a dynamic memory is used. There is currently no user-facing api that
+/// allows them to select the type of memory used however.
 pub struct StaticMemory {
     memory: sys::Memory,
     current: u32,

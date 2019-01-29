@@ -13,14 +13,14 @@ pub struct Global {
 
 impl Global {
     pub fn new(value: Value) -> Self {
-        Self::_new(value, false)
+        Self::new_internal(value, false)
     }
 
     pub fn new_mutable(value: Value) -> Self {
-        Self::_new(value, true)
+        Self::new_internal(value, true)
     }
 
-    fn _new(value: Value, mutable: bool) -> Self {
+    fn new_internal(value: Value, mutable: bool) -> Self {
         let desc = GlobalDesc {
             mutable,
             ty: value.ty(),

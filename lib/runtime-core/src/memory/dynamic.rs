@@ -7,6 +7,19 @@ use crate::{
 
 pub const DYNAMIC_GUARD_SIZE: usize = 4096;
 
+/// This is an internal-only api.
+///
+/// A Dynamic memory allocates only the minimum amount of memory
+/// when first created. Over time, as it grows, it may reallocate to
+/// a different location and size.
+///
+/// Dynamic memories are signifigantly faster to create than static
+/// memories and use much less virtual memory, however, they require
+/// the webassembly module to bounds-check memory accesses.
+///
+/// While, a dynamic memory could use a vector of some sort as its
+/// backing memory, we use mmap (or the platform-equivalent) to allow
+/// us to add a guard-page at the end to help elide some bounds-checks.
 pub struct DynamicMemory {
     memory: sys::Memory,
     current: u32,
