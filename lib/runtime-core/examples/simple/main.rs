@@ -58,9 +58,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-extern "C" fn print_num(n: i32, _vmctx: &mut vm::Ctx) -> i32 {
+extern "C" fn print_num(n: i32, ctx: &mut vm::Ctx) -> i32 {
     println!("print_num({})", n);
-    n + 1
+
+    let memory = ctx.memory(0);
+
+    let a: i32 = memory.read(0).unwrap();
+
+    a + n + 1
 }
 
 static IMPORT_MODULE: &str = r#"

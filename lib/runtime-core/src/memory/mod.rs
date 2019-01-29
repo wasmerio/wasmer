@@ -71,7 +71,44 @@ impl Memory {
         }
     }
 
-    pub fn get<T: ValueType>(&self, offset: u32, count: usize) -> Result<Vec<T>, ()> {
+    pub fn read<T: ValueType>(&self, offset: u32) -> Result<T, ()> {
+        let offset = offset as usize;
+        let borrow_ref = self.storage.borrow();
+        let memory_storage = &borrow_ref.0;
+
+        let mem_slice = match memory_storage {
+            MemoryStorage::Dynamic(ref dynamic_memory) => dynamic_memory.as_slice(),
+            MemoryStorage::Static(ref static_memory) => static_memory.as_slice(),
+            MemoryStorage::SharedStatic(_) => panic!("cannot slice a shared memory"),
+        };
+
+        if offset + mem::size_of::<T>() <= mem_slice.len() {
+            T::from_le(&mem_slice[offset..]).map_err(|_| ())
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn write<T: ValueType>(&self, offset: u32, value: T) -> Result<(), ()> {
+        let offset = offset as usize;
+        let mut borrow_ref = self.storage.borrow_mut();
+        let memory_storage = &mut borrow_ref.0;
+
+        let mem_slice = match memory_storage {
+            MemoryStorage::Dynamic(ref mut dynamic_memory) => dynamic_memory.as_slice_mut(),
+            MemoryStorage::Static(ref mut static_memory) => static_memory.as_slice_mut(),
+            MemoryStorage::SharedStatic(_) => panic!("cannot slice a shared memory"),
+        };
+
+        if offset + mem::size_of::<T>() <= mem_slice.len() {
+            value.into_le(&mut mem_slice[offset..]);
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn read_many<T: ValueType>(&self, offset: u32, count: usize) -> Result<Vec<T>, ()> {
         let offset = offset as usize;
         let borrow_ref = self.storage.borrow();
         let memory_storage = &borrow_ref.0;
@@ -98,7 +135,7 @@ impl Memory {
         }
     }
 
-    pub fn set<T: ValueType>(&self, offset: u32, values: &[T]) -> Result<(), ()> {
+    pub fn write_many<T: ValueType>(&self, offset: u32, values: &[T]) -> Result<(), ()> {
         let offset = offset as usize;
         let mut borrow_ref = self.storage.borrow_mut();
         let memory_storage = &mut borrow_ref.0;

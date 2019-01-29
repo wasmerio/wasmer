@@ -1,10 +1,11 @@
 pub use crate::backing::{ImportBacking, LocalBacking};
 use crate::{
+    memory::Memory,
     module::ModuleInner,
     structures::TypedIndex,
     types::{LocalOrImport, MemoryIndex},
 };
-use std::{ffi::c_void, mem, ptr, slice};
+use std::{ffi::c_void, mem, ptr};
 
 /// The context of the currently running WebAssembly instance.
 ///
@@ -33,8 +34,8 @@ pub struct Ctx {
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub(crate) imported_funcs: *mut ImportedFunc,
 
-    // pub(crate) local_backing: *mut LocalBacking,
-    // pub(crate) import_backing: *mut ImportBacking,
+    local_backing: *mut LocalBacking,
+    import_backing: *mut ImportBacking,
     module: *const ModuleInner,
 
     pub data: *mut c_void,
@@ -58,8 +59,8 @@ impl Ctx {
             imported_globals: import_backing.vm_globals.as_mut_ptr(),
             imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
-            // local_backing,
-            // import_backing,
+            local_backing,
+            import_backing,
             module,
 
             data: ptr::null_mut(),
@@ -85,8 +86,8 @@ impl Ctx {
             imported_globals: import_backing.vm_globals.as_mut_ptr(),
             imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
-            // local_backing,
-            // import_backing,
+            local_backing,
+            import_backing,
             module,
 
             data,
@@ -109,54 +110,20 @@ impl Ctx {
     /// fn read_memory(ctx: &Ctx) -> u8 {
     ///     let first_memory = ctx.memory(0);
     ///     // Read the first byte of that linear memory.
-    ///     first_memory[0]
+    ///     first_memory.get(0)
     /// }
     /// ```
-    pub fn memory<'a>(&'a self, mem_index: u32) -> &'a [u8] {
+    pub fn memory<'a>(&'a self, mem_index: u32) -> &'a Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
             LocalOrImport::Local(local_mem_index) => unsafe {
-                let local_memory = &**self.memories.add(local_mem_index.index());
-                slice::from_raw_parts(local_memory.base, local_memory.bound)
+                let local_backing = &*self.local_backing;
+                &local_backing.memories[local_mem_index]
             },
             LocalOrImport::Import(import_mem_index) => unsafe {
-                let local_memory = &**self.imported_memories.add(import_mem_index.index());
-                slice::from_raw_parts(local_memory.base, local_memory.bound)
-            },
-        }
-    }
-
-    /// This exposes the specified memory of the WebAssembly instance
-    /// as a mutable slice.
-    ///
-    /// WebAssembly will soon support multiple linear memories, so this
-    /// forces the user to specify.
-    ///
-    /// # Usage:
-    ///
-    /// ```
-    /// # use wasmer_runtime_core::{
-    /// #     vm::Ctx,
-    /// #     error::Result,
-    /// # };
-    /// extern fn host_func(ctx: &mut Ctx) {
-    ///     let first_memory = ctx.memory_mut(0);
-    ///     // Set the first byte of that linear memory.
-    ///     first_memory[0] = 42;
-    /// }
-    /// ```
-    pub fn memory_mut<'a>(&'a mut self, mem_index: u32) -> &'a mut [u8] {
-        let module = unsafe { &*self.module };
-        let mem_index = MemoryIndex::new(mem_index as usize);
-        match mem_index.local_or_import(module) {
-            LocalOrImport::Local(local_mem_index) => unsafe {
-                let local_memory = &**self.memories.add(local_mem_index.index());
-                slice::from_raw_parts_mut(local_memory.base, local_memory.bound)
-            },
-            LocalOrImport::Import(import_mem_index) => unsafe {
-                let local_memory = &**self.imported_memories.add(import_mem_index.index());
-                slice::from_raw_parts_mut(local_memory.base, local_memory.bound)
+                let import_backing = &*self.import_backing;
+                &import_backing.memories[import_mem_index]
             },
         }
     }

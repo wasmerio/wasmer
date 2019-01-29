@@ -81,12 +81,12 @@ macro_rules! convert_value_impl {
     ($t:ty) => {
         impl ValueType for $t {
             fn into_le(self, buffer: &mut [u8]) {
-                buffer.copy_from_slice(&self.to_le_bytes());
+                buffer[..mem::size_of::<Self>()].copy_from_slice(&self.to_le_bytes());
             }
             fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
                 if buffer.len() >= mem::size_of::<Self>() {
                     let mut array = [0u8; mem::size_of::<Self>()];
-                    array.copy_from_slice(buffer);
+                    array.copy_from_slice(&buffer[..mem::size_of::<Self>()]);
                     Ok(Self::from_le_bytes(array))
                 } else {
                     Err(ValueError::BufferTooSmall)
