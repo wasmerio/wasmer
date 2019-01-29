@@ -1,3 +1,5 @@
+#![allow(clippy::cast_ptr_alignment)]
+
 use crate::{
     memory::{DynamicMemory, StaticMemory},
     structures::TypedIndex,
