@@ -1,6 +1,15 @@
+#[macro_export]
+#[cfg(feature = "debug")]
 macro_rules! debug {
-    ($fmt:expr) => (if cfg!(any(debug_assertions, feature="debug")) { println!(concat!("wasmer-runtime(:{})::", $fmt), line!()) });
-    ($fmt:expr, $($arg:tt)*) => (if cfg!(any(debug_assertions, feature="debug")) { println!(concat!("wasmer-runtime(:{})::", $fmt, "\n"), line!(), $($arg)*) });
+    ($fmt:expr) => (println!(concat!("wasmer-runtime(:{})::", $fmt), line!()));
+    ($fmt:expr, $($arg:tt)*) => (println!(concat!("wasmer-runtime(:{})::", $fmt, "\n"), line!(), $($arg)*));
+}
+
+#[macro_export]
+#[cfg(not(feature = "debug"))]
+macro_rules! debug {
+    ($fmt:expr) => {};
+    ($fmt:expr, $($arg:tt)*) => {};
 }
 
 #[macro_export]
