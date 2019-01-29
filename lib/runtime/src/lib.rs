@@ -73,22 +73,27 @@
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 //! [`compile_with`]: fn.compile_with.html
 
+pub use wasmer_runtime_core::global::Global;
 pub use wasmer_runtime_core::import::ImportObject;
 pub use wasmer_runtime_core::instance::{Function, Instance};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
+pub use wasmer_runtime_core::table::Table;
 pub use wasmer_runtime_core::types::Value;
 pub use wasmer_runtime_core::vm::Ctx;
 
 pub use wasmer_runtime_core::{compile_with, validate};
 
 pub use wasmer_runtime_core::error;
-pub use wasmer_runtime_core::{imports, func};
+pub use wasmer_runtime_core::{func, imports};
 
 pub mod wasm {
+    pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::instance::Function;
     pub use wasmer_runtime_core::memory::Memory;
-    pub use wasmer_runtime_core::types::{FuncSig, Type, Value, MemoryDesc};
+    pub use wasmer_runtime_core::table::Table;
+    pub use wasmer_runtime_core::types::{FuncSig, MemoryDesc, TableDesc, Type, Value};
+
 }
 
 /// Compile WebAssembly binary code into a [`Module`].
