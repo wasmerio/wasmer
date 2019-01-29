@@ -43,9 +43,9 @@ impl Trampolines {
 
         for exported_func_index in func_index_iter {
             let sig_index = module.func_assoc[*exported_func_index];
-            let func_sig = module.sig_registry.lookup_func_sig(sig_index);
+            let func_sig = module.sig_registry.lookup_signature(sig_index);
 
-            let trampoline_func = generate_func(func_sig);
+            let trampoline_func = generate_func(&func_sig);
 
             ctx.func = trampoline_func;
 
@@ -128,8 +128,8 @@ fn generate_func(func_sig: &FuncSig) -> ir::Function {
 
     let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(entry_ebb);
 
-    let mut args_vec = Vec::with_capacity(func_sig.params.len() + 1);
-    for (index, wasm_ty) in func_sig.params.iter().enumerate() {
+    let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
+    for (index, wasm_ty) in func_sig.params().iter().enumerate() {
         let mem_flags = ir::MemFlags::trusted();
 
         let val = pos.ins().load(
@@ -190,7 +190,7 @@ fn generate_export_signature(func_sig: &FuncSig) -> ir::Signature {
     let mut export_clif_sig = ir::Signature::new(isa::CallConv::SystemV);
 
     export_clif_sig.params = func_sig
-        .params
+        .params()
         .iter()
         .map(|wasm_ty| ir::AbiParam {
             value_type: wasm_ty_to_clif(*wasm_ty),
@@ -207,7 +207,7 @@ fn generate_export_signature(func_sig: &FuncSig) -> ir::Signature {
         .collect();
 
     export_clif_sig.returns = func_sig
-        .returns
+        .returns()
         .iter()
         .map(|wasm_ty| ir::AbiParam {
             value_type: wasm_ty_to_clif(*wasm_ty),

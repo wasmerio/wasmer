@@ -9,6 +9,7 @@ pub mod backend;
 mod backing;
 pub mod error;
 pub mod export;
+pub mod global;
 pub mod import;
 pub mod instance;
 pub mod memory;
@@ -18,6 +19,7 @@ pub mod structures;
 mod sys;
 pub mod table;
 pub mod types;
+pub mod units;
 pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
@@ -29,7 +31,7 @@ pub use self::error::Result;
 pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub mod prelude {
     pub use crate::import::{ImportObject, Namespace};
@@ -39,7 +41,7 @@ pub mod prelude {
         MemoryIndex, TableIndex, Type, Value,
     };
     pub use crate::vm;
-    pub use crate::{export_func, imports};
+    pub use crate::{func, imports};
 }
 
 /// Compile a [`Module`] using the provided compiler from
@@ -55,7 +57,7 @@ pub fn compile_with(
     let token = backend::Token::generate();
     compiler
         .compile(wasm, token)
-        .map(|inner| module::Module::new(Rc::new(inner)))
+        .map(|inner| module::Module::new(Arc::new(inner)))
 }
 
 /// Perform validation as defined by the

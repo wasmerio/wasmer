@@ -1,53 +1,55 @@
 use crate::{
     error::{LinkError, LinkResult},
     export::{Context, Export},
+    global::Global,
     import::ImportObject,
-    memory::LinearMemory,
+    memory::Memory,
     module::{ImportName, ModuleInner},
     structures::{BoxedMap, Map, SliceMap, TypedIndex},
-    table::{TableBacking, TableElements},
+    table::Table,
     types::{
-        ElementType, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
-        ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalOrImport,
-        LocalTableIndex, Type, Value,
+        ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex,
+        Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalOrImport, LocalTableIndex, Value,
     },
     vm,
 };
-use std::{mem, slice};
+use std::slice;
 
 #[derive(Debug)]
 pub struct LocalBacking {
-    pub(crate) memories: BoxedMap<LocalMemoryIndex, LinearMemory>,
-    pub(crate) tables: BoxedMap<LocalTableIndex, TableBacking>,
+    pub(crate) memories: BoxedMap<LocalMemoryIndex, Memory>,
+    pub(crate) tables: BoxedMap<LocalTableIndex, Table>,
+    pub(crate) globals: BoxedMap<LocalGlobalIndex, Global>,
 
-    pub(crate) vm_memories: BoxedMap<LocalMemoryIndex, vm::LocalMemory>,
-    pub(crate) vm_tables: BoxedMap<LocalTableIndex, vm::LocalTable>,
-    pub(crate) vm_globals: BoxedMap<LocalGlobalIndex, vm::LocalGlobal>,
+    pub(crate) vm_memories: BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory>,
+    pub(crate) vm_tables: BoxedMap<LocalTableIndex, *mut vm::LocalTable>,
+    pub(crate) vm_globals: BoxedMap<LocalGlobalIndex, *mut vm::LocalGlobal>,
 }
 
-impl LocalBacking {
-    pub fn memory(&mut self, local_memory_index: LocalMemoryIndex) -> &mut LinearMemory {
-        &mut self.memories[local_memory_index]
-    }
+// impl LocalBacking {
+//     pub fn memory(&mut self, local_memory_index: LocalMemoryIndex) -> &mut Memory {
+//         &mut self.memories[local_memory_index]
+//     }
 
-    pub fn table(&mut self, local_table_index: LocalTableIndex) -> &mut TableBacking {
-        &mut self.tables[local_table_index]
-    }
-}
+//     pub fn table(&mut self, local_table_index: LocalTableIndex) -> &mut TableBacking {
+//         &mut self.tables[local_table_index]
+//     }
+// }
 
 impl LocalBacking {
     pub(crate) fn new(module: &ModuleInner, imports: &ImportBacking, vmctx: *mut vm::Ctx) -> Self {
         let mut memories = Self::generate_memories(module);
         let mut tables = Self::generate_tables(module);
-        let globals = Self::generate_globals(module);
+        let mut globals = Self::generate_globals(module, imports);
 
         let vm_memories = Self::finalize_memories(module, imports, &mut memories);
         let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx);
-        let vm_globals = Self::finalize_globals(module, imports, globals);
+        let vm_globals = Self::finalize_globals(&mut globals);
 
         Self {
             memories,
             tables,
+            globals,
 
             vm_memories,
             vm_tables,
@@ -55,20 +57,20 @@ impl LocalBacking {
         }
     }
 
-    fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, LinearMemory> {
+    fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, Memory> {
         let mut memories = Map::with_capacity(module.memories.len());
 
-        for (_, mem) in &module.memories {
+        for (_, &desc) in &module.memories {
             // If we use emscripten, we set a fixed initial and maximum
             // let memory = if options.abi == InstanceABI::Emscripten {
             //     // We use MAX_PAGES, so at the end the result is:
-            //     // (initial * LinearMemory::PAGE_SIZE) == LinearMemory::DEFAULT_HEAP_SIZE
-            //     // However, it should be: (initial * LinearMemory::PAGE_SIZE) == 16777216
-            //     LinearMemory::new(LinearMemory::MAX_PAGES, None)
+            //     // (initial * Memory::PAGE_SIZE) == Memory::DEFAULT_HEAP_SIZE
+            //     // However, it should be: (initial * Memory::PAGE_SIZE) == 16777216
+            //     Memory::new(Memory::MAX_PAGES, None)
             // } else {
-            //     LinearMemory::new(memory.minimum, memory.maximum.map(|m| m as u32))
+            //     Memory::new(memory.minimum, memory.maximum.map(|m| m as u32))
             // };
-            let memory = LinearMemory::new(mem);
+            let memory = Memory::new(desc).expect("unable to create memory");
             memories.push(memory);
         }
 
@@ -78,8 +80,8 @@ impl LocalBacking {
     fn finalize_memories(
         module: &ModuleInner,
         imports: &ImportBacking,
-        memories: &mut SliceMap<LocalMemoryIndex, LinearMemory>,
-    ) -> BoxedMap<LocalMemoryIndex, vm::LocalMemory> {
+        memories: &mut SliceMap<LocalMemoryIndex, Memory>,
+    ) -> BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory> {
         // For each init that has some data...
         for init in module
             .data_initializers
@@ -89,9 +91,9 @@ impl LocalBacking {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
-                Initializer::GetGlobal(imported_global_index) => {
-                    if module.imported_globals[imported_global_index].1.ty == Type::I32 {
-                        unsafe { (*imports.globals[imported_global_index].global).data as u32 }
+                Initializer::GetGlobal(import_global_index) => {
+                    if let Value::I32(x) = imports.globals[import_global_index].get() {
+                        x as u32
                     } else {
                         panic!("unsupported global type for initialzer")
                     }
@@ -100,20 +102,20 @@ impl LocalBacking {
 
             match init.memory_index.local_or_import(module) {
                 LocalOrImport::Local(local_memory_index) => {
-                    let memory_desc = &module.memories[local_memory_index];
+                    let memory_desc = module.memories[local_memory_index];
                     let data_top = init_base + init.data.len();
-                    assert!((memory_desc.min * LinearMemory::PAGE_SIZE) as usize >= data_top);
-                    let mem: &mut LinearMemory = &mut memories[local_memory_index];
+                    assert!(memory_desc.minimum.bytes().0 >= data_top);
 
-                    let mem_init_view = &mut mem[init_base..init_base + init.data.len()];
-                    mem_init_view.copy_from_slice(&init.data);
+                    let mem = &memories[local_memory_index];
+                    mem.write_many(init_base as u32, &init.data).unwrap();
                 }
                 LocalOrImport::Import(imported_memory_index) => {
-                    let vm_imported_memory = imports.imported_memory(imported_memory_index);
+                    // Write the initialization data to the memory that
+                    // we think the imported memory is.
                     unsafe {
-                        let local_memory = &(*vm_imported_memory.memory);
+                        let local_memory = &*imports.vm_memories[imported_memory_index];
                         let memory_slice =
-                            slice::from_raw_parts_mut(local_memory.base, local_memory.size);
+                            slice::from_raw_parts_mut(local_memory.base, local_memory.bound);
 
                         let mem_init_view =
                             &mut memory_slice[init_base..init_base + init.data.len()];
@@ -125,17 +127,17 @@ impl LocalBacking {
 
         memories
             .iter_mut()
-            .map(|(index, mem)| mem.into_vm_memory(index))
+            .map(|(_, mem)| mem.vm_local_memory())
             .collect::<Map<_, _>>()
             .into_boxed_map()
     }
 
-    fn generate_tables(module: &ModuleInner) -> BoxedMap<LocalTableIndex, TableBacking> {
+    fn generate_tables(module: &ModuleInner) -> BoxedMap<LocalTableIndex, Table> {
         let mut tables = Map::with_capacity(module.tables.len());
 
-        for (_, table) in &module.tables {
-            let table_backing = TableBacking::new(table);
-            tables.push(table_backing);
+        for (_, &table_desc) in module.tables.iter() {
+            let table = Table::new(table_desc).unwrap();
+            tables.push(table);
         }
 
         tables.into_boxed_map()
@@ -145,16 +147,16 @@ impl LocalBacking {
     fn finalize_tables(
         module: &ModuleInner,
         imports: &ImportBacking,
-        tables: &mut SliceMap<LocalTableIndex, TableBacking>,
+        tables: &mut SliceMap<LocalTableIndex, Table>,
         vmctx: *mut vm::Ctx,
-    ) -> BoxedMap<LocalTableIndex, vm::LocalTable> {
+    ) -> BoxedMap<LocalTableIndex, *mut vm::LocalTable> {
         for init in &module.elem_initializers {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
-                Initializer::GetGlobal(imported_global_index) => {
-                    if module.imported_globals[imported_global_index].1.ty == Type::I32 {
-                        unsafe { (*imports.globals[imported_global_index].global).data as u32 }
+                Initializer::GetGlobal(import_global_index) => {
+                    if let Value::I32(x) = imports.globals[import_global_index].get() {
+                        x as u32
                     } else {
                         panic!("unsupported global type for initialzer")
                     }
@@ -163,141 +165,132 @@ impl LocalBacking {
 
             match init.table_index.local_or_import(module) {
                 LocalOrImport::Local(local_table_index) => {
-                    let table = &mut tables[local_table_index];
-                    match table.elements {
-                        TableElements::Anyfunc(ref mut elements) => {
-                            if elements.len() < init_base + init.elements.len() {
-                                // Grow the table if it's too small.
-                                elements
-                                    .resize(init_base + init.elements.len(), vm::Anyfunc::null());
-                            }
+                    let table = &tables[local_table_index];
 
-                            for (i, &func_index) in init.elements.iter().enumerate() {
-                                let sig_index = module.func_assoc[func_index];
-                                let sig_id = vm::SigId(sig_index.index() as u32);
-
-                                let func_data = match func_index.local_or_import(module) {
-                                    LocalOrImport::Local(local_func_index) => vm::ImportedFunc {
-                                        func: module
-                                            .func_resolver
-                                            .get(module, local_func_index)
-                                            .unwrap()
-                                            .as_ptr(),
-                                        vmctx,
-                                    },
-                                    LocalOrImport::Import(imported_func_index) => {
-                                        imports.functions[imported_func_index].clone()
-                                    }
-                                };
-
-                                elements[init_base + i] = vm::Anyfunc { func_data, sig_id };
-                            }
-                        }
+                    if (table.size() as usize) < init_base + init.elements.len() {
+                        let delta = (init_base + init.elements.len()) - table.size() as usize;
+                        // Grow the table if it's too small.
+                        table.grow(delta as u32).expect("couldn't grow table");
                     }
-                }
-                LocalOrImport::Import(imported_table_index) => {
-                    let (_, table_description) = module.imported_tables[imported_table_index];
-                    match table_description.ty {
-                        ElementType::Anyfunc => {
-                            let imported_table = &imports.tables[imported_table_index];
-                            let imported_local_table = (*imported_table).table;
 
-                            let mut elements = unsafe {
-                                Vec::from_raw_parts(
-                                    (*imported_local_table).base as *mut vm::Anyfunc,
-                                    (*imported_local_table).current_elements,
-                                    (*imported_local_table).capacity,
-                                )
+                    table.anyfunc_direct_access_mut(|elements| {
+                        for (i, &func_index) in init.elements.iter().enumerate() {
+                            let sig_index = module.func_assoc[func_index];
+                            let sig_id = vm::SigId(sig_index.index() as u32);
+
+                            let (func, ctx) = match func_index.local_or_import(module) {
+                                LocalOrImport::Local(local_func_index) => (
+                                    module
+                                        .func_resolver
+                                        .get(module, local_func_index)
+                                        .unwrap()
+                                        .as_ptr()
+                                        as *const vm::Func,
+                                    vmctx,
+                                ),
+                                LocalOrImport::Import(imported_func_index) => {
+                                    let vm::ImportedFunc { func, vmctx } =
+                                        imports.vm_functions[imported_func_index];
+                                    (func, vmctx)
+                                }
                             };
 
-                            if elements.len() < init_base + init.elements.len() {
-                                // Grow the table if it's too small.
-                                elements
-                                    .resize(init_base + init.elements.len(), vm::Anyfunc::null());
-                                // Since the vector may have changed location after reallocating,
-                                // we must fix the base, current_elements, and capacity fields.
-                                unsafe {
-                                    (*imported_local_table).base = elements.as_mut_ptr() as *mut u8;
-                                    (*imported_local_table).current_elements = elements.len();
-                                    (*imported_local_table).capacity = elements.capacity();
-                                }
-                            }
-
-                            for (i, &func_index) in init.elements.iter().enumerate() {
-                                let sig_index = module.func_assoc[func_index];
-                                let sig_id = vm::SigId(sig_index.index() as u32);
-
-                                let func_data = match func_index.local_or_import(module) {
-                                    LocalOrImport::Local(local_func_index) => vm::ImportedFunc {
-                                        func: module
-                                            .func_resolver
-                                            .get(module, local_func_index)
-                                            .unwrap()
-                                            .as_ptr(),
-                                        vmctx,
-                                    },
-                                    LocalOrImport::Import(imported_func_index) => {
-                                        imports.functions[imported_func_index].clone()
-                                    }
-                                };
-
-                                elements[init_base + i] = vm::Anyfunc { func_data, sig_id };
-                            }
-
-                            // println!("imported elements: {:#?}", elements);
-
-                            // THIS IS EXTREMELY IMPORTANT.
-                            mem::forget(elements);
+                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id };
                         }
+                    });
+                }
+                LocalOrImport::Import(import_table_index) => {
+                    let table = &imports.tables[import_table_index];
+
+                    if (table.size() as usize) < init_base + init.elements.len() {
+                        let delta = (init_base + init.elements.len()) - table.size() as usize;
+                        // Grow the table if it's too small.
+                        table.grow(delta as u32).expect("couldn't grow table");
                     }
+
+                    table.anyfunc_direct_access_mut(|elements| {
+                        for (i, &func_index) in init.elements.iter().enumerate() {
+                            let sig_index = module.func_assoc[func_index];
+                            let sig_id = vm::SigId(sig_index.index() as u32);
+
+                            let (func, ctx) = match func_index.local_or_import(module) {
+                                LocalOrImport::Local(local_func_index) => (
+                                    module
+                                        .func_resolver
+                                        .get(module, local_func_index)
+                                        .unwrap()
+                                        .as_ptr()
+                                        as *const vm::Func,
+                                    vmctx,
+                                ),
+                                LocalOrImport::Import(imported_func_index) => {
+                                    let vm::ImportedFunc { func, vmctx } =
+                                        imports.vm_functions[imported_func_index];
+                                    (func, vmctx)
+                                }
+                            };
+
+                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id };
+                        }
+                    });
                 }
             }
         }
 
         tables
             .iter_mut()
-            .map(|(_, table)| table.into_vm_table())
+            .map(|(_, table)| table.vm_local_table())
             .collect::<Map<_, _>>()
             .into_boxed_map()
     }
 
-    fn generate_globals(module: &ModuleInner) -> BoxedMap<LocalGlobalIndex, vm::LocalGlobal> {
+    fn generate_globals(
+        module: &ModuleInner,
+        imports: &ImportBacking,
+    ) -> BoxedMap<LocalGlobalIndex, Global> {
         let mut globals = Map::with_capacity(module.globals.len());
 
-        globals.resize(module.globals.len(), vm::LocalGlobal::null());
+        for (_, global_init) in module.globals.iter() {
+            let value = match &global_init.init {
+                Initializer::Const(value) => value.clone(),
+                Initializer::GetGlobal(import_global_index) => {
+                    imports.globals[*import_global_index].get()
+                }
+            };
+
+            let global = if global_init.desc.mutable {
+                Global::new_mutable(value)
+            } else {
+                Global::new(value)
+            };
+
+            globals.push(global);
+        }
 
         globals.into_boxed_map()
     }
 
     fn finalize_globals(
-        module: &ModuleInner,
-        imports: &ImportBacking,
-        mut globals: BoxedMap<LocalGlobalIndex, vm::LocalGlobal>,
-    ) -> BoxedMap<LocalGlobalIndex, vm::LocalGlobal> {
-        for ((_, to), (_, from)) in globals.iter_mut().zip(module.globals.iter()) {
-            to.data = match from.init {
-                Initializer::Const(ref value) => match value {
-                    Value::I32(x) => *x as u64,
-                    Value::I64(x) => *x as u64,
-                    Value::F32(x) => x.to_bits() as u64,
-                    Value::F64(x) => x.to_bits(),
-                },
-                Initializer::GetGlobal(imported_global_index) => unsafe {
-                    (*imports.globals[imported_global_index].global).data
-                },
-            };
-        }
-
+        globals: &mut SliceMap<LocalGlobalIndex, Global>,
+    ) -> BoxedMap<LocalGlobalIndex, *mut vm::LocalGlobal> {
         globals
+            .iter_mut()
+            .map(|(_, global)| global.vm_local_global())
+            .collect::<Map<_, _>>()
+            .into_boxed_map()
     }
 }
 
 #[derive(Debug)]
 pub struct ImportBacking {
-    pub(crate) functions: BoxedMap<ImportedFuncIndex, vm::ImportedFunc>,
-    pub(crate) memories: BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>,
-    pub(crate) tables: BoxedMap<ImportedTableIndex, vm::ImportedTable>,
-    pub(crate) globals: BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>,
+    pub(crate) memories: BoxedMap<ImportedMemoryIndex, Memory>,
+    pub(crate) tables: BoxedMap<ImportedTableIndex, Table>,
+    pub(crate) globals: BoxedMap<ImportedGlobalIndex, Global>,
+
+    pub(crate) vm_functions: BoxedMap<ImportedFuncIndex, vm::ImportedFunc>,
+    pub(crate) vm_memories: BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
+    pub(crate) vm_tables: BoxedMap<ImportedTableIndex, *mut vm::LocalTable>,
+    pub(crate) vm_globals: BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,
 }
 
 impl ImportBacking {
@@ -309,48 +302,48 @@ impl ImportBacking {
         let mut failed = false;
         let mut link_errors = vec![];
 
-        let functions = import_functions(module, imports, vmctx).unwrap_or_else(|le| {
+        let vm_functions = import_functions(module, imports, vmctx).unwrap_or_else(|le| {
             failed = true;
             link_errors.extend(le);
             Map::new().into_boxed_map()
         });
 
-        let memories = import_memories(module, imports, vmctx).unwrap_or_else(|le| {
+        let (memories, vm_memories) = import_memories(module, imports).unwrap_or_else(|le| {
             failed = true;
             link_errors.extend(le);
-            Map::new().into_boxed_map()
+            (Map::new().into_boxed_map(), Map::new().into_boxed_map())
         });
 
-        let tables = import_tables(module, imports, vmctx).unwrap_or_else(|le| {
+        let (tables, vm_tables) = import_tables(module, imports).unwrap_or_else(|le| {
             failed = true;
             link_errors.extend(le);
-            Map::new().into_boxed_map()
+            (Map::new().into_boxed_map(), Map::new().into_boxed_map())
         });
 
-        let globals = import_globals(module, imports).unwrap_or_else(|le| {
+        let (globals, vm_globals) = import_globals(module, imports).unwrap_or_else(|le| {
             failed = true;
             link_errors.extend(le);
-            Map::new().into_boxed_map()
+            (Map::new().into_boxed_map(), Map::new().into_boxed_map())
         });
 
         if failed {
             Err(link_errors)
         } else {
             Ok(ImportBacking {
-                functions,
                 memories,
                 tables,
                 globals,
+
+                vm_functions,
+                vm_memories,
+                vm_tables,
+                vm_globals,
             })
         }
     }
 
-    pub fn imported_func(&self, func_index: ImportedFuncIndex) -> vm::ImportedFunc {
-        self.functions[func_index].clone()
-    }
-
-    pub fn imported_memory(&self, memory_index: ImportedMemoryIndex) -> vm::ImportedMemory {
-        self.memories[memory_index].clone()
+    pub fn imported_func(&self, index: ImportedFuncIndex) -> vm::ImportedFunc {
+        self.vm_functions[index].clone()
     }
 }
 
@@ -363,7 +356,7 @@ fn import_functions(
     let mut functions = Map::with_capacity(module.imported_functions.len());
     for (index, ImportName { namespace, name }) in &module.imported_functions {
         let sig_index = module.func_assoc[index.convert_up(module)];
-        let expected_sig = module.sig_registry.lookup_func_sig(sig_index);
+        let expected_sig = module.sig_registry.lookup_signature(sig_index);
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
@@ -373,7 +366,7 @@ fn import_functions(
                 ctx,
                 signature,
             }) => {
-                if expected_sig == &signature {
+                if expected_sig == signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
                         vmctx: match ctx {
@@ -424,36 +417,30 @@ fn import_functions(
 fn import_memories(
     module: &ModuleInner,
     imports: &mut ImportObject,
-    vmctx: *mut vm::Ctx,
-) -> LinkResult<BoxedMap<ImportedMemoryIndex, vm::ImportedMemory>> {
+) -> LinkResult<(
+    BoxedMap<ImportedMemoryIndex, Memory>,
+    BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
+)> {
     let mut link_errors = vec![];
     let mut memories = Map::with_capacity(module.imported_memories.len());
+    let mut vm_memories = Map::with_capacity(module.imported_memories.len());
     for (_index, (ImportName { namespace, name }, expected_memory_desc)) in
         &module.imported_memories
     {
         let memory_import = imports
-            .get_namespace(namespace)
-            .and_then(|namespace| namespace.get_export(name));
+            .get_namespace(&namespace)
+            .and_then(|namespace| namespace.get_export(&name));
         match memory_import {
-            Some(Export::Memory {
-                local,
-                ctx,
-                memory: memory_desc,
-            }) => {
-                if expected_memory_desc.fits_in_imported(&memory_desc) {
-                    memories.push(vm::ImportedMemory {
-                        memory: local.inner(),
-                        vmctx: match ctx {
-                            Context::External(ctx) => ctx,
-                            Context::Internal => vmctx,
-                        },
-                    });
+            Some(Export::Memory(mut memory)) => {
+                if expected_memory_desc.fits_in_imported(memory.descriptor()) {
+                    memories.push(memory.clone());
+                    vm_memories.push(memory.vm_local_memory());
                 } else {
-                    link_errors.push(LinkError::IncorrectMemoryDescription {
+                    link_errors.push(LinkError::IncorrectMemoryDescriptor {
                         namespace: namespace.clone(),
                         name: name.clone(),
-                        expected: expected_memory_desc.clone(),
-                        found: memory_desc.clone(),
+                        expected: *expected_memory_desc,
+                        found: memory.descriptor(),
                     });
                 }
             }
@@ -484,41 +471,35 @@ fn import_memories(
     if link_errors.len() > 0 {
         Err(link_errors)
     } else {
-        Ok(memories.into_boxed_map())
+        Ok((memories.into_boxed_map(), vm_memories.into_boxed_map()))
     }
 }
 
 fn import_tables(
     module: &ModuleInner,
     imports: &mut ImportObject,
-    vmctx: *mut vm::Ctx,
-) -> LinkResult<BoxedMap<ImportedTableIndex, vm::ImportedTable>> {
+) -> LinkResult<(
+    BoxedMap<ImportedTableIndex, Table>,
+    BoxedMap<ImportedTableIndex, *mut vm::LocalTable>,
+)> {
     let mut link_errors = vec![];
     let mut tables = Map::with_capacity(module.imported_tables.len());
+    let mut vm_tables = Map::with_capacity(module.imported_tables.len());
     for (_index, (ImportName { namespace, name }, expected_table_desc)) in &module.imported_tables {
         let table_import = imports
-            .get_namespace(namespace)
-            .and_then(|namespace| namespace.get_export(name));
+            .get_namespace(&namespace)
+            .and_then(|namespace| namespace.get_export(&name));
         match table_import {
-            Some(Export::Table {
-                local,
-                ctx,
-                table: table_desc,
-            }) => {
-                if expected_table_desc.fits_in_imported(&table_desc) {
-                    tables.push(vm::ImportedTable {
-                        table: local.inner(),
-                        vmctx: match ctx {
-                            Context::External(ctx) => ctx,
-                            Context::Internal => vmctx,
-                        },
-                    });
+            Some(Export::Table(mut table)) => {
+                if expected_table_desc.fits_in_imported(table.descriptor()) {
+                    vm_tables.push(table.vm_local_table());
+                    tables.push(table);
                 } else {
-                    link_errors.push(LinkError::IncorrectTableDescription {
+                    link_errors.push(LinkError::IncorrectTableDescriptor {
                         namespace: namespace.clone(),
                         name: name.clone(),
-                        expected: expected_table_desc.clone(),
-                        found: table_desc.clone(),
+                        expected: *expected_table_desc,
+                        found: table.descriptor(),
                     });
                 }
             }
@@ -549,32 +530,35 @@ fn import_tables(
     if link_errors.len() > 0 {
         Err(link_errors)
     } else {
-        Ok(tables.into_boxed_map())
+        Ok((tables.into_boxed_map(), vm_tables.into_boxed_map()))
     }
 }
 
 fn import_globals(
     module: &ModuleInner,
     imports: &mut ImportObject,
-) -> LinkResult<BoxedMap<ImportedGlobalIndex, vm::ImportedGlobal>> {
+) -> LinkResult<(
+    BoxedMap<ImportedGlobalIndex, Global>,
+    BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,
+)> {
     let mut link_errors = vec![];
     let mut globals = Map::with_capacity(module.imported_globals.len());
+    let mut vm_globals = Map::with_capacity(module.imported_globals.len());
     for (_, (ImportName { namespace, name }, imported_global_desc)) in &module.imported_globals {
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
         match import {
-            Some(Export::Global { local, global }) => {
-                if global == *imported_global_desc {
-                    globals.push(vm::ImportedGlobal {
-                        global: local.inner(),
-                    });
+            Some(Export::Global(mut global)) => {
+                if global.descriptor() == *imported_global_desc {
+                    vm_globals.push(global.vm_local_global());
+                    globals.push(global);
                 } else {
-                    link_errors.push(LinkError::IncorrectGlobalDescription {
+                    link_errors.push(LinkError::IncorrectGlobalDescriptor {
                         namespace: namespace.clone(),
                         name: name.clone(),
-                        expected: imported_global_desc.clone(),
-                        found: global.clone(),
+                        expected: *imported_global_desc,
+                        found: global.descriptor(),
                     });
                 }
             }
@@ -605,6 +589,6 @@ fn import_globals(
     if link_errors.len() > 0 {
         Err(link_errors)
     } else {
-        Ok(globals.into_boxed_map())
+        Ok((globals.into_boxed_map(), vm_globals.into_boxed_map()))
     }
 }
