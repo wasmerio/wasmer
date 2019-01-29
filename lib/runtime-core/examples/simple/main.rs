@@ -5,7 +5,8 @@ use wasmer_runtime_core::{
     global::Global,
     memory::Memory,
     prelude::*,
-    types::{MemoryDesc, Value},
+    table::Table,
+    types::{ElementType, MemoryDesc, TableDesc, Value},
 };
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
@@ -23,6 +24,13 @@ fn main() -> Result<()> {
 
     let global = Global::new(Value::I32(42));
 
+    let table = Table::new(TableDesc {
+        ty: ElementType::Anyfunc,
+        min: 10,
+        max: None,
+    })
+    .unwrap();
+
     memory.direct_access_mut(|slice: &mut [u32]| {
         slice[0] = 42;
     });
@@ -32,6 +40,7 @@ fn main() -> Result<()> {
             "print_i32" => func!(print_num, [i32] -> [i32]),
             "memory" => memory,
             "global" => global,
+            "table" => table,
         },
     };
 
@@ -42,7 +51,7 @@ fn main() -> Result<()> {
     };
 
     let outer_module = wasmer_runtime_core::compile_with(EXAMPLE_WASM, &CraneliftCompiler::new())?;
-    let mut outer_instance = outer_module.instantiate(outer_imports)?;
+    let outer_instance = outer_module.instantiate(outer_imports)?;
     let ret = outer_instance.call("main", &[Value::I32(42)])?;
     println!("ret: {:?}", ret);
 
@@ -58,6 +67,7 @@ static IMPORT_MODULE: &str = r#"
 (module
   (type $t0 (func (param i32) (result i32)))
   (import "env" "memory" (memory 1 1))
+  (import "env" "table" (table 10 anyfunc))
   (import "env" "global" (global i32))
   (import "env" "print_i32" (func $print_i32 (type $t0)))
   (func $print_num (export "print_num") (type $t0) (param $p0 i32) (result i32)

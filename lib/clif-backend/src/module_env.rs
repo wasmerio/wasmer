@@ -3,13 +3,15 @@ use crate::{
     module::{Converter, Module},
 };
 use cranelift_codegen::{ir, isa};
+use cranelift_entity::PrimaryMap;
 use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
+use hashbrown::HashMap;
 use wasmer_runtime_core::{
     error::{CompileError, CompileResult},
     module::{DataInitializer, ExportIndex, ImportName, TableInitializer},
     structures::{Map, TypedIndex},
     types::{
-        ElementType, GlobalDesc, GlobalIndex, GlobalInit, Initializer, LocalFuncIndex,
+        ElementType, FuncSig, GlobalDesc, GlobalIndex, GlobalInit, Initializer, LocalFuncIndex,
         LocalOrImport, MemoryDesc, SigIndex, TableDesc, Value,
     },
 };
@@ -20,6 +22,8 @@ pub struct ModuleEnv<'module, 'isa> {
     pub signatures: Map<SigIndex, ir::Signature>,
     globals: Map<GlobalIndex, cranelift_wasm::Global>,
     func_bodies: Map<LocalFuncIndex, ir::Function>,
+    pub deduplicated: PrimaryMap<cranelift_wasm::SignatureIndex, SigIndex>,
+    duplicated: HashMap<SigIndex, cranelift_wasm::SignatureIndex>,
 }
 
 impl<'module, 'isa> ModuleEnv<'module, 'isa> {
@@ -30,6 +34,8 @@ impl<'module, 'isa> ModuleEnv<'module, 'isa> {
             signatures: Map::new(),
             globals: Map::new(),
             func_bodies: Map::new(),
+            deduplicated: PrimaryMap::new(),
+            duplicated: HashMap::new(),
         }
     }
 
@@ -48,23 +54,28 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a function signature to the environment.
     fn declare_signature(&mut self, sig: &ir::Signature) {
-        self.signatures.push(sig.clone());
-        self.module.sig_registry.register(Converter(sig).into());
+        let clif_sig_index = self.signatures.push(sig.clone());
+        let func_sig: FuncSig = Converter(sig).into();
+        let sig_index = self.module.sig_registry.lookup_sigindex(func_sig);
+        self.deduplicated.push(sig_index);
+        self.duplicated
+            .insert(sig_index, Converter(clif_sig_index).into());
     }
 
     /// Return the signature with the given index.
-    fn get_signature(&self, sig_index: cranelift_wasm::SignatureIndex) -> &ir::Signature {
-        &self.signatures[Converter(sig_index).into()]
+    fn get_signature(&self, clif_sig_index: cranelift_wasm::SignatureIndex) -> &ir::Signature {
+        &self.signatures[Converter(clif_sig_index).into()]
     }
 
     /// Declares a function import to the environment.
     fn declare_func_import(
         &mut self,
-        sig_index: cranelift_wasm::SignatureIndex,
+        clif_sig_index: cranelift_wasm::SignatureIndex,
         namespace: &'data str,
         name: &'data str,
     ) {
-        self.module.func_assoc.push(Converter(sig_index).into());
+        let sig_index = self.deduplicated[clif_sig_index];
+        self.module.func_assoc.push(sig_index);
 
         // Add import names to list of imported functions
         self.module.imported_functions.push(ImportName {
@@ -79,8 +90,9 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     }
 
     /// Declares the type (signature) of a local function in the module.
-    fn declare_func_type(&mut self, sig_index: cranelift_wasm::SignatureIndex) {
-        self.module.func_assoc.push(Converter(sig_index).into());
+    fn declare_func_type(&mut self, clif_sig_index: cranelift_wasm::SignatureIndex) {
+        let sig_index = self.deduplicated[clif_sig_index];
+        self.module.func_assoc.push(sig_index);
     }
 
     /// Return the signature index for the given function index.
@@ -88,7 +100,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         &self,
         func_index: cranelift_wasm::FuncIndex,
     ) -> cranelift_wasm::SignatureIndex {
-        Converter(self.module.func_assoc[Converter(func_index).into()]).into()
+        let sig_index: SigIndex = self.module.func_assoc[Converter(func_index).into()];
+        self.duplicated[&sig_index]
     }
 
     /// Declares a global to the environment.

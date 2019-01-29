@@ -1,5 +1,5 @@
 use crate::{memory::MemoryType, module::ModuleInner, structures::TypedIndex};
-use std::mem;
+use std::{borrow::Cow, mem};
 
 /// Represents a WebAssembly type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -138,7 +138,7 @@ pub struct TableDesc {
 }
 
 impl TableDesc {
-    pub(crate) fn fits_in_imported(&self, imported: &TableDesc) -> bool {
+    pub(crate) fn fits_in_imported(&self, imported: TableDesc) -> bool {
         // TODO: We should define implementation limits.
         let imported_max = imported.max.unwrap_or(u32::max_value());
         let self_max = self.max.unwrap_or(u32::max_value());
@@ -203,12 +203,31 @@ impl MemoryDesc {
 /// in a wasm module or exposed to wasm by the host.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FuncSig {
-    pub params: Vec<Type>,
-    pub returns: Vec<Type>,
+    params: Cow<'static, [Type]>,
+    returns: Cow<'static, [Type]>,
 }
 
 impl FuncSig {
-    pub fn check_sig(&self, params: &[Value]) -> bool {
+    pub fn new<Params, Returns>(params: Params, returns: Returns) -> Self
+    where
+        Params: Into<Cow<'static, [Type]>>,
+        Returns: Into<Cow<'static, [Type]>>,
+    {
+        Self {
+            params: params.into(),
+            returns: returns.into(),
+        }
+    }
+
+    pub fn params(&self) -> &[Type] {
+        &self.params
+    }
+
+    pub fn returns(&self) -> &[Type] {
+        &self.returns
+    }
+
+    pub fn check_param_value_types(&self, params: &[Value]) -> bool {
         self.params.len() == params.len()
             && self
                 .params

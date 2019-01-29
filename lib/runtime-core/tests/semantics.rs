@@ -24,7 +24,7 @@ mod tests {
         let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
         let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new())
             .expect("WASM can't be compiled");
-        let mut instance = module
+        let instance = module
             .instantiate(ImportObject::new())
             .expect("WASM can't be instantiated");
         let result = instance.call("stack-overflow", &[]);

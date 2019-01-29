@@ -25,9 +25,12 @@ impl<'env, 'module, 'isa> FuncEnv<'env, 'module, 'isa> {
     }
 
     /// Creates a signature with VMContext as the last param
-    pub fn generate_signature(&self, sig_index: cranelift_wasm::SignatureIndex) -> ir::Signature {
+    pub fn generate_signature(
+        &self,
+        clif_sig_index: cranelift_wasm::SignatureIndex,
+    ) -> ir::Signature {
         // Get signature
-        let mut signature = self.env.signatures[Converter(sig_index).into()].clone();
+        let mut signature = self.env.signatures[Converter(clif_sig_index).into()].clone();
 
         // Add the vmctx parameter type to it
         signature.params.push(ir::AbiParam::special(
@@ -251,7 +254,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        match table_index.local_or_import(self.env.module) {
+        let (table_struct_ptr_ptr, description) = match table_index.local_or_import(self.env.module)
+        {
             LocalOrImport::Local(local_table_index) => {
                 let tables_base = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
@@ -260,88 +264,74 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                     readonly: true,
                 });
 
-                let table_struct_offset =
+                let table_struct_ptr_offset =
                     local_table_index.index() * vm::LocalTable::size() as usize;
 
-                let table_struct_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
                     base: tables_base,
-                    offset: (table_struct_offset as i64).into(),
+                    offset: (table_struct_ptr_offset as i64).into(),
                     global_type: ptr_type,
                 });
 
-                let table_base = func.create_global_value(ir::GlobalValueData::Load {
-                    base: table_struct_addr,
-                    offset: (vm::LocalTable::offset_base() as i32).into(),
-                    global_type: ptr_type,
-                    // we will support growing tables, so this cannot be readonly.
-                    readonly: false,
-                });
-
-                let table_bound = func.create_global_value(ir::GlobalValueData::Load {
-                    base: table_struct_addr,
-                    offset: (vm::LocalTable::offset_current_elements() as i32).into(),
-                    // the number of elements in a table will always fit in an `i32`.
-                    global_type: ir::types::I32,
-                    readonly: false,
-                });
-
-                func.create_table(ir::TableData {
-                    base_gv: table_base,
-                    min_size: (self.env.module.tables[local_table_index].min as u64).into(),
-                    bound_gv: table_bound,
-                    element_size: (vm::Anyfunc::size() as u64).into(),
-                    index_type: ir::types::I32,
-                })
+                (
+                    table_struct_ptr_ptr,
+                    self.env.module.tables[local_table_index],
+                )
             }
-            LocalOrImport::Import(imported_table_index) => {
-                let imported_tables_base = func.create_global_value(ir::GlobalValueData::Load {
+            LocalOrImport::Import(import_table_index) => {
+                let tables_base = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
                     offset: (vm::Ctx::offset_imported_tables() as i32).into(),
                     global_type: ptr_type,
                     readonly: true,
                 });
 
-                let imported_table_struct_offset =
-                    imported_table_index.index() * vm::ImportedTable::size() as usize;
+                let table_struct_ptr_offset =
+                    import_table_index.index() * vm::LocalTable::size() as usize;
 
-                let imported_table_struct_addr =
-                    func.create_global_value(ir::GlobalValueData::IAddImm {
-                        base: imported_tables_base,
-                        offset: (imported_table_struct_offset as i64).into(),
-                        global_type: ptr_type,
-                    });
-
-                let local_table_struct_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: imported_table_struct_addr,
-                    offset: (vm::ImportedTable::offset_table() as i32).into(),
+                let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                    base: tables_base,
+                    offset: (table_struct_ptr_offset as i64).into(),
                     global_type: ptr_type,
-                    readonly: true,
                 });
 
-                let local_table_base = func.create_global_value(ir::GlobalValueData::Load {
-                    base: local_table_struct_addr,
-                    offset: (vm::LocalTable::offset_base() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: false,
-                });
-
-                let local_table_bound = func.create_global_value(ir::GlobalValueData::Load {
-                    base: local_table_struct_addr,
-                    offset: (vm::LocalTable::offset_current_elements() as i32).into(),
-                    global_type: ir::types::I32,
-                    readonly: false,
-                });
-
-                func.create_table(ir::TableData {
-                    base_gv: local_table_base,
-                    min_size: (self.env.module.imported_tables[imported_table_index].1.min as u64)
-                        .into(),
-                    bound_gv: local_table_bound,
-                    element_size: (vm::Anyfunc::size() as u64).into(),
-                    index_type: ir::types::I32,
-                })
+                (
+                    table_struct_ptr_ptr,
+                    self.env.module.imported_tables[import_table_index].1,
+                )
             }
-        }
+        };
+
+        let table_struct_ptr = func.create_global_value(ir::GlobalValueData::Load {
+            base: table_struct_ptr_ptr,
+            offset: 0.into(),
+            global_type: ptr_type,
+            readonly: true,
+        });
+
+        let table_base = func.create_global_value(ir::GlobalValueData::Load {
+            base: table_struct_ptr,
+            offset: (vm::LocalTable::offset_base() as i32).into(),
+            global_type: ptr_type,
+            // The table can reallocate, so the ptr can't be readonly.
+            readonly: false,
+        });
+
+        let table_count = func.create_global_value(ir::GlobalValueData::Load {
+            base: table_struct_ptr,
+            offset: (vm::LocalTable::offset_count() as i32).into(),
+            global_type: ptr_type,
+            // The table length can change, so it can't be readonly.
+            readonly: false,
+        });
+
+        func.create_table(ir::TableData {
+            base_gv: table_base,
+            min_size: (description.min as u64).into(),
+            bound_gv: table_count,
+            element_size: (vm::Anyfunc::size() as u64).into(),
+            index_type: ir::types::I32,
+        })
     }
 
     /// Sets up a signature definition in `func`'s preamble.
@@ -351,10 +341,10 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
     fn make_indirect_sig(
         &mut self,
         func: &mut ir::Function,
-        index: cranelift_wasm::SignatureIndex,
+        clif_sig_index: cranelift_wasm::SignatureIndex,
     ) -> ir::SigRef {
         // Create a signature reference out of specified signature (with VMContext param added).
-        func.import_signature(self.generate_signature(index))
+        func.import_signature(self.generate_signature(clif_sig_index))
     }
 
     /// Sets up an external function definition in the preamble of `func` that can be used to
@@ -393,7 +383,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         mut pos: FuncCursor,
         _table_index: cranelift_wasm::TableIndex,
         table: ir::Table,
-        sig_index: cranelift_wasm::SignatureIndex,
+        clif_sig_index: cranelift_wasm::SignatureIndex,
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
@@ -412,12 +402,25 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             entry_addr,
             vm::Anyfunc::offset_func() as i32,
         );
-        let vmctx_ptr = pos.ins().load(
-            ptr_type,
-            mflags,
-            entry_addr,
-            vm::Anyfunc::offset_vmctx() as i32,
-        );
+
+        let vmctx_ptr = {
+            let loaded_vmctx_ptr = pos.ins().load(
+                ptr_type,
+                mflags,
+                entry_addr,
+                vm::Anyfunc::offset_vmctx() as i32,
+            );
+
+            let argument_vmctx_ptr = pos
+                .func
+                .special_param(ir::ArgumentPurpose::VMContext)
+                .expect("missing vmctx parameter");
+
+            // If the loaded vmctx ptr is zero, use the caller vmctx, else use the callee (loaded) vmctx.
+            pos.ins()
+                .select(loaded_vmctx_ptr, loaded_vmctx_ptr, argument_vmctx_ptr)
+        };
+
         let found_sig = pos.ins().load(
             ir::types::I32,
             mflags,
@@ -427,14 +430,9 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         pos.ins().trapz(func_ptr, ir::TrapCode::IndirectCallToNull);
 
-        let deduplicated_sig_index = self
-            .env
-            .module
-            .sig_registry
-            .lookup_deduplicated_sigindex(Converter(sig_index).into());
-        let expected_sig = pos
-            .ins()
-            .iconst(ir::types::I32, deduplicated_sig_index.index() as i64);
+        let sig_index = self.env.deduplicated[clif_sig_index];
+
+        let expected_sig = pos.ins().iconst(ir::types::I32, sig_index.index() as i64);
         let not_equal_flags = pos.ins().ifcmp(found_sig, expected_sig);
 
         pos.ins().trapif(

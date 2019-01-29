@@ -1,4 +1,5 @@
 use crate::types::{FuncSig, GlobalDesc, MemoryDesc, MemoryIndex, TableDesc, TableIndex, Type};
+use std::sync::Arc;
 
 pub type Result<T> = std::result::Result<T, Box<Error>>;
 pub type CompileResult<T> = std::result::Result<T, Box<CompileError>>;
@@ -39,8 +40,8 @@ pub enum LinkError {
     IncorrectImportSignature {
         namespace: String,
         name: String,
-        expected: FuncSig,
-        found: FuncSig,
+        expected: Arc<FuncSig>,
+        found: Arc<FuncSig>,
     },
     ImportNotFound {
         namespace: String,
@@ -100,9 +101,16 @@ impl PartialEq for RuntimeError {
 /// Comparing two `ResolveError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum ResolveError {
-    Signature { expected: FuncSig, found: Vec<Type> },
-    ExportNotFound { name: String },
-    ExportWrongType { name: String },
+    Signature {
+        expected: Arc<FuncSig>,
+        found: Vec<Type>,
+    },
+    ExportNotFound {
+        name: String,
+    },
+    ExportWrongType {
+        name: String,
+    },
 }
 
 impl PartialEq for ResolveError {

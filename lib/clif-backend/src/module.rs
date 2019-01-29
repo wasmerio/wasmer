@@ -76,7 +76,7 @@ impl Module {
                 start_func: None,
 
                 func_assoc: Map::new(),
-                sig_registry: SigRegistry::new(),
+                sig_registry: SigRegistry,
             },
         }
     }
@@ -87,11 +87,11 @@ impl Module {
         functions: Map<LocalFuncIndex, ir::Function>,
     ) -> CompileResult<ModuleInner> {
         // we have to deduplicate `module.func_assoc`
-        let func_assoc = &mut self.module.func_assoc;
-        let sig_registry = &self.module.sig_registry;
-        func_assoc.iter_mut().for_each(|(_, sig_index)| {
-            *sig_index = sig_registry.lookup_deduplicated_sigindex(*sig_index);
-        });
+        // let func_assoc = &mut self.module.func_assoc;
+        // let sig_registry = &self.module.sig_registry;
+        // func_assoc.iter_mut().for_each(|(_, sig_index)| {
+        //     *sig_index = sig_registry.lookup_deduplicated_sigindex(*sig_index);
+        // });
 
         let (func_resolver_builder, handler_data) = FuncResolverBuilder::new(isa, functions)?;
         self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
@@ -152,20 +152,20 @@ convert_clif_to_runtime_index![
 
 impl<'a> From<Converter<&'a ir::Signature>> for FuncSig {
     fn from(signature: Converter<&'a ir::Signature>) -> Self {
-        FuncSig {
-            params: signature
+        FuncSig::new(
+            signature
                 .0
                 .params
                 .iter()
                 .map(|param| Converter(param.value_type).into())
-                .collect(),
-            returns: signature
+                .collect::<Vec<_>>(),
+            signature
                 .0
                 .returns
                 .iter()
                 .map(|ret| Converter(ret.value_type).into())
-                .collect(),
-        }
+                .collect::<Vec<_>>(),
+        )
     }
 }
 

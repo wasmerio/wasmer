@@ -3,39 +3,50 @@ use crate::{
     types::{FuncSig, SigIndex},
 };
 use hashbrown::HashMap;
+use lazy_static::lazy_static;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
-#[derive(Debug)]
-pub struct SigRegistry {
-    func_table: HashMap<FuncSig, SigIndex>,
-    sig_assoc: Map<SigIndex, FuncSig>,
-    duplicated_sig_assoc: Map<SigIndex, SigIndex>,
-}
-
-impl SigRegistry {
-    pub fn new() -> Self {
-        Self {
+lazy_static! {
+    static ref GLOBAL_SIG_REGISTRY: RwLock<GlobalSigRegistry> = {
+        let registry = GlobalSigRegistry {
             func_table: HashMap::new(),
             sig_assoc: Map::new(),
-            duplicated_sig_assoc: Map::new(),
-        }
-    }
+        };
 
-    pub fn register(&mut self, func_sig: FuncSig) -> SigIndex {
-        // self.sig_assoc.push(func_sig)
-        let func_table = &mut self.func_table;
-        let sig_assoc = &mut self.sig_assoc;
+        RwLock::new(registry)
+    };
+}
+
+struct GlobalSigRegistry {
+    func_table: HashMap<Arc<FuncSig>, SigIndex>,
+    sig_assoc: Map<SigIndex, Arc<FuncSig>>,
+}
+
+#[derive(Debug)]
+pub struct SigRegistry;
+
+impl SigRegistry {
+    pub fn lookup_sigindex<Sig>(&self, func_sig: Sig) -> SigIndex
+    where
+        Sig: Into<Arc<FuncSig>>,
+    {
+        let func_sig = func_sig.into();
+        let mut global = (*GLOBAL_SIG_REGISTRY).write();
+        let global = &mut *global;
+
+        let func_table = &mut global.func_table;
+        let sig_assoc = &mut global.sig_assoc;
+
         let sig_index = *func_table
-            .entry(func_sig.clone())
+            .entry(Arc::clone(&func_sig))
             .or_insert_with(|| sig_assoc.push(func_sig));
-        self.duplicated_sig_assoc.push(sig_index);
+
         sig_index
     }
 
-    pub fn lookup_deduplicated_sigindex(&self, sig_index: SigIndex) -> SigIndex {
-        self.duplicated_sig_assoc[sig_index]
-    }
-
-    pub fn lookup_func_sig(&self, sig_index: SigIndex) -> &FuncSig {
-        &self.sig_assoc[sig_index]
+    pub fn lookup_signature(&self, sig_index: SigIndex) -> Arc<FuncSig> {
+        let global = (*GLOBAL_SIG_REGISTRY).read();
+        Arc::clone(&global.sig_assoc[sig_index])
     }
 }

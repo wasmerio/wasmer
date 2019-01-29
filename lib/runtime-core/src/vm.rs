@@ -16,7 +16,7 @@ pub struct Ctx {
     pub(crate) memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
-    pub(crate) tables: *mut LocalTable,
+    pub(crate) tables: *mut *mut LocalTable,
 
     /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
     pub(crate) globals: *mut *mut LocalGlobal,
@@ -25,7 +25,7 @@ pub struct Ctx {
     pub(crate) imported_memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    pub(crate) imported_tables: *mut ImportedTable,
+    pub(crate) imported_tables: *mut *mut LocalTable,
 
     /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
     pub(crate) imported_globals: *mut *mut LocalGlobal,
@@ -234,9 +234,9 @@ pub struct LocalTable {
     /// pointer to the elements in the table.
     pub base: *mut u8,
     /// Number of elements in the table (NOT necessarily the size of the table in bytes!).
-    pub current_elements: usize,
-    /// The number of elements that can fit into the memory allocated for this table.
-    pub capacity: usize,
+    pub count: usize,
+    /// The table that this represents. At the moment, this can only be `*mut AnyfuncTable`.
+    pub table: *mut (),
 }
 
 impl LocalTable {
@@ -245,31 +245,7 @@ impl LocalTable {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_current_elements() -> u8 {
-        1 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn size() -> u8 {
-        mem::size_of::<Self>() as u8
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(C)]
-pub struct ImportedTable {
-    /// A pointer to the table definition.
-    pub table: *mut LocalTable,
-    /// A pointer to the vmcontext that owns this table definition.
-    pub vmctx: *mut Ctx,
-}
-
-impl ImportedTable {
-    #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_table() -> u8 {
-        0 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn offset_vmctx() -> u8 {
+    pub fn offset_count() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -337,17 +313,16 @@ pub struct SigId(pub u32);
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct Anyfunc {
-    pub func_data: ImportedFunc,
+    pub func: *const Func,
+    pub ctx: *mut Ctx,
     pub sig_id: SigId,
 }
 
 impl Anyfunc {
     pub fn null() -> Self {
         Self {
-            func_data: ImportedFunc {
-                func: ptr::null(),
-                vmctx: ptr::null_mut(),
-            },
+            func: ptr::null(),
+            ctx: ptr::null_mut(),
             sig_id: SigId(u32::max_value()),
         }
     }
@@ -372,7 +347,7 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{Anyfunc, Ctx, ImportedFunc, ImportedTable, LocalGlobal, LocalMemory, LocalTable};
+    use super::{Anyfunc, Ctx, ImportedFunc, LocalGlobal, LocalMemory, LocalTable};
 
     #[test]
     fn vmctx() {
@@ -433,21 +408,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            LocalTable::offset_current_elements() as usize,
-            offset_of!(LocalTable => current_elements).get_byte_offset(),
-        );
-    }
-
-    #[test]
-    fn imported_table() {
-        assert_eq!(
-            ImportedTable::offset_table() as usize,
-            offset_of!(ImportedTable => table).get_byte_offset(),
-        );
-
-        assert_eq!(
-            ImportedTable::offset_vmctx() as usize,
-            offset_of!(ImportedTable => vmctx).get_byte_offset(),
+            LocalTable::offset_count() as usize,
+            offset_of!(LocalTable => count).get_byte_offset(),
         );
     }
 
@@ -476,12 +438,12 @@ mod vm_offset_tests {
     fn cc_anyfunc() {
         assert_eq!(
             Anyfunc::offset_func() as usize,
-            offset_of!(Anyfunc => func_data: ImportedFunc => func).get_byte_offset(),
+            offset_of!(Anyfunc => func).get_byte_offset(),
         );
 
         assert_eq!(
             Anyfunc::offset_vmctx() as usize,
-            offset_of!(Anyfunc => func_data: ImportedFunc => vmctx).get_byte_offset(),
+            offset_of!(Anyfunc => ctx).get_byte_offset(),
         );
 
         assert_eq!(
@@ -531,6 +493,7 @@ mod vm_ctx_tests {
         };
         let mut import_backing = ImportBacking {
             memories: Map::new().into_boxed_map(),
+            tables: Map::new().into_boxed_map(),
             globals: Map::new().into_boxed_map(),
 
             vm_functions: Map::new().into_boxed_map(),
@@ -613,7 +576,7 @@ mod vm_ctx_tests {
             start_func: None,
 
             func_assoc: Map::new(),
-            sig_registry: SigRegistry::new(),
+            sig_registry: SigRegistry,
         }
     }
 }
