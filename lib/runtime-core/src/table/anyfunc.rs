@@ -49,14 +49,14 @@ pub struct AnyfuncTable {
 
 impl AnyfuncTable {
     pub fn new(desc: TableDescriptor, local: &mut vm::LocalTable) -> Result<Box<Self>, ()> {
-        let initial_table_backing_len = match desc.max {
+        let initial_table_backing_len = match desc.maximum {
             Some(max) => max,
-            None => desc.min,
+            None => desc.minimum,
         } as usize;
 
         let mut storage = Box::new(AnyfuncTable {
             backing: vec![vm::Anyfunc::null(); initial_table_backing_len],
-            max: desc.max,
+            max: desc.maximum,
         });
 
         let storage_ptr: *mut AnyfuncTable = &mut *storage;

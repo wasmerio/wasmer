@@ -219,7 +219,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
                 func.create_heap(ir::HeapData {
                     base: local_memory_base,
-                    min_size: ((description.min as u64) * (WASM_PAGE_SIZE as u64)).into(),
+                    min_size: ((description.minimum as u64) * (WASM_PAGE_SIZE as u64)).into(),
                     offset_guard_size: mem_type.guard_size().into(),
                     style: ir::HeapStyle::Dynamic {
                         bound_gv: local_memory_bound,
@@ -230,7 +230,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             mem_type @ MemoryType::Static | mem_type @ MemoryType::SharedStatic => func
                 .create_heap(ir::HeapData {
                     base: local_memory_base,
-                    min_size: ((description.min as u64) * (WASM_PAGE_SIZE as u64)).into(),
+                    min_size: ((description.minimum as u64) * (WASM_PAGE_SIZE as u64)).into(),
                     offset_guard_size: mem_type.guard_size().into(),
                     style: ir::HeapStyle::Static {
                         bound: mem_type.bounds().unwrap().into(),
@@ -327,7 +327,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         func.create_table(ir::TableData {
             base_gv: table_base,
-            min_size: (description.min as u64).into(),
+            min_size: (description.minimum as u64).into(),
             bound_gv: table_count,
             element_size: (vm::Anyfunc::size() as u64).into(),
             index_type: ir::types::I32,

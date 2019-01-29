@@ -132,17 +132,17 @@ pub struct TableDescriptor {
     /// Type of data stored in this table.
     pub element: ElementType,
     /// The minimum number of elements that must be stored in this table.
-    pub min: u32,
+    pub minimum: u32,
     /// The maximum number of elements in this table.
-    pub max: Option<u32>,
+    pub maximum: Option<u32>,
 }
 
 impl TableDescriptor {
     pub(crate) fn fits_in_imported(&self, imported: TableDescriptor) -> bool {
         // TODO: We should define implementation limits.
-        let imported_max = imported.max.unwrap_or(u32::max_value());
-        let self_max = self.max.unwrap_or(u32::max_value());
-        self.element == imported.element && imported_max <= self_max && self.min <= imported.min
+        let imported_max = imported.maximum.unwrap_or(u32::max_value());
+        let self_max = self.maximum.unwrap_or(u32::max_value());
+        self.element == imported.element && imported_max <= self_max && self.minimum <= imported.minimum
     }
 }
 
@@ -174,16 +174,16 @@ pub struct GlobalInit {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemoryDescriptor {
     /// The minimum number of allowed pages.
-    pub min: u32,
+    pub minimum: u32,
     /// The maximum number of allowed pages.
-    pub max: Option<u32>,
+    pub maximum: Option<u32>,
     /// This memory can be shared between wasm threads.
     pub shared: bool,
 }
 
 impl MemoryDescriptor {
     pub fn memory_type(self) -> MemoryType {
-        match (self.max.is_some(), self.shared) {
+        match (self.maximum.is_some(), self.shared) {
             (true, true) => MemoryType::SharedStatic,
             (true, false) => MemoryType::Static,
             (false, false) => MemoryType::Dynamic,
@@ -192,10 +192,10 @@ impl MemoryDescriptor {
     }
 
     pub(crate) fn fits_in_imported(&self, imported: MemoryDescriptor) -> bool {
-        let imported_max = imported.max.unwrap_or(65_536);
-        let self_max = self.max.unwrap_or(65_536);
+        let imported_max = imported.maximum.unwrap_or(65_536);
+        let self_max = self.maximum.unwrap_or(65_536);
 
-        self.shared == imported.shared && imported_max <= self_max && self.min <= imported.min
+        self.shared == imported.shared && imported_max <= self_max && self.minimum <= imported.minimum
     }
 }
 

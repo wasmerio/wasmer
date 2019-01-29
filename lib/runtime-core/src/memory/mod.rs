@@ -23,6 +23,29 @@ pub struct Memory {
 }
 
 impl Memory {
+    /// Create a new `Memory` from a [`MemoryDescriptor`]
+    /// 
+    /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
+    /// 
+    /// Usage:
+    /// 
+    /// ```
+    /// # use wasmer_runtime_core::types::MemoryDescriptor;
+    /// # use wasmer_runtime_core::memory::Memory;
+    /// # use wasmer_runtime_core::error::Result;
+    /// 
+    /// # fn create_memory() -> Result<()> {
+    /// let descriptor = MemoryDescriptor {
+    ///     minimum: 10,
+    ///     maximum: None,
+    ///     shared: false,
+    /// };
+    /// 
+    /// let memory = Memory::new(descriptor)?;
+    /// 
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(desc: MemoryDescriptor) -> Option<Self> {
         let mut vm_local_memory = Box::new(vm::LocalMemory {
             base: ptr::null_mut(),
@@ -46,10 +69,15 @@ impl Memory {
         })
     }
 
+    /// Return the [`MemoryDescriptor`] that this memory
+    /// was created with.
+    /// 
+    /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
     pub fn descriptor(&self) -> MemoryDescriptor {
         self.desc
     }
 
+    /// Grow this memory by the specfied number of pages.
     pub fn grow(&mut self, delta: u32) -> Option<u32> {
         match &mut *self.storage.borrow_mut() {
             (MemoryStorage::Dynamic(ref mut dynamic_memory), ref mut local) => {
@@ -62,8 +90,13 @@ impl Memory {
         }
     }
 
-    /// This returns the number of pages in the memory.
-    pub fn current_pages(&self) -> u32 {
+    /// The size, in bytes, of this memory.
+    pub fn bytes(&self) -> usize {
+        (self.size() as usize) * WASM_PAGE_SIZE
+    }
+
+    /// The size, in wasm pages, of this memory.
+    pub fn size(&self) -> u32 {
         match &*self.storage.borrow() {
             (MemoryStorage::Dynamic(ref dynamic_memory), _) => dynamic_memory.current(),
             (MemoryStorage::Static(ref static_memory), _) => static_memory.current(),
@@ -271,7 +304,7 @@ impl fmt::Debug for Memory {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Memory")
             .field("desc", &self.desc)
-            .field("size", &(self.current_pages() as usize * WASM_PAGE_SIZE))
+            .field("size", &self.bytes())
             .finish()
     }
 }

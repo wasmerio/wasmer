@@ -180,8 +180,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                 TableElementType::Func => ElementType::Anyfunc,
                 _ => unimplemented!(),
             },
-            min: table.minimum,
-            max: table.maximum,
+            minimum: table.minimum,
+            maximum: table.maximum,
         });
     }
 
@@ -204,8 +204,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                 TableElementType::Func => ElementType::Anyfunc,
                 _ => unimplemented!(),
             },
-            min: table.minimum,
-            max: table.maximum,
+            minimum: table.minimum,
+            maximum: table.maximum,
         };
 
         // Add import names to list of imported tables
@@ -251,8 +251,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     /// Declares a memory to the environment
     fn declare_memory(&mut self, memory: cranelift_wasm::Memory) {
         self.module.memories.push(MemoryDescriptor {
-            min: memory.minimum,
-            max: memory.maximum,
+            minimum: memory.minimum,
+            maximum: memory.maximum,
             shared: memory.shared,
         });
     }
@@ -270,8 +270,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         let memory = MemoryDescriptor {
-            min: memory.minimum,
-            max: memory.maximum,
+            minimum: memory.minimum,
+            maximum: memory.maximum,
             shared: memory.shared,
         };
 

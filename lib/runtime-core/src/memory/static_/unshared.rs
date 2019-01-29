@@ -33,11 +33,11 @@ impl StaticMemory {
         let memory = {
             let mut memory =
                 sys::Memory::with_size(SAFE_STATIC_HEAP_SIZE + SAFE_STATIC_GUARD_SIZE).ok()?;
-            if desc.min != 0 {
+            if desc.minimum != 0 {
                 unsafe {
                     memory
                         .protect(
-                            0..(desc.min as usize * WASM_PAGE_SIZE),
+                            0..(desc.minimum as usize * WASM_PAGE_SIZE),
                             sys::Protect::ReadWrite,
                         )
                         .ok()?;
@@ -49,13 +49,13 @@ impl StaticMemory {
 
         let mut storage = Box::new(StaticMemory {
             memory,
-            current: desc.min,
-            max: desc.max,
+            current: desc.minimum,
+            max: desc.maximum,
         });
         let storage_ptr: *mut StaticMemory = &mut *storage;
 
         local.base = storage.memory.as_ptr();
-        local.bound = desc.min as usize * WASM_PAGE_SIZE;
+        local.bound = desc.minimum as usize * WASM_PAGE_SIZE;
         local.memory = storage_ptr as *mut ();
 
         Some(storage)

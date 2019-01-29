@@ -30,13 +30,13 @@ impl DynamicMemory {
     pub(super) fn new(desc: MemoryDescriptor, local: &mut vm::LocalMemory) -> Option<Box<Self>> {
         let memory = {
             let mut memory =
-                sys::Memory::with_size((desc.min as usize * WASM_PAGE_SIZE) + DYNAMIC_GUARD_SIZE)
+                sys::Memory::with_size((desc.minimum as usize * WASM_PAGE_SIZE) + DYNAMIC_GUARD_SIZE)
                     .ok()?;
-            if desc.min != 0 {
+            if desc.minimum != 0 {
                 unsafe {
                     memory
                         .protect(
-                            0..(desc.min as usize * WASM_PAGE_SIZE),
+                            0..(desc.minimum as usize * WASM_PAGE_SIZE),
                             sys::Protect::ReadWrite,
                         )
                         .ok()?;
@@ -48,13 +48,13 @@ impl DynamicMemory {
 
         let mut storage = Box::new(DynamicMemory {
             memory,
-            current: desc.min,
-            max: desc.max,
+            current: desc.minimum,
+            max: desc.maximum,
         });
         let storage_ptr: *mut DynamicMemory = &mut *storage;
 
         local.base = storage.memory.as_ptr();
-        local.bound = desc.min as usize * WASM_PAGE_SIZE;
+        local.bound = desc.minimum as usize * WASM_PAGE_SIZE;
         local.memory = storage_ptr as *mut ();
 
         Some(storage)

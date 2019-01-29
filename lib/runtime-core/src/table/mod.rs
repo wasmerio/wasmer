@@ -27,6 +27,29 @@ pub struct Table {
 }
 
 impl Table {
+    /// Create a new `Table` from a [`TableDescriptor`]
+    /// 
+    /// [`TableDescriptor`]: struct.TableDescriptor.html
+    /// 
+    /// Usage:
+    /// 
+    /// ```
+    /// # use wasmer_runtime_core::types::{TableDescriptor, ElementType};
+    /// # use wasmer_runtime_core::table::Table;
+    /// # use wasmer_runtime_core::error::Result;
+    /// 
+    /// # fn create_table() -> Result<()> {
+    /// let descriptor = TableDescriptor {
+    ///     element: ElementType::Anyfunc,
+    ///     minimum: 10,
+    ///     maximum: None,
+    /// };
+    /// 
+    /// let table = Table::new(descriptor)?;
+    /// 
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(desc: TableDescriptor) -> Result<Self, ()> {
         let mut local = vm::LocalTable {
             base: ptr::null_mut(),

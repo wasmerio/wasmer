@@ -104,7 +104,7 @@ impl LocalBacking {
                 LocalOrImport::Local(local_memory_index) => {
                     let memory_desc = module.memories[local_memory_index];
                     let data_top = init_base + init.data.len();
-                    assert!(memory_desc.min as usize * WASM_PAGE_SIZE >= data_top);
+                    assert!(memory_desc.minimum as usize * WASM_PAGE_SIZE >= data_top);
 
                     let mem = &memories[local_memory_index];
                     mem.write_many(init_base as u32, &init.data).unwrap();
