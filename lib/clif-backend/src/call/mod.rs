@@ -6,6 +6,7 @@ pub use self::recovery::{call_protected, HandlerData};
 use crate::trampoline::Trampolines;
 
 use hashbrown::HashSet;
+use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{ProtectedCaller, Token},
     error::RuntimeResult,
@@ -62,11 +63,14 @@ impl ProtectedCaller for Caller {
         assert!(self.func_export_set.contains(&func_index));
 
         assert!(
-            signature.returns.len() <= 1,
+            signature.returns().len() <= 1,
             "multi-value returns not yet supported"
         );
 
-        assert!(signature.check_sig(params), "incorrect signature");
+        assert!(
+            signature.check_param_value_types(params),
+            "incorrect signature"
+        );
 
         let param_vec: Vec<u64> = params
             .iter()
@@ -78,7 +82,7 @@ impl ProtectedCaller for Caller {
             })
             .collect();
 
-        let mut return_vec = vec![0; signature.returns.len()];
+        let mut return_vec = vec![0; signature.returns().len()];
 
         let trampoline = self
             .trampolines
@@ -97,7 +101,7 @@ impl ProtectedCaller for Caller {
 
         Ok(return_vec
             .iter()
-            .zip(signature.returns.iter())
+            .zip(signature.returns().iter())
             .map(|(&x, ty)| match ty {
                 Type::I32 => Value::I32(x as i32),
                 Type::I64 => Value::I64(x as i64),
@@ -108,11 +112,11 @@ impl ProtectedCaller for Caller {
     }
 }
 
-fn get_func_from_index<'a>(
-    module: &'a ModuleInner,
+fn get_func_from_index(
+    module: &ModuleInner,
     import_backing: &ImportBacking,
     func_index: FuncIndex,
-) -> (*const vm::Func, Context, &'a FuncSig, SigIndex) {
+) -> (*const vm::Func, Context, Arc<FuncSig>, SigIndex) {
     let sig_index = *module
         .func_assoc
         .get(func_index)
@@ -137,7 +141,7 @@ fn get_func_from_index<'a>(
         }
     };
 
-    let signature = module.sig_registry.lookup_func_sig(sig_index);
+    let signature = module.sig_registry.lookup_signature(sig_index);
 
     (func_ptr, ctx, signature, sig_index)
 }

@@ -4,6 +4,9 @@ use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{ptr, slice};
 
+unsafe impl Send for Memory {}
+unsafe impl Sync for Memory {}
+
 #[derive(Debug)]
 pub struct Memory {
     ptr: *mut u8,

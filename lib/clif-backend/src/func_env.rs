@@ -1,12 +1,13 @@
-use crate::{module::Converter, module_env::ModuleEnv};
+use crate::{module::Converter, module_env::ModuleEnv, relocation::call_names};
 use cranelift_codegen::{
     cursor::FuncCursor,
     ir::{self, InstBuilder},
     isa,
 };
 use cranelift_wasm::{self, FuncEnvironment, ModuleEnvironment};
+use std::mem;
 use wasmer_runtime_core::{
-    memory::LinearMemory,
+    memory::MemoryType,
     structures::TypedIndex,
     types::{FuncIndex, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex},
     vm,
@@ -22,9 +23,12 @@ impl<'env, 'module, 'isa> FuncEnv<'env, 'module, 'isa> {
     }
 
     /// Creates a signature with VMContext as the last param
-    pub fn generate_signature(&self, sig_index: cranelift_wasm::SignatureIndex) -> ir::Signature {
+    pub fn generate_signature(
+        &self,
+        clif_sig_index: cranelift_wasm::SignatureIndex,
+    ) -> ir::Signature {
         // Get signature
-        let mut signature = self.env.signatures[Converter(sig_index).into()].clone();
+        let mut signature = self.env.signatures[Converter(clif_sig_index).into()].clone();
 
         // Add the vmctx parameter type to it
         signature.params.push(ir::AbiParam::special(
@@ -70,59 +74,59 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        match global_index.local_or_import(self.env.module) {
+        let local_global_addr = match global_index.local_or_import(self.env.module) {
             LocalOrImport::Local(local_global_index) => {
                 let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
                     offset: (vm::Ctx::offset_globals() as i32).into(),
-                    global_type: self.pointer_type(),
+                    global_type: ptr_type,
                     readonly: true,
                 });
 
-                let offset = local_global_index.index() * vm::LocalGlobal::size() as usize;
+                let offset = local_global_index.index() * mem::size_of::<*mut vm::LocalGlobal>();
 
-                let local_global_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                let local_global_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
                     base: globals_base_addr,
                     offset: (offset as i64).into(),
                     global_type: ptr_type,
                 });
 
-                // Create global variable based on the data above.
-                cranelift_wasm::GlobalVariable::Memory {
-                    gv: local_global_addr,
-                    offset: (vm::LocalGlobal::offset_data() as i32).into(),
-                    ty: self.env.get_global(clif_global_index).ty,
-                }
-            }
-            LocalOrImport::Import(imported_global_index) => {
-                let imported_globals_base_addr =
-                    func.create_global_value(ir::GlobalValueData::Load {
-                        base: vmctx,
-                        offset: (vm::Ctx::offset_imported_globals() as i32).into(),
-                        global_type: ptr_type,
-                        readonly: true,
-                    });
-
-                let offset = imported_global_index.index() * vm::ImportedGlobal::size() as usize;
-                let imported_global_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                    base: imported_globals_base_addr,
-                    offset: (offset as i64).into(),
+                func.create_global_value(ir::GlobalValueData::Load {
+                    base: local_global_ptr_ptr,
+                    offset: 0.into(),
                     global_type: ptr_type,
-                });
-
-                let local_global_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: imported_global_addr,
-                    offset: (vm::ImportedGlobal::offset_global() as i32).into(),
+                    readonly: true,
+                })
+            }
+            LocalOrImport::Import(import_global_index) => {
+                let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: (vm::Ctx::offset_imported_globals() as i32).into(),
                     global_type: ptr_type,
                     readonly: true,
                 });
 
-                cranelift_wasm::GlobalVariable::Memory {
-                    gv: local_global_addr,
-                    offset: (vm::LocalGlobal::offset_data() as i32).into(),
-                    ty: self.env.get_global(clif_global_index).ty,
-                }
+                let offset = import_global_index.index() * mem::size_of::<*mut vm::LocalGlobal>();
+
+                let local_global_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                    base: globals_base_addr,
+                    offset: (offset as i64).into(),
+                    global_type: ptr_type,
+                });
+
+                func.create_global_value(ir::GlobalValueData::Load {
+                    base: local_global_ptr_ptr,
+                    offset: 0.into(),
+                    global_type: ptr_type,
+                    readonly: true,
+                })
             }
+        };
+
+        cranelift_wasm::GlobalVariable::Memory {
+            gv: local_global_addr,
+            offset: (vm::LocalGlobal::offset_data() as i32).into(),
+            ty: self.env.get_global(clif_global_index).ty,
         }
     }
 
@@ -140,7 +144,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        match mem_index.local_or_import(self.env.module) {
+        let (local_memory_ptr_ptr, description) = match mem_index.local_or_import(self.env.module) {
             LocalOrImport::Local(local_mem_index) => {
                 let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
@@ -149,75 +153,88 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                     readonly: true,
                 });
 
-                let memory_offset = local_mem_index.index() * vm::LocalMemory::size() as usize;
+                let local_memory_ptr_offset =
+                    local_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
 
-                let memory_struct_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                    base: memories_base_addr,
-                    offset: (memory_offset as i64).into(),
-                    global_type: ptr_type,
-                });
-
-                let memory_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: memory_struct_addr,
-                    offset: (vm::LocalMemory::offset_base() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
-
-                func.create_heap(ir::HeapData {
-                    base: memory_base_addr,
-                    min_size: (self.env.module.memories[local_mem_index].min as u64).into(),
-                    offset_guard_size: (LinearMemory::DEFAULT_GUARD_SIZE as u64).into(),
-                    style: ir::HeapStyle::Static {
-                        bound: (LinearMemory::DEFAULT_HEAP_SIZE as u64).into(),
-                    },
-                    index_type: ir::types::I32,
-                })
+                (
+                    func.create_global_value(ir::GlobalValueData::IAddImm {
+                        base: memories_base_addr,
+                        offset: (local_memory_ptr_offset as i64).into(),
+                        global_type: ptr_type,
+                    }),
+                    self.env.module.memories[local_mem_index],
+                )
             }
-            LocalOrImport::Import(imported_mem_index) => {
-                let imported_memories_base = func.create_global_value(ir::GlobalValueData::Load {
+            LocalOrImport::Import(import_mem_index) => {
+                let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
                     offset: (vm::Ctx::offset_imported_memories() as i32).into(),
                     global_type: ptr_type,
                     readonly: true,
                 });
 
-                let imported_memory_offset =
-                    imported_mem_index.index() * vm::ImportedMemory::size() as usize;
+                let local_memory_ptr_offset =
+                    import_mem_index.index() * mem::size_of::<*mut vm::LocalMemory>();
 
-                let imported_memory_struct_addr =
+                (
                     func.create_global_value(ir::GlobalValueData::IAddImm {
-                        base: imported_memories_base,
-                        offset: (imported_memory_offset as i64).into(),
+                        base: memories_base_addr,
+                        offset: (local_memory_ptr_offset as i64).into(),
                         global_type: ptr_type,
-                    });
+                    }),
+                    self.env.module.imported_memories[import_mem_index].1,
+                )
+            }
+        };
 
-                let local_memory_struct_addr =
-                    func.create_global_value(ir::GlobalValueData::Load {
-                        base: imported_memory_struct_addr,
-                        offset: (vm::ImportedMemory::offset_memory() as i32).into(),
-                        global_type: ptr_type,
-                        readonly: true,
-                    });
+        let (local_memory_ptr, local_memory_base) = {
+            let local_memory_ptr = func.create_global_value(ir::GlobalValueData::Load {
+                base: local_memory_ptr_ptr,
+                offset: 0.into(),
+                global_type: ptr_type,
+                readonly: true,
+            });
 
-                let local_memory_base = func.create_global_value(ir::GlobalValueData::Load {
-                    base: local_memory_struct_addr,
+            (
+                local_memory_ptr,
+                func.create_global_value(ir::GlobalValueData::Load {
+                    base: local_memory_ptr,
                     offset: (vm::LocalMemory::offset_base() as i32).into(),
                     global_type: ptr_type,
-                    readonly: true,
+                    readonly: false,
+                }),
+            )
+        };
+
+        match description.memory_type() {
+            mem_type @ MemoryType::Dynamic => {
+                let local_memory_bound = func.create_global_value(ir::GlobalValueData::Load {
+                    base: local_memory_ptr,
+                    offset: (vm::LocalMemory::offset_bound() as i32).into(),
+                    global_type: ptr_type,
+                    readonly: false,
                 });
 
                 func.create_heap(ir::HeapData {
                     base: local_memory_base,
-                    min_size: (self.env.module.imported_memories[imported_mem_index].1.min as u64)
-                        .into(),
-                    offset_guard_size: (LinearMemory::DEFAULT_GUARD_SIZE as u64).into(),
-                    style: ir::HeapStyle::Static {
-                        bound: (LinearMemory::DEFAULT_HEAP_SIZE as u64).into(),
+                    min_size: (description.minimum.bytes().0 as u64).into(),
+                    offset_guard_size: mem_type.guard_size().into(),
+                    style: ir::HeapStyle::Dynamic {
+                        bound_gv: local_memory_bound,
                     },
                     index_type: ir::types::I32,
                 })
             }
+            mem_type @ MemoryType::Static | mem_type @ MemoryType::SharedStatic => func
+                .create_heap(ir::HeapData {
+                    base: local_memory_base,
+                    min_size: (description.minimum.bytes().0 as u64).into(),
+                    offset_guard_size: mem_type.guard_size().into(),
+                    style: ir::HeapStyle::Static {
+                        bound: mem_type.bounds().unwrap().into(),
+                    },
+                    index_type: ir::types::I32,
+                }),
         }
     }
 
@@ -235,7 +252,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        match table_index.local_or_import(self.env.module) {
+        let (table_struct_ptr_ptr, description) = match table_index.local_or_import(self.env.module)
+        {
             LocalOrImport::Local(local_table_index) => {
                 let tables_base = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
@@ -244,88 +262,74 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                     readonly: true,
                 });
 
-                let table_struct_offset =
+                let table_struct_ptr_offset =
                     local_table_index.index() * vm::LocalTable::size() as usize;
 
-                let table_struct_addr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
                     base: tables_base,
-                    offset: (table_struct_offset as i64).into(),
+                    offset: (table_struct_ptr_offset as i64).into(),
                     global_type: ptr_type,
                 });
 
-                let table_base = func.create_global_value(ir::GlobalValueData::Load {
-                    base: table_struct_addr,
-                    offset: (vm::LocalTable::offset_base() as i32).into(),
-                    global_type: ptr_type,
-                    // we will support growing tables, so this cannot be readonly.
-                    readonly: false,
-                });
-
-                let table_bound = func.create_global_value(ir::GlobalValueData::Load {
-                    base: table_struct_addr,
-                    offset: (vm::LocalTable::offset_current_elements() as i32).into(),
-                    // the number of elements in a table will always fit in an `i32`.
-                    global_type: ir::types::I32,
-                    readonly: false,
-                });
-
-                func.create_table(ir::TableData {
-                    base_gv: table_base,
-                    min_size: (self.env.module.tables[local_table_index].min as u64).into(),
-                    bound_gv: table_bound,
-                    element_size: (vm::Anyfunc::size() as u64).into(),
-                    index_type: ir::types::I32,
-                })
+                (
+                    table_struct_ptr_ptr,
+                    self.env.module.tables[local_table_index],
+                )
             }
-            LocalOrImport::Import(imported_table_index) => {
-                let imported_tables_base = func.create_global_value(ir::GlobalValueData::Load {
+            LocalOrImport::Import(import_table_index) => {
+                let tables_base = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
                     offset: (vm::Ctx::offset_imported_tables() as i32).into(),
                     global_type: ptr_type,
                     readonly: true,
                 });
 
-                let imported_table_struct_offset =
-                    imported_table_index.index() * vm::ImportedTable::size() as usize;
+                let table_struct_ptr_offset =
+                    import_table_index.index() * vm::LocalTable::size() as usize;
 
-                let imported_table_struct_addr =
-                    func.create_global_value(ir::GlobalValueData::IAddImm {
-                        base: imported_tables_base,
-                        offset: (imported_table_struct_offset as i64).into(),
-                        global_type: ptr_type,
-                    });
-
-                let local_table_struct_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: imported_table_struct_addr,
-                    offset: (vm::ImportedTable::offset_table() as i32).into(),
+                let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
+                    base: tables_base,
+                    offset: (table_struct_ptr_offset as i64).into(),
                     global_type: ptr_type,
-                    readonly: true,
                 });
 
-                let local_table_base = func.create_global_value(ir::GlobalValueData::Load {
-                    base: local_table_struct_addr,
-                    offset: (vm::LocalTable::offset_base() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: false,
-                });
-
-                let local_table_bound = func.create_global_value(ir::GlobalValueData::Load {
-                    base: local_table_struct_addr,
-                    offset: (vm::LocalTable::offset_current_elements() as i32).into(),
-                    global_type: ir::types::I32,
-                    readonly: false,
-                });
-
-                func.create_table(ir::TableData {
-                    base_gv: local_table_base,
-                    min_size: (self.env.module.imported_tables[imported_table_index].1.min as u64)
-                        .into(),
-                    bound_gv: local_table_bound,
-                    element_size: (vm::Anyfunc::size() as u64).into(),
-                    index_type: ir::types::I32,
-                })
+                (
+                    table_struct_ptr_ptr,
+                    self.env.module.imported_tables[import_table_index].1,
+                )
             }
-        }
+        };
+
+        let table_struct_ptr = func.create_global_value(ir::GlobalValueData::Load {
+            base: table_struct_ptr_ptr,
+            offset: 0.into(),
+            global_type: ptr_type,
+            readonly: true,
+        });
+
+        let table_base = func.create_global_value(ir::GlobalValueData::Load {
+            base: table_struct_ptr,
+            offset: (vm::LocalTable::offset_base() as i32).into(),
+            global_type: ptr_type,
+            // The table can reallocate, so the ptr can't be readonly.
+            readonly: false,
+        });
+
+        let table_count = func.create_global_value(ir::GlobalValueData::Load {
+            base: table_struct_ptr,
+            offset: (vm::LocalTable::offset_count() as i32).into(),
+            global_type: ptr_type,
+            // The table length can change, so it can't be readonly.
+            readonly: false,
+        });
+
+        func.create_table(ir::TableData {
+            base_gv: table_base,
+            min_size: (description.minimum as u64).into(),
+            bound_gv: table_count,
+            element_size: (vm::Anyfunc::size() as u64).into(),
+            index_type: ir::types::I32,
+        })
     }
 
     /// Sets up a signature definition in `func`'s preamble.
@@ -335,10 +339,10 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
     fn make_indirect_sig(
         &mut self,
         func: &mut ir::Function,
-        index: cranelift_wasm::SignatureIndex,
+        clif_sig_index: cranelift_wasm::SignatureIndex,
     ) -> ir::SigRef {
         // Create a signature reference out of specified signature (with VMContext param added).
-        func.import_signature(self.generate_signature(index))
+        func.import_signature(self.generate_signature(clif_sig_index))
     }
 
     /// Sets up an external function definition in the preamble of `func` that can be used to
@@ -377,7 +381,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         mut pos: FuncCursor,
         _table_index: cranelift_wasm::TableIndex,
         table: ir::Table,
-        sig_index: cranelift_wasm::SignatureIndex,
+        clif_sig_index: cranelift_wasm::SignatureIndex,
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
@@ -396,12 +400,25 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             entry_addr,
             vm::Anyfunc::offset_func() as i32,
         );
-        let vmctx_ptr = pos.ins().load(
-            ptr_type,
-            mflags,
-            entry_addr,
-            vm::Anyfunc::offset_vmctx() as i32,
-        );
+
+        let vmctx_ptr = {
+            let loaded_vmctx_ptr = pos.ins().load(
+                ptr_type,
+                mflags,
+                entry_addr,
+                vm::Anyfunc::offset_vmctx() as i32,
+            );
+
+            let argument_vmctx_ptr = pos
+                .func
+                .special_param(ir::ArgumentPurpose::VMContext)
+                .expect("missing vmctx parameter");
+
+            // If the loaded vmctx ptr is zero, use the caller vmctx, else use the callee (loaded) vmctx.
+            pos.ins()
+                .select(loaded_vmctx_ptr, loaded_vmctx_ptr, argument_vmctx_ptr)
+        };
+
         let found_sig = pos.ins().load(
             ir::types::I32,
             mflags,
@@ -411,14 +428,9 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         pos.ins().trapz(func_ptr, ir::TrapCode::IndirectCallToNull);
 
-        let deduplicated_sig_index = self
-            .env
-            .module
-            .sig_registry
-            .lookup_deduplicated_sigindex(Converter(sig_index).into());
-        let expected_sig = pos
-            .ins()
-            .iconst(ir::types::I32, deduplicated_sig_index.index() as i64);
+        let sig_index = self.env.deduplicated[clif_sig_index];
+
+        let expected_sig = pos.ins().iconst(ir::types::I32, sig_index.index() as i64);
         let not_equal_flags = pos.ins().ifcmp(found_sig, expected_sig);
 
         pos.ins().trapif(
@@ -539,22 +551,26 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (name, mem_index) = match mem_index.local_or_import(self.env.module) {
-            LocalOrImport::Local(local_mem_index) => {
-                (
-                    // local_static_memory_grow
-                    ir::ExternalName::user(1, 0),
-                    local_mem_index.index(),
-                )
-            }
-            LocalOrImport::Import(imported_mem_index) => {
-                (
-                    // imported_static_memory_grow
-                    ir::ExternalName::user(1, 2),
-                    imported_mem_index.index(),
-                )
-            }
+        let (namespace, mem_index, description) = match mem_index.local_or_import(self.env.module) {
+            LocalOrImport::Local(local_mem_index) => (
+                call_names::LOCAL_NAMESPACE,
+                local_mem_index.index(),
+                self.env.module.memories[local_mem_index],
+            ),
+            LocalOrImport::Import(import_mem_index) => (
+                call_names::IMPORT_NAMESPACE,
+                import_mem_index.index(),
+                self.env.module.imported_memories[import_mem_index].1,
+            ),
         };
+
+        let name_index = match description.memory_type() {
+            MemoryType::Dynamic => call_names::DYNAMIC_MEM_GROW,
+            MemoryType::Static => call_names::STATIC_MEM_GROW,
+            MemoryType::SharedStatic => call_names::SHARED_STATIC_MEM_GROW,
+        };
+
+        let name = ir::ExternalName::user(namespace, name_index);
 
         let mem_grow_func = pos.func.import_function(ir::ExtFuncData {
             name,
@@ -587,37 +603,6 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         clif_mem_index: cranelift_wasm::MemoryIndex,
         _heap: ir::Heap,
     ) -> cranelift_wasm::WasmResult<ir::Value> {
-        // let signature = pos.func.import_signature(ir::Signature {
-        //     call_conv: self.target_config().default_call_conv,
-        //     params: vec![
-        //         ir::AbiParam::new(ir::types::I32),
-        //         ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
-        //     ],
-        //     returns: vec![ir::AbiParam::new(ir::types::I32)],
-        // });
-
-        // let size_mem_func = pos.func.import_function(ir::ExtFuncData {
-        //     // `ir::ExternalName` for static_grow_memory`
-        //     name: ir::ExternalName::user(1, 1),
-        //     signature,
-        //     colocated: false,
-        // });
-
-        // // Create a memory index value.
-        // let memory_index = pos.ins().iconst(ir::types::I32, index.index() as i64);
-
-        // // Create a VMContext value.
-        // let vmctx = pos
-        //     .func
-        //     .special_param(ir::ArgumentPurpose::VMContext)
-        //     .expect("missing vmctx parameter");
-
-        // // Insert call instructions for `grow_memory`.
-        // let call_inst = pos.ins().call(size_mem_func, &[memory_index, vmctx]);
-
-        // // Return value.
-        // Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
-
         let signature = pos.func.import_signature(ir::Signature {
             call_conv: self.target_config().default_call_conv,
             params: vec![
@@ -629,22 +614,26 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (name, mem_index) = match mem_index.local_or_import(self.env.module) {
-            LocalOrImport::Local(local_mem_index) => {
-                (
-                    // local_static_memory_size
-                    ir::ExternalName::user(1, 1),
-                    local_mem_index.index(),
-                )
-            }
-            LocalOrImport::Import(imported_mem_index) => {
-                (
-                    // imported_static_memory_size
-                    ir::ExternalName::user(1, 3),
-                    imported_mem_index.index(),
-                )
-            }
+        let (namespace, mem_index, description) = match mem_index.local_or_import(self.env.module) {
+            LocalOrImport::Local(local_mem_index) => (
+                call_names::LOCAL_NAMESPACE,
+                local_mem_index.index(),
+                self.env.module.memories[local_mem_index],
+            ),
+            LocalOrImport::Import(import_mem_index) => (
+                call_names::IMPORT_NAMESPACE,
+                import_mem_index.index(),
+                self.env.module.imported_memories[import_mem_index].1,
+            ),
         };
+
+        let name_index = match description.memory_type() {
+            MemoryType::Dynamic => call_names::DYNAMIC_MEM_SIZE,
+            MemoryType::Static => call_names::STATIC_MEM_SIZE,
+            MemoryType::SharedStatic => call_names::SHARED_STATIC_MEM_SIZE,
+        };
+
+        let name = ir::ExternalName::user(namespace, name_index);
 
         let mem_grow_func = pos.func.import_function(ir::ExtFuncData {
             name,
