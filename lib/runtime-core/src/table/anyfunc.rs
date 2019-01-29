@@ -2,7 +2,7 @@ use crate::{
     instance::Function,
     sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{FuncSig, TableDesc},
+    types::{FuncSig, TableDescriptor},
     vm,
 };
 
@@ -32,13 +32,6 @@ impl<'a> Anyfunc<'a> {
             },
         }
     }
-
-    pub(crate) fn raw(&self) -> *const vm::Func {
-        match self.inner {
-            AnyfuncInner::Host { ptr, .. } => ptr,
-            AnyfuncInner::Managed(ref func) => func.raw(),
-        }
-    }
 }
 
 impl<'a> From<Function<'a>> for Anyfunc<'a> {
@@ -55,7 +48,7 @@ pub struct AnyfuncTable {
 }
 
 impl AnyfuncTable {
-    pub fn new(desc: TableDesc, local: &mut vm::LocalTable) -> Result<Box<Self>, ()> {
+    pub fn new(desc: TableDescriptor, local: &mut vm::LocalTable) -> Result<Box<Self>, ()> {
         let initial_table_backing_len = match desc.max {
             Some(max) => max,
             None => desc.min,

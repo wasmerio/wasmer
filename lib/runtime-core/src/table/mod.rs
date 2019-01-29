@@ -1,7 +1,7 @@
 use crate::{
     export::Export,
     import::IsExport,
-    types::{ElementType, TableDesc},
+    types::{ElementType, TableDescriptor},
     vm,
 };
 use std::{cell::RefCell, fmt, ptr, rc::Rc};
@@ -22,19 +22,19 @@ pub enum TableStorage {
 }
 
 pub struct Table {
-    desc: TableDesc,
+    desc: TableDescriptor,
     storage: Rc<RefCell<(TableStorage, vm::LocalTable)>>,
 }
 
 impl Table {
-    pub fn new(desc: TableDesc) -> Result<Self, ()> {
+    pub fn new(desc: TableDescriptor) -> Result<Self, ()> {
         let mut local = vm::LocalTable {
             base: ptr::null_mut(),
             count: 0,
             table: ptr::null_mut(),
         };
 
-        let storage = match desc.ty {
+        let storage = match desc.element {
             ElementType::Anyfunc => TableStorage::Anyfunc(AnyfuncTable::new(desc, &mut local)?),
         };
 
@@ -44,7 +44,7 @@ impl Table {
         })
     }
 
-    pub fn description(&self) -> TableDesc {
+    pub fn descriptor(&self) -> TableDescriptor {
         self.desc
     }
 

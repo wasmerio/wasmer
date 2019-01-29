@@ -434,15 +434,15 @@ fn import_memories(
             .and_then(|namespace| namespace.get_export(&name));
         match memory_import {
             Some(Export::Memory(mut memory)) => {
-                if expected_memory_desc.fits_in_imported(memory.description()) {
+                if expected_memory_desc.fits_in_imported(memory.descriptor()) {
                     memories.push(memory.clone());
                     vm_memories.push(memory.vm_local_memory());
                 } else {
-                    link_errors.push(LinkError::IncorrectMemoryDescription {
+                    link_errors.push(LinkError::IncorrectMemoryDescriptor {
                         namespace: namespace.clone(),
                         name: name.clone(),
                         expected: *expected_memory_desc,
-                        found: memory.description(),
+                        found: memory.descriptor(),
                     });
                 }
             }
@@ -493,15 +493,15 @@ fn import_tables(
             .and_then(|namespace| namespace.get_export(&name));
         match table_import {
             Some(Export::Table(mut table)) => {
-                if expected_table_desc.fits_in_imported(table.description()) {
+                if expected_table_desc.fits_in_imported(table.descriptor()) {
                     vm_tables.push(table.vm_local_table());
                     tables.push(table);
                 } else {
-                    link_errors.push(LinkError::IncorrectTableDescription {
+                    link_errors.push(LinkError::IncorrectTableDescriptor {
                         namespace: namespace.clone(),
                         name: name.clone(),
                         expected: *expected_table_desc,
-                        found: table.description(),
+                        found: table.descriptor(),
                     });
                 }
             }
@@ -552,15 +552,15 @@ fn import_globals(
             .and_then(|namespace| namespace.get_export(name));
         match import {
             Some(Export::Global(mut global)) => {
-                if global.description() == *imported_global_desc {
+                if global.descriptor() == *imported_global_desc {
                     vm_globals.push(global.vm_local_global());
                     globals.push(global);
                 } else {
-                    link_errors.push(LinkError::IncorrectGlobalDescription {
+                    link_errors.push(LinkError::IncorrectGlobalDescriptor {
                         namespace: namespace.clone(),
                         name: name.clone(),
                         expected: *imported_global_desc,
-                        found: global.description(),
+                        found: global.descriptor(),
                     });
                 }
             }

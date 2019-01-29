@@ -5,9 +5,10 @@ use crate::{
     sig_registry::SigRegistry,
     structures::Map,
     types::{
-        FuncIndex, GlobalDesc, GlobalIndex, GlobalInit, ImportedFuncIndex, ImportedGlobalIndex,
-        ImportedMemoryIndex, ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex,
-        LocalTableIndex, MemoryDesc, MemoryIndex, SigIndex, TableDesc, TableIndex,
+        FuncIndex, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
+        ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
+        LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor, MemoryIndex,
+        SigIndex, TableDescriptor, TableIndex,
     },
     Instance,
 };
@@ -21,15 +22,15 @@ pub struct ModuleInner {
     pub protected_caller: Box<dyn ProtectedCaller>,
 
     // This are strictly local and the typsystem ensures that.
-    pub memories: Map<LocalMemoryIndex, MemoryDesc>,
+    pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,
     pub globals: Map<LocalGlobalIndex, GlobalInit>,
-    pub tables: Map<LocalTableIndex, TableDesc>,
+    pub tables: Map<LocalTableIndex, TableDescriptor>,
 
     // These are strictly imported and the typesystem ensures that.
     pub imported_functions: Map<ImportedFuncIndex, ImportName>,
-    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, MemoryDesc)>,
-    pub imported_tables: Map<ImportedTableIndex, (ImportName, TableDesc)>,
-    pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDesc)>,
+    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, MemoryDescriptor)>,
+    pub imported_tables: Map<ImportedTableIndex, (ImportName, TableDescriptor)>,
+    pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDescriptor)>,
 
     pub exports: HashMap<String, ExportIndex>,
 

@@ -1,13 +1,13 @@
 use crate::{
     export::Export,
     import::IsExport,
-    types::{GlobalDesc, Type, Value},
+    types::{GlobalDescriptor, Type, Value},
     vm,
 };
 use std::{cell::RefCell, fmt, rc::Rc};
 
 pub struct Global {
-    desc: GlobalDesc,
+    desc: GlobalDescriptor,
     storage: Rc<RefCell<vm::LocalGlobal>>,
 }
 
@@ -21,7 +21,7 @@ impl Global {
     }
 
     fn new_internal(value: Value, mutable: bool) -> Self {
-        let desc = GlobalDesc {
+        let desc = GlobalDescriptor {
             mutable,
             ty: value.ty(),
         };
@@ -41,7 +41,7 @@ impl Global {
         }
     }
 
-    pub fn description(&self) -> GlobalDesc {
+    pub fn descriptor(&self) -> GlobalDescriptor {
         self.desc
     }
 

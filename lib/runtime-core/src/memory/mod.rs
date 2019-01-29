@@ -3,7 +3,7 @@ use crate::{
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
     memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
-    types::{MemoryDesc, ValueType},
+    types::{MemoryDescriptor, ValueType},
     vm,
 };
 use std::{cell::RefCell, fmt, mem, ptr, rc::Rc, slice};
@@ -18,12 +18,12 @@ pub const WASM_PAGE_SIZE: usize = 65_536;
 pub const WASM_MAX_PAGES: usize = 65_536;
 
 pub struct Memory {
-    desc: MemoryDesc,
+    desc: MemoryDescriptor,
     storage: Rc<RefCell<(MemoryStorage, Box<vm::LocalMemory>)>>,
 }
 
 impl Memory {
-    pub fn new(desc: MemoryDesc) -> Option<Self> {
+    pub fn new(desc: MemoryDescriptor) -> Option<Self> {
         let mut vm_local_memory = Box::new(vm::LocalMemory {
             base: ptr::null_mut(),
             bound: 0,
@@ -46,7 +46,7 @@ impl Memory {
         })
     }
 
-    pub fn description(&self) -> MemoryDesc {
+    pub fn descriptor(&self) -> MemoryDescriptor {
         self.desc
     }
 

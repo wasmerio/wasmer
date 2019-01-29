@@ -92,7 +92,7 @@ pub mod wasm {
     pub use wasmer_runtime_core::instance::Function;
     pub use wasmer_runtime_core::memory::Memory;
     pub use wasmer_runtime_core::table::Table;
-    pub use wasmer_runtime_core::types::{FuncSig, MemoryDesc, TableDesc, Type, Value};
+    pub use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, TableDescriptor, Type, Value};
 }
 
 /// Compile WebAssembly binary code into a [`Module`].

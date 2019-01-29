@@ -1,4 +1,6 @@
-use crate::types::{FuncSig, GlobalDesc, MemoryDesc, MemoryIndex, TableDesc, TableIndex, Type};
+use crate::types::{
+    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
+};
 use std::sync::Arc;
 
 pub type Result<T> = std::result::Result<T, Box<Error>>;
@@ -47,23 +49,23 @@ pub enum LinkError {
         namespace: String,
         name: String,
     },
-    IncorrectMemoryDescription {
+    IncorrectMemoryDescriptor {
         namespace: String,
         name: String,
-        expected: MemoryDesc,
-        found: MemoryDesc,
+        expected: MemoryDescriptor,
+        found: MemoryDescriptor,
     },
-    IncorrectTableDescription {
+    IncorrectTableDescriptor {
         namespace: String,
         name: String,
-        expected: TableDesc,
-        found: TableDesc,
+        expected: TableDescriptor,
+        found: TableDescriptor,
     },
-    IncorrectGlobalDescription {
+    IncorrectGlobalDescriptor {
         namespace: String,
         name: String,
-        expected: GlobalDesc,
-        found: GlobalDesc,
+        expected: GlobalDescriptor,
+        found: GlobalDescriptor,
     },
 }
 

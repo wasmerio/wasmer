@@ -6,7 +6,7 @@ use wasmer_runtime_core::{
     memory::Memory,
     prelude::*,
     table::Table,
-    types::{ElementType, MemoryDesc, TableDesc, Value},
+    types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
 };
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
 
-    let memory = Memory::new(MemoryDesc {
+    let memory = Memory::new(MemoryDescriptor {
         min: 1,
         max: Some(1),
         shared: false,
@@ -24,8 +24,8 @@ fn main() -> Result<()> {
 
     let global = Global::new(Value::I32(42));
 
-    let table = Table::new(TableDesc {
-        ty: ElementType::Anyfunc,
+    let table = Table::new(TableDescriptor {
+        element: ElementType::Anyfunc,
         min: 10,
         max: None,
     })

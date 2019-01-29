@@ -4,7 +4,7 @@ use crate::{
         WASM_MAX_PAGES, WASM_PAGE_SIZE,
     },
     sys,
-    types::MemoryDesc,
+    types::MemoryDescriptor,
     vm,
 };
 
@@ -27,7 +27,7 @@ pub struct StaticMemory {
 
 impl StaticMemory {
     pub(in crate::memory) fn new(
-        desc: MemoryDesc,
+        desc: MemoryDescriptor,
         local: &mut vm::LocalMemory,
     ) -> Option<Box<Self>> {
         let memory = {

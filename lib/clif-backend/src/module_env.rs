@@ -11,8 +11,8 @@ use wasmer_runtime_core::{
     module::{DataInitializer, ExportIndex, ImportName, TableInitializer},
     structures::{Map, TypedIndex},
     types::{
-        ElementType, FuncSig, GlobalDesc, GlobalIndex, GlobalInit, Initializer, LocalFuncIndex,
-        LocalOrImport, MemoryDesc, SigIndex, TableDesc, Value,
+        ElementType, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer,
+        LocalFuncIndex, LocalOrImport, MemoryDescriptor, SigIndex, TableDescriptor, Value,
     },
 };
 
@@ -106,7 +106,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a global to the environment.
     fn declare_global(&mut self, global: cranelift_wasm::Global) {
-        let desc = GlobalDesc {
+        let desc = GlobalDescriptor {
             mutable: global.mutability,
             ty: Converter(global.ty).into(),
         };
@@ -155,7 +155,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             name: name.to_string(),
         };
 
-        let desc = GlobalDesc {
+        let desc = GlobalDescriptor {
             mutable: global.mutability,
             ty: Converter(global.ty).into(),
         };
@@ -175,8 +175,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     fn declare_table(&mut self, table: cranelift_wasm::Table) {
         use cranelift_wasm::TableElementType;
         // Add table ir to the list of tables
-        self.module.tables.push(TableDesc {
-            ty: match table.ty {
+        self.module.tables.push(TableDescriptor {
+            element: match table.ty {
                 TableElementType::Func => ElementType::Anyfunc,
                 _ => unimplemented!(),
             },
@@ -199,8 +199,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             name: name.to_string(),
         };
 
-        let imported_table = TableDesc {
-            ty: match table.ty {
+        let imported_table = TableDescriptor {
+            element: match table.ty {
                 TableElementType::Func => ElementType::Anyfunc,
                 _ => unimplemented!(),
             },
@@ -250,7 +250,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a memory to the environment
     fn declare_memory(&mut self, memory: cranelift_wasm::Memory) {
-        self.module.memories.push(MemoryDesc {
+        self.module.memories.push(MemoryDescriptor {
             min: memory.minimum,
             max: memory.maximum,
             shared: memory.shared,
@@ -269,7 +269,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             name: name.to_string(),
         };
 
-        let memory = MemoryDesc {
+        let memory = MemoryDescriptor {
             min: memory.minimum,
             max: memory.maximum,
             shared: memory.shared,

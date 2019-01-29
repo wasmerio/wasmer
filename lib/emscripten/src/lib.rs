@@ -10,7 +10,7 @@ use wasmer_runtime_core::{
     import::{ImportObject, Namespace},
     memory::Memory,
     types::{
-        FuncSig, GlobalDesc,
+        FuncSig, GlobalDescriptor,
         Type::{self, *},
     },
     vm::LocalGlobal,

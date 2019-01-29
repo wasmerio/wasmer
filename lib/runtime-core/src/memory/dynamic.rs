@@ -1,7 +1,7 @@
 use crate::{
     memory::{WASM_MAX_PAGES, WASM_PAGE_SIZE},
     sys,
-    types::MemoryDesc,
+    types::MemoryDescriptor,
     vm,
 };
 
@@ -27,7 +27,7 @@ pub struct DynamicMemory {
 }
 
 impl DynamicMemory {
-    pub(super) fn new(desc: MemoryDesc, local: &mut vm::LocalMemory) -> Option<Box<Self>> {
+    pub(super) fn new(desc: MemoryDescriptor, local: &mut vm::LocalMemory) -> Option<Box<Self>> {
         let memory = {
             let mut memory =
                 sys::Memory::with_size((desc.min as usize * WASM_PAGE_SIZE) + DYNAMIC_GUARD_SIZE)

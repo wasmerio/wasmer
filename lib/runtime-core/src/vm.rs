@@ -110,7 +110,7 @@ impl Ctx {
     /// fn read_memory(ctx: &Ctx) -> u8 {
     ///     let first_memory = ctx.memory(0);
     ///     // Read the first byte of that linear memory.
-    ///     first_memory.get(0)
+    ///     first_memory.read(0).unwrap()
     /// }
     /// ```
     pub fn memory<'a>(&'a self, mem_index: u32) -> &'a Memory {

@@ -128,21 +128,21 @@ pub enum ElementType {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct TableDesc {
+pub struct TableDescriptor {
     /// Type of data stored in this table.
-    pub ty: ElementType,
+    pub element: ElementType,
     /// The minimum number of elements that must be stored in this table.
     pub min: u32,
     /// The maximum number of elements in this table.
     pub max: Option<u32>,
 }
 
-impl TableDesc {
-    pub(crate) fn fits_in_imported(&self, imported: TableDesc) -> bool {
+impl TableDescriptor {
+    pub(crate) fn fits_in_imported(&self, imported: TableDescriptor) -> bool {
         // TODO: We should define implementation limits.
         let imported_max = imported.max.unwrap_or(u32::max_value());
         let self_max = self.max.unwrap_or(u32::max_value());
-        self.ty == imported.ty && imported_max <= self_max && self.min <= imported.min
+        self.element == imported.element && imported_max <= self_max && self.min <= imported.min
     }
 }
 
@@ -158,7 +158,7 @@ pub enum Initializer {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GlobalDesc {
+pub struct GlobalDescriptor {
     pub mutable: bool,
     pub ty: Type,
 }
@@ -166,13 +166,13 @@ pub struct GlobalDesc {
 /// A wasm global.
 #[derive(Debug, Clone)]
 pub struct GlobalInit {
-    pub desc: GlobalDesc,
+    pub desc: GlobalDescriptor,
     pub init: Initializer,
 }
 
 /// A wasm memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MemoryDesc {
+pub struct MemoryDescriptor {
     /// The minimum number of allowed pages.
     pub min: u32,
     /// The maximum number of allowed pages.
@@ -181,7 +181,7 @@ pub struct MemoryDesc {
     pub shared: bool,
 }
 
-impl MemoryDesc {
+impl MemoryDescriptor {
     pub fn memory_type(self) -> MemoryType {
         match (self.max.is_some(), self.shared) {
             (true, true) => MemoryType::SharedStatic,
@@ -191,7 +191,7 @@ impl MemoryDesc {
         }
     }
 
-    pub(crate) fn fits_in_imported(&self, imported: MemoryDesc) -> bool {
+    pub(crate) fn fits_in_imported(&self, imported: MemoryDescriptor) -> bool {
         let imported_max = imported.max.unwrap_or(65_536);
         let self_max = self.max.unwrap_or(65_536);
 
