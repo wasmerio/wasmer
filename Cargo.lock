@@ -684,15 +684,15 @@ dependencies = [
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.1.1",
+ "wasmer-clif-backend 0.1.2",
  "wasmer-emscripten 0.1.0",
- "wasmer-runtime 0.1.1",
- "wasmer-runtime-core 0.1.1",
+ "wasmer-runtime 0.1.4",
+ "wasmer-runtime-core 0.1.2",
 ]
 
 [[package]]
 name = "wasmer-clif-backend"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "byteorder 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cranelift-codegen 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -702,7 +702,7 @@ dependencies = [
  "hashbrown 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "target-lexicon 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime-core 0.1.1",
+ "wasmer-runtime-core 0.1.2",
  "wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -716,21 +716,21 @@ dependencies = [
  "libc 0.2.48 (git+https://github.com/rust-lang/libc)",
  "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.1.1",
- "wasmer-runtime-core 0.1.1",
+ "wasmer-clif-backend 0.1.2",
+ "wasmer-runtime-core 0.1.2",
 ]
 
 [[package]]
 name = "wasmer-runtime"
-version = "0.1.1"
+version = "0.1.4"
 dependencies = [
- "wasmer-clif-backend 0.1.1",
- "wasmer-runtime-core 0.1.1",
+ "wasmer-clif-backend 0.1.2",
+ "wasmer-runtime-core 0.1.2",
 ]
 
 [[package]]
 name = "wasmer-runtime-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "field-offset 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -740,7 +740,7 @@ dependencies = [
  "page_size 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-clif-backend 0.1.1",
+ "wasmer-clif-backend 0.1.2",
  "wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

@@ -86,14 +86,10 @@ impl Module {
         isa: &isa::TargetIsa,
         functions: Map<LocalFuncIndex, ir::Function>,
     ) -> CompileResult<ModuleInner> {
-        // we have to deduplicate `module.func_assoc`
-        // let func_assoc = &mut self.module.func_assoc;
-        // let sig_registry = &self.module.sig_registry;
-        // func_assoc.iter_mut().for_each(|(_, sig_index)| {
-        //     *sig_index = sig_registry.lookup_deduplicated_sigindex(*sig_index);
-        // });
+        let imported_functions_len = self.module.imported_functions.len();
+        let (func_resolver_builder, handler_data) =
+            FuncResolverBuilder::new(isa, functions, imported_functions_len)?;
 
-        let (func_resolver_builder, handler_data) = FuncResolverBuilder::new(isa, functions)?;
         self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
 
         let trampolines = Trampolines::new(isa, &self.module);

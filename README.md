@@ -3,6 +3,9 @@
 <p align="center">
   <a href="https://circleci.com/gh/wasmerio/wasmer/"><img src="https://img.shields.io/circleci/project/github/wasmerio/wasmer/master.svg" alt="Build Status"></a>
   <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE"><img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License"></a>
+  <a href="https://spectrum.chat/wasmer">
+    <img alt="Join the Wasmer Community" src="https://withspectrum.github.io/badge/badge.svg" />
+  </a>
 </p>
 
 ## Introduction
@@ -14,6 +17,8 @@ Install Wasmer with:
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
+
+_**NEW ✨**: Now you can also embed Wasmer in your Rust application, check our [example repo](https://github.com/wasmerio/wasmer-rust-example) to see how to do it!_
 
 ### Usage
 
@@ -54,15 +59,16 @@ curl https://sh.rustup.rs -sSf | sh
 ### Other dependencies
 
 Please select your operating system:
-* [macOS](#macos)
-* [Debian-based Linuxes](#debian-based-linuxes)
-* [Microsoft Windows](#windows-msvc)
+
+- [macOS](#macos)
+- [Debian-based Linuxes](#debian-based-linuxes)
+- [Microsoft Windows](#windows-msvc)
 
 #### macOS
 
 If you have [homebrew](https://brew.sh/) installed:
 
-``` sh
+```sh
 brew install cmake
 ```
 
@@ -74,21 +80,20 @@ sudo port install cmake
 
 #### Debian-based Linuxes
 
-``` sh
+```sh
 sudo apt install cmake
 ```
 
 #### Windows (MSVC)
 
-Right now Windows support is *highly experimental*.
+Right now Windows support is _highly experimental_.
 We are working on this so Wasmer can soon be released for Windows.
 
 1. Install Python for Windows (https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
-You should change the installation to install the "Add python.exe to Path" feature.
+   You should change the installation to install the "Add python.exe to Path" feature.
 
 2. Install Git for Windows (https://git-scm.com/download/win). DO allow it to add git.exe to the PATH (default
-settings for the installer are fine).
-
+   settings for the installer are fine).
 
 ## Building
 
@@ -106,7 +111,7 @@ cargo install --path .
 
 ## Testing
 
-Thanks to [spectests](https://github.com/wasmerio/wasmer/tree/master/spectests) we can assure 100% compatibility with the WebAssembly spec test suite.
+Thanks to [spectests](https://github.com/wasmerio/wasmer/tree/master/lib/runtime-core/spectests) we can assure 100% compatibility with the WebAssembly spec test suite.
 
 Tests can be run with:
 
@@ -135,7 +140,7 @@ Below are some of the goals (written with order) of this project:
 
 - [x] It should be 100% compatible with the [WebAssembly Spectest](https://github.com/wasmerio/wasmer/tree/master/spectests)
 - [x] It should be fast _(partially achieved)_
-- [ ] Support Emscripten calls _(on the works)_
+- [ ] Support Emscripten calls _(in the works)_
 - [ ] Support Rust ABI calls
 - [ ] Support GO ABI calls
 
