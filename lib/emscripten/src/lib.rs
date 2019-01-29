@@ -5,6 +5,7 @@ extern crate wasmer_runtime;
 use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
 use std::mem;
+use wasmer_runtime::{func, imports, Global, Memory, Table, Value};
 use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer, GlobalPointer},
     import::{ImportObject, Namespace},
@@ -14,14 +15,6 @@ use wasmer_runtime_core::{
         Type::{self, *},
     },
     vm::LocalGlobal,
-};
-use wasmer_runtime::{
-    Memory,
-    Table,
-    Global,
-    Value,
-    imports,
-    func,
 };
 
 #[macro_use]
@@ -269,7 +262,7 @@ pub fn generate_emscripten_env(globals: &EmscriptenGlobals) -> ImportObject {
 
             "__setjmp" => func!(self::jmp::__setjmp, [i32] -> [i32]),
             "__longjmp" => func!(self::jmp::__longjmp, [i32, i32] -> []),
-            
+
         },
         "asm2wasm" => {
             "f64-rem" => func!(self::math::f64_rem, [f64, f64] -> [f64]),
