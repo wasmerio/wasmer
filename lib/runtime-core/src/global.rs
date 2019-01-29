@@ -12,10 +12,28 @@ pub struct Global {
 }
 
 impl Global {
+    /// Create a new `Global` value.
+    ///
+    /// Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::global::Global;
+    /// # use wasmer_runtime_core::types::Value;
+    /// let global = Global::new(Value::I32(42));
+    /// ```
     pub fn new(value: Value) -> Self {
         Self::new_internal(value, false)
     }
 
+    /// Create a new, mutable `Global` value.
+    ///
+    /// Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::global::Global;
+    /// # use wasmer_runtime_core::types::Value;
+    /// let global = Global::new_mutable(Value::I32(42));
+    /// ```
     pub fn new_mutable(value: Value) -> Self {
         Self::new_internal(value, true)
     }
@@ -41,10 +59,17 @@ impl Global {
         }
     }
 
+    /// Get the [`GlobalDescriptor`] generated for this global.
+    ///
+    /// [`GlobalDescriptor`]: struct.GlobalDescriptor.html
     pub fn descriptor(&self) -> GlobalDescriptor {
         self.desc
     }
 
+    /// Set the value help by this global.
+    ///
+    /// This method will panic if the value is
+    /// the wrong type.
     pub fn set(&self, value: Value) {
         if self.desc.mutable {
             if self.desc.ty == value.ty() {
@@ -65,6 +90,7 @@ impl Global {
         }
     }
 
+    /// Get the value held by this global.
     pub fn get(&self) -> Value {
         let data = self.storage.borrow().data;
 

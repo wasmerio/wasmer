@@ -7,6 +7,7 @@ use wasmer_runtime_core::{
     prelude::*,
     table::Table,
     types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
+    units::Pages,
 };
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
@@ -16,8 +17,8 @@ fn main() -> Result<()> {
     let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
 
     let memory = Memory::new(MemoryDescriptor {
-        min: 1,
-        max: Some(1),
+        minimum: Pages(1),
+        maximum: Some(Pages(1)),
         shared: false,
     })
     .unwrap();
@@ -26,8 +27,8 @@ fn main() -> Result<()> {
 
     let table = Table::new(TableDescriptor {
         element: ElementType::Anyfunc,
-        min: 10,
-        max: None,
+        minimum: 10,
+        maximum: None,
     })
     .unwrap();
 

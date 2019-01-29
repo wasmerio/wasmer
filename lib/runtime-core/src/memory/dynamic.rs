@@ -1,7 +1,8 @@
 use crate::{
-    memory::{WASM_MAX_PAGES, WASM_PAGE_SIZE},
+    error::CreationError,
     sys,
     types::MemoryDescriptor,
+    units::{Bytes, Pages},
     vm,
 };
 
@@ -22,24 +23,24 @@ pub const DYNAMIC_GUARD_SIZE: usize = 4096;
 /// us to add a guard-page at the end to help elide some bounds-checks.
 pub struct DynamicMemory {
     memory: sys::Memory,
-    current: u32,
-    max: Option<u32>,
+    current: Pages,
+    max: Option<Pages>,
 }
 
 impl DynamicMemory {
-    pub(super) fn new(desc: MemoryDescriptor, local: &mut vm::LocalMemory) -> Option<Box<Self>> {
+    pub(super) fn new(
+        desc: MemoryDescriptor,
+        local: &mut vm::LocalMemory,
+    ) -> Result<Box<Self>, CreationError> {
+        let min_bytes: Bytes = desc.minimum.into();
         let memory = {
-            let mut memory =
-                sys::Memory::with_size((desc.minimum as usize * WASM_PAGE_SIZE) + DYNAMIC_GUARD_SIZE)
-                    .ok()?;
-            if desc.minimum != 0 {
+            let mut memory = sys::Memory::with_size(min_bytes.0 + DYNAMIC_GUARD_SIZE)
+                .map_err(|_| CreationError::UnableToCreateMemory)?;
+            if desc.minimum != Pages(0) {
                 unsafe {
                     memory
-                        .protect(
-                            0..(desc.minimum as usize * WASM_PAGE_SIZE),
-                            sys::Protect::ReadWrite,
-                        )
-                        .ok()?;
+                        .protect(0..min_bytes.0, sys::Protect::ReadWrite)
+                        .map_err(|_| CreationError::UnableToCreateMemory)?;
                 }
             }
 
@@ -54,18 +55,18 @@ impl DynamicMemory {
         let storage_ptr: *mut DynamicMemory = &mut *storage;
 
         local.base = storage.memory.as_ptr();
-        local.bound = desc.minimum as usize * WASM_PAGE_SIZE;
+        local.bound = min_bytes.0;
         local.memory = storage_ptr as *mut ();
 
-        Some(storage)
+        Ok(storage)
     }
 
-    pub fn current(&self) -> u32 {
+    pub fn size(&self) -> Pages {
         self.current
     }
 
-    pub fn grow(&mut self, delta: u32, local: &mut vm::LocalMemory) -> Option<u32> {
-        if delta == 0 {
+    pub fn grow(&mut self, delta: Pages, local: &mut vm::LocalMemory) -> Option<Pages> {
+        if delta == Pages(0) {
             return Some(self.current);
         }
 
@@ -77,30 +78,22 @@ impl DynamicMemory {
             }
         }
 
-        if new_pages as usize > WASM_MAX_PAGES {
-            return None;
-        }
-
         let mut new_memory =
-            sys::Memory::with_size((new_pages as usize * WASM_PAGE_SIZE) + DYNAMIC_GUARD_SIZE)
-                .ok()?;
+            sys::Memory::with_size(new_pages.bytes().0 + DYNAMIC_GUARD_SIZE).ok()?;
 
         unsafe {
             new_memory
-                .protect(
-                    0..(new_pages as usize * WASM_PAGE_SIZE),
-                    sys::Protect::ReadWrite,
-                )
+                .protect(0..new_pages.bytes().0, sys::Protect::ReadWrite)
                 .ok()?;
 
-            new_memory.as_slice_mut()[..self.current as usize * WASM_PAGE_SIZE]
-                .copy_from_slice(&self.memory.as_slice()[..self.current as usize * WASM_PAGE_SIZE]);
+            new_memory.as_slice_mut()[..self.current.bytes().0]
+                .copy_from_slice(&self.memory.as_slice()[..self.current.bytes().0]);
         }
 
         self.memory = new_memory; //The old memory gets dropped.
 
         local.base = self.memory.as_ptr();
-        local.bound = new_pages as usize * WASM_PAGE_SIZE;
+        local.bound = new_pages.bytes().0;
 
         let old_pages = self.current;
         self.current = new_pages;
@@ -108,10 +101,10 @@ impl DynamicMemory {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        unsafe { &self.memory.as_slice()[0..self.current as usize * WASM_PAGE_SIZE] }
+        unsafe { &self.memory.as_slice()[0..self.current.bytes().0] }
     }
 
     pub fn as_slice_mut(&mut self) -> &mut [u8] {
-        unsafe { &mut self.memory.as_slice_mut()[0..self.current as usize * WASM_PAGE_SIZE] }
+        unsafe { &mut self.memory.as_slice_mut()[0..self.current.bytes().0] }
     }
 }

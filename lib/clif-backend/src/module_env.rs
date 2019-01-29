@@ -14,6 +14,7 @@ use wasmer_runtime_core::{
         ElementType, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer,
         LocalFuncIndex, LocalOrImport, MemoryDescriptor, SigIndex, TableDescriptor, Value,
     },
+    units::Pages,
 };
 
 pub struct ModuleEnv<'module, 'isa> {
@@ -251,8 +252,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     /// Declares a memory to the environment
     fn declare_memory(&mut self, memory: cranelift_wasm::Memory) {
         self.module.memories.push(MemoryDescriptor {
-            minimum: memory.minimum,
-            maximum: memory.maximum,
+            minimum: Pages(memory.minimum),
+            maximum: memory.maximum.map(|max| Pages(max)),
             shared: memory.shared,
         });
     }
@@ -270,8 +271,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         let memory = MemoryDescriptor {
-            minimum: memory.minimum,
-            maximum: memory.maximum,
+            minimum: Pages(memory.minimum),
+            maximum: memory.maximum.map(|max| Pages(max)),
             shared: memory.shared,
         };
 

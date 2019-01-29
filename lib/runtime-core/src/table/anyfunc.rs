@@ -1,4 +1,5 @@
 use crate::{
+    error::CreationError,
     instance::Function,
     sig_registry::SigRegistry,
     structures::TypedIndex,
@@ -48,7 +49,10 @@ pub struct AnyfuncTable {
 }
 
 impl AnyfuncTable {
-    pub fn new(desc: TableDescriptor, local: &mut vm::LocalTable) -> Result<Box<Self>, ()> {
+    pub fn new(
+        desc: TableDescriptor,
+        local: &mut vm::LocalTable,
+    ) -> Result<Box<Self>, CreationError> {
         let initial_table_backing_len = match desc.maximum {
             Some(max) => max,
             None => desc.minimum,

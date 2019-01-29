@@ -3,7 +3,7 @@ use crate::{
     export::{Context, Export},
     global::Global,
     import::ImportObject,
-    memory::{Memory, WASM_PAGE_SIZE},
+    memory::Memory,
     module::{ImportName, ModuleInner},
     structures::{BoxedMap, Map, SliceMap, TypedIndex},
     table::Table,
@@ -104,7 +104,7 @@ impl LocalBacking {
                 LocalOrImport::Local(local_memory_index) => {
                     let memory_desc = module.memories[local_memory_index];
                     let data_top = init_base + init.data.len();
-                    assert!(memory_desc.minimum as usize * WASM_PAGE_SIZE >= data_top);
+                    assert!(memory_desc.minimum.bytes().0 >= data_top);
 
                     let mem = &memories[local_memory_index];
                     mem.write_many(init_base as u32, &init.data).unwrap();
@@ -167,9 +167,8 @@ impl LocalBacking {
                 LocalOrImport::Local(local_table_index) => {
                     let table = &tables[local_table_index];
 
-                    if (table.current_size() as usize) < init_base + init.elements.len() {
-                        let delta =
-                            (init_base + init.elements.len()) - table.current_size() as usize;
+                    if (table.size() as usize) < init_base + init.elements.len() {
+                        let delta = (init_base + init.elements.len()) - table.size() as usize;
                         // Grow the table if it's too small.
                         table.grow(delta as u32).expect("couldn't grow table");
                     }
@@ -203,9 +202,8 @@ impl LocalBacking {
                 LocalOrImport::Import(import_table_index) => {
                     let table = &imports.tables[import_table_index];
 
-                    if (table.current_size() as usize) < init_base + init.elements.len() {
-                        let delta =
-                            (init_base + init.elements.len()) - table.current_size() as usize;
+                    if (table.size() as usize) < init_base + init.elements.len() {
+                        let delta = (init_base + init.elements.len()) - table.size() as usize;
                         // Grow the table if it's too small.
                         table.grow(delta as u32).expect("couldn't grow table");
                     }

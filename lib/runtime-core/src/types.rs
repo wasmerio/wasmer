@@ -1,4 +1,4 @@
-use crate::{memory::MemoryType, module::ModuleInner, structures::TypedIndex};
+use crate::{memory::MemoryType, module::ModuleInner, structures::TypedIndex, units::Pages};
 use std::{borrow::Cow, mem};
 
 /// Represents a WebAssembly type.
@@ -142,7 +142,9 @@ impl TableDescriptor {
         // TODO: We should define implementation limits.
         let imported_max = imported.maximum.unwrap_or(u32::max_value());
         let self_max = self.maximum.unwrap_or(u32::max_value());
-        self.element == imported.element && imported_max <= self_max && self.minimum <= imported.minimum
+        self.element == imported.element
+            && imported_max <= self_max
+            && self.minimum <= imported.minimum
     }
 }
 
@@ -174,9 +176,9 @@ pub struct GlobalInit {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemoryDescriptor {
     /// The minimum number of allowed pages.
-    pub minimum: u32,
+    pub minimum: Pages,
     /// The maximum number of allowed pages.
-    pub maximum: Option<u32>,
+    pub maximum: Option<Pages>,
     /// This memory can be shared between wasm threads.
     pub shared: bool,
 }
@@ -192,10 +194,12 @@ impl MemoryDescriptor {
     }
 
     pub(crate) fn fits_in_imported(&self, imported: MemoryDescriptor) -> bool {
-        let imported_max = imported.maximum.unwrap_or(65_536);
-        let self_max = self.maximum.unwrap_or(65_536);
+        let imported_max = imported.maximum.unwrap_or(Pages(65_536));
+        let self_max = self.maximum.unwrap_or(Pages(65_536));
 
-        self.shared == imported.shared && imported_max <= self_max && self.minimum <= imported.minimum
+        self.shared == imported.shared
+            && imported_max <= self_max
+            && self.minimum <= imported.minimum
     }
 }
 

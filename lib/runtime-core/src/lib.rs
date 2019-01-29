@@ -19,6 +19,7 @@ pub mod structures;
 mod sys;
 pub mod table;
 pub mod types;
+pub mod units;
 pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;

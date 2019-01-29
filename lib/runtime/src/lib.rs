@@ -88,11 +88,18 @@ pub use wasmer_runtime_core::error;
 pub use wasmer_runtime_core::{func, imports};
 
 pub mod wasm {
+    //! Various types exposed by the Wasmer Runtime.
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::instance::Function;
     pub use wasmer_runtime_core::memory::Memory;
     pub use wasmer_runtime_core::table::Table;
     pub use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, TableDescriptor, Type, Value};
+}
+
+pub mod units {
+    //! Various unit types.
+
+    pub use wasmer_runtime_core::units::{Bytes, Pages};
 }
 
 /// Compile WebAssembly binary code into a [`Module`].

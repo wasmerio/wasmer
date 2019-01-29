@@ -1,10 +1,9 @@
 use crate::{
-    memory::{
-        static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
-        WASM_MAX_PAGES, WASM_PAGE_SIZE,
-    },
+    error::CreationError,
+    memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
     sys,
     types::MemoryDescriptor,
+    units::Pages,
     vm,
 };
 
@@ -21,26 +20,23 @@ use crate::{
 /// allows them to select the type of memory used however.
 pub struct StaticMemory {
     memory: sys::Memory,
-    current: u32,
-    max: Option<u32>,
+    current: Pages,
+    max: Option<Pages>,
 }
 
 impl StaticMemory {
     pub(in crate::memory) fn new(
         desc: MemoryDescriptor,
         local: &mut vm::LocalMemory,
-    ) -> Option<Box<Self>> {
+    ) -> Result<Box<Self>, CreationError> {
         let memory = {
-            let mut memory =
-                sys::Memory::with_size(SAFE_STATIC_HEAP_SIZE + SAFE_STATIC_GUARD_SIZE).ok()?;
-            if desc.minimum != 0 {
+            let mut memory = sys::Memory::with_size(SAFE_STATIC_HEAP_SIZE + SAFE_STATIC_GUARD_SIZE)
+                .map_err(|_| CreationError::UnableToCreateMemory)?;
+            if desc.minimum != Pages(0) {
                 unsafe {
                     memory
-                        .protect(
-                            0..(desc.minimum as usize * WASM_PAGE_SIZE),
-                            sys::Protect::ReadWrite,
-                        )
-                        .ok()?;
+                        .protect(0..desc.minimum.bytes().0, sys::Protect::ReadWrite)
+                        .map_err(|_| CreationError::UnableToCreateMemory)?;
                 }
             }
 
@@ -55,18 +51,18 @@ impl StaticMemory {
         let storage_ptr: *mut StaticMemory = &mut *storage;
 
         local.base = storage.memory.as_ptr();
-        local.bound = desc.minimum as usize * WASM_PAGE_SIZE;
+        local.bound = desc.minimum.bytes().0;
         local.memory = storage_ptr as *mut ();
 
-        Some(storage)
+        Ok(storage)
     }
 
-    pub fn current(&self) -> u32 {
+    pub fn size(&self) -> Pages {
         self.current
     }
 
-    pub fn grow(&mut self, delta: u32, local: &mut vm::LocalMemory) -> Option<u32> {
-        if delta == 0 {
+    pub fn grow(&mut self, delta: Pages, local: &mut vm::LocalMemory) -> Option<Pages> {
+        if delta == Pages(0) {
             return Some(self.current);
         }
 
@@ -78,20 +74,16 @@ impl StaticMemory {
             }
         }
 
-        if new_pages as usize > WASM_MAX_PAGES {
-            return None;
-        }
-
         unsafe {
             self.memory
                 .protect(
-                    self.current as usize * WASM_PAGE_SIZE..new_pages as usize * WASM_PAGE_SIZE,
+                    self.current.bytes().0..new_pages.bytes().0,
                     sys::Protect::ReadWrite,
                 )
                 .ok()?;
         }
 
-        local.bound = new_pages as usize * WASM_PAGE_SIZE;
+        local.bound = new_pages.bytes().0;
 
         let old_pages = self.current;
 
@@ -101,10 +93,10 @@ impl StaticMemory {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        unsafe { &self.memory.as_slice()[0..self.current as usize * WASM_PAGE_SIZE] }
+        unsafe { &self.memory.as_slice()[0..self.current.bytes().0] }
     }
 
     pub fn as_slice_mut(&mut self) -> &mut [u8] {
-        unsafe { &mut self.memory.as_slice_mut()[0..self.current as usize * WASM_PAGE_SIZE] }
+        unsafe { &mut self.memory.as_slice_mut()[0..self.current.bytes().0] }
     }
 }

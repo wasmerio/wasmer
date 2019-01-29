@@ -1,9 +1,11 @@
 use crate::{
+    error::CreationError,
     export::Export,
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
     memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
     types::{MemoryDescriptor, ValueType},
+    units::Pages,
     vm,
 };
 use std::{cell::RefCell, fmt, mem, ptr, rc::Rc, slice};
@@ -14,9 +16,6 @@ pub use self::static_::{SharedStaticMemory, StaticMemory};
 mod dynamic;
 mod static_;
 
-pub const WASM_PAGE_SIZE: usize = 65_536;
-pub const WASM_MAX_PAGES: usize = 65_536;
-
 pub struct Memory {
     desc: MemoryDescriptor,
     storage: Rc<RefCell<(MemoryStorage, Box<vm::LocalMemory>)>>,
@@ -24,29 +23,28 @@ pub struct Memory {
 
 impl Memory {
     /// Create a new `Memory` from a [`MemoryDescriptor`]
-    /// 
+    ///
     /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
-    /// 
+    ///
     /// Usage:
-    /// 
+    ///
     /// ```
     /// # use wasmer_runtime_core::types::MemoryDescriptor;
     /// # use wasmer_runtime_core::memory::Memory;
     /// # use wasmer_runtime_core::error::Result;
-    /// 
+    /// # use wasmer_runtime_core::units::Pages;
     /// # fn create_memory() -> Result<()> {
     /// let descriptor = MemoryDescriptor {
-    ///     minimum: 10,
+    ///     minimum: Pages(10),
     ///     maximum: None,
     ///     shared: false,
     /// };
-    /// 
+    ///
     /// let memory = Memory::new(descriptor)?;
-    /// 
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(desc: MemoryDescriptor) -> Option<Self> {
+    pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
         let mut vm_local_memory = Box::new(vm::LocalMemory {
             base: ptr::null_mut(),
             bound: 0,
@@ -63,7 +61,7 @@ impl Memory {
             MemoryType::SharedStatic => unimplemented!("shared memories are not yet implemented"),
         };
 
-        Some(Memory {
+        Ok(Memory {
             desc,
             storage: Rc::new(RefCell::new((memory_storage, vm_local_memory))),
         })
@@ -71,14 +69,14 @@ impl Memory {
 
     /// Return the [`MemoryDescriptor`] that this memory
     /// was created with.
-    /// 
+    ///
     /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
     pub fn descriptor(&self) -> MemoryDescriptor {
         self.desc
     }
 
     /// Grow this memory by the specfied number of pages.
-    pub fn grow(&mut self, delta: u32) -> Option<u32> {
+    pub fn grow(&mut self, delta: Pages) -> Option<Pages> {
         match &mut *self.storage.borrow_mut() {
             (MemoryStorage::Dynamic(ref mut dynamic_memory), ref mut local) => {
                 dynamic_memory.grow(delta, local)
@@ -90,16 +88,11 @@ impl Memory {
         }
     }
 
-    /// The size, in bytes, of this memory.
-    pub fn bytes(&self) -> usize {
-        (self.size() as usize) * WASM_PAGE_SIZE
-    }
-
     /// The size, in wasm pages, of this memory.
-    pub fn size(&self) -> u32 {
+    pub fn size(&self) -> Pages {
         match &*self.storage.borrow() {
-            (MemoryStorage::Dynamic(ref dynamic_memory), _) => dynamic_memory.current(),
-            (MemoryStorage::Static(ref static_memory), _) => static_memory.current(),
+            (MemoryStorage::Dynamic(ref dynamic_memory), _) => dynamic_memory.size(),
+            (MemoryStorage::Static(ref static_memory), _) => static_memory.size(),
             (MemoryStorage::SharedStatic(_), _) => unimplemented!(),
         }
     }
@@ -304,7 +297,7 @@ impl fmt::Debug for Memory {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Memory")
             .field("desc", &self.desc)
-            .field("size", &self.bytes())
+            .field("size", &self.size())
             .finish()
     }
 }

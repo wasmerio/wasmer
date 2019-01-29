@@ -140,6 +140,20 @@ impl PartialEq for CallError {
     }
 }
 
+/// This error type is produced when creating something,
+/// like a `Memory` or a `Table`.
+#[derive(Debug, Clone)]
+pub enum CreationError {
+    UnableToCreateMemory,
+    UnableToCreateTable,
+}
+
+impl PartialEq for CreationError {
+    fn eq(&self, _other: &CreationError) -> bool {
+        false
+    }
+}
+
 /// The amalgamation of all errors that can occur
 /// during the compilation, instantiation, or execution
 /// of a webassembly module.
@@ -152,6 +166,7 @@ pub enum Error {
     RuntimeError(RuntimeError),
     ResolveError(ResolveError),
     CallError(CallError),
+    CreationError(CreationError),
 }
 
 impl PartialEq for Error {
@@ -217,6 +232,12 @@ impl From<RuntimeError> for Box<Error> {
 impl From<CallError> for Box<Error> {
     fn from(call_err: CallError) -> Self {
         Box::new(Error::CallError(call_err))
+    }
+}
+
+impl From<CreationError> for Box<Error> {
+    fn from(creation_err: CreationError) -> Self {
+        Box::new(Error::CreationError(creation_err))
     }
 }
 

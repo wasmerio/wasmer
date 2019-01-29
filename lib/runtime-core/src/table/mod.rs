@@ -1,4 +1,5 @@
 use crate::{
+    error::CreationError,
     export::Export,
     import::IsExport,
     types::{ElementType, TableDescriptor},
@@ -28,29 +29,27 @@ pub struct Table {
 
 impl Table {
     /// Create a new `Table` from a [`TableDescriptor`]
-    /// 
+    ///
     /// [`TableDescriptor`]: struct.TableDescriptor.html
-    /// 
+    ///
     /// Usage:
-    /// 
+    ///
     /// ```
     /// # use wasmer_runtime_core::types::{TableDescriptor, ElementType};
     /// # use wasmer_runtime_core::table::Table;
     /// # use wasmer_runtime_core::error::Result;
-    /// 
     /// # fn create_table() -> Result<()> {
     /// let descriptor = TableDescriptor {
     ///     element: ElementType::Anyfunc,
     ///     minimum: 10,
     ///     maximum: None,
     /// };
-    /// 
+    ///
     /// let table = Table::new(descriptor)?;
-    /// 
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(desc: TableDescriptor) -> Result<Self, ()> {
+    pub fn new(desc: TableDescriptor) -> Result<Self, CreationError> {
         let mut local = vm::LocalTable {
             base: ptr::null_mut(),
             count: 0,
@@ -67,10 +66,12 @@ impl Table {
         })
     }
 
+    /// Get the `TableDescriptor` used to create this `Table`.
     pub fn descriptor(&self) -> TableDescriptor {
         self.desc
     }
 
+    /// Set the element at index.
     pub fn set(&self, index: u32, element: Element) -> Result<(), ()> {
         match &mut *self.storage.borrow_mut() {
             (TableStorage::Anyfunc(ref mut anyfunc_table), _) => {
@@ -91,15 +92,17 @@ impl Table {
         }
     }
 
-    pub fn current_size(&self) -> u32 {
+    /// The current size of this table.
+    pub fn size(&self) -> u32 {
         match &*self.storage.borrow() {
             (TableStorage::Anyfunc(ref anyfunc_table), _) => anyfunc_table.current_size(),
         }
     }
 
+    /// Grow this table by `delta`.
     pub fn grow(&self, delta: u32) -> Option<u32> {
         if delta == 0 {
-            return Some(self.current_size());
+            return Some(self.size());
         }
 
         match &mut *self.storage.borrow_mut() {
@@ -131,6 +134,9 @@ impl Clone for Table {
 
 impl fmt::Debug for Table {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Table").field("desc", &self.desc).finish()
+        f.debug_struct("Table")
+            .field("desc", &self.desc)
+            .field("size", &self.size())
+            .finish()
     }
 }
