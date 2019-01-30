@@ -5,16 +5,17 @@ use libc::c_int;
 use std::cell::UnsafeCell;
 use std::{ffi::c_void, fmt, mem, ptr};
 use wasmer_runtime_core::{
-    error::CallResult,
-    export::{Context, Export, FuncPointer, GlobalPointer, MemoryPointer, TablePointer},
+    export::{Context, Export, FuncPointer},
+    func,
+    global::Global,
     import::{ImportObject, Namespace},
-    instance::Instance,
-    memory::LinearMemory,
-    module::Module,
-    structures::TypedIndex,
-    table::TableBacking,
-    types::{ElementType, FuncSig, GlobalDesc, LocalMemoryIndex, Memory, Table, Type::*, Value},
-    vm::Ctx,
+    imports,
+    memory::Memory,
+    table::Table,
+    types::{
+        FuncSig, GlobalDescriptor,
+        Type::{self, *},
+    },
     vm::LocalGlobal,
     vm::LocalMemory,
     vm::LocalTable,
@@ -196,23 +197,24 @@ fn store_module_arguments(path: &str, args: Vec<&str>, ctx: &mut Ctx) -> (u32, u
     (argc as u32, argv_offset)
 }
 
-pub fn emscripten_set_up_memory(memory: &mut LinearMemory) {
+pub fn emscripten_set_up_memory(memory: &mut Memory) {
     let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
     let dynamictop_ptr_offset = dynamictop_ptr + mem::size_of::<u32>();
 
     // println!("value = {:?}");
 
     // We avoid failures of setting the u32 in our memory if it's out of bounds
-    if dynamictop_ptr_offset > memory.len() {
-        return; // TODO: We should panic instead?
-    }
-
-    // debug!("###### dynamic_base = {:?}", dynamic_base(STATIC_BUMP));
-    // debug!("###### dynamictop_ptr = {:?}", dynamictop_ptr);
-    // debug!("###### dynamictop_ptr_offset = {:?}", dynamictop_ptr_offset);
-
-    let mem = &mut memory[dynamictop_ptr..dynamictop_ptr_offset];
-    LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
+    unimplemented!()
+    //    if dynamictop_ptr_offset > memory.len() {
+    //        return; // TODO: We should panic instead?
+    //    }
+    //
+    //    // debug!("###### dynamic_base = {:?}", dynamic_base(STATIC_BUMP));
+    //    // debug!("###### dynamictop_ptr = {:?}", dynamictop_ptr);
+    //    // debug!("###### dynamictop_ptr_offset = {:?}", dynamictop_ptr_offset);
+    //
+    //    let mem = &mut memory[dynamictop_ptr..dynamictop_ptr_offset];
+    //    LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
 }
 
 macro_rules! mock_external {

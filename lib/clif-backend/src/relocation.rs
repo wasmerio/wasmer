@@ -8,6 +8,18 @@ use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
 use hashbrown::HashMap;
 use wasmer_runtime_core::{structures::TypedIndex, types::LocalFuncIndex};
 
+pub mod call_names {
+    pub const LOCAL_NAMESPACE: u32 = 1;
+    pub const IMPORT_NAMESPACE: u32 = 2;
+
+    pub const STATIC_MEM_GROW: u32 = 0;
+    pub const STATIC_MEM_SIZE: u32 = 1;
+    pub const SHARED_STATIC_MEM_GROW: u32 = 2;
+    pub const SHARED_STATIC_MEM_SIZE: u32 = 3;
+    pub const DYNAMIC_MEM_GROW: u32 = 4;
+    pub const DYNAMIC_MEM_SIZE: u32 = 5;
+}
+
 #[derive(Debug, Clone)]
 pub struct Relocation {
     /// The relocation code.
@@ -21,11 +33,21 @@ pub struct Relocation {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum VmCallKind {
+    StaticMemoryGrow,
+    StaticMemorySize,
+
+    SharedStaticMemoryGrow,
+    SharedStaticMemorySize,
+
+    DynamicMemoryGrow,
+    DynamicMemorySize,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum VmCall {
-    LocalStaticMemoryGrow,
-    LocalStaticMemorySize,
-    ImportedStaticMemoryGrow,
-    ImportedStaticMemorySize,
+    Local(VmCallKind),
+    Import(VmCallKind),
 }
 
 /// Specify the type of relocation
@@ -72,15 +94,31 @@ impl binemit::RelocSink for RelocSink {
                     target: RelocationType::Normal(LocalFuncIndex::new(index as usize)),
                 });
             }
-            ExternalName::User {
-                namespace: 1,
-                index,
-            } => {
-                let target = RelocationType::VmCall(match index {
-                    0 => VmCall::LocalStaticMemoryGrow,
-                    1 => VmCall::LocalStaticMemorySize,
-                    2 => VmCall::ImportedStaticMemoryGrow,
-                    3 => VmCall::ImportedStaticMemorySize,
+            ExternalName::User { namespace, index } => {
+                use self::call_names::*;
+                let target = RelocationType::VmCall(match namespace {
+                    LOCAL_NAMESPACE => VmCall::Local(match index {
+                        STATIC_MEM_GROW => VmCallKind::StaticMemoryGrow,
+                        STATIC_MEM_SIZE => VmCallKind::StaticMemorySize,
+
+                        SHARED_STATIC_MEM_GROW => VmCallKind::SharedStaticMemoryGrow,
+                        SHARED_STATIC_MEM_SIZE => VmCallKind::SharedStaticMemorySize,
+
+                        DYNAMIC_MEM_GROW => VmCallKind::DynamicMemoryGrow,
+                        DYNAMIC_MEM_SIZE => VmCallKind::DynamicMemorySize,
+                        _ => unimplemented!(),
+                    }),
+                    IMPORT_NAMESPACE => VmCall::Import(match index {
+                        STATIC_MEM_GROW => VmCallKind::StaticMemoryGrow,
+                        STATIC_MEM_SIZE => VmCallKind::StaticMemorySize,
+
+                        SHARED_STATIC_MEM_GROW => VmCallKind::SharedStaticMemoryGrow,
+                        SHARED_STATIC_MEM_SIZE => VmCallKind::SharedStaticMemorySize,
+
+                        DYNAMIC_MEM_GROW => VmCallKind::DynamicMemoryGrow,
+                        DYNAMIC_MEM_SIZE => VmCallKind::DynamicMemorySize,
+                        _ => unimplemented!(),
+                    }),
                     _ => unimplemented!(),
                 });
                 self.func_relocs.push(Relocation {
@@ -108,9 +146,6 @@ impl binemit::RelocSink for RelocSink {
                     addend,
                     target: relocation_type,
                 });
-            }
-            _ => {
-                unimplemented!();
             }
         }
     }

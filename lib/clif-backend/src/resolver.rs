@@ -1,7 +1,7 @@
 use crate::call::HandlerData;
 use crate::libcalls;
 use crate::relocation::{
-    LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall,
+    LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall, VmCallKind,
 };
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
@@ -140,14 +140,38 @@ impl FuncResolverBuilder {
                         msg: format!("unexpected intrinsic: {}", name),
                     })?,
                     RelocationType::VmCall(vmcall) => match vmcall {
-                        VmCall::LocalStaticMemoryGrow => vmcalls::local_static_memory_grow as _,
-                        VmCall::LocalStaticMemorySize => vmcalls::local_static_memory_size as _,
-                        VmCall::ImportedStaticMemoryGrow => {
-                            vmcalls::imported_static_memory_grow as _
-                        }
-                        VmCall::ImportedStaticMemorySize => {
-                            vmcalls::imported_static_memory_size as _
-                        }
+                        VmCall::Local(kind) => match kind {
+                            VmCallKind::StaticMemoryGrow => vmcalls::local_static_memory_grow as _,
+                            VmCallKind::StaticMemorySize => vmcalls::local_static_memory_size as _,
+
+                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
+                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
+
+                            VmCallKind::DynamicMemoryGrow => {
+                                vmcalls::local_dynamic_memory_grow as _
+                            }
+                            VmCallKind::DynamicMemorySize => {
+                                vmcalls::local_dynamic_memory_size as _
+                            }
+                        },
+                        VmCall::Import(kind) => match kind {
+                            VmCallKind::StaticMemoryGrow => {
+                                vmcalls::imported_static_memory_grow as _
+                            }
+                            VmCallKind::StaticMemorySize => {
+                                vmcalls::imported_static_memory_size as _
+                            }
+
+                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
+                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
+
+                            VmCallKind::DynamicMemoryGrow => {
+                                vmcalls::imported_dynamic_memory_grow as _
+                            }
+                            VmCallKind::DynamicMemorySize => {
+                                vmcalls::imported_dynamic_memory_size as _
+                            }
+                        },
                     },
                 };
 

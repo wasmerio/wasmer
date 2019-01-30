@@ -3,6 +3,9 @@
 <p align="center">
   <a href="https://circleci.com/gh/wasmerio/wasmer/"><img src="https://img.shields.io/circleci/project/github/wasmerio/wasmer/master.svg" alt="Build Status"></a>
   <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE"><img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License"></a>
+  <a href="https://spectrum.chat/wasmer">
+    <img alt="Join the Wasmer Community" src="https://withspectrum.github.io/badge/badge.svg" />
+  </a>
 </p>
 
 ## Introduction
