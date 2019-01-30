@@ -1,4 +1,5 @@
-use crate::{module::ModuleInner, structures::TypedIndex};
+use crate::{memory::MemoryType, module::ModuleInner, structures::TypedIndex, units::Pages};
+use std::{borrow::Cow, mem};
 
 /// Represents a WebAssembly type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -64,6 +65,62 @@ impl From<f64> for Value {
     }
 }
 
+pub enum ValueError {
+    BufferTooSmall,
+}
+
+pub trait ValueType: Copy + Clone
+where
+    Self: Sized,
+{
+    fn into_le(self, buffer: &mut [u8]);
+    fn from_le(buffer: &[u8]) -> Result<Self, ValueError>;
+}
+
+macro_rules! convert_value_impl {
+    ($t:ty) => {
+        impl ValueType for $t {
+            fn into_le(self, buffer: &mut [u8]) {
+                buffer[..mem::size_of::<Self>()].copy_from_slice(&self.to_le_bytes());
+            }
+            fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
+                if buffer.len() >= mem::size_of::<Self>() {
+                    let mut array = [0u8; mem::size_of::<Self>()];
+                    array.copy_from_slice(&buffer[..mem::size_of::<Self>()]);
+                    Ok(Self::from_le_bytes(array))
+                } else {
+                    Err(ValueError::BufferTooSmall)
+                }
+            }
+        }
+    };
+    ( $($t:ty),* ) => {
+        $(
+            convert_value_impl!($t);
+        )*
+    };
+}
+
+convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64);
+
+impl ValueType for f32 {
+    fn into_le(self, buffer: &mut [u8]) {
+        self.to_bits().into_le(buffer);
+    }
+    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
+        Ok(f32::from_bits(<u32 as ValueType>::from_le(buffer)?))
+    }
+}
+
+impl ValueType for f64 {
+    fn into_le(self, buffer: &mut [u8]) {
+        self.to_bits().into_le(buffer);
+    }
+    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
+        Ok(f64::from_bits(<u64 as ValueType>::from_le(buffer)?))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {
     /// Any wasm function.
@@ -71,21 +128,23 @@ pub enum ElementType {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Table {
+pub struct TableDescriptor {
     /// Type of data stored in this table.
-    pub ty: ElementType,
+    pub element: ElementType,
     /// The minimum number of elements that must be stored in this table.
-    pub min: u32,
+    pub minimum: u32,
     /// The maximum number of elements in this table.
-    pub max: Option<u32>,
+    pub maximum: Option<u32>,
 }
 
-impl Table {
-    pub(crate) fn fits_in_imported(&self, imported: &Table) -> bool {
+impl TableDescriptor {
+    pub(crate) fn fits_in_imported(&self, imported: TableDescriptor) -> bool {
         // TODO: We should define implementation limits.
-        let imported_max = imported.max.unwrap_or(u32::max_value());
-        let self_max = self.max.unwrap_or(u32::max_value());
-        self.ty == imported.ty && imported_max <= self_max && self.min <= imported.min
+        let imported_max = imported.maximum.unwrap_or(u32::max_value());
+        let self_max = self.maximum.unwrap_or(u32::max_value());
+        self.element == imported.element
+            && imported_max <= self_max
+            && self.minimum <= imported.minimum
     }
 }
 
@@ -101,39 +160,46 @@ pub enum Initializer {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GlobalDesc {
+pub struct GlobalDescriptor {
     pub mutable: bool,
     pub ty: Type,
 }
 
 /// A wasm global.
 #[derive(Debug, Clone)]
-pub struct Global {
-    pub desc: GlobalDesc,
+pub struct GlobalInit {
+    pub desc: GlobalDescriptor,
     pub init: Initializer,
 }
 
 /// A wasm memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Memory {
+pub struct MemoryDescriptor {
     /// The minimum number of allowed pages.
-    pub min: u32,
+    pub minimum: Pages,
     /// The maximum number of allowed pages.
-    pub max: Option<u32>,
+    pub maximum: Option<Pages>,
     /// This memory can be shared between wasm threads.
     pub shared: bool,
 }
 
-impl Memory {
-    pub fn is_static_heap(&self) -> bool {
-        self.max.is_some()
+impl MemoryDescriptor {
+    pub fn memory_type(self) -> MemoryType {
+        match (self.maximum.is_some(), self.shared) {
+            (true, true) => MemoryType::SharedStatic,
+            (true, false) => MemoryType::Static,
+            (false, false) => MemoryType::Dynamic,
+            (false, true) => panic!("shared memory without a max is not allowed"),
+        }
     }
 
-    pub(crate) fn fits_in_imported(&self, imported: &Memory) -> bool {
-        let imported_max = imported.max.unwrap_or(65_536);
-        let self_max = self.max.unwrap_or(65_536);
+    pub(crate) fn fits_in_imported(&self, imported: MemoryDescriptor) -> bool {
+        let imported_max = imported.maximum.unwrap_or(Pages(65_536));
+        let self_max = self.maximum.unwrap_or(Pages(65_536));
 
-        self.shared == imported.shared && imported_max <= self_max && self.min <= imported.min
+        self.shared == imported.shared
+            && imported_max <= self_max
+            && self.minimum <= imported.minimum
     }
 }
 
@@ -141,12 +207,31 @@ impl Memory {
 /// in a wasm module or exposed to wasm by the host.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FuncSig {
-    pub params: Vec<Type>,
-    pub returns: Vec<Type>,
+    params: Cow<'static, [Type]>,
+    returns: Cow<'static, [Type]>,
 }
 
 impl FuncSig {
-    pub fn check_sig(&self, params: &[Value]) -> bool {
+    pub fn new<Params, Returns>(params: Params, returns: Returns) -> Self
+    where
+        Params: Into<Cow<'static, [Type]>>,
+        Returns: Into<Cow<'static, [Type]>>,
+    {
+        Self {
+            params: params.into(),
+            returns: returns.into(),
+        }
+    }
+
+    pub fn params(&self) -> &[Type] {
+        &self.params
+    }
+
+    pub fn returns(&self) -> &[Type] {
+        &self.returns
+    }
+
+    pub fn check_param_value_types(&self, params: &[Value]) -> bool {
         self.params.len() == params.len()
             && self
                 .params

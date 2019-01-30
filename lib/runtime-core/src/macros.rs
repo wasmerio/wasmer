@@ -1,11 +1,20 @@
+#[macro_export]
+#[cfg(feature = "debug")]
 macro_rules! debug {
-    ($fmt:expr) => (if cfg!(any(debug_assertions, feature="debug")) { println!(concat!("wasmer-runtime(:{})::", $fmt), line!()) });
-    ($fmt:expr, $($arg:tt)*) => (if cfg!(any(debug_assertions, feature="debug")) { println!(concat!("wasmer-runtime(:{})::", $fmt, "\n"), line!(), $($arg)*) });
+    ($fmt:expr) => (println!(concat!("wasmer-runtime(:{})::", $fmt), line!()));
+    ($fmt:expr, $($arg:tt)*) => (println!(concat!("wasmer-runtime(:{})::", $fmt, "\n"), line!(), $($arg)*));
 }
 
 #[macro_export]
-macro_rules! export_func {
-    ($func:ident, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ]) => {{
+#[cfg(not(feature = "debug"))]
+macro_rules! debug {
+    ($fmt:expr) => {};
+    ($fmt:expr, $($arg:tt)*) => {};
+}
+
+#[macro_export]
+macro_rules! func {
+    ($func:ident, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] ) => {{
         use $crate::{
             export::{Context, Export, FuncPointer},
             types::{FuncSig, Type},
@@ -17,10 +26,10 @@ macro_rules! export_func {
         Export::Function {
             func: unsafe { FuncPointer::new(func as _) },
             ctx: Context::Internal,
-            signature: FuncSig {
-                params: vec![$($crate::__export_func_convert_type!($params),)*],
-                returns: vec![$($crate::__export_func_convert_type!($returns),)*],
-            },
+            signature: FuncSig::new(
+                &[$($crate::__export_func_convert_type!($params),)*] as &[Type],
+                &[$($crate::__export_func_convert_type!($returns),)*] as &[Type],
+            ).into(),
         }
     }};
 }
@@ -62,11 +71,11 @@ macro_rules! __export_func_convert_type {
 ///
 /// # Usage:
 /// ```
-/// # use wasmer_runtime_core::imports;
+/// # use wasmer_runtime_core::{imports, func};
 /// # use wasmer_runtime_core::vm::Ctx;
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => foo<[i32] -> [i32]>,
+///         "foo" => func!(foo, [i32] -> [i32]),
 ///     },
 /// };
 ///
@@ -96,13 +105,10 @@ macro_rules! imports {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __imports_internal {
-    ( { $( $imp_name:expr => $func:ident < [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] >, )* } ) => {{
+    ( { $( $imp_name:expr => $import_item:expr, )* } ) => {{
         let mut ns = Namespace::new();
         $(
-            ns.insert($imp_name, $crate::export_func!(
-                $func,
-                [ $( $params ),* ] -> [ $( $returns )* ]
-            ));
+            ns.insert($imp_name, $import_item);
         )*
         ns
     }};

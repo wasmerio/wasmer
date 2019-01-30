@@ -32,6 +32,9 @@ thread_local! {
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
 }
 
+unsafe impl Send for HandlerData {}
+unsafe impl Sync for HandlerData {}
+
 pub struct HandlerData {
     trap_data: TrapSink,
     buffer_ptr: *const c_void,

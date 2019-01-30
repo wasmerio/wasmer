@@ -1,4 +1,7 @@
-use crate::types::{FuncSig, GlobalDesc, Memory, MemoryIndex, Table, TableIndex, Type};
+use crate::types::{
+    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
+};
+use std::sync::Arc;
 
 pub type Result<T> = std::result::Result<T, Box<Error>>;
 pub type CompileResult<T> = std::result::Result<T, Box<CompileError>>;
@@ -39,30 +42,30 @@ pub enum LinkError {
     IncorrectImportSignature {
         namespace: String,
         name: String,
-        expected: FuncSig,
-        found: FuncSig,
+        expected: Arc<FuncSig>,
+        found: Arc<FuncSig>,
     },
     ImportNotFound {
         namespace: String,
         name: String,
     },
-    IncorrectMemoryDescription {
+    IncorrectMemoryDescriptor {
         namespace: String,
         name: String,
-        expected: Memory,
-        found: Memory,
+        expected: MemoryDescriptor,
+        found: MemoryDescriptor,
     },
-    IncorrectTableDescription {
+    IncorrectTableDescriptor {
         namespace: String,
         name: String,
-        expected: Table,
-        found: Table,
+        expected: TableDescriptor,
+        found: TableDescriptor,
     },
-    IncorrectGlobalDescription {
+    IncorrectGlobalDescriptor {
         namespace: String,
         name: String,
-        expected: GlobalDesc,
-        found: GlobalDesc,
+        expected: GlobalDescriptor,
+        found: GlobalDescriptor,
     },
 }
 
@@ -100,9 +103,16 @@ impl PartialEq for RuntimeError {
 /// Comparing two `ResolveError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum ResolveError {
-    Signature { expected: FuncSig, found: Vec<Type> },
-    ExportNotFound { name: String },
-    ExportWrongType { name: String },
+    Signature {
+        expected: Arc<FuncSig>,
+        found: Vec<Type>,
+    },
+    ExportNotFound {
+        name: String,
+    },
+    ExportWrongType {
+        name: String,
+    },
 }
 
 impl PartialEq for ResolveError {
@@ -130,6 +140,20 @@ impl PartialEq for CallError {
     }
 }
 
+/// This error type is produced when creating something,
+/// like a `Memory` or a `Table`.
+#[derive(Debug, Clone)]
+pub enum CreationError {
+    UnableToCreateMemory,
+    UnableToCreateTable,
+}
+
+impl PartialEq for CreationError {
+    fn eq(&self, _other: &CreationError) -> bool {
+        false
+    }
+}
+
 /// The amalgamation of all errors that can occur
 /// during the compilation, instantiation, or execution
 /// of a webassembly module.
@@ -142,6 +166,7 @@ pub enum Error {
     RuntimeError(RuntimeError),
     ResolveError(ResolveError),
     CallError(CallError),
+    CreationError(CreationError),
 }
 
 impl PartialEq for Error {
@@ -207,6 +232,12 @@ impl From<RuntimeError> for Box<Error> {
 impl From<CallError> for Box<Error> {
     fn from(call_err: CallError) -> Self {
         Box::new(Error::CallError(call_err))
+    }
+}
+
+impl From<CreationError> for Box<Error> {
+    fn from(creation_err: CreationError) -> Self {
+        Box::new(Error::CreationError(creation_err))
     }
 }
 

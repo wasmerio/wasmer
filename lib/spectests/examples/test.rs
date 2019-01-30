@@ -3,7 +3,7 @@ use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime_core::{import::ImportObject, Instance};
 
 fn main() {
-    let mut instance = create_module_1();
+    let instance = create_module_1();
     let result = instance.call("call-overwritten-element", &[]);
     println!("result: {:?}", result);
 }
