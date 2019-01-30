@@ -36,6 +36,7 @@ impl Compiler for CraneliftCompiler {
 
         let mut module = module::Module::empty();
         let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
+
         let func_bodies = module_env.translate(wasm)?;
 
         module.compile(&*isa, func_bodies)

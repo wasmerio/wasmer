@@ -141,7 +141,7 @@ fn get_func_from_index(
         }
     };
 
-    let signature = module.sig_registry.lookup_signature(sig_index);
+    let signature = Arc::clone(&module.signatures[sig_index]);
 
     (func_ptr, ctx, signature, sig_index)
 }

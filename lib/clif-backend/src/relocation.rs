@@ -6,11 +6,15 @@ use cranelift_codegen::binemit;
 pub use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
 use hashbrown::HashMap;
-use wasmer_runtime_core::{structures::TypedIndex, types::LocalFuncIndex};
+use wasmer_runtime_core::{
+    structures::TypedIndex,
+    types::{LocalFuncIndex, SigIndex},
+};
 
 pub mod call_names {
     pub const LOCAL_NAMESPACE: u32 = 1;
     pub const IMPORT_NAMESPACE: u32 = 2;
+    pub const SIG_NAMESPACE: u32 = 3;
 
     pub const STATIC_MEM_GROW: u32 = 0;
     pub const STATIC_MEM_SIZE: u32 = 1;
@@ -57,12 +61,13 @@ pub enum RelocationType {
     Intrinsic(String),
     LibCall(LibCall),
     VmCall(VmCall),
+    Signature(SigIndex),
 }
 
 /// Implementation of a relocation sink that just saves all the information for later
 pub struct RelocSink {
     /// Relocations recorded for the function.
-    pub func_relocs: Vec<Relocation>,
+    pub relocs: Vec<Relocation>,
 }
 
 impl binemit::RelocSink for RelocSink {
@@ -87,7 +92,7 @@ impl binemit::RelocSink for RelocSink {
                 namespace: 0,
                 index,
             } => {
-                self.func_relocs.push(Relocation {
+                self.relocs.push(Relocation {
                     reloc,
                     offset,
                     addend,
@@ -96,8 +101,9 @@ impl binemit::RelocSink for RelocSink {
             }
             ExternalName::User { namespace, index } => {
                 use self::call_names::*;
-                let target = RelocationType::VmCall(match namespace {
-                    LOCAL_NAMESPACE => VmCall::Local(match index {
+
+                let target = match namespace {
+                    LOCAL_NAMESPACE => RelocationType::VmCall(VmCall::Local(match index {
                         STATIC_MEM_GROW => VmCallKind::StaticMemoryGrow,
                         STATIC_MEM_SIZE => VmCallKind::StaticMemorySize,
 
@@ -107,8 +113,8 @@ impl binemit::RelocSink for RelocSink {
                         DYNAMIC_MEM_GROW => VmCallKind::DynamicMemoryGrow,
                         DYNAMIC_MEM_SIZE => VmCallKind::DynamicMemorySize,
                         _ => unimplemented!(),
-                    }),
-                    IMPORT_NAMESPACE => VmCall::Import(match index {
+                    })),
+                    IMPORT_NAMESPACE => RelocationType::VmCall(VmCall::Import(match index {
                         STATIC_MEM_GROW => VmCallKind::StaticMemoryGrow,
                         STATIC_MEM_SIZE => VmCallKind::StaticMemorySize,
 
@@ -118,10 +124,11 @@ impl binemit::RelocSink for RelocSink {
                         DYNAMIC_MEM_GROW => VmCallKind::DynamicMemoryGrow,
                         DYNAMIC_MEM_SIZE => VmCallKind::DynamicMemorySize,
                         _ => unimplemented!(),
-                    }),
+                    })),
+                    SIG_NAMESPACE => RelocationType::Signature(SigIndex::new(index as usize)),
                     _ => unimplemented!(),
-                });
-                self.func_relocs.push(Relocation {
+                };
+                self.relocs.push(Relocation {
                     reloc,
                     offset,
                     addend,
@@ -131,7 +138,7 @@ impl binemit::RelocSink for RelocSink {
             ExternalName::TestCase { length, ascii } => {
                 let (slice, _) = ascii.split_at(length as usize);
                 let name = String::from_utf8(slice.to_vec()).unwrap();
-                self.func_relocs.push(Relocation {
+                self.relocs.push(Relocation {
                     reloc,
                     offset,
                     addend,
@@ -140,7 +147,7 @@ impl binemit::RelocSink for RelocSink {
             }
             ExternalName::LibCall(libcall) => {
                 let relocation_type = RelocationType::LibCall(libcall);
-                self.func_relocs.push(Relocation {
+                self.relocs.push(Relocation {
                     reloc,
                     offset,
                     addend,
@@ -162,9 +169,7 @@ impl binemit::RelocSink for RelocSink {
 /// Implementation of a relocation sink that just saves all the information for later
 impl RelocSink {
     pub fn new() -> RelocSink {
-        RelocSink {
-            func_relocs: Vec::new(),
-        }
+        RelocSink { relocs: Vec::new() }
     }
 }
 

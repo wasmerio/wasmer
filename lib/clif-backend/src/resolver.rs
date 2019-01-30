@@ -5,17 +5,21 @@ use crate::relocation::{
 };
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
-use std::mem;
-use std::ptr::{write_unaligned, NonNull};
+use std::{
+    mem,
+    ptr::{write_unaligned, NonNull},
+    sync::Arc,
+};
 use wasmer_runtime_core::{
     self,
     backend::{
         self,
         sys::{Memory, Protect},
+        SigRegistry,
     },
     error::{CompileError, CompileResult},
-    structures::{Map, TypedIndex},
-    types::LocalFuncIndex,
+    structures::{Map, SliceMap, TypedIndex},
+    types::{FuncSig, LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
 
@@ -58,7 +62,7 @@ impl FuncResolverBuilder {
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
 
             compiled_functions.push(code_buf);
-            relocations.push(reloc_sink.func_relocs);
+            relocations.push(reloc_sink.relocs);
         }
 
         let mut memory = Memory::with_size(total_size)
@@ -108,7 +112,10 @@ impl FuncResolverBuilder {
         ))
     }
 
-    pub fn finalize(mut self) -> CompileResult<FuncResolver> {
+    pub fn finalize(
+        mut self,
+        signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
+    ) -> CompileResult<FuncResolver> {
         for (index, relocs) in self.relocations.iter() {
             for ref reloc in relocs {
                 let target_func_address: isize = match reloc.target {
@@ -173,6 +180,12 @@ impl FuncResolverBuilder {
                             }
                         },
                     },
+                    RelocationType::Signature(sig_index) => {
+                        let sig_index =
+                            SigRegistry.lookup_sig_index(Arc::clone(&signatures[sig_index]));
+                        println!("relocation sig index: {:?}", sig_index);
+                        sig_index.index() as _
+                    }
                 };
 
                 // We need the address of the current function

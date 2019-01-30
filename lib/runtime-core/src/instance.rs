@@ -7,6 +7,7 @@ use crate::{
     import::{ImportObject, LikeNamespace},
     memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
+    sig_registry::SigRegistry,
     table::Table,
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vm,
@@ -109,7 +110,7 @@ impl Instance {
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = self.module.sig_registry.lookup_signature(sig_index);
+            let signature = Arc::clone(&self.module.signatures[sig_index]);
 
             Ok(Function {
                 signature,
@@ -203,7 +204,7 @@ impl Instance {
             .func_assoc
             .get(func_index)
             .expect("broken invariant, incorrect func index");
-        let signature = self.module.sig_registry.lookup_signature(sig_index);
+        let signature = &self.module.signatures[sig_index];
 
         if !signature.check_param_value_types(args) {
             Err(ResolveError::Signature {
@@ -297,9 +298,13 @@ impl InstanceInner {
             }
         };
 
-        let signature = module.sig_registry.lookup_signature(sig_index);
+        let signature = &module.signatures[sig_index];
 
-        (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
+        (
+            unsafe { FuncPointer::new(func_ptr) },
+            ctx,
+            Arc::clone(signature),
+        )
     }
 
     fn get_memory_from_index(&self, module: &ModuleInner, mem_index: MemoryIndex) -> Memory {

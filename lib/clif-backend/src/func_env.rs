@@ -4,6 +4,7 @@ use cranelift_codegen::{
     ir::{self, InstBuilder},
     isa,
 };
+use cranelift_entity::EntityRef;
 use cranelift_wasm::{self, FuncEnvironment, ModuleEnvironment};
 use std::mem;
 use wasmer_runtime_core::{
@@ -428,9 +429,24 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         pos.ins().trapz(func_ptr, ir::TrapCode::IndirectCallToNull);
 
-        let sig_index = self.env.deduplicated[clif_sig_index];
+        let expected_sig = {
+            let sig_index_global = pos.func.create_global_value(ir::GlobalValueData::Symbol {
+                // The index of the `ExternalName` is the undeduplicated, signature index.
+                name: ir::ExternalName::user(
+                    call_names::SIG_NAMESPACE,
+                    clif_sig_index.index() as u32,
+                ),
+                offset: 0.into(),
+                colocated: false,
+            });
 
-        let expected_sig = pos.ins().iconst(ir::types::I32, sig_index.index() as i64);
+            pos.ins().symbol_value(ir::types::I64, sig_index_global)
+
+            // let expected_sig = pos.ins().iconst(ir::types::I32, sig_index.index() as i64);
+
+            // self.env.deduplicated[clif_sig_index]
+        };
+
         let not_equal_flags = pos.ins().ifcmp(found_sig, expected_sig);
 
         pos.ins().trapif(

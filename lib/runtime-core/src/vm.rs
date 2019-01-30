@@ -543,7 +543,7 @@ mod vm_ctx_tests {
             start_func: None,
 
             func_assoc: Map::new(),
-            sig_registry: SigRegistry,
+            signatures: Map::new(),
         }
     }
 }

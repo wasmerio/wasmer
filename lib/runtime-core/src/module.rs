@@ -2,10 +2,9 @@ use crate::{
     backend::{FuncResolver, ProtectedCaller},
     error::Result,
     import::ImportObject,
-    sig_registry::SigRegistry,
     structures::Map,
     types::{
-        FuncIndex, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
+        FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
         ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
         LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor, MemoryIndex,
         SigIndex, TableDescriptor, TableIndex,
@@ -40,7 +39,7 @@ pub struct ModuleInner {
     pub start_func: Option<FuncIndex>,
 
     pub func_assoc: Map<FuncIndex, SigIndex>,
-    pub sig_registry: SigRegistry,
+    pub signatures: Map<SigIndex, Arc<FuncSig>>,
 }
 
 /// A compiled WebAssembly module.

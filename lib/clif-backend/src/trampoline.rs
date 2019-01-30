@@ -43,7 +43,7 @@ impl Trampolines {
 
         for exported_func_index in func_index_iter {
             let sig_index = module.func_assoc[*exported_func_index];
-            let func_sig = module.sig_registry.lookup_signature(sig_index);
+            let func_sig = &module.signatures[sig_index];
 
             let trampoline_func = generate_func(&func_sig);
 

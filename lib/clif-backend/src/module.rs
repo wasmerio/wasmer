@@ -6,6 +6,7 @@ use hashbrown::HashMap;
 use std::{
     ops::{Deref, DerefMut},
     ptr::NonNull,
+    sync::Arc,
 };
 use wasmer_runtime_core::{
     backend::SigRegistry,
@@ -76,7 +77,7 @@ impl Module {
                 start_func: None,
 
                 func_assoc: Map::new(),
-                sig_registry: SigRegistry,
+                signatures: Map::new(),
             },
         }
     }
@@ -90,7 +91,8 @@ impl Module {
         let (func_resolver_builder, handler_data) =
             FuncResolverBuilder::new(isa, functions, imported_functions_len)?;
 
-        self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
+        self.module.func_resolver =
+            Box::new(func_resolver_builder.finalize(&self.module.signatures)?);
 
         let trampolines = Trampolines::new(isa, &self.module);
 

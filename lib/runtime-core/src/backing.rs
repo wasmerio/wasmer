@@ -5,6 +5,7 @@ use crate::{
     import::ImportObject,
     memory::Memory,
     module::{ImportName, ModuleInner},
+    sig_registry::SigRegistry,
     structures::{BoxedMap, Map, SliceMap, TypedIndex},
     table::Table,
     types::{
@@ -13,7 +14,7 @@ use crate::{
     },
     vm,
 };
-use std::slice;
+use std::{slice, sync::Arc};
 
 #[derive(Debug)]
 pub struct LocalBacking {
@@ -176,7 +177,11 @@ impl LocalBacking {
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
                             let sig_index = module.func_assoc[func_index];
-                            let sig_id = vm::SigId(sig_index.index() as u32);
+                            let signature = &module.signatures[sig_index];
+                            let sig_id = vm::SigId(
+                                SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
+                            );
+                            println!("func_index: {:?}, sig_id: {:?}", func_index, sig_id);
 
                             let (func, ctx) = match func_index.local_or_import(module) {
                                 LocalOrImport::Local(local_func_index) => (
@@ -211,7 +216,11 @@ impl LocalBacking {
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
                             let sig_index = module.func_assoc[func_index];
-                            let sig_id = vm::SigId(sig_index.index() as u32);
+                            let signature = &module.signatures[sig_index];
+                            let sig_id = vm::SigId(
+                                SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
+                            );
+                            println!("func_index: {:?}, sig_id: {:?}", func_index, sig_id);
 
                             let (func, ctx) = match func_index.local_or_import(module) {
                                 LocalOrImport::Local(local_func_index) => (
@@ -356,7 +365,7 @@ fn import_functions(
     let mut functions = Map::with_capacity(module.imported_functions.len());
     for (index, ImportName { namespace, name }) in &module.imported_functions {
         let sig_index = module.func_assoc[index.convert_up(module)];
-        let expected_sig = module.sig_registry.lookup_signature(sig_index);
+        let expected_sig = &module.signatures[sig_index];
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
@@ -366,7 +375,7 @@ fn import_functions(
                 ctx,
                 signature,
             }) => {
-                if expected_sig == signature {
+                if *expected_sig == signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
                         vmctx: match ctx {
