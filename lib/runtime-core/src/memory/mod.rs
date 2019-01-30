@@ -230,7 +230,7 @@ impl Memory {
         f(t_buffer)
     }
 
-    pub(crate) fn vm_local_memory(&mut self) -> *mut vm::LocalMemory {
+    pub fn vm_local_memory(&mut self) -> *mut vm::LocalMemory {
         &mut *self.storage.borrow_mut().1
     }
 }

@@ -1,6 +1,6 @@
-
 macro_rules! emscripten_memory_pointer {
     ($memory:expr, $pointer:expr) => {
-        unsafe { $memory.as_ptr().add($pointer as usize) }
+        0 as usize
+        // unsafe { $memory.as_ptr().add($pointer as usize) }
     };
 }

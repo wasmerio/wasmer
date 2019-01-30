@@ -9,6 +9,7 @@ use wasmer_runtime_core::{
     module::Module,
     structures::TypedIndex,
     types::{ImportedMemoryIndex, ImportedTableIndex},
+    units::Pages,
     vm::Ctx,
 };
 
@@ -24,12 +25,12 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 
 pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
     let (_, table) = &module.0.imported_tables[ImportedTableIndex::new(0)];
-    (table.min, table.max)
+    (table.minimum, table.maximum)
 }
 
-pub fn get_emscripten_memory_size(module: &Module) -> (u32, Option<u32>) {
+pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
     let (_, memory) = &module.0.imported_memories[ImportedMemoryIndex::new(0)];
-    (memory.min, memory.max)
+    (memory.minimum, memory.maximum)
 }
 
 pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, ctx: &mut Ctx) -> u32 {

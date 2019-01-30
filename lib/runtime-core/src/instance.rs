@@ -195,9 +195,6 @@ impl Instance {
         Module::new(Arc::clone(&self.module))
     }
 
-    pub fn ctx(&mut self) -> &mut vm::Ctx {
-        &mut self.inner.vmctx
-    }
 }
 
 impl Instance {

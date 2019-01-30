@@ -112,7 +112,7 @@ impl Table {
         }
     }
 
-    pub(crate) fn vm_local_table(&mut self) -> *mut vm::LocalTable {
+    pub fn vm_local_table(&mut self) -> *mut vm::LocalTable {
         &mut self.storage.borrow_mut().1
     }
 }
