@@ -346,52 +346,55 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     //    env_namespace.insert("table".to_string(), Export::Table(globals.table.clone()));
 
     let import_object = imports! {
-        "env" => {
-            "memory" => Export::Memory(globals.memory.clone()),
-            "table" => Export::Table(globals.table.clone()),
-            // Globals.
-            "STACKTOP" => Global::new(Value::I32(stacktop(STATIC_BUMP) as i32)),
-                        "STACK_MAX" => Global::new(Value::I32(stack_max(STATIC_BUMP) as i32)),
-                "DYNAMICTOP_PTR" => Global::new(Value::I32(dynamictop_ptr(STATIC_BUMP) as i32)),
-                "tableBase" => Global::new(Value::I32(0)),
-                "__table_base" => Global::new(Value::I32(0)),
-                "Infinity" => Global::new(Value::F64(f64::INFINITY)),
-                "NaN" => Global::new(Value::F64(f64::NAN)),
-                 "ABORT" => Global::new(Value::I32(0)),
-                 "memoryBase" => Global::new(Value::I32(STATIC_BASE)),
-                 "__memory_base" => Global::new(Value::I32(STATIC_BASE)),
-                 "tempDoublePtr" => Global::new(Value::I32(0)),
-                 "printf" => func!(crate::io::printf, [i32, i32] -> [i32]),
-                 "putchar" => func!(crate::io::putchar, [i32] -> []),
-                 "___assert_fail" => func!(crate::env::___assert_fail, [i32, i32, i32, i32] -> []),
-                 "___lock" => func!(crate::lock::___lock, [i32] -> []),
-                 "___unlock" => func!(crate::lock::___unlock, [i32] -> []),
-                 "___wait" => func!(crate::lock::___wait, [u32, u32, u32, u32] -> []),
-                 "_getenv" => func!(crate::env::_getenv, [i32] -> [u32]),
-                 "_setenv" => func!(crate::env::_setenv, [i32, i32, i32] -> [i32]),
-                 "_putenv" => func!(crate::env::_putenv, [i32] -> [i32]),
-                 "_unsetenv" => func!(crate::env::_unsetenv, [i32] -> [i32]),
-                 "_getpwnam" => func!(crate::env::_getpwnam, [i32] -> [i32]),
-                 "_getgrnam" => func!(crate::env::_getgrnam, [i32] -> [i32]),
-                 "___buildEnvironment" => func!(crate::env::___build_environment, [i32] -> []),
-        },
-        "math" => {
-            "pow" => func!(crate::math::pow, [f64, f64] -> [f64]),
-        },
-    };
+            "env" => {
+                "memory" => Export::Memory(globals.memory.clone()),
+                "table" => Export::Table(globals.table.clone()),
+                // Globals.
+                "STACKTOP" => Global::new(Value::I32(stacktop(STATIC_BUMP) as i32)),
+                            "STACK_MAX" => Global::new(Value::I32(stack_max(STATIC_BUMP) as i32)),
+                    "DYNAMICTOP_PTR" => Global::new(Value::I32(dynamictop_ptr(STATIC_BUMP) as i32)),
+                    "tableBase" => Global::new(Value::I32(0)),
+                    "__table_base" => Global::new(Value::I32(0)),
+                    "Infinity" => Global::new(Value::F64(f64::INFINITY)),
+                    "NaN" => Global::new(Value::F64(f64::NAN)),
+                     "ABORT" => Global::new(Value::I32(0)),
+                     "memoryBase" => Global::new(Value::I32(STATIC_BASE)),
+                     "__memory_base" => Global::new(Value::I32(STATIC_BASE)),
+                     "tempDoublePtr" => Global::new(Value::I32(0)),
+                     "printf" => func!(crate::io::printf, [i32, i32] -> [i32]),
+                     "putchar" => func!(crate::io::putchar, [i32] -> []),
+                     "___assert_fail" => func!(crate::env::___assert_fail, [i32, i32, i32, i32] -> []),
+                     "___lock" => func!(crate::lock::___lock, [i32] -> []),
+                     "___unlock" => func!(crate::lock::___unlock, [i32] -> []),
+                     "___wait" => func!(crate::lock::___wait, [u32, u32, u32, u32] -> []),
+                     "_getenv" => func!(crate::env::_getenv, [i32] -> [u32]),
+                     "_setenv" => func!(crate::env::_setenv, [i32, i32, i32] -> [i32]),
+                     "_putenv" => func!(crate::env::_putenv, [i32] -> [i32]),
+                     "_unsetenv" => func!(crate::env::_unsetenv, [i32] -> [i32]),
+                     "_getpwnam" => func!(crate::env::_getpwnam, [i32] -> [i32]),
+                     "_getgrnam" => func!(crate::env::_getgrnam, [i32] -> [i32]),
+                     "___buildEnvironment" => func!(crate::env::___build_environment, [i32] -> []),
+                     "___setErrNo" => func!(crate::errno::___seterrno, [i32] -> []),
+    //                  "___syscall1" => func!(crate::syscalls::___syscall1, [i32, i32] -> []),
+                    "nullFunc_i" => func!(crate::nullfunc::nullfunc_i, [u32] -> []),
+                    "nullFunc_ii" => func!(crate::nullfunc::nullfunc_ii, [u32] -> []),
+                     "nullFunc_iii" => func!(crate::nullfunc::nullfunc_iii, [u32] -> []),
+                     "nullFunc_iiii" => func!(crate::nullfunc::nullfunc_iiii, [u32] -> []),
+                     "nullFunc_iiiii" => func!(crate::nullfunc::nullfunc_iiiii, [u32] -> []),
+                     "nullFunc_iiiiii" => func!(crate::nullfunc::nullfunc_iiiiii, [u32] -> []),
+                     "nullFunc_v" => func!(crate::nullfunc::nullfunc_v, [u32] -> []),
+                     "nullFunc_vi" => func!(crate::nullfunc::nullfunc_vi, [u32] -> []),
+                     "nullFunc_vii" => func!(crate::nullfunc::nullfunc_vii, [u32] -> []),
+                     "nullFunc_viii" => func!(crate::nullfunc::nullfunc_viii, [u32] -> []),
+                     "nullFunc_viiii" => func!(crate::nullfunc::nullfunc_viiii, [u32] -> []),
+                     "nullFunc_viiiii" => func!(crate::nullfunc::nullfunc_viiiii, [u32] -> []),
+                     "nullFunc_viiiiii" => func!(crate::nullfunc::nullfunc_viiiiii, [u32] -> []),
+            },
+            "math" => {
+                "pow" => func!(crate::math::pow, [f64, f64] -> [f64]),
+            },
+        };
 
-    //    // Errno
-    //    env_namespace.insert(
-    //        "___setErrNo",
-    //        Export::Function {
-    //            func: func!(errno, ___seterrno),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
     //    // Syscalls
     //    env_namespace.insert(
     //        "___syscall1",
@@ -404,6 +407,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     //            },
     //        },
     //    );
+
     //
     //    env_namespace.insert(
     //        "___syscall3",
@@ -1048,162 +1052,6 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     //            ctx: Context::Internal,
     //            signature: FuncSig {
     //                params: vec![I32, I32, I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //    // NullFuncs
-    //    env_namespace.insert(
-    //        "nullFunc_i",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_i),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_ii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_ii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_iii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_iii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_iiii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_iiii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_iiiii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_iiiii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_iiiiii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_iiiiii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_v",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_v),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_vi",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_vi),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_vii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_vii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_viii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_viii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_viiii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_viiii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_viiiii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_viiiii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "nullFunc_viiiiii",
-    //        Export::Function {
-    //            func: func!(nullfunc, nullfunc_viiiiii),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
     //                returns: vec![],
     //            },
     //        },
