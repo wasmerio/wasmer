@@ -24,7 +24,7 @@ pub extern "C" fn _getaddrinfo(
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub extern "C" fn _getenv(name: c_int, ctx: &mut Ctx) -> u32 {
+pub extern "C" fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;

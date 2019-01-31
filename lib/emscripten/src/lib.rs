@@ -4,7 +4,7 @@ extern crate wasmer_runtime_core;
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_int;
 use std::cell::UnsafeCell;
-use std::{ffi::c_void, fmt, mem, ptr};
+use std::{f64, ffi::c_void, fmt, mem, ptr};
 use wasmer_runtime_core::{
     error::CallResult,
     export::{Context, Export, FuncPointer},
@@ -70,7 +70,7 @@ const STATIC_BUMP: u32 = 215_536;
 // Then the stack.
 // Then 'dynamic' memory for sbrk.
 const GLOBAL_BASE: u32 = 1024;
-const STATIC_BASE: u32 = GLOBAL_BASE;
+const STATIC_BASE: i32 = GLOBAL_BASE as i32;
 
 fn stacktop(static_bump: u32) -> u32 {
     align_memory(dynamictop_ptr(static_bump) + 4)
@@ -244,12 +244,6 @@ macro_rules! mock_external {
     }};
 }
 
-macro_rules! func {
-    ($namespace:ident, $function:ident) => {{
-        unsafe { FuncPointer::new($namespace::$function as _) }
-    }};
-}
-
 macro_rules! global {
     ($value:expr) => {{
         unsafe {
@@ -347,302 +341,45 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     // We generate a fake Context that traps on access
     let null_ctx = Context::External(ptr::null_mut());
 
-    env_namespace.insert("memory".to_string(), Export::Memory(globals.memory.clone()));
+    //    env_namespace.insert("memory".to_string(), Export::Memory(globals.memory.clone()));
 
-    env_namespace.insert("table".to_string(), Export::Table(globals.table.clone()));
-    //
-    //    env_namespace.insert(
-    //        "STACKTOP".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.stacktop),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "STACK_MAX".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.stack_max),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "DYNAMICTOP_PTR".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.dynamictop_ptr),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "tableBase".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.table_base),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "__table_base".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.table_base),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "ABORT".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.abort),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "memoryBase".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.memory_base),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "__memory_base".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.memory_base),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "tempDoublePtr".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.temp_double_ptr),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: I32,
-    //            },
-    //        },
-    //    );
-    //
-    //    global_namespace.insert(
-    //        "Infinity".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.infinity),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: F64,
-    //            },
-    //        },
-    //    );
-    //
-    //    global_namespace.insert(
-    //        "NaN".to_string(),
-    //        Export::Global {
-    //            local: global!(globals.data.nan),
-    //            global: GlobalDesc {
-    //                mutable: false,
-    //                ty: F64,
-    //            },
-    //        },
-    //    );
-    //
-    //    // Global Math
-    //    global_math_namespace.insert(
-    //        "pow",
-    //        Export::Function {
-    //            func: func!(math, pow),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![F64, F64],
-    //                returns: vec![F64],
-    //            },
-    //        },
-    //    );
-    //
-    //    // Print function
-    //    env_namespace.insert(
-    //        "printf",
-    //        Export::Function {
-    //            func: func!(io, printf),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "putchar",
-    //        Export::Function {
-    //            func: func!(io, putchar),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    // Assert
-    //    env_namespace.insert(
-    //        "___assert_fail",
-    //        Export::Function {
-    //            func: func!(env, ___assert_fail),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32, I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    // Lock
-    //    env_namespace.insert(
-    //        "___lock",
-    //        Export::Function {
-    //            func: func!(lock, ___lock),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___unlock",
-    //        Export::Function {
-    //            func: func!(lock, ___unlock),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___wait",
-    //        Export::Function {
-    //            func: func!(lock, ___wait),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32, I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //    // Env
-    //    env_namespace.insert(
-    //        "_getenv",
-    //        Export::Function {
-    //            func: func!(env, _getenv),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_setenv",
-    //        Export::Function {
-    //            func: func!(env, _setenv),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_putenv",
-    //        Export::Function {
-    //            func: func!(env, _putenv),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_unsetenv",
-    //        Export::Function {
-    //            func: func!(env, _unsetenv),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_getpwnam",
-    //        Export::Function {
-    //            func: func!(env, _getpwnam),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_getgrnam",
-    //        Export::Function {
-    //            func: func!(env, _getgrnam),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___buildEnvironment",
-    //        Export::Function {
-    //            func: func!(env, ___build_environment),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
+    //    env_namespace.insert("table".to_string(), Export::Table(globals.table.clone()));
+
+    let import_object = imports! {
+        "env" => {
+            "memory" => Export::Memory(globals.memory.clone()),
+            "table" => Export::Table(globals.table.clone()),
+            // Globals.
+            "STACKTOP" => Global::new(Value::I32(stacktop(STATIC_BUMP) as i32)),
+                        "STACK_MAX" => Global::new(Value::I32(stack_max(STATIC_BUMP) as i32)),
+                "DYNAMICTOP_PTR" => Global::new(Value::I32(dynamictop_ptr(STATIC_BUMP) as i32)),
+                "tableBase" => Global::new(Value::I32(0)),
+                "__table_base" => Global::new(Value::I32(0)),
+                "Infinity" => Global::new(Value::F64(f64::INFINITY)),
+                "NaN" => Global::new(Value::F64(f64::NAN)),
+                 "ABORT" => Global::new(Value::I32(0)),
+                 "memoryBase" => Global::new(Value::I32(STATIC_BASE)),
+                 "__memory_base" => Global::new(Value::I32(STATIC_BASE)),
+                 "tempDoublePtr" => Global::new(Value::I32(0)),
+                 "printf" => func!(crate::io::printf, [i32, i32] -> [i32]),
+                 "putchar" => func!(crate::io::putchar, [i32] -> []),
+                 "___assert_fail" => func!(crate::env::___assert_fail, [i32, i32, i32, i32] -> []),
+                 "___lock" => func!(crate::lock::___lock, [i32] -> []),
+                 "___unlock" => func!(crate::lock::___unlock, [i32] -> []),
+                 "___wait" => func!(crate::lock::___wait, [u32, u32, u32, u32] -> []),
+                 "_getenv" => func!(crate::env::_getenv, [i32] -> [u32]),
+                 "_setenv" => func!(crate::env::_setenv, [i32, i32, i32] -> [i32]),
+                 "_putenv" => func!(crate::env::_putenv, [i32] -> [i32]),
+                 "_unsetenv" => func!(crate::env::_unsetenv, [i32] -> [i32]),
+                 "_getpwnam" => func!(crate::env::_getpwnam, [i32] -> [i32]),
+                 "_getgrnam" => func!(crate::env::_getgrnam, [i32] -> [i32]),
+                 "___buildEnvironment" => func!(crate::env::___build_environment, [i32] -> []),
+        },
+        "math" => {
+            "pow" => func!(crate::math::pow, [f64, f64] -> [f64]),
+        },
+    };
+
     //    // Errno
     //    env_namespace.insert(
     //        "___setErrNo",

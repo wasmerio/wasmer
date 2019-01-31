@@ -194,7 +194,6 @@ impl Instance {
     pub fn module(&self) -> Module {
         Module::new(Arc::clone(&self.module))
     }
-
 }
 
 impl Instance {

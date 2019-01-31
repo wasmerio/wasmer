@@ -14,7 +14,7 @@ macro_rules! debug {
 
 #[macro_export]
 macro_rules! func {
-    ($func:ident, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] ) => {{
+    ($func:path, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] ) => {{
         use $crate::{
             export::{Context, Export, FuncPointer},
             types::{FuncSig, Type},
