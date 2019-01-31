@@ -42,7 +42,6 @@ impl Trampolines {
         let mut total_size = 0;
 
         for exported_func_index in func_index_iter {
-            println!("build trampoline");
             let sig_index = module.func_assoc[*exported_func_index];
             let func_sig = &module.signatures[sig_index];
 

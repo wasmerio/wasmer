@@ -22,16 +22,8 @@ impl BackendCache {
     pub fn from_cache(cache: Cache) -> Result<(ModuleInfo, Self), Error> {
         let (info, backend_data) = cache.consume();
 
-        use std::time::Instant;
-
-        let start = Instant::now();
-
         let backend_cache = deserialize(backend_data.as_slice())
             .map_err(|e| Error::DeserializeError(e.to_string()))?;
-
-        let elapsed = start.elapsed();
-
-        println!("deserialize backend data time: {:?}", elapsed);
 
         Ok((info, backend_cache))
     }

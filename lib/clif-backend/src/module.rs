@@ -126,18 +126,8 @@ impl Module {
     pub fn from_cache(cache: Cache, isa: &isa::TargetIsa) -> Result<ModuleInner, CacheError> {
         let (info, backend_cache) = BackendCache::from_cache(cache)?;
 
-        use std::time::Instant;
-
-        let start = Instant::now();
-
         let (func_resolver_builder, handler_data) =
             FuncResolverBuilder::new_from_backend_cache(backend_cache, &info)?;
-
-        let elapsed = start.elapsed();
-
-        println!("time to func resolver builder: {:?}", elapsed);
-
-        let start = Instant::now();
 
         let func_resolver = Box::new(
             func_resolver_builder
@@ -145,17 +135,7 @@ impl Module {
                 .map_err(|e| CacheError::Unknown(format!("{:?}", e)))?,
         );
 
-        let elapsed = start.elapsed();
-
-        println!("time to func resolver finalize: {:?}", elapsed);
-
-        let start = Instant::now();
-
         let trampolines = Trampolines::new(isa, &info);
-
-        let elapsed = start.elapsed();
-
-        println!("time to trampolines: {:?}", elapsed);
 
         let protected_caller = Box::new(Caller::new(&info, handler_data, trampolines));
 

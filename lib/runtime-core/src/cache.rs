@@ -32,16 +32,8 @@ impl Cache {
 
         let mmap = unsafe { Mmap::map(&file).map_err(|e| Error::IoError(e))? };
 
-        use std::time::Instant;
-
-        let start = Instant::now();
-
         let cache =
             deserialize(&mmap[..]).map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
-
-        let elapsed = start.elapsed();
-
-        println!("time to deserialize cache: {:?}", elapsed);
 
         Ok(cache)
     }
