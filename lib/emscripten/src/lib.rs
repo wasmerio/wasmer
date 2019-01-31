@@ -6,25 +6,25 @@ use libc::c_int;
 use std::cell::UnsafeCell;
 use std::{ffi::c_void, fmt, mem, ptr};
 use wasmer_runtime_core::{
+    error::CallResult,
     export::{Context, Export, FuncPointer},
     func,
     global::Global,
     import::{ImportObject, Namespace},
     imports,
     memory::Memory,
-    error::CallResult,
     table::Table,
     types::{
-        ElementType, FuncSig, GlobalDescriptor,
+        ElementType, FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor,
         Type::{self, *},
-        Value, TableDescriptor, MemoryDescriptor
+        Value,
     },
-    Module, Instance,
     units::Pages,
+    vm::Ctx,
     vm::LocalGlobal,
     vm::LocalMemory,
     vm::LocalTable,
-    vm::Ctx,
+    Instance, Module,
 };
 
 #[macro_use]
@@ -281,12 +281,7 @@ pub struct EmscriptenGlobals {
     pub data: EmscriptenGlobalsData,
     // The emscripten memory
     pub memory: Memory,
-    pub vm_memory: LocalMemory,
-    // The emscripten table
     pub table: Table,
-    pub vm_table: LocalTable,
-    pub table_min: u32,
-    pub table_max: Option<u32>,
     pub memory_min: Pages,
     pub memory_max: Option<Pages>,
 }
@@ -303,8 +298,6 @@ impl EmscriptenGlobals {
             shared: false,
         };
         let mut memory = Memory::new(memory_type).unwrap();
-        let vm_memory = memory.vm_local_memory();
-
 
         let table_type = TableDescriptor {
             element: ElementType::Anyfunc,
@@ -312,7 +305,6 @@ impl EmscriptenGlobals {
             maximum: table_max,
         };
         let mut table = Table::new(table_type).unwrap();
-        let vm_table = table.vm_local_table();
 
         let memory_base = STATIC_BASE as u64;
         let table_base = 0 as u64;
@@ -332,19 +324,13 @@ impl EmscriptenGlobals {
             nan: std::f64::NAN.to_bits() as _,
         };
 
-        unimplemented!()
-
-//        Self {
-//            data,
-//            memory,
-//            vm_memory,
-//            table,
-//            vm_table,
-//            table_min,
-//            table_max,
-//            memory_min,
-//            memory_max,
-//        }
+        Self {
+            data,
+            memory,
+            table,
+            memory_min,
+            memory_max,
+        }
     }
 }
 
@@ -361,1944 +347,1915 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     // We generate a fake Context that traps on access
     let null_ctx = Context::External(ptr::null_mut());
 
-    // Memory
-//    let local_memory = unsafe { MemoryPointer::new(&mut globals.vm_memory) };
+    env_namespace.insert("memory".to_string(), Export::Memory(globals.memory.clone()));
 
-//    env_namespace.insert(
-//        "memory".to_string(),
-//        Export::Memory {
-//            local: local_memory,
-//            ctx: null_ctx,
-//            memory: Memory {
-//                min: globals.memory_min,
-//                max: globals.memory_max,
-//                shared: false,
-//            },
-//        },
-//    );
-//
-//    // Table
-//    let local_table = unsafe { TablePointer::new(&mut globals.vm_table) };
-//
-//    env_namespace.insert(
-//        "table".to_string(),
-//        Export::Table {
-//            local: local_table,
-//            // We generate a fake Context that traps on access
-//            ctx: null_ctx,
-//            table: Table {
-//                ty: ElementType::Anyfunc,
-//                min: globals.table_min,
-//                max: globals.table_max,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "STACKTOP".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.stacktop),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "STACK_MAX".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.stack_max),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "DYNAMICTOP_PTR".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.dynamictop_ptr),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "tableBase".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.table_base),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "__table_base".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.table_base),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "ABORT".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.abort),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "memoryBase".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.memory_base),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "__memory_base".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.memory_base),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "tempDoublePtr".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.temp_double_ptr),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: I32,
-//            },
-//        },
-//    );
-//
-//    global_namespace.insert(
-//        "Infinity".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.infinity),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: F64,
-//            },
-//        },
-//    );
-//
-//    global_namespace.insert(
-//        "NaN".to_string(),
-//        Export::Global {
-//            local: global!(globals.data.nan),
-//            global: GlobalDesc {
-//                mutable: false,
-//                ty: F64,
-//            },
-//        },
-//    );
-//
-//    // Global Math
-//    global_math_namespace.insert(
-//        "pow",
-//        Export::Function {
-//            func: func!(math, pow),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![F64, F64],
-//                returns: vec![F64],
-//            },
-//        },
-//    );
-//
-//    // Print function
-//    env_namespace.insert(
-//        "printf",
-//        Export::Function {
-//            func: func!(io, printf),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "putchar",
-//        Export::Function {
-//            func: func!(io, putchar),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    // Assert
-//    env_namespace.insert(
-//        "___assert_fail",
-//        Export::Function {
-//            func: func!(env, ___assert_fail),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32, I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    // Lock
-//    env_namespace.insert(
-//        "___lock",
-//        Export::Function {
-//            func: func!(lock, ___lock),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___unlock",
-//        Export::Function {
-//            func: func!(lock, ___unlock),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___wait",
-//        Export::Function {
-//            func: func!(lock, ___wait),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32, I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//    // Env
-//    env_namespace.insert(
-//        "_getenv",
-//        Export::Function {
-//            func: func!(env, _getenv),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_setenv",
-//        Export::Function {
-//            func: func!(env, _setenv),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_putenv",
-//        Export::Function {
-//            func: func!(env, _putenv),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_unsetenv",
-//        Export::Function {
-//            func: func!(env, _unsetenv),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_getpwnam",
-//        Export::Function {
-//            func: func!(env, _getpwnam),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_getgrnam",
-//        Export::Function {
-//            func: func!(env, _getgrnam),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___buildEnvironment",
-//        Export::Function {
-//            func: func!(env, ___build_environment),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//    // Errno
-//    env_namespace.insert(
-//        "___setErrNo",
-//        Export::Function {
-//            func: func!(errno, ___seterrno),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//    // Syscalls
-//    env_namespace.insert(
-//        "___syscall1",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall1),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall3",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall3),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall4",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall4),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall5",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall5),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall6",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall6),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall12",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall12),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall20",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall20),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall220",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall220),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall39",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall39),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall40",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall40),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall10",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall10),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall54",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall54),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall57",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall57),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall63",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall63),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall85",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall85),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall64",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall64),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall102",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall102),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall114",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall114),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall122",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall122),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall140",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall140),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall142",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall142),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall145",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall145),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall146",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall146),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall180",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall180),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall181",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall181),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall192",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall192),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall195",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall195),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall197",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall197),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall201",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall201),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall202",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall202),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall212",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall212),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall221",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall221),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall330",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall330),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall340",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall340),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//    // Process
-//    env_namespace.insert(
-//        "abort",
-//        Export::Function {
-//            func: func!(process, em_abort),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_abort",
-//        Export::Function {
-//            func: func!(process, _abort),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "abortStackOverflow",
-//        Export::Function {
-//            func: func!(process, abort_stack_overflow),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_llvm_trap",
-//        Export::Function {
-//            func: func!(process, _llvm_trap),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_fork",
-//        Export::Function {
-//            func: func!(process, _fork),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_exit",
-//        Export::Function {
-//            func: func!(process, _exit),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_system",
-//        Export::Function {
-//            func: func!(process, _system),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_popen",
-//        Export::Function {
-//            func: func!(process, _popen),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//    // Signal
-//    env_namespace.insert(
-//        "_sigemptyset",
-//        Export::Function {
-//            func: func!(signal, _sigemptyset),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_sigaddset",
-//        Export::Function {
-//            func: func!(signal, _sigaddset),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_sigprocmask",
-//        Export::Function {
-//            func: func!(signal, _sigprocmask),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_sigaction",
-//        Export::Function {
-//            func: func!(signal, _sigaction),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_signal",
-//        Export::Function {
-//            func: func!(signal, _signal),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//    // Memory
-//    env_namespace.insert(
-//        "abortOnCannotGrowMemory",
-//        Export::Function {
-//            func: func!(memory, abort_on_cannot_grow_memory),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_emscripten_memcpy_big",
-//        Export::Function {
-//            func: func!(memory, _emscripten_memcpy_big),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "enlargeMemory",
-//        Export::Function {
-//            func: func!(memory, enlarge_memory),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "getTotalMemory",
-//        Export::Function {
-//            func: func!(memory, get_total_memory),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___map_file",
-//        Export::Function {
-//            func: func!(memory, ___map_file),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//    // Exception
-//    env_namespace.insert(
-//        "___cxa_allocate_exception",
-//        Export::Function {
-//            func: func!(exception, ___cxa_allocate_exception),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___cxa_allocate_exception",
-//        Export::Function {
-//            func: func!(exception, ___cxa_throw),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___cxa_throw",
-//        Export::Function {
-//            func: func!(exception, ___cxa_throw),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//    // NullFuncs
-//    env_namespace.insert(
-//        "nullFunc_i",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_i),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_ii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_ii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_iii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_iii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_iiii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_iiii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_iiiii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_iiiii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_iiiiii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_iiiiii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_v",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_v),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_vi",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_vi),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_vii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_vii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_viii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_viii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_viiii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_viiii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_viiiii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_viiiii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "nullFunc_viiiiii",
-//        Export::Function {
-//            func: func!(nullfunc, nullfunc_viiiiii),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//    // Time
-//    env_namespace.insert(
-//        "_gettimeofday",
-//        Export::Function {
-//            func: func!(time, _gettimeofday),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_clock_gettime",
-//        Export::Function {
-//            func: func!(time, _clock_gettime),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___clock_gettime",
-//        Export::Function {
-//            func: func!(time, _clock_gettime),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_clock",
-//        Export::Function {
-//            func: func!(time, _clock),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_difftime",
-//        Export::Function {
-//            func: func!(time, _difftime),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![F64],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_asctime",
-//        Export::Function {
-//            func: func!(time, _asctime),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_asctime_r",
-//        Export::Function {
-//            func: func!(time, _asctime_r),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_localtime",
-//        Export::Function {
-//            func: func!(time, _localtime),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_time",
-//        Export::Function {
-//            func: func!(time, _time),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_strftime",
-//        Export::Function {
-//            func: func!(time, _strftime),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_localtime_r",
-//        Export::Function {
-//            func: func!(time, _localtime_r),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_getpagesize",
-//        Export::Function {
-//            func: func!(env, _getpagesize),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_sysconf",
-//        Export::Function {
-//            func: func!(env, _sysconf),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    // Math
-//    asm_namespace.insert(
-//        "f64-rem",
-//        Export::Function {
-//            func: func!(math, f64_rem),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![F64, F64],
-//                returns: vec![F64],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_llvm_log10_f64",
-//        Export::Function {
-//            func: func!(math, _llvm_log10_f64),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![F64],
-//                returns: vec![F64],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_llvm_log2_f64",
-//        Export::Function {
-//            func: func!(math, _llvm_log2_f64),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![F64],
-//                returns: vec![F64],
-//            },
-//        },
-//    );
-//
-//    //
-//    env_namespace.insert(
-//        "__setjmp",
-//        Export::Function {
-//            func: func!(jmp, __setjmp),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "__longjmp",
-//        Export::Function {
-//            func: func!(jmp, __longjmp),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall110",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall110),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall15",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall15),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall168",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall168),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall191",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall191),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//    env_namespace.insert(
-//        "___syscall194",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall194),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//    env_namespace.insert(
-//        "___syscall196",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall196),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//    env_namespace.insert(
-//        "___syscall199",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall199),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall268",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall268),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall272",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall272),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall295",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall295),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall300",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall300),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall334",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall334),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall38",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall38),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall60",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall60),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall66",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall66),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall75",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall75),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall91",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall91),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "___syscall97",
-//        Export::Function {
-//            func: func!(syscalls, ___syscall97),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_endgrent",
-//        Export::Function {
-//            func: func!(process, _endgrent),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_execve",
-//        Export::Function {
-//            func: func!(process, _execve),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_getaddrinfo",
-//        Export::Function {
-//            func: func!(env, _getaddrinfo),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_gmtime_r",
-//        Export::Function {
-//            func: func!(time, _gmtime_r),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_kill",
-//        Export::Function {
-//            func: func!(process, _kill),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_llvm_stackrestore",
-//        Export::Function {
-//            func: func!(process, _llvm_stackrestore),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_mktime",
-//        Export::Function {
-//            func: func!(time, _mktime),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_raise",
-//        Export::Function {
-//            func: func!(process, _raise),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_sem_init",
-//        Export::Function {
-//            func: func!(process, _sem_init),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_sem_post",
-//        Export::Function {
-//            func: func!(process, _sem_post),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_sem_wait",
-//        Export::Function {
-//            func: func!(process, _sem_wait),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_setgrent",
-//        Export::Function {
-//            func: func!(process, _setgrent),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_setgroups",
-//        Export::Function {
-//            func: func!(process, _setgroups),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_setitimer",
-//        Export::Function {
-//            func: func!(process, _setitimer),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    //
-//    env_namespace.insert(
-//        "_sigsuspend",
-//        Export::Function {
-//            func: func!(signal, _sigsuspend),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_setitimer",
-//        Export::Function {
-//            func: func!(process, _setitimer),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_usleep",
-//        Export::Function {
-//            func: func!(process, _usleep),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_utimes",
-//        Export::Function {
-//            func: func!(process, _utimes),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_waitpid",
-//        Export::Function {
-//            func: func!(process, _waitpid),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_dlclose",
-//        Export::Function {
-//            func: func!(linking, _dlclose),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_dlopen",
-//        Export::Function {
-//            func: func!(linking, _dlopen),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_dlsym",
-//        Export::Function {
-//            func: func!(linking, _dlsym),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32, I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_llvm_log10_f32",
-//        Export::Function {
-//            func: func!(math, _llvm_log10_f32),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![F64],
-//                returns: vec![F64],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_llvm_log2_f32",
-//        Export::Function {
-//            func: func!(math, _llvm_log2_f32),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![F64],
-//                returns: vec![F64],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_emscripten_random",
-//        Export::Function {
-//            func: func!(math, _emscripten_random),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![],
-//                returns: vec![F64],
-//            },
-//        },
-//    );
-//
-//    env_namespace.insert(
-//        "_gmtime",
-//        Export::Function {
-//            func: func!(time, _gmtime),
-//            ctx: Context::Internal,
-//            signature: FuncSig {
-//                params: vec![I32],
-//                returns: vec![I32],
-//            },
-//        },
-//    );
-//
-//    // mock_external!(env_namespace, _time);
-//    // mock_external!(env_namespace, _sysconf);
-//    // mock_external!(env_namespace, _strftime);
-//    // mock_external!(env_namespace, _sigprocmask);
-//    // mock_external!(env_namespace, _sigemptyset);
-//    // mock_external!(env_namespace, _sigaddset);
-//    // mock_external!(env_namespace, _sigaction);
-//
-//    mock_external!(env_namespace, _sched_yield);
-//    // mock_external!(env_namespace, _localtime_r);
-//    // mock_external!(env_namespace, _localtime);
-//    mock_external!(env_namespace, _llvm_stacksave);
-//    // mock_external!(env_namespace, _gettimeofday);
-//    // mock_external!(env_namespace, _getpagesize);
-//    mock_external!(env_namespace, _getgrent);
-//    // mock_external!(env_namespace, _fork);
-//    // mock_external!(env_namespace, _exit);
-//    // mock_external!(env_namespace, _clock_gettime);
-//    // mock_external!(env_namespace, ___syscall64);
-//    // mock_external!(env_namespace, ___syscall63);
-//    // mock_external!(env_namespace, ___syscall60);
-//    // mock_external!(env_namespace, ___syscall54);
-//    // mock_external!(env_namespace, ___syscall39);
-//    // mock_external!(env_namespace, ___syscall340);
-//    // mock_external!(env_namespace, ___syscall221);
-//    // mock_external!(env_namespace, ___syscall212);
-//    // mock_external!(env_namespace, ___syscall201);
-//    // mock_external!(env_namespace, ___syscall197);
-//    // mock_external!(env_namespace, ___syscall195);
-//    // mock_external!(env_namespace, ___syscall181);
-//    // mock_external!(env_namespace, ___syscall180);
-//    // mock_external!(env_namespace, ___syscall146);
-//    // mock_external!(env_namespace, ___syscall145);
-//    // mock_external!(env_namespace, ___syscall142);
-//    // mock_external!(env_namespace, ___syscall140);
-//    // mock_external!(env_namespace, ___syscall122);
-//    // mock_external!(env_namespace, ___syscall102);
-//    // mock_external!(env_namespace, ___syscall20);
-//    mock_external!(env_namespace, _dlerror);
-//    mock_external!(env_namespace, _gmtime);
+    env_namespace.insert("table".to_string(), Export::Table(globals.table.clone()));
+    //
+    //    env_namespace.insert(
+    //        "STACKTOP".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.stacktop),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "STACK_MAX".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.stack_max),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "DYNAMICTOP_PTR".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.dynamictop_ptr),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "tableBase".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.table_base),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "__table_base".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.table_base),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "ABORT".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.abort),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "memoryBase".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.memory_base),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "__memory_base".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.memory_base),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "tempDoublePtr".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.temp_double_ptr),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: I32,
+    //            },
+    //        },
+    //    );
+    //
+    //    global_namespace.insert(
+    //        "Infinity".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.infinity),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: F64,
+    //            },
+    //        },
+    //    );
+    //
+    //    global_namespace.insert(
+    //        "NaN".to_string(),
+    //        Export::Global {
+    //            local: global!(globals.data.nan),
+    //            global: GlobalDesc {
+    //                mutable: false,
+    //                ty: F64,
+    //            },
+    //        },
+    //    );
+    //
+    //    // Global Math
+    //    global_math_namespace.insert(
+    //        "pow",
+    //        Export::Function {
+    //            func: func!(math, pow),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![F64, F64],
+    //                returns: vec![F64],
+    //            },
+    //        },
+    //    );
+    //
+    //    // Print function
+    //    env_namespace.insert(
+    //        "printf",
+    //        Export::Function {
+    //            func: func!(io, printf),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "putchar",
+    //        Export::Function {
+    //            func: func!(io, putchar),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    // Assert
+    //    env_namespace.insert(
+    //        "___assert_fail",
+    //        Export::Function {
+    //            func: func!(env, ___assert_fail),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32, I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    // Lock
+    //    env_namespace.insert(
+    //        "___lock",
+    //        Export::Function {
+    //            func: func!(lock, ___lock),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___unlock",
+    //        Export::Function {
+    //            func: func!(lock, ___unlock),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___wait",
+    //        Export::Function {
+    //            func: func!(lock, ___wait),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32, I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //    // Env
+    //    env_namespace.insert(
+    //        "_getenv",
+    //        Export::Function {
+    //            func: func!(env, _getenv),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_setenv",
+    //        Export::Function {
+    //            func: func!(env, _setenv),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_putenv",
+    //        Export::Function {
+    //            func: func!(env, _putenv),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_unsetenv",
+    //        Export::Function {
+    //            func: func!(env, _unsetenv),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_getpwnam",
+    //        Export::Function {
+    //            func: func!(env, _getpwnam),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_getgrnam",
+    //        Export::Function {
+    //            func: func!(env, _getgrnam),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___buildEnvironment",
+    //        Export::Function {
+    //            func: func!(env, ___build_environment),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //    // Errno
+    //    env_namespace.insert(
+    //        "___setErrNo",
+    //        Export::Function {
+    //            func: func!(errno, ___seterrno),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //    // Syscalls
+    //    env_namespace.insert(
+    //        "___syscall1",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall1),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall3",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall3),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall4",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall4),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall5",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall5),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall6",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall6),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall12",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall12),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall20",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall20),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall220",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall220),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall39",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall39),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall40",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall40),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall10",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall10),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall54",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall54),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall57",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall57),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall63",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall63),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall85",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall85),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall64",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall64),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall102",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall102),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall114",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall114),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall122",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall122),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall140",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall140),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall142",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall142),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall145",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall145),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall146",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall146),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall180",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall180),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall181",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall181),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall192",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall192),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall195",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall195),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall197",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall197),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall201",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall201),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall202",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall202),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall212",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall212),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall221",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall221),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall330",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall330),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall340",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall340),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //    // Process
+    //    env_namespace.insert(
+    //        "abort",
+    //        Export::Function {
+    //            func: func!(process, em_abort),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_abort",
+    //        Export::Function {
+    //            func: func!(process, _abort),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "abortStackOverflow",
+    //        Export::Function {
+    //            func: func!(process, abort_stack_overflow),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_llvm_trap",
+    //        Export::Function {
+    //            func: func!(process, _llvm_trap),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_fork",
+    //        Export::Function {
+    //            func: func!(process, _fork),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_exit",
+    //        Export::Function {
+    //            func: func!(process, _exit),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_system",
+    //        Export::Function {
+    //            func: func!(process, _system),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_popen",
+    //        Export::Function {
+    //            func: func!(process, _popen),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //    // Signal
+    //    env_namespace.insert(
+    //        "_sigemptyset",
+    //        Export::Function {
+    //            func: func!(signal, _sigemptyset),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_sigaddset",
+    //        Export::Function {
+    //            func: func!(signal, _sigaddset),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_sigprocmask",
+    //        Export::Function {
+    //            func: func!(signal, _sigprocmask),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_sigaction",
+    //        Export::Function {
+    //            func: func!(signal, _sigaction),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_signal",
+    //        Export::Function {
+    //            func: func!(signal, _signal),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //    // Memory
+    //    env_namespace.insert(
+    //        "abortOnCannotGrowMemory",
+    //        Export::Function {
+    //            func: func!(memory, abort_on_cannot_grow_memory),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_emscripten_memcpy_big",
+    //        Export::Function {
+    //            func: func!(memory, _emscripten_memcpy_big),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "enlargeMemory",
+    //        Export::Function {
+    //            func: func!(memory, enlarge_memory),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "getTotalMemory",
+    //        Export::Function {
+    //            func: func!(memory, get_total_memory),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___map_file",
+    //        Export::Function {
+    //            func: func!(memory, ___map_file),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //    // Exception
+    //    env_namespace.insert(
+    //        "___cxa_allocate_exception",
+    //        Export::Function {
+    //            func: func!(exception, ___cxa_allocate_exception),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___cxa_allocate_exception",
+    //        Export::Function {
+    //            func: func!(exception, ___cxa_throw),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___cxa_throw",
+    //        Export::Function {
+    //            func: func!(exception, ___cxa_throw),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //    // NullFuncs
+    //    env_namespace.insert(
+    //        "nullFunc_i",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_i),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_ii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_ii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_iii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_iii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_iiii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_iiii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_iiiii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_iiiii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_iiiiii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_iiiiii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_v",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_v),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_vi",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_vi),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_vii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_vii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_viii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_viii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_viiii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_viiii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_viiiii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_viiiii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "nullFunc_viiiiii",
+    //        Export::Function {
+    //            func: func!(nullfunc, nullfunc_viiiiii),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //    // Time
+    //    env_namespace.insert(
+    //        "_gettimeofday",
+    //        Export::Function {
+    //            func: func!(time, _gettimeofday),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_clock_gettime",
+    //        Export::Function {
+    //            func: func!(time, _clock_gettime),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___clock_gettime",
+    //        Export::Function {
+    //            func: func!(time, _clock_gettime),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_clock",
+    //        Export::Function {
+    //            func: func!(time, _clock),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_difftime",
+    //        Export::Function {
+    //            func: func!(time, _difftime),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![F64],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_asctime",
+    //        Export::Function {
+    //            func: func!(time, _asctime),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_asctime_r",
+    //        Export::Function {
+    //            func: func!(time, _asctime_r),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_localtime",
+    //        Export::Function {
+    //            func: func!(time, _localtime),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_time",
+    //        Export::Function {
+    //            func: func!(time, _time),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_strftime",
+    //        Export::Function {
+    //            func: func!(time, _strftime),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_localtime_r",
+    //        Export::Function {
+    //            func: func!(time, _localtime_r),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_getpagesize",
+    //        Export::Function {
+    //            func: func!(env, _getpagesize),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_sysconf",
+    //        Export::Function {
+    //            func: func!(env, _sysconf),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    // Math
+    //    asm_namespace.insert(
+    //        "f64-rem",
+    //        Export::Function {
+    //            func: func!(math, f64_rem),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![F64, F64],
+    //                returns: vec![F64],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_llvm_log10_f64",
+    //        Export::Function {
+    //            func: func!(math, _llvm_log10_f64),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![F64],
+    //                returns: vec![F64],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_llvm_log2_f64",
+    //        Export::Function {
+    //            func: func!(math, _llvm_log2_f64),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![F64],
+    //                returns: vec![F64],
+    //            },
+    //        },
+    //    );
+    //
+    //    //
+    //    env_namespace.insert(
+    //        "__setjmp",
+    //        Export::Function {
+    //            func: func!(jmp, __setjmp),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "__longjmp",
+    //        Export::Function {
+    //            func: func!(jmp, __longjmp),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall110",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall110),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall15",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall15),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall168",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall168),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall191",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall191),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //    env_namespace.insert(
+    //        "___syscall194",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall194),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //    env_namespace.insert(
+    //        "___syscall196",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall196),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //    env_namespace.insert(
+    //        "___syscall199",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall199),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall268",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall268),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall272",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall272),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall295",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall295),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall300",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall300),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall334",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall334),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall38",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall38),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall60",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall60),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall66",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall66),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall75",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall75),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall91",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall91),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "___syscall97",
+    //        Export::Function {
+    //            func: func!(syscalls, ___syscall97),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_endgrent",
+    //        Export::Function {
+    //            func: func!(process, _endgrent),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_execve",
+    //        Export::Function {
+    //            func: func!(process, _execve),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_getaddrinfo",
+    //        Export::Function {
+    //            func: func!(env, _getaddrinfo),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_gmtime_r",
+    //        Export::Function {
+    //            func: func!(time, _gmtime_r),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_kill",
+    //        Export::Function {
+    //            func: func!(process, _kill),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_llvm_stackrestore",
+    //        Export::Function {
+    //            func: func!(process, _llvm_stackrestore),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_mktime",
+    //        Export::Function {
+    //            func: func!(time, _mktime),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_raise",
+    //        Export::Function {
+    //            func: func!(process, _raise),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_sem_init",
+    //        Export::Function {
+    //            func: func!(process, _sem_init),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_sem_post",
+    //        Export::Function {
+    //            func: func!(process, _sem_post),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_sem_wait",
+    //        Export::Function {
+    //            func: func!(process, _sem_wait),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_setgrent",
+    //        Export::Function {
+    //            func: func!(process, _setgrent),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_setgroups",
+    //        Export::Function {
+    //            func: func!(process, _setgroups),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_setitimer",
+    //        Export::Function {
+    //            func: func!(process, _setitimer),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    //
+    //    env_namespace.insert(
+    //        "_sigsuspend",
+    //        Export::Function {
+    //            func: func!(signal, _sigsuspend),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_setitimer",
+    //        Export::Function {
+    //            func: func!(process, _setitimer),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_usleep",
+    //        Export::Function {
+    //            func: func!(process, _usleep),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_utimes",
+    //        Export::Function {
+    //            func: func!(process, _utimes),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_waitpid",
+    //        Export::Function {
+    //            func: func!(process, _waitpid),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_dlclose",
+    //        Export::Function {
+    //            func: func!(linking, _dlclose),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_dlopen",
+    //        Export::Function {
+    //            func: func!(linking, _dlopen),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_dlsym",
+    //        Export::Function {
+    //            func: func!(linking, _dlsym),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32, I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_llvm_log10_f32",
+    //        Export::Function {
+    //            func: func!(math, _llvm_log10_f32),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![F64],
+    //                returns: vec![F64],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_llvm_log2_f32",
+    //        Export::Function {
+    //            func: func!(math, _llvm_log2_f32),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![F64],
+    //                returns: vec![F64],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_emscripten_random",
+    //        Export::Function {
+    //            func: func!(math, _emscripten_random),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![],
+    //                returns: vec![F64],
+    //            },
+    //        },
+    //    );
+    //
+    //    env_namespace.insert(
+    //        "_gmtime",
+    //        Export::Function {
+    //            func: func!(time, _gmtime),
+    //            ctx: Context::Internal,
+    //            signature: FuncSig {
+    //                params: vec![I32],
+    //                returns: vec![I32],
+    //            },
+    //        },
+    //    );
+    //
+    //    // mock_external!(env_namespace, _time);
+    //    // mock_external!(env_namespace, _sysconf);
+    //    // mock_external!(env_namespace, _strftime);
+    //    // mock_external!(env_namespace, _sigprocmask);
+    //    // mock_external!(env_namespace, _sigemptyset);
+    //    // mock_external!(env_namespace, _sigaddset);
+    //    // mock_external!(env_namespace, _sigaction);
+    //
+    //    mock_external!(env_namespace, _sched_yield);
+    //    // mock_external!(env_namespace, _localtime_r);
+    //    // mock_external!(env_namespace, _localtime);
+    //    mock_external!(env_namespace, _llvm_stacksave);
+    //    // mock_external!(env_namespace, _gettimeofday);
+    //    // mock_external!(env_namespace, _getpagesize);
+    //    mock_external!(env_namespace, _getgrent);
+    //    // mock_external!(env_namespace, _fork);
+    //    // mock_external!(env_namespace, _exit);
+    //    // mock_external!(env_namespace, _clock_gettime);
+    //    // mock_external!(env_namespace, ___syscall64);
+    //    // mock_external!(env_namespace, ___syscall63);
+    //    // mock_external!(env_namespace, ___syscall60);
+    //    // mock_external!(env_namespace, ___syscall54);
+    //    // mock_external!(env_namespace, ___syscall39);
+    //    // mock_external!(env_namespace, ___syscall340);
+    //    // mock_external!(env_namespace, ___syscall221);
+    //    // mock_external!(env_namespace, ___syscall212);
+    //    // mock_external!(env_namespace, ___syscall201);
+    //    // mock_external!(env_namespace, ___syscall197);
+    //    // mock_external!(env_namespace, ___syscall195);
+    //    // mock_external!(env_namespace, ___syscall181);
+    //    // mock_external!(env_namespace, ___syscall180);
+    //    // mock_external!(env_namespace, ___syscall146);
+    //    // mock_external!(env_namespace, ___syscall145);
+    //    // mock_external!(env_namespace, ___syscall142);
+    //    // mock_external!(env_namespace, ___syscall140);
+    //    // mock_external!(env_namespace, ___syscall122);
+    //    // mock_external!(env_namespace, ___syscall102);
+    //    // mock_external!(env_namespace, ___syscall20);
+    //    mock_external!(env_namespace, _dlerror);
+    //    mock_external!(env_namespace, _gmtime);
 
     imports.register("env", env_namespace);
     imports.register("asm2wasm", asm_namespace);
