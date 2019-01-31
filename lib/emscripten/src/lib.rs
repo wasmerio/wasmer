@@ -452,217 +452,32 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
                 // Memory
                 "abortOnCannotGrowMemory" => func!(crate::memory::abort_on_cannot_grow_memory, [] -> [u32]),
                 "_emscripten_memcpy_big" => func!(crate::memory::_emscripten_memcpy_big, [u32, u32, u32] -> [u32]),
+                "enlargeMemory" => func!(crate::memory::enlarge_memory, [] -> [u32]),
+                "getTotalMemory" => func!(crate::memory::get_total_memory, [] -> [u32]),
+                "___map_file" => func!(crate::memory::___map_file, [u32, u32] -> [i32]),
 
+                // Exception
+                "___cxa_allocate_exception" => func!(crate::exception::___cxa_allocate_exception, [u32] -> [u32]),
+                "___cxa_throw" => func!(crate::exception::___cxa_throw, [u32, u32, u32] -> []),
+
+                // Time
+                "_gettimeofday" => func!(crate::time::_gettimeofday, [i32, i32] -> [i32]),
+                "_clock_gettime" => func!(crate::time::_clock_gettime, [u32, i32] -> [i32]),
+                "___clock_gettime" => func!(crate::time::_clock_gettime, [u32, i32] -> [i32]),
+                "_clock" => func!(crate::time::_clock, [] -> [i32]),
+                "_difftime" => func!(crate::time::_difftime, [u32, u32] -> [f64]),
+                "_asctime" => func!(crate::time::_asctime, [u32] -> [u32]),
+                "_asctime_r" => func!(crate::time::_asctime_r, [u32, u32] -> [u32]),
+                "_localtime" => func!(crate::time::_localtime, [u32] -> [i32]),
+                "_time" => func!(crate::time::_time, [u32] -> [i64]),
+                "_strftime" => func!(crate::time::_strftime, [i32, u32, i32, i32] -> [i64]),
+                "_localtime_r" => func!(crate::time::_localtime_r, [u32, u32] -> [i32]),
             },
             "math" => {
                 "pow" => func!(crate::math::pow, [f64, f64] -> [f64]),
             },
         };
 
-    //
-    //    env_namespace.insert(
-    //        "enlargeMemory",
-    //        Export::Function {
-    //            func: func!(memory, enlarge_memory),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "getTotalMemory",
-    //        Export::Function {
-    //            func: func!(memory, get_total_memory),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___map_file",
-    //        Export::Function {
-    //            func: func!(memory, ___map_file),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //    // Exception
-    //    env_namespace.insert(
-    //        "___cxa_allocate_exception",
-    //        Export::Function {
-    //            func: func!(exception, ___cxa_allocate_exception),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___cxa_allocate_exception",
-    //        Export::Function {
-    //            func: func!(exception, ___cxa_throw),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___cxa_throw",
-    //        Export::Function {
-    //            func: func!(exception, ___cxa_throw),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //    // Time
-    //    env_namespace.insert(
-    //        "_gettimeofday",
-    //        Export::Function {
-    //            func: func!(time, _gettimeofday),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_clock_gettime",
-    //        Export::Function {
-    //            func: func!(time, _clock_gettime),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___clock_gettime",
-    //        Export::Function {
-    //            func: func!(time, _clock_gettime),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_clock",
-    //        Export::Function {
-    //            func: func!(time, _clock),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_difftime",
-    //        Export::Function {
-    //            func: func!(time, _difftime),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![F64],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_asctime",
-    //        Export::Function {
-    //            func: func!(time, _asctime),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_asctime_r",
-    //        Export::Function {
-    //            func: func!(time, _asctime_r),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_localtime",
-    //        Export::Function {
-    //            func: func!(time, _localtime),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_time",
-    //        Export::Function {
-    //            func: func!(time, _time),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_strftime",
-    //        Export::Function {
-    //            func: func!(time, _strftime),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_localtime_r",
-    //        Export::Function {
-    //            func: func!(time, _localtime_r),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
     //
     //    env_namespace.insert(
     //        "_getpagesize",

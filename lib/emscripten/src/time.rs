@@ -88,13 +88,13 @@ pub extern "C" fn ___clock_gettime(clk_id: libc::clockid_t, tp: c_int, ctx: &mut
 }
 
 /// emscripten: _clock
-pub extern "C" fn _clock() -> c_int {
+pub extern "C" fn _clock(_ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_clock");
     0 // TODO: unimplemented
 }
 
 /// emscripten: _difftime
-pub extern "C" fn _difftime(t0: u32, t1: u32) -> f64 {
+pub extern "C" fn _difftime(t0: u32, t1: u32, _ctx: &mut Ctx) -> f64 {
     debug!("emscripten::_difftime");
     (t0 - t1) as _
 }
@@ -130,7 +130,7 @@ struct guest_tm {
 }
 
 /// emscripten: _tvset
-pub extern "C" fn _tvset() {
+pub extern "C" fn _tvset(_ctx: &mut Ctx) {
     debug!("emscripten::_tvset UNIMPLEMENTED");
 }
 
