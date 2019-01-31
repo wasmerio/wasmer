@@ -98,7 +98,6 @@ pub mod wasm {
 
 pub mod units {
     //! Various unit types.
-
     pub use wasmer_runtime_core::units::{Bytes, Pages};
 }
 

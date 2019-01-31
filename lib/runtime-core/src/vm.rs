@@ -423,7 +423,7 @@ mod vm_offset_tests {
 #[cfg(test)]
 mod vm_ctx_tests {
     use super::{Ctx, ImportBacking, LocalBacking};
-    use crate::module::ModuleInner;
+    use crate::module::{ModuleInfo, ModuleInner};
     use crate::structures::Map;
     use std::ffi::c_void;
 
@@ -493,7 +493,7 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{FuncResolver, ProtectedCaller, SigRegistry, Token};
+        use crate::backend::{Backend, FuncResolver, ProtectedCaller, Token};
         use crate::error::RuntimeResult;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
@@ -525,25 +525,28 @@ mod vm_ctx_tests {
         ModuleInner {
             func_resolver: Box::new(Placeholder),
             protected_caller: Box::new(Placeholder),
-            memories: Map::new(),
-            globals: Map::new(),
-            tables: Map::new(),
+            info: ModuleInfo {
+                memories: Map::new(),
+                globals: Map::new(),
+                tables: Map::new(),
 
-            // These are strictly imported and the typesystem ensures that.
-            imported_functions: Map::new(),
-            imported_memories: Map::new(),
-            imported_tables: Map::new(),
-            imported_globals: Map::new(),
+                // These are strictly imported and the typesystem ensures that.
+                imported_functions: Map::new(),
+                imported_memories: Map::new(),
+                imported_tables: Map::new(),
+                imported_globals: Map::new(),
 
-            exports: HashMap::new(),
+                exports: HashMap::new(),
 
-            data_initializers: Vec::new(),
-            elem_initializers: Vec::new(),
+                data_initializers: Vec::new(),
+                elem_initializers: Vec::new(),
 
-            start_func: None,
+                start_func: None,
 
-            func_assoc: Map::new(),
-            signatures: Map::new(),
+                func_assoc: Map::new(),
+                signatures: Map::new(),
+                backend: Backend::Cranelift,
+            },
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    backend::{FuncResolver, ProtectedCaller},
+    backend::{Backend, FuncResolver, ProtectedCaller},
     error::Result,
     import::ImportObject,
     structures::Map,
@@ -20,6 +20,11 @@ pub struct ModuleInner {
     pub func_resolver: Box<dyn FuncResolver>,
     pub protected_caller: Box<dyn ProtectedCaller>,
 
+    pub info: ModuleInfo,
+}
+
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+pub struct ModuleInfo {
     // This are strictly local and the typsystem ensures that.
     pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,
     pub globals: Map<LocalGlobalIndex, GlobalInit>,
@@ -40,6 +45,7 @@ pub struct ModuleInner {
 
     pub func_assoc: Map<FuncIndex, SigIndex>,
     pub signatures: Map<SigIndex, Arc<FuncSig>>,
+    pub backend: Backend,
 }
 
 /// A compiled WebAssembly module.
@@ -86,6 +92,7 @@ impl Module {
 impl ModuleInner {}
 
 #[doc(hidden)]
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct ImportName {
     pub namespace: String,
@@ -101,6 +108,7 @@ impl From<(String, String)> for ImportName {
     }
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
     Func(FuncIndex),
@@ -110,6 +118,7 @@ pub enum ExportIndex {
 }
 
 /// A data initializer for linear memory.
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct DataInitializer {
     /// The index of the memory to initialize.
@@ -117,10 +126,12 @@ pub struct DataInitializer {
     /// Either a constant offset or a `get_global`
     pub base: Initializer,
     /// The initialization data.
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
 /// A WebAssembly table initializer.
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct TableInitializer {
     /// The index of a table to initialize.

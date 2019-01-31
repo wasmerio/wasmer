@@ -3,8 +3,7 @@
 //! any other calls that this function is doing, so we can "patch" the
 //! function addrs in runtime with the functions we need.
 use cranelift_codegen::binemit;
-pub use cranelift_codegen::binemit::Reloc;
-use cranelift_codegen::ir::{self, ExternalName, LibCall, SourceLoc, TrapCode};
+use cranelift_codegen::ir::{self, ExternalName, SourceLoc};
 use hashbrown::HashMap;
 use wasmer_runtime_core::{
     structures::TypedIndex,
@@ -24,10 +23,32 @@ pub mod call_names {
     pub const DYNAMIC_MEM_SIZE: u32 = 5;
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone)]
+pub enum Reloc {
+    Abs8,
+    X86PCRel4,
+}
+
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone)]
+pub enum LibCall {
+    Probestack,
+    CeilF32,
+    CeilF64,
+    FloorF32,
+    FloorF64,
+    TruncF32,
+    TruncF64,
+    NearestF32,
+    NearestF64,
+}
+
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Relocation {
     /// The relocation code.
-    pub reloc: binemit::Reloc,
+    pub reloc: Reloc,
     /// The offset where to apply the relocation.
     pub offset: binemit::CodeOffset,
     /// The addend to add to the relocation value.
@@ -36,6 +57,7 @@ pub struct Relocation {
     pub target: RelocationType,
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy)]
 pub enum VmCallKind {
     StaticMemoryGrow,
@@ -48,6 +70,7 @@ pub enum VmCallKind {
     DynamicMemorySize,
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy)]
 pub enum VmCall {
     Local(VmCallKind),
@@ -55,6 +78,7 @@ pub enum VmCall {
 }
 
 /// Specify the type of relocation
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub enum RelocationType {
     Normal(LocalFuncIndex),
@@ -87,6 +111,12 @@ impl binemit::RelocSink for RelocSink {
         name: &ExternalName,
         addend: binemit::Addend,
     ) {
+        let reloc = match reloc {
+            binemit::Reloc::Abs8 => Reloc::Abs8,
+            binemit::Reloc::X86PCRel4 => Reloc::X86PCRel4,
+            _ => unimplemented!("unimplented reloc type: {}", reloc),
+        };
+
         match *name {
             ExternalName::User {
                 namespace: 0,
@@ -146,6 +176,18 @@ impl binemit::RelocSink for RelocSink {
                 });
             }
             ExternalName::LibCall(libcall) => {
+                let libcall = match libcall {
+                    ir::LibCall::CeilF32 => LibCall::CeilF32,
+                    ir::LibCall::FloorF32 => LibCall::FloorF32,
+                    ir::LibCall::TruncF32 => LibCall::TruncF32,
+                    ir::LibCall::NearestF32 => LibCall::NearestF32,
+                    ir::LibCall::CeilF64 => LibCall::CeilF64,
+                    ir::LibCall::FloorF64 => LibCall::FloorF64,
+                    ir::LibCall::TruncF64 => LibCall::TruncF64,
+                    ir::LibCall::NearestF64 => LibCall::NearestF64,
+                    ir::LibCall::Probestack => LibCall::Probestack,
+                    _ => unimplemented!("unimplemented libcall: {}", libcall),
+                };
                 let relocation_type = RelocationType::LibCall(libcall);
                 self.relocs.push(Relocation {
                     reloc,
@@ -166,6 +208,22 @@ impl binemit::RelocSink for RelocSink {
     }
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy)]
+pub enum TrapCode {
+    StackOverflow,
+    HeapOutOfBounds,
+    TableOutOfBounds,
+    OutOfBounds,
+    IndirectCallToNull,
+    BadSignature,
+    IntegerOverflow,
+    IntegerDivisionByZero,
+    BadConversionToInteger,
+    Interrupt,
+    User(u16),
+}
+
 /// Implementation of a relocation sink that just saves all the information for later
 impl RelocSink {
     pub fn new() -> RelocSink {
@@ -173,14 +231,16 @@ impl RelocSink {
     }
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy)]
 pub struct TrapData {
     pub trapcode: TrapCode,
-    pub srcloc: SourceLoc,
+    pub srcloc: u32,
 }
 
 /// Simple implementation of a TrapSink
 /// that saves the info for later.
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 pub struct TrapSink {
     trap_datas: HashMap<usize, TrapData>,
 }
@@ -215,8 +275,27 @@ impl LocalTrapSink {
 }
 
 impl binemit::TrapSink for LocalTrapSink {
-    fn trap(&mut self, offset: u32, srcloc: SourceLoc, trapcode: TrapCode) {
-        self.trap_datas
-            .push((offset as usize, TrapData { trapcode, srcloc }));
+    fn trap(&mut self, offset: u32, srcloc: SourceLoc, trapcode: ir::TrapCode) {
+        let trapcode = match trapcode {
+            ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
+            ir::TrapCode::HeapOutOfBounds => TrapCode::HeapOutOfBounds,
+            ir::TrapCode::TableOutOfBounds => TrapCode::TableOutOfBounds,
+            ir::TrapCode::OutOfBounds => TrapCode::OutOfBounds,
+            ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
+            ir::TrapCode::BadSignature => TrapCode::BadSignature,
+            ir::TrapCode::IntegerOverflow => TrapCode::IntegerOverflow,
+            ir::TrapCode::IntegerDivisionByZero => TrapCode::IntegerDivisionByZero,
+            ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
+            ir::TrapCode::Interrupt => TrapCode::Interrupt,
+            ir::TrapCode::User(x) => TrapCode::User(x),
+        };
+
+        self.trap_datas.push((
+            offset as usize,
+            TrapData {
+                trapcode,
+                srcloc: srcloc.bits(),
+            },
+        ));
     }
 }

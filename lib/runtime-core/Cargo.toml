@@ -15,6 +15,26 @@ wasmparser = "0.23.0"
 parking_lot = "0.7.1"
 lazy_static = "1.2.0"
 
+# Dependencies for caching.
+[dependencies.serde]
+version = "1.0"
+optional = true
+[dependencies.serde_derive]
+version = "1.0"
+optional = true
+[dependencies.serde_bytes]
+version = "0.10"
+optional = true
+# [dependencies.bincode]
+# version = "1.0.1"
+# optional = true
+[dependencies.serde-bench]
+version = "0.0.7"
+optional = true
+[dependencies.memmap]
+version = "0.7.0"
+optional = true
+
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["memoryapi"] }
 
@@ -27,4 +47,5 @@ field-offset = "0.1.1"
 
 [features]
 debug = []
+cache = ["serde/rc", "serde_derive", "serde_bytes", "hashbrown/serde", "serde-bench", "memmap"]
 

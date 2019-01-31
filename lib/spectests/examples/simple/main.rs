@@ -1,6 +1,8 @@
+use std::fs::remove_file;
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime_core::{
+    cache::Cache,
     error::Result,
     global::Global,
     memory::Memory,
@@ -13,8 +15,43 @@ use wasmer_runtime_core::{
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
 fn main() -> Result<()> {
+    let compiler = CraneliftCompiler::new();
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
-    let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
+
+    let inner_module = {
+        use std::time::Instant;
+
+        println!("Creating cache...");
+
+        let start = Instant::now();
+        let cache = wasmer_runtime_core::compile_to_cache_with(&wasm_binary, &compiler)?;
+
+        let elapsed = start.elapsed();
+
+        println!("time to compile code: {:?}", elapsed);
+
+        println!("Writing cache to disk...");
+        cache.write_to_disk("import_module.wasmer").unwrap();
+
+        println!("Opening cache on disk...");
+
+        let start = Instant::now();
+
+        let cache = Cache::open("import_module.wasmer").unwrap();
+
+        // println!("Loading cache...");
+        let inner_module =
+            unsafe { wasmer_runtime_core::load_cache_with(cache, &compiler).unwrap() };
+
+        let elapsed = start.elapsed();
+
+        println!("Time to load cache: {:?}", elapsed);
+
+        remove_file("import_module.wasmer").unwrap();
+        inner_module
+    };
+
+    // let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
 
     let memory = Memory::new(MemoryDescriptor {
         minimum: Pages(1),

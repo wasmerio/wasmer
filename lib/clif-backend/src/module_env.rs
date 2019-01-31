@@ -10,8 +10,8 @@ use wasmer_runtime_core::{
     module::{DataInitializer, ExportIndex, ImportName, TableInitializer},
     structures::{Map, TypedIndex},
     types::{
-        ElementType, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer,
-        LocalFuncIndex, LocalOrImport, MemoryDescriptor, SigIndex, TableDescriptor, Value,
+        ElementType, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer, LocalFuncIndex,
+        LocalOrImport, MemoryDescriptor, SigIndex, TableDescriptor, Value,
     },
     units::Pages,
 };
@@ -52,7 +52,10 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     /// Declares a function signature to the environment.
     fn declare_signature(&mut self, sig: &ir::Signature) {
         self.signatures.push(sig.clone());
-        self.module.signatures.push(Arc::new(Converter(sig).into()));
+        self.module
+            .info
+            .signatures
+            .push(Arc::new(Converter(sig).into()));
     }
 
     /// Return the signature with the given index.
@@ -71,10 +74,10 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         // a wasmer signature index without deduplicating
         // because we'll deduplicate later.
         let sig_index = Converter(clif_sig_index).into();
-        self.module.func_assoc.push(sig_index);
+        self.module.info.func_assoc.push(sig_index);
 
         // Add import names to list of imported functions
-        self.module.imported_functions.push(ImportName {
+        self.module.info.imported_functions.push(ImportName {
             namespace: namespace.to_string(),
             name: name.to_string(),
         });
@@ -82,7 +85,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Return the number of imported funcs.
     fn get_num_func_imports(&self) -> usize {
-        self.module.imported_functions.len()
+        self.module.info.imported_functions.len()
     }
 
     /// Declares the type (signature) of a local function in the module.
@@ -91,7 +94,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         // a wasmer signature index without deduplicating
         // because we'll deduplicate later.
         let sig_index = Converter(clif_sig_index).into();
-        self.module.func_assoc.push(sig_index);
+        self.module.info.func_assoc.push(sig_index);
     }
 
     /// Return the signature index for the given function index.
@@ -99,7 +102,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         &self,
         func_index: cranelift_wasm::FuncIndex,
     ) -> cranelift_wasm::SignatureIndex {
-        let sig_index: SigIndex = self.module.func_assoc[Converter(func_index).into()];
+        let sig_index: SigIndex = self.module.info.func_assoc[Converter(func_index).into()];
         Converter(sig_index).into()
     }
 
@@ -132,7 +135,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add global ir to the list of globals
-        self.module.globals.push(GlobalInit { desc, init });
+        self.module.info.globals.push(GlobalInit { desc, init });
 
         self.globals.push(global);
     }
@@ -160,7 +163,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add global ir to the list of globals
-        self.module.imported_globals.push((import_name, desc));
+        self.module.info.imported_globals.push((import_name, desc));
 
         self.globals.push(global);
     }
@@ -174,7 +177,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     fn declare_table(&mut self, table: cranelift_wasm::Table) {
         use cranelift_wasm::TableElementType;
         // Add table ir to the list of tables
-        self.module.tables.push(TableDescriptor {
+        self.module.info.tables.push(TableDescriptor {
             element: match table.ty {
                 TableElementType::Func => ElementType::Anyfunc,
                 _ => unimplemented!(),
@@ -209,6 +212,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
         // Add import names to list of imported tables
         self.module
+            .info
             .imported_tables
             .push((import_name, imported_table));
     }
@@ -237,7 +241,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add table initializer to list of table initializers
-        self.module.elem_initializers.push(TableInitializer {
+        self.module.info.elem_initializers.push(TableInitializer {
             table_index: Converter(table_index).into(),
             base,
             elements: elements
@@ -249,7 +253,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a memory to the environment
     fn declare_memory(&mut self, memory: cranelift_wasm::Memory) {
-        self.module.memories.push(MemoryDescriptor {
+        self.module.info.memories.push(MemoryDescriptor {
             minimum: Pages(memory.minimum),
             maximum: memory.maximum.map(|max| Pages(max)),
             shared: memory.shared,
@@ -275,7 +279,10 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add import names to list of imported memories
-        self.module.imported_memories.push((import_name, memory));
+        self.module
+            .info
+            .imported_memories
+            .push((import_name, memory));
     }
 
     /// Fills a declared memory with bytes at module instantiation.
@@ -301,7 +308,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add data initializer to list of data initializers
-        self.module.data_initializers.push(DataInitializer {
+        self.module.info.data_initializers.push(DataInitializer {
             memory_index: Converter(memory_index).into(),
             base,
             data: data.to_vec(),
@@ -310,14 +317,14 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a function export to the environment.
     fn declare_func_export(&mut self, func_index: cranelift_wasm::FuncIndex, name: &'data str) {
-        self.module.exports.insert(
+        self.module.info.exports.insert(
             name.to_string(),
             ExportIndex::Func(Converter(func_index).into()),
         );
     }
     /// Declares a table export to the environment.
     fn declare_table_export(&mut self, table_index: cranelift_wasm::TableIndex, name: &'data str) {
-        self.module.exports.insert(
+        self.module.info.exports.insert(
             name.to_string(),
             ExportIndex::Table(Converter(table_index).into()),
         );
@@ -328,7 +335,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         memory_index: cranelift_wasm::MemoryIndex,
         name: &'data str,
     ) {
-        self.module.exports.insert(
+        self.module.info.exports.insert(
             name.to_string(),
             ExportIndex::Memory(Converter(memory_index).into()),
         );
@@ -339,7 +346,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         global_index: cranelift_wasm::GlobalIndex,
         name: &'data str,
     ) {
-        self.module.exports.insert(
+        self.module.info.exports.insert(
             name.to_string(),
             ExportIndex::Global(Converter(global_index).into()),
         );
@@ -347,7 +354,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a start function.
     fn declare_start_func(&mut self, func_index: cranelift_wasm::FuncIndex) {
-        self.module.start_func = Some(Converter(func_index).into());
+        self.module.info.start_func = Some(Converter(func_index).into());
     }
 
     /// Provides the contents of a function body.

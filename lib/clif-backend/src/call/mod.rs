@@ -11,7 +11,7 @@ use wasmer_runtime_core::{
     backend::{ProtectedCaller, Token},
     error::RuntimeResult,
     export::Context,
-    module::{ExportIndex, ModuleInner},
+    module::{ExportIndex, ModuleInfo, ModuleInner},
     types::{FuncIndex, FuncSig, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
 };
@@ -23,7 +23,7 @@ pub struct Caller {
 }
 
 impl Caller {
-    pub fn new(module: &ModuleInner, handler_data: HandlerData, trampolines: Trampolines) -> Self {
+    pub fn new(module: &ModuleInfo, handler_data: HandlerData, trampolines: Trampolines) -> Self {
         let mut func_export_set = HashSet::new();
         for export_index in module.exports.values() {
             if let ExportIndex::Func(func_index) = export_index {
@@ -118,6 +118,7 @@ fn get_func_from_index(
     func_index: FuncIndex,
 ) -> (*const vm::Func, Context, Arc<FuncSig>, SigIndex) {
     let sig_index = *module
+        .info
         .func_assoc
         .get(func_index)
         .expect("broken invariant, incorrect func index");
@@ -141,7 +142,7 @@ fn get_func_from_index(
         }
     };
 
-    let signature = Arc::clone(&module.signatures[sig_index]);
+    let signature = Arc::clone(&module.info.signatures[sig_index]);
 
     (func_ptr, ctx, signature, sig_index)
 }

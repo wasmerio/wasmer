@@ -1,8 +1,14 @@
-use crate::call::HandlerData;
-use crate::libcalls;
-use crate::relocation::{
-    LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall, VmCallKind,
+#[cfg(feature = "cache")]
+use crate::cache::BackendCache;
+use crate::{
+    call::HandlerData,
+    libcalls,
+    relocation::{
+        LibCall, LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall,
+        VmCallKind,
+    },
 };
+
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
 use std::{
@@ -10,6 +16,8 @@ use std::{
     ptr::{write_unaligned, NonNull},
     sync::Arc,
 };
+#[cfg(feature = "cache")]
+use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
     backend::{
@@ -18,6 +26,7 @@ use wasmer_runtime_core::{
         SigRegistry,
     },
     error::{CompileError, CompileResult},
+    module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
     types::{FuncSig, LocalFuncIndex, SigIndex},
     vm, vmcalls,
@@ -26,15 +35,59 @@ use wasmer_runtime_core::{
 #[allow(dead_code)]
 pub struct FuncResolverBuilder {
     resolver: FuncResolver,
-    relocations: Map<LocalFuncIndex, Vec<Relocation>>,
+    relocations: Map<LocalFuncIndex, Box<[Relocation]>>,
     import_len: usize,
 }
 
 impl FuncResolverBuilder {
+    #[cfg(feature = "cache")]
+    pub fn new_from_backend_cache(
+        backend_cache: BackendCache,
+        info: &ModuleInfo,
+    ) -> Result<(Self, HandlerData), CacheError> {
+        let mut memory = Memory::with_size(backend_cache.code.len())
+            .map_err(|e| CacheError::Unknown(e.to_string()))?;
+
+        unsafe {
+            memory
+                .protect(.., Protect::ReadWrite)
+                .map_err(|e| CacheError::Unknown(e.to_string()))?;
+
+            // Copy over the compiled code.
+            memory.as_slice_mut()[..backend_cache.code.len()]
+                .copy_from_slice(backend_cache.code.as_slice());
+        }
+
+        let handler_data =
+            HandlerData::new(backend_cache.trap_sink, memory.as_ptr() as _, memory.size());
+
+        Ok((
+            Self {
+                resolver: FuncResolver {
+                    map: backend_cache.offsets,
+                    memory,
+                },
+                relocations: backend_cache.relocations,
+                import_len: info.imported_functions.len(),
+            },
+            handler_data,
+        ))
+    }
+
+    #[cfg(feature = "cache")]
+    pub fn to_backend_cache(self, handler_data: HandlerData) -> BackendCache {
+        BackendCache {
+            relocations: self.relocations,
+            code: unsafe { self.resolver.memory.as_slice().to_vec() },
+            offsets: self.resolver.map,
+            trap_sink: handler_data.trap_data,
+        }
+    }
+
     pub fn new(
         isa: &isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
-        import_len: usize,
+        info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
         let mut relocations = Map::with_capacity(function_bodies.len());
@@ -62,7 +115,7 @@ impl FuncResolverBuilder {
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
 
             compiled_functions.push(code_buf);
-            relocations.push(reloc_sink.relocs);
+            relocations.push(reloc_sink.relocs.into_boxed_slice());
         }
 
         let mut memory = Memory::with_size(total_size)
@@ -106,7 +159,7 @@ impl FuncResolverBuilder {
             Self {
                 resolver: FuncResolver { map, memory },
                 relocations,
-                import_len,
+                import_len: info.imported_functions.len(),
             },
             handler_data,
         ))
@@ -117,7 +170,7 @@ impl FuncResolverBuilder {
         signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
     ) -> CompileResult<FuncResolver> {
         for (index, relocs) in self.relocations.iter() {
-            for ref reloc in relocs {
+            for ref reloc in relocs.iter() {
                 let target_func_address: isize = match reloc.target {
                     RelocationType::Normal(local_func_index) => {
                         // This will always be an internal function
@@ -130,18 +183,15 @@ impl FuncResolverBuilder {
                         self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
                     }
                     RelocationType::LibCall(libcall) => match libcall {
-                        ir::LibCall::CeilF32 => libcalls::ceilf32 as isize,
-                        ir::LibCall::FloorF32 => libcalls::floorf32 as isize,
-                        ir::LibCall::TruncF32 => libcalls::truncf32 as isize,
-                        ir::LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
-                        ir::LibCall::CeilF64 => libcalls::ceilf64 as isize,
-                        ir::LibCall::FloorF64 => libcalls::floorf64 as isize,
-                        ir::LibCall::TruncF64 => libcalls::truncf64 as isize,
-                        ir::LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
-                        ir::LibCall::Probestack => libcalls::__rust_probestack as isize,
-                        _ => Err(CompileError::InternalError {
-                            msg: format!("unexpected libcall: {}", libcall),
-                        })?,
+                        LibCall::CeilF32 => libcalls::ceilf32 as isize,
+                        LibCall::FloorF32 => libcalls::floorf32 as isize,
+                        LibCall::TruncF32 => libcalls::truncf32 as isize,
+                        LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
+                        LibCall::CeilF64 => libcalls::ceilf64 as isize,
+                        LibCall::FloorF64 => libcalls::floorf64 as isize,
+                        LibCall::TruncF64 => libcalls::truncf64 as isize,
+                        LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
+                        LibCall::Probestack => libcalls::__rust_probestack as isize,
                     },
                     RelocationType::Intrinsic(ref name) => Err(CompileError::InternalError {
                         msg: format!("unexpected intrinsic: {}", name),
@@ -213,9 +263,6 @@ impl FuncResolverBuilder {
                             (target_func_address - reloc_address + reloc_addend) as i32;
                         write_unaligned(reloc_address as *mut i32, reloc_delta_i32);
                     },
-                    _ => Err(CompileError::InternalError {
-                        msg: format!("unsupported reloc kind: {}", reloc.reloc),
-                    })?,
                 }
             }
         }

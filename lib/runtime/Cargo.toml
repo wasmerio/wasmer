@@ -14,3 +14,4 @@ wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2", optional = 
 
 [features]
 default = ["wasmer-clif-backend"]
+cache = ["wasmer-clif-backend/cache"]

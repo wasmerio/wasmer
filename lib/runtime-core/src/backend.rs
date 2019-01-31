@@ -6,12 +6,23 @@ use crate::{
     types::{FuncIndex, LocalFuncIndex, Value},
     vm,
 };
+#[cfg(feature = "cache")]
+use crate::{
+    cache::{Cache, Error as CacheError},
+    module::ModuleInfo,
+};
 use std::ptr::NonNull;
 
 pub mod sys {
     pub use crate::sys::*;
 }
 pub use crate::sig_registry::SigRegistry;
+
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Backend {
+    Cranelift,
+}
 
 /// This type cannot be constructed from
 /// outside the runtime crate.
@@ -30,6 +41,16 @@ pub trait Compiler {
     /// The `CompileToken` parameter ensures that this can only
     /// be called from inside the runtime.
     fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner>;
+
+    #[cfg(feature = "cache")]
+    unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError>;
+
+    #[cfg(feature = "cache")]
+    fn compile_to_backend_cache_data(
+        &self,
+        wasm: &[u8],
+        _: Token,
+    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>)>;
 }
 
 /// The functionality exposed by this trait is expected to be used

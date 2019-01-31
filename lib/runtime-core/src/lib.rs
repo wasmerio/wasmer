@@ -2,11 +2,17 @@
 #[macro_use]
 extern crate field_offset;
 
+#[cfg(feature = "cache")]
+#[macro_use]
+extern crate serde_derive;
+
 #[macro_use]
 mod macros;
 #[doc(hidden)]
 pub mod backend;
 mod backing;
+#[cfg(feature = "cache")]
+pub mod cache;
 pub mod error;
 pub mod export;
 pub mod global;
@@ -32,6 +38,9 @@ pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;
 use std::sync::Arc;
+
+#[cfg(feature = "cache")]
+use self::cache::{Cache, Error as CacheError};
 
 pub mod prelude {
     pub use crate::import::{ImportObject, Namespace};
@@ -74,6 +83,28 @@ pub fn validate(wasm: &[u8]) -> bool {
             _ => {}
         }
     }
+}
+
+#[cfg(feature = "cache")]
+pub fn compile_to_cache_with(
+    wasm: &[u8],
+    compiler: &dyn backend::Compiler,
+) -> CompileResult<Cache> {
+    let token = backend::Token::generate();
+    let (info, backend_data) = compiler.compile_to_backend_cache_data(wasm, token)?;
+
+    Ok(Cache { info, backend_data })
+}
+
+#[cfg(feature = "cache")]
+pub unsafe fn load_cache_with(
+    cache: Cache,
+    compiler: &dyn backend::Compiler,
+) -> std::result::Result<module::Module, CacheError> {
+    let token = backend::Token::generate();
+    compiler
+        .from_cache(cache, token)
+        .map(|inner| module::Module::new(Arc::new(inner)))
 }
 
 /// The current version of this crate

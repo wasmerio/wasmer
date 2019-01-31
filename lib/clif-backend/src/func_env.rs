@@ -163,7 +163,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                         offset: (local_memory_ptr_offset as i64).into(),
                         global_type: ptr_type,
                     }),
-                    self.env.module.memories[local_mem_index],
+                    self.env.module.info.memories[local_mem_index],
                 )
             }
             LocalOrImport::Import(import_mem_index) => {
@@ -183,7 +183,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                         offset: (local_memory_ptr_offset as i64).into(),
                         global_type: ptr_type,
                     }),
-                    self.env.module.imported_memories[import_mem_index].1,
+                    self.env.module.info.imported_memories[import_mem_index].1,
                 )
             }
         };
@@ -274,7 +274,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
                 (
                     table_struct_ptr_ptr,
-                    self.env.module.tables[local_table_index],
+                    self.env.module.info.tables[local_table_index],
                 )
             }
             LocalOrImport::Import(import_table_index) => {
@@ -296,7 +296,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
                 (
                     table_struct_ptr_ptr,
-                    self.env.module.imported_tables[import_table_index].1,
+                    self.env.module.info.imported_tables[import_table_index].1,
                 )
             }
         };
@@ -571,12 +571,12 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             LocalOrImport::Local(local_mem_index) => (
                 call_names::LOCAL_NAMESPACE,
                 local_mem_index.index(),
-                self.env.module.memories[local_mem_index],
+                self.env.module.info.memories[local_mem_index],
             ),
             LocalOrImport::Import(import_mem_index) => (
                 call_names::IMPORT_NAMESPACE,
                 import_mem_index.index(),
-                self.env.module.imported_memories[import_mem_index].1,
+                self.env.module.info.imported_memories[import_mem_index].1,
             ),
         };
 
@@ -634,12 +634,12 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             LocalOrImport::Local(local_mem_index) => (
                 call_names::LOCAL_NAMESPACE,
                 local_mem_index.index(),
-                self.env.module.memories[local_mem_index],
+                self.env.module.info.memories[local_mem_index],
             ),
             LocalOrImport::Import(import_mem_index) => (
                 call_names::IMPORT_NAMESPACE,
                 import_mem_index.index(),
-                self.env.module.imported_memories[import_mem_index].1,
+                self.env.module.info.imported_memories[import_mem_index].1,
             ),
         };
 
