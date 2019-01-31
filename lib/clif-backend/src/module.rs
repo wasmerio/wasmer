@@ -11,7 +11,10 @@ use std::{
     ptr::NonNull,
 };
 #[cfg(feature = "cache")]
-use wasmer_runtime_core::cache::{Cache, Error as CacheError};
+use wasmer_runtime_core::{
+    backend::sys::Memory,
+    cache::{Cache, Error as CacheError},
+};
 use wasmer_runtime_core::{
     backend::{Backend, FuncResolver, ProtectedCaller, Token},
     error::{CompileResult, RuntimeResult},
@@ -112,30 +115,32 @@ impl Module {
         self,
         isa: &isa::TargetIsa,
         functions: Map<LocalFuncIndex, ir::Function>,
-    ) -> CompileResult<(ModuleInfo, BackendCache)> {
+    ) -> CompileResult<(ModuleInfo, BackendCache, Memory)> {
         let (func_resolver_builder, handler_data) =
             FuncResolverBuilder::new(isa, functions, &self.module.info)?;
 
-        Ok((
-            self.module.info,
-            func_resolver_builder.to_backend_cache(handler_data),
-        ))
+        let trampolines = Trampolines::new(isa, &self.module.info);
+
+        let trampoline_cache = trampolines.to_trampoline_cache();
+
+        let (backend_cache, compiled_code) =
+            func_resolver_builder.to_backend_cache(trampoline_cache, handler_data);
+
+        Ok((self.module.info, backend_cache, compiled_code))
     }
 
     #[cfg(feature = "cache")]
-    pub fn from_cache(cache: Cache, isa: &isa::TargetIsa) -> Result<ModuleInner, CacheError> {
-        let (info, backend_cache) = BackendCache::from_cache(cache)?;
+    pub fn from_cache(cache: Cache) -> Result<ModuleInner, CacheError> {
+        let (info, compiled_code, backend_cache) = BackendCache::from_cache(cache)?;
 
-        let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new_from_backend_cache(backend_cache, &info)?;
+        let (func_resolver_builder, trampolines, handler_data) =
+            FuncResolverBuilder::new_from_backend_cache(backend_cache, compiled_code, &info)?;
 
         let func_resolver = Box::new(
             func_resolver_builder
                 .finalize(&info.signatures)
                 .map_err(|e| CacheError::Unknown(format!("{:?}", e)))?,
         );
-
-        let trampolines = Trampolines::new(isa, &info);
 
         let protected_caller = Box::new(Caller::new(&info, handler_data, trampolines));
 

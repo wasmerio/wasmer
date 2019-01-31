@@ -35,9 +35,9 @@ fn main() -> Result<()> {
 
         println!("Opening cache on disk...");
 
-        let start = Instant::now();
-
         let cache = Cache::open("import_module.wasmer").unwrap();
+
+        let start = Instant::now();
 
         // println!("Loading cache...");
         let inner_module =

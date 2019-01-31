@@ -1,4 +1,4 @@
-use crate::module::ModuleInfo;
+use crate::{module::ModuleInfo, sys::Memory};
 // use bincode::{deserialize, deserialize_from, serialize_into};
 use memmap::Mmap;
 use serde_bench::{deserialize, serialize};
@@ -20,7 +20,8 @@ pub enum Error {
 pub struct Cache {
     pub info: Box<ModuleInfo>,
     #[serde(with = "serde_bytes")]
-    pub backend_data: Vec<u8>,
+    pub backend_metadata: Vec<u8>,
+    pub compiled_code: Memory,
 }
 
 impl Cache {
@@ -42,8 +43,8 @@ impl Cache {
         &self.info
     }
 
-    pub fn consume(self) -> (ModuleInfo, Vec<u8>) {
-        (*self.info, self.backend_data)
+    pub fn consume(self) -> (ModuleInfo, Vec<u8>, Memory) {
+        (*self.info, self.backend_metadata, self.compiled_code)
     }
 
     pub fn write_to_disk<P>(self, path: P) -> Result<(), Error>

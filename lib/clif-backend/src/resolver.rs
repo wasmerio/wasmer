@@ -1,5 +1,8 @@
 #[cfg(feature = "cache")]
-use crate::cache::BackendCache;
+use crate::{
+    cache::{BackendCache, TrampolineCache},
+    trampoline::Trampolines,
+};
 use crate::{
     call::HandlerData,
     libcalls,
@@ -43,45 +46,46 @@ impl FuncResolverBuilder {
     #[cfg(feature = "cache")]
     pub fn new_from_backend_cache(
         backend_cache: BackendCache,
+        mut code: Memory,
         info: &ModuleInfo,
-    ) -> Result<(Self, HandlerData), CacheError> {
-        let mut memory = Memory::with_size(backend_cache.code.len())
-            .map_err(|e| CacheError::Unknown(e.to_string()))?;
-
+    ) -> Result<(Self, Trampolines, HandlerData), CacheError> {
         unsafe {
-            memory
-                .protect(.., Protect::ReadWrite)
+            code.protect(.., Protect::ReadWrite)
                 .map_err(|e| CacheError::Unknown(e.to_string()))?;
-
-            // Copy over the compiled code.
-            memory.as_slice_mut()[..backend_cache.code.len()]
-                .copy_from_slice(backend_cache.code.as_slice());
         }
 
         let handler_data =
-            HandlerData::new(backend_cache.trap_sink, memory.as_ptr() as _, memory.size());
+            HandlerData::new(backend_cache.trap_sink, code.as_ptr() as _, code.size());
 
         Ok((
             Self {
                 resolver: FuncResolver {
                     map: backend_cache.offsets,
-                    memory,
+                    memory: code,
                 },
                 relocations: backend_cache.relocations,
                 import_len: info.imported_functions.len(),
             },
+            Trampolines::from_trampoline_cache(backend_cache.trampolines),
             handler_data,
         ))
     }
 
     #[cfg(feature = "cache")]
-    pub fn to_backend_cache(self, handler_data: HandlerData) -> BackendCache {
-        BackendCache {
-            relocations: self.relocations,
-            code: unsafe { self.resolver.memory.as_slice().to_vec() },
-            offsets: self.resolver.map,
-            trap_sink: handler_data.trap_data,
-        }
+    pub fn to_backend_cache(
+        self,
+        trampolines: TrampolineCache,
+        handler_data: HandlerData,
+    ) -> (BackendCache, Memory) {
+        (
+            BackendCache {
+                relocations: self.relocations,
+                offsets: self.resolver.map,
+                trap_sink: handler_data.trap_data,
+                trampolines,
+            },
+            self.resolver.memory,
+        )
     }
 
     pub fn new(
@@ -233,7 +237,6 @@ impl FuncResolverBuilder {
                     RelocationType::Signature(sig_index) => {
                         let sig_index =
                             SigRegistry.lookup_sig_index(Arc::clone(&signatures[sig_index]));
-                        println!("relocation sig index: {:?}", sig_index);
                         sig_index.index() as _
                     }
                 };

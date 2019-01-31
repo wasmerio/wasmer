@@ -10,6 +10,7 @@ use crate::{
 use crate::{
     cache::{Cache, Error as CacheError},
     module::ModuleInfo,
+    sys::Memory,
 };
 use std::ptr::NonNull;
 
@@ -50,7 +51,7 @@ pub trait Compiler {
         &self,
         wasm: &[u8],
         _: Token,
-    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>)>;
+    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)>;
 }
 
 /// The functionality exposed by this trait is expected to be used

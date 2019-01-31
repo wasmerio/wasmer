@@ -14,15 +14,16 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
+#[cfg(feature = "cache")]
+use wasmer_runtime_core::{
+    backend::sys::Memory,
+    cache::{Cache, Error as CacheError},
+    module::ModuleInfo,
+};
 use wasmer_runtime_core::{
     backend::{Compiler, Token},
     error::{CompileError, CompileResult},
     module::ModuleInner,
-};
-#[cfg(feature = "cache")]
-use wasmer_runtime_core::{
-    cache::{Cache, Error as CacheError},
-    module::ModuleInfo,
 };
 #[cfg(feature = "cache")]
 #[macro_use]
@@ -58,9 +59,7 @@ impl Compiler for CraneliftCompiler {
     /// Create a wasmer Module from an already-compiled cache.
     #[cfg(feature = "cache")]
     unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError> {
-        let isa = get_isa();
-
-        module::Module::from_cache(cache, &*isa)
+        module::Module::from_cache(cache)
     }
 
     #[cfg(feature = "cache")]
@@ -68,7 +67,7 @@ impl Compiler for CraneliftCompiler {
         &self,
         wasm: &[u8],
         _: Token,
-    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>)> {
+    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)> {
         validate(wasm)?;
 
         let isa = get_isa();
@@ -78,7 +77,7 @@ impl Compiler for CraneliftCompiler {
 
         let func_bodies = module_env.translate(wasm)?;
 
-        let (info, backend_cache) = module
+        let (info, backend_cache, compiled_code) = module
             .compile_to_backend_cache(&*isa, func_bodies)
             .map_err(|e| CompileError::InternalError {
                 msg: format!("{:?}", e),
@@ -91,7 +90,7 @@ impl Compiler for CraneliftCompiler {
                     msg: format!("{:?}", e),
                 })?;
 
-        Ok((Box::new(info), buffer))
+        Ok((Box::new(info), buffer, compiled_code))
     }
 }
 

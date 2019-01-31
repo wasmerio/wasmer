@@ -91,9 +91,14 @@ pub fn compile_to_cache_with(
     compiler: &dyn backend::Compiler,
 ) -> CompileResult<Cache> {
     let token = backend::Token::generate();
-    let (info, backend_data) = compiler.compile_to_backend_cache_data(wasm, token)?;
+    let (info, backend_metadata, compiled_code) =
+        compiler.compile_to_backend_cache_data(wasm, token)?;
 
-    Ok(Cache { info, backend_data })
+    Ok(Cache {
+        info,
+        backend_metadata,
+        compiled_code,
+    })
 }
 
 #[cfg(feature = "cache")]

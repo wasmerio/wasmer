@@ -14,6 +14,7 @@ unsafe impl Sync for Memory {}
 pub struct Memory {
     ptr: *mut u8,
     size: usize,
+    protection: Protect,
 }
 
 impl Memory {
@@ -22,6 +23,7 @@ impl Memory {
             return Ok(Self {
                 ptr: ptr::null_mut(),
                 size: 0,
+                protection: Protect::None,
             });
         }
 
@@ -42,12 +44,13 @@ impl Memory {
             Ok(Self {
                 ptr: ptr as *mut u8,
                 size,
+                protection: Protect::None,
             })
         }
     }
 
-    pub unsafe fn protect(&mut self, range: impl RangeBounds<usize>, protect: Protect) -> Result<(), String> {
-        let protect = protect.to_protect_const();
+    pub unsafe fn protect(&mut self, range: impl RangeBounds<usize>, protection: Protect) -> Result<(), String> {
+        let protect = protection.to_protect_const();
 
         let range_start = match range.start_bound() {
             Bound::Included(start) => *start,
@@ -79,6 +82,7 @@ impl Memory {
         if ptr.is_null() {
             Err("unable to protect memory")
         } else {
+            self.protection = protection;
             Ok(())
         }
     }
@@ -95,6 +99,10 @@ impl Memory {
         slice::from_raw_parts_mut(self.ptr, self.size)
     }
 
+    pub fn protection(&self) -> Protect {
+        self.protection
+    }
+
     pub fn as_ptr(&self) -> *mut u8 {
         self.ptr
     }
@@ -109,6 +117,7 @@ impl Drop for Memory {
     }
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {
@@ -125,6 +134,13 @@ impl Protect {
             Protect::Read => PAGE_READONLY,
             Protect::ReadWrite => PAGE_READWRITE,
             Protect::ReadExec => PAGE_EXECUTE_READ,
+        }
+    }
+
+    pub fn is_readable(self) -> bool {
+        match self {
+            Protect::Read | Protect::ReadWrite | Protect::ReadExec => true,
+            _ => false,
         }
     }
 }

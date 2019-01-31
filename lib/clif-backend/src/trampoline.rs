@@ -1,3 +1,5 @@
+#[cfg(feature = "cache")]
+use crate::cache::TrampolineCache;
 use cranelift_codegen::{
     binemit::{NullTrapSink, Reloc, RelocSink},
     cursor::{Cursor, FuncCursor},
@@ -27,6 +29,44 @@ pub struct Trampolines {
 }
 
 impl Trampolines {
+    #[cfg(feature = "cache")]
+    pub fn from_trampoline_cache(cache: TrampolineCache) -> Self {
+        // pub struct TrampolineCache {
+        //     #[serde(with = "serde_bytes")]
+        //     code: Vec<u8>,
+        //     offsets: HashMap<SigIndex, usize>,
+        // }
+
+        let mut memory = Memory::with_size(cache.code.len()).unwrap();
+        unsafe {
+            memory.protect(.., Protect::ReadWrite).unwrap();
+
+            // Copy over the compiled code.
+            memory.as_slice_mut()[..cache.code.len()].copy_from_slice(cache.code.as_slice());
+
+            memory.protect(.., Protect::ReadExec).unwrap();
+        }
+
+        Self {
+            memory,
+            offsets: cache.offsets,
+        }
+    }
+
+    #[cfg(feature = "cache")]
+    pub fn to_trampoline_cache(self) -> TrampolineCache {
+        let mut code = vec![0; self.memory.size()];
+
+        unsafe {
+            code.copy_from_slice(self.memory.as_slice());
+        }
+
+        TrampolineCache {
+            code,
+            offsets: self.offsets,
+        }
+    }
+
     pub fn new(isa: &isa::TargetIsa, module: &ModuleInfo) -> Self {
         let func_index_iter = module
             .exports
