@@ -33,9 +33,9 @@ pub extern "C" fn enlarge_memory(_ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: abortOnCannotGrowMemory
-pub extern "C" fn abort_on_cannot_grow_memory(_ctx: &mut Ctx) -> u32 {
+pub extern "C" fn abort_on_cannot_grow_memory(ctx: &mut Ctx) -> u32 {
     debug!("emscripten::abort_on_cannot_grow_memory");
-    abort_with_message("Cannot enlarge memory arrays!");
+    abort_with_message("Cannot enlarge memory arrays!", ctx);
     0
 }
 

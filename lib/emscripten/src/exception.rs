@@ -10,7 +10,7 @@ pub extern "C" fn ___cxa_allocate_exception(size: u32, ctx: &mut Ctx) -> u32 {
 
 /// emscripten: ___cxa_throw
 /// TODO: We don't have support for exceptions yet
-pub extern "C" fn ___cxa_throw(_ptr: u32, _ty: u32, _destructor: u32, _ctx: &mut Ctx) {
+pub extern "C" fn ___cxa_throw(_ptr: u32, _ty: u32, _destructor: u32, ctx: &mut Ctx) {
     debug!("emscripten::___cxa_throw");
-    _abort();
+    _abort(ctx);
 }

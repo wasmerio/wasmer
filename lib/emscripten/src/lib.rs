@@ -349,641 +349,116 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "env" => {
                 "memory" => Export::Memory(globals.memory.clone()),
                 "table" => Export::Table(globals.table.clone()),
-                // Globals.
+
+                // Globals
                 "STACKTOP" => Global::new(Value::I32(stacktop(STATIC_BUMP) as i32)),
-                            "STACK_MAX" => Global::new(Value::I32(stack_max(STATIC_BUMP) as i32)),
-                    "DYNAMICTOP_PTR" => Global::new(Value::I32(dynamictop_ptr(STATIC_BUMP) as i32)),
-                    "tableBase" => Global::new(Value::I32(0)),
-                    "__table_base" => Global::new(Value::I32(0)),
-                    "Infinity" => Global::new(Value::F64(f64::INFINITY)),
-                    "NaN" => Global::new(Value::F64(f64::NAN)),
-                     "ABORT" => Global::new(Value::I32(0)),
-                     "memoryBase" => Global::new(Value::I32(STATIC_BASE)),
-                     "__memory_base" => Global::new(Value::I32(STATIC_BASE)),
-                     "tempDoublePtr" => Global::new(Value::I32(0)),
-                     "printf" => func!(crate::io::printf, [i32, i32] -> [i32]),
-                     "putchar" => func!(crate::io::putchar, [i32] -> []),
-                     "___assert_fail" => func!(crate::env::___assert_fail, [i32, i32, i32, i32] -> []),
-                     "___lock" => func!(crate::lock::___lock, [i32] -> []),
-                     "___unlock" => func!(crate::lock::___unlock, [i32] -> []),
-                     "___wait" => func!(crate::lock::___wait, [u32, u32, u32, u32] -> []),
-                     "_getenv" => func!(crate::env::_getenv, [i32] -> [u32]),
-                     "_setenv" => func!(crate::env::_setenv, [i32, i32, i32] -> [i32]),
-                     "_putenv" => func!(crate::env::_putenv, [i32] -> [i32]),
-                     "_unsetenv" => func!(crate::env::_unsetenv, [i32] -> [i32]),
-                     "_getpwnam" => func!(crate::env::_getpwnam, [i32] -> [i32]),
-                     "_getgrnam" => func!(crate::env::_getgrnam, [i32] -> [i32]),
-                     "___buildEnvironment" => func!(crate::env::___build_environment, [i32] -> []),
-                     "___setErrNo" => func!(crate::errno::___seterrno, [i32] -> []),
-    //                  "___syscall1" => func!(crate::syscalls::___syscall1, [i32, i32] -> []),
-                    "nullFunc_i" => func!(crate::nullfunc::nullfunc_i, [u32] -> []),
-                    "nullFunc_ii" => func!(crate::nullfunc::nullfunc_ii, [u32] -> []),
-                     "nullFunc_iii" => func!(crate::nullfunc::nullfunc_iii, [u32] -> []),
-                     "nullFunc_iiii" => func!(crate::nullfunc::nullfunc_iiii, [u32] -> []),
-                     "nullFunc_iiiii" => func!(crate::nullfunc::nullfunc_iiiii, [u32] -> []),
-                     "nullFunc_iiiiii" => func!(crate::nullfunc::nullfunc_iiiiii, [u32] -> []),
-                     "nullFunc_v" => func!(crate::nullfunc::nullfunc_v, [u32] -> []),
-                     "nullFunc_vi" => func!(crate::nullfunc::nullfunc_vi, [u32] -> []),
-                     "nullFunc_vii" => func!(crate::nullfunc::nullfunc_vii, [u32] -> []),
-                     "nullFunc_viii" => func!(crate::nullfunc::nullfunc_viii, [u32] -> []),
-                     "nullFunc_viiii" => func!(crate::nullfunc::nullfunc_viiii, [u32] -> []),
-                     "nullFunc_viiiii" => func!(crate::nullfunc::nullfunc_viiiii, [u32] -> []),
-                     "nullFunc_viiiiii" => func!(crate::nullfunc::nullfunc_viiiiii, [u32] -> []),
+                "STACK_MAX" => Global::new(Value::I32(stack_max(STATIC_BUMP) as i32)),
+                "DYNAMICTOP_PTR" => Global::new(Value::I32(dynamictop_ptr(STATIC_BUMP) as i32)),
+                "tableBase" => Global::new(Value::I32(0)),
+                "__table_base" => Global::new(Value::I32(0)),
+                "Infinity" => Global::new(Value::F64(f64::INFINITY)),
+                "NaN" => Global::new(Value::F64(f64::NAN)),
+                "ABORT" => Global::new(Value::I32(0)),
+                "memoryBase" => Global::new(Value::I32(STATIC_BASE)),
+                "__memory_base" => Global::new(Value::I32(STATIC_BASE)),
+                "tempDoublePtr" => Global::new(Value::I32(0)),
+
+                // IO
+                "printf" => func!(crate::io::printf, [i32, i32] -> [i32]),
+                "putchar" => func!(crate::io::putchar, [i32] -> []),
+                "___lock" => func!(crate::lock::___lock, [i32] -> []),
+                "___unlock" => func!(crate::lock::___unlock, [i32] -> []),
+                "___wait" => func!(crate::lock::___wait, [u32, u32, u32, u32] -> []),
+
+                // Env
+                "___assert_fail" => func!(crate::env::___assert_fail, [i32, i32, i32, i32] -> []),
+                "_getenv" => func!(crate::env::_getenv, [i32] -> [u32]),
+                "_setenv" => func!(crate::env::_setenv, [i32, i32, i32] -> [i32]),
+                "_putenv" => func!(crate::env::_putenv, [i32] -> [i32]),
+                "_unsetenv" => func!(crate::env::_unsetenv, [i32] -> [i32]),
+                "_getpwnam" => func!(crate::env::_getpwnam, [i32] -> [i32]),
+                "_getgrnam" => func!(crate::env::_getgrnam, [i32] -> [i32]),
+                "___buildEnvironment" => func!(crate::env::___build_environment, [i32] -> []),
+                "___setErrNo" => func!(crate::errno::___seterrno, [i32] -> []),
+
+                // Null func
+                "nullFunc_i" => func!(crate::nullfunc::nullfunc_i, [u32] -> []),
+                "nullFunc_ii" => func!(crate::nullfunc::nullfunc_ii, [u32] -> []),
+                "nullFunc_iii" => func!(crate::nullfunc::nullfunc_iii, [u32] -> []),
+                "nullFunc_iiii" => func!(crate::nullfunc::nullfunc_iiii, [u32] -> []),
+                "nullFunc_iiiii" => func!(crate::nullfunc::nullfunc_iiiii, [u32] -> []),
+                "nullFunc_iiiiii" => func!(crate::nullfunc::nullfunc_iiiiii, [u32] -> []),
+                "nullFunc_v" => func!(crate::nullfunc::nullfunc_v, [u32] -> []),
+                "nullFunc_vi" => func!(crate::nullfunc::nullfunc_vi, [u32] -> []),
+                "nullFunc_vii" => func!(crate::nullfunc::nullfunc_vii, [u32] -> []),
+                "nullFunc_viii" => func!(crate::nullfunc::nullfunc_viii, [u32] -> []),
+                "nullFunc_viiii" => func!(crate::nullfunc::nullfunc_viiii, [u32] -> []),
+                "nullFunc_viiiii" => func!(crate::nullfunc::nullfunc_viiiii, [u32] -> []),
+                "nullFunc_viiiiii" => func!(crate::nullfunc::nullfunc_viiiiii, [u32] -> []),
+
+                // Syscalls
+                "___syscall1" => func!(crate::syscalls::___syscall1, [i32, i32] -> []),
+                "___syscall3" => func!(crate::syscalls::___syscall3, [i32, i32] -> [i32]),
+                "___syscall4" => func!(crate::syscalls::___syscall4, [i32, i32] -> [i32]),
+                "___syscall5" => func!(crate::syscalls::___syscall5, [i32, i32] -> [i32]),
+                "___syscall6" => func!(crate::syscalls::___syscall6, [i32, i32] -> [i32]),
+                "___syscall12" => func!(crate::syscalls::___syscall12, [i32, i32] -> [i32]),
+                "___syscall20" => func!(crate::syscalls::___syscall20, [i32, i32] -> [i32]),
+                "___syscall220" => func!(crate::syscalls::___syscall220, [i32, i32] -> [i32]),
+                "___syscall39" => func!(crate::syscalls::___syscall39, [i32, i32] -> [i32]),
+                "___syscall40" => func!(crate::syscalls::___syscall40, [i32, i32] -> [i32]),
+                "___syscall10" => func!(crate::syscalls::___syscall10, [i32, i32] -> [i32]),
+                "___syscall54" => func!(crate::syscalls::___syscall54, [i32, i32] -> [i32]),
+                "___syscall57" => func!(crate::syscalls::___syscall57, [i32, i32] -> [i32]),
+                "___syscall63" => func!(crate::syscalls::___syscall63, [i32, i32] -> [i32]),
+                "___syscall85" => func!(crate::syscalls::___syscall85, [i32, i32] -> [i32]),
+                "___syscall64" => func!(crate::syscalls::___syscall64, [i32, i32] -> [i32]),
+                "___syscall102" => func!(crate::syscalls::___syscall102, [i32, i32] -> [i32]),
+                "___syscall114" => func!(crate::syscalls::___syscall114, [i32, i32] -> [i32]),
+                "___syscall122" => func!(crate::syscalls::___syscall122, [i32, i32] -> [i32]),
+                "___syscall140" => func!(crate::syscalls::___syscall140, [i32, i32] -> [i32]),
+                "___syscall142" => func!(crate::syscalls::___syscall142, [i32, i32] -> [i32]),
+                "___syscall145" => func!(crate::syscalls::___syscall145, [i32, i32] -> [i32]),
+                "___syscall146" => func!(crate::syscalls::___syscall146, [i32, i32] -> [i32]),
+                "___syscall180" => func!(crate::syscalls::___syscall180, [i32, i32] -> [i32]),
+                "___syscall181" => func!(crate::syscalls::___syscall181, [i32, i32] -> [i32]),
+                "___syscall192" => func!(crate::syscalls::___syscall192, [i32, i32] -> [i32]),
+                "___syscall195" => func!(crate::syscalls::___syscall195, [i32, i32] -> [i32]),
+                "___syscall197" => func!(crate::syscalls::___syscall197, [i32, i32] -> [i32]),
+                "___syscall201" => func!(crate::syscalls::___syscall201, [i32, i32] -> [i32]),
+                "___syscall202" => func!(crate::syscalls::___syscall202, [i32, i32] -> [i32]),
+                "___syscall212" => func!(crate::syscalls::___syscall212, [i32, i32] -> [i32]),
+                "___syscall221" => func!(crate::syscalls::___syscall221, [i32, i32] -> [i32]),
+                "___syscall330" => func!(crate::syscalls::___syscall330, [i32, i32] -> [i32]),
+                "___syscall340" => func!(crate::syscalls::___syscall340, [i32, i32] -> [i32]),
+
+                // Process
+                "abort" => func!(crate::process::em_abort, [u32] -> []),
+                "_abort" => func!(crate::process::_abort, [] -> []),
+                "abortStackOverflow" => func!(crate::process::abort_stack_overflow, [i32] -> []),
+                "_llvm_trap" => func!(crate::process::_llvm_trap, [] -> []),
+                "_fork" => func!(crate::process::_fork, [] -> [i32]),
+                "_exit" => func!(crate::process::_exit, [i32] -> []),
+                "_system" => func!(crate::process::_system, [i32] -> [i32]),
+                "_popen" => func!(crate::process::_popen, [i32, i32] -> [i32]),
+
+                // Signal
+                "_sigemptyset" => func!(crate::signal::_sigemptyset, [u32] -> [i32]),
+                "_sigaddset" => func!(crate::signal::_sigaddset, [u32, u32] -> [i32]),
+                "_sigprocmask" => func!(crate::signal::_sigprocmask, [i32, i32, i32] -> [i32]),
+                "_sigaction" => func!(crate::signal::_sigaction, [u32, u32, u32] -> [i32]),
+                "_signal" => func!(crate::signal::_signal, [u32, i32] -> [i32]),
+
+                // Memory
+                "abortOnCannotGrowMemory" => func!(crate::memory::abort_on_cannot_grow_memory, [] -> [u32]),
+                "_emscripten_memcpy_big" => func!(crate::memory::_emscripten_memcpy_big, [u32, u32, u32] -> [u32]),
+
             },
             "math" => {
                 "pow" => func!(crate::math::pow, [f64, f64] -> [f64]),
             },
         };
 
-    //    // Syscalls
-    //    env_namespace.insert(
-    //        "___syscall1",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall1),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-
-    //
-    //    env_namespace.insert(
-    //        "___syscall3",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall3),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall4",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall4),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall5",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall5),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall6",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall6),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall12",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall12),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall20",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall20),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall220",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall220),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall39",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall39),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall40",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall40),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall10",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall10),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall54",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall54),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall57",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall57),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall63",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall63),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall85",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall85),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall64",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall64),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall102",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall102),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall114",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall114),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall122",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall122),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall140",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall140),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall142",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall142),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall145",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall145),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall146",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall146),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall180",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall180),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall181",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall181),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall192",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall192),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall195",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall195),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall197",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall197),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall201",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall201),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall202",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall202),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall212",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall212),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall221",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall221),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall330",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall330),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "___syscall340",
-    //        Export::Function {
-    //            func: func!(syscalls, ___syscall340),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //    // Process
-    //    env_namespace.insert(
-    //        "abort",
-    //        Export::Function {
-    //            func: func!(process, em_abort),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_abort",
-    //        Export::Function {
-    //            func: func!(process, _abort),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "abortStackOverflow",
-    //        Export::Function {
-    //            func: func!(process, abort_stack_overflow),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_llvm_trap",
-    //        Export::Function {
-    //            func: func!(process, _llvm_trap),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_fork",
-    //        Export::Function {
-    //            func: func!(process, _fork),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_exit",
-    //        Export::Function {
-    //            func: func!(process, _exit),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_system",
-    //        Export::Function {
-    //            func: func!(process, _system),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_popen",
-    //        Export::Function {
-    //            func: func!(process, _popen),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //    // Signal
-    //    env_namespace.insert(
-    //        "_sigemptyset",
-    //        Export::Function {
-    //            func: func!(signal, _sigemptyset),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_sigaddset",
-    //        Export::Function {
-    //            func: func!(signal, _sigaddset),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_sigprocmask",
-    //        Export::Function {
-    //            func: func!(signal, _sigprocmask),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_sigaction",
-    //        Export::Function {
-    //            func: func!(signal, _sigaction),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_signal",
-    //        Export::Function {
-    //            func: func!(signal, _signal),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //    // Memory
-    //    env_namespace.insert(
-    //        "abortOnCannotGrowMemory",
-    //        Export::Function {
-    //            func: func!(memory, abort_on_cannot_grow_memory),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
-    //
-    //    env_namespace.insert(
-    //        "_emscripten_memcpy_big",
-    //        Export::Function {
-    //            func: func!(memory, _emscripten_memcpy_big),
-    //            ctx: Context::Internal,
-    //            signature: FuncSig {
-    //                params: vec![I32, I32, I32],
-    //                returns: vec![I32],
-    //            },
-    //        },
-    //    );
     //
     //    env_namespace.insert(
     //        "enlargeMemory",

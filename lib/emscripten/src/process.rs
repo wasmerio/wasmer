@@ -3,13 +3,13 @@ use libc::{abort, c_char, c_int, exit, pid_t, EAGAIN};
 use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
 
-pub extern "C" fn abort_with_message(message: &str) {
+pub extern "C" fn abort_with_message(message: &str, ctx: &mut Ctx) {
     debug!("emscripten::abort_with_message");
     println!("{}", message);
-    _abort();
+    _abort(ctx);
 }
 
-pub extern "C" fn _abort() {
+pub extern "C" fn _abort(_ctx: &mut Ctx) {
     debug!("emscripten::_abort");
     unsafe {
         abort();
@@ -33,7 +33,8 @@ pub extern "C" fn _execve(_one: i32, _two: i32, _three: i32, _ctx: &mut Ctx) -> 
     -1
 }
 
-pub extern "C" fn _exit(status: c_int, _ctx: &mut Ctx) -> ! {
+#[allow(unreachable_code)]
+pub extern "C" fn _exit(status: c_int, _ctx: &mut Ctx) { // -> !
     debug!("emscripten::_exit {}", status);
     unsafe { exit(status) }
 }
@@ -46,7 +47,7 @@ pub extern "C" fn em_abort(message: u32, ctx: &mut Ctx) {
             .to_str()
             .unwrap_or("Unexpected abort");
 
-        abort_with_message(message);
+        abort_with_message(message, ctx);
     }
 }
 
@@ -108,15 +109,15 @@ pub extern "C" fn _waitpid(_one: i32, _two: i32, _three: i32, _ctx: &mut Ctx) ->
     -1
 }
 
-pub extern "C" fn abort_stack_overflow(_what: c_int, _ctx: &mut Ctx) {
+pub extern "C" fn abort_stack_overflow(_what: c_int, ctx: &mut Ctx) {
     debug!("emscripten::abort_stack_overflow");
     // TODO: Message incomplete. Need to finish em runtime data first
-    abort_with_message("Stack overflow! Attempted to allocate some bytes on the stack");
+    abort_with_message("Stack overflow! Attempted to allocate some bytes on the stack", ctx);
 }
 
 pub extern "C" fn _llvm_trap(_ctx: &mut Ctx) {
     debug!("emscripten::_llvm_trap");
-    abort_with_message("abort!");
+    abort_with_message("abort!", ctx);
 }
 
 pub extern "C" fn _system(_one: i32, _ctx: &mut Ctx) -> c_int {
