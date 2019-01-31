@@ -1,0 +1,23 @@
+[package]
+name = "wasmer-spectests"
+version = "0.1.2"
+description = "Wasmer spectests library"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+edition = "2018"
+build = "build/mod.rs"
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core" }
+
+[build-dependencies]
+wabt = "0.7.2"
+
+[dev-dependencies]
+wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2" }
+wabt = "0.7.2"
+
+[features]
+default = ["fast-tests"]
+fast-tests = []
