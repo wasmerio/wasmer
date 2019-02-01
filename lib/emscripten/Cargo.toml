@@ -9,7 +9,6 @@ edition = "2018"
 build = "build/mod.rs"
 
 [dependencies]
-hashbrown = "0.1"
 wasmer-runtime-core = { path = "../runtime-core", version = "0.1.0" }
 libc = { git = "https://github.com/rust-lang/libc" }
 byteorder = "1"

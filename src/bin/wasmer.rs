@@ -61,7 +61,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
     })?;
 
-    if !webassembly::utils::is_wasm_binary(&wasm_binary) {
+    if !utils::is_wasm_binary(&wasm_binary) {
         wasm_binary = wabt::wat2wasm(wasm_binary)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
@@ -69,16 +69,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
-    let (_abi, import_object) = if wasmer_emscripten::is_emscripten_module(&module) {
-        let emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new();
+    let (_abi, import_object, em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
+        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
             InstanceABI::Emscripten,
-            wasmer_emscripten::generate_emscripten_env(&emscripten_globals),
+            wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
+            Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
         )
     } else {
         (
             InstanceABI::None,
             wasmer_runtime_core::import::ImportObject::new(),
+            None,
         )
     };
 
@@ -93,6 +95,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
     .map_err(|e| format!("{:?}", e))?;
+
     Ok(())
 }
 
