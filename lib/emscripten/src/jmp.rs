@@ -25,7 +25,8 @@ pub extern "C" fn __setjmp(env_addr: u32, ctx: &mut Ctx) -> c_int {
 }
 
 /// longjmp
-pub extern "C" fn __longjmp(env_addr: u32, val: c_int, ctx: &mut Ctx) -> ! {
+#[allow(unreachable_code)]
+pub extern "C" fn __longjmp(env_addr: u32, val: c_int, ctx: &mut Ctx) {
     debug!("emscripten::__longjmp (longmp)");
     unsafe {
         // We retrieve the jump index from the env address

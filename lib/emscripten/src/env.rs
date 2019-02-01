@@ -160,7 +160,7 @@ pub(crate) fn get_emscripten_data(ctx: &mut Ctx) -> &mut EmscriptenData {
     unsafe { &mut *(ctx.data as *mut EmscriptenData) }
 }
 
-pub extern "C" fn _getpagesize() -> u32 {
+pub extern "C" fn _getpagesize(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getpagesize");
     16384
 }

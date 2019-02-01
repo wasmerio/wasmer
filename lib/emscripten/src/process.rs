@@ -34,7 +34,8 @@ pub extern "C" fn _execve(_one: i32, _two: i32, _three: i32, _ctx: &mut Ctx) -> 
 }
 
 #[allow(unreachable_code)]
-pub extern "C" fn _exit(status: c_int, _ctx: &mut Ctx) { // -> !
+pub extern "C" fn _exit(status: c_int, _ctx: &mut Ctx) {
+    // -> !
     debug!("emscripten::_exit {}", status);
     unsafe { exit(status) }
 }
@@ -112,7 +113,10 @@ pub extern "C" fn _waitpid(_one: i32, _two: i32, _three: i32, _ctx: &mut Ctx) ->
 pub extern "C" fn abort_stack_overflow(_what: c_int, ctx: &mut Ctx) {
     debug!("emscripten::abort_stack_overflow");
     // TODO: Message incomplete. Need to finish em runtime data first
-    abort_with_message("Stack overflow! Attempted to allocate some bytes on the stack", ctx);
+    abort_with_message(
+        "Stack overflow! Attempted to allocate some bytes on the stack",
+        ctx,
+    );
 }
 
 pub extern "C" fn _llvm_trap(_ctx: &mut Ctx) {
