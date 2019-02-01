@@ -7,7 +7,10 @@ use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
 use std::sync::Arc;
 use wasmer_runtime_core::{
     error::{CompileError, CompileResult},
-    module::{DataInitializer, ExportIndex, ImportName, TableInitializer},
+    module::{
+        DataInitializer, ExportIndex, ImportName, NameIndex, NamespaceIndex, StringTableBuilder,
+        TableInitializer,
+    },
     structures::{Map, TypedIndex},
     types::{
         ElementType, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer, LocalFuncIndex,
@@ -22,6 +25,8 @@ pub struct ModuleEnv<'module, 'isa> {
     pub signatures: Map<SigIndex, ir::Signature>,
     globals: Map<GlobalIndex, cranelift_wasm::Global>,
     func_bodies: Map<LocalFuncIndex, ir::Function>,
+    namespace_table_builder: StringTableBuilder<NamespaceIndex>,
+    name_table_builder: StringTableBuilder<NameIndex>,
 }
 
 impl<'module, 'isa> ModuleEnv<'module, 'isa> {
@@ -32,12 +37,17 @@ impl<'module, 'isa> ModuleEnv<'module, 'isa> {
             signatures: Map::new(),
             globals: Map::new(),
             func_bodies: Map::new(),
+            namespace_table_builder: StringTableBuilder::new(),
+            name_table_builder: StringTableBuilder::new(),
         }
     }
 
     pub fn translate(mut self, wasm: &[u8]) -> CompileResult<Map<LocalFuncIndex, ir::Function>> {
         translate_module(wasm, &mut self)
             .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
+
+        self.module.info.namespace_table = self.namespace_table_builder.finish();
+        self.module.info.name_table = self.name_table_builder.finish();
 
         Ok(self.func_bodies)
     }
@@ -76,10 +86,13 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         let sig_index = Converter(clif_sig_index).into();
         self.module.info.func_assoc.push(sig_index);
 
+        let namespace_index = self.namespace_table_builder.register(namespace);
+        let name_index = self.name_table_builder.register(name);
+
         // Add import names to list of imported functions
         self.module.info.imported_functions.push(ImportName {
-            namespace: namespace.to_string(),
-            name: name.to_string(),
+            namespace_index,
+            name_index,
         });
     }
 
@@ -152,9 +165,12 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             _ => false,
         });
 
+        let namespace_index = self.namespace_table_builder.register(namespace);
+        let name_index = self.name_table_builder.register(name);
+
         let import_name = ImportName {
-            namespace: namespace.to_string(),
-            name: name.to_string(),
+            namespace_index,
+            name_index,
         };
 
         let desc = GlobalDescriptor {
@@ -196,9 +212,12 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     ) {
         use cranelift_wasm::TableElementType;
 
+        let namespace_index = self.namespace_table_builder.register(namespace);
+        let name_index = self.name_table_builder.register(name);
+
         let import_name = ImportName {
-            namespace: namespace.to_string(),
-            name: name.to_string(),
+            namespace_index,
+            name_index,
         };
 
         let imported_table = TableDescriptor {
@@ -267,9 +286,12 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         namespace: &'data str,
         name: &'data str,
     ) {
+        let namespace_index = self.namespace_table_builder.register(namespace);
+        let name_index = self.name_table_builder.register(name);
+
         let import_name = ImportName {
-            namespace: namespace.to_string(),
-            name: name.to_string(),
+            namespace_index,
+            name_index,
         };
 
         let memory = MemoryDescriptor {

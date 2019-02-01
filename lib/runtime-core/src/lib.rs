@@ -94,11 +94,7 @@ pub fn compile_to_cache_with(
     let (info, backend_metadata, compiled_code) =
         compiler.compile_to_backend_cache_data(wasm, token)?;
 
-    Ok(Cache {
-        info,
-        backend_metadata,
-        compiled_code,
-    })
+    Ok(Cache::new(wasm, info, backend_metadata, compiled_code))
 }
 
 #[cfg(feature = "cache")]

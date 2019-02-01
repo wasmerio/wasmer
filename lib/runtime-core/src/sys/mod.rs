@@ -63,18 +63,17 @@ impl<'de> Deserialize<'de> for Memory {
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
 
-                let mut memory = Memory::with_size(bytes.len()).expect("Could not create a memory");
+                let mut memory = Memory::with_size_protect(bytes.len(), Protect::ReadWrite)
+                    .expect("Could not create a memory");
 
                 unsafe {
-                    memory
-                        .protect(.., Protect::ReadWrite)
-                        .expect("Could not protect memory as readable");
-
                     memory.as_slice_mut().copy_from_slice(&*bytes);
 
-                    memory
-                        .protect(.., original_protection)
-                        .expect("Could not protect memory as its original protection");
+                    if memory.protection() != original_protection {
+                        memory
+                            .protect(.., original_protection)
+                            .expect("Could not protect memory as its original protection");
+                    }
                 }
 
                 Ok(memory)

@@ -30,8 +30,8 @@ impl BackendCache {
     pub fn from_cache(cache: Cache) -> Result<(ModuleInfo, Memory, Self), Error> {
         let (info, backend_data, compiled_code) = cache.consume();
 
-        let backend_cache =
-            deserialize(&*backend_data).map_err(|e| Error::DeserializeError(e.to_string()))?;
+        let backend_cache = deserialize(backend_data.as_slice())
+            .map_err(|e| Error::DeserializeError(e.to_string()))?;
 
         Ok((info, compiled_code, backend_cache))
     }

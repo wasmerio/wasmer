@@ -364,9 +364,20 @@ fn import_functions(
 ) -> LinkResult<BoxedMap<ImportedFuncIndex, vm::ImportedFunc>> {
     let mut link_errors = vec![];
     let mut functions = Map::with_capacity(module.info.imported_functions.len());
-    for (index, ImportName { namespace, name }) in &module.info.imported_functions {
+    for (
+        index,
+        ImportName {
+            namespace_index,
+            name_index,
+        },
+    ) in &module.info.imported_functions
+    {
         let sig_index = module.info.func_assoc[index.convert_up(module)];
         let expected_sig = &module.info.signatures[sig_index];
+
+        let namespace = module.info.namespace_table.get(*namespace_index);
+        let name = module.info.name_table.get(*name_index);
+
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
@@ -386,8 +397,8 @@ fn import_functions(
                     });
                 } else {
                     link_errors.push(LinkError::IncorrectImportSignature {
-                        namespace: namespace.clone(),
-                        name: name.clone(),
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
                         expected: expected_sig.clone(),
                         found: signature.clone(),
                     });
@@ -402,16 +413,16 @@ fn import_functions(
                 }
                 .to_string();
                 link_errors.push(LinkError::IncorrectImportType {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                     expected: "function".to_string(),
                     found: export_type_name,
                 });
             }
             None => {
                 link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                 });
             }
         }
@@ -434,9 +445,20 @@ fn import_memories(
     let mut link_errors = vec![];
     let mut memories = Map::with_capacity(module.info.imported_memories.len());
     let mut vm_memories = Map::with_capacity(module.info.imported_memories.len());
-    for (_index, (ImportName { namespace, name }, expected_memory_desc)) in
-        &module.info.imported_memories
+    for (
+        _index,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            expected_memory_desc,
+        ),
+    ) in &module.info.imported_memories
     {
+        let namespace = module.info.namespace_table.get(*namespace_index);
+        let name = module.info.name_table.get(*name_index);
+
         let memory_import = imports
             .get_namespace(&namespace)
             .and_then(|namespace| namespace.get_export(&name));
@@ -447,8 +469,8 @@ fn import_memories(
                     vm_memories.push(memory.vm_local_memory());
                 } else {
                     link_errors.push(LinkError::IncorrectMemoryDescriptor {
-                        namespace: namespace.clone(),
-                        name: name.clone(),
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
                         expected: *expected_memory_desc,
                         found: memory.descriptor(),
                     });
@@ -463,16 +485,16 @@ fn import_memories(
                 }
                 .to_string();
                 link_errors.push(LinkError::IncorrectImportType {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                     expected: "memory".to_string(),
                     found: export_type_name,
                 });
             }
             None => {
                 link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                 });
             }
         }
@@ -495,9 +517,20 @@ fn import_tables(
     let mut link_errors = vec![];
     let mut tables = Map::with_capacity(module.info.imported_tables.len());
     let mut vm_tables = Map::with_capacity(module.info.imported_tables.len());
-    for (_index, (ImportName { namespace, name }, expected_table_desc)) in
-        &module.info.imported_tables
+    for (
+        _index,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            expected_table_desc,
+        ),
+    ) in &module.info.imported_tables
     {
+        let namespace = module.info.namespace_table.get(*namespace_index);
+        let name = module.info.name_table.get(*name_index);
+
         let table_import = imports
             .get_namespace(&namespace)
             .and_then(|namespace| namespace.get_export(&name));
@@ -508,8 +541,8 @@ fn import_tables(
                     tables.push(table);
                 } else {
                     link_errors.push(LinkError::IncorrectTableDescriptor {
-                        namespace: namespace.clone(),
-                        name: name.clone(),
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
                         expected: *expected_table_desc,
                         found: table.descriptor(),
                     });
@@ -524,16 +557,16 @@ fn import_tables(
                 }
                 .to_string();
                 link_errors.push(LinkError::IncorrectImportType {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                     expected: "table".to_string(),
                     found: export_type_name,
                 });
             }
             None => {
                 link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                 });
             }
         }
@@ -556,8 +589,19 @@ fn import_globals(
     let mut link_errors = vec![];
     let mut globals = Map::with_capacity(module.info.imported_globals.len());
     let mut vm_globals = Map::with_capacity(module.info.imported_globals.len());
-    for (_, (ImportName { namespace, name }, imported_global_desc)) in &module.info.imported_globals
+    for (
+        _,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            imported_global_desc,
+        ),
+    ) in &module.info.imported_globals
     {
+        let namespace = module.info.namespace_table.get(*namespace_index);
+        let name = module.info.name_table.get(*name_index);
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
@@ -568,8 +612,8 @@ fn import_globals(
                     globals.push(global);
                 } else {
                     link_errors.push(LinkError::IncorrectGlobalDescriptor {
-                        namespace: namespace.clone(),
-                        name: name.clone(),
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
                         expected: *imported_global_desc,
                         found: global.descriptor(),
                     });
@@ -584,16 +628,16 @@ fn import_globals(
                 }
                 .to_string();
                 link_errors.push(LinkError::IncorrectImportType {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                     expected: "global".to_string(),
                     found: export_type_name,
                 });
             }
             None => {
                 link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                 });
             }
         }

@@ -18,7 +18,7 @@ use wasmer_runtime_core::{
 use wasmer_runtime_core::{
     backend::{Backend, FuncResolver, ProtectedCaller, Token},
     error::{CompileResult, RuntimeResult},
-    module::{ModuleInfo, ModuleInner},
+    module::{ModuleInfo, ModuleInner, StringTable},
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
@@ -86,6 +86,9 @@ impl Module {
                     func_assoc: Map::new(),
                     signatures: Map::new(),
                     backend: Backend::Cranelift,
+
+                    namespace_table: StringTable::new(),
+                    name_table: StringTable::new(),
                 },
             },
         }

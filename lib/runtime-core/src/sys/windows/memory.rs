@@ -87,6 +87,26 @@ impl Memory {
         }
     }
 
+    pub fn split_at(mut self, offset: usize) -> (Memory, Memory) {
+        let page_size = page_size::get();
+        if offset % page_size == 0 {
+            let second_ptr = unsafe { self.ptr.add(offset) };
+            let second_size = self.size - offset;
+
+            self.size = offset;
+
+            let second = Memory {
+                ptr: second_ptr,
+                size: second_size,
+                protection: self.protection,
+            };
+
+            (self, second)
+        } else {
+            panic!("offset must be multiple of page size: {}", offset)
+        }
+    }
+
     pub fn size(&self) -> usize {
         self.size
     }
@@ -140,6 +160,13 @@ impl Protect {
     pub fn is_readable(self) -> bool {
         match self {
             Protect::Read | Protect::ReadWrite | Protect::ReadExec => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_writable(self) -> bool {
+        match self {
+            Protect::ReadWrite => true,
             _ => false,
         }
     }

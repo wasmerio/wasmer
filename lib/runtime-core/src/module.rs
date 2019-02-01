@@ -2,7 +2,7 @@ use crate::{
     backend::{Backend, FuncResolver, ProtectedCaller},
     error::Result,
     import::ImportObject,
-    structures::Map,
+    structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
         ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
@@ -12,6 +12,7 @@ use crate::{
     Instance,
 };
 use hashbrown::HashMap;
+use indexmap::IndexMap;
 use std::sync::Arc;
 
 /// This is used to instantiate a new WebAssembly module.
@@ -46,6 +47,9 @@ pub struct ModuleInfo {
     pub func_assoc: Map<FuncIndex, SigIndex>,
     pub signatures: Map<SigIndex, Arc<FuncSig>>,
     pub backend: Backend,
+
+    pub namespace_table: StringTable<NamespaceIndex>,
+    pub name_table: StringTable<NameIndex>,
 }
 
 /// A compiled WebAssembly module.
@@ -95,17 +99,8 @@ impl ModuleInner {}
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct ImportName {
-    pub namespace: String,
-    pub name: String,
-}
-
-impl From<(String, String)> for ImportName {
-    fn from(n: (String, String)) -> Self {
-        ImportName {
-            namespace: n.0,
-            name: n.1,
-        }
-    }
+    pub namespace_index: NamespaceIndex,
+    pub name_index: NameIndex,
 }
 
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
@@ -126,7 +121,7 @@ pub struct DataInitializer {
     /// Either a constant offset or a `get_global`
     pub base: Initializer,
     /// The initialization data.
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "cache", serde(with = "serde_bytes"))]
     pub data: Vec<u8>,
 }
 
@@ -140,4 +135,111 @@ pub struct TableInitializer {
     pub base: Initializer,
     /// The values to write into the table elements.
     pub elements: Vec<FuncIndex>,
+}
+
+pub struct StringTableBuilder<K: TypedIndex> {
+    map: IndexMap<String, (K, u32, u32)>,
+    buffer: String,
+    count: u32,
+}
+
+impl<K: TypedIndex> StringTableBuilder<K> {
+    pub fn new() -> Self {
+        Self {
+            map: IndexMap::new(),
+            buffer: String::new(),
+            count: 0,
+        }
+    }
+
+    pub fn register<S>(&mut self, s: S) -> K
+    where
+        S: Into<String> + AsRef<str>,
+    {
+        let s_str = s.as_ref();
+
+        if self.map.contains_key(s_str) {
+            self.map[s_str].0
+        } else {
+            let offset = self.buffer.len();
+            let length = s_str.len();
+            let index = TypedIndex::new(self.count as _);
+
+            self.buffer.push_str(s_str);
+            self.map
+                .insert(s.into(), (index, offset as u32, length as u32));
+            self.count += 1;
+
+            index
+        }
+    }
+
+    pub fn finish(self) -> StringTable<K> {
+        let table = self
+            .map
+            .values()
+            .map(|(_, offset, length)| (*offset, *length))
+            .collect();
+
+        StringTable {
+            table,
+            buffer: self.buffer,
+        }
+    }
+}
+
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone)]
+pub struct StringTable<K: TypedIndex> {
+    table: Map<K, (u32, u32)>,
+    buffer: String,
+}
+
+impl<K: TypedIndex> StringTable<K> {
+    pub fn new() -> Self {
+        Self {
+            table: Map::new(),
+            buffer: String::new(),
+        }
+    }
+
+    pub fn get(&self, index: K) -> &str {
+        let (offset, length) = self.table[index];
+        let offset = offset as usize;
+        let length = length as usize;
+
+        &self.buffer[offset..offset + length]
+    }
+}
+
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct NamespaceIndex(u32);
+
+impl TypedIndex for NamespaceIndex {
+    #[doc(hidden)]
+    fn new(index: usize) -> Self {
+        NamespaceIndex(index as _)
+    }
+
+    #[doc(hidden)]
+    fn index(&self) -> usize {
+        self.0 as usize
+    }
+}
+
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct NameIndex(u32);
+
+impl TypedIndex for NameIndex {
+    #[doc(hidden)]
+    fn new(index: usize) -> Self {
+        NameIndex(index as _)
+    }
+
+    #[doc(hidden)]
+    fn index(&self) -> usize {
+        self.0 as usize
+    }
 }

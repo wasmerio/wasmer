@@ -4,7 +4,6 @@
 //! function addrs in runtime with the functions we need.
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName, SourceLoc};
-use hashbrown::HashMap;
 use wasmer_runtime_core::{
     structures::TypedIndex,
     types::{LocalFuncIndex, SigIndex},
@@ -242,25 +241,27 @@ pub struct TrapData {
 /// that saves the info for later.
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 pub struct TrapSink {
-    trap_datas: HashMap<usize, TrapData>,
+    trap_datas: Vec<(usize, TrapData)>,
 }
 
 impl TrapSink {
     pub fn new() -> TrapSink {
         TrapSink {
-            trap_datas: HashMap::new(),
+            trap_datas: Vec::new(),
         }
     }
 
     pub fn lookup(&self, offset: usize) -> Option<TrapData> {
-        self.trap_datas.get(&offset).cloned()
+        self.trap_datas.get(offset).map(|(_, trap_data)| *trap_data)
     }
 
     pub fn drain_local(&mut self, current_func_offset: usize, local: &mut LocalTrapSink) {
-        local.trap_datas.drain(..).for_each(|(offset, trap_data)| {
-            self.trap_datas
-                .insert(current_func_offset + offset, trap_data);
-        });
+        self.trap_datas.extend(
+            local
+                .trap_datas
+                .drain(..)
+                .map(|(offset, trap_data)| (current_func_offset + offset, trap_data)),
+        );
     }
 }
 
