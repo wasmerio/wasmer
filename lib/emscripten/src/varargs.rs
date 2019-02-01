@@ -1,7 +1,7 @@
 use std::mem;
 use wasmer_runtime_core::{
-    vm::Ctx,
     types::{Type, WasmExternType},
+    vm::Ctx,
 };
 
 #[repr(transparent)]
