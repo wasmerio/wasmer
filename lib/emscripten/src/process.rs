@@ -119,7 +119,7 @@ pub extern "C" fn abort_stack_overflow(_what: c_int, ctx: &mut Ctx) {
     );
 }
 
-pub extern "C" fn _llvm_trap(_ctx: &mut Ctx) {
+pub extern "C" fn _llvm_trap(ctx: &mut Ctx) {
     debug!("emscripten::_llvm_trap");
     abort_with_message("abort!", ctx);
 }
