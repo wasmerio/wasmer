@@ -105,7 +105,8 @@ pub extern "C" fn ___syscall1(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx)
 }
 
 /// read
-pub extern "C" fn ___syscall3(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> ssize_t {
+pub extern "C" fn ___syscall3(which: i32, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
+    // -> ssize_t
     debug!("emscripten::___syscall3 (read) {}", which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
@@ -114,7 +115,7 @@ pub extern "C" fn ___syscall3(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx)
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
     let ret = unsafe { read(fd, buf_addr, count) };
     debug!("=> ret: {}", ret);
-    ret
+    ret as _
 }
 
 /// write
@@ -632,18 +633,20 @@ pub extern "C" fn ___syscall192(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
 }
 
 /// lseek
-pub extern "C" fn ___syscall140(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> off_t {
+pub extern "C" fn ___syscall140(which: i32, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
+    // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", which);
     let fd: i32 = varargs.get(ctx);
     let offset: i64 = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     debug!("=> fd: {}, offset: {}, whence = {}", fd, offset, whence);
-    unsafe { lseek(fd, offset, whence) }
+    unsafe { lseek(fd, offset, whence) as _ }
 }
 
 /// readv
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn ___syscall145(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> ssize_t {
+pub extern "C" fn ___syscall145(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
+    // -> ssize_t
     debug!("emscripten::___syscall145 (readv) {}", which);
     // let fd: i32 = varargs.get(ctx);
     // let iov: u32 = varargs.get(ctx);
@@ -679,13 +682,14 @@ pub extern "C" fn ___syscall145(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
             ret += curr;
         }
         // debug!(" => ret: {}", ret);
-        ret
+        ret as _
     }
 }
 
 // writev
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn ___syscall146(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> ssize_t {
+pub extern "C" fn ___syscall146(which: i32, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
+    // -> ssize_t
     debug!("emscripten::___syscall146 (writev) {}", which);
     let fd: i32 = varargs.get(ctx);
     let iov: i32 = varargs.get(ctx);
@@ -714,7 +718,7 @@ pub extern "C" fn ___syscall146(which: c_int, mut varargs: VarArgs, ctx: &mut Ct
             ret += curr;
         }
         // debug!(" => ret: {}", ret);
-        ret
+        ret as _
     }
 }
 
@@ -830,11 +834,12 @@ pub extern "C" fn ___syscall201(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
 }
 
 // getgid32
-pub extern "C" fn ___syscall202() -> gid_t {
+pub extern "C" fn ___syscall202(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
+    // gid_t
     debug!("emscripten::___syscall202 (getgid32)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
-        getgid()
+        getgid() as _
     }
 }
 
