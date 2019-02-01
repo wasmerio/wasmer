@@ -65,6 +65,31 @@ impl From<f64> for Value {
     }
 }
 
+pub unsafe trait WasmExternType: Copy + Clone
+where
+    Self: Sized,
+{
+    const TYPE: Type;
+}
+unsafe impl WasmExternType for i32 {
+    const TYPE: Type = Type::I32;
+}
+unsafe impl WasmExternType for u32 {
+    const TYPE: Type = Type::I32;
+}
+unsafe impl WasmExternType for i64 {
+    const TYPE: Type = Type::I64;
+}
+unsafe impl WasmExternType for u64 {
+    const TYPE: Type = Type::I64;
+}
+unsafe impl WasmExternType for f32 {
+    const TYPE: Type = Type::F32;
+}
+unsafe impl WasmExternType for f64 {
+    const TYPE: Type = Type::F64;
+}
+
 pub enum ValueError {
     BufferTooSmall,
 }

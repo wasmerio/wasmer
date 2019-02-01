@@ -17,47 +17,19 @@ macro_rules! func {
     ($func:ident, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] ) => {{
         use $crate::{
             export::{Context, Export, FuncPointer},
-            types::{FuncSig, Type},
+            types::{FuncSig, Type, WasmExternType},
             vm,
         };
-
         let func: extern fn( $( $params, )* &mut vm::Ctx) -> ($( $returns )*) = $func;
-
         Export::Function {
             func: unsafe { FuncPointer::new(func as _) },
             ctx: Context::Internal,
             signature: FuncSig::new(
-                &[$($crate::__export_func_convert_type!($params),)*] as &[Type],
-                &[$($crate::__export_func_convert_type!($returns),)*] as &[Type],
+                &[ $( <$params as WasmExternType>::TYPE, )* ] as &[Type],
+                &[ $( <$returns as WasmExternType>::TYPE, )* ] as &[Type],
             ).into(),
         }
     }};
-}
-
-#[macro_export]
-#[doc(hidden)]
-macro_rules! __export_func_convert_type {
-    (i32) => {
-        Type::I32
-    };
-    (u32) => {
-        Type::I32
-    };
-    (i64) => {
-        Type::I64
-    };
-    (u64) => {
-        Type::I64
-    };
-    (f32) => {
-        Type::F32
-    };
-    (f64) => {
-        Type::F64
-    };
-    ($x:ty) => {
-        compile_error!("Only `i32`, `u32`, `i64`, `u64`, `f32`, and `f64` are supported for argument and return types")
-    };
 }
 
 /// Generate an [`ImportObject`] safely.
