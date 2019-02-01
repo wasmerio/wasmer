@@ -368,7 +368,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         func.import_function(ir::ExtFuncData {
             name,
             signature,
-            colocated: false,
+            // Make this colocated so all calls between local functions are relative.
+            colocated: true,
         })
     }
 

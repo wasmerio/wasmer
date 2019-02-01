@@ -1,4 +1,4 @@
-use crate::relocation::{Relocation, TrapSink};
+use crate::relocation::{ExternalRelocation, TrapSink};
 
 use hashbrown::HashMap;
 use wasmer_runtime_core::{
@@ -20,7 +20,7 @@ pub struct TrampolineCache {
 
 #[derive(Serialize, Deserialize)]
 pub struct BackendCache {
-    pub relocations: Map<LocalFuncIndex, Box<[Relocation]>>,
+    pub external_relocs: Map<LocalFuncIndex, Box<[ExternalRelocation]>>,
     pub offsets: Map<LocalFuncIndex, usize>,
     pub trap_sink: TrapSink,
     pub trampolines: TrampolineCache,

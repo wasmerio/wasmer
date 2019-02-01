@@ -28,11 +28,19 @@ fn main() -> Result<()> {
 
         println!("Opening cache on disk...");
 
+        use std::time::Instant;
+
         let cache = Cache::open("import_module.wasmer").unwrap();
 
-        println!("Loading cache...");
+        let start = Instant::now();
+
+        // println!("Loading cache...");
         let inner_module =
             unsafe { wasmer_runtime_core::load_cache_with(cache, &compiler).unwrap() };
+
+        let elapsed = start.elapsed();
+
+        println!("time to load cache: {:?}", elapsed);
 
         remove_file("import_module.wasmer").unwrap();
         inner_module
@@ -100,7 +108,10 @@ static IMPORT_MODULE: &str = r#"
   (import "env" "table" (table 10 anyfunc))
   (import "env" "global" (global i32))
   (import "env" "print_i32" (func $print_i32 (type $t0)))
+  (func $identity (type $t0) (param $p0 i32) (result i32)
+    get_local $p0)
   (func $print_num (export "print_num") (type $t0) (param $p0 i32) (result i32)
     get_global 0
+    call $identity
     call $print_i32))
 "#;

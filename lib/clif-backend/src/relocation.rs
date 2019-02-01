@@ -6,7 +6,7 @@ use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName, SourceLoc};
 use wasmer_runtime_core::{
     structures::TypedIndex,
-    types::{LocalFuncIndex, SigIndex},
+    types::{FuncIndex, SigIndex},
 };
 
 pub mod call_names {
@@ -23,10 +23,11 @@ pub mod call_names {
 }
 
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Reloc {
     Abs8,
     X86PCRel4,
+    X86CallPCRel4,
 }
 
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
@@ -45,7 +46,7 @@ pub enum LibCall {
 
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Relocation {
+pub struct ExternalRelocation {
     /// The relocation code.
     pub reloc: Reloc,
     /// The offset where to apply the relocation.
@@ -54,6 +55,15 @@ pub struct Relocation {
     pub addend: binemit::Addend,
     /// Relocation type.
     pub target: RelocationType,
+}
+
+pub struct LocalRelocation {
+    /// The offset where to apply the relocation.
+    pub offset: binemit::CodeOffset,
+    /// The addend to add to the relocation value.
+    pub addend: binemit::Addend,
+    /// Relocation type.
+    pub target: FuncIndex,
 }
 
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
@@ -80,7 +90,6 @@ pub enum VmCall {
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub enum RelocationType {
-    Normal(LocalFuncIndex),
     Intrinsic(String),
     LibCall(LibCall),
     VmCall(VmCall),
@@ -90,7 +99,8 @@ pub enum RelocationType {
 /// Implementation of a relocation sink that just saves all the information for later
 pub struct RelocSink {
     /// Relocations recorded for the function.
-    pub relocs: Vec<Relocation>,
+    pub external_relocs: Vec<ExternalRelocation>,
+    pub local_relocs: Vec<LocalRelocation>,
 }
 
 impl binemit::RelocSink for RelocSink {
@@ -113,6 +123,7 @@ impl binemit::RelocSink for RelocSink {
         let reloc = match reloc {
             binemit::Reloc::Abs8 => Reloc::Abs8,
             binemit::Reloc::X86PCRel4 => Reloc::X86PCRel4,
+            binemit::Reloc::X86CallPCRel4 => Reloc::X86CallPCRel4,
             _ => unimplemented!("unimplented reloc type: {}", reloc),
         };
 
@@ -121,11 +132,11 @@ impl binemit::RelocSink for RelocSink {
                 namespace: 0,
                 index,
             } => {
-                self.relocs.push(Relocation {
-                    reloc,
+                assert_eq!(reloc, Reloc::X86CallPCRel4);
+                self.local_relocs.push(LocalRelocation {
                     offset,
                     addend,
-                    target: RelocationType::Normal(LocalFuncIndex::new(index as usize)),
+                    target: FuncIndex::new(index as usize),
                 });
             }
             ExternalName::User { namespace, index } => {
@@ -157,7 +168,7 @@ impl binemit::RelocSink for RelocSink {
                     SIG_NAMESPACE => RelocationType::Signature(SigIndex::new(index as usize)),
                     _ => unimplemented!(),
                 };
-                self.relocs.push(Relocation {
+                self.external_relocs.push(ExternalRelocation {
                     reloc,
                     offset,
                     addend,
@@ -167,7 +178,7 @@ impl binemit::RelocSink for RelocSink {
             ExternalName::TestCase { length, ascii } => {
                 let (slice, _) = ascii.split_at(length as usize);
                 let name = String::from_utf8(slice.to_vec()).unwrap();
-                self.relocs.push(Relocation {
+                self.external_relocs.push(ExternalRelocation {
                     reloc,
                     offset,
                     addend,
@@ -188,7 +199,7 @@ impl binemit::RelocSink for RelocSink {
                     _ => unimplemented!("unimplemented libcall: {}", libcall),
                 };
                 let relocation_type = RelocationType::LibCall(libcall);
-                self.relocs.push(Relocation {
+                self.external_relocs.push(ExternalRelocation {
                     reloc,
                     offset,
                     addend,
@@ -225,8 +236,11 @@ pub enum TrapCode {
 
 /// Implementation of a relocation sink that just saves all the information for later
 impl RelocSink {
-    pub fn new() -> RelocSink {
-        RelocSink { relocs: Vec::new() }
+    pub fn new() -> Self {
+        Self {
+            external_relocs: Vec::new(),
+            local_relocs: Vec::new(),
+        }
     }
 }
 

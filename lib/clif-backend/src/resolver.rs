@@ -7,8 +7,8 @@ use crate::{
     call::HandlerData,
     libcalls,
     relocation::{
-        LibCall, LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall,
-        VmCallKind,
+        ExternalRelocation, LibCall, LocalRelocation, LocalTrapSink, Reloc, RelocSink,
+        RelocationType, TrapSink, VmCall, VmCallKind,
     },
 };
 
@@ -38,7 +38,8 @@ use wasmer_runtime_core::{
 #[allow(dead_code)]
 pub struct FuncResolverBuilder {
     resolver: FuncResolver,
-    relocations: Map<LocalFuncIndex, Box<[Relocation]>>,
+    local_relocs: Map<LocalFuncIndex, Box<[LocalRelocation]>>,
+    external_relocs: Map<LocalFuncIndex, Box<[ExternalRelocation]>>,
     import_len: usize,
 }
 
@@ -63,7 +64,8 @@ impl FuncResolverBuilder {
                     map: backend_cache.offsets,
                     memory: code,
                 },
-                relocations: backend_cache.relocations,
+                local_relocs: Map::new(),
+                external_relocs: backend_cache.external_relocs,
                 import_len: info.imported_functions.len(),
             },
             Trampolines::from_trampoline_cache(backend_cache.trampolines),
@@ -73,13 +75,14 @@ impl FuncResolverBuilder {
 
     #[cfg(feature = "cache")]
     pub fn to_backend_cache(
-        self,
+        mut self,
         trampolines: TrampolineCache,
         handler_data: HandlerData,
     ) -> (BackendCache, Memory) {
+        self.relocate_locals();
         (
             BackendCache {
-                relocations: self.relocations,
+                external_relocs: self.external_relocs,
                 offsets: self.resolver.map,
                 trap_sink: handler_data.trap_data,
                 trampolines,
@@ -94,7 +97,8 @@ impl FuncResolverBuilder {
         info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
-        let mut relocations = Map::with_capacity(function_bodies.len());
+        let mut local_relocs = Map::with_capacity(function_bodies.len());
+        let mut external_relocs = Map::new();
 
         let mut trap_sink = TrapSink::new();
         let mut local_trap_sink = LocalTrapSink::new();
@@ -119,7 +123,8 @@ impl FuncResolverBuilder {
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
 
             compiled_functions.push(code_buf);
-            relocations.push(reloc_sink.relocs.into_boxed_slice());
+            local_relocs.push(reloc_sink.local_relocs.into_boxed_slice());
+            external_relocs.push(reloc_sink.external_relocs.into_boxed_slice());
         }
 
         let mut memory = Memory::with_size(total_size)
@@ -159,33 +164,48 @@ impl FuncResolverBuilder {
 
         let handler_data = HandlerData::new(trap_sink, memory.as_ptr() as _, memory.size());
 
-        Ok((
-            Self {
-                resolver: FuncResolver { map, memory },
-                relocations,
-                import_len: info.imported_functions.len(),
-            },
-            handler_data,
-        ))
+        let mut func_resolver_builder = Self {
+            resolver: FuncResolver { map, memory },
+            local_relocs,
+            external_relocs,
+            import_len: info.imported_functions.len(),
+        };
+
+        func_resolver_builder.relocate_locals();
+
+        Ok((func_resolver_builder, handler_data))
+    }
+
+    fn relocate_locals(&mut self) {
+        for (index, relocs) in self.local_relocs.iter() {
+            for ref reloc in relocs.iter() {
+                let local_func_index = LocalFuncIndex::new(reloc.target.index() - self.import_len);
+                let target_func_address =
+                    self.resolver.lookup(local_func_index).unwrap().as_ptr() as usize;
+
+                // We need the address of the current function
+                // because these calls are relative.
+                let func_addr = self.resolver.lookup(index).unwrap().as_ptr() as usize;
+
+                unsafe {
+                    let reloc_address = func_addr + reloc.offset as usize;
+                    let reloc_delta = target_func_address
+                        .wrapping_sub(reloc_address)
+                        .wrapping_add(reloc.addend as usize);
+
+                    write_unaligned(reloc_address as *mut u32, reloc_delta as u32);
+                }
+            }
+        }
     }
 
     pub fn finalize(
         mut self,
         signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
     ) -> CompileResult<FuncResolver> {
-        for (index, relocs) in self.relocations.iter() {
+        for (index, relocs) in self.external_relocs.iter() {
             for ref reloc in relocs.iter() {
                 let target_func_address: isize = match reloc.target {
-                    RelocationType::Normal(local_func_index) => {
-                        // This will always be an internal function
-                        // because imported functions are not
-                        // called in this way.
-                        // Adjust from wasm-wide function index to index of locally-defined functions only.
-                        let local_func_index =
-                            LocalFuncIndex::new(local_func_index.index() - self.import_len);
-
-                        self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
-                    }
                     RelocationType::LibCall(libcall) => match libcall {
                         LibCall::CeilF32 => libcalls::ceilf32 as isize,
                         LibCall::FloorF32 => libcalls::floorf32 as isize,
@@ -242,7 +262,7 @@ impl FuncResolverBuilder {
                 };
 
                 // We need the address of the current function
-                // because these calls are relative.
+                // because some of these calls are relative.
                 let func_addr = self.resolver.lookup(index).unwrap().as_ptr();
 
                 // Determine relocation type and apply relocation.
@@ -258,13 +278,13 @@ impl FuncResolverBuilder {
                         };
                         LittleEndian::write_u64(ptr_slice, ptr_to_write);
                     }
-                    Reloc::X86PCRel4 => unsafe {
-                        let reloc_address = func_addr.offset(reloc.offset as isize) as isize;
-                        let reloc_addend = reloc.addend as isize;
-                        // TODO: Handle overflow.
-                        let reloc_delta_i32 =
-                            (target_func_address - reloc_address + reloc_addend) as i32;
-                        write_unaligned(reloc_address as *mut i32, reloc_delta_i32);
+                    Reloc::X86PCRel4 | Reloc::X86CallPCRel4 => unsafe {
+                        let reloc_address = (func_addr as usize) + reloc.offset as usize;
+                        let reloc_delta = target_func_address
+                            .wrapping_sub(reloc_address as isize)
+                            .wrapping_add(reloc.addend as isize);
+
+                        write_unaligned(reloc_address as *mut u32, reloc_delta as u32);
                     },
                 }
             }
