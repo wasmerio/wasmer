@@ -122,7 +122,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                 Initializer::Const(Value::F64(f64::from_bits(x)))
             }
             cranelift_wasm::GlobalInit::GetGlobal(global_index) => {
-                assert!(!desc.mutable);
+                // assert!(!desc.mutable);
                 let global_index: GlobalIndex = Converter(global_index).into();
                 let imported_global_index = global_index
                     .local_or_import(self.module)
