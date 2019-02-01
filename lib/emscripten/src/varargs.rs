@@ -1,7 +1,11 @@
 use std::mem;
-use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime_core::{
+    vm::Ctx,
+    types::{Type, WasmExternType},
+};
 
 #[repr(transparent)]
+#[derive(Copy, Clone)]
 pub struct VarArgs {
     pub pointer: u32, // assuming 32bit wasm
 }
@@ -12,4 +16,8 @@ impl VarArgs {
         self.pointer += mem::size_of::<T>() as u32;
         unsafe { (ptr as *const T).read() }
     }
+}
+
+unsafe impl WasmExternType for VarArgs {
+    const TYPE: Type = Type::I32;
 }
