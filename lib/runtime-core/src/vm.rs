@@ -423,7 +423,7 @@ mod vm_offset_tests {
 #[cfg(test)]
 mod vm_ctx_tests {
     use super::{Ctx, ImportBacking, LocalBacking};
-    use crate::module::{ModuleInfo, ModuleInner};
+    use crate::module::{ModuleInfo, ModuleInner, StringTable};
     use crate::structures::Map;
     use std::ffi::c_void;
 
@@ -546,6 +546,9 @@ mod vm_ctx_tests {
                 func_assoc: Map::new(),
                 signatures: Map::new(),
                 backend: Backend::Cranelift,
+
+                namespace_table: StringTable::new(),
+                name_table: StringTable::new(),
             },
         }
     }
