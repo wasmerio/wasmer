@@ -729,6 +729,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-runtime-c-api"
+version = "0.1.4"
+dependencies = [
+ "wasmer-runtime 0.1.4",
+]
+
+[[package]]
 name = "wasmer-runtime-core"
 version = "0.1.2"
 dependencies = [
