@@ -23,6 +23,8 @@ typedef uint32_t wasmer_value_tag;
 
 typedef struct wasmer_import_object_t wasmer_import_object_t;
 
+typedef struct wasmer_instance_context_t wasmer_instance_context_t;
+
 typedef struct wasmer_instance_t wasmer_instance_t;
 
 typedef union {
@@ -41,12 +43,19 @@ void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
 
 wasmer_import_object_t *wasmer_import_object_new(void);
 
+void wasmer_imports_set_import_func(wasmer_import_object_t *import_object,
+                                    const char *namespace_,
+                                    const char *name,
+                                    void (*func)(void *data));
+
 wasmer_call_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                           const char *name,
                                           const wasmer_value_t *params,
                                           int params_len,
                                           wasmer_value_t *results,
                                           int results_len);
+
+void wasmer_instance_context_memory(wasmer_instance_context_t *instance);
 
 void wasmer_instance_destroy(wasmer_instance_t *instance);
 

@@ -10,6 +10,7 @@ readme = "README.md"
 
 [dependencies]
 wasmer-runtime = { path = "../runtime", version = "0.1.2" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
 libc = "0.2"
 
 [lib]

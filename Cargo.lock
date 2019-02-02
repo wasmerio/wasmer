@@ -808,6 +808,7 @@ dependencies = [
  "cbindgen 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime 0.1.4",
+ "wasmer-runtime-core 0.1.2",
 ]
 
 [[package]]
