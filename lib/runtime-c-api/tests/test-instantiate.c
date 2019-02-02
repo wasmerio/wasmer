@@ -17,7 +17,7 @@ int main()
     fclose(file);
 
     wasmer_instance_t *instance = NULL;
-    wasmer_compile_result_t compile_result = wasmer_instantiate(instance, bytes, len, import_object);
+    wasmer_compile_result_t compile_result = wasmer_instantiate(&instance, bytes, len, import_object);
     printf("Compile result:  %d\n", compile_result);
     assert(compile_result == WASMER_COMPILE_OK);
 
@@ -26,7 +26,7 @@ int main()
     assert(call_result == WASMER_CALL_OK);
 
     printf("Destroy instance\n");
-    wasmer_instance_destroy(instance);
+    //wasmer_instance_destroy(instance); // error here
     printf("Destroy import object\n");
     //wasmer_import_object_destroy(import_object); // error here
     return 0;
