@@ -21,12 +21,21 @@ int main()
     printf("Compile result:  %d\n", compile_result);
     assert(compile_result == WASMER_COMPILE_OK);
 
-    uint32_t params[] = {7, 8};
-    uint32_t results[] = {0};
+    wasmer_value_t param_one;
+    param_one.tag = WASM_I32;
+    param_one.value.I32 = 7;
+    wasmer_value_t param_two;
+    param_two.tag = WASM_I32;
+    param_two.value.I32 = 8;
+    wasmer_value_t params[] = {param_one, param_two};
+
+    wasmer_value_t result_one;
+    wasmer_value_t results[] = {result_one};
+
     wasmer_call_result_t call_result = wasmer_instance_call(instance, "sum", params, 2, results, 1);
     printf("Call result:  %d\n", call_result);
-    printf("Result: %d\n", results[0]);
-    assert(results[0] == 15);
+    printf("Result: %d\n", results[0].value.I32);
+    assert(results[0].value.I32 == 15);
     assert(call_result == WASMER_CALL_OK);
 
     printf("Destroy instance\n");
