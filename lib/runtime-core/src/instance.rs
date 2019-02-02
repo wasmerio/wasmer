@@ -38,21 +38,16 @@ impl Drop for InstanceInner {
 pub struct Instance {
     module: Arc<ModuleInner>,
     inner: Box<InstanceInner>,
-    #[allow(dead_code)]
-    imports: Box<ImportObject>,
 }
 
 impl Instance {
-    pub(crate) fn new(
-        module: Arc<ModuleInner>,
-        mut imports: Box<ImportObject>,
-    ) -> Result<Instance> {
+    pub(crate) fn new(module: Arc<ModuleInner>, imports: &ImportObject) -> Result<Instance> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
         let mut vmctx = unsafe { Box::new(mem::uninitialized()) };
 
-        let import_backing = ImportBacking::new(&module, &mut imports, &mut *vmctx)?;
+        let import_backing = ImportBacking::new(&module, &imports, &mut *vmctx)?;
         let backing = LocalBacking::new(&module, &import_backing, &mut *vmctx);
 
         // When Pin is stablized, this will use `Box::pinned` instead of `Box::new`.
@@ -68,11 +63,7 @@ impl Instance {
             *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module)
         };
 
-        let instance = Instance {
-            module,
-            inner,
-            imports,
-        };
+        let instance = Instance { module, inner };
 
         if let Some(start_index) = instance.module.start_func {
             instance.call_with_index(start_index, &[])?;
@@ -414,7 +405,7 @@ impl InstanceInner {
 }
 
 impl LikeNamespace for Instance {
-    fn get_export(&mut self, name: &str) -> Option<Export> {
+    fn get_export(&self, name: &str) -> Option<Export> {
         let export_index = self.module.exports.get(name)?;
 
         Some(self.inner.get_export_from_index(&self.module, export_index))

@@ -236,7 +236,7 @@ impl Memory {
 }
 
 impl IsExport for Memory {
-    fn to_export(&mut self) -> Export {
+    fn to_export(&self) -> Export {
         Export::Memory(self.clone())
     }
 }

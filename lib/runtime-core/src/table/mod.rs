@@ -118,7 +118,7 @@ impl Table {
 }
 
 impl IsExport for Table {
-    fn to_export(&mut self) -> Export {
+    fn to_export(&self) -> Export {
         Export::Table(self.clone())
     }
 }

@@ -190,7 +190,7 @@ where
     Rets: WasmTypeList,
     Safety: Safeness,
 {
-    fn to_export(&mut self) -> Export {
+    fn to_export(&self) -> Export {
         let func = unsafe { FuncPointer::new(self.f as _) };
         let ctx = Context::Internal;
         let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));

@@ -296,7 +296,7 @@ pub struct ImportBacking {
 impl ImportBacking {
     pub fn new(
         module: &ModuleInner,
-        imports: &mut ImportObject,
+        imports: &ImportObject,
         vmctx: *mut vm::Ctx,
     ) -> LinkResult<Self> {
         let mut failed = false;
@@ -349,7 +349,7 @@ impl ImportBacking {
 
 fn import_functions(
     module: &ModuleInner,
-    imports: &mut ImportObject,
+    imports: &ImportObject,
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedFuncIndex, vm::ImportedFunc>> {
     let mut link_errors = vec![];
@@ -416,7 +416,7 @@ fn import_functions(
 
 fn import_memories(
     module: &ModuleInner,
-    imports: &mut ImportObject,
+    imports: &ImportObject,
 ) -> LinkResult<(
     BoxedMap<ImportedMemoryIndex, Memory>,
     BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
@@ -477,7 +477,7 @@ fn import_memories(
 
 fn import_tables(
     module: &ModuleInner,
-    imports: &mut ImportObject,
+    imports: &ImportObject,
 ) -> LinkResult<(
     BoxedMap<ImportedTableIndex, Table>,
     BoxedMap<ImportedTableIndex, *mut vm::LocalTable>,
@@ -536,7 +536,7 @@ fn import_tables(
 
 fn import_globals(
     module: &ModuleInner,
-    imports: &mut ImportObject,
+    imports: &ImportObject,
 ) -> LinkResult<(
     BoxedMap<ImportedGlobalIndex, Global>,
     BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,

@@ -141,7 +141,7 @@ pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
 /// `error::RuntimeError` (all combined into an `error::Error`),
 /// depending on the cause of the failure.
 #[cfg(feature = "wasmer-clif-backend")]
-pub fn instantiate(wasm: &[u8], import_object: ImportObject) -> error::Result<Instance> {
+pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<Instance> {
     let module = compile(wasm)?;
     module.instantiate(import_object)
 }
