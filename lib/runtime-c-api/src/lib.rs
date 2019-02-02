@@ -1,7 +1,8 @@
 extern crate wasmer_runtime;
 
-use libc::{c_char, c_int, uint32_t, uint8_t};
+use libc::{c_char, c_int, int32_t, uint32_t, uint8_t};
 use std::ffi::CStr;
+use std::slice;
 use std::str;
 use wasmer_runtime::{ImportObject, Instance, Value};
 
@@ -71,6 +72,10 @@ pub unsafe extern "C" fn wasmer_instantiate(
 pub unsafe extern "C" fn wasmer_instance_call(
     instance: *mut wasmer_instance_t,
     name: *const c_char,
+    params: *const uint32_t,
+    params_len: c_int,
+    results: *mut uint32_t,
+    results_len: c_int,
 ) -> wasmer_call_result_t {
     // TODO handle params and results
     if instance.is_null() {
@@ -79,13 +84,32 @@ pub unsafe extern "C" fn wasmer_instance_call(
     if name.is_null() {
         return wasmer_call_result_t::WASMER_CALL_ERROR;
     }
+
+    if params.is_null() {
+        return wasmer_call_result_t::WASMER_CALL_ERROR;
+    }
+
+    let params: &[uint32_t] = slice::from_raw_parts(params, params_len as usize);
+    // TODO Fix this conversion and params
+    let params: Vec<Value> = params
+        .iter()
+        .cloned()
+        .map(|x| Value::I32(x as i32))
+        .collect();
+    //    let params= &[Value::I32(3), Value::I32(4)];
+
     let func_name_c = unsafe { CStr::from_ptr(name) };
     let func_name_r = func_name_c.to_str().unwrap();
     let instance = unsafe { Box::from_raw(instance as *mut Instance) };
-    let result = instance.call(func_name_r, &[Value::I32(1), Value::I32(2)]);
+
+    let results: &mut [uint32_t] = slice::from_raw_parts_mut(results, results_len as usize);
+    let result = instance.call(func_name_r, &params[..]);
     match result {
         Ok(res) => {
             println!("Res: {:?}", res);
+            if let Value::I32(x) = res[0] {
+                results[0] = x as u32;
+            }
             wasmer_call_result_t::WASMER_CALL_OK
         }
         Err(err) => {
