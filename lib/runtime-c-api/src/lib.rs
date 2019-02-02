@@ -23,6 +23,7 @@ pub extern "C" fn wasmer_import_object_new() -> *mut wasmer_import_object_t {
     Box::into_raw(Box::new(ImportObject::new())) as *mut wasmer_import_object_t
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import_object_t) {
     if !import_object.is_null() {
@@ -30,6 +31,7 @@ pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import
     }
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instantiate(
     mut instance: *mut wasmer_instance_t,
