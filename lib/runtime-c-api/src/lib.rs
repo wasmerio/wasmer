@@ -5,12 +5,10 @@ use std::os::raw::c_char;
 use wasmer_runtime::ImportObject;
 
 #[allow(non_camel_case_types)]
-#[no_mangle]
-pub enum wasmer_import_object_t {}
+pub struct wasmer_import_object_t();
 
 #[allow(non_camel_case_types)]
-#[no_mangle]
-pub enum wasmer_instance_t {}
+pub struct wasmer_instance_t();
 
 #[allow(non_camel_case_types)]
 #[no_mangle]

@@ -11,3 +11,13 @@ readme = "README.md"
 [dependencies]
 wasmer-runtime = { path = "../runtime", version = "0.1.2" }
 
+[lib]
+crate-type = ["cdylib"]
+
+[build-dependencies]
+cbindgen = { version = "0.7.1", optional = true }
+
+[features]
+generate-c-api-headers = ["cbindgen"]
+
+
