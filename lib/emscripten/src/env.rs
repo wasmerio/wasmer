@@ -11,20 +11,14 @@ use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array
 use super::EmscriptenData;
 use wasmer_runtime_core::vm::Ctx;
 
-pub extern "C" fn _getaddrinfo(
-    _one: i32,
-    _two: i32,
-    _three: i32,
-    _four: i32,
-    _ctx: &mut Ctx,
-) -> i32 {
+pub fn _getaddrinfo(_one: i32, _two: i32, _three: i32, _four: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_getaddrinfo");
     -1
 }
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub extern "C" fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
+pub fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -40,7 +34,7 @@ pub extern "C" fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub extern "C" fn _setenv(name: c_int, value: c_int, overwrite: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _setenv(name: c_int, value: c_int, overwrite: c_int, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_setenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -53,7 +47,7 @@ pub extern "C" fn _setenv(name: c_int, value: c_int, overwrite: c_int, ctx: &mut
 }
 
 /// emscripten: _putenv // (name: *const char);
-pub extern "C" fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_putenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -64,7 +58,7 @@ pub extern "C" fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub extern "C" fn _unsetenv(name: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _unsetenv(name: c_int, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_unsetenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -75,7 +69,7 @@ pub extern "C" fn _unsetenv(name: c_int, ctx: &mut Ctx) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
 
     #[repr(C)]
@@ -113,7 +107,7 @@ pub extern "C" fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
 
     #[repr(C)]
@@ -144,29 +138,35 @@ pub extern "C" fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
     }
 }
 
-pub fn call_malloc(size: i32, ctx: &mut Ctx) -> u32 {
-    (get_emscripten_data(ctx).malloc)(size, ctx)
+pub fn call_malloc(size: u32, ctx: &mut Ctx) -> u32 {
+    get_emscripten_data(ctx).malloc.call(size).unwrap()
 }
 
 pub fn call_memalign(alignment: u32, size: u32, ctx: &mut Ctx) -> u32 {
-    (get_emscripten_data(ctx).memalign)(alignment, size, ctx)
+    get_emscripten_data(ctx)
+        .memalign
+        .call(alignment, size)
+        .unwrap()
 }
 
-pub fn call_memset(pointer: u32, value: i32, size: u32, ctx: &mut Ctx) -> u32 {
-    (get_emscripten_data(ctx).memset)(pointer, value, size, ctx)
+pub fn call_memset(pointer: u32, value: u32, size: u32, ctx: &mut Ctx) -> u32 {
+    get_emscripten_data(ctx)
+        .memset
+        .call(pointer, value, size)
+        .unwrap()
 }
 
 pub(crate) fn get_emscripten_data(ctx: &mut Ctx) -> &mut EmscriptenData {
     unsafe { &mut *(ctx.data as *mut EmscriptenData) }
 }
 
-pub extern "C" fn _getpagesize(_ctx: &mut Ctx) -> u32 {
+pub fn _getpagesize(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getpagesize");
     16384
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub extern "C" fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
+pub fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
     debug!("emscripten::___build_environment {}", environ);
     const MAX_ENV_VALUES: u32 = 64;
     const TOTAL_ENV_SIZE: u32 = 1024;
@@ -188,13 +188,13 @@ pub extern "C" fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
     // };
 }
 
-pub extern "C" fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
+pub fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
     debug!("emscripten::_sysconf {}", name);
     // TODO: Implement like emscripten expects regarding memory/page size
     unsafe { sysconf(name) }
 }
 
-pub extern "C" fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _ctx: &mut Ctx) {
+pub fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _ctx: &mut Ctx) {
     debug!("emscripten::___assert_fail {} {} {} {}", a, b, c, d);
     // TODO: Implement like emscripten expects regarding memory/page size
     // TODO raise an error

@@ -8,6 +8,7 @@ use crate::{
     memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
     table::Table,
+    typed_func::{Func, Safe, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vm,
 };
@@ -80,21 +81,30 @@ impl Instance {
         Ok(instance)
     }
 
-    /// This returns the representation of a function that can be called
-    /// safely.
+    /// Through generic magic and the awe-inspiring power of traits, we bring you...
     ///
+    /// # "Func"
+    ///
+    /// A [`Func`] allows you to call functions exported from wasm with
+    /// near zero overhead.
+    ///
+    /// [`Func`]: struct.Func.html
     /// # Usage:
+    ///
     /// ```
-    /// # use wasmer_runtime_core::Instance;
-    /// # use wasmer_runtime_core::error::CallResult;
-    /// # fn call_foo(instance: &mut Instance) -> CallResult<()> {
-    /// instance
-    ///     .func("foo")?
-    ///     .call(&[])?;
+    /// # use wasmer_runtime_core::{Func, Instance, error::ResolveResult};
+    /// # fn typed_func(instance: Instance) -> ResolveResult<()> {
+    /// let func: Func<(i32, i32)> = instance.func("foo")?;
+    ///
+    /// func.call(42, 43);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn func(&self, name: &str) -> ResolveResult<Function> {
+    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Safe>>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
         let export_index =
             self.module
                 .exports
@@ -111,7 +121,76 @@ impl Instance {
                 .expect("broken invariant, incorrect func index");
             let signature = self.module.sig_registry.lookup_signature(sig_index);
 
-            Ok(Function {
+            if signature.params() != Args::types() || signature.returns() != Rets::types() {
+                Err(ResolveError::Signature {
+                    expected: Arc::clone(&signature),
+                    found: Args::types().to_vec(),
+                })?;
+            }
+
+            let ctx = match func_index.local_or_import(&*self.module) {
+                LocalOrImport::Local(_) => self.inner.vmctx,
+                LocalOrImport::Import(imported_func_index) => {
+                    self.inner.import_backing.vm_functions[imported_func_index].vmctx
+                }
+            };
+
+            let func_ptr = match func_index.local_or_import(&self.module) {
+                LocalOrImport::Local(local_func_index) => self
+                    .module
+                    .func_resolver
+                    .get(&self.module, local_func_index)
+                    .unwrap()
+                    .as_ptr(),
+                LocalOrImport::Import(import_func_index) => {
+                    self.inner.import_backing.vm_functions[import_func_index].func
+                }
+            };
+
+            let typed_func: Func<Args, Rets, Safe> =
+                unsafe { Func::new_from_ptr(func_ptr as _, ctx) };
+
+            Ok(typed_func)
+        } else {
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            }
+            .into())
+        }
+    }
+
+    /// This returns the representation of a function that can be called
+    /// safely.
+    ///
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::Instance;
+    /// # use wasmer_runtime_core::error::CallResult;
+    /// # fn call_foo(instance: &mut Instance) -> CallResult<()> {
+    /// instance
+    ///     .dyn_func("foo")?
+    ///     .call(&[])?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc> {
+        let export_index =
+            self.module
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
+
+        if let ExportIndex::Func(func_index) = export_index {
+            let sig_index = *self
+                .module
+                .func_assoc
+                .get(*func_index)
+                .expect("broken invariant, incorrect func index");
+            let signature = self.module.sig_registry.lookup_signature(sig_index);
+
+            Ok(DynFunc {
                 signature,
                 module: &self.module,
                 instance_inner: &self.inner,
@@ -343,14 +422,14 @@ impl LikeNamespace for Instance {
 }
 
 /// A representation of an exported WebAssembly function.
-pub struct Function<'a> {
+pub struct DynFunc<'a> {
     pub(crate) signature: Arc<FuncSig>,
     module: &'a ModuleInner,
     pub(crate) instance_inner: &'a InstanceInner,
     func_index: FuncIndex,
 }
 
-impl<'a> Function<'a> {
+impl<'a> DynFunc<'a> {
     /// Call an exported webassembly function safely.
     ///
     /// Pass arguments by wrapping each one in the [`Value`] enum.

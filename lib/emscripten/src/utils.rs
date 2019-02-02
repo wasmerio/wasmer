@@ -47,7 +47,7 @@ pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, ctx: &mut 
 pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
-    let space_offset = env::call_malloc((cstr_len as i32) + 1, ctx);
+    let space_offset = env::call_malloc((cstr_len as u32) + 1, ctx);
     let raw_memory = emscripten_memory_pointer!(ctx.memory(0), space_offset) as *mut u8;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
@@ -63,7 +63,10 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
 }
 
 pub unsafe fn allocate_on_stack<'a, T: Copy>(count: u32, ctx: &'a mut Ctx) -> (u32, &'a mut [T]) {
-    let offset = (get_emscripten_data(ctx).stack_alloc)(count * (size_of::<T>() as u32), ctx);
+    let offset = get_emscripten_data(ctx)
+        .stack_alloc
+        .call(count * (size_of::<T>() as u32))
+        .unwrap();
     let addr = emscripten_memory_pointer!(ctx.memory(0), offset) as *mut T;
     let slice = slice::from_raw_parts_mut(addr, count as usize);
 

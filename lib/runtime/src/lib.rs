@@ -44,6 +44,7 @@
 //!     Value,
 //!     imports,
 //!     error,
+//!     Func,
 //! };
 //!
 //! fn main() -> error::Result<()> {
@@ -52,11 +53,11 @@
 //!
 //!     let mut instance = instantiate(WASM, import_object)?;
 //!
-//!     let values = instance
-//!         .func("add_one")?
-//!         .call(&[Value::I32(42)])?;
+//!     let add_one: Func<i32, i32> = instance.func("add_one")?;
 //!
-//!     assert_eq!(values[0], Value::I32(43));
+//!     let value = add_one.call(42)?;
+//!
+//!     assert_eq!(value, 43);
 //!     
 //!     Ok(())
 //! }
@@ -75,7 +76,7 @@
 
 pub use wasmer_runtime_core::global::Global;
 pub use wasmer_runtime_core::import::ImportObject;
-pub use wasmer_runtime_core::instance::{Function, Instance};
+pub use wasmer_runtime_core::instance::{DynFunc, Instance};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::table::Table;
@@ -85,12 +86,12 @@ pub use wasmer_runtime_core::vm::Ctx;
 pub use wasmer_runtime_core::{compile_with, validate};
 
 pub use wasmer_runtime_core::error;
+pub use wasmer_runtime_core::Func;
 pub use wasmer_runtime_core::{func, imports};
 
 pub mod wasm {
     //! Various types exposed by the Wasmer Runtime.
     pub use wasmer_runtime_core::global::Global;
-    pub use wasmer_runtime_core::instance::Function;
     pub use wasmer_runtime_core::memory::Memory;
     pub use wasmer_runtime_core::table::Table;
     pub use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, TableDescriptor, Type, Value};

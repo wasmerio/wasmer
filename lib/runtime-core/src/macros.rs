@@ -14,21 +14,8 @@ macro_rules! debug {
 
 #[macro_export]
 macro_rules! func {
-    ($func:path, [ $( $params:ident ),* ] -> [ $( $returns:ident ),* ] ) => {{
-        use $crate::{
-            export::{Context, Export, FuncPointer},
-            types::{FuncSig, Type, WasmExternType},
-            vm,
-        };
-        let func: extern fn( $( $params, )* &mut vm::Ctx) -> ($( $returns )*) = $func;
-        Export::Function {
-            func: unsafe { FuncPointer::new(func as _) },
-            ctx: Context::Internal,
-            signature: FuncSig::new(
-                &[ $( <$params as WasmExternType>::TYPE, )* ] as &[Type],
-                &[ $( <$returns as WasmExternType>::TYPE, )* ] as &[Type],
-            ).into(),
-        }
+    ($func:path) => {{
+        $crate::Func::new($func)
     }};
 }
 
@@ -47,11 +34,11 @@ macro_rules! func {
 /// # use wasmer_runtime_core::vm::Ctx;
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => func!(foo, [i32] -> [i32]),
+///         "foo" => func!(foo),
 ///     },
 /// };
 ///
-/// extern fn foo(n: i32, _: &mut Ctx) -> i32 {
+/// fn foo(n: i32, _: &mut Ctx) -> i32 {
 ///     n
 /// }
 /// ```

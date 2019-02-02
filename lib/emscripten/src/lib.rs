@@ -24,7 +24,7 @@ use wasmer_runtime_core::{
     vm::LocalGlobal,
     vm::LocalMemory,
     vm::LocalTable,
-    Instance, Module,
+    Func, Instance, Module,
 };
 
 #[macro_use]
@@ -88,69 +88,43 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
     static_bump + DYNAMICTOP_PTR_DIFF
 }
 
-pub struct EmscriptenData {
-    pub malloc: extern "C" fn(i32, &mut Ctx) -> u32,
-    pub free: extern "C" fn(i32, &mut Ctx),
-    pub memalign: extern "C" fn(u32, u32, &mut Ctx) -> u32,
-    pub memset: extern "C" fn(u32, i32, u32, &mut Ctx) -> u32,
-    pub stack_alloc: extern "C" fn(u32, &mut Ctx) -> u32,
-    pub jumps: Vec<UnsafeCell<[c_int; 27]>>,
+pub struct EmscriptenData<'a> {
+    pub malloc: Func<'a, u32, u32>,
+    pub free: Func<'a, u32>,
+    pub memalign: Func<'a, (u32, u32), u32>,
+    pub memset: Func<'a, (u32, u32, u32), u32>,
+    pub stack_alloc: Func<'a, u32, u32>,
+
+    pub jumps: Vec<UnsafeCell<[u8; 27]>>,
 }
 
-impl EmscriptenData {
-    pub fn new(instance: &mut Instance) -> Self {
-        unsafe {
-            let malloc_func = instance.func("_malloc");
-            let malloc_addr = if let Ok(malloc_func) = malloc_func {
-                malloc_func.raw() as *const u8
-            } else {
-                0 as *const u8
-            };
-            let free_func = instance.func("_free");
-            let free_addr = if let Ok(free_func) = free_func {
-                free_func.raw() as *const u8
-            } else {
-                0 as *const u8
-            };
-            let memalign_func = instance.func("_memalign");
-            let memalign_addr = if let Ok(memalign_func) = memalign_func {
-                memalign_func.raw() as *const u8
-            } else {
-                0 as *const u8
-            };
-            let memset_func = instance.func("_memset");
-            let memset_addr = if let Ok(memset_func) = memset_func {
-                memset_func.raw() as *const u8
-            } else {
-                0 as *const u8
-            };
-            let stack_alloc_func = instance.func("stackAlloc");
-            let stack_alloc_addr = if let Ok(stack_alloc_func) = stack_alloc_func {
-                stack_alloc_func.raw() as *const u8
-            } else {
-                0 as *const u8
-            };
+impl<'a> EmscriptenData<'a> {
+    pub fn new(instance: &'a mut Instance) -> EmscriptenData<'a> {
+        let malloc = instance.func("_malloc").unwrap();
+        let free = instance.func("_free").unwrap();
+        let memalign = instance.func("_memalign").unwrap();
+        let memset = instance.func("_memset").unwrap();
+        let stack_alloc = instance.func("stackAlloc").unwrap();
 
-            EmscriptenData {
-                malloc: mem::transmute(malloc_addr),
-                free: mem::transmute(free_addr),
-                memalign: mem::transmute(memalign_addr),
-                memset: mem::transmute(memset_addr),
-                stack_alloc: mem::transmute(stack_alloc_addr),
-                jumps: Vec::new(),
-            }
+        EmscriptenData {
+            malloc,
+            free,
+            memalign,
+            memset,
+            stack_alloc,
+            jumps: Vec::new(),
         }
     }
 }
 
-impl fmt::Debug for EmscriptenData {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("EmscriptenData")
-            .field("malloc", &(self.malloc as usize))
-            .field("free", &(self.free as usize))
-            .finish()
-    }
-}
+// impl<'a> fmt::Debug for EmscriptenData<'a> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         f.debug_struct("EmscriptenData")
+//             .field("malloc", &(self.malloc as usize))
+//             .field("free", &(self.free as usize))
+//             .finish()
+//     }
+// }
 
 pub fn run_emscripten_instance(
     _module: &Module,
@@ -162,7 +136,7 @@ pub fn run_emscripten_instance(
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
-    let main_func = instance.func("_main")?;
+    let main_func = instance.dyn_func("_main")?;
     let num_params = main_func.signature().params().len();
     let _result = match num_params {
         2 => {
@@ -179,7 +153,7 @@ pub fn run_emscripten_instance(
     };
 
     // TODO atinit and atexit for emscripten
-    println!("{:?}", data);
+    // println!("{:?}", data);
     Ok(())
 }
 
@@ -225,7 +199,7 @@ pub fn emscripten_set_up_memory(memory: &mut Memory) {
 
 macro_rules! mock_external {
     ($namespace:ident, $name:ident) => {{
-        extern "C" fn _mocked_fn() -> i32 {
+        fn _mocked_fn() -> i32 {
             debug!("emscripten::{} <mock>", stringify!($name));
             -1
         }
@@ -365,174 +339,174 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "tempDoublePtr" => Global::new(Value::I32(0)),
 
             // IO
-            "printf" => func!(crate::io::printf, [i32, i32] -> [i32]),
-            "putchar" => func!(crate::io::putchar, [i32] -> []),
-            "___lock" => func!(crate::lock::___lock, [i32] -> []),
-            "___unlock" => func!(crate::lock::___unlock, [i32] -> []),
-            "___wait" => func!(crate::lock::___wait, [u32, u32, u32, u32] -> []),
+            "printf" => func!(crate::io::printf),
+            "putchar" => func!(crate::io::putchar),
+            "___lock" => func!(crate::lock::___lock),
+            "___unlock" => func!(crate::lock::___unlock),
+            "___wait" => func!(crate::lock::___wait),
 
             // Env
-            "___assert_fail" => func!(crate::env::___assert_fail, [i32, i32, i32, i32] -> []),
-            "_getenv" => func!(crate::env::_getenv, [i32] -> [u32]),
-            "_setenv" => func!(crate::env::_setenv, [i32, i32, i32] -> [i32]),
-            "_putenv" => func!(crate::env::_putenv, [i32] -> [i32]),
-            "_unsetenv" => func!(crate::env::_unsetenv, [i32] -> [i32]),
-            "_getpwnam" => func!(crate::env::_getpwnam, [i32] -> [i32]),
-            "_getgrnam" => func!(crate::env::_getgrnam, [i32] -> [i32]),
-            "___buildEnvironment" => func!(crate::env::___build_environment, [i32] -> []),
-            "___setErrNo" => func!(crate::errno::___seterrno, [i32] -> []),
-            "_getpagesize" => func!(crate::env::_getpagesize, [] -> [u32]),
-            "_sysconf" => func!(crate::env::_sysconf, [i32] -> [i64]),
-            "_getaddrinfo" => func!(crate::env::_getaddrinfo, [i32, i32, i32, i32] -> [i32]),
+            "___assert_fail" => func!(crate::env::___assert_fail),
+            "_getenv" => func!(crate::env::_getenv),
+            "_setenv" => func!(crate::env::_setenv),
+            "_putenv" => func!(crate::env::_putenv),
+            "_unsetenv" => func!(crate::env::_unsetenv),
+            "_getpwnam" => func!(crate::env::_getpwnam),
+            "_getgrnam" => func!(crate::env::_getgrnam),
+            "___buildEnvironment" => func!(crate::env::___build_environment),
+            "___setErrNo" => func!(crate::errno::___seterrno),
+            "_getpagesize" => func!(crate::env::_getpagesize),
+            "_sysconf" => func!(crate::env::_sysconf),
+            "_getaddrinfo" => func!(crate::env::_getaddrinfo),
 
             // Null func
-            "nullFunc_i" => func!(crate::nullfunc::nullfunc_i, [u32] -> []),
-            "nullFunc_ii" => func!(crate::nullfunc::nullfunc_ii, [u32] -> []),
-            "nullFunc_iii" => func!(crate::nullfunc::nullfunc_iii, [u32] -> []),
-            "nullFunc_iiii" => func!(crate::nullfunc::nullfunc_iiii, [u32] -> []),
-            "nullFunc_iiiii" => func!(crate::nullfunc::nullfunc_iiiii, [u32] -> []),
-            "nullFunc_iiiiii" => func!(crate::nullfunc::nullfunc_iiiiii, [u32] -> []),
-            "nullFunc_v" => func!(crate::nullfunc::nullfunc_v, [u32] -> []),
-            "nullFunc_vi" => func!(crate::nullfunc::nullfunc_vi, [u32] -> []),
-            "nullFunc_vii" => func!(crate::nullfunc::nullfunc_vii, [u32] -> []),
-            "nullFunc_viii" => func!(crate::nullfunc::nullfunc_viii, [u32] -> []),
-            "nullFunc_viiii" => func!(crate::nullfunc::nullfunc_viiii, [u32] -> []),
-            "nullFunc_viiiii" => func!(crate::nullfunc::nullfunc_viiiii, [u32] -> []),
-            "nullFunc_viiiiii" => func!(crate::nullfunc::nullfunc_viiiiii, [u32] -> []),
+            "nullFunc_i" => func!(crate::nullfunc::nullfunc_i),
+            "nullFunc_ii" => func!(crate::nullfunc::nullfunc_ii),
+            "nullFunc_iii" => func!(crate::nullfunc::nullfunc_iii),
+            "nullFunc_iiii" => func!(crate::nullfunc::nullfunc_iiii),
+            "nullFunc_iiiii" => func!(crate::nullfunc::nullfunc_iiiii),
+            "nullFunc_iiiiii" => func!(crate::nullfunc::nullfunc_iiiiii),
+            "nullFunc_v" => func!(crate::nullfunc::nullfunc_v),
+            "nullFunc_vi" => func!(crate::nullfunc::nullfunc_vi),
+            "nullFunc_vii" => func!(crate::nullfunc::nullfunc_vii),
+            "nullFunc_viii" => func!(crate::nullfunc::nullfunc_viii),
+            "nullFunc_viiii" => func!(crate::nullfunc::nullfunc_viiii),
+            "nullFunc_viiiii" => func!(crate::nullfunc::nullfunc_viiiii),
+            "nullFunc_viiiiii" => func!(crate::nullfunc::nullfunc_viiiiii),
 
             // Syscalls
-            "___syscall1" => func!(crate::syscalls::___syscall1, [i32, VarArgs] -> []),
-            "___syscall3" => func!(crate::syscalls::___syscall3, [i32, VarArgs] -> [i32]),
-            "___syscall4" => func!(crate::syscalls::___syscall4, [i32, VarArgs] -> [i32]),
-            "___syscall5" => func!(crate::syscalls::___syscall5, [i32, VarArgs] -> [i32]),
-            "___syscall6" => func!(crate::syscalls::___syscall6, [i32, VarArgs] -> [i32]),
-            "___syscall10" => func!(crate::syscalls::___syscall10, [i32, i32] -> [i32]),
-            "___syscall12" => func!(crate::syscalls::___syscall12, [i32, VarArgs] -> [i32]),
-            "___syscall15" => func!(crate::syscalls::___syscall15, [i32, i32] -> [i32]),
-            "___syscall20" => func!(crate::syscalls::___syscall20, [i32, i32] -> [i32]),
-            "___syscall39" => func!(crate::syscalls::___syscall39, [i32, VarArgs] -> [i32]),
-            "___syscall38" => func!(crate::syscalls::___syscall38, [i32, i32] -> [i32]),
-            "___syscall40" => func!(crate::syscalls::___syscall40, [i32, VarArgs] -> [i32]),
-            "___syscall54" => func!(crate::syscalls::___syscall54, [i32, VarArgs] -> [i32]),
-            "___syscall57" => func!(crate::syscalls::___syscall57, [i32, VarArgs] -> [i32]),
-            "___syscall60" => func!(crate::syscalls::___syscall60, [i32, i32] -> [i32]),
-            "___syscall63" => func!(crate::syscalls::___syscall63, [i32, VarArgs] -> [i32]),
-            "___syscall64" => func!(crate::syscalls::___syscall64, [i32, i32] -> [i32]),
-            "___syscall66" => func!(crate::syscalls::___syscall66, [i32, i32] -> [i32]),
-            "___syscall75" => func!(crate::syscalls::___syscall75, [i32, i32] -> [i32]),
-            "___syscall85" => func!(crate::syscalls::___syscall85, [i32, i32] -> [i32]),
-            "___syscall91" => func!(crate::syscalls::___syscall91, [i32, i32] -> [i32]),
-            "___syscall97" => func!(crate::syscalls::___syscall97, [i32, i32] -> [i32]),
-            "___syscall102" => func!(crate::syscalls::___syscall102, [i32, VarArgs] -> [i32]),
-            "___syscall110" => func!(crate::syscalls::___syscall110, [i32, i32] -> [i32]),
-            "___syscall114" => func!(crate::syscalls::___syscall114, [i32, VarArgs] -> [i32]),
-            "___syscall122" => func!(crate::syscalls::___syscall122, [i32, VarArgs] -> [i32]),
-            "___syscall140" => func!(crate::syscalls::___syscall140, [i32, VarArgs] -> [i32]),
-            "___syscall142" => func!(crate::syscalls::___syscall142, [i32, VarArgs] -> [i32]),
-            "___syscall145" => func!(crate::syscalls::___syscall145, [i32, VarArgs] -> [i32]),
-            "___syscall146" => func!(crate::syscalls::___syscall146, [i32, VarArgs] -> [i32]),
-            "___syscall168" => func!(crate::syscalls::___syscall168, [i32, i32] -> [i32]),
-            "___syscall180" => func!(crate::syscalls::___syscall180, [i32, VarArgs] -> [i32]),
-            "___syscall181" => func!(crate::syscalls::___syscall181, [i32, VarArgs] -> [i32]),
-            "___syscall191" => func!(crate::syscalls::___syscall191, [i32, i32] -> [i32]),
-            "___syscall192" => func!(crate::syscalls::___syscall192, [i32, VarArgs] -> [i32]),
-            "___syscall194" => func!(crate::syscalls::___syscall194, [i32, i32] -> [i32]),
-            "___syscall195" => func!(crate::syscalls::___syscall195, [i32, VarArgs] -> [i32]),
-            "___syscall196" => func!(crate::syscalls::___syscall196, [i32, i32] -> [i32]),
-            "___syscall197" => func!(crate::syscalls::___syscall197, [i32, VarArgs] -> [i32]),
-            "___syscall199" => func!(crate::syscalls::___syscall199, [i32, i32] -> [i32]),
-            "___syscall201" => func!(crate::syscalls::___syscall201, [i32, i32] -> [i32]),
-            "___syscall202" => func!(crate::syscalls::___syscall202, [i32, i32] -> [i32]),
-            "___syscall212" => func!(crate::syscalls::___syscall212, [i32, VarArgs] -> [i32]),
-            "___syscall220" => func!(crate::syscalls::___syscall220, [i32, i32] -> [i32]),
-            "___syscall221" => func!(crate::syscalls::___syscall221, [i32, VarArgs] -> [i32]),
-            "___syscall268" => func!(crate::syscalls::___syscall268, [i32, i32] -> [i32]),
-            "___syscall272" => func!(crate::syscalls::___syscall272, [i32, i32] -> [i32]),
-            "___syscall295" => func!(crate::syscalls::___syscall295, [i32, i32] -> [i32]),
-            "___syscall300" => func!(crate::syscalls::___syscall300, [i32, i32] -> [i32]),
-            "___syscall330" => func!(crate::syscalls::___syscall330, [i32, VarArgs] -> [i32]),
-            "___syscall334" => func!(crate::syscalls::___syscall334, [i32, i32] -> [i32]),
-            "___syscall340" => func!(crate::syscalls::___syscall340, [i32, VarArgs] -> [i32]),
+            "___syscall1" => func!(crate::syscalls::___syscall1),
+            "___syscall3" => func!(crate::syscalls::___syscall3),
+            "___syscall4" => func!(crate::syscalls::___syscall4),
+            "___syscall5" => func!(crate::syscalls::___syscall5),
+            "___syscall6" => func!(crate::syscalls::___syscall6),
+            "___syscall10" => func!(crate::syscalls::___syscall10),
+            "___syscall12" => func!(crate::syscalls::___syscall12),
+            "___syscall15" => func!(crate::syscalls::___syscall15),
+            "___syscall20" => func!(crate::syscalls::___syscall20),
+            "___syscall39" => func!(crate::syscalls::___syscall39),
+            "___syscall38" => func!(crate::syscalls::___syscall38),
+            "___syscall40" => func!(crate::syscalls::___syscall40),
+            "___syscall54" => func!(crate::syscalls::___syscall54),
+            "___syscall57" => func!(crate::syscalls::___syscall57),
+            "___syscall60" => func!(crate::syscalls::___syscall60),
+            "___syscall63" => func!(crate::syscalls::___syscall63),
+            "___syscall64" => func!(crate::syscalls::___syscall64),
+            "___syscall66" => func!(crate::syscalls::___syscall66),
+            "___syscall75" => func!(crate::syscalls::___syscall75),
+            "___syscall85" => func!(crate::syscalls::___syscall85),
+            "___syscall91" => func!(crate::syscalls::___syscall191),
+            "___syscall97" => func!(crate::syscalls::___syscall97),
+            "___syscall102" => func!(crate::syscalls::___syscall102),
+            "___syscall110" => func!(crate::syscalls::___syscall110),
+            "___syscall114" => func!(crate::syscalls::___syscall114),
+            "___syscall122" => func!(crate::syscalls::___syscall122),
+            "___syscall140" => func!(crate::syscalls::___syscall140),
+            "___syscall142" => func!(crate::syscalls::___syscall142),
+            "___syscall145" => func!(crate::syscalls::___syscall145),
+            "___syscall146" => func!(crate::syscalls::___syscall146),
+            "___syscall168" => func!(crate::syscalls::___syscall168),
+            "___syscall180" => func!(crate::syscalls::___syscall180),
+            "___syscall181" => func!(crate::syscalls::___syscall181),
+            "___syscall191" => func!(crate::syscalls::___syscall191),
+            "___syscall192" => func!(crate::syscalls::___syscall192),
+            "___syscall194" => func!(crate::syscalls::___syscall194),
+            "___syscall195" => func!(crate::syscalls::___syscall195),
+            "___syscall196" => func!(crate::syscalls::___syscall196),
+            "___syscall197" => func!(crate::syscalls::___syscall197),
+            "___syscall199" => func!(crate::syscalls::___syscall199),
+            "___syscall201" => func!(crate::syscalls::___syscall201),
+            "___syscall202" => func!(crate::syscalls::___syscall202),
+            "___syscall212" => func!(crate::syscalls::___syscall212),
+            "___syscall220" => func!(crate::syscalls::___syscall220),
+            "___syscall221" => func!(crate::syscalls::___syscall221),
+            "___syscall268" => func!(crate::syscalls::___syscall268),
+            "___syscall272" => func!(crate::syscalls::___syscall272),
+            "___syscall295" => func!(crate::syscalls::___syscall295),
+            "___syscall300" => func!(crate::syscalls::___syscall300),
+            "___syscall330" => func!(crate::syscalls::___syscall330),
+            "___syscall334" => func!(crate::syscalls::___syscall334),
+            "___syscall340" => func!(crate::syscalls::___syscall340),
 
             // Process
-            "abort" => func!(crate::process::em_abort, [u32] -> []),
-            "_abort" => func!(crate::process::_abort, [] -> []),
-            "abortStackOverflow" => func!(crate::process::abort_stack_overflow, [i32] -> []),
-            "_llvm_trap" => func!(crate::process::_llvm_trap, [] -> []),
-            "_fork" => func!(crate::process::_fork, [] -> [i32]),
-            "_exit" => func!(crate::process::_exit, [i32] -> []),
-            "_system" => func!(crate::process::_system, [i32] -> [i32]),
-            "_popen" => func!(crate::process::_popen, [i32, i32] -> [i32]),
-            "_endgrent" => func!(crate::process::_endgrent, [] -> []),
-            "_execve" => func!(crate::process::_execve, [i32, i32, i32] -> [i32]),
-            "_kill" => func!(crate::process::_kill, [i32, i32] -> [i32]),
-            "_llvm_stackrestore" => func!(crate::process::_llvm_stackrestore, [i32] -> []),
-            "_raise" => func!(crate::process::_raise, [i32] -> [i32]),
-            "_sem_init" => func!(crate::process::_sem_init, [i32, i32, i32] -> [i32]),
-            "_sem_post" => func!(crate::process::_sem_post, [i32] -> [i32]),
-            "_sem_wait" => func!(crate::process::_sem_wait, [i32] -> [i32]),
-            "_setgrent" => func!(crate::process::_setgrent, [] -> []),
-            "_setgroups" => func!(crate::process::_setgroups, [i32, i32] -> [i32]),
-            "_setitimer" => func!(crate::process::_setitimer, [i32, i32, i32] -> [i32]),
-            "_usleep" => func!(crate::process::_usleep, [i32] -> [i32]),
-            "_utimes" => func!(crate::process::_utimes, [i32, i32] -> [i32]),
-            "_waitpid" => func!(crate::process::_waitpid, [i32, i32, i32] -> [i32]),
+            "abort" => func!(crate::process::em_abort),
+            "_abort" => func!(crate::process::_abort),
+            "abortStackOverflow" => func!(crate::process::abort_stack_overflow),
+            "_llvm_trap" => func!(crate::process::_llvm_trap),
+            "_fork" => func!(crate::process::_fork),
+            "_exit" => func!(crate::process::_exit),
+            "_system" => func!(crate::process::_system),
+            "_popen" => func!(crate::process::_popen),
+            "_endgrent" => func!(crate::process::_endgrent),
+            "_execve" => func!(crate::process::_execve),
+            "_kill" => func!(crate::process::_kill),
+            "_llvm_stackrestore" => func!(crate::process::_llvm_stackrestore),
+            "_raise" => func!(crate::process::_raise),
+            "_sem_init" => func!(crate::process::_sem_init),
+            "_sem_post" => func!(crate::process::_sem_post),
+            "_sem_wait" => func!(crate::process::_sem_wait),
+            "_setgrent" => func!(crate::process::_setgrent),
+            "_setgroups" => func!(crate::process::_setgroups),
+            "_setitimer" => func!(crate::process::_setitimer),
+            "_usleep" => func!(crate::process::_usleep),
+            "_utimes" => func!(crate::process::_utimes),
+            "_waitpid" => func!(crate::process::_waitpid),
 
             // Signal
-            "_sigemptyset" => func!(crate::signal::_sigemptyset, [u32] -> [i32]),
-            "_sigaddset" => func!(crate::signal::_sigaddset, [u32, u32] -> [i32]),
-            "_sigprocmask" => func!(crate::signal::_sigprocmask, [i32, i32, i32] -> [i32]),
-            "_sigaction" => func!(crate::signal::_sigaction, [u32, u32, u32] -> [i32]),
-            "_signal" => func!(crate::signal::_signal, [u32, i32] -> [i32]),
-            "_sigsuspend" => func!(crate::signal::_sigsuspend, [i32] -> [i32]),
+            "_sigemptyset" => func!(crate::signal::_sigemptyset),
+            "_sigaddset" => func!(crate::signal::_sigaddset),
+            "_sigprocmask" => func!(crate::signal::_sigprocmask),
+            "_sigaction" => func!(crate::signal::_sigaction),
+            "_signal" => func!(crate::signal::_signal),
+            "_sigsuspend" => func!(crate::signal::_sigsuspend),
 
             // Memory
-            "abortOnCannotGrowMemory" => func!(crate::memory::abort_on_cannot_grow_memory, [] -> [u32]),
-            "_emscripten_memcpy_big" => func!(crate::memory::_emscripten_memcpy_big, [u32, u32, u32] -> [u32]),
-            "enlargeMemory" => func!(crate::memory::enlarge_memory, [] -> [u32]),
-            "getTotalMemory" => func!(crate::memory::get_total_memory, [] -> [u32]),
-            "___map_file" => func!(crate::memory::___map_file, [u32, u32] -> [i32]),
+            "abortOnCannotGrowMemory" => func!(crate::memory::abort_on_cannot_grow_memory),
+            "_emscripten_memcpy_big" => func!(crate::memory::_emscripten_memcpy_big),
+            "enlargeMemory" => func!(crate::memory::enlarge_memory),
+            "getTotalMemory" => func!(crate::memory::get_total_memory),
+            "___map_file" => func!(crate::memory::___map_file),
 
             // Exception
-            "___cxa_allocate_exception" => func!(crate::exception::___cxa_allocate_exception, [u32] -> [u32]),
-            "___cxa_throw" => func!(crate::exception::___cxa_throw, [u32, u32, u32] -> []),
+            "___cxa_allocate_exception" => func!(crate::exception::___cxa_allocate_exception),
+            "___cxa_throw" => func!(crate::exception::___cxa_throw),
 
             // Time
-            "_gettimeofday" => func!(crate::time::_gettimeofday, [i32, i32] -> [i32]),
-            "_clock_gettime" => func!(crate::time::_clock_gettime, [u32, i32] -> [i32]),
-            "___clock_gettime" => func!(crate::time::_clock_gettime, [u32, i32] -> [i32]),
-            "_clock" => func!(crate::time::_clock, [] -> [i32]),
-            "_difftime" => func!(crate::time::_difftime, [u32, u32] -> [f64]),
-            "_asctime" => func!(crate::time::_asctime, [u32] -> [u32]),
-            "_asctime_r" => func!(crate::time::_asctime_r, [u32, u32] -> [u32]),
-            "_localtime" => func!(crate::time::_localtime, [u32] -> [i32]),
-            "_time" => func!(crate::time::_time, [u32] -> [i64]),
-            "_strftime" => func!(crate::time::_strftime, [i32, u32, i32, i32] -> [i64]),
-            "_localtime_r" => func!(crate::time::_localtime_r, [u32, u32] -> [i32]),
-            "_gmtime_r" => func!(crate::time::_gmtime_r, [i32, i32] -> [i32]),
-            "_mktime" => func!(crate::time::_mktime, [i32] -> [i32]),
-            "_gmtime" => func!(crate::time::_gmtime, [i32] -> [i32]),
+            "_gettimeofday" => func!(crate::time::_gettimeofday),
+            "_clock_gettime" => func!(crate::time::_clock_gettime),
+            "___clock_gettime" => func!(crate::time::_clock_gettime),
+            "_clock" => func!(crate::time::_clock),
+            "_difftime" => func!(crate::time::_difftime),
+            "_asctime" => func!(crate::time::_asctime),
+            "_asctime_r" => func!(crate::time::_asctime_r),
+            "_localtime" => func!(crate::time::_localtime),
+            "_time" => func!(crate::time::_time),
+            "_strftime" => func!(crate::time::_strftime),
+            "_localtime_r" => func!(crate::time::_localtime_r),
+            "_gmtime_r" => func!(crate::time::_gmtime_r),
+            "_mktime" => func!(crate::time::_mktime),
+            "_gmtime" => func!(crate::time::_gmtime),
 
             // Math
-            "f64-rem" => func!(crate::math::f64_rem, [f64, f64] -> [f64]),
-            "_llvm_log10_f64" => func!(crate::math::_llvm_log10_f64, [f64] -> [f64]),
-            "_llvm_log2_f64" => func!(crate::math::_llvm_log2_f64, [f64] -> [f64]),
-            "_llvm_log10_f32" => func!(crate::math::_llvm_log10_f32, [f64] -> [f64]),
-            "_llvm_log2_f32" => func!(crate::math::_llvm_log2_f64, [f64] -> [f64]),
-            "_emscripten_random" => func!(crate::math::_emscripten_random, [] -> [f64]),
+            "f64-rem" => func!(crate::math::f64_rem),
+            "_llvm_log10_f64" => func!(crate::math::_llvm_log10_f64),
+            "_llvm_log2_f64" => func!(crate::math::_llvm_log2_f64),
+            "_llvm_log10_f32" => func!(crate::math::_llvm_log10_f32),
+            "_llvm_log2_f32" => func!(crate::math::_llvm_log2_f64),
+            "_emscripten_random" => func!(crate::math::_emscripten_random),
 
             // Jump
-            "__setjmp" => func!(crate::jmp::__setjmp, [u32] -> [i32]),
-            "__longjmp" => func!(crate::jmp::__longjmp, [u32, i32] -> []),
+            "__setjmp" => func!(crate::jmp::__setjmp),
+            "__longjmp" => func!(crate::jmp::__longjmp),
 
             // Linking
-            "_dlclose" => func!(crate::linking::_dlclose, [u32] -> [i32]),
-            "_dlopen" => func!(crate::linking::_dlopen, [u32, u32] -> [i32]),
-            "_dlsym" => func!(crate::linking::_dlopen, [u32, u32] -> [i32]),
+            "_dlclose" => func!(crate::linking::_dlclose),
+            "_dlopen" => func!(crate::linking::_dlopen),
+            "_dlsym" => func!(crate::linking::_dlsym),
 
         },
         "math" => {
-            "pow" => func!(crate::math::pow, [f64, f64] -> [f64]),
+            "pow" => func!(crate::math::pow),
         },
     };
     // mock_external!(env_namespace, _sched_yield);

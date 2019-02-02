@@ -18,6 +18,7 @@ mod sig_registry;
 pub mod structures;
 mod sys;
 pub mod table;
+mod typed_func;
 pub mod types;
 pub mod units;
 pub mod vm;
@@ -31,6 +32,8 @@ pub use self::error::Result;
 pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;
+#[doc(inline)]
+pub use self::typed_func::Func;
 use std::sync::Arc;
 
 pub mod prelude {

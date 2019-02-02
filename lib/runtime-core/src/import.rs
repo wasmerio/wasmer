@@ -28,11 +28,11 @@ impl IsExport for Export {
 /// # use wasmer_runtime_core::vm::Ctx;
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => func!(foo, [i32] -> [i32]),
+///         "foo" => func!(foo),
 ///     },
 /// };
 ///
-/// extern fn foo(n: i32, _: &mut Ctx) -> i32 {
+/// fn foo(n: i32, _: &mut Ctx) -> i32 {
 ///     n
 /// }
 /// ```

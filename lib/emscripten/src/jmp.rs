@@ -4,7 +4,7 @@ use std::cell::UnsafeCell;
 use wasmer_runtime_core::vm::Ctx;
 
 /// setjmp
-pub extern "C" fn __setjmp(env_addr: u32, ctx: &mut Ctx) -> c_int {
+pub fn __setjmp(env_addr: u32, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::__setjmp (setjmp)");
     unsafe {
         unimplemented!()
@@ -26,7 +26,7 @@ pub extern "C" fn __setjmp(env_addr: u32, ctx: &mut Ctx) -> c_int {
 
 /// longjmp
 #[allow(unreachable_code)]
-pub extern "C" fn __longjmp(env_addr: u32, val: c_int, ctx: &mut Ctx) {
+pub fn __longjmp(env_addr: u32, val: c_int, ctx: &mut Ctx) {
     debug!("emscripten::__longjmp (longmp)");
     unsafe {
         // We retrieve the jump index from the env address
