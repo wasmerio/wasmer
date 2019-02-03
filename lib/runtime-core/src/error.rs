@@ -187,6 +187,13 @@ impl From<RuntimeError> for Error {
     }
 }
 
+impl From<ResolveError> for Error {
+    fn from(resolve_err: ResolveError) -> Self {
+        Error::ResolveError(resolve_err)
+    }
+}
+
+
 impl From<CallError> for Error {
     fn from(call_err: CallError) -> Self {
         Error::CallError(call_err)

@@ -438,7 +438,7 @@ impl<'a> DynFunc<'a> {
     /// # use wasmer_runtime_core::error::CallResult;
     /// # fn call_foo(instance: &mut Instance) -> CallResult<()> {
     /// instance
-    ///     .func("foo")?
+    ///     .dyn_func("foo")?
     ///     .call(&[])?;
     /// # Ok(())
     /// # }

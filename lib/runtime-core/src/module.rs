@@ -74,7 +74,7 @@ impl Module {
     /// let import_object = imports! {
     ///     // ...
     /// };
-    /// let instance = module.instantiate(import_object)?;
+    /// let instance = module.instantiate(&import_object)?;
     /// // ...
     /// # Ok(())
     /// # }
