@@ -46,7 +46,11 @@ wasmer_import_object_t *wasmer_import_object_new(void);
 void wasmer_imports_set_import_func(wasmer_import_object_t *import_object,
                                     const char *namespace_,
                                     const char *name,
-                                    void (*func)(void *data));
+                                    void (*func)(void *data),
+                                    const wasmer_value_tag *params,
+                                    int params_len,
+                                    const wasmer_value_tag *returns,
+                                    int returns_len);
 
 wasmer_call_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                           const char *name,

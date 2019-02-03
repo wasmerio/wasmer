@@ -13,7 +13,9 @@ void print_str(int32_t ptr, int32_t len, wasmer_instance_context_t *ctx) {
 int main()
 {
     wasmer_import_object_t *import_object = wasmer_import_object_new();
-    wasmer_imports_set_import_func(import_object, "env", "print_str", print_str);
+    wasmer_value_tag params_sig[] = {WASM_I32, WASM_I32};
+    wasmer_value_tag returns_sig[] = {};
+    wasmer_imports_set_import_func(import_object, "env", "print_str", print_str, params_sig, 2, returns_sig, 0);
 
     // Read the wasm file bytes
     FILE *file = fopen("wasm_sample_app.wasm", "r");

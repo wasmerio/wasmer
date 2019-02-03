@@ -183,6 +183,10 @@ pub unsafe extern "C" fn wasmer_imports_set_import_func(
     namespace: *const c_char,
     name: *const c_char,
     func: extern "C" fn(data: *mut c_void),
+    params: *const wasmer_value_tag,
+    params_len: c_int,
+    returns: *const wasmer_value_tag,
+    returns_len: c_int,
 ) {
     let mut import_object = unsafe { Box::from_raw(import_object as *mut ImportObject) };
     let namespace_c = unsafe { CStr::from_ptr(namespace) };
@@ -190,10 +194,15 @@ pub unsafe extern "C" fn wasmer_imports_set_import_func(
     let name_c = unsafe { CStr::from_ptr(name) };
     let name_r = name_c.to_str().unwrap();
 
+    let params: &[wasmer_value_tag] = slice::from_raw_parts(params, params_len as usize);
+    let params: Vec<Type> = params.iter().cloned().map(|x| x.into()).collect();
+    let returns: &[wasmer_value_tag] = slice::from_raw_parts(returns, returns_len as usize);
+    let returns: Vec<Type> = returns.iter().cloned().map(|x| x.into()).collect();
+
     let export = Export::Function {
         func: unsafe { FuncPointer::new(func as _) },
         ctx: Context::Internal,
-        signature: Arc::new(FuncSig::new(vec![Type::I32, Type::I32], vec![])),
+        signature: Arc::new(FuncSig::new(params, returns)),
     };
 
     // TODO handle existing namespace
@@ -252,6 +261,20 @@ impl From<wasmer_value_t> for Value {
                     tag: WASM_F64,
                     value: wasmer_value { F64 },
                 } => Value::F64(F64),
+                _ => panic!("not implemented"),
+            }
+        }
+    }
+}
+
+impl From<wasmer_value_tag> for Type {
+    fn from(v: wasmer_value_tag) -> Self {
+        unsafe {
+            match v {
+                wasmer_value_tag::WASM_I32 => Type::I32,
+                wasmer_value_tag::WASM_I64 => Type::I64,
+                wasmer_value_tag::WASM_F32 => Type::F32,
+                wasmer_value_tag::WASM_F64 => Type::F64,
                 _ => panic!("not implemented"),
             }
         }
