@@ -176,8 +176,9 @@ pub unsafe extern "C" fn wasmer_instance_call(
     }
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_imports_set_import_func(
+pub unsafe extern "C" fn wasmer_imports_set_import_func(
     import_object: *mut wasmer_import_object_t,
     namespace: *const c_char,
     name: *const c_char,
