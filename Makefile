@@ -40,6 +40,7 @@ test:
 	# cargo test --all -- --test-threads=1 $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	cargo test -p wasmer-spectests -- --test-threads=1 $(runargs)
+	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
 
 release:
