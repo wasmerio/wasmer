@@ -11,3 +11,4 @@ CTestTestfile.cmake
 _deps
 test-instantiate
 test-import-function
+rust-build

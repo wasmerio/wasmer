@@ -4,6 +4,21 @@ project (WasmerCApiTests)
 add_executable(test-instantiate test-instantiate.c)
 add_executable(test-import-function test-import-function.c)
 
+include(ExternalProject)
+set_directory_properties(PROPERTIES EP_PREFIX ${CMAKE_BINARY_DIR}/rust-build)
+ExternalProject_Add(
+        wasmer-runtime-c-api
+        DOWNLOAD_COMMAND ""
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND cargo build
+        COMMAND cargo build
+        BINARY_DIR "${CMAKE_SOURCE_DIR}/../"
+        INSTALL_COMMAND ""
+        LOG_BUILD ON)
+add_dependencies(test-instantiate  wasmer-runtime-c-api)
+add_dependencies(test-import-function wasmer-runtime-c-api)
+
+
 find_library(
         WASMER_LIB NAMES libwasmer_runtime_c_api.dylib libwasmer_runtime_c_api.so libwasmer_runtime_c_api.dll
         PATHS ${CMAKE_SOURCE_DIR}/../../../target/debug/
