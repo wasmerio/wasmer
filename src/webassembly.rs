@@ -41,7 +41,7 @@ pub fn instantiate(buffer_source: &[u8], import_object: ImportObject) -> Result<
     let module = compile(&buffer_source[..])?;
 
     debug!("webassembly - instantiating");
-    let instance = module.instantiate(import_object)?;
+    let instance = module.instantiate(&import_object)?;
 
     debug!("webassembly - instance created");
     Ok(ResultObject {
