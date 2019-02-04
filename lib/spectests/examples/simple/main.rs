@@ -36,7 +36,7 @@ fn main() -> Result<()> {
 
     let import_object = imports! {
         "env" => {
-            "print_i32" => func!(print_num),
+            "print_num" => func!(print_num),
             "memory" => memory,
             "global" => global,
             "table" => table,
@@ -51,7 +51,6 @@ fn main() -> Result<()> {
 
     let outer_module = wasmer_runtime_core::compile_with(EXAMPLE_WASM, &CraneliftCompiler::new())?;
     let outer_instance = outer_module.instantiate(&outer_imports)?;
-
     let ret = outer_instance.call("main", &[Value::I32(42)])?;
     println!("ret: {:?}", ret);
 
