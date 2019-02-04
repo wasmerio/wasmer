@@ -168,7 +168,7 @@ impl Instance {
         self.call_with_index(func_index, args)
     }
 
-    /// Returns a immutable reference to the
+    /// Returns an immutable reference to the
     /// [`Ctx`] used by this Instance.
     ///
     /// [`Ctx`]: struct.Ctx.html
@@ -184,7 +184,7 @@ impl Instance {
         unsafe { &mut *self.inner.vmctx }
     }
 
-    /// Returns a iterator over all of the items
+    /// Returns an iterator over all of the items
     /// exported from this instance.
     pub fn exports(&mut self) -> ExportIter {
         ExportIter::new(&self.module, &mut self.inner)
