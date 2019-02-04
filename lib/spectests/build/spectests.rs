@@ -82,6 +82,7 @@ use wasmer_runtime_core::import::ImportObject;
 use wasmer_runtime_core::types::Value;
 use wasmer_runtime_core::{{Instance, module::Module}};
 use wasmer_runtime_core::error::Result;
+use wasmer_runtime_core::vm::Ctx;
 
 static IMPORT_MODULE: &str = r#"
 (module
