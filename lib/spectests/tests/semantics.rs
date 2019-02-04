@@ -25,7 +25,7 @@ mod tests {
         let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new())
             .expect("WASM can't be compiled");
         let instance = module
-            .instantiate(ImportObject::new())
+            .instantiate(&ImportObject::new())
             .expect("WASM can't be instantiated");
         let result = instance.call("stack-overflow", &[]);
 

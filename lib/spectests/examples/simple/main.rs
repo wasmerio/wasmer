@@ -45,14 +45,14 @@ fn main() -> Result<()> {
         },
     };
 
-    let inner_instance = inner_module.instantiate(import_object)?;
+    let inner_instance = inner_module.instantiate(&import_object)?;
 
     let outer_imports = imports! {
         "env" => inner_instance,
     };
 
     let outer_module = wasmer_runtime_core::compile_with(EXAMPLE_WASM, &CraneliftCompiler::new())?;
-    let outer_instance = outer_module.instantiate(outer_imports)?;
+    let outer_instance = outer_module.instantiate(&outer_imports)?;
     let ret = outer_instance.call("main", &[Value::I32(42)])?;
     println!("ret: {:?}", ret);
 

@@ -27,7 +27,7 @@ fn create_module_1() -> Instance {
     let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     module
-        .instantiate(generate_imports())
+        .instantiate(&generate_imports())
         .expect("WASM can't be instantiated")
 }
 
@@ -47,7 +47,7 @@ pub fn generate_imports() -> ImportObject {
     let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     let instance = module
-        .instantiate(ImportObject::new())
+        .instantiate(&ImportObject::new())
         .expect("WASM can't be instantiated");
     let mut imports = ImportObject::new();
     imports.register("spectest", instance);
