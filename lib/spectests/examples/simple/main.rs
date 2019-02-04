@@ -38,7 +38,7 @@ fn main() -> Result<()> {
 
     let import_object = imports! {
         "env" => {
-            "print_i32" => func!(print_num, [i32] -> [i32]),
+            "print_num" => func!(print_num),
             "memory" => memory,
             "global" => global,
             "table" => table,
