@@ -193,7 +193,6 @@ impl From<ResolveError> for Error {
     }
 }
 
-
 impl From<CallError> for Error {
     fn from(call_err: CallError) -> Self {
         Error::CallError(call_err)

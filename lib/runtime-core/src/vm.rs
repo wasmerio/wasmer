@@ -1,6 +1,6 @@
 pub use crate::backing::{ImportBacking, LocalBacking};
 use crate::{
-    memory::Memory,
+    memory::{Memory, SharedPolicy},
     module::ModuleInner,
     structures::TypedIndex,
     types::{LocalOrImport, MemoryIndex},
@@ -106,24 +106,30 @@ impl Ctx {
     /// ```
     /// # use wasmer_runtime_core::{
     /// #     vm::Ctx,
+    /// #     memory::Memory,
     /// # };
     /// fn read_memory(ctx: &Ctx) -> u8 {
-    ///     let first_memory = ctx.memory(0);
+    ///     let first_memory: &Memory = ctx.memory(0);
     ///     // Read the first byte of that linear memory.
-    ///     first_memory.read(0).unwrap()
+    ///     first_memory.access()[0]
     /// }
     /// ```
-    pub fn memory<'a>(&'a self, mem_index: u32) -> &'a Memory {
+    pub fn memory<'a, S>(&'a self, mem_index: u32) -> &'a Memory<S>
+    where
+        S: SharedPolicy,
+    {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
             LocalOrImport::Local(local_mem_index) => unsafe {
                 let local_backing = &*self.local_backing;
-                &local_backing.memories[local_mem_index]
+                let mem_variant = &local_backing.memories[local_mem_index];
+                S::transform_variant(mem_variant)
             },
             LocalOrImport::Import(import_mem_index) => unsafe {
                 let import_backing = &*self.import_backing;
-                &import_backing.memories[import_mem_index]
+                let mem_variant = &import_backing.memories[import_mem_index];
+                S::transform_variant(mem_variant)
             },
         }
     }
@@ -195,7 +201,7 @@ impl ImportedFunc {
 }
 
 /// Definition of a table used by the VM. (obviously)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalTable {
     /// pointer to the elements in the table.
@@ -222,7 +228,7 @@ impl LocalTable {
 }
 
 /// Definition of a memory used by the VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalMemory {
     /// Pointer to the bottom of this linear memory.
@@ -251,7 +257,7 @@ impl LocalMemory {
 }
 
 /// Definition of a global used by the VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalGlobal {
     pub data: u64,
@@ -277,7 +283,7 @@ impl LocalGlobal {
 pub struct SigId(pub u32);
 
 /// Caller-checked anyfunc
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Anyfunc {
     pub func: *const Func,
