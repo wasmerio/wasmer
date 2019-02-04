@@ -30,7 +30,7 @@ mod tests {
         let result = instance.call("stack-overflow", &[]);
 
         match result {
-            Err(err) => match *err {
+            Err(err) => match err {
                 CallError::Runtime(RuntimeError::Unknown { msg }) => {
                     assert!(!msg.contains("segmentation violation"));
                     assert!(!msg.contains("bus error"));
