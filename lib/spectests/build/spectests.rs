@@ -99,7 +99,7 @@ pub fn generate_imports() -> ImportObject {
     let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     let instance = module
-        .instantiate(ImportObject::new())
+        .instantiate(&ImportObject::new())
         .expect("WASM can't be instantiated");
     let mut imports = ImportObject::new();
     imports.register("spectest", instance);
@@ -358,7 +358,7 @@ fn test_module_{}() {{
     println!(\"{{}}\", module_str);
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
     let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
-    module.instantiate(generate_imports()).expect(\"WASM can't be instantiated\")
+    module.instantiate(&generate_imports()).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
                 // We do this to ident four spaces, so it looks aligned to the function body
