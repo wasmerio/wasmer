@@ -59,7 +59,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-extern "C" fn print_num(n: i32, ctx: &mut vm::Ctx) -> i32 {
+fn print_num(n: i32, ctx: &mut vm::Ctx) -> i32 {
     println!("print_num({})", n);
 
     let memory = ctx.memory(0);
