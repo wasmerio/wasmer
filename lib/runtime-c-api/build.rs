@@ -17,11 +17,18 @@ fn build() {
 
     use cbindgen::Language;
     cbindgen::Builder::new()
-        .with_crate(crate_dir)
+        .with_crate(crate_dir.clone())
         .with_language(Language::C)
         .generate()
-        .expect("Unable to generate bindings")
+        .expect("Unable to generate C bindings")
         .write_to_file("wasmer.h");
+
+    cbindgen::Builder::new()
+        .with_crate(crate_dir)
+        .with_language(Language::Cxx)
+        .generate()
+        .expect("Unable to generate C++ bindings")
+        .write_to_file("wasmer.hh");
 }
 
 #[cfg(not(feature = "generate-c-api-headers"))]
