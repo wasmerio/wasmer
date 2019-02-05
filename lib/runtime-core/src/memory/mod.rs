@@ -4,7 +4,7 @@ use crate::{
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
     memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
-    types::MemoryDescriptor,
+    types::{MemoryDescriptor, ValueType},
     units::Pages,
     vm,
 };
@@ -12,79 +12,36 @@ use std::{
     cell::{Cell, Ref, RefCell, RefMut},
     fmt,
     marker::PhantomData,
-    ops::{Deref, DerefMut},
+    mem,
+    ops::{Bound, Deref, DerefMut, Index, RangeBounds},
     ptr,
     rc::Rc,
+    slice,
 };
 
+pub use self::atomic::Atomic;
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
+pub use self::view::{Atomically, MemoryView};
 
+mod atomic;
 mod dynamic;
 mod static_;
+mod view;
 
-pub trait MemoryImpl<'a>: Clone {
-    type Access: Deref<Target = [u8]>;
-    type AccessMut: DerefMut<Target = [u8]>;
-
-    fn new(desc: MemoryDescriptor) -> Result<Self, CreationError>;
-    fn grow(&'a self, delta: Pages) -> Option<Pages>;
-    fn size(&'a self) -> Pages;
-    fn vm_local_memory(&'a self) -> *mut vm::LocalMemory;
-    fn access(&'a self) -> Self::Access;
-    fn access_mut(&'a self) -> Self::AccessMut;
+#[derive(Clone)]
+enum MemoryVariant {
+    Unshared(UnsharedMemory),
+    Shared(SharedMemory),
 }
 
-pub trait SharedPolicy
-where
-    Self: Sized,
-    for<'a> Self::Memory: MemoryImpl<'a>,
-{
-    const SHARED: bool;
-    type Memory;
-    fn transform_variant(variants: &MemoryVariant) -> &Memory<Self>;
-}
-pub struct Shared;
-impl SharedPolicy for Shared {
-    const SHARED: bool = true;
-    type Memory = SharedMemory;
-    fn transform_variant(variants: &MemoryVariant) -> &Memory<Self> {
-        match variants {
-            MemoryVariant::Shared(shared_mem) => shared_mem,
-            MemoryVariant::Unshared(_) => {
-                panic!("cannot transform unshared memory to shared memory")
-            }
-        }
-    }
-}
-pub struct Unshared;
-impl SharedPolicy for Unshared {
-    const SHARED: bool = false;
-    type Memory = UnsharedMemory;
-    fn transform_variant(variants: &MemoryVariant) -> &Memory<Self> {
-        match variants {
-            MemoryVariant::Unshared(unshared_mem) => unshared_mem,
-            MemoryVariant::Shared(_) => panic!("cannot transform shared memory to unshared memory"),
-        }
-    }
-}
-
-unsafe impl Send for Memory<Shared> {}
-unsafe impl Sync for Memory<Shared> {}
-
-pub struct Memory<S = Unshared>
-where
-    S: SharedPolicy,
-{
+#[derive(Clone)]
+pub struct Memory {
     desc: MemoryDescriptor,
-    memory: S::Memory,
-    _phantom: PhantomData<S>,
+    variant: MemoryVariant,
 }
 
-impl<S> Memory<S>
-where
-    S: SharedPolicy,
-{
+impl Memory {
     /// Create a new `Memory` from a [`MemoryDescriptor`]
     ///
     /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
@@ -103,22 +60,18 @@ where
     ///     shared: false,
     /// };
     ///
-    /// let memory: Memory = Memory::new(descriptor)?;
+    /// let memory = Memory::new(descriptor)?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(desc: MemoryDescriptor) -> Result<Memory<S>, CreationError> {
-        assert_eq!(
-            desc.shared,
-            S::SHARED,
-            "type parameter must match description"
-        );
+    pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+        let variant = if !desc.shared {
+            MemoryVariant::Unshared(UnsharedMemory::new(desc)?)
+        } else {
+            MemoryVariant::Shared(SharedMemory::new(desc)?)
+        };
 
-        Ok(Memory {
-            desc,
-            memory: S::Memory::new(desc)?,
-            _phantom: PhantomData,
-        })
+        Ok(Memory { desc, variant })
     }
 
     /// Return the [`MemoryDescriptor`] that this memory
@@ -131,48 +84,78 @@ where
 
     /// Grow this memory by the specfied number of pages.
     pub fn grow(&self, delta: Pages) -> Option<Pages> {
-        self.memory.grow(delta)
+        match &self.variant {
+            MemoryVariant::Unshared(unshared_mem) => unshared_mem.grow(delta),
+            MemoryVariant::Shared(shared_mem) => shared_mem.grow(delta),
+        }
     }
 
     /// The size, in wasm pages, of this memory.
     pub fn size(&self) -> Pages {
-        self.memory.size()
+        match &self.variant {
+            MemoryVariant::Unshared(unshared_mem) => unshared_mem.size(),
+            MemoryVariant::Shared(shared_mem) => shared_mem.size(),
+        }
     }
 
-    pub fn access(&self) -> <S::Memory as MemoryImpl>::Access {
-        self.memory.access()
+    pub fn view<T: ValueType, R: RangeBounds<usize>>(&self, range: R) -> Option<MemoryView<T>> {
+        let vm::LocalMemory {
+            base,
+            bound,
+            memory: _,
+        } = unsafe { *self.vm_local_memory() };
+
+        let range_start = match range.start_bound() {
+            Bound::Included(start) => *start,
+            Bound::Excluded(start) => *start + 1,
+            Bound::Unbounded => 0,
+        };
+
+        let range_end = match range.end_bound() {
+            Bound::Included(end) => *end + 1,
+            Bound::Excluded(end) => *end,
+            Bound::Unbounded => bound as usize,
+        };
+
+        let length = range_end - range_start;
+
+        let size_in_bytes = mem::size_of::<T>() * length;
+
+        if range_end < range_start || range_start + size_in_bytes >= bound {
+            return None;
+        }
+
+        Some(unsafe { MemoryView::new(base as _, length as u32) })
     }
 
-    pub fn access_mut(&self) -> <S::Memory as MemoryImpl>::AccessMut {
-        self.memory.access_mut()
+    pub fn shared(self) -> Option<SharedMemory> {
+        if self.desc.shared {
+            Some(SharedMemory { desc: self.desc })
+        } else {
+            None
+        }
     }
 
     pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
-        self.memory.vm_local_memory()
-    }
-}
-
-impl IsExport for Memory<Unshared> {
-    fn to_export(&self) -> Export {
-        Export::Memory(MemoryVariant::Unshared(self.clone()))
-    }
-}
-impl IsExport for Memory<Shared> {
-    fn to_export(&self) -> Export {
-        Export::Memory(MemoryVariant::Shared(self.clone()))
-    }
-}
-
-impl<S> Clone for Memory<S>
-where
-    S: SharedPolicy,
-{
-    fn clone(&self) -> Self {
-        Self {
-            desc: self.desc,
-            memory: self.memory.clone(),
-            _phantom: PhantomData,
+        match &self.variant {
+            MemoryVariant::Unshared(unshared_mem) => unshared_mem.vm_local_memory(),
+            MemoryVariant::Shared(shared_mem) => unimplemented!(),
         }
+    }
+}
+
+impl IsExport for Memory {
+    fn to_export(&self) -> Export {
+        Export::Memory(self.clone())
+    }
+}
+
+impl fmt::Debug for Memory {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Memory")
+            .field("desc", &self.desc)
+            .field("size", &self.size())
+            .finish()
     }
 }
 
@@ -201,24 +184,6 @@ impl MemoryType {
     }
 }
 
-impl<S> fmt::Debug for Memory<S>
-where
-    S: SharedPolicy,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Memory")
-            .field("desc", &self.desc)
-            .field("size", &self.size())
-            .finish()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum MemoryVariant {
-    Unshared(Memory<Unshared>),
-    Shared(Memory<Shared>),
-}
-
 enum UnsharedMemoryStorage {
     Dynamic(Box<DynamicMemory>),
     Static(Box<StaticMemory>),
@@ -233,11 +198,8 @@ struct UnsharedMemoryInternal {
     local: Cell<vm::LocalMemory>,
 }
 
-impl<'a> MemoryImpl<'a> for UnsharedMemory {
-    type Access = Ref<'a, [u8]>;
-    type AccessMut = RefMut<'a, [u8]>;
-
-    fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+impl UnsharedMemory {
+    pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
         let mut local = vm::LocalMemory {
             base: ptr::null_mut(),
             bound: 0,
@@ -262,7 +224,7 @@ impl<'a> MemoryImpl<'a> for UnsharedMemory {
         })
     }
 
-    fn grow(&self, delta: Pages) -> Option<Pages> {
+    pub fn grow(&self, delta: Pages) -> Option<Pages> {
         let mut storage = self.internal.storage.borrow_mut();
 
         let mut local = self.internal.local.get();
@@ -279,7 +241,7 @@ impl<'a> MemoryImpl<'a> for UnsharedMemory {
         pages
     }
 
-    fn size(&self) -> Pages {
+    pub fn size(&self) -> Pages {
         let storage = self.internal.storage.borrow();
 
         match &*storage {
@@ -288,28 +250,8 @@ impl<'a> MemoryImpl<'a> for UnsharedMemory {
         }
     }
 
-    fn vm_local_memory(&self) -> *mut vm::LocalMemory {
+    pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
         self.internal.local.as_ptr()
-    }
-
-    fn access(&'a self) -> Ref<'a, [u8]> {
-        Ref::map(
-            self.internal.storage.borrow(),
-            |memory_storage| match memory_storage {
-                UnsharedMemoryStorage::Dynamic(dynamic_memory) => dynamic_memory.as_slice(),
-                UnsharedMemoryStorage::Static(static_memory) => static_memory.as_slice(),
-            },
-        )
-    }
-
-    fn access_mut(&'a self) -> RefMut<'a, [u8]> {
-        RefMut::map(
-            self.internal.storage.borrow_mut(),
-            |memory_storage| match memory_storage {
-                UnsharedMemoryStorage::Dynamic(dynamic_memory) => dynamic_memory.as_slice_mut(),
-                UnsharedMemoryStorage::Static(static_memory) => static_memory.as_slice_mut(),
-            },
-        )
     }
 }
 
@@ -321,33 +263,28 @@ impl Clone for UnsharedMemory {
     }
 }
 
-pub struct SharedMemory {}
+pub struct SharedMemory {
+    desc: MemoryDescriptor,
+}
 
-impl<'a> MemoryImpl<'a> for SharedMemory {
-    type Access = Vec<u8>;
-    type AccessMut = Vec<u8>;
+impl SharedMemory {
+    fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+        Ok(Self { desc })
+    }
 
-    fn new(_desc: MemoryDescriptor) -> Result<Self, CreationError> {
+    pub fn grow(&self, _delta: Pages) -> Option<Pages> {
         unimplemented!()
     }
 
-    fn grow(&self, _delta: Pages) -> Option<Pages> {
+    pub fn size(&self) -> Pages {
         unimplemented!()
     }
 
-    fn size(&self) -> Pages {
+    pub unsafe fn as_slice(&self) -> &[u8] {
         unimplemented!()
     }
 
-    fn vm_local_memory(&self) -> *mut vm::LocalMemory {
-        unimplemented!()
-    }
-
-    fn access(&self) -> Vec<u8> {
-        unimplemented!()
-    }
-
-    fn access_mut(&self) -> Vec<u8> {
+    pub unsafe fn as_slice_mut(&self) -> &mut [u8] {
         unimplemented!()
     }
 }

@@ -1,6 +1,6 @@
 pub use crate::backing::{ImportBacking, LocalBacking};
 use crate::{
-    memory::{Memory, SharedPolicy},
+    memory::Memory,
     module::ModuleInner,
     structures::TypedIndex,
     types::{LocalOrImport, MemoryIndex},
@@ -114,22 +114,17 @@ impl Ctx {
     ///     first_memory.access()[0]
     /// }
     /// ```
-    pub fn memory<'a, S>(&'a self, mem_index: u32) -> &'a Memory<S>
-    where
-        S: SharedPolicy,
-    {
+    pub fn memory(&self, mem_index: u32) -> &Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
             LocalOrImport::Local(local_mem_index) => unsafe {
                 let local_backing = &*self.local_backing;
-                let mem_variant = &local_backing.memories[local_mem_index];
-                S::transform_variant(mem_variant)
+                &local_backing.memories[local_mem_index]
             },
             LocalOrImport::Import(import_mem_index) => unsafe {
                 let import_backing = &*self.import_backing;
-                let mem_variant = &import_backing.memories[import_mem_index];
-                S::transform_variant(mem_variant)
+                &import_backing.memories[import_mem_index]
             },
         }
     }

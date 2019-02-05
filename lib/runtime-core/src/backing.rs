@@ -3,7 +3,7 @@ use crate::{
     export::{Context, Export},
     global::Global,
     import::ImportObject,
-    memory::{Memory, MemoryVariant},
+    memory::Memory,
     module::{ImportName, ModuleInner},
     structures::{BoxedMap, Map, SliceMap, TypedIndex},
     table::Table,
@@ -17,7 +17,7 @@ use std::slice;
 
 #[derive(Debug)]
 pub struct LocalBacking {
-    pub(crate) memories: BoxedMap<LocalMemoryIndex, MemoryVariant>,
+    pub(crate) memories: BoxedMap<LocalMemoryIndex, Memory>,
     pub(crate) tables: BoxedMap<LocalTableIndex, Table>,
     pub(crate) globals: BoxedMap<LocalGlobalIndex, Global>,
 
@@ -57,26 +57,11 @@ impl LocalBacking {
         }
     }
 
-    fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, MemoryVariant> {
+    fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, Memory> {
         let mut memories = Map::with_capacity(module.memories.len());
 
         for (_, &desc) in &module.memories {
-            // If we use emscripten, we set a fixed initial and maximum
-            // let memory = if options.abi == InstanceABI::Emscripten {
-            //     // We use MAX_PAGES, so at the end the result is:
-            //     // (initial * Memory::PAGE_SIZE) == Memory::DEFAULT_HEAP_SIZE
-            //     // However, it should be: (initial * Memory::PAGE_SIZE) == 16777216
-            //     Memory::new(Memory::MAX_PAGES, None)
-            // } else {
-            //     Memory::new(memory.minimum, memory.maximum.map(|m| m as u32))
-            // };
-            let memory_variant = if desc.shared {
-                MemoryVariant::Shared(Memory::new(desc).expect("unable to create memory"))
-            } else {
-                MemoryVariant::Unshared(Memory::new(desc).expect("unable to create memory"))
-            };
-
-            memories.push(memory_variant);
+            memories.push(Memory::new(desc).expect("unable to create memory"));
         }
 
         memories.into_boxed_map()
@@ -85,7 +70,7 @@ impl LocalBacking {
     fn finalize_memories(
         module: &ModuleInner,
         imports: &ImportBacking,
-        memories: &mut SliceMap<LocalMemoryIndex, MemoryVariant>,
+        memories: &mut SliceMap<LocalMemoryIndex, Memory>,
     ) -> BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory> {
         // For each init that has some data...
         for init in module
@@ -112,13 +97,13 @@ impl LocalBacking {
                     assert!(memory_desc.minimum.bytes().0 >= data_top);
 
                     let mem = &memories[local_memory_index];
-                    match mem {
-                        MemoryVariant::Unshared(unshared_mem) => unshared_mem.access_mut()
-                            [init_base..init_base + init.data.len()]
-                            .copy_from_slice(&init.data),
-                        MemoryVariant::Shared(shared_mem) => shared_mem.access_mut()
-                            [init_base..init_base + init.data.len()]
-                            .copy_from_slice(&init.data),
+                    for (mem_byte, data_byte) in mem
+                        .view(init_base..init_base + init.data.len())
+                        .unwrap()
+                        .iter()
+                        .zip(init.data.iter())
+                    {
+                        mem_byte.set(*data_byte);
                     }
                 }
                 LocalOrImport::Import(imported_memory_index) => {
@@ -139,10 +124,7 @@ impl LocalBacking {
 
         memories
             .iter_mut()
-            .map(|(_, mem)| match mem {
-                MemoryVariant::Unshared(unshared_mem) => unshared_mem.vm_local_memory(),
-                MemoryVariant::Shared(shared_mem) => shared_mem.vm_local_memory(),
-            })
+            .map(|(_, mem)| mem.vm_local_memory())
             .collect::<Map<_, _>>()
             .into_boxed_map()
     }
@@ -298,7 +280,7 @@ impl LocalBacking {
 
 #[derive(Debug)]
 pub struct ImportBacking {
-    pub(crate) memories: BoxedMap<ImportedMemoryIndex, MemoryVariant>,
+    pub(crate) memories: BoxedMap<ImportedMemoryIndex, Memory>,
     pub(crate) tables: BoxedMap<ImportedTableIndex, Table>,
     pub(crate) globals: BoxedMap<ImportedGlobalIndex, Global>,
 
@@ -433,7 +415,7 @@ fn import_memories(
     module: &ModuleInner,
     imports: &ImportObject,
 ) -> LinkResult<(
-    BoxedMap<ImportedMemoryIndex, MemoryVariant>,
+    BoxedMap<ImportedMemoryIndex, Memory>,
     BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
 )> {
     let mut link_errors = vec![];
@@ -446,23 +428,16 @@ fn import_memories(
             .get_namespace(&namespace)
             .and_then(|namespace| namespace.get_export(&name));
         match memory_import {
-            Some(Export::Memory(mut memory)) => {
-                let (descriptor, vm_local_memory) = match &mut memory {
-                    MemoryVariant::Unshared(unshared_mem) => {
-                        (unshared_mem.descriptor(), unshared_mem.vm_local_memory())
-                    }
-                    MemoryVariant::Shared(_) => unimplemented!(),
-                };
-
-                if expected_memory_desc.fits_in_imported(descriptor) {
+            Some(Export::Memory(memory)) => {
+                if expected_memory_desc.fits_in_imported(memory.descriptor()) {
                     memories.push(memory.clone());
-                    vm_memories.push(vm_local_memory);
+                    vm_memories.push(memory.vm_local_memory());
                 } else {
                     link_errors.push(LinkError::IncorrectMemoryDescriptor {
                         namespace: namespace.clone(),
                         name: name.clone(),
                         expected: *expected_memory_desc,
-                        found: descriptor,
+                        found: memory.descriptor(),
                     });
                 }
             }

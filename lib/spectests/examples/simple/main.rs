@@ -16,7 +16,7 @@ fn main() -> Result<()> {
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
     let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
 
-    let memory: Memory = Memory::new(MemoryDescriptor {
+    let memory = Memory::new(MemoryDescriptor {
         minimum: Pages(1),
         maximum: Some(Pages(1)),
         shared: false,

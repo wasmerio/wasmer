@@ -89,10 +89,13 @@ pub use wasmer_runtime_core::error;
 pub use wasmer_runtime_core::Func;
 pub use wasmer_runtime_core::{func, imports};
 
+pub mod memory {
+    pub use wasmer_runtime_core::memory::{Atomic, Atomically, Memory, MemoryView};
+}
+
 pub mod wasm {
     //! Various types exposed by the Wasmer Runtime.
     pub use wasmer_runtime_core::global::Global;
-    pub use wasmer_runtime_core::memory::Memory;
     pub use wasmer_runtime_core::table::Table;
     pub use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, TableDescriptor, Type, Value};
 }

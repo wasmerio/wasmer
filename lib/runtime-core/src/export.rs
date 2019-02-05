@@ -1,5 +1,5 @@
 use crate::{
-    global::Global, instance::InstanceInner, memory::MemoryVariant, module::ExportIndex,
+    global::Global, instance::InstanceInner, memory::Memory, module::ExportIndex,
     module::ModuleInner, table::Table, types::FuncSig, vm,
 };
 use hashbrown::hash_map;
@@ -18,7 +18,7 @@ pub enum Export {
         ctx: Context,
         signature: Arc<FuncSig>,
     },
-    Memory(MemoryVariant),
+    Memory(Memory),
     Table(Table),
     Global(Global),
 }

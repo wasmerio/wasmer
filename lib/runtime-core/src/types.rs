@@ -90,11 +90,28 @@ unsafe impl WasmExternType for f64 {
     const TYPE: Type = Type::F64;
 }
 
+// pub trait IntegerAtomic
+// where
+//     Self: Sized
+// {
+//     type Primitive;
+
+//     fn add(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn sub(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn and(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn or(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn xor(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn load(&self) -> Self::Primitive;
+//     fn store(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn compare_exchange(&self, expected: Self::Primitive, new: Self::Primitive) -> Self::Primitive;
+//     fn swap(&self, other: Self::Primitive) -> Self::Primitive;
+// }
+
 pub enum ValueError {
     BufferTooSmall,
 }
 
-pub trait ValueType: Copy + Clone
+pub trait ValueType: Copy
 where
     Self: Sized,
 {
@@ -127,24 +144,6 @@ macro_rules! convert_value_impl {
 }
 
 convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64);
-
-impl ValueType for f32 {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.to_bits().into_le(buffer);
-    }
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        Ok(f32::from_bits(<u32 as ValueType>::from_le(buffer)?))
-    }
-}
-
-impl ValueType for f64 {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.to_bits().into_le(buffer);
-    }
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        Ok(f64::from_bits(<u64 as ValueType>::from_le(buffer)?))
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {

@@ -5,7 +5,7 @@ use crate::{
     export::{Context, Export, ExportIter, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
-    memory::MemoryVariant,
+    memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
     table::Table,
     typed_func::{Func, Safe, WasmTypeList},
@@ -372,7 +372,7 @@ impl InstanceInner {
         (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
 
-    fn get_memory_from_index(&self, module: &ModuleInner, mem_index: MemoryIndex) -> MemoryVariant {
+    fn get_memory_from_index(&self, module: &ModuleInner, mem_index: MemoryIndex) -> Memory {
         match mem_index.local_or_import(module) {
             LocalOrImport::Local(local_mem_index) => self.backing.memories[local_mem_index].clone(),
             LocalOrImport::Import(imported_mem_index) => {
