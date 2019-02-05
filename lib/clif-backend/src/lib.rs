@@ -1,4 +1,3 @@
-// pub mod codegen;
 mod call;
 mod func_env;
 mod libcalls;
@@ -6,6 +5,7 @@ mod module;
 mod module_env;
 mod relocation;
 mod resolver;
+mod trampoline;
 
 use cranelift_codegen::{
     isa,
@@ -71,3 +71,6 @@ fn validate(bytes: &[u8]) -> CompileResult<()> {
         }
     }
 }
+
+/// The current version of this crate
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

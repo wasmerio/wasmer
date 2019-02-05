@@ -4,8 +4,11 @@ use winapi::um::memoryapi::{
     PAGE_NOACCESS, PAGE_EXECUTE_READ, PAGE_READWRITE, PAGE_READONLY,
 };
 use page_size;
-use std::ops::Range;
+use std::ops::{Bound, RangeBounds};
 use std::{ptr, slice};
+
+unsafe impl Send for Memory {}
+unsafe impl Sync for Memory {}
 
 #[derive(Debug)]
 pub struct Memory {
@@ -43,13 +46,26 @@ impl Memory {
         }
     }
 
-    pub unsafe fn protect(&mut self, range: Range<usize>, protect: Protect) -> Result<(), String> {
+    pub unsafe fn protect(&mut self, range: impl RangeBounds<usize>, protect: Protect) -> Result<(), String> {
         let protect = protect.to_protect_const();
+
+        let range_start = match range.start_bound() {
+            Bound::Included(start) => *start,
+            Bound::Excluded(start) => *start,
+            Bound::Unbounded => 0,
+        };
+
+        let range_end = match range.end_bound() {
+            Bound::Included(end) => *end,
+            Bound::Excluded(end) => *end,
+            Bound::Unbounded => self.size(),
+        };
+
         let page_size = page_size::get();
         let start = self
             .ptr
-            .add(round_down_to_page_size(range.start, page_size));
-        let size = round_up_to_page_size(range.end - range.start, page_size);
+            .add(round_down_to_page_size(range_start, page_size));
+        let size = round_up_to_page_size(range_end - range_start, page_size);
         assert!(size <= self.size);
 
         // Commit the virtual memory.

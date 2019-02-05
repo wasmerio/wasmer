@@ -1,17 +1,17 @@
 use libc::c_int;
-use wasmer_runtime_core::Instance;
+use wasmer_runtime_core::vm::Ctx;
 
 // NOTE: Not implemented by Emscripten
-pub extern "C" fn ___lock(which: c_int, varargs: c_int, _instance: &mut Instance) {
-    debug!("emscripten::___lock {}, {}", which, varargs);
+pub fn ___lock(what: c_int, _ctx: &mut Ctx) {
+    debug!("emscripten::___lock {}", what);
 }
 
 // NOTE: Not implemented by Emscripten
-pub extern "C" fn ___unlock(which: c_int, varargs: c_int, _instance: &mut Instance) {
-    debug!("emscripten::___unlock {}, {}", which, varargs);
+pub fn ___unlock(what: c_int, _ctx: &mut Ctx) {
+    debug!("emscripten::___unlock {}", what);
 }
 
 // NOTE: Not implemented by Emscripten
-pub extern "C" fn ___wait(_which: c_int, _varargs: c_int, _instance: &mut Instance) {
+pub fn ___wait(_which: u32, _varargs: u32, _three: u32, _four: u32, _ctx: &mut Ctx) {
     debug!("emscripten::___wait");
 }

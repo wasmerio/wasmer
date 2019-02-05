@@ -1,15 +1,11 @@
-pub mod utils;
-
+use std::panic;
 use wasmer_runtime::{
     self as runtime,
     error::{CallResult, Result},
-    import::ImportObject,
-    instance::Instance,
-    module::Module,
+    ImportObject, Instance, Module,
 };
 
-use std::panic;
-use wasmer_emscripten::is_emscripten_module;
+use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -45,7 +41,7 @@ pub fn instantiate(buffer_source: &[u8], import_object: ImportObject) -> Result<
     let module = compile(&buffer_source[..])?;
 
     debug!("webassembly - instantiating");
-    let instance = module.instantiate(import_object)?;
+    let instance = module.instantiate(&import_object)?;
 
     debug!("webassembly - instance created");
     Ok(ResultObject {
@@ -84,18 +80,14 @@ pub fn compile(buffer_source: &[u8]) -> Result<Module> {
 pub fn run_instance(
     module: &Module,
     instance: &mut Instance,
-    _path: &str,
-    _args: Vec<&str>,
+    path: &str,
+    args: Vec<&str>,
 ) -> CallResult<()> {
-    let main_name = if is_emscripten_module(module) {
-        "_main"
+    if is_emscripten_module(module) {
+        run_emscripten_instance(module, instance, path, args)?;
     } else {
-        "main"
+        instance.call("main", &[])?;
     };
-
-    // TODO handle args
-    instance.call(main_name, &[])?;
-    // TODO atinit and atexit for emscripten
 
     Ok(())
 }

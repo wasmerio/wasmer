@@ -1,37 +1,41 @@
 pub use crate::backing::{ImportBacking, LocalBacking};
 use crate::{
+    memory::Memory,
     module::ModuleInner,
     structures::TypedIndex,
-    types::{LocalMemoryIndex, LocalOrImport, MemoryIndex},
+    types::{LocalOrImport, MemoryIndex},
 };
-use std::{ffi::c_void, mem, ptr, slice};
+use std::{ffi::c_void, mem, ptr};
 
+/// The context of the currently running WebAssembly instance.
+///
+///
 #[derive(Debug)]
 #[repr(C)]
 pub struct Ctx {
     /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
-    pub(crate) memories: *mut LocalMemory,
+    pub(crate) memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
-    pub(crate) tables: *mut LocalTable,
+    pub(crate) tables: *mut *mut LocalTable,
 
     /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
-    pub(crate) globals: *mut LocalGlobal,
+    pub(crate) globals: *mut *mut LocalGlobal,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-    pub(crate) imported_memories: *mut ImportedMemory,
+    pub(crate) imported_memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    pub(crate) imported_tables: *mut ImportedTable,
+    pub(crate) imported_tables: *mut *mut LocalTable,
 
     /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-    pub(crate) imported_globals: *mut ImportedGlobal,
+    pub(crate) imported_globals: *mut *mut LocalGlobal,
 
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub(crate) imported_funcs: *mut ImportedFunc,
 
-    pub(crate) local_backing: *mut LocalBacking,
-    pub(crate) import_backing: *mut ImportBacking,
+    local_backing: *mut LocalBacking,
+    import_backing: *mut ImportBacking,
     module: *const ModuleInner,
 
     pub data: *mut c_void,
@@ -39,6 +43,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
+    #[doc(hidden)]
     pub unsafe fn new(
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
@@ -49,10 +54,10 @@ impl Ctx {
             tables: local_backing.vm_tables.as_mut_ptr(),
             globals: local_backing.vm_globals.as_mut_ptr(),
 
-            imported_memories: import_backing.memories.as_mut_ptr(),
-            imported_tables: import_backing.tables.as_mut_ptr(),
-            imported_globals: import_backing.globals.as_mut_ptr(),
-            imported_funcs: import_backing.functions.as_mut_ptr(),
+            imported_memories: import_backing.vm_memories.as_mut_ptr(),
+            imported_tables: import_backing.vm_tables.as_mut_ptr(),
+            imported_globals: import_backing.vm_globals.as_mut_ptr(),
+            imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
             local_backing,
             import_backing,
@@ -63,6 +68,7 @@ impl Ctx {
         }
     }
 
+    #[doc(hidden)]
     pub unsafe fn new_with_data(
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
@@ -75,10 +81,10 @@ impl Ctx {
             tables: local_backing.vm_tables.as_mut_ptr(),
             globals: local_backing.vm_globals.as_mut_ptr(),
 
-            imported_memories: import_backing.memories.as_mut_ptr(),
-            imported_tables: import_backing.tables.as_mut_ptr(),
-            imported_globals: import_backing.globals.as_mut_ptr(),
-            imported_funcs: import_backing.functions.as_mut_ptr(),
+            imported_memories: import_backing.vm_memories.as_mut_ptr(),
+            imported_tables: import_backing.vm_tables.as_mut_ptr(),
+            imported_globals: import_backing.vm_globals.as_mut_ptr(),
+            imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
             local_backing,
             import_backing,
@@ -89,27 +95,41 @@ impl Ctx {
         }
     }
 
-    pub fn memory<'a>(&'a mut self, mem_index: u32) -> &'a mut [u8] {
+    /// This exposes the specified memory of the WebAssembly instance
+    /// as a immutable slice.
+    ///
+    /// WebAssembly will soon support multiple linear memories, so this
+    /// forces the user to specify.
+    ///
+    /// # Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{
+    /// #     vm::Ctx,
+    /// # };
+    /// fn read_memory(ctx: &Ctx) -> u8 {
+    ///     let first_memory = ctx.memory(0);
+    ///     // Read the first byte of that linear memory.
+    ///     first_memory.view()[0].get()
+    /// }
+    /// ```
+    pub fn memory(&self, mem_index: u32) -> &Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
-            LocalOrImport::Local(local_mem_index) => {
-                let local_backing = unsafe { &mut *self.local_backing };
-                &mut local_backing.memories[local_mem_index][..]
-            }
-            LocalOrImport::Import(import_mem_index) => {
-                let import_backing = unsafe { &mut *self.import_backing };
-                let vm_memory_import = import_backing.memories[import_mem_index].clone();
-                unsafe {
-                    let memory = &*vm_memory_import.memory;
-
-                    slice::from_raw_parts_mut(memory.base, memory.size)
-                }
-            }
+            LocalOrImport::Local(local_mem_index) => unsafe {
+                let local_backing = &*self.local_backing;
+                &local_backing.memories[local_mem_index]
+            },
+            LocalOrImport::Import(import_mem_index) => unsafe {
+                let import_backing = &*self.import_backing;
+                &import_backing.memories[import_mem_index]
+            },
         }
     }
 }
 
+#[doc(hidden)]
 impl Ctx {
     #[allow(clippy::erasing_op)] // TODO
     pub fn offset_memories() -> u8 {
@@ -145,10 +165,11 @@ impl Ctx {
     }
 }
 
+enum InnerFunc {}
 /// Used to provide type safety (ish) for passing around function pointers.
 /// The typesystem ensures this cannot be dereferenced since an
 /// empty enum cannot actually exist.
-pub enum Func {}
+pub struct Func(InnerFunc);
 
 /// An imported function, which contains the vmctx that owns this function.
 #[derive(Debug, Clone)]
@@ -174,15 +195,15 @@ impl ImportedFunc {
 }
 
 /// Definition of a table used by the VM. (obviously)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalTable {
     /// pointer to the elements in the table.
     pub base: *mut u8,
     /// Number of elements in the table (NOT necessarily the size of the table in bytes!).
-    pub current_elements: usize,
-    /// The number of elements that can fit into the memory allocated for this table.
-    pub capacity: usize,
+    pub count: usize,
+    /// The table that this represents. At the moment, this can only be `*mut AnyfuncTable`.
+    pub table: *mut (),
 }
 
 impl LocalTable {
@@ -191,31 +212,7 @@ impl LocalTable {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_current_elements() -> u8 {
-        1 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn size() -> u8 {
-        mem::size_of::<Self>() as u8
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(C)]
-pub struct ImportedTable {
-    /// A pointer to the table definition.
-    pub table: *mut LocalTable,
-    /// A pointer to the vmcontext that owns this table definition.
-    pub vmctx: *mut Ctx,
-}
-
-impl ImportedTable {
-    #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_table() -> u8 {
-        0 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn offset_vmctx() -> u8 {
+    pub fn offset_count() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -225,15 +222,17 @@ impl ImportedTable {
 }
 
 /// Definition of a memory used by the VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalMemory {
     /// Pointer to the bottom of this linear memory.
     pub base: *mut u8,
     /// Current size of this linear memory in bytes.
-    pub size: usize,
-    /// The local memory index.
-    pub index: LocalMemoryIndex,
+    pub bound: usize,
+    /// The actual memory that this represents.
+    /// This is either `*mut DynamicMemory`, `*mut StaticMemory`,
+    /// or `*mut SharedStaticMemory`.
+    pub memory: *mut (),
 }
 
 impl LocalMemory {
@@ -242,30 +241,7 @@ impl LocalMemory {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_size() -> u8 {
-        1 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn size() -> u8 {
-        mem::size_of::<Self>() as u8
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(C)]
-pub struct ImportedMemory {
-    /// A pointer to the memory definition.
-    pub memory: *mut LocalMemory,
-    pub vmctx: *mut Ctx,
-}
-
-impl ImportedMemory {
-    #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_memory() -> u8 {
-        0 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn offset_vmctx() -> u8 {
+    pub fn offset_bound() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -275,7 +251,7 @@ impl ImportedMemory {
 }
 
 /// Definition of a global used by the VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalGlobal {
     pub data: u64,
@@ -296,42 +272,24 @@ impl LocalGlobal {
     }
 }
 
-#[derive(Debug, Clone)]
-#[repr(C)]
-pub struct ImportedGlobal {
-    pub global: *mut LocalGlobal,
-}
-
-impl ImportedGlobal {
-    #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_global() -> u8 {
-        0 * (mem::size_of::<usize>() as u8)
-    }
-
-    pub fn size() -> u8 {
-        mem::size_of::<Self>() as u8
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
 pub struct SigId(pub u32);
 
 /// Caller-checked anyfunc
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Anyfunc {
-    pub func_data: ImportedFunc,
+    pub func: *const Func,
+    pub ctx: *mut Ctx,
     pub sig_id: SigId,
 }
 
 impl Anyfunc {
     pub fn null() -> Self {
         Self {
-            func_data: ImportedFunc {
-                func: ptr::null(),
-                vmctx: ptr::null_mut(),
-            },
+            func: ptr::null(),
+            ctx: ptr::null_mut(),
             sig_id: SigId(u32::max_value()),
         }
     }
@@ -356,10 +314,7 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{
-        Anyfunc, Ctx, ImportedFunc, ImportedGlobal, ImportedMemory, ImportedTable, LocalGlobal,
-        LocalMemory, LocalTable,
-    };
+    use super::{Anyfunc, Ctx, ImportedFunc, LocalGlobal, LocalMemory, LocalTable};
 
     #[test]
     fn vmctx() {
@@ -420,21 +375,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            LocalTable::offset_current_elements() as usize,
-            offset_of!(LocalTable => current_elements).get_byte_offset(),
-        );
-    }
-
-    #[test]
-    fn imported_table() {
-        assert_eq!(
-            ImportedTable::offset_table() as usize,
-            offset_of!(ImportedTable => table).get_byte_offset(),
-        );
-
-        assert_eq!(
-            ImportedTable::offset_vmctx() as usize,
-            offset_of!(ImportedTable => vmctx).get_byte_offset(),
+            LocalTable::offset_count() as usize,
+            offset_of!(LocalTable => count).get_byte_offset(),
         );
     }
 
@@ -446,21 +388,8 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            LocalMemory::offset_size() as usize,
-            offset_of!(LocalMemory => size).get_byte_offset(),
-        );
-    }
-
-    #[test]
-    fn imported_memory() {
-        assert_eq!(
-            ImportedMemory::offset_memory() as usize,
-            offset_of!(ImportedMemory => memory).get_byte_offset(),
-        );
-
-        assert_eq!(
-            ImportedMemory::offset_vmctx() as usize,
-            offset_of!(ImportedMemory => vmctx).get_byte_offset(),
+            LocalMemory::offset_bound() as usize,
+            offset_of!(LocalMemory => bound).get_byte_offset(),
         );
     }
 
@@ -473,23 +402,15 @@ mod vm_offset_tests {
     }
 
     #[test]
-    fn imported_global() {
-        assert_eq!(
-            ImportedGlobal::offset_global() as usize,
-            offset_of!(ImportedGlobal => global).get_byte_offset(),
-        );
-    }
-
-    #[test]
     fn cc_anyfunc() {
         assert_eq!(
             Anyfunc::offset_func() as usize,
-            offset_of!(Anyfunc => func_data: ImportedFunc => func).get_byte_offset(),
+            offset_of!(Anyfunc => func).get_byte_offset(),
         );
 
         assert_eq!(
             Anyfunc::offset_vmctx() as usize,
-            offset_of!(Anyfunc => func_data: ImportedFunc => vmctx).get_byte_offset(),
+            offset_of!(Anyfunc => ctx).get_byte_offset(),
         );
 
         assert_eq!(
@@ -531,15 +452,21 @@ mod vm_ctx_tests {
         let mut local_backing = LocalBacking {
             memories: Map::new().into_boxed_map(),
             tables: Map::new().into_boxed_map(),
+            globals: Map::new().into_boxed_map(),
+
             vm_memories: Map::new().into_boxed_map(),
             vm_tables: Map::new().into_boxed_map(),
             vm_globals: Map::new().into_boxed_map(),
         };
         let mut import_backing = ImportBacking {
-            functions: Map::new().into_boxed_map(),
             memories: Map::new().into_boxed_map(),
             tables: Map::new().into_boxed_map(),
             globals: Map::new().into_boxed_map(),
+
+            vm_functions: Map::new().into_boxed_map(),
+            vm_memories: Map::new().into_boxed_map(),
+            vm_tables: Map::new().into_boxed_map(),
+            vm_globals: Map::new().into_boxed_map(),
         };
         let module = generate_module();
         let data = &mut data as *mut _ as *mut c_void;
@@ -587,12 +514,11 @@ mod vm_ctx_tests {
                 _module: &ModuleInner,
                 _func_index: FuncIndex,
                 _params: &[Value],
-                _returns: &mut [Value],
                 _import_backing: &ImportBacking,
                 _vmctx: *mut Ctx,
                 _: Token,
-            ) -> RuntimeResult<()> {
-                Ok(())
+            ) -> RuntimeResult<Vec<Value>> {
+                Ok(vec![])
             }
         }
 
@@ -617,7 +543,7 @@ mod vm_ctx_tests {
             start_func: None,
 
             func_assoc: Map::new(),
-            sig_registry: SigRegistry::new(),
+            sig_registry: SigRegistry,
         }
     }
 }

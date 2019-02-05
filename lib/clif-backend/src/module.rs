@@ -1,4 +1,4 @@
-use crate::{call::Caller, resolver::FuncResolverBuilder};
+use crate::{call::Caller, resolver::FuncResolverBuilder, trampoline::Trampolines};
 use cranelift_codegen::{ir, isa};
 use cranelift_entity::EntityRef;
 use cranelift_wasm;
@@ -38,12 +38,11 @@ impl ProtectedCaller for Placeholder {
         _module: &ModuleInner,
         _func_index: FuncIndex,
         _params: &[Value],
-        _returns: &mut [Value],
         _import_backing: &ImportBacking,
         _vmctx: *mut vm::Ctx,
         _: Token,
-    ) -> RuntimeResult<()> {
-        Ok(())
+    ) -> RuntimeResult<Vec<Value>> {
+        Ok(vec![])
     }
 }
 
@@ -77,7 +76,7 @@ impl Module {
                 start_func: None,
 
                 func_assoc: Map::new(),
-                sig_registry: SigRegistry::new(),
+                sig_registry: SigRegistry,
             },
         }
     }
@@ -87,17 +86,16 @@ impl Module {
         isa: &isa::TargetIsa,
         functions: Map<LocalFuncIndex, ir::Function>,
     ) -> CompileResult<ModuleInner> {
-        // we have to deduplicate `module.func_assoc`
-        let func_assoc = &mut self.module.func_assoc;
-        let sig_registry = &self.module.sig_registry;
-        func_assoc.iter_mut().for_each(|(_, sig_index)| {
-            *sig_index = sig_registry.lookup_deduplicated_sigindex(*sig_index);
-        });
+        let imported_functions_len = self.module.imported_functions.len();
+        let (func_resolver_builder, handler_data) =
+            FuncResolverBuilder::new(isa, functions, imported_functions_len)?;
 
-        let (func_resolver_builder, handler_data) = FuncResolverBuilder::new(isa, functions)?;
         self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
 
-        self.module.protected_caller = Box::new(Caller::new(&self.module, handler_data));
+        let trampolines = Trampolines::new(isa, &self.module);
+
+        self.module.protected_caller =
+            Box::new(Caller::new(&self.module, handler_data, trampolines));
 
         Ok(self.module)
     }
@@ -150,20 +148,20 @@ convert_clif_to_runtime_index![
 
 impl<'a> From<Converter<&'a ir::Signature>> for FuncSig {
     fn from(signature: Converter<&'a ir::Signature>) -> Self {
-        FuncSig {
-            params: signature
+        FuncSig::new(
+            signature
                 .0
                 .params
                 .iter()
                 .map(|param| Converter(param.value_type).into())
-                .collect(),
-            returns: signature
+                .collect::<Vec<_>>(),
+            signature
                 .0
                 .returns
                 .iter()
                 .map(|ret| Converter(ret.value_type).into())
-                .collect(),
-        }
+                .collect::<Vec<_>>(),
+        )
     }
 }
 

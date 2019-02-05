@@ -1,28 +1,29 @@
 mod recovery;
 mod sighandler;
 
-pub use self::recovery::HandlerData;
+pub use self::recovery::{call_protected, HandlerData};
 
-use crate::call::recovery::call_protected;
+use crate::trampoline::Trampolines;
+
 use hashbrown::HashSet;
-use libffi::high::{arg as libffi_arg, call as libffi_call, CodePtr};
-use std::iter;
+use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{ProtectedCaller, Token},
     error::RuntimeResult,
     export::Context,
     module::{ExportIndex, ModuleInner},
-    types::{FuncIndex, FuncSig, LocalOrImport, Type, Value},
+    types::{FuncIndex, FuncSig, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
 };
 
 pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
     handler_data: HandlerData,
+    trampolines: Trampolines,
 }
 
 impl Caller {
-    pub fn new(module: &ModuleInner, handler_data: HandlerData) -> Self {
+    pub fn new(module: &ModuleInner, handler_data: HandlerData, trampolines: Trampolines) -> Self {
         let mut func_export_set = HashSet::new();
         for export_index in module.exports.values() {
             if let ExportIndex::Func(func_index) = export_index {
@@ -36,6 +37,7 @@ impl Caller {
         Self {
             func_export_set,
             handler_data,
+            trampolines,
         }
     }
 }
@@ -46,12 +48,12 @@ impl ProtectedCaller for Caller {
         module: &ModuleInner,
         func_index: FuncIndex,
         params: &[Value],
-        returns: &mut [Value],
         import_backing: &ImportBacking,
         vmctx: *mut vm::Ctx,
         _: Token,
-    ) -> RuntimeResult<()> {
-        let (func_ptr, ctx, signature) = get_func_from_index(&module, import_backing, func_index);
+    ) -> RuntimeResult<Vec<Value>> {
+        let (func_ptr, ctx, signature, sig_index) =
+            get_func_from_index(&module, import_backing, func_index);
 
         let vmctx_ptr = match ctx {
             Context::External(external_vmctx) => external_vmctx,
@@ -61,53 +63,60 @@ impl ProtectedCaller for Caller {
         assert!(self.func_export_set.contains(&func_index));
 
         assert!(
-            returns.len() == signature.returns.len() && signature.returns.len() <= 1,
+            signature.returns().len() <= 1,
             "multi-value returns not yet supported"
         );
 
-        assert!(signature.check_sig(params), "incorrect signature");
+        assert!(
+            signature.check_param_value_types(params),
+            "incorrect signature"
+        );
 
-        let libffi_args: Vec<_> = params
+        let param_vec: Vec<u64> = params
             .iter()
             .map(|val| match val {
-                Value::I32(ref x) => libffi_arg(x),
-                Value::I64(ref x) => libffi_arg(x),
-                Value::F32(ref x) => libffi_arg(x),
-                Value::F64(ref x) => libffi_arg(x),
+                Value::I32(x) => *x as u64,
+                Value::I64(x) => *x as u64,
+                Value::F32(x) => x.to_bits() as u64,
+                Value::F64(x) => x.to_bits(),
             })
-            .chain(iter::once(libffi_arg(&vmctx_ptr)))
             .collect();
 
-        let code_ptr = CodePtr::from_ptr(func_ptr as _);
+        let mut return_vec = vec![0; signature.returns().len()];
 
-        call_protected(&self.handler_data, || {
-            // Only supports zero or one return values for now.
-            // To support multiple returns, we will have to
-            // generate trampolines instead of using libffi.
-            match signature.returns.first() {
-                Some(ty) => {
-                    let val = match ty {
-                        Type::I32 => Value::I32(unsafe { libffi_call(code_ptr, &libffi_args) }),
-                        Type::I64 => Value::I64(unsafe { libffi_call(code_ptr, &libffi_args) }),
-                        Type::F32 => Value::F32(unsafe { libffi_call(code_ptr, &libffi_args) }),
-                        Type::F64 => Value::F64(unsafe { libffi_call(code_ptr, &libffi_args) }),
-                    };
-                    returns[0] = val;
-                }
-                // call with no returns
-                None => unsafe {
-                    libffi_call::<()>(code_ptr, &libffi_args);
-                },
-            }
-        })
+        let trampoline = self
+            .trampolines
+            .lookup(sig_index)
+            .expect("that trampoline doesn't exist");
+
+        call_protected(&self.handler_data, || unsafe {
+            // Leap of faith.
+            trampoline(
+                vmctx_ptr,
+                func_ptr,
+                param_vec.as_ptr(),
+                return_vec.as_mut_ptr(),
+            );
+        })?;
+
+        Ok(return_vec
+            .iter()
+            .zip(signature.returns().iter())
+            .map(|(&x, ty)| match ty {
+                Type::I32 => Value::I32(x as i32),
+                Type::I64 => Value::I64(x as i64),
+                Type::F32 => Value::F32(f32::from_bits(x as u32)),
+                Type::F64 => Value::F64(f64::from_bits(x as u64)),
+            })
+            .collect())
     }
 }
 
-fn get_func_from_index<'a>(
-    module: &'a ModuleInner,
+fn get_func_from_index(
+    module: &ModuleInner,
     import_backing: &ImportBacking,
     func_index: FuncIndex,
-) -> (*const vm::Func, Context, &'a FuncSig) {
+) -> (*const vm::Func, Context, Arc<FuncSig>, SigIndex) {
     let sig_index = *module
         .func_assoc
         .get(func_index)
@@ -132,7 +141,7 @@ fn get_func_from_index<'a>(
         }
     };
 
-    let signature = module.sig_registry.lookup_func_sig(sig_index);
+    let signature = module.sig_registry.lookup_signature(sig_index);
 
-    (func_ptr, ctx, signature)
+    (func_ptr, ctx, signature, sig_index)
 }

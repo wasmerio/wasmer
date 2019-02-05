@@ -1,10 +1,14 @@
-use crate::types::{FuncSig, GlobalDesc, Memory, MemoryIndex, Table, TableIndex, Type};
+use crate::types::{
+    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
+};
+use std::sync::Arc;
 
-pub type Result<T> = std::result::Result<T, Box<Error>>;
-pub type CompileResult<T> = std::result::Result<T, Box<CompileError>>;
+pub type Result<T> = std::result::Result<T, Error>;
+pub type CompileResult<T> = std::result::Result<T, CompileError>;
 pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
-pub type RuntimeResult<T> = std::result::Result<T, Box<RuntimeError>>;
-pub type CallResult<T> = std::result::Result<T, Box<CallError>>;
+pub type RuntimeResult<T> = std::result::Result<T, RuntimeError>;
+pub type CallResult<T> = std::result::Result<T, CallError>;
+pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
 
 /// This is returned when the chosen compiler is unable to
 /// successfully compile the provided webassembly module into
@@ -38,30 +42,30 @@ pub enum LinkError {
     IncorrectImportSignature {
         namespace: String,
         name: String,
-        expected: FuncSig,
-        found: FuncSig,
+        expected: Arc<FuncSig>,
+        found: Arc<FuncSig>,
     },
     ImportNotFound {
         namespace: String,
         name: String,
     },
-    IncorrectMemoryDescription {
+    IncorrectMemoryDescriptor {
         namespace: String,
         name: String,
-        expected: Memory,
-        found: Memory,
+        expected: MemoryDescriptor,
+        found: MemoryDescriptor,
     },
-    IncorrectTableDescription {
+    IncorrectTableDescriptor {
         namespace: String,
         name: String,
-        expected: Table,
-        found: Table,
+        expected: TableDescriptor,
+        found: TableDescriptor,
     },
-    IncorrectGlobalDescription {
+    IncorrectGlobalDescriptor {
         namespace: String,
         name: String,
-        expected: GlobalDesc,
-        found: GlobalDesc,
+        expected: GlobalDescriptor,
+        found: GlobalDescriptor,
     },
 }
 
@@ -93,6 +97,30 @@ impl PartialEq for RuntimeError {
     }
 }
 
+/// This error type is produced by resolving a wasm function
+/// given its name.
+///
+/// Comparing two `ResolveError`s always evaluates to false.
+#[derive(Debug, Clone)]
+pub enum ResolveError {
+    Signature {
+        expected: Arc<FuncSig>,
+        found: Vec<Type>,
+    },
+    ExportNotFound {
+        name: String,
+    },
+    ExportWrongType {
+        name: String,
+    },
+}
+
+impl PartialEq for ResolveError {
+    fn eq(&self, _other: &ResolveError) -> bool {
+        false
+    }
+}
+
 /// This error type is produced by calling a wasm function
 /// exported from a module.
 ///
@@ -102,14 +130,26 @@ impl PartialEq for RuntimeError {
 /// Comparing two `CallError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum CallError {
-    Signature { expected: FuncSig, found: Vec<Type> },
-    NoSuchExport { name: String },
-    ExportNotFunc { name: String },
+    Resolve(ResolveError),
     Runtime(RuntimeError),
 }
 
 impl PartialEq for CallError {
     fn eq(&self, _other: &CallError) -> bool {
+        false
+    }
+}
+
+/// This error type is produced when creating something,
+/// like a `Memory` or a `Table`.
+#[derive(Debug, Clone)]
+pub enum CreationError {
+    UnableToCreateMemory,
+    UnableToCreateTable,
+}
+
+impl PartialEq for CreationError {
+    fn eq(&self, _other: &CreationError) -> bool {
         false
     }
 }
@@ -124,7 +164,9 @@ pub enum Error {
     CompileError(CompileError),
     LinkError(Vec<LinkError>),
     RuntimeError(RuntimeError),
+    ResolveError(ResolveError),
     CallError(CallError),
+    CreationError(CreationError),
 }
 
 impl PartialEq for Error {
@@ -133,32 +175,50 @@ impl PartialEq for Error {
     }
 }
 
-impl From<Box<CompileError>> for Box<Error> {
-    fn from(compile_err: Box<CompileError>) -> Self {
-        Box::new(Error::CompileError(*compile_err))
+impl From<CompileError> for Error {
+    fn from(compile_err: CompileError) -> Self {
+        Error::CompileError(compile_err)
     }
 }
 
-impl From<Vec<LinkError>> for Box<Error> {
-    fn from(link_err: Vec<LinkError>) -> Self {
-        Box::new(Error::LinkError(link_err))
+impl From<RuntimeError> for Error {
+    fn from(runtime_err: RuntimeError) -> Self {
+        Error::RuntimeError(runtime_err)
     }
 }
 
-impl From<Box<RuntimeError>> for Box<Error> {
-    fn from(runtime_err: Box<RuntimeError>) -> Self {
-        Box::new(Error::RuntimeError(*runtime_err))
+impl From<ResolveError> for Error {
+    fn from(resolve_err: ResolveError) -> Self {
+        Error::ResolveError(resolve_err)
     }
 }
 
-impl From<Box<CallError>> for Box<Error> {
-    fn from(call_err: Box<CallError>) -> Self {
-        Box::new(Error::CallError(*call_err))
+impl From<CallError> for Error {
+    fn from(call_err: CallError) -> Self {
+        Error::CallError(call_err)
     }
 }
 
-impl From<Box<RuntimeError>> for Box<CallError> {
-    fn from(runtime_err: Box<RuntimeError>) -> Self {
-        Box::new(CallError::Runtime(*runtime_err))
+impl From<CreationError> for Error {
+    fn from(creation_err: CreationError) -> Self {
+        Error::CreationError(creation_err)
+    }
+}
+
+impl From<Vec<LinkError>> for Error {
+    fn from(link_errs: Vec<LinkError>) -> Self {
+        Error::LinkError(link_errs)
+    }
+}
+
+impl From<RuntimeError> for CallError {
+    fn from(runtime_err: RuntimeError) -> Self {
+        CallError::Runtime(runtime_err)
+    }
+}
+
+impl From<ResolveError> for CallError {
+    fn from(resolve_err: ResolveError) -> Self {
+        CallError::Resolve(resolve_err)
     }
 }

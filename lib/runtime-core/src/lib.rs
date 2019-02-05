@@ -9,6 +9,7 @@ pub mod backend;
 mod backing;
 pub mod error;
 pub mod export;
+pub mod global;
 pub mod import;
 pub mod instance;
 pub mod memory;
@@ -17,7 +18,9 @@ mod sig_registry;
 pub mod structures;
 mod sys;
 pub mod table;
+mod typed_func;
 pub mod types;
+pub mod units;
 pub mod vm;
 #[doc(hidden)]
 pub mod vmcalls;
@@ -29,7 +32,9 @@ pub use self::error::Result;
 pub use self::instance::Instance;
 #[doc(inline)]
 pub use self::module::Module;
-use std::rc::Rc;
+#[doc(inline)]
+pub use self::typed_func::Func;
+use std::sync::Arc;
 
 pub mod prelude {
     pub use crate::import::{ImportObject, Namespace};
@@ -39,10 +44,15 @@ pub mod prelude {
         MemoryIndex, TableIndex, Type, Value,
     };
     pub use crate::vm;
-    pub use crate::{export_func, imports};
+    pub use crate::{func, imports};
 }
 
-/// Compile a webassembly module using the provided compiler.
+/// Compile a [`Module`] using the provided compiler from
+/// WebAssembly binary code. This function is useful if it
+/// is necessary to a compile a module before it can be instantiated
+/// and must be used if you wish to use a different backend from the default.
+///
+/// [`Module`]: struct.Module.html
 pub fn compile_with(
     wasm: &[u8],
     compiler: &dyn backend::Compiler,
@@ -50,12 +60,12 @@ pub fn compile_with(
     let token = backend::Token::generate();
     compiler
         .compile(wasm, token)
-        .map(|inner| module::Module::new(Rc::new(inner)))
+        .map(|inner| module::Module::new(Arc::new(inner)))
 }
 
-/// This function performs validation as defined by the
-/// WebAssembly specification and returns true if validation
-/// succeeded, false if validation failed.
+/// Perform validation as defined by the
+/// WebAssembly specification. Returns `true` if validation
+/// succeeded, `false` if validation failed.
 pub fn validate(wasm: &[u8]) -> bool {
     use wasmparser::WasmDecoder;
     let mut parser = wasmparser::ValidatingParser::new(wasm, None);
@@ -68,3 +78,6 @@ pub fn validate(wasm: &[u8]) -> bool {
         }
     }
 }
+
+/// The current version of this crate
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

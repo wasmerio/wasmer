@@ -1,7 +1,7 @@
 use crate::call::HandlerData;
 use crate::libcalls;
 use crate::relocation::{
-    LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall,
+    LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall, VmCallKind,
 };
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
@@ -14,7 +14,7 @@ use wasmer_runtime_core::{
         sys::{Memory, Protect},
     },
     error::{CompileError, CompileResult},
-    structures::Map,
+    structures::{Map, TypedIndex},
     types::LocalFuncIndex,
     vm, vmcalls,
 };
@@ -23,12 +23,14 @@ use wasmer_runtime_core::{
 pub struct FuncResolverBuilder {
     resolver: FuncResolver,
     relocations: Map<LocalFuncIndex, Vec<Relocation>>,
+    import_len: usize,
 }
 
 impl FuncResolverBuilder {
     pub fn new(
         isa: &isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
+        import_len: usize,
     ) -> CompileResult<(Self, HandlerData)> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
         let mut relocations = Map::with_capacity(function_bodies.len());
@@ -63,7 +65,7 @@ impl FuncResolverBuilder {
             .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         unsafe {
             memory
-                .protect(0..memory.size(), Protect::ReadWrite)
+                .protect(.., Protect::ReadWrite)
                 .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         }
 
@@ -100,6 +102,7 @@ impl FuncResolverBuilder {
             Self {
                 resolver: FuncResolver { map, memory },
                 relocations,
+                import_len,
             },
             handler_data,
         ))
@@ -113,6 +116,10 @@ impl FuncResolverBuilder {
                         // This will always be an internal function
                         // because imported functions are not
                         // called in this way.
+                        // Adjust from wasm-wide function index to index of locally-defined functions only.
+                        let local_func_index =
+                            LocalFuncIndex::new(local_func_index.index() - self.import_len);
+
                         self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
                     }
                     RelocationType::LibCall(libcall) => match libcall {
@@ -133,14 +140,38 @@ impl FuncResolverBuilder {
                         msg: format!("unexpected intrinsic: {}", name),
                     })?,
                     RelocationType::VmCall(vmcall) => match vmcall {
-                        VmCall::LocalStaticMemoryGrow => vmcalls::local_static_memory_grow as _,
-                        VmCall::LocalStaticMemorySize => vmcalls::local_static_memory_size as _,
-                        VmCall::ImportedStaticMemoryGrow => {
-                            vmcalls::imported_static_memory_grow as _
-                        }
-                        VmCall::ImportedStaticMemorySize => {
-                            vmcalls::imported_static_memory_size as _
-                        }
+                        VmCall::Local(kind) => match kind {
+                            VmCallKind::StaticMemoryGrow => vmcalls::local_static_memory_grow as _,
+                            VmCallKind::StaticMemorySize => vmcalls::local_static_memory_size as _,
+
+                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
+                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
+
+                            VmCallKind::DynamicMemoryGrow => {
+                                vmcalls::local_dynamic_memory_grow as _
+                            }
+                            VmCallKind::DynamicMemorySize => {
+                                vmcalls::local_dynamic_memory_size as _
+                            }
+                        },
+                        VmCall::Import(kind) => match kind {
+                            VmCallKind::StaticMemoryGrow => {
+                                vmcalls::imported_static_memory_grow as _
+                            }
+                            VmCallKind::StaticMemorySize => {
+                                vmcalls::imported_static_memory_size as _
+                            }
+
+                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
+                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
+
+                            VmCallKind::DynamicMemoryGrow => {
+                                vmcalls::imported_dynamic_memory_grow as _
+                            }
+                            VmCallKind::DynamicMemorySize => {
+                                vmcalls::imported_dynamic_memory_size as _
+                            }
+                        },
                     },
                 };
 
@@ -179,8 +210,8 @@ impl FuncResolverBuilder {
         unsafe {
             self.resolver
                 .memory
-                .protect(0..self.resolver.memory.size(), Protect::ReadExec)
-                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;;
+                .protect(.., Protect::ReadExec)
+                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         }
 
         Ok(self.resolver)

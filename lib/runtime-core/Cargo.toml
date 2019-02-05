@@ -1,15 +1,19 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.1.0"
+version = "0.1.2"
+description = "Wasmer runtime core library"
+license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
-build = "build/mod.rs"
 
 [dependencies]
 hashbrown = "0.1"
 nix = "0.12.0"
 page_size = "0.4.1"
 wasmparser = "0.23.0"
+parking_lot = "0.7.1"
+lazy_static = "1.2.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["memoryapi"] }
@@ -17,17 +21,10 @@ winapi = { version = "0.3", features = ["memoryapi"] }
 [target.'cfg(unix)'.dependencies]
 errno = "0.2.4"
 
-[build-dependencies]
-wabt = "0.7.2"
-
 [dev-dependencies]
-wasmer-clif-backend = { path = "../clif-backend" }
-wabt = "0.7.2"
+wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2" }
 field-offset = "0.1.1"
 
 [features]
-default = ["fast-tests"]
-
 debug = []
-# This feature will allow cargo test to compile much faster
-fast-tests = []
+
