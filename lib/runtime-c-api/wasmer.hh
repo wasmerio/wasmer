@@ -88,4 +88,6 @@ uint32_t wasmer_memory_length(wasmer_memory_t *memory);
 
 wasmer_memory_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
 
+bool wasmer_validate(uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
+
 } // extern "C"

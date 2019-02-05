@@ -12,4 +12,5 @@ _deps
 test-instantiate
 test-import-function
 test-memory
+test-validate
 rust-build
