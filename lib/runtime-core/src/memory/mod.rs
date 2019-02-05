@@ -132,8 +132,7 @@ impl Memory {
     pub fn view<T: ValueType>(&self) -> MemoryView<T> {
         let vm::LocalMemory {
             base,
-            bound: _,
-            memory: _,
+            ..
         } = unsafe { *self.vm_local_memory() };
 
         let length = self.size().bytes().0 / mem::size_of::<T>();
@@ -292,14 +291,6 @@ impl SharedMemory {
     }
 
     pub fn size(&self) -> Pages {
-        unimplemented!()
-    }
-
-    pub unsafe fn as_slice(&self) -> &[u8] {
-        unimplemented!()
-    }
-
-    pub unsafe fn as_slice_mut(&self) -> &mut [u8] {
         unimplemented!()
     }
 }
