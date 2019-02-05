@@ -130,10 +130,7 @@ impl Memory {
     /// # }
     /// ```
     pub fn view<T: ValueType>(&self) -> MemoryView<T> {
-        let vm::LocalMemory {
-            base,
-            ..
-        } = unsafe { *self.vm_local_memory() };
+        let vm::LocalMemory { base, .. } = unsafe { *self.vm_local_memory() };
 
         let length = self.size().bytes().0 / mem::size_of::<T>();
 
