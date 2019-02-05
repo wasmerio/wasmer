@@ -108,7 +108,7 @@ impl Global {
 }
 
 impl IsExport for Global {
-    fn to_export(&mut self) -> Export {
+    fn to_export(&self) -> Export {
         Export::Global(self.clone())
     }
 }

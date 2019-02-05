@@ -10,7 +10,7 @@
   ```
 - **abort** ✅ 🔥 &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-  fn abort(message: u32, instance: &mut Instance)
+  fn abort(message: u32, ctx: &mut Ctx)
   ```
 - **abort_on_cannot_grow_memory** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
@@ -28,11 +28,11 @@
 
 - **\_getenv** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-  fn _getenv(name: c_int, instance: &mut Instance)
+  fn _getenv(name: c_int, ctx: &mut Ctx)
   ```
 - **\_putenv** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-  fn _putenv(name: c_int, instance: &mut Instance)
+  fn _putenv(name: c_int, ctx: &mut Ctx)
   ```
 - **\_setenv** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
@@ -40,7 +40,7 @@
   ```
 - **\_unsetenv** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-  fn _unsetenv(name: c_int, instance: &mut Instance)
+  fn _unsetenv(name: c_int, ctx: &mut Ctx)
   ```
 
 ###### THREAD
@@ -70,7 +70,7 @@
 
 - **\_emscripten_memcpy_big** ✅ 🔥 &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-  fn _emscripten_memcpy_big(dest: u32, src: u32, len: u32, instance: &mut Instance) -> u32
+  fn _emscripten_memcpy_big(dest: u32, src: u32, len: u32, ctx: &mut Ctx) -> u32
   ```
 - **enlarge_memory** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
@@ -78,7 +78,7 @@
   ```
 - **get_total_memory** ✅ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-  fn get_total_memory(instance: &mut Instance) -> u32
+  fn get_total_memory(ctx: &mut Ctx) -> u32
   ```
 
 ###### TIMING
@@ -337,7 +337,7 @@
   ```
 - **open** (\_\_\_syscall5) ✅ ❗️ 🔥 &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-  fn open(path: u32, flags: c_int, mode: c_int, instance: &mut Instance) -> c_int
+  fn open(path: u32, flags: c_int, mode: c_int, ctx: &mut Ctx) -> c_int
   ```
 - **openat** (\_\_\_syscall295) &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
@@ -385,7 +385,7 @@
   ```
 - **read** (\_\_\_syscall3) ✅ ❗️ &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust
-  fn read(fd: c_int, buf: u32, count: size_t, instance: &mut Instance) -> ssize_t
+  fn read(fd: c_int, buf: u32, count: size_t, ctx: &mut Ctx) -> ssize_t
   ```
 - **readlink** (\_\_\_syscall85) &nbsp;&nbsp;&nbsp;&nbsp;[:top:](#host-apis)
   ```rust

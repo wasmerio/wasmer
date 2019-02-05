@@ -67,11 +67,53 @@ impl From<f64> for Value {
     }
 }
 
+pub unsafe trait WasmExternType: Copy + Clone
+where
+    Self: Sized,
+{
+    const TYPE: Type;
+}
+unsafe impl WasmExternType for i32 {
+    const TYPE: Type = Type::I32;
+}
+unsafe impl WasmExternType for u32 {
+    const TYPE: Type = Type::I32;
+}
+unsafe impl WasmExternType for i64 {
+    const TYPE: Type = Type::I64;
+}
+unsafe impl WasmExternType for u64 {
+    const TYPE: Type = Type::I64;
+}
+unsafe impl WasmExternType for f32 {
+    const TYPE: Type = Type::F32;
+}
+unsafe impl WasmExternType for f64 {
+    const TYPE: Type = Type::F64;
+}
+
+// pub trait IntegerAtomic
+// where
+//     Self: Sized
+// {
+//     type Primitive;
+
+//     fn add(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn sub(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn and(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn or(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn xor(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn load(&self) -> Self::Primitive;
+//     fn store(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn compare_exchange(&self, expected: Self::Primitive, new: Self::Primitive) -> Self::Primitive;
+//     fn swap(&self, other: Self::Primitive) -> Self::Primitive;
+// }
+
 pub enum ValueError {
     BufferTooSmall,
 }
 
-pub trait ValueType: Copy + Clone
+pub trait ValueType: Copy
 where
     Self: Sized,
 {

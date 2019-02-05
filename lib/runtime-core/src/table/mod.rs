@@ -112,13 +112,13 @@ impl Table {
         }
     }
 
-    pub(crate) fn vm_local_table(&mut self) -> *mut vm::LocalTable {
+    pub fn vm_local_table(&mut self) -> *mut vm::LocalTable {
         &mut self.storage.borrow_mut().1
     }
 }
 
 impl IsExport for Table {
-    fn to_export(&mut self) -> Export {
+    fn to_export(&self) -> Export {
         Export::Table(self.clone())
     }
 }

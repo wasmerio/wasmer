@@ -83,13 +83,13 @@ impl Module {
     /// let import_object = imports! {
     ///     // ...
     /// };
-    /// let instance = module.instantiate(import_object)?;
+    /// let instance = module.instantiate(&import_object)?;
     /// // ...
     /// # Ok(())
     /// # }
     /// ```
-    pub fn instantiate(&self, import_object: ImportObject) -> Result<Instance> {
-        Instance::new(Arc::clone(&self.0), Box::new(import_object))
+    pub fn instantiate(&self, import_object: &ImportObject) -> Result<Instance> {
+        Instance::new(Arc::clone(&self.0), import_object)
     }
 }
 
