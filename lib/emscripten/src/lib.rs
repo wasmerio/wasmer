@@ -12,7 +12,7 @@ use wasmer_runtime_core::{
     global::Global,
     import::{ImportObject, Namespace},
     imports,
-    memory::Memory,
+    memory::{Memory, MemoryVariant},
     table::Table,
     types::{
         ElementType, FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor,
@@ -322,7 +322,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
     let import_object = imports! {
         "env" => {
-            "memory" => Export::Memory(globals.memory.clone()),
+            "memory" => Export::Memory(MemoryVariant::Unshared(globals.memory.clone())),
             "table" => Export::Table(globals.table.clone()),
 
             // Globals
