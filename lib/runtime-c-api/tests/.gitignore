@@ -11,4 +11,5 @@ CTestTestfile.cmake
 _deps
 test-instantiate
 test-import-function
+test-memory
 rust-build

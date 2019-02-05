@@ -13,6 +13,11 @@ typedef enum {
   WASMER_COMPILE_ERROR = 2,
 } wasmer_compile_result_t;
 
+typedef enum {
+  WASMER_MEMORY_OK = 1,
+  WASMER_MEMORY_ERROR = 2,
+} wasmer_memory_result_t;
+
 enum wasmer_value_tag {
   WASM_I32,
   WASM_I64,
@@ -38,6 +43,15 @@ typedef struct {
   wasmer_value_tag tag;
   wasmer_value value;
 } wasmer_value_t;
+
+typedef struct {
+
+} wasmer_memory_t;
+
+typedef struct {
+  uint32_t min;
+  uint32_t max;
+} wasmer_limits_t;
 
 void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
 
@@ -67,3 +81,9 @@ wasmer_compile_result_t wasmer_instantiate(wasmer_instance_t **instance,
                                            uint8_t *wasm_bytes,
                                            uint32_t wasm_bytes_len,
                                            wasmer_import_object_t *import_object);
+
+void wasmer_memory_destroy(wasmer_memory_t *memory);
+
+uint32_t wasmer_memory_length(wasmer_memory_t *memory);
+
+wasmer_memory_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);

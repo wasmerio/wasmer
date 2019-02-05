@@ -7,10 +7,11 @@ use std::slice;
 use std::str;
 use std::sync::Arc;
 use std::{ffi::c_void, mem, ptr};
-use wasmer_runtime::{ImportObject, Instance, Value};
+use wasmer_runtime::{ImportObject, Instance, Memory, Value};
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::{LikeNamespace, Namespace};
-use wasmer_runtime_core::types::{FuncSig, Type};
+use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, Type};
+use wasmer_runtime_core::units::Pages;
 
 #[allow(non_camel_case_types)]
 pub struct wasmer_import_object_t();
@@ -35,6 +36,14 @@ pub enum wasmer_compile_result_t {
 pub enum wasmer_call_result_t {
     WASMER_CALL_OK = 1,
     WASMER_CALL_ERROR = 2,
+}
+
+#[allow(non_camel_case_types)]
+#[no_mangle]
+#[repr(C)]
+pub enum wasmer_memory_result_t {
+    WASMER_MEMORY_OK = 1,
+    WASMER_MEMORY_ERROR = 2,
 }
 
 #[repr(u32)]
@@ -64,9 +73,16 @@ pub struct wasmer_value_t {
 
 #[repr(C)]
 #[derive(Clone)]
-pub struct wasmer_memory_t {
-    pub ptr: *mut uint8_t,
-    pub len: uint32_t,
+pub struct wasmer_memory_t();
+//{
+//    pub ptr: *mut uint8_t,
+//    pub len: uint32_t,
+//}
+
+#[repr(C)]
+pub struct wasmer_limits_t {
+    pub min: uint32_t,
+    pub max: uint32_t,
 }
 
 #[no_mangle]
@@ -74,11 +90,50 @@ pub extern "C" fn wasmer_import_object_new() -> *mut wasmer_import_object_t {
     Box::into_raw(Box::new(ImportObject::new())) as *mut wasmer_import_object_t
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_memory_new(
+    mut memory: *mut *mut wasmer_memory_t,
+    limits: wasmer_limits_t,
+) -> wasmer_memory_result_t {
+    let desc = MemoryDescriptor {
+        minimum: Pages(limits.min),
+        maximum: Some(Pages(limits.max)),
+        shared: false,
+    };
+    let result = Memory::new(desc);
+    let new_memory = match result {
+        Ok(memory) => memory,
+        Err(error) => {
+            println!("Err: {:?}", error);
+            return wasmer_memory_result_t::WASMER_MEMORY_ERROR;
+        }
+    };
+    unsafe { *memory = Box::into_raw(Box::new(new_memory)) as *mut wasmer_memory_t };
+    wasmer_memory_result_t::WASMER_MEMORY_OK
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t {
+    let memory = unsafe { Box::from_raw(memory as *mut Memory) };
+    let Pages(len) = memory.size();
+    Box::into_raw(memory);
+    len
+}
+
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import_object_t) {
     if !import_object.is_null() {
         drop(unsafe { Box::from_raw(import_object as *mut ImportObject) });
+    }
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_memory_destroy(memory: *mut wasmer_memory_t) {
+    if !memory.is_null() {
+        drop(unsafe { Box::from_raw(memory as *mut Memory) });
     }
 }
 

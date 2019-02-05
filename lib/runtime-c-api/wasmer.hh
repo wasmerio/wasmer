@@ -12,6 +12,11 @@ enum class wasmer_compile_result_t {
   WASMER_COMPILE_ERROR = 2,
 };
 
+enum class wasmer_memory_result_t {
+  WASMER_MEMORY_OK = 1,
+  WASMER_MEMORY_ERROR = 2,
+};
+
 enum class wasmer_value_tag : uint32_t {
   WASM_I32,
   WASM_I64,
@@ -35,6 +40,15 @@ union wasmer_value {
 struct wasmer_value_t {
   wasmer_value_tag tag;
   wasmer_value value;
+};
+
+struct wasmer_memory_t {
+
+};
+
+struct wasmer_limits_t {
+  uint32_t min;
+  uint32_t max;
 };
 
 extern "C" {
@@ -67,5 +81,11 @@ wasmer_compile_result_t wasmer_instantiate(wasmer_instance_t **instance,
                                            uint8_t *wasm_bytes,
                                            uint32_t wasm_bytes_len,
                                            wasmer_import_object_t *import_object);
+
+void wasmer_memory_destroy(wasmer_memory_t *memory);
+
+uint32_t wasmer_memory_length(wasmer_memory_t *memory);
+
+wasmer_memory_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
 
 } // extern "C"
