@@ -370,23 +370,6 @@ fn test_module_{}() {{
             )
             .as_str(),
         );
-
-        // We set the start call to the module
-        let start_module_call = format!("start_module_{}", self.last_module);
-        self.buffer.push_str(
-            format!(
-                "\nfn {}(vmctx: &mut Ctx) {{
-    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
-    //instance.start();
-}}\n",
-                start_module_call
-            )
-            .as_str(),
-        );
-        self.module_calls
-            .entry(self.last_module)
-            .or_insert(Vec::new())
-            .push(start_module_call);
     }
 
     fn visit_assert_invalid(&mut self, module: &ModuleBinary) {
@@ -438,7 +421,7 @@ fn {}_assert_invalid() {{
                 let func_name = format!("{}_assert_return_arithmetic_nan", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {func_name}(vmctx: &mut Ctx) {{
+                        "fn {func_name}(instance: &mut Instance) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
     let result = instance.call(\"{field}\", &[{args_values}]).unwrap().first().expect(\"Missing result in {func_name}\").clone();
     {assertion}
@@ -497,7 +480,7 @@ fn {}_assert_invalid() {{
                 let func_name = format!("{}_assert_return_canonical_nan", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {func_name}(vmctx: &mut Ctx) {{
+                        "fn {func_name}(instance: &mut Instance) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
     let result = instance.call(\"{field}\", &[{args_values}]).unwrap().first().expect(\"Missing result in {func_name}\").clone();
     {assertion}
@@ -612,7 +595,7 @@ fn {}_assert_malformed() {{
                 let func_name = format!("{}_action_invoke", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {func_name}(vmctx: &mut Ctx) -> Result<()> {{
+                        "fn {func_name}(instance: &mut Instance) -> Result<()> {{
     println!(\"Executing function {{}}\", \"{func_name}\");
     let result = instance.call(\"{field}\", &[{args_values}]);
     {assertion}
