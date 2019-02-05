@@ -370,23 +370,6 @@ fn test_module_{}() {{
             )
             .as_str(),
         );
-
-        // We set the start call to the module
-        let start_module_call = format!("start_module_{}", self.last_module);
-        self.buffer.push_str(
-            format!(
-                "\nfn {}(vmctx: &mut Ctx) {{
-    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
-    //instance.start();
-}}\n",
-                start_module_call
-            )
-            .as_str(),
-        );
-        self.module_calls
-            .entry(self.last_module)
-            .or_insert(Vec::new())
-            .push(start_module_call);
     }
 
     fn visit_assert_invalid(&mut self, module: &ModuleBinary) {
