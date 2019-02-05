@@ -39,8 +39,8 @@ int main()
     assert(call_result == WASMER_CALL_OK);
 
     printf("Destroy instance\n");
-    //wasmer_instance_destroy(instance); // error here
+    wasmer_instance_destroy(instance);
     printf("Destroy import object\n");
-    //wasmer_import_object_destroy(import_object); // error here
+    //wasmer_import_object_destroy(import_object); // TODO update instantiate and try this again
     return 0;
 }

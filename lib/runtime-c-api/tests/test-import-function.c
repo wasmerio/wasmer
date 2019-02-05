@@ -39,10 +39,10 @@ int main()
 
     assert(print_str_called);
 
-    // TODO review import object ownership, instantiate moves it
+
     printf("Destroy instance\n");
-    //wasmer_instance_destroy(instance); // TODO error here
+    wasmer_instance_destroy(instance);
     printf("Destroy import object\n");
-    //wasmer_import_object_destroy(import_object); // TODO error here
+    //wasmer_import_object_destroy(import_object); // TODO update instantiate and try this again
     return 0;
 }
