@@ -12,7 +12,7 @@ use wasmer_runtime_core::{
     global::Global,
     import::{ImportObject, Namespace},
     imports,
-    memory::{Memory, MemoryVariant},
+    memory::Memory,
     table::Table,
     types::{
         ElementType, FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor,
@@ -303,18 +303,18 @@ impl EmscriptenGlobals {
 }
 
 pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject {
-    use crate::varargs::VarArgs;
-    let mut imports = ImportObject::new();
-    let mut env_namespace = Namespace::new();
-    let mut asm_namespace = Namespace::new();
-    let mut global_namespace = Namespace::new();
-    let mut global_math_namespace = Namespace::new();
+    // use crate::varargs::VarArgs;
+    // let mut imports = ImportObject::new();
+    // let mut env_namespace = Namespace::new();
+    // let mut asm_namespace = Namespace::new();
+    // let mut global_namespace = Namespace::new();
+    // let mut global_math_namespace = Namespace::new();
 
-    // Add globals.
-    // NOTE: There is really no need for checks, these globals should always be available.
+    // // Add globals.
+    // // NOTE: There is really no need for checks, these globals should always be available.
 
-    // We generate a fake Context that traps on access
-    let null_ctx = Context::External(ptr::null_mut());
+    // // We generate a fake Context that traps on access
+    // let null_ctx = Context::External(ptr::null_mut());
 
     //    env_namespace.insert("memory".to_string(), Export::Memory(globals.memory.clone()));
 
@@ -322,7 +322,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
     let import_object = imports! {
         "env" => {
-            "memory" => Export::Memory(MemoryVariant::Unshared(globals.memory.clone())),
+            "memory" => Export::Memory(globals.memory.clone()),
             "table" => Export::Table(globals.table.clone()),
 
             // Globals
@@ -514,12 +514,12 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     // mock_external!(env_namespace, _getgrent);
     // mock_external!(env_namespace, _dlerror);
 
-    imports.register("env", env_namespace);
-    imports.register("asm2wasm", asm_namespace);
-    imports.register("global", global_namespace);
-    imports.register("global.Math", global_math_namespace);
+    // imports.register("env", env_namespace);
+    // imports.register("asm2wasm", asm_namespace);
+    // imports.register("global", global_namespace);
+    // imports.register("global.Math", global_math_namespace);
 
-    imports
+    import_object
 }
 
 /// The current version of this crate
