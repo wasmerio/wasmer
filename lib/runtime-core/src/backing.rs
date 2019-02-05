@@ -97,9 +97,7 @@ impl LocalBacking {
                     assert!(memory_desc.minimum.bytes().0 >= data_top);
 
                     let mem = &memories[local_memory_index];
-                    for (mem_byte, data_byte) in mem
-                        .view(init_base..init_base + init.data.len())
-                        .unwrap()
+                    for (mem_byte, data_byte) in mem.view()[init_base..init_base + init.data.len()]
                         .iter()
                         .zip(init.data.iter())
                     {

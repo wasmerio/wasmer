@@ -28,8 +28,8 @@ where
     }
 }
 
-impl<'a, T> MemoryView<'a, T, NonAtomically> {
-    pub fn atomically(self) -> MemoryView<'a, T, Atomically> {
+impl<'a, T: IntCast> MemoryView<'a, T, NonAtomically> {
+    pub fn atomically(&self) -> MemoryView<'a, T, Atomically> {
         MemoryView {
             ptr: self.ptr,
             length: self.length,

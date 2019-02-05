@@ -29,22 +29,22 @@ pub trait IntCast:
 macro_rules! intcast {
     ($($type:ident)+) => {
         $(
-            impl IntCast for Wrapping<$type> {
+            impl IntCast for $type {
                 type Public = $type;
 
                 fn from(u: usize) -> Self {
-                    Wrapping(u as $type)
+                    u as $type
                 }
                 fn to(self) -> usize {
-                    self.0 as usize
+                    self as usize
                 }
 
                 fn new(p: $type) -> Self {
-                    Wrapping(p)
+                    p
                 }
 
                 fn unwrap(self) -> $type {
-                    self.0
+                    self
                 }
             }
         )+

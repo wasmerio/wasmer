@@ -9,14 +9,9 @@ use crate::{
     vm,
 };
 use std::{
-    cell::{Cell, Ref, RefCell, RefMut},
-    fmt,
-    marker::PhantomData,
-    mem,
-    ops::{Bound, Deref, DerefMut, Index, RangeBounds},
-    ptr,
+    cell::{Cell, RefCell},
+    fmt, mem, ptr,
     rc::Rc,
-    slice,
 };
 
 pub use self::atomic::Atomic;
@@ -35,6 +30,9 @@ enum MemoryVariant {
     Shared(SharedMemory),
 }
 
+/// A shared or unshared wasm linear memory.
+///
+/// A `Memory` represents the memory used by a wasm instance.
 #[derive(Clone)]
 pub struct Memory {
     desc: MemoryDescriptor,
@@ -98,36 +96,53 @@ impl Memory {
         }
     }
 
-    pub fn view<T: ValueType, R: RangeBounds<usize>>(&self, range: R) -> Option<MemoryView<T>> {
+    /// Return a "view" of the currently accessible memory. By
+    /// default, the view is unsyncronized, using regular memory
+    /// accesses. You can force a memory view to use atomic accesses
+    /// by calling the [`atomically`] method.
+    ///
+    /// [`atomically`]: memory/struct.MemoryView.html#method.atomically
+    ///
+    /// # Notes:
+    ///
+    /// This method is safe (as in, it won't cause the host to crash or have UB),
+    /// but it doesn't obey rust's rules involving data races, especially concurrent ones.
+    /// Therefore, if this memory is shared between multiple threads, a single memory
+    /// location can be mutated concurrently without synchronization.
+    ///
+    /// # Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::memory::{Memory, MemoryView};
+    /// # use std::sync::atomic::Ordering;
+    /// # fn view_memory(memory: Memory) {
+    /// // Without synchronization.
+    /// let view: MemoryView<u8> = memory.view();
+    /// for byte in view[0x1000 .. 0x1010].iter().map(|cell| cell.get()) {
+    ///     println!("byte: {}", byte);
+    /// }
+    ///
+    /// // With synchronization.
+    /// let atomic_view = view.atomically();
+    /// for byte in atomic_view[0x1000 .. 0x1010].iter().map(|atom| atom.load(Ordering::SeqCst)) {
+    ///     println!("byte: {}", byte);
+    /// }
+    /// # }
+    /// ```
+    pub fn view<T: ValueType>(&self) -> MemoryView<T> {
         let vm::LocalMemory {
             base,
-            bound,
+            bound: _,
             memory: _,
         } = unsafe { *self.vm_local_memory() };
 
-        let range_start = match range.start_bound() {
-            Bound::Included(start) => *start,
-            Bound::Excluded(start) => *start + 1,
-            Bound::Unbounded => 0,
-        };
+        let length = self.size().bytes().0 / mem::size_of::<T>();
 
-        let range_end = match range.end_bound() {
-            Bound::Included(end) => *end + 1,
-            Bound::Excluded(end) => *end,
-            Bound::Unbounded => bound as usize,
-        };
-
-        let length = range_end - range_start;
-
-        let size_in_bytes = mem::size_of::<T>() * length;
-
-        if range_end < range_start || range_start + size_in_bytes >= bound {
-            return None;
-        }
-
-        Some(unsafe { MemoryView::new(base as _, length as u32) })
+        unsafe { MemoryView::new(base as _, length as u32) }
     }
 
+    /// Convert this memory to a shared memory if the shared flag
+    /// is present in the description used to create it.
     pub fn shared(self) -> Option<SharedMemory> {
         if self.desc.shared {
             Some(SharedMemory { desc: self.desc })
@@ -139,7 +154,7 @@ impl Memory {
     pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
         match &self.variant {
             MemoryVariant::Unshared(unshared_mem) => unshared_mem.vm_local_memory(),
-            MemoryVariant::Shared(shared_mem) => unimplemented!(),
+            MemoryVariant::Shared(_) => unimplemented!(),
         }
     }
 }

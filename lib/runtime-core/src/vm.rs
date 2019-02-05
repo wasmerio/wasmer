@@ -106,12 +106,11 @@ impl Ctx {
     /// ```
     /// # use wasmer_runtime_core::{
     /// #     vm::Ctx,
-    /// #     memory::Memory,
     /// # };
     /// fn read_memory(ctx: &Ctx) -> u8 {
-    ///     let first_memory: &Memory = ctx.memory(0);
+    ///     let first_memory = ctx.memory(0);
     ///     // Read the first byte of that linear memory.
-    ///     first_memory.access()[0]
+    ///     first_memory.view()[0].get()
     /// }
     /// ```
     pub fn memory(&self, mem_index: u32) -> &Memory {
