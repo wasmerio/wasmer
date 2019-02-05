@@ -1,13 +1,11 @@
-use winapi::um::memoryapi::{
-    VirtualAlloc, VirtualFree
-};
-use winapi::um::winnt::{
-    MEM_RESERVE, PAGE_NOACCESS, MEM_COMMIT, PAGE_READONLY, PAGE_READWRITE, PAGE_EXECUTE_READ,
-    MEM_DECOMMIT
-};
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{ptr, slice};
+use winapi::um::memoryapi::{VirtualAlloc, VirtualFree};
+use winapi::um::winnt::{
+    MEM_COMMIT, MEM_DECOMMIT, MEM_RESERVE, PAGE_EXECUTE_READ, PAGE_NOACCESS, PAGE_READONLY,
+    PAGE_READWRITE,
+};
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -29,14 +27,7 @@ impl Memory {
 
         let size = round_up_to_page_size(size, page_size::get());
 
-        let ptr = unsafe {
-            VirtualAlloc(
-                ptr::null_mut(),
-                size,
-                MEM_RESERVE,
-                PAGE_NOACCESS,
-            )
-        };
+        let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, PAGE_NOACCESS) };
 
         if ptr.is_null() {
             Err(String::from("unable to allocate memory"))
@@ -48,7 +39,11 @@ impl Memory {
         }
     }
 
-    pub unsafe fn protect(&mut self, range: impl RangeBounds<usize>, protect: Protect) -> Result<(), String> {
+    pub unsafe fn protect(
+        &mut self,
+        range: impl RangeBounds<usize>,
+        protect: Protect,
+    ) -> Result<(), String> {
         let protect = protect.to_protect_const();
 
         let range_start = match range.start_bound() {
@@ -71,12 +66,7 @@ impl Memory {
         assert!(size <= self.size);
 
         // Commit the virtual memory.
-        let ptr = VirtualAlloc(
-            start as _,
-            size,
-            MEM_COMMIT,
-            protect,
-        );
+        let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect);
 
         if ptr.is_null() {
             Err(String::from("unable to protect memory"))
@@ -105,9 +95,7 @@ impl Memory {
 impl Drop for Memory {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
-            let success = unsafe {
-                VirtualFree(self.ptr as _, self.size, MEM_DECOMMIT)
-            };
+            let success = unsafe { VirtualFree(self.ptr as _, self.size, MEM_DECOMMIT) };
             assert_eq!(success, 0, "failed to unmap memory: {}", errno::errno());
         }
     }
