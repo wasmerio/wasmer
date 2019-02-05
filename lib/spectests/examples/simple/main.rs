@@ -32,11 +32,11 @@ fn main() -> Result<()> {
     })
     .unwrap();
 
-    memory.access_mut()[0] = 42;
+    memory.view()[0].set(42);
 
     let import_object = imports! {
         "env" => {
-            "print_num" => func!(print_num),
+            "print_i32" => func!(print_num),
             "memory" => memory,
             "global" => global,
             "table" => table,
@@ -62,7 +62,7 @@ fn print_num(n: i32, ctx: &mut vm::Ctx) -> i32 {
 
     let memory: &Memory = ctx.memory(0);
 
-    let a = memory.access()[0] as i32;
+    let a: i32 = memory.view()[0].get();
 
     a + n + 1
 }
