@@ -421,7 +421,7 @@ fn {}_assert_invalid() {{
                 let func_name = format!("{}_assert_return_arithmetic_nan", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {func_name}(vmctx: &mut Ctx) {{
+                        "fn {func_name}(instance: &mut Instance) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
     let result = instance.call(\"{field}\", &[{args_values}]).unwrap().first().expect(\"Missing result in {func_name}\").clone();
     {assertion}
@@ -480,7 +480,7 @@ fn {}_assert_invalid() {{
                 let func_name = format!("{}_assert_return_canonical_nan", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {func_name}(vmctx: &mut Ctx) {{
+                        "fn {func_name}(instance: &mut Instance) {{
     println!(\"Executing function {{}}\", \"{func_name}\");
     let result = instance.call(\"{field}\", &[{args_values}]).unwrap().first().expect(\"Missing result in {func_name}\").clone();
     {assertion}
@@ -595,7 +595,7 @@ fn {}_assert_malformed() {{
                 let func_name = format!("{}_action_invoke", self.command_name());
                 self.buffer.push_str(
                     format!(
-                        "fn {func_name}(vmctx: &mut Ctx) -> Result<()> {{
+                        "fn {func_name}(instance: &mut Instance) -> Result<()> {{
     println!(\"Executing function {{}}\", \"{func_name}\");
     let result = instance.call(\"{field}\", &[{args_values}]);
     {assertion}
