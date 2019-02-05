@@ -331,8 +331,6 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "DYNAMICTOP_PTR" => Global::new(Value::I32(dynamictop_ptr(STATIC_BUMP) as i32)),
             "tableBase" => Global::new(Value::I32(0)),
             "__table_base" => Global::new(Value::I32(0)),
-            "Infinity" => Global::new(Value::F64(f64::INFINITY)),
-            "NaN" => Global::new(Value::F64(f64::NAN)),
             "ABORT" => Global::new(Value::I32(0)),
             "memoryBase" => Global::new(Value::I32(STATIC_BASE)),
             "__memory_base" => Global::new(Value::I32(STATIC_BASE)),
@@ -441,16 +439,20 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_execve" => func!(crate::process::_execve),
             "_kill" => func!(crate::process::_kill),
             "_llvm_stackrestore" => func!(crate::process::_llvm_stackrestore),
+            "_llvm_stacksave" => func!(crate::process::_llvm_stacksave),
             "_raise" => func!(crate::process::_raise),
             "_sem_init" => func!(crate::process::_sem_init),
             "_sem_post" => func!(crate::process::_sem_post),
             "_sem_wait" => func!(crate::process::_sem_wait),
+            "_getgrent" => func!(crate::process::_getgrent),
+            "_sched_yield" => func!(crate::process::_sched_yield),
             "_setgrent" => func!(crate::process::_setgrent),
             "_setgroups" => func!(crate::process::_setgroups),
             "_setitimer" => func!(crate::process::_setitimer),
             "_usleep" => func!(crate::process::_usleep),
             "_utimes" => func!(crate::process::_utimes),
             "_waitpid" => func!(crate::process::_waitpid),
+
 
             // Signal
             "_sigemptyset" => func!(crate::signal::_sigemptyset),
@@ -504,6 +506,10 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_dlopen" => func!(crate::linking::_dlopen),
             "_dlsym" => func!(crate::linking::_dlsym),
 
+        },
+        "global" => {
+          "NaN" => Global::new(Value::F64(f64::NAN)),
+          "Infinity" => Global::new(Value::F64(f64::INFINITY)),
         },
         "math" => {
             "pow" => func!(crate::math::pow),
