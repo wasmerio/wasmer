@@ -1,5 +1,5 @@
-use wasmer_runtime_core::vm::Ctx;
 use libc::{c_char, c_int};
+use wasmer_runtime_core::vm::Ctx;
 
 #[link(name = "c")]
 extern "C" {
