@@ -2,15 +2,15 @@ use crate::export::Export;
 use hashbrown::{hash_map::Entry, HashMap};
 
 pub trait LikeNamespace {
-    fn get_export(&mut self, name: &str) -> Option<Export>;
+    fn get_export(&self, name: &str) -> Option<Export>;
 }
 
 pub trait IsExport {
-    fn to_export(&mut self) -> Export;
+    fn to_export(&self) -> Export;
 }
 
 impl IsExport for Export {
-    fn to_export(&mut self) -> Export {
+    fn to_export(&self) -> Export {
         self.clone()
     }
 }
@@ -28,11 +28,11 @@ impl IsExport for Export {
 /// # use wasmer_runtime_core::vm::Ctx;
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => func!(foo, [i32] -> [i32]),
+///         "foo" => func!(foo),
 ///     },
 /// };
 ///
-/// extern fn foo(n: i32, _: &mut Ctx) -> i32 {
+/// fn foo(n: i32, _: &mut Ctx) -> i32 {
 ///     n
 /// }
 /// ```
@@ -76,10 +76,8 @@ impl ImportObject {
         }
     }
 
-    pub fn get_namespace(&mut self, namespace: &str) -> Option<&mut (dyn LikeNamespace + 'static)> {
-        self.map
-            .get_mut(namespace)
-            .map(|namespace| &mut **namespace)
+    pub fn get_namespace(&self, namespace: &str) -> Option<&(dyn LikeNamespace + 'static)> {
+        self.map.get(namespace).map(|namespace| &**namespace)
     }
 }
 
@@ -104,9 +102,7 @@ impl Namespace {
 }
 
 impl LikeNamespace for Namespace {
-    fn get_export(&mut self, name: &str) -> Option<Export> {
-        self.map
-            .get_mut(name)
-            .map(|is_export| is_export.to_export())
+    fn get_export(&self, name: &str) -> Option<Export> {
+        self.map.get(name).map(|is_export| is_export.to_export())
     }
 }

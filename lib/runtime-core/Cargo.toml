@@ -36,6 +36,9 @@ optional = true
 version = "0.8.0"
 optional = true
 
+libc = "0.2.48"
+errno = "0.2.4"
+
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["memoryapi"] }
 

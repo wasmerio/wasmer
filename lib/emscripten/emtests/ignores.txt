@@ -70,3 +70,5 @@ test_strftime
 test_wprintf
 test_std_cout_new
 test_strptime_reentrant
+test_gmtime
+test_time_c

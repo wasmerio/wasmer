@@ -60,19 +60,8 @@ impl LocalBacking {
 
     fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, Memory> {
         let mut memories = Map::with_capacity(module.info.memories.len());
-
-        for (_, &desc) in &module.info.memories {
-            // If we use emscripten, we set a fixed initial and maximum
-            // let memory = if options.abi == InstanceABI::Emscripten {
-            //     // We use MAX_PAGES, so at the end the result is:
-            //     // (initial * Memory::PAGE_SIZE) == Memory::DEFAULT_HEAP_SIZE
-            //     // However, it should be: (initial * Memory::PAGE_SIZE) == 16777216
-            //     Memory::new(Memory::MAX_PAGES, None)
-            // } else {
-            //     Memory::new(memory.minimum, memory.maximum.map(|m| m as u32))
-            // };
-            let memory = Memory::new(desc).expect("unable to create memory");
-            memories.push(memory);
+        for (_, &desc) in &module.memories {
+            memories.push(Memory::new(desc).expect("unable to create memory"));
         }
 
         memories.into_boxed_map()
@@ -109,7 +98,12 @@ impl LocalBacking {
                     assert!(memory_desc.minimum.bytes().0 >= data_top);
 
                     let mem = &memories[local_memory_index];
-                    mem.write_many(init_base as u32, &init.data).unwrap();
+                    for (mem_byte, data_byte) in mem.view()[init_base..init_base + init.data.len()]
+                        .iter()
+                        .zip(init.data.iter())
+                    {
+                        mem_byte.set(*data_byte);
+                    }
                 }
                 LocalOrImport::Import(imported_memory_index) => {
                     // Write the initialization data to the memory that
@@ -306,7 +300,7 @@ pub struct ImportBacking {
 impl ImportBacking {
     pub fn new(
         module: &ModuleInner,
-        imports: &mut ImportObject,
+        imports: &ImportObject,
         vmctx: *mut vm::Ctx,
     ) -> LinkResult<Self> {
         let mut failed = false;
@@ -359,7 +353,7 @@ impl ImportBacking {
 
 fn import_functions(
     module: &ModuleInner,
-    imports: &mut ImportObject,
+    imports: &ImportObject,
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedFuncIndex, vm::ImportedFunc>> {
     let mut link_errors = vec![];
@@ -437,7 +431,7 @@ fn import_functions(
 
 fn import_memories(
     module: &ModuleInner,
-    imports: &mut ImportObject,
+    imports: &ImportObject,
 ) -> LinkResult<(
     BoxedMap<ImportedMemoryIndex, Memory>,
     BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
@@ -463,7 +457,7 @@ fn import_memories(
             .get_namespace(&namespace)
             .and_then(|namespace| namespace.get_export(&name));
         match memory_import {
-            Some(Export::Memory(mut memory)) => {
+            Some(Export::Memory(memory)) => {
                 if expected_memory_desc.fits_in_imported(memory.descriptor()) {
                     memories.push(memory.clone());
                     vm_memories.push(memory.vm_local_memory());
@@ -509,7 +503,7 @@ fn import_memories(
 
 fn import_tables(
     module: &ModuleInner,
-    imports: &mut ImportObject,
+    imports: &ImportObject,
 ) -> LinkResult<(
     BoxedMap<ImportedTableIndex, Table>,
     BoxedMap<ImportedTableIndex, *mut vm::LocalTable>,
@@ -581,7 +575,7 @@ fn import_tables(
 
 fn import_globals(
     module: &ModuleInner,
-    imports: &mut ImportObject,
+    imports: &ImportObject,
 ) -> LinkResult<(
     BoxedMap<ImportedGlobalIndex, Global>,
     BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,

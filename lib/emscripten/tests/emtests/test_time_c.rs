@@ -1,4 +1,5 @@
 #[test]
+#[ignore]
 fn test_test_time_c() {
     assert_emscripten_output!(
         "../../emtests/test_time_c.wasm",

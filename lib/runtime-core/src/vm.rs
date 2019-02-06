@@ -110,10 +110,10 @@ impl Ctx {
     /// fn read_memory(ctx: &Ctx) -> u8 {
     ///     let first_memory = ctx.memory(0);
     ///     // Read the first byte of that linear memory.
-    ///     first_memory.read(0).unwrap()
+    ///     first_memory.view()[0].get()
     /// }
     /// ```
-    pub fn memory<'a>(&'a self, mem_index: u32) -> &'a Memory {
+    pub fn memory(&self, mem_index: u32) -> &Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
@@ -195,7 +195,7 @@ impl ImportedFunc {
 }
 
 /// Definition of a table used by the VM. (obviously)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalTable {
     /// pointer to the elements in the table.
@@ -222,7 +222,7 @@ impl LocalTable {
 }
 
 /// Definition of a memory used by the VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalMemory {
     /// Pointer to the bottom of this linear memory.
@@ -251,7 +251,7 @@ impl LocalMemory {
 }
 
 /// Definition of a global used by the VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalGlobal {
     pub data: u64,
@@ -277,7 +277,7 @@ impl LocalGlobal {
 pub struct SigId(pub u32);
 
 /// Caller-checked anyfunc
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Anyfunc {
     pub func: *const Func,
