@@ -91,7 +91,7 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
 pub struct EmscriptenData<'a> {
     pub malloc: Func<'a, u32, u32>,
     pub free: Func<'a, u32>,
-    pub memalign: Func<'a, (u32, u32), u32>,
+    pub memalign: Option<Func<'a, (u32, u32), u32>>,
     pub memset: Func<'a, (u32, u32, u32), u32>,
     pub stack_alloc: Func<'a, u32, u32>,
 
@@ -102,7 +102,11 @@ impl<'a> EmscriptenData<'a> {
     pub fn new(instance: &'a mut Instance) -> EmscriptenData<'a> {
         let malloc = instance.func("_malloc").unwrap();
         let free = instance.func("_free").unwrap();
-        let memalign = instance.func("_memalign").unwrap();
+        let memalign = if let Ok(func) = instance.func("_memalign") {
+            Some(func)
+        } else {
+            None
+        };
         let memset = instance.func("_memset").unwrap();
         let stack_alloc = instance.func("stackAlloc").unwrap();
 
@@ -135,6 +139,10 @@ pub fn run_emscripten_instance(
     let mut data = EmscriptenData::new(instance);
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
+
+    if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
+        instance.call("___emscripten_environ_constructor", &[])?;
+    }
 
     let main_func = instance.dyn_func("_main")?;
     let num_params = main_func.signature().params().len();
@@ -331,8 +339,6 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "DYNAMICTOP_PTR" => Global::new(Value::I32(dynamictop_ptr(STATIC_BUMP) as i32)),
             "tableBase" => Global::new(Value::I32(0)),
             "__table_base" => Global::new(Value::I32(0)),
-            "Infinity" => Global::new(Value::F64(f64::INFINITY)),
-            "NaN" => Global::new(Value::F64(f64::NAN)),
             "ABORT" => Global::new(Value::I32(0)),
             "memoryBase" => Global::new(Value::I32(STATIC_BASE)),
             "__memory_base" => Global::new(Value::I32(STATIC_BASE)),
@@ -441,16 +447,20 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_execve" => func!(crate::process::_execve),
             "_kill" => func!(crate::process::_kill),
             "_llvm_stackrestore" => func!(crate::process::_llvm_stackrestore),
+            "_llvm_stacksave" => func!(crate::process::_llvm_stacksave),
             "_raise" => func!(crate::process::_raise),
             "_sem_init" => func!(crate::process::_sem_init),
             "_sem_post" => func!(crate::process::_sem_post),
             "_sem_wait" => func!(crate::process::_sem_wait),
+            "_getgrent" => func!(crate::process::_getgrent),
+            "_sched_yield" => func!(crate::process::_sched_yield),
             "_setgrent" => func!(crate::process::_setgrent),
             "_setgroups" => func!(crate::process::_setgroups),
             "_setitimer" => func!(crate::process::_setitimer),
             "_usleep" => func!(crate::process::_usleep),
             "_utimes" => func!(crate::process::_utimes),
             "_waitpid" => func!(crate::process::_waitpid),
+
 
             // Signal
             "_sigemptyset" => func!(crate::signal::_sigemptyset),
@@ -501,12 +511,20 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
             // Linking
             "_dlclose" => func!(crate::linking::_dlclose),
+            "_dlerror" => func!(crate::linking::_dlerror),
             "_dlopen" => func!(crate::linking::_dlopen),
             "_dlsym" => func!(crate::linking::_dlsym),
 
         },
-        "math" => {
+        "global" => {
+          "NaN" => Global::new(Value::F64(f64::NAN)),
+          "Infinity" => Global::new(Value::F64(f64::INFINITY)),
+        },
+        "global.Math" => {
             "pow" => func!(crate::math::pow),
+        },
+        "asm2wasm" => {
+            "f64-rem" => func!(crate::math::f64_rem),
         },
     };
     // mock_external!(env_namespace, _sched_yield);
