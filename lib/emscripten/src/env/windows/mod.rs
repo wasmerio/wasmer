@@ -3,7 +3,6 @@ use libc::{
     c_int,
     c_long,
     getenv,
-    //sysconf, unsetenv,
 };
 
 use core::slice;
@@ -194,8 +193,8 @@ pub fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
 
 pub fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
     debug!("emscripten::_sysconf {}", name);
-    // TODO: Implement like emscripten expects regarding memory/page size
-    unsafe { sysconf(name) }
+    // stub because sysconf is not valid on windows
+    0
 }
 
 pub fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _ctx: &mut Ctx) {
