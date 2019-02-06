@@ -18,3 +18,6 @@ target-lexicon = "0.2.0"
 wasmparser = "0.23.0"
 byteorder = "1"
 nix = "0.12.0"
+
+[features]
+debug = ["wasmer-runtime-core/debug"]

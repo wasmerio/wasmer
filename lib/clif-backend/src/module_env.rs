@@ -369,6 +369,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
             func_translator.translate(body_bytes, &mut func, &mut func_env)?;
 
+            #[cfg(feature = "debug")]
             {
                 use cranelift_codegen::cursor::{Cursor, FuncCursor};
                 use cranelift_codegen::ir::InstBuilder;
