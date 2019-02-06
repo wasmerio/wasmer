@@ -91,7 +91,7 @@ fn dynamictop_ptr(static_bump: u32) -> u32 {
 pub struct EmscriptenData<'a> {
     pub malloc: Func<'a, u32, u32>,
     pub free: Func<'a, u32>,
-    pub memalign: Func<'a, (u32, u32), u32>,
+    pub memalign: Option<Func<'a, (u32, u32), u32>>,
     pub memset: Func<'a, (u32, u32, u32), u32>,
     pub stack_alloc: Func<'a, u32, u32>,
 
@@ -102,7 +102,11 @@ impl<'a> EmscriptenData<'a> {
     pub fn new(instance: &'a mut Instance) -> EmscriptenData<'a> {
         let malloc = instance.func("_malloc").unwrap();
         let free = instance.func("_free").unwrap();
-        let memalign = instance.func("_memalign").unwrap();
+        let memalign = if let Ok(func) = instance.func("_memalign") {
+            Some(func)
+        } else {
+            None
+        };
         let memset = instance.func("_memset").unwrap();
         let stack_alloc = instance.func("stackAlloc").unwrap();
 
@@ -511,7 +515,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
           "NaN" => Global::new(Value::F64(f64::NAN)),
           "Infinity" => Global::new(Value::F64(f64::INFINITY)),
         },
-        "math" => {
+        "global.Math" => {
             "pow" => func!(crate::math::pow),
         },
     };
