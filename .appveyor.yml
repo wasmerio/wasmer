@@ -11,7 +11,7 @@ os: Visual Studio 2017
 
 matrix:
   allow_failures:
-    - CHANNEL: nightly
+    - CHANNEL: stable
 #   - ABI: gnu
 
 environment:

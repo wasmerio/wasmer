@@ -143,10 +143,11 @@ pub fn call_malloc(size: u32, ctx: &mut Ctx) -> u32 {
 }
 
 pub fn call_memalign(alignment: u32, size: u32, ctx: &mut Ctx) -> u32 {
-    get_emscripten_data(ctx)
-        .memalign
-        .call(alignment, size)
-        .unwrap()
+    if let Some(memalign) = &get_emscripten_data(ctx).memalign {
+        memalign.call(alignment, size).unwrap()
+    } else {
+        panic!("Memalign is set to None");
+    }
 }
 
 pub fn call_memset(pointer: u32, value: u32, size: u32, ctx: &mut Ctx) -> u32 {
