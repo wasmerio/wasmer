@@ -1,4 +1,4 @@
-use libc::{c_int, size_t, write};
+use libc::{c_int, c_void, size_t, write};
 
 use crate::varargs::VarArgs;
 use wasmer_runtime_core::vm::Ctx;
