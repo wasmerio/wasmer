@@ -83,9 +83,8 @@ pub use wasmer_runtime_core::table::Table;
 pub use wasmer_runtime_core::types::Value;
 pub use wasmer_runtime_core::vm::Ctx;
 
-pub use wasmer_runtime_core::{compile_with, validate};
-pub use wasmer_runtime_core::error;
 pub use wasmer_runtime_core::Func;
+pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::{func, imports};
 
 pub mod memory {

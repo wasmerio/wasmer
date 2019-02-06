@@ -60,7 +60,7 @@ impl LocalBacking {
 
     fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, Memory> {
         let mut memories = Map::with_capacity(module.info.memories.len());
-        for (_, &desc) in &module.memories {
+        for (_, &desc) in &module.info.memories {
             memories.push(Memory::new(desc).expect("unable to create memory"));
         }
 

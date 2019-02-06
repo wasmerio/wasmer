@@ -38,3 +38,4 @@ optional = true
 
 [features]
 cache = ["serde", "serde_derive", "serde_bytes", "serde-bench", "wasmer-runtime-core/cache"]
+debug = ["wasmer-runtime-core/debug"]

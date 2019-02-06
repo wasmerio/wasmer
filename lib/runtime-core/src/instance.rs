@@ -7,6 +7,7 @@ use crate::{
     import::{ImportObject, LikeNamespace},
     memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
+    sig_registry::SigRegistry,
     table::Table,
     typed_func::{Func, Safe, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
@@ -98,6 +99,7 @@ impl Instance {
     {
         let export_index =
             self.module
+                .info
                 .exports
                 .get(name)
                 .ok_or_else(|| ResolveError::ExportNotFound {
@@ -107,10 +109,11 @@ impl Instance {
         if let ExportIndex::Func(func_index) = export_index {
             let sig_index = *self
                 .module
+                .info
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = self.module.sig_registry.lookup_signature(sig_index);
+            let signature = SigRegistry.lookup_signature(sig_index);
 
             if signature.params() != Args::types() || signature.returns() != Rets::types() {
                 Err(ResolveError::Signature {
@@ -415,7 +418,7 @@ impl InstanceInner {
 
 impl LikeNamespace for Instance {
     fn get_export(&self, name: &str) -> Option<Export> {
-        let export_index = self.module.exports.get(name)?;
+        let export_index = self.module.info.exports.get(name)?;
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
     }
