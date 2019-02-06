@@ -130,6 +130,17 @@ pub fn ___syscall3(which: i32, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
     ret as _
 }
 
+/// write
+pub fn ___syscall4(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+    debug!("emscripten::___syscall4 (write) {}", which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count = varargs.get(ctx);
+    debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
+    unsafe { write(fd, buf_addr, count) as i32 }
+}
+
 /// open
 pub fn ___syscall5(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", which);
