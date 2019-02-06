@@ -129,22 +129,15 @@ pub fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
         gr_mem: u32,
     }
 
-    let name = unsafe {
-        let memory_name_ptr = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const c_char;
-        CStr::from_ptr(memory_name_ptr)
-    };
-
+    // stub the group struct as it is not supported on windows
     unsafe {
-        let group = &*libc_getgrnam(name.as_ptr());
         let group_struct_offset = call_malloc(mem::size_of::<GuestGroup>() as _, ctx);
-
         let group_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), group_struct_offset) as *mut GuestGroup;
-        (*group_struct_ptr).gr_name = copy_cstr_into_wasm(ctx, group.gr_name);
-        (*group_struct_ptr).gr_passwd = copy_cstr_into_wasm(ctx, group.gr_passwd);
-        (*group_struct_ptr).gr_gid = group.gr_gid;
-        (*group_struct_ptr).gr_mem = copy_terminated_array_of_cstrs(ctx, group.gr_mem);
-
+        (*group_struct_ptr).gr_name = 0;
+        (*group_struct_ptr).gr_passwd = 0;
+        (*group_struct_ptr).gr_gid = 0;
+        (*group_struct_ptr).gr_mem = 0;
         group_struct_offset as c_int
     }
 }
