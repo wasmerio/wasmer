@@ -48,7 +48,7 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
     let space_offset = env::call_malloc((cstr_len as u32) + 1, ctx);
-    let raw_memory = emscripten_memory_pointer!(ctx.memory(0), space_offset) as *mut u8;
+    let raw_memory = emscripten_memory_pointer!(ctx.memory(0), space_offset) as *mut c_char;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
