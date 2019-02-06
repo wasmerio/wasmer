@@ -3,7 +3,7 @@ use libc::{
     c_int,
     c_long,
     getenv,
-    //sysconf, unsetenv,
+    //sysconf,
 };
 
 use core::slice;
@@ -82,7 +82,14 @@ pub fn _unsetenv(name: c_int, ctx: &mut Ctx) -> c_int {
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
-    unsafe { unsetenv(name_addr) }
+    unsafe {
+        let name = read_string_from_wasm(name, ctx.memory(0));
+        // no unsetenv on windows, so use putenv with an empty value
+        let unsetenv_string = format!("{}=", name);
+        let unsetenv_cstring = CString::from::<String>(unsetenv_string);
+        let unsetenv_raw_ptr = unsetenv_cstring.as_ptr();
+        putenv(unsetenv_raw_ptr)
+    }
 }
 
 #[allow(clippy::cast_ptr_alignment)]
