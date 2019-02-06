@@ -110,7 +110,7 @@ pub fn ___syscall3(which: i32, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
     debug!("emscripten::___syscall3 (read) {}", which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
-    let count: usize = varargs.get(ctx);
+    let count = varargs.get(ctx);
     debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
     let ret = unsafe { read(fd, buf_addr, count) };
@@ -123,7 +123,7 @@ pub fn ___syscall4(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::___syscall4 (write) {}", which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
-    let count: u32 = varargs.get(ctx);
+    let count = varargs.get(ctx);
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
     unsafe { write(fd, buf_addr, count as usize) as i32 }
@@ -342,7 +342,7 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
             };
 
             type T = u32;
-            let payload = 1 as *const T as *const c_void;
+            let payload = 1 as *const T as _;
             unsafe {
                 setsockopt(
                     fd,
@@ -363,9 +363,9 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
             debug!("socket: bind");
             // bind (socket: c_int, address: *const sockaddr, address_len: socklen_t) -> c_int
             // TODO: Emscripten has a different signature.
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let address: u32 = socket_varargs.get(ctx);
-            let address_len: u32 = socket_varargs.get(ctx);
+            let address_len = socket_varargs.get(ctx);
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
 
             // Debug received address
@@ -390,16 +390,16 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
             debug!("socket: connect");
             // connect (socket: c_int, address: *const sockaddr, len: socklen_t) -> c_int
             // TODO: Emscripten has a different signature.
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let address: u32 = socket_varargs.get(ctx);
-            let address_len: u32 = socket_varargs.get(ctx);
+            let address_len = socket_varargs.get(ctx);
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             unsafe { connect(socket, address, address_len) }
         }
         4 => {
             debug!("socket: listen");
             // listen (socket: c_int, backlog: c_int) -> c_int
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let backlog: i32 = socket_varargs.get(ctx);
             let status = unsafe { listen(socket, backlog) };
             debug!(
@@ -411,7 +411,7 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
         5 => {
             debug!("socket: accept");
             // accept (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let address_addr: u32 = socket_varargs.get(ctx);
             let address_len: u32 = socket_varargs.get(ctx);
             let address = emscripten_memory_pointer!(ctx.memory(0), address_addr) as *mut sockaddr;
@@ -445,7 +445,7 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
         6 => {
             debug!("socket: getsockname");
             // getsockname (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let address: u32 = socket_varargs.get(ctx);
             let address_len: u32 = socket_varargs.get(ctx);
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
@@ -456,7 +456,7 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
         7 => {
             debug!("socket: getpeername");
             // getpeername (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -> c_int
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let address: u32 = socket_varargs.get(ctx);
             let address_len: u32 = socket_varargs.get(ctx);
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
@@ -467,26 +467,26 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
         11 => {
             debug!("socket: sendto");
             // sendto (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let buf: u32 = socket_varargs.get(ctx);
-            let flags: usize = socket_varargs.get(ctx);
+            let flags = socket_varargs.get(ctx);
             let len: i32 = socket_varargs.get(ctx);
             let address: u32 = socket_varargs.get(ctx);
-            let address_len: u32 = socket_varargs.get(ctx);
-            let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
+            let address_len = socket_varargs.get(ctx);
+            let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             unsafe { sendto(socket, buf_addr, flags, len, address, address_len) as i32 }
         }
         12 => {
             debug!("socket: recvfrom");
             // recvfrom (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let buf: u32 = socket_varargs.get(ctx);
-            let flags: usize = socket_varargs.get(ctx);
+            let flags = socket_varargs.get(ctx);
             let len: i32 = socket_varargs.get(ctx);
             let address: u32 = socket_varargs.get(ctx);
             let address_len: u32 = socket_varargs.get(ctx);
-            let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
+            let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             let address_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
@@ -500,7 +500,7 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
             //      https://github.com/openbsd/src/blob/master/sys/sys/socket.h#L156
             // setsockopt (socket: c_int, level: c_int, name: c_int, value: *const c_void, option_len: socklen_t) -> c_int
 
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             // SOL_SOCKET = 0xffff (BSD, Linux)
             let level: i32 = SOL_SOCKET;
             let _: u32 = socket_varargs.get(ctx);
@@ -508,8 +508,8 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
             let name: i32 = SO_REUSEADDR;
             let _: u32 = socket_varargs.get(ctx);
             let value: u32 = socket_varargs.get(ctx);
-            let option_len: u32 = socket_varargs.get(ctx);
-            let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as *mut c_void; // Endian problem
+            let option_len = socket_varargs.get(ctx);
+            let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as _; // Endian problem
             let ret = unsafe { setsockopt(socket, level, name, value_addr, option_len) };
 
             debug!("=> socketfd: {}, level: {} (SOL_SOCKET/0xffff), name: {} (SO_REUSEADDR/4), value_addr: {:?}, option_len: {} = status: {}", socket, level, name, value_addr, option_len, ret);
@@ -518,12 +518,12 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
         15 => {
             debug!("socket: getsockopt");
             // getsockopt (sockfd: c_int, level: c_int, optname: c_int, optval: *mut c_void, optlen: *mut socklen_t) -> c_int
-            let socket: i32 = socket_varargs.get(ctx);
+            let socket = socket_varargs.get(ctx);
             let level: i32 = socket_varargs.get(ctx);
             let name: i32 = socket_varargs.get(ctx);
             let value: u32 = socket_varargs.get(ctx);
             let option_len: u32 = socket_varargs.get(ctx);
-            let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as *mut c_void;
+            let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as _;
             let option_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), option_len) as *mut socklen_t;
             unsafe { getsockopt(socket, level, name, value_addr, option_len_addr) }
@@ -637,7 +637,7 @@ pub fn ___syscall140(which: i32, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", which);
     let fd: i32 = varargs.get(ctx);
-    let offset: i64 = varargs.get(ctx);
+    let offset = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     debug!("=> fd: {}, offset: {}, whence = {}", fd, offset, whence);
     unsafe { lseek(fd, offset, whence) as _ }
@@ -673,7 +673,7 @@ pub fn ___syscall145(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
                 emscripten_memory_pointer!(ctx.memory(0), (iov + i * 8)) as *mut GuestIovec;
             let iov_base = emscripten_memory_pointer!(ctx.memory(0), (*guest_iov_addr).iov_base)
                 as *mut c_void;
-            let iov_len: usize = (*guest_iov_addr).iov_len as _;
+            let iov_len = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = read(fd, iov_base, iov_len);
             if curr < 0 {
@@ -709,7 +709,7 @@ pub fn ___syscall146(which: i32, mut varargs: VarArgs, ctx: &mut Ctx) -> i32 {
                 emscripten_memory_pointer!(ctx.memory(0), (iov + i * 8)) as *mut GuestIovec;
             let iov_base = emscripten_memory_pointer!(ctx.memory(0), (*guest_iov_addr).iov_base)
                 as *const c_void;
-            let iov_len: usize = (*guest_iov_addr).iov_len as _;
+            let iov_len = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = write(fd, iov_base, iov_len);
             if curr < 0 {
