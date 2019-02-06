@@ -140,6 +140,10 @@ pub fn run_emscripten_instance(
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
+    if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
+        instance.call("___emscripten_environ_constructor", &[])?;
+    }
+
     let main_func = instance.dyn_func("_main")?;
     let num_params = main_func.signature().params().len();
     let _result = match num_params {
