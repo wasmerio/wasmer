@@ -507,6 +507,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
             // Linking
             "_dlclose" => func!(crate::linking::_dlclose),
+            "_dlerror" => func!(crate::linking::_dlerror),
             "_dlopen" => func!(crate::linking::_dlopen),
             "_dlsym" => func!(crate::linking::_dlsym),
 
@@ -517,6 +518,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
         "global.Math" => {
             "pow" => func!(crate::math::pow),
+        },
+        "asm2wasm" => {
+            "f64-rem" => func!(crate::math::f64_rem),
         },
     };
     // mock_external!(env_namespace, _sched_yield);
