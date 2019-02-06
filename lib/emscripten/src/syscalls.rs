@@ -313,7 +313,7 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
         pub sin_port: in_port_t,     // u16
         pub sin_addr: GuestInAddr,   // u32
         pub sin_zero: [u8; 8],       // u8 * 8
-        // 2 + 2 + 4 + 8 = 16
+                                     // 2 + 2 + 4 + 8 = 16
     }
 
     #[repr(C)]
