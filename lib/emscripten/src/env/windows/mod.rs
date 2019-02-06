@@ -100,24 +100,18 @@ pub fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
         pw_shell: u32,
     }
 
-    let name = unsafe {
-        let memory_name_ptr = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const c_char;
-        CStr::from_ptr(memory_name_ptr)
-    };
-
+    // stub this in windows as it is not valid
     unsafe {
-        let passwd = &*libc_getpwnam(name.as_ptr());
         let passwd_struct_offset = call_malloc(mem::size_of::<GuestPasswd>() as _, ctx);
-
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
-        (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx, passwd.pw_name);
-        (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx, passwd.pw_passwd);
-        (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx, passwd.pw_gecos);
-        (*passwd_struct_ptr).pw_dir = copy_cstr_into_wasm(ctx, passwd.pw_dir);
-        (*passwd_struct_ptr).pw_shell = copy_cstr_into_wasm(ctx, passwd.pw_shell);
-        (*passwd_struct_ptr).pw_uid = passwd.pw_uid;
-        (*passwd_struct_ptr).pw_gid = passwd.pw_gid;
+        (*passwd_struct_ptr).pw_name = 0;
+        (*passwd_struct_ptr).pw_passwd = 0;
+        (*passwd_struct_ptr).pw_gecos = 0;
+        (*passwd_struct_ptr).pw_dir = 0;
+        (*passwd_struct_ptr).pw_shell = 0;
+        (*passwd_struct_ptr).pw_uid = 0;
+        (*passwd_struct_ptr).pw_gid = 0;
 
         passwd_struct_offset as c_int
     }
