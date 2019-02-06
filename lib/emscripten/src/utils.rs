@@ -15,8 +15,14 @@ use wasmer_runtime_core::{
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
-    for (_, import_name) in &module.0.imported_functions {
-        if import_name.name == "_emscripten_memcpy_big" && import_name.namespace == "env" {
+    for (_, import_name) in &module.0.info.imported_functions {
+        let namespace = module
+            .0
+            .info
+            .namespace_table
+            .get(import_name.namespace_index);
+        let field = module.0.info.name_table.get(import_name.name_index);
+        if field == "_emscripten_memcpy_big" && namespace == "env" {
             return true;
         }
     }
@@ -24,12 +30,12 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 }
 
 pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
-    let (_, table) = &module.0.imported_tables[ImportedTableIndex::new(0)];
+    let (_, table) = &module.0.info.imported_tables[ImportedTableIndex::new(0)];
     (table.minimum, table.maximum)
 }
 
 pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
-    let (_, memory) = &module.0.imported_memories[ImportedMemoryIndex::new(0)];
+    let (_, memory) = &module.0.info.imported_memories[ImportedMemoryIndex::new(0)];
     (memory.minimum, memory.maximum)
 }
 
