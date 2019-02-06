@@ -269,12 +269,12 @@ pub fn _localtime_r(time_p: u32, result: u32, ctx: &mut Ctx) -> c_int {
 
 /// emscripten: _time
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _time(time_p: u32, ctx: &mut Ctx) -> time_t {
+pub fn _time(time_p: u32, ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_time {}", time_p);
 
     unsafe {
         let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_p) as *mut i64;
-        libc_time(time_p_addr)
+        libc_time(time_p_addr) as i32 // TODO review i64
     }
 }
 
@@ -285,7 +285,7 @@ pub fn _strftime(
     format_ptr: c_int,
     tm_ptr: c_int,
     _ctx: &mut Ctx,
-) -> time_t {
+) -> i32 {
     debug!(
         "emscripten::_strftime {} {} {} {}",
         s_ptr, maxsize, format_ptr, tm_ptr
