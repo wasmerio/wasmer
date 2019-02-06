@@ -61,7 +61,7 @@ pub fn _setenv(name: c_int, value: c_int, overwrite: c_int, ctx: &mut Ctx) -> c_
         let name = read_string_from_wasm(name, ctx.memory(0));
         let value = read_string_from_wasm(value, ctx.memory(0));
         let putenv_string = format!("{}={}", name, value);
-        let putenv_cstring = CString::from::<String>(putenv_string);
+        let putenv_cstring = CString::new(putenv_string).unwrap();
         let putenv_raw_ptr = putenv_cstring.as_ptr();
         debug!("=> name({:?})", CStr::from_ptr(name_addr));
         debug!("=> value({:?})", CStr::from_ptr(value_addr));
