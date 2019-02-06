@@ -7,8 +7,8 @@ use std::ffi::CStr;
 use std::mem;
 use std::os::raw::c_char;
 
-use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use super::EmscriptenData;
+use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
+use crate::EmscriptenData;
 use wasmer_runtime_core::vm::Ctx;
 
 pub fn _getaddrinfo(_one: i32, _two: i32, _three: i32, _four: i32, _ctx: &mut Ctx) -> i32 {
