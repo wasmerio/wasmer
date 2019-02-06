@@ -1,3 +1,15 @@
+#[cfg(unix)]
+mod unix;
+
+#[cfg(windows)]
+mod windows;
+
+#[cfg(unix)]
+pub use self::unix::*;
+
+#[cfg(windows)]
+pub use self::windows::*;
+
 use super::utils::copy_stat_into_wasm;
 use super::varargs::VarArgs;
 use byteorder::{ByteOrder, LittleEndian};
@@ -313,7 +325,7 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
         pub sin_port: in_port_t,     // u16
         pub sin_addr: GuestInAddr,   // u32
         pub sin_zero: [u8; 8],       // u8 * 8
-                                     // 2 + 2 + 4 + 8 = 16
+        // 2 + 2 + 4 + 8 = 16
     }
 
     #[repr(C)]
