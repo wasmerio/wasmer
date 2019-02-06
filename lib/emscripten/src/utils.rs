@@ -52,7 +52,7 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
-        *loc = byte;
+        *loc = byte as _;
     }
 
     // TODO: Appending null byte won't work, because there is CStr::from_ptr(cstr)
