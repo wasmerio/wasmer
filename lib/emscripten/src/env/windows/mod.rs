@@ -13,8 +13,8 @@ use std::os::raw::c_char;
 
 use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
 use crate::EmscriptenData;
-use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::memory::Memory;
+use wasmer_runtime_core::vm::Ctx;
 
 #[link(name = "c")]
 extern "C" {
