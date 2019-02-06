@@ -47,7 +47,9 @@ pub fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
 }
 
 unsafe fn read_string_from_wasm(pointer: c_int, memory: &Memory) -> String {
-    let c_str = CStr::from_ptr(memory.view::<i8>()[(pointer as usize)..].as_ptr() as *const Cell<i8> as *const i8);
+    let c_str = CStr::from_ptr(
+        memory.view::<i8>()[(pointer as usize)..].as_ptr() as *const Cell<i8> as *const i8,
+    );
     c_str.to_str().unwrap().to_string()
 }
 
