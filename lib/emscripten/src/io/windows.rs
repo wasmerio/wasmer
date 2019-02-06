@@ -1,6 +1,8 @@
 use libc::{c_char, c_int};
 use wasmer_runtime_core::vm::Ctx;
 
+// this may be problematic for msvc which uses macros for the printf family
+// this acts as a placeholder for now
 #[link(name = "c")]
 extern "C" {
     #[link_name = "printf"]
