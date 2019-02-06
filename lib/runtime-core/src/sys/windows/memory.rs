@@ -30,7 +30,7 @@ impl Memory {
         let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, PAGE_NOACCESS) };
 
         if ptr.is_null() {
-            Err(String::from("unable to allocate memory"))
+            Err("unable to allocate memory".to_string())
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
@@ -69,7 +69,7 @@ impl Memory {
         let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect);
 
         if ptr.is_null() {
-            Err(String::from("unable to protect memory"))
+            Err("unable to protect memory".to_string())
         } else {
             Ok(())
         }
