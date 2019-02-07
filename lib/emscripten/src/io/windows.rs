@@ -1,7 +1,7 @@
 use libc::{c_char, c_int};
 use wasmer_runtime_core::vm::Ctx;
 
-// this may be problematic for msvc which uses inline functions for the printf family
+// This may be problematic for msvc which uses inline functions for the printf family
 // this cfg_attr will try to link with the legacy lib that does not inline printf
 // this will allow for compiliation, but will produce a linker error if there is a problem
 // finding printf.
