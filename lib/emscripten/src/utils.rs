@@ -4,7 +4,9 @@ use libc::stat;
 use std::ffi::CStr;
 use std::mem::size_of;
 use std::os::raw::c_char;
+use std::os::raw::c_int;
 use std::slice;
+use wasmer_runtime_core::memory::Memory;
 use wasmer_runtime_core::{
     module::Module,
     structures::TypedIndex,
@@ -153,6 +155,14 @@ pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
     (*stat_ptr).st_mtime = stat.st_mtime as _;
     (*stat_ptr).st_ctime = stat.st_ctime as _;
     (*stat_ptr).st_ino = stat.st_ino as _;
+}
+
+pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
+    memory.view::<u8>()[(offset as usize)..]
+        .iter()
+        .take_while(|cell| cell.get() != 0)
+        .map(|cell| cell.get() as char)
+        .collect()
 }
 
 #[cfg(test)]

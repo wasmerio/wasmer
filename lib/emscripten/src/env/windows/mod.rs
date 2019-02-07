@@ -11,7 +11,9 @@ use std::ffi::{CStr, CString};
 use std::mem;
 use std::os::raw::c_char;
 
-use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
+use crate::utils::{
+    allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs, read_string_from_wasm,
+};
 use crate::EmscriptenData;
 use wasmer_runtime_core::memory::Memory;
 use wasmer_runtime_core::vm::Ctx;
@@ -46,29 +48,20 @@ pub fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
     unsafe { copy_cstr_into_wasm(ctx, c_str) }
 }
 
-unsafe fn read_string_from_wasm(pointer: c_int, memory: &Memory) -> String {
-    let c_str = CStr::from_ptr(
-        memory.view::<i8>()[(pointer as usize)..].as_ptr() as *const Cell<i8> as *const i8,
-    );
-    c_str.to_str().unwrap().to_string()
-}
-
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(name: c_int, value: c_int, overwrite: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _setenv(name: u32, value: u32, overwrite: u32, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_setenv");
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
     let value_addr = emscripten_memory_pointer!(ctx.memory(0), value);
     // setenv does not exist on windows, so we hack it with _putenv
-    unsafe {
-        let name = read_string_from_wasm(name, ctx.memory(0));
-        let value = read_string_from_wasm(value, ctx.memory(0));
-        let putenv_string = format!("{}={}", name, value);
-        let putenv_cstring = CString::new(putenv_string).unwrap();
-        let putenv_raw_ptr = putenv_cstring.as_ptr();
-        debug!("=> name({:?})", CStr::from_ptr(name_addr));
-        debug!("=> value({:?})", CStr::from_ptr(value_addr));
-        putenv(putenv_raw_ptr)
-    }
+    let name = read_string_from_wasm(ctx.memory(0), name);
+    let value = read_string_from_wasm(ctx.memory(0), value);
+    let putenv_string = format!("{}={}", name, value);
+    let putenv_cstring = CString::new(putenv_string).unwrap();
+    let putenv_raw_ptr = putenv_cstring.as_ptr();
+    debug!("=> name({:?})", name);
+    debug!("=> value({:?})", value);
+    unsafe { putenv(putenv_raw_ptr) }
 }
 
 /// emscripten: _putenv // (name: *const char);
