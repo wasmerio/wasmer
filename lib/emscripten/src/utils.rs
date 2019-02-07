@@ -2,6 +2,7 @@ use super::env;
 use super::env::get_emscripten_data;
 use libc::stat;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::mem::size_of;
 use std::os::raw::c_char;
 use std::os::raw::c_int;
@@ -158,11 +159,12 @@ pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
 }
 
 pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
-    memory.view::<u8>()[(offset as usize)..]
+    let v: Vec<u8> = memory.view()[(offset as usize)..]
         .iter()
-        .take_while(|cell| cell.get() != 0)
-        .map(|cell| cell.get() as char)
-        .collect()
+        .map(|cell| cell.get())
+        .take_while(|&byte| byte != 0)
+        .collect();
+    String::from_utf8_lossy(&v).to_owned().to_string()
 }
 
 #[cfg(test)]
