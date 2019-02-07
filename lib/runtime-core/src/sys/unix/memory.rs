@@ -2,7 +2,7 @@ use errno;
 use nix::libc;
 use page_size;
 use std::ops::{Bound, RangeBounds};
-use std::{ptr, slice};
+use std::{fs::File, os::unix::io::IntoRawFd, path::Path, ptr, rc::Rc, slice};
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -11,14 +11,86 @@ unsafe impl Sync for Memory {}
 pub struct Memory {
     ptr: *mut u8,
     size: usize,
+    protection: Protect,
+    fd: Option<Rc<RawFd>>,
 }
 
 impl Memory {
+    pub fn from_file_path<P>(path: P, protection: Protect) -> Result<Self, String>
+    where
+        P: AsRef<Path>,
+    {
+        let file = File::open(path).map_err(|e| e.to_string())?;
+
+        let file_len = file.metadata().map_err(|e| e.to_string())?.len();
+
+        let raw_fd = RawFd::from_file(file);
+
+        let ptr = unsafe {
+            libc::mmap(
+                ptr::null_mut(),
+                file_len as usize,
+                protection.to_protect_const() as i32,
+                libc::MAP_PRIVATE,
+                raw_fd.0,
+                0,
+            )
+        };
+
+        if ptr == -1 as _ {
+            Err(errno::errno().to_string())
+        } else {
+            Ok(Self {
+                ptr: ptr as *mut u8,
+                size: file_len as usize,
+                protection,
+                fd: Some(Rc::new(raw_fd)),
+            })
+        }
+    }
+
+    pub fn with_size_protect(size: usize, protection: Protect) -> Result<Self, String> {
+        if size == 0 {
+            return Ok(Self {
+                ptr: ptr::null_mut(),
+                size: 0,
+                protection,
+                fd: None,
+            });
+        }
+
+        let size = round_up_to_page_size(size, page_size::get());
+
+        let ptr = unsafe {
+            libc::mmap(
+                ptr::null_mut(),
+                size,
+                protection.to_protect_const() as i32,
+                libc::MAP_PRIVATE | libc::MAP_ANON,
+                -1,
+                0,
+            )
+        };
+
+        if ptr == -1 as _ {
+            Err(errno::errno().to_string())
+        } else {
+            Ok(Self {
+                ptr: ptr as *mut u8,
+                size,
+                protection,
+                fd: None,
+            })
+        }
+    }
+
     pub fn with_size(size: usize) -> Result<Self, String> {
         if size == 0 {
             return Ok(Self {
                 ptr: ptr::null_mut(),
                 size: 0,
+                protection: Protect::None,
+                fd: None,
             });
         }
 
@@ -41,6 +113,8 @@ impl Memory {
             Ok(Self {
                 ptr: ptr as *mut u8,
                 size,
+                protection: Protect::None,
+                fd: None,
             })
         }
     }
@@ -48,9 +122,9 @@ impl Memory {
     pub unsafe fn protect(
         &mut self,
         range: impl RangeBounds<usize>,
-        protect: Protect,
+        protection: Protect,
     ) -> Result<(), String> {
-        let protect = protect.to_protect_const();
+        let protect = protection.to_protect_const();
 
         let range_start = match range.start_bound() {
             Bound::Included(start) => *start,
@@ -75,7 +149,29 @@ impl Memory {
         if success == -1 {
             Err(errno::errno().to_string())
         } else {
+            self.protection = protection;
             Ok(())
+        }
+    }
+
+    pub fn split_at(mut self, offset: usize) -> (Memory, Memory) {
+        let page_size = page_size::get();
+        if offset % page_size == 0 {
+            let second_ptr = unsafe { self.ptr.add(offset) };
+            let second_size = self.size - offset;
+
+            self.size = offset;
+
+            let second = Memory {
+                ptr: second_ptr,
+                size: second_size,
+                protection: self.protection,
+                fd: self.fd.clone(),
+            };
+
+            (self, second)
+        } else {
+            panic!("offset must be multiple of page size: {}", offset)
         }
     }
 
@@ -89,6 +185,10 @@ impl Memory {
 
     pub unsafe fn as_slice_mut(&mut self) -> &mut [u8] {
         slice::from_raw_parts_mut(self.ptr, self.size)
+    }
+
+    pub fn protection(&self) -> Protect {
+        self.protection
     }
 
     pub fn as_ptr(&self) -> *mut u8 {
@@ -105,6 +205,7 @@ impl Drop for Memory {
     }
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {
@@ -122,6 +223,41 @@ impl Protect {
             Protect::ReadWrite => 1 | 2,
             Protect::ReadExec => 1 | 4,
         }
+    }
+
+    pub fn is_readable(self) -> bool {
+        match self {
+            Protect::Read | Protect::ReadWrite | Protect::ReadExec => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_writable(self) -> bool {
+        match self {
+            Protect::ReadWrite => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct RawFd(i32);
+
+impl RawFd {
+    fn from_file(f: File) -> Self {
+        RawFd(f.into_raw_fd())
+    }
+}
+
+impl Drop for RawFd {
+    fn drop(&mut self) {
+        let success = unsafe { libc::close(self.0) };
+        assert_eq!(
+            success,
+            0,
+            "failed to close mmapped file descriptor: {}",
+            errno::errno()
+        );
     }
 }
 

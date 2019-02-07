@@ -14,6 +14,7 @@ unsafe impl Sync for Memory {}
 pub struct Memory {
     ptr: *mut u8,
     size: usize,
+    protection: Protect,
 }
 
 impl Memory {
@@ -22,6 +23,7 @@ impl Memory {
             return Ok(Self {
                 ptr: ptr::null_mut(),
                 size: 0,
+                protection: Protect::None,
             });
         }
 
@@ -35,6 +37,7 @@ impl Memory {
             Ok(Self {
                 ptr: ptr as *mut u8,
                 size,
+                protection: Protect::None,
             })
         }
     }
@@ -71,7 +74,28 @@ impl Memory {
         if ptr.is_null() {
             Err("unable to protect memory".to_string())
         } else {
+            self.protection = protection;
             Ok(())
+        }
+    }
+
+    pub fn split_at(mut self, offset: usize) -> (Memory, Memory) {
+        let page_size = page_size::get();
+        if offset % page_size == 0 {
+            let second_ptr = unsafe { self.ptr.add(offset) };
+            let second_size = self.size - offset;
+
+            self.size = offset;
+
+            let second = Memory {
+                ptr: second_ptr,
+                size: second_size,
+                protection: self.protection,
+            };
+
+            (self, second)
+        } else {
+            panic!("offset must be multiple of page size: {}", offset)
         }
     }
 
@@ -85,6 +109,10 @@ impl Memory {
 
     pub unsafe fn as_slice_mut(&mut self) -> &mut [u8] {
         slice::from_raw_parts_mut(self.ptr, self.size)
+    }
+
+    pub fn protection(&self) -> Protect {
+        self.protection
     }
 
     pub fn as_ptr(&self) -> *mut u8 {
@@ -101,6 +129,7 @@ impl Drop for Memory {
     }
 }
 
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {
@@ -117,6 +146,20 @@ impl Protect {
             Protect::Read => PAGE_READONLY,
             Protect::ReadWrite => PAGE_READWRITE,
             Protect::ReadExec => PAGE_EXECUTE_READ,
+        }
+    }
+
+    pub fn is_readable(self) -> bool {
+        match self {
+            Protect::Read | Protect::ReadWrite | Protect::ReadExec => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_writable(self) -> bool {
+        match self {
+            Protect::ReadWrite => true,
+            _ => false,
         }
     }
 }

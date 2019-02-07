@@ -8,6 +8,7 @@ use std::{
 };
 
 /// Dense item map
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Map<K, V>
 where

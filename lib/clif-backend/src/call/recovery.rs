@@ -5,8 +5,7 @@
 //! unless you have memory unsafety elsewhere in your code.
 
 use crate::call::sighandler::install_sighandler;
-use crate::relocation::{TrapData, TrapSink};
-use cranelift_codegen::ir::TrapCode;
+use crate::relocation::{TrapCode, TrapData, TrapSink};
 use nix::libc::{c_void, siginfo_t};
 use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 use std::cell::{Cell, UnsafeCell};
@@ -36,7 +35,7 @@ unsafe impl Send for HandlerData {}
 unsafe impl Sync for HandlerData {}
 
 pub struct HandlerData {
-    trap_data: TrapSink,
+    pub trap_data: TrapSink,
     buffer_ptr: *const c_void,
     buffer_size: usize,
 }
