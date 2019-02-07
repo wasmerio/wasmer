@@ -69,8 +69,6 @@ use libc::{
     SO_REUSEADDR,
     TIOCGWINSZ,
 };
-use std::os::raw::c_int;
-use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::vm::Ctx;
 
 use super::env;
@@ -86,6 +84,14 @@ extern "C" {
 
 #[cfg(not(target_os = "macos"))]
 use libc::wait4;
+
+// Another conditional constant for name resolution: Macos et iOS use
+// SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
+// Other platforms do otherwise.
+#[cfg(target_os = "darwin")]
+use libc::SO_NOSIGPIPE;
+#[cfg(not(target_os = "darwin"))]
+const SO_NOSIGPIPE: c_int = 0;
 
 // chown
 pub fn ___syscall212(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
