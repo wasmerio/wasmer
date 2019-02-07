@@ -14,6 +14,7 @@ use wasmer_runtime_core::{
     units::Pages,
     vm::Ctx,
 };
+use std::ffi::CString;
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -157,12 +158,13 @@ pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
     (*stat_ptr).st_ino = stat.st_ino as _;
 }
 
-pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
-    memory.view::<u8>()[(offset as usize)..]
+pub fn read_cstring_from_wasm(memory: &Memory, offset: u32) -> CString {
+    let v: Vec<u8> = memory.view()[(offset as usize)..]
         .iter()
         .take_while(|cell| cell.get() != 0)
-        .map(|cell| cell.get() as char)
-        .collect()
+        .map(|cell| cell.get())
+        .collect();
+    CString::new(v).unwrap()
 }
 
 #[cfg(test)]
