@@ -83,10 +83,8 @@ pub use wasmer_runtime_core::table::Table;
 pub use wasmer_runtime_core::types::Value;
 pub use wasmer_runtime_core::vm::Ctx;
 
-pub use wasmer_runtime_core::{compile_with, validate};
-
-pub use wasmer_runtime_core::error;
 pub use wasmer_runtime_core::Func;
+pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::{func, imports};
 
 pub mod memory {
@@ -100,11 +98,25 @@ pub mod wasm {
     pub use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, TableDescriptor, Type, Value};
 }
 
+pub mod error {
+    #[cfg(feature = "cache")]
+    pub use super::cache::Error as CacheError;
+    pub use wasmer_runtime_core::error::*;
+}
+
 pub mod units {
     //! Various unit types.
-
     pub use wasmer_runtime_core::units::{Bytes, Pages};
 }
+
+#[cfg(feature = "cache")]
+mod cache;
+
+#[cfg(feature = "default-compiler")]
+use wasmer_runtime_core::backend::Compiler;
+
+#[cfg(feature = "cache")]
+pub use self::cache::Cache;
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
@@ -119,10 +131,9 @@ pub mod units {
 ///   binary code of the wasm module you want to compile.
 /// # Errors:
 /// If the operation fails, the function returns `Err(error::CompileError::...)`.
-#[cfg(feature = "wasmer-clif-backend")]
+#[cfg(feature = "default-compiler")]
 pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
-    use wasmer_clif_backend::CraneliftCompiler;
-    wasmer_runtime_core::compile_with(&wasm[..], &CraneliftCompiler::new())
+    wasmer_runtime_core::compile_with(&wasm[..], default_compiler())
 }
 
 /// Compile and instantiate WebAssembly code without
@@ -143,10 +154,47 @@ pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
 /// `error::CompileError`, `error::LinkError`, or
 /// `error::RuntimeError` (all combined into an `error::Error`),
 /// depending on the cause of the failure.
-#[cfg(feature = "wasmer-clif-backend")]
+#[cfg(feature = "default-compiler")]
 pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<Instance> {
     let module = compile(wasm)?;
     module.instantiate(import_object)
+}
+
+/// Compile wasm into a [`Cache`] that can be stored to a file or
+/// converted into [`Module`].
+///
+/// [`Cache`]: struct.Cache.html
+/// [`Module`]: struct.Module.html
+///
+/// # Usage:
+///
+/// ```
+/// # use wasmer_runtime::error::CompileResult;
+/// use wasmer_runtime::compile_cache;
+///
+/// # fn make_cache(wasm: &[u8]) -> CompileResult<()> {
+/// let cache = compile_cache(wasm)?;
+/// # Ok(())
+/// # }
+/// ```
+#[cfg(feature = "cache")]
+pub fn compile_cache(wasm: &[u8]) -> error::CompileResult<Cache> {
+    let default_compiler = default_compiler();
+
+    wasmer_runtime_core::compile_to_cache_with(wasm, default_compiler)
+        .map(|core_cache| Cache(core_cache))
+}
+
+#[cfg(feature = "default-compiler")]
+fn default_compiler() -> &'static dyn Compiler {
+    use lazy_static::lazy_static;
+    use wasmer_clif_backend::CraneliftCompiler;
+
+    lazy_static! {
+        static ref DEFAULT_COMPILER: CraneliftCompiler = { CraneliftCompiler::new() };
+    }
+
+    &*DEFAULT_COMPILER as &dyn Compiler
 }
 
 /// The current version of this crate
