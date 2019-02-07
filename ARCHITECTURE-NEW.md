@@ -3,8 +3,8 @@
 <summary><b>metadata</b></summary>
 <b>partof:</b> <i>none</i></a><br>
 <b>parts:</b> <i>none</i></a><br>
-<b>file:</b> <a href="https://github.com/wasmerio/wasmer/blob/master/architecture/spc.md#L1">architecture/spc.md</a><br>
-<b>impl:</b> <a href="https://github.com/wasmerio/wasmer/blob/master/src/bin/wasmer.rs#L1">src/bin/wasmer.rs[0]</a><br>
+<b>file:</b> <a href="https://github.com/vitiral/wasmer/blob/art/architecture/spc.md#L1">architecture/spc.md</a><br>
+<b>impl:</b> <a href="https://github.com/vitiral/wasmer/blob/art/src/bin/wasmer.rs#L1">src/bin/wasmer.rs[0]</a><br>
 <b>spc:</b>100.00&nbsp;&nbsp;<b>tst:</b>0.00<br>
 <hr>
 </details>
@@ -27,7 +27,7 @@ Wasmer uses the following components:
 
 ## High Level Overview
 
-The first time you run `wasmer run <file>`, wasmer will do the following in <a title="/home/rett/open/wasmer/src/bin/wasmer.rs[54]" style="color: #0074D9" href="https://github.com/wasmerio/wasmer/blob/master/src/bin/wasmer.rs#L55"><b>.execute_wasm</b></a>:
+The first time you run `wasmer run <file>`, wasmer will do the following in <a title="/home/rett/open/wasmer/src/bin/wasmer.rs[54]" style="color: #0074D9" href="https://github.com/vitiral/wasmer/blob/art/src/bin/wasmer.rs#L55"><b>.execute_wasm</b></a>:
 
 - Check if `<file>` is a `.wast` file. If so, transform it to `.wasm`
 - Check that the provided binary is a valid WebAssembly one. That means, that its binary format starts with `\0asm`.
@@ -39,13 +39,13 @@ The first time you run `wasmer run <file>`, wasmer will do the following in <a t
 
 ## Phase 1: Generating the Module / IR
 
-The main entry point is <a title="/home/rett/open/wasmer/lib/runtime/src/lib.rs[125]" style="color: #0074D9" href="https://github.com/wasmerio/wasmer/blob/master/lib/runtime/src/lib.rs#L126"><b>.compile</b></a>, but the machinery is really in the default compiler,
-the <a title="/home/rett/open/wasmer/lib/clif-backend/src/lib.rs[37]" style="color: #0074D9" href="https://github.com/wasmerio/wasmer/blob/master/lib/clif-backend/src/lib.rs#L38"><b>.clif_compiler</b></a>.
+The main entry point is <a title="/home/rett/open/wasmer/lib/runtime/src/lib.rs[125]" style="color: #0074D9" href="https://github.com/vitiral/wasmer/blob/art/lib/runtime/src/lib.rs#L126"><b>.compile</b></a>, but the machinery is really in the default compiler,
+the <a title="/home/rett/open/wasmer/lib/clif-backend/src/lib.rs[37]" style="color: #0074D9" href="https://github.com/vitiral/wasmer/blob/art/lib/clif-backend/src/lib.rs#L38"><b>.clif_compiler</b></a>.
 
-As the WebAssembly file is being parsed, it will read the sections in the WebAssembly file (memory, table, function, global and element definitions) using the `ModuleEnv` (<a title="/home/rett/open/wasmer/lib/clif-backend/src/module_env.rs[23]" style="color: #0074D9" href="https://github.com/wasmerio/wasmer/blob/master/lib/clif-backend/src/module_env.rs#L24"><b>.module_env</b></a>) as the structure to initial processing and hold this information.
+As the WebAssembly file is being parsed, it will read the sections in the WebAssembly file (memory, table, function, global and element definitions) using the `ModuleEnv` (<a title="/home/rett/open/wasmer/lib/clif-backend/src/module_env.rs[23]" style="color: #0074D9" href="https://github.com/vitiral/wasmer/blob/art/lib/clif-backend/src/module_env.rs#L24"><b>.module_env</b></a>) as the structure to initial processing and hold this information.
 
 However, the real IR initialization happens while a function body is being parsed/created. That means, when the parser reads the section `(func ...)`.
-While the function body is being parsed the corresponding `FuncEnvironment` (<a title="/home/rett/open/wasmer/lib/clif-backend/src/func_env.rs[16]" style="color: #0074D9" href="https://github.com/wasmerio/wasmer/blob/master/lib/clif-backend/src/func_env.rs#L17"><b>.func_env</b></a>) methods will be called. This happens in <a title="/home/rett/open/wasmer/lib/clif-backend/src/module_env.rs[386]" style="color: #0074D9" href="https://github.com/wasmerio/wasmer/blob/master/lib/clif-backend/src/module_env.rs#L387"><b>.define_function_body</b></a>.
+While the function body is being parsed the corresponding `FuncEnvironment` (<a title="/home/rett/open/wasmer/lib/clif-backend/src/func_env.rs[16]" style="color: #0074D9" href="https://github.com/vitiral/wasmer/blob/art/lib/clif-backend/src/func_env.rs#L17"><b>.func_env</b></a>) methods will be called. This happens in <a title="/home/rett/open/wasmer/lib/clif-backend/src/module_env.rs[386]" style="color: #0074D9" href="https://github.com/vitiral/wasmer/blob/art/lib/clif-backend/src/module_env.rs#L387"><b>.define_function_body</b></a>.
 
 So for example, if the function is using a table, the `make_table` method within that `FuncEnvironment` will be called.
 Each of this methods will return the corresponding IR representation.
