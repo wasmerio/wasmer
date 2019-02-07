@@ -41,7 +41,11 @@ pub struct HandlerData {
 }
 
 impl HandlerData {
-    pub fn new(trap_data: TrapSink, exec_buffer_ptr: *const c_void, exec_buffer_size: usize) -> Self {
+    pub fn new(
+        trap_data: TrapSink,
+        exec_buffer_ptr: *const c_void,
+        exec_buffer_size: usize,
+    ) -> Self {
         Self {
             trap_data,
             exec_buffer_ptr,
@@ -89,12 +93,10 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                         TrapCode::IndirectCallToNull => RuntimeError::IndirectCallToNull {
                             table: TableIndex::new(0),
                         },
-                        TrapCode::HeapOutOfBounds => {
-                            RuntimeError::OutOfBoundsAccess {
-                                memory: MemoryIndex::new(0),
-                                addr: 0,
-                            }
-                        }
+                        TrapCode::HeapOutOfBounds => RuntimeError::OutOfBoundsAccess {
+                            memory: MemoryIndex::new(0),
+                            addr: 0,
+                        },
                         TrapCode::TableOutOfBounds => RuntimeError::TableOutOfBounds {
                             table: TableIndex::new(0),
                         },
@@ -102,12 +104,10 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                             msg: "unknown trap".to_string(),
                         },
                     },
-                    Ok(SIGSEGV) | Ok(SIGBUS) => {
-                        RuntimeError::OutOfBoundsAccess {
-                            memory: MemoryIndex::new(0),
-                            addr: 0,
-                        }
-                    }
+                    Ok(SIGSEGV) | Ok(SIGBUS) => RuntimeError::OutOfBoundsAccess {
+                        memory: MemoryIndex::new(0),
+                        addr: 0,
+                    },
                     Ok(SIGFPE) => RuntimeError::IllegalArithmeticOperation,
                     _ => unimplemented!(),
                 }

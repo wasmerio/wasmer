@@ -144,7 +144,7 @@ pub fn run_emscripten_instance(
         instance.call("___emscripten_environ_constructor", &[])?;
     }
 
-    println!("running emscripten instance");
+    // println!("running emscripten instance");
 
     let main_func = instance.dyn_func("_main")?;
     let num_params = main_func.signature().params().len();
