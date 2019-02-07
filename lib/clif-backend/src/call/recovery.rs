@@ -172,7 +172,7 @@ unsafe fn get_faulting_addr_and_ip(
     let si_addr = (*siginfo).si_addr;
 
     let ucontext = ucontext as *const ucontext_t;
-    let rip = (*ucontext).uc_mcontext.greps[RIP as usize];
+    let rip = (*ucontext).uc_mcontext.gregs[RIP as usize];
 
     (si_addr as _, rip as _)
 }
