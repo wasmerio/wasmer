@@ -5,9 +5,7 @@ use std::ffi::{CStr, CString};
 use std::mem;
 use std::os::raw::c_char;
 
-use crate::utils::{
-    allocate_on_stack, copy_cstr_into_wasm, read_string_from_wasm,
-};
+use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, read_string_from_wasm};
 use crate::EmscriptenData;
 use wasmer_runtime_core::vm::Ctx;
 
@@ -28,7 +26,7 @@ pub fn _getenv(name: u32, ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getenv");
     let name_string = read_string_from_wasm(ctx.memory(0), name);
     debug!("=> name({:?})", name_string);
-    let c_str = unsafe { getenv(name_string.as_ptr() as *const libc::c_char ) };
+    let c_str = unsafe { getenv(name_string.as_ptr() as *const libc::c_char) };
     if c_str.is_null() {
         return 0;
     }
