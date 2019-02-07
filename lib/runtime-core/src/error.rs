@@ -83,12 +83,23 @@ impl PartialEq for LinkError {
 /// Comparing two `RuntimeError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum RuntimeError {
-    OutOfBoundsAccess { memory: MemoryIndex, addr: u32 },
-    TableOutOfBounds { table: TableIndex },
-    IndirectCallSignature { table: TableIndex },
-    IndirectCallToNull { table: TableIndex },
+    OutOfBoundsAccess {
+        memory: MemoryIndex,
+        addr: Option<u32>,
+    },
+    TableOutOfBounds {
+        table: TableIndex,
+    },
+    IndirectCallSignature {
+        table: TableIndex,
+    },
+    IndirectCallToNull {
+        table: TableIndex,
+    },
     IllegalArithmeticOperation,
-    Unknown { msg: String },
+    Unknown {
+        msg: String,
+    },
 }
 
 impl PartialEq for RuntimeError {
