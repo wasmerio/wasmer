@@ -36,24 +36,28 @@ unsafe impl Sync for HandlerData {}
 
 pub struct HandlerData {
     pub trap_data: TrapSink,
-    buffer_ptr: *const c_void,
-    buffer_size: usize,
+    exec_buffer_ptr: *const c_void,
+    exec_buffer_size: usize,
 }
 
 impl HandlerData {
-    pub fn new(trap_data: TrapSink, buffer_ptr: *const c_void, buffer_size: usize) -> Self {
+    pub fn new(
+        trap_data: TrapSink,
+        exec_buffer_ptr: *const c_void,
+        exec_buffer_size: usize,
+    ) -> Self {
         Self {
             trap_data,
-            buffer_ptr,
-            buffer_size,
+            exec_buffer_ptr,
+            exec_buffer_size,
         }
     }
 
     pub fn lookup(&self, ip: *const c_void) -> Option<TrapData> {
         let ip = ip as usize;
-        let buffer_ptr = self.buffer_ptr as usize;
+        let buffer_ptr = self.exec_buffer_ptr as usize;
 
-        if buffer_ptr <= ip && ip < buffer_ptr + self.buffer_size {
+        if buffer_ptr <= ip && ip < buffer_ptr + self.exec_buffer_size {
             let offset = ip - buffer_ptr;
             self.trap_data.lookup(offset)
         } else {

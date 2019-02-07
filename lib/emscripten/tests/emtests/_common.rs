@@ -30,14 +30,14 @@ macro_rules! assert_emscripten_output {
             $args,
         ).expect("run_emscripten_instance finishes");
 
-         let output = capturer.end().unwrap().0;
-         let expected_output = include_str!($expected);
+        let output = capturer.end().unwrap().0;
+        let expected_output = include_str!($expected);
 
-         assert!(
-             output.contains(expected_output),
-             "Output: `{}` does not contain expected output: `{}`",
-             output,
-             expected_output
-         );
+        assert!(
+            output.contains(expected_output),
+            "Output: `{}` does not contain expected output: `{}`",
+            output,
+            expected_output
+        );
     }};
 }
