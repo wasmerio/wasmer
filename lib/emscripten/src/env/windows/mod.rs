@@ -75,21 +75,16 @@ pub fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub fn _unsetenv(name: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _unsetenv(name: u32, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_unsetenv");
-
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
-
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-
-    unsafe {
-        let name = read_string_from_wasm(name, ctx.memory(0));
-        // no unsetenv on windows, so use putenv with an empty value
-        let unsetenv_string = format!("{}=", name);
-        let unsetenv_cstring = CString::from::<String>(unsetenv_string);
-        let unsetenv_raw_ptr = unsetenv_cstring.as_ptr();
-        putenv(unsetenv_raw_ptr)
-    }
+    let name = read_string_from_wasm(ctx.memory(0), name);
+    // no unsetenv on windows, so use putenv with an empty value
+    let unsetenv_string = format!("{}=", name);
+    let unsetenv_cstring = CString::from::<String>(unsetenv_string);
+    let unsetenv_raw_ptr = unsetenv_cstring.as_ptr();
+    debug!("=> name({:?})", name);
+    unsafe { putenv(unsetenv_raw_ptr) }
 }
 
 #[allow(clippy::cast_ptr_alignment)]
