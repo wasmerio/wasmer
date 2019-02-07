@@ -16,7 +16,7 @@ The first time you run `wasmer run myfile.wasm`, wasmer will:
 - Once a `Module` is generated, an `Instance` is created with the proper `import_object` (that means, if is detected as an emscripten file, it will add the emscripten expected imports)
 - Try to call the WebAssembly start function, or if unexistent try to search for the one that is exported as `main`.
 
-Find below an more detailed explanation of the process:
+Find a more detailed explanation of the process below:
 
 ### Phase 1: Generating the Module / IR
 
@@ -32,7 +32,7 @@ The `Module` creation will be finished once the parsing is done, and will hold a
 
 ### Phase 2: Compiling the Functions
 
-Now that we have a `Module` (and all it's definitions living in `ModuleInfo`) we should be ready to compile it's functions.
+Now that we have a `Module` (and all its definitions living in `ModuleInfo`) we should be ready to compile its functions.
 
 Right now, the `Instance` is the one in charge of compiling this functions into machine code.
 
