@@ -2,9 +2,12 @@ use super::env;
 use super::env::get_emscripten_data;
 use libc::stat;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::mem::size_of;
 use std::os::raw::c_char;
+use std::os::raw::c_int;
 use std::slice;
+use wasmer_runtime_core::memory::Memory;
 use wasmer_runtime_core::{
     module::Module,
     structures::TypedIndex,
@@ -15,8 +18,14 @@ use wasmer_runtime_core::{
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
-    for (_, import_name) in &module.0.imported_functions {
-        if import_name.name == "_emscripten_memcpy_big" && import_name.namespace == "env" {
+    for (_, import_name) in &module.0.info.imported_functions {
+        let namespace = module
+            .0
+            .info
+            .namespace_table
+            .get(import_name.namespace_index);
+        let field = module.0.info.name_table.get(import_name.name_index);
+        if field == "_emscripten_memcpy_big" && namespace == "env" {
             return true;
         }
     }
@@ -24,12 +33,12 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 }
 
 pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
-    let (_, table) = &module.0.imported_tables[ImportedTableIndex::new(0)];
+    let (_, table) = &module.0.info.imported_tables[ImportedTableIndex::new(0)];
     (table.minimum, table.maximum)
 }
 
 pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
-    let (_, memory) = &module.0.imported_memories[ImportedMemoryIndex::new(0)];
+    let (_, memory) = &module.0.info.imported_memories[ImportedMemoryIndex::new(0)];
     (memory.minimum, memory.maximum)
 }
 
@@ -48,11 +57,11 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
     let space_offset = env::call_malloc((cstr_len as u32) + 1, ctx);
-    let raw_memory = emscripten_memory_pointer!(ctx.memory(0), space_offset) as *mut u8;
+    let raw_memory = emscripten_memory_pointer!(ctx.memory(0), space_offset) as *mut c_char;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
-        *loc = byte;
+        *loc = byte as _;
     }
 
     // TODO: Appending null byte won't work, because there is CStr::from_ptr(cstr)
@@ -147,6 +156,15 @@ pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
     (*stat_ptr).st_mtime = stat.st_mtime as _;
     (*stat_ptr).st_ctime = stat.st_ctime as _;
     (*stat_ptr).st_ino = stat.st_ino as _;
+}
+
+pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
+    let v: Vec<u8> = memory.view()[(offset as usize)..]
+        .iter()
+        .map(|cell| cell.get())
+        .take_while(|&byte| byte != 0)
+        .collect();
+    String::from_utf8_lossy(&v).to_owned().to_string()
 }
 
 #[cfg(test)]

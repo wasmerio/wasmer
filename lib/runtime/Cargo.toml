@@ -11,6 +11,10 @@ readme = "README.md"
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
 wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2", optional = true }
+lazy_static = "1.2.0"
 
 [features]
-default = ["wasmer-clif-backend"]
+default = ["default-compiler", "cache"]
+default-compiler = ["wasmer-clif-backend/cache", "wasmer-runtime-core/cache"]
+cache = ["default-compiler"]
+debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]

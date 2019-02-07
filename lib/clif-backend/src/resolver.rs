@@ -1,39 +1,104 @@
-use crate::call::HandlerData;
-use crate::libcalls;
-use crate::relocation::{
-    LocalTrapSink, Reloc, RelocSink, Relocation, RelocationType, TrapSink, VmCall, VmCallKind,
+#[cfg(feature = "cache")]
+use crate::{
+    cache::{BackendCache, TrampolineCache},
+    trampoline::Trampolines,
 };
+use crate::{
+    call::HandlerData,
+    libcalls,
+    relocation::{
+        ExternalRelocation, LibCall, LocalRelocation, LocalTrapSink, Reloc, RelocSink,
+        RelocationType, TrapSink, VmCall, VmCallKind,
+    },
+};
+
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
-use std::mem;
-use std::ptr::{write_unaligned, NonNull};
+use std::{
+    mem,
+    ptr::{write_unaligned, NonNull},
+    sync::Arc,
+};
+#[cfg(feature = "cache")]
+use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
     backend::{
         self,
         sys::{Memory, Protect},
+        SigRegistry,
     },
     error::{CompileError, CompileResult},
-    structures::{Map, TypedIndex},
-    types::LocalFuncIndex,
+    module::ModuleInfo,
+    structures::{Map, SliceMap, TypedIndex},
+    types::{FuncSig, LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
 
 #[allow(dead_code)]
 pub struct FuncResolverBuilder {
     resolver: FuncResolver,
-    relocations: Map<LocalFuncIndex, Vec<Relocation>>,
+    local_relocs: Map<LocalFuncIndex, Box<[LocalRelocation]>>,
+    external_relocs: Map<LocalFuncIndex, Box<[ExternalRelocation]>>,
     import_len: usize,
 }
 
 impl FuncResolverBuilder {
+    #[cfg(feature = "cache")]
+    pub fn new_from_backend_cache(
+        backend_cache: BackendCache,
+        mut code: Memory,
+        info: &ModuleInfo,
+    ) -> Result<(Self, Trampolines, HandlerData), CacheError> {
+        unsafe {
+            code.protect(.., Protect::ReadWrite)
+                .map_err(|e| CacheError::Unknown(e.to_string()))?;
+        }
+
+        let handler_data =
+            HandlerData::new(backend_cache.trap_sink, code.as_ptr() as _, code.size());
+
+        Ok((
+            Self {
+                resolver: FuncResolver {
+                    map: backend_cache.offsets,
+                    memory: code,
+                },
+                local_relocs: Map::new(),
+                external_relocs: backend_cache.external_relocs,
+                import_len: info.imported_functions.len(),
+            },
+            Trampolines::from_trampoline_cache(backend_cache.trampolines),
+            handler_data,
+        ))
+    }
+
+    #[cfg(feature = "cache")]
+    pub fn to_backend_cache(
+        mut self,
+        trampolines: TrampolineCache,
+        handler_data: HandlerData,
+    ) -> (BackendCache, Memory) {
+        self.relocate_locals();
+        (
+            BackendCache {
+                external_relocs: self.external_relocs,
+                offsets: self.resolver.map,
+                trap_sink: handler_data.trap_data,
+                trampolines,
+            },
+            self.resolver.memory,
+        )
+    }
+
     pub fn new(
         isa: &isa::TargetIsa,
         function_bodies: Map<LocalFuncIndex, ir::Function>,
-        import_len: usize,
+        info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {
         let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
-        let mut relocations = Map::with_capacity(function_bodies.len());
+        let mut local_relocs = Map::with_capacity(function_bodies.len());
+        let mut external_relocs = Map::new();
 
         let mut trap_sink = TrapSink::new();
         let mut local_trap_sink = LocalTrapSink::new();
@@ -58,7 +123,8 @@ impl FuncResolverBuilder {
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
 
             compiled_functions.push(code_buf);
-            relocations.push(reloc_sink.func_relocs);
+            local_relocs.push(reloc_sink.local_relocs.into_boxed_slice());
+            external_relocs.push(reloc_sink.external_relocs.into_boxed_slice());
         }
 
         let mut memory = Memory::with_size(total_size)
@@ -98,47 +164,70 @@ impl FuncResolverBuilder {
 
         let handler_data = HandlerData::new(trap_sink, memory.as_ptr() as _, memory.size());
 
-        Ok((
-            Self {
-                resolver: FuncResolver { map, memory },
-                relocations,
-                import_len,
-            },
-            handler_data,
-        ))
+        let mut func_resolver_builder = Self {
+            resolver: FuncResolver { map, memory },
+            local_relocs,
+            external_relocs,
+            import_len: info.imported_functions.len(),
+        };
+
+        func_resolver_builder.relocate_locals();
+
+        Ok((func_resolver_builder, handler_data))
     }
 
-    pub fn finalize(mut self) -> CompileResult<FuncResolver> {
-        for (index, relocs) in self.relocations.iter() {
-            for ref reloc in relocs {
-                let target_func_address: isize = match reloc.target {
-                    RelocationType::Normal(local_func_index) => {
-                        // This will always be an internal function
-                        // because imported functions are not
-                        // called in this way.
-                        // Adjust from wasm-wide function index to index of locally-defined functions only.
-                        let local_func_index =
-                            LocalFuncIndex::new(local_func_index.index() - self.import_len);
+    fn relocate_locals(&mut self) {
+        for (index, relocs) in self.local_relocs.iter() {
+            for ref reloc in relocs.iter() {
+                let local_func_index = LocalFuncIndex::new(reloc.target.index() - self.import_len);
+                let target_func_address =
+                    self.resolver.lookup(local_func_index).unwrap().as_ptr() as usize;
 
-                        self.resolver.lookup(local_func_index).unwrap().as_ptr() as isize
-                    }
+                // We need the address of the current function
+                // because these calls are relative.
+                let func_addr = self.resolver.lookup(index).unwrap().as_ptr() as usize;
+
+                unsafe {
+                    let reloc_address = func_addr + reloc.offset as usize;
+                    let reloc_delta = target_func_address
+                        .wrapping_sub(reloc_address)
+                        .wrapping_add(reloc.addend as usize);
+
+                    write_unaligned(reloc_address as *mut u32, reloc_delta as u32);
+                }
+            }
+        }
+    }
+
+    pub fn finalize(
+        mut self,
+        signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
+    ) -> CompileResult<FuncResolver> {
+        for (index, relocs) in self.external_relocs.iter() {
+            for ref reloc in relocs.iter() {
+                let target_func_address: isize = match reloc.target {
                     RelocationType::LibCall(libcall) => match libcall {
-                        ir::LibCall::CeilF32 => libcalls::ceilf32 as isize,
-                        ir::LibCall::FloorF32 => libcalls::floorf32 as isize,
-                        ir::LibCall::TruncF32 => libcalls::truncf32 as isize,
-                        ir::LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
-                        ir::LibCall::CeilF64 => libcalls::ceilf64 as isize,
-                        ir::LibCall::FloorF64 => libcalls::floorf64 as isize,
-                        ir::LibCall::TruncF64 => libcalls::truncf64 as isize,
-                        ir::LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
-                        ir::LibCall::Probestack => libcalls::__rust_probestack as isize,
+                        LibCall::CeilF32 => libcalls::ceilf32 as isize,
+                        LibCall::FloorF32 => libcalls::floorf32 as isize,
+                        LibCall::TruncF32 => libcalls::truncf32 as isize,
+                        LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
+                        LibCall::CeilF64 => libcalls::ceilf64 as isize,
+                        LibCall::FloorF64 => libcalls::floorf64 as isize,
+                        LibCall::TruncF64 => libcalls::truncf64 as isize,
+                        LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
+                        LibCall::Probestack => libcalls::__rust_probestack as isize,
+                    },
+                    RelocationType::Intrinsic(ref name) => match name.as_str() {
+                        "i32print" => i32_print as isize,
+                        "i64print" => i64_print as isize,
+                        "f32print" => f32_print as isize,
+                        "f64print" => f64_print as isize,
+                        "strtdbug" => start_debug as isize,
+                        "enddbug" => end_debug as isize,
                         _ => Err(CompileError::InternalError {
-                            msg: format!("unexpected libcall: {}", libcall),
+                            msg: format!("unexpected intrinsic: {}", name),
                         })?,
                     },
-                    RelocationType::Intrinsic(ref name) => Err(CompileError::InternalError {
-                        msg: format!("unexpected intrinsic: {}", name),
-                    })?,
                     RelocationType::VmCall(vmcall) => match vmcall {
                         VmCall::Local(kind) => match kind {
                             VmCallKind::StaticMemoryGrow => vmcalls::local_static_memory_grow as _,
@@ -173,10 +262,15 @@ impl FuncResolverBuilder {
                             }
                         },
                     },
+                    RelocationType::Signature(sig_index) => {
+                        let sig_index =
+                            SigRegistry.lookup_sig_index(Arc::clone(&signatures[sig_index]));
+                        sig_index.index() as _
+                    }
                 };
 
                 // We need the address of the current function
-                // because these calls are relative.
+                // because some of these calls are relative.
                 let func_addr = self.resolver.lookup(index).unwrap().as_ptr();
 
                 // Determine relocation type and apply relocation.
@@ -192,17 +286,14 @@ impl FuncResolverBuilder {
                         };
                         LittleEndian::write_u64(ptr_slice, ptr_to_write);
                     }
-                    Reloc::X86PCRel4 => unsafe {
-                        let reloc_address = func_addr.offset(reloc.offset as isize) as isize;
-                        let reloc_addend = reloc.addend as isize;
-                        // TODO: Handle overflow.
-                        let reloc_delta_i32 =
-                            (target_func_address - reloc_address + reloc_addend) as i32;
-                        write_unaligned(reloc_address as *mut i32, reloc_delta_i32);
+                    Reloc::X86PCRel4 | Reloc::X86CallPCRel4 => unsafe {
+                        let reloc_address = (func_addr as usize) + reloc.offset as usize;
+                        let reloc_delta = target_func_address
+                            .wrapping_sub(reloc_address as isize)
+                            .wrapping_add(reloc.addend as isize);
+
+                        write_unaligned(reloc_address as *mut u32, reloc_delta as u32);
                     },
-                    _ => Err(CompileError::InternalError {
-                        msg: format!("unsupported reloc kind: {}", reloc.reloc),
-                    })?,
                 }
             }
         }
@@ -247,4 +338,23 @@ impl backend::FuncResolver for FuncResolver {
 #[inline]
 fn round_up(n: usize, multiple: usize) -> usize {
     (n + multiple - 1) & !(multiple - 1)
+}
+
+extern "C" fn i32_print(n: i32) {
+    print!(" i32: {},", n);
+}
+extern "C" fn i64_print(n: i64) {
+    print!(" i64: {},", n);
+}
+extern "C" fn f32_print(n: f32) {
+    print!(" f32: {},", n);
+}
+extern "C" fn f64_print(n: f64) {
+    print!(" f64: {},", n);
+}
+extern "C" fn start_debug(func_index: u32) {
+    print!("func ({}), args: [", func_index);
+}
+extern "C" fn end_debug() {
+    println!(" ]");
 }

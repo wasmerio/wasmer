@@ -1,15 +1,19 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{
-    c_int, c_long, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, putenv, setenv,
-    sysconf, unsetenv,
-};
-use std::ffi::CStr;
+use libc::{c_int, c_long, getenv};
+
+use std::ffi::{CStr, CString};
 use std::mem;
 use std::os::raw::c_char;
 
-use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use super::EmscriptenData;
+use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, read_string_from_wasm};
+use crate::EmscriptenData;
 use wasmer_runtime_core::vm::Ctx;
+
+#[link(name = "c")]
+extern "C" {
+    #[link_name = "_putenv"]
+    pub fn putenv(s: *const c_char) -> c_int;
+}
 
 pub fn _getaddrinfo(_one: i32, _two: i32, _three: i32, _four: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_getaddrinfo");
@@ -18,32 +22,31 @@ pub fn _getaddrinfo(_one: i32, _two: i32, _three: i32, _four: i32, _ctx: &mut Ct
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
+pub fn _getenv(name: u32, ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getenv");
-
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
-
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-
-    let c_str = unsafe { getenv(name_addr) };
+    let name_string = read_string_from_wasm(ctx.memory(0), name);
+    debug!("=> name({:?})", name_string);
+    let c_str = unsafe { getenv(name_string.as_ptr() as *const libc::c_char) };
     if c_str.is_null() {
         return 0;
     }
-
-    unsafe { copy_cstr_into_wasm(ctx, c_str) }
+    unsafe { copy_cstr_into_wasm(ctx, c_str as *const c_char) }
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(name: c_int, value: c_int, overwrite: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _setenv(name: u32, value: u32, overwrite: u32, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_setenv");
-
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
-    let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as *const c_char;
-
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-    debug!("=> value({:?})", unsafe { CStr::from_ptr(value_addr) });
-
-    unsafe { setenv(name_addr, value_addr, overwrite) }
+    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
+    let value_addr = emscripten_memory_pointer!(ctx.memory(0), value);
+    // setenv does not exist on windows, so we hack it with _putenv
+    let name = read_string_from_wasm(ctx.memory(0), name);
+    let value = read_string_from_wasm(ctx.memory(0), value);
+    let putenv_string = format!("{}={}", name, value);
+    let putenv_cstring = CString::new(putenv_string).unwrap();
+    let putenv_raw_ptr = putenv_cstring.as_ptr();
+    debug!("=> name({:?})", name);
+    debug!("=> value({:?})", value);
+    unsafe { putenv(putenv_raw_ptr) }
 }
 
 /// emscripten: _putenv // (name: *const char);
@@ -53,19 +56,20 @@ pub fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-
-    unsafe { putenv(name_addr as _) }
+    unsafe { putenv(name_addr) }
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub fn _unsetenv(name: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _unsetenv(name: u32, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_unsetenv");
-
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
-
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-
-    unsafe { unsetenv(name_addr) }
+    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
+    let name = read_string_from_wasm(ctx.memory(0), name);
+    // no unsetenv on windows, so use putenv with an empty value
+    let unsetenv_string = format!("{}=", name);
+    let unsetenv_cstring = CString::new(unsetenv_string).unwrap();
+    let unsetenv_raw_ptr = unsetenv_cstring.as_ptr();
+    debug!("=> name({:?})", name);
+    unsafe { putenv(unsetenv_raw_ptr) }
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -83,24 +87,18 @@ pub fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
         pw_shell: u32,
     }
 
-    let name = unsafe {
-        let memory_name_ptr = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const c_char;
-        CStr::from_ptr(memory_name_ptr)
-    };
-
+    // stub this in windows as it is not valid
     unsafe {
-        let passwd = &*libc_getpwnam(name.as_ptr());
         let passwd_struct_offset = call_malloc(mem::size_of::<GuestPasswd>() as _, ctx);
-
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
-        (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx, passwd.pw_name);
-        (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx, passwd.pw_passwd);
-        (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx, passwd.pw_gecos);
-        (*passwd_struct_ptr).pw_dir = copy_cstr_into_wasm(ctx, passwd.pw_dir);
-        (*passwd_struct_ptr).pw_shell = copy_cstr_into_wasm(ctx, passwd.pw_shell);
-        (*passwd_struct_ptr).pw_uid = passwd.pw_uid;
-        (*passwd_struct_ptr).pw_gid = passwd.pw_gid;
+        (*passwd_struct_ptr).pw_name = 0;
+        (*passwd_struct_ptr).pw_passwd = 0;
+        (*passwd_struct_ptr).pw_gecos = 0;
+        (*passwd_struct_ptr).pw_dir = 0;
+        (*passwd_struct_ptr).pw_shell = 0;
+        (*passwd_struct_ptr).pw_uid = 0;
+        (*passwd_struct_ptr).pw_gid = 0;
 
         passwd_struct_offset as c_int
     }
@@ -118,22 +116,15 @@ pub fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
         gr_mem: u32,
     }
 
-    let name = unsafe {
-        let memory_name_ptr = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const c_char;
-        CStr::from_ptr(memory_name_ptr)
-    };
-
+    // stub the group struct as it is not supported on windows
     unsafe {
-        let group = &*libc_getgrnam(name.as_ptr());
         let group_struct_offset = call_malloc(mem::size_of::<GuestGroup>() as _, ctx);
-
         let group_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), group_struct_offset) as *mut GuestGroup;
-        (*group_struct_ptr).gr_name = copy_cstr_into_wasm(ctx, group.gr_name);
-        (*group_struct_ptr).gr_passwd = copy_cstr_into_wasm(ctx, group.gr_passwd);
-        (*group_struct_ptr).gr_gid = group.gr_gid;
-        (*group_struct_ptr).gr_mem = copy_terminated_array_of_cstrs(ctx, group.gr_mem);
-
+        (*group_struct_ptr).gr_name = 0;
+        (*group_struct_ptr).gr_passwd = 0;
+        (*group_struct_ptr).gr_gid = 0;
+        (*group_struct_ptr).gr_mem = 0;
         group_struct_offset as c_int
     }
 }
@@ -190,8 +181,8 @@ pub fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
 
 pub fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
     debug!("emscripten::_sysconf {}", name);
-    // TODO: Implement like emscripten expects regarding memory/page size
-    unsafe { sysconf(name) }
+    // stub because sysconf is not valid on windows
+    0
 }
 
 pub fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _ctx: &mut Ctx) {

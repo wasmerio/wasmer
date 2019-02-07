@@ -5,8 +5,7 @@
 //! unless you have memory unsafety elsewhere in your code.
 
 use crate::call::sighandler::install_sighandler;
-use crate::relocation::{TrapData, TrapSink};
-use cranelift_codegen::ir::TrapCode;
+use crate::relocation::{TrapCode, TrapData, TrapSink};
 use nix::libc::{c_void, siginfo_t};
 use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
 use std::cell::{Cell, UnsafeCell};
@@ -36,25 +35,29 @@ unsafe impl Send for HandlerData {}
 unsafe impl Sync for HandlerData {}
 
 pub struct HandlerData {
-    trap_data: TrapSink,
-    buffer_ptr: *const c_void,
-    buffer_size: usize,
+    pub trap_data: TrapSink,
+    exec_buffer_ptr: *const c_void,
+    exec_buffer_size: usize,
 }
 
 impl HandlerData {
-    pub fn new(trap_data: TrapSink, buffer_ptr: *const c_void, buffer_size: usize) -> Self {
+    pub fn new(
+        trap_data: TrapSink,
+        exec_buffer_ptr: *const c_void,
+        exec_buffer_size: usize,
+    ) -> Self {
         Self {
             trap_data,
-            buffer_ptr,
-            buffer_size,
+            exec_buffer_ptr,
+            exec_buffer_size,
         }
     }
 
     pub fn lookup(&self, ip: *const c_void) -> Option<TrapData> {
         let ip = ip as usize;
-        let buffer_ptr = self.buffer_ptr as usize;
+        let buffer_ptr = self.exec_buffer_ptr as usize;
 
-        if buffer_ptr <= ip && ip < buffer_ptr + self.buffer_size {
+        if buffer_ptr <= ip && ip < buffer_ptr + self.exec_buffer_size {
             let offset = ip - buffer_ptr;
             self.trap_data.lookup(offset)
         } else {
@@ -90,21 +93,10 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                         TrapCode::IndirectCallToNull => RuntimeError::IndirectCallToNull {
                             table: TableIndex::new(0),
                         },
-                        TrapCode::HeapOutOfBounds => {
-                            let addr =
-                                (faulting_addr as usize) - (handler_data.buffer_ptr as usize);
-                            if addr <= handler_data.buffer_size {
-                                // in the memory
-                                RuntimeError::OutOfBoundsAccess {
-                                    memory: MemoryIndex::new(0),
-                                    addr: addr as u32,
-                                }
-                            } else {
-                                // if there's an invalid access outside of the memory, including guard pages
-                                // just kill the process.
-                                panic!("invalid memory access, way out of bounds")
-                            }
-                        }
+                        TrapCode::HeapOutOfBounds => RuntimeError::OutOfBoundsAccess {
+                            memory: MemoryIndex::new(0),
+                            addr: 0,
+                        },
                         TrapCode::TableOutOfBounds => RuntimeError::TableOutOfBounds {
                             table: TableIndex::new(0),
                         },
@@ -112,20 +104,10 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                             msg: "unknown trap".to_string(),
                         },
                     },
-                    Ok(SIGSEGV) | Ok(SIGBUS) => {
-                        let addr = (faulting_addr as usize) - (handler_data.buffer_ptr as usize);
-                        if addr <= handler_data.buffer_size {
-                            // in the memory
-                            RuntimeError::OutOfBoundsAccess {
-                                memory: MemoryIndex::new(0),
-                                addr: addr as u32,
-                            }
-                        } else {
-                            // if there's an invalid access outside of the memory, including guard pages
-                            // just kill the process.
-                            panic!("invalid memory access, way out of bounds")
-                        }
-                    }
+                    Ok(SIGSEGV) | Ok(SIGBUS) => RuntimeError::OutOfBoundsAccess {
+                        memory: MemoryIndex::new(0),
+                        addr: 0,
+                    },
                     Ok(SIGFPE) => RuntimeError::IllegalArithmeticOperation,
                     _ => unimplemented!(),
                 }

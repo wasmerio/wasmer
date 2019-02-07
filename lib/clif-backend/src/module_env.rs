@@ -3,16 +3,18 @@ use crate::{
     module::{Converter, Module},
 };
 use cranelift_codegen::{ir, isa};
-use cranelift_entity::PrimaryMap;
 use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
-use hashbrown::HashMap;
+use std::sync::Arc;
 use wasmer_runtime_core::{
     error::{CompileError, CompileResult},
-    module::{DataInitializer, ExportIndex, ImportName, TableInitializer},
+    module::{
+        DataInitializer, ExportIndex, ImportName, NameIndex, NamespaceIndex, StringTableBuilder,
+        TableInitializer,
+    },
     structures::{Map, TypedIndex},
     types::{
-        ElementType, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer,
-        LocalFuncIndex, LocalOrImport, MemoryDescriptor, SigIndex, TableDescriptor, Value,
+        ElementType, GlobalDescriptor, GlobalIndex, GlobalInit, Initializer, LocalFuncIndex,
+        LocalOrImport, MemoryDescriptor, SigIndex, TableDescriptor, Value,
     },
     units::Pages,
 };
@@ -23,8 +25,8 @@ pub struct ModuleEnv<'module, 'isa> {
     pub signatures: Map<SigIndex, ir::Signature>,
     globals: Map<GlobalIndex, cranelift_wasm::Global>,
     func_bodies: Map<LocalFuncIndex, ir::Function>,
-    pub deduplicated: PrimaryMap<cranelift_wasm::SignatureIndex, SigIndex>,
-    duplicated: HashMap<SigIndex, cranelift_wasm::SignatureIndex>,
+    namespace_table_builder: StringTableBuilder<NamespaceIndex>,
+    name_table_builder: StringTableBuilder<NameIndex>,
 }
 
 impl<'module, 'isa> ModuleEnv<'module, 'isa> {
@@ -35,14 +37,18 @@ impl<'module, 'isa> ModuleEnv<'module, 'isa> {
             signatures: Map::new(),
             globals: Map::new(),
             func_bodies: Map::new(),
-            deduplicated: PrimaryMap::new(),
-            duplicated: HashMap::new(),
+            namespace_table_builder: StringTableBuilder::new(),
+            name_table_builder: StringTableBuilder::new(),
         }
     }
 
     pub fn translate(mut self, wasm: &[u8]) -> CompileResult<Map<LocalFuncIndex, ir::Function>> {
         translate_module(wasm, &mut self)
             .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
+
+        self.module.info.namespace_table = self.namespace_table_builder.finish();
+        self.module.info.name_table = self.name_table_builder.finish();
+
         Ok(self.func_bodies)
     }
 }
@@ -55,12 +61,11 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a function signature to the environment.
     fn declare_signature(&mut self, sig: &ir::Signature) {
-        let clif_sig_index = self.signatures.push(sig.clone());
-        let func_sig: FuncSig = Converter(sig).into();
-        let sig_index = self.module.sig_registry.lookup_sig_index(func_sig);
-        self.deduplicated.push(sig_index);
-        self.duplicated
-            .insert(sig_index, Converter(clif_sig_index).into());
+        self.signatures.push(sig.clone());
+        self.module
+            .info
+            .signatures
+            .push(Arc::new(Converter(sig).into()));
     }
 
     /// Return the signature with the given index.
@@ -75,25 +80,34 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         namespace: &'data str,
         name: &'data str,
     ) {
-        let sig_index = self.deduplicated[clif_sig_index];
-        self.module.func_assoc.push(sig_index);
+        // We convert the cranelift signature index to
+        // a wasmer signature index without deduplicating
+        // because we'll deduplicate later.
+        let sig_index = Converter(clif_sig_index).into();
+        self.module.info.func_assoc.push(sig_index);
+
+        let namespace_index = self.namespace_table_builder.register(namespace);
+        let name_index = self.name_table_builder.register(name);
 
         // Add import names to list of imported functions
-        self.module.imported_functions.push(ImportName {
-            namespace: namespace.to_string(),
-            name: name.to_string(),
+        self.module.info.imported_functions.push(ImportName {
+            namespace_index,
+            name_index,
         });
     }
 
     /// Return the number of imported funcs.
     fn get_num_func_imports(&self) -> usize {
-        self.module.imported_functions.len()
+        self.module.info.imported_functions.len()
     }
 
     /// Declares the type (signature) of a local function in the module.
     fn declare_func_type(&mut self, clif_sig_index: cranelift_wasm::SignatureIndex) {
-        let sig_index = self.deduplicated[clif_sig_index];
-        self.module.func_assoc.push(sig_index);
+        // We convert the cranelift signature index to
+        // a wasmer signature index without deduplicating
+        // because we'll deduplicate later.
+        let sig_index = Converter(clif_sig_index).into();
+        self.module.info.func_assoc.push(sig_index);
     }
 
     /// Return the signature index for the given function index.
@@ -101,8 +115,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         &self,
         func_index: cranelift_wasm::FuncIndex,
     ) -> cranelift_wasm::SignatureIndex {
-        let sig_index: SigIndex = self.module.func_assoc[Converter(func_index).into()];
-        self.duplicated[&sig_index]
+        let sig_index: SigIndex = self.module.info.func_assoc[Converter(func_index).into()];
+        Converter(sig_index).into()
     }
 
     /// Declares a global to the environment.
@@ -134,7 +148,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add global ir to the list of globals
-        self.module.globals.push(GlobalInit { desc, init });
+        self.module.info.globals.push(GlobalInit { desc, init });
 
         self.globals.push(global);
     }
@@ -151,9 +165,12 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             _ => false,
         });
 
+        let namespace_index = self.namespace_table_builder.register(namespace);
+        let name_index = self.name_table_builder.register(name);
+
         let import_name = ImportName {
-            namespace: namespace.to_string(),
-            name: name.to_string(),
+            namespace_index,
+            name_index,
         };
 
         let desc = GlobalDescriptor {
@@ -162,7 +179,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add global ir to the list of globals
-        self.module.imported_globals.push((import_name, desc));
+        self.module.info.imported_globals.push((import_name, desc));
 
         self.globals.push(global);
     }
@@ -176,7 +193,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     fn declare_table(&mut self, table: cranelift_wasm::Table) {
         use cranelift_wasm::TableElementType;
         // Add table ir to the list of tables
-        self.module.tables.push(TableDescriptor {
+        self.module.info.tables.push(TableDescriptor {
             element: match table.ty {
                 TableElementType::Func => ElementType::Anyfunc,
                 _ => unimplemented!(),
@@ -195,9 +212,12 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     ) {
         use cranelift_wasm::TableElementType;
 
+        let namespace_index = self.namespace_table_builder.register(namespace);
+        let name_index = self.name_table_builder.register(name);
+
         let import_name = ImportName {
-            namespace: namespace.to_string(),
-            name: name.to_string(),
+            namespace_index,
+            name_index,
         };
 
         let imported_table = TableDescriptor {
@@ -211,6 +231,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
         // Add import names to list of imported tables
         self.module
+            .info
             .imported_tables
             .push((import_name, imported_table));
     }
@@ -239,7 +260,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add table initializer to list of table initializers
-        self.module.elem_initializers.push(TableInitializer {
+        self.module.info.elem_initializers.push(TableInitializer {
             table_index: Converter(table_index).into(),
             base,
             elements: elements
@@ -251,7 +272,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a memory to the environment
     fn declare_memory(&mut self, memory: cranelift_wasm::Memory) {
-        self.module.memories.push(MemoryDescriptor {
+        self.module.info.memories.push(MemoryDescriptor {
             minimum: Pages(memory.minimum),
             maximum: memory.maximum.map(|max| Pages(max)),
             shared: memory.shared,
@@ -265,9 +286,12 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         namespace: &'data str,
         name: &'data str,
     ) {
+        let namespace_index = self.namespace_table_builder.register(namespace);
+        let name_index = self.name_table_builder.register(name);
+
         let import_name = ImportName {
-            namespace: namespace.to_string(),
-            name: name.to_string(),
+            namespace_index,
+            name_index,
         };
 
         let memory = MemoryDescriptor {
@@ -277,7 +301,10 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add import names to list of imported memories
-        self.module.imported_memories.push((import_name, memory));
+        self.module
+            .info
+            .imported_memories
+            .push((import_name, memory));
     }
 
     /// Fills a declared memory with bytes at module instantiation.
@@ -303,7 +330,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         };
 
         // Add data initializer to list of data initializers
-        self.module.data_initializers.push(DataInitializer {
+        self.module.info.data_initializers.push(DataInitializer {
             memory_index: Converter(memory_index).into(),
             base,
             data: data.to_vec(),
@@ -312,14 +339,14 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a function export to the environment.
     fn declare_func_export(&mut self, func_index: cranelift_wasm::FuncIndex, name: &'data str) {
-        self.module.exports.insert(
+        self.module.info.exports.insert(
             name.to_string(),
             ExportIndex::Func(Converter(func_index).into()),
         );
     }
     /// Declares a table export to the environment.
     fn declare_table_export(&mut self, table_index: cranelift_wasm::TableIndex, name: &'data str) {
-        self.module.exports.insert(
+        self.module.info.exports.insert(
             name.to_string(),
             ExportIndex::Table(Converter(table_index).into()),
         );
@@ -330,7 +357,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         memory_index: cranelift_wasm::MemoryIndex,
         name: &'data str,
     ) {
-        self.module.exports.insert(
+        self.module.info.exports.insert(
             name.to_string(),
             ExportIndex::Memory(Converter(memory_index).into()),
         );
@@ -341,7 +368,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         global_index: cranelift_wasm::GlobalIndex,
         name: &'data str,
     ) {
-        self.module.exports.insert(
+        self.module.info.exports.insert(
             name.to_string(),
             ExportIndex::Global(Converter(global_index).into()),
         );
@@ -349,7 +376,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
     /// Declares a start function.
     fn declare_start_func(&mut self, func_index: cranelift_wasm::FuncIndex) {
-        self.module.start_func = Some(Converter(func_index).into());
+        self.module.info.start_func = Some(Converter(func_index).into());
     }
 
     /// Provides the contents of a function body.
@@ -368,6 +395,163 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             let mut func = ir::Function::with_name_signature(name, sig);
 
             func_translator.translate(body_bytes, &mut func, &mut func_env)?;
+
+            #[cfg(feature = "debug")]
+            {
+                use cranelift_codegen::cursor::{Cursor, FuncCursor};
+                use cranelift_codegen::ir::InstBuilder;
+                let entry_ebb = func.layout.entry_block().unwrap();
+                let ebb = func.dfg.make_ebb();
+                func.layout.insert_ebb(ebb, entry_ebb);
+                let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(ebb);
+                let params = pos.func.dfg.ebb_params(entry_ebb).to_vec();
+
+                let new_ebb_params: Vec<_> = params
+                    .iter()
+                    .map(|&param| {
+                        pos.func
+                            .dfg
+                            .append_ebb_param(ebb, pos.func.dfg.value_type(param))
+                    })
+                    .collect();
+
+                let start_debug = {
+                    let signature = pos.func.import_signature(ir::Signature {
+                        call_conv: self.target_config().default_call_conv,
+                        params: vec![
+                            ir::AbiParam::new(ir::types::I32),
+                            ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ],
+                        returns: vec![],
+                    });
+
+                    let name = ir::ExternalName::testcase("strtdbug");
+
+                    pos.func.import_function(ir::ExtFuncData {
+                        name,
+                        signature,
+                        colocated: false,
+                    })
+                };
+
+                let end_debug = {
+                    let signature = pos.func.import_signature(ir::Signature {
+                        call_conv: self.target_config().default_call_conv,
+                        params: vec![ir::AbiParam::special(
+                            ir::types::I64,
+                            ir::ArgumentPurpose::VMContext,
+                        )],
+                        returns: vec![],
+                    });
+
+                    let name = ir::ExternalName::testcase("enddbug");
+
+                    pos.func.import_function(ir::ExtFuncData {
+                        name,
+                        signature,
+                        colocated: false,
+                    })
+                };
+
+                let i32_print = {
+                    let signature = pos.func.import_signature(ir::Signature {
+                        call_conv: self.target_config().default_call_conv,
+                        params: vec![
+                            ir::AbiParam::new(ir::types::I32),
+                            ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ],
+                        returns: vec![],
+                    });
+
+                    let name = ir::ExternalName::testcase("i32print");
+
+                    pos.func.import_function(ir::ExtFuncData {
+                        name,
+                        signature,
+                        colocated: false,
+                    })
+                };
+
+                let i64_print = {
+                    let signature = pos.func.import_signature(ir::Signature {
+                        call_conv: self.target_config().default_call_conv,
+                        params: vec![
+                            ir::AbiParam::new(ir::types::I64),
+                            ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ],
+                        returns: vec![],
+                    });
+
+                    let name = ir::ExternalName::testcase("i64print");
+
+                    pos.func.import_function(ir::ExtFuncData {
+                        name,
+                        signature,
+                        colocated: false,
+                    })
+                };
+
+                let f32_print = {
+                    let signature = pos.func.import_signature(ir::Signature {
+                        call_conv: self.target_config().default_call_conv,
+                        params: vec![
+                            ir::AbiParam::new(ir::types::F32),
+                            ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ],
+                        returns: vec![],
+                    });
+
+                    let name = ir::ExternalName::testcase("f32print");
+
+                    pos.func.import_function(ir::ExtFuncData {
+                        name,
+                        signature,
+                        colocated: false,
+                    })
+                };
+
+                let f64_print = {
+                    let signature = pos.func.import_signature(ir::Signature {
+                        call_conv: self.target_config().default_call_conv,
+                        params: vec![
+                            ir::AbiParam::new(ir::types::F64),
+                            ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                        ],
+                        returns: vec![],
+                    });
+
+                    let name = ir::ExternalName::testcase("f64print");
+
+                    pos.func.import_function(ir::ExtFuncData {
+                        name,
+                        signature,
+                        colocated: false,
+                    })
+                };
+
+                let vmctx = pos
+                    .func
+                    .special_param(ir::ArgumentPurpose::VMContext)
+                    .expect("missing vmctx parameter");
+
+                let func_index = pos.ins().iconst(ir::types::I32, func_index.index() as i64);
+
+                pos.ins().call(start_debug, &[func_index, vmctx]);
+
+                for param in new_ebb_params.iter().cloned() {
+                    match pos.func.dfg.value_type(param) {
+                        ir::types::I32 => pos.ins().call(i32_print, &[param, vmctx]),
+                        ir::types::I64 => pos.ins().call(i64_print, &[param, vmctx]),
+                        ir::types::F32 => pos.ins().call(f32_print, &[param, vmctx]),
+                        ir::types::F64 => pos.ins().call(f64_print, &[param, vmctx]),
+                        _ => unimplemented!(),
+                    };
+                }
+
+                pos.ins().call(end_debug, &[vmctx]);
+
+                pos.ins().jump(entry_ebb, new_ebb_params.as_slice());
+            }
 
             func
         };

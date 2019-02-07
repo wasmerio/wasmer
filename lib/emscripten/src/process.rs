@@ -57,6 +57,16 @@ pub fn _kill(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
     -1
 }
 
+pub fn _sched_yield(_ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_sched_yield");
+    -1
+}
+
+pub fn _llvm_stacksave(_ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::_llvm_stacksave");
+    -1
+}
+
 pub fn _llvm_stackrestore(_one: i32, _ctx: &mut Ctx) {
     debug!("emscripten::_llvm_stackrestore");
 }
@@ -78,6 +88,12 @@ pub fn _sem_post(_one: i32, _ctx: &mut Ctx) -> i32 {
 
 pub fn _sem_wait(_one: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_sem_post");
+    -1
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+pub fn _getgrent(ctx: &mut Ctx) -> c_int {
+    debug!("emscripten::_getgrent");
     -1
 }
 
