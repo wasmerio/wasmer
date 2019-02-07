@@ -30,7 +30,7 @@ pub fn _getenv(name: u32, ctx: &mut Ctx) -> u32 {
     if c_str.is_null() {
         return 0;
     }
-    copy_cstr_into_wasm(ctx, c_str as *const c_char)
+    unsafe { copy_cstr_into_wasm(ctx, c_str as *const c_char) }
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
