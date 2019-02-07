@@ -17,3 +17,5 @@ exclude_code_paths = [
     "lib/emscripten/emtests/",
 
 ]
+
+code_url = "https://github.com/wasmerio/wasmer/blob/master/{file}#L{line}"
