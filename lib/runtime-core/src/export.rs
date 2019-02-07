@@ -49,7 +49,7 @@ impl<'a> ExportIter<'a> {
     pub(crate) fn new(module: &'a ModuleInner, inner: &'a mut InstanceInner) -> Self {
         Self {
             inner,
-            iter: module.exports.iter(),
+            iter: module.info.exports.iter(),
             module,
         }
     }

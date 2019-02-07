@@ -5,6 +5,7 @@ use crate::{
     import::ImportObject,
     memory::Memory,
     module::{ImportName, ModuleInner},
+    sig_registry::SigRegistry,
     structures::{BoxedMap, Map, SliceMap, TypedIndex},
     table::Table,
     types::{
@@ -13,7 +14,7 @@ use crate::{
     },
     vm,
 };
-use std::slice;
+use std::{slice, sync::Arc};
 
 #[derive(Debug)]
 pub struct LocalBacking {
@@ -58,9 +59,8 @@ impl LocalBacking {
     }
 
     fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, Memory> {
-        let mut memories = Map::with_capacity(module.memories.len());
-
-        for (_, &desc) in &module.memories {
+        let mut memories = Map::with_capacity(module.info.memories.len());
+        for (_, &desc) in &module.info.memories {
             memories.push(Memory::new(desc).expect("unable to create memory"));
         }
 
@@ -74,6 +74,7 @@ impl LocalBacking {
     ) -> BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory> {
         // For each init that has some data...
         for init in module
+            .info
             .data_initializers
             .iter()
             .filter(|init| init.data.len() > 0)
@@ -92,7 +93,7 @@ impl LocalBacking {
 
             match init.memory_index.local_or_import(module) {
                 LocalOrImport::Local(local_memory_index) => {
-                    let memory_desc = module.memories[local_memory_index];
+                    let memory_desc = module.info.memories[local_memory_index];
                     let data_top = init_base + init.data.len();
                     assert!(memory_desc.minimum.bytes().0 >= data_top);
 
@@ -128,9 +129,9 @@ impl LocalBacking {
     }
 
     fn generate_tables(module: &ModuleInner) -> BoxedMap<LocalTableIndex, Table> {
-        let mut tables = Map::with_capacity(module.tables.len());
+        let mut tables = Map::with_capacity(module.info.tables.len());
 
-        for (_, &table_desc) in module.tables.iter() {
+        for (_, &table_desc) in module.info.tables.iter() {
             let table = Table::new(table_desc).unwrap();
             tables.push(table);
         }
@@ -145,7 +146,7 @@ impl LocalBacking {
         tables: &mut SliceMap<LocalTableIndex, Table>,
         vmctx: *mut vm::Ctx,
     ) -> BoxedMap<LocalTableIndex, *mut vm::LocalTable> {
-        for init in &module.elem_initializers {
+        for init in &module.info.elem_initializers {
             let init_base = match init.base {
                 Initializer::Const(Value::I32(offset)) => offset as u32,
                 Initializer::Const(_) => panic!("a const initializer must be the i32 type"),
@@ -170,8 +171,11 @@ impl LocalBacking {
 
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
-                            let sig_index = module.func_assoc[func_index];
-                            let sig_id = vm::SigId(sig_index.index() as u32);
+                            let sig_index = module.info.func_assoc[func_index];
+                            let signature = &module.info.signatures[sig_index];
+                            let sig_id = vm::SigId(
+                                SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
+                            );
 
                             let (func, ctx) = match func_index.local_or_import(module) {
                                 LocalOrImport::Local(local_func_index) => (
@@ -205,8 +209,11 @@ impl LocalBacking {
 
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
-                            let sig_index = module.func_assoc[func_index];
-                            let sig_id = vm::SigId(sig_index.index() as u32);
+                            let sig_index = module.info.func_assoc[func_index];
+                            let signature = &module.info.signatures[sig_index];
+                            let sig_id = vm::SigId(
+                                SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
+                            );
 
                             let (func, ctx) = match func_index.local_or_import(module) {
                                 LocalOrImport::Local(local_func_index) => (
@@ -243,9 +250,9 @@ impl LocalBacking {
         module: &ModuleInner,
         imports: &ImportBacking,
     ) -> BoxedMap<LocalGlobalIndex, Global> {
-        let mut globals = Map::with_capacity(module.globals.len());
+        let mut globals = Map::with_capacity(module.info.globals.len());
 
-        for (_, global_init) in module.globals.iter() {
+        for (_, global_init) in module.info.globals.iter() {
             let value = match &global_init.init {
                 Initializer::Const(value) => value.clone(),
                 Initializer::GetGlobal(import_global_index) => {
@@ -348,10 +355,21 @@ fn import_functions(
     vmctx: *mut vm::Ctx,
 ) -> LinkResult<BoxedMap<ImportedFuncIndex, vm::ImportedFunc>> {
     let mut link_errors = vec![];
-    let mut functions = Map::with_capacity(module.imported_functions.len());
-    for (index, ImportName { namespace, name }) in &module.imported_functions {
-        let sig_index = module.func_assoc[index.convert_up(module)];
-        let expected_sig = module.sig_registry.lookup_signature(sig_index);
+    let mut functions = Map::with_capacity(module.info.imported_functions.len());
+    for (
+        index,
+        ImportName {
+            namespace_index,
+            name_index,
+        },
+    ) in &module.info.imported_functions
+    {
+        let sig_index = module.info.func_assoc[index.convert_up(module)];
+        let expected_sig = &module.info.signatures[sig_index];
+
+        let namespace = module.info.namespace_table.get(*namespace_index);
+        let name = module.info.name_table.get(*name_index);
+
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
@@ -361,7 +379,7 @@ fn import_functions(
                 ctx,
                 signature,
             }) => {
-                if expected_sig == signature {
+                if *expected_sig == signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
                         vmctx: match ctx {
@@ -371,8 +389,8 @@ fn import_functions(
                     });
                 } else {
                     link_errors.push(LinkError::IncorrectImportSignature {
-                        namespace: namespace.clone(),
-                        name: name.clone(),
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
                         expected: expected_sig.clone(),
                         found: signature.clone(),
                     });
@@ -387,16 +405,16 @@ fn import_functions(
                 }
                 .to_string();
                 link_errors.push(LinkError::IncorrectImportType {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                     expected: "function".to_string(),
                     found: export_type_name,
                 });
             }
             None => {
                 link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                 });
             }
         }
@@ -417,11 +435,22 @@ fn import_memories(
     BoxedMap<ImportedMemoryIndex, *mut vm::LocalMemory>,
 )> {
     let mut link_errors = vec![];
-    let mut memories = Map::with_capacity(module.imported_memories.len());
-    let mut vm_memories = Map::with_capacity(module.imported_memories.len());
-    for (_index, (ImportName { namespace, name }, expected_memory_desc)) in
-        &module.imported_memories
+    let mut memories = Map::with_capacity(module.info.imported_memories.len());
+    let mut vm_memories = Map::with_capacity(module.info.imported_memories.len());
+    for (
+        _index,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            expected_memory_desc,
+        ),
+    ) in &module.info.imported_memories
     {
+        let namespace = module.info.namespace_table.get(*namespace_index);
+        let name = module.info.name_table.get(*name_index);
+
         let memory_import = imports
             .get_namespace(&namespace)
             .and_then(|namespace| namespace.get_export(&name));
@@ -432,8 +461,8 @@ fn import_memories(
                     vm_memories.push(memory.vm_local_memory());
                 } else {
                     link_errors.push(LinkError::IncorrectMemoryDescriptor {
-                        namespace: namespace.clone(),
-                        name: name.clone(),
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
                         expected: *expected_memory_desc,
                         found: memory.descriptor(),
                     });
@@ -448,16 +477,16 @@ fn import_memories(
                 }
                 .to_string();
                 link_errors.push(LinkError::IncorrectImportType {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                     expected: "memory".to_string(),
                     found: export_type_name,
                 });
             }
             None => {
                 link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                 });
             }
         }
@@ -478,9 +507,22 @@ fn import_tables(
     BoxedMap<ImportedTableIndex, *mut vm::LocalTable>,
 )> {
     let mut link_errors = vec![];
-    let mut tables = Map::with_capacity(module.imported_tables.len());
-    let mut vm_tables = Map::with_capacity(module.imported_tables.len());
-    for (_index, (ImportName { namespace, name }, expected_table_desc)) in &module.imported_tables {
+    let mut tables = Map::with_capacity(module.info.imported_tables.len());
+    let mut vm_tables = Map::with_capacity(module.info.imported_tables.len());
+    for (
+        _index,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            expected_table_desc,
+        ),
+    ) in &module.info.imported_tables
+    {
+        let namespace = module.info.namespace_table.get(*namespace_index);
+        let name = module.info.name_table.get(*name_index);
+
         let table_import = imports
             .get_namespace(&namespace)
             .and_then(|namespace| namespace.get_export(&name));
@@ -491,8 +533,8 @@ fn import_tables(
                     tables.push(table);
                 } else {
                     link_errors.push(LinkError::IncorrectTableDescriptor {
-                        namespace: namespace.clone(),
-                        name: name.clone(),
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
                         expected: *expected_table_desc,
                         found: table.descriptor(),
                     });
@@ -507,16 +549,16 @@ fn import_tables(
                 }
                 .to_string();
                 link_errors.push(LinkError::IncorrectImportType {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                     expected: "table".to_string(),
                     found: export_type_name,
                 });
             }
             None => {
                 link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                 });
             }
         }
@@ -537,9 +579,21 @@ fn import_globals(
     BoxedMap<ImportedGlobalIndex, *mut vm::LocalGlobal>,
 )> {
     let mut link_errors = vec![];
-    let mut globals = Map::with_capacity(module.imported_globals.len());
-    let mut vm_globals = Map::with_capacity(module.imported_globals.len());
-    for (_, (ImportName { namespace, name }, imported_global_desc)) in &module.imported_globals {
+    let mut globals = Map::with_capacity(module.info.imported_globals.len());
+    let mut vm_globals = Map::with_capacity(module.info.imported_globals.len());
+    for (
+        _,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            imported_global_desc,
+        ),
+    ) in &module.info.imported_globals
+    {
+        let namespace = module.info.namespace_table.get(*namespace_index);
+        let name = module.info.name_table.get(*name_index);
         let import = imports
             .get_namespace(namespace)
             .and_then(|namespace| namespace.get_export(name));
@@ -550,8 +604,8 @@ fn import_globals(
                     globals.push(global);
                 } else {
                     link_errors.push(LinkError::IncorrectGlobalDescriptor {
-                        namespace: namespace.clone(),
-                        name: name.clone(),
+                        namespace: namespace.to_string(),
+                        name: name.to_string(),
                         expected: *imported_global_desc,
                         found: global.descriptor(),
                     });
@@ -566,16 +620,16 @@ fn import_globals(
                 }
                 .to_string();
                 link_errors.push(LinkError::IncorrectImportType {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                     expected: "global".to_string(),
                     found: export_type_name,
                 });
             }
             None => {
                 link_errors.push(LinkError::ImportNotFound {
-                    namespace: namespace.clone(),
-                    name: name.clone(),
+                    namespace: namespace.to_string(),
+                    name: name.to_string(),
                 });
             }
         }
