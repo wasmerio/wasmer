@@ -18,35 +18,7 @@ fn main() -> Result<()> {
     let compiler = CraneliftCompiler::new();
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
 
-    let inner_module = {
-        println!("Creating cache...");
-
-        let cache = wasmer_runtime_core::compile_to_cache_with(&wasm_binary, &compiler)?;
-
-        println!("Writing cache to disk...");
-        cache.store("import_module.wasmer").unwrap();
-
-        println!("Opening cache on disk...");
-
-        use std::time::Instant;
-
-        let cache = Cache::open("import_module.wasmer").unwrap();
-
-        let start = Instant::now();
-
-        // println!("Loading cache...");
-        let inner_module =
-            unsafe { wasmer_runtime_core::load_cache_with(cache, &compiler).unwrap() };
-
-        let elapsed = start.elapsed();
-
-        println!("time to load cache: {:?}", elapsed);
-
-        remove_file("import_module.wasmer").unwrap();
-        inner_module
-    };
-
-    // let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
+    let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;
 
     let memory = Memory::new(MemoryDescriptor {
         minimum: Pages(1),

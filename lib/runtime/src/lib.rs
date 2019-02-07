@@ -99,7 +99,7 @@ pub mod wasm {
 }
 
 pub mod error {
-    #[cfg(feature = "default-compiler")]
+    #[cfg(feature = "cache")]
     pub use super::cache::Error as CacheError;
     pub use wasmer_runtime_core::error::*;
 }
@@ -109,13 +109,13 @@ pub mod units {
     pub use wasmer_runtime_core::units::{Bytes, Pages};
 }
 
-#[cfg(feature = "default-compiler")]
+#[cfg(feature = "cache")]
 mod cache;
 
 #[cfg(feature = "default-compiler")]
 use wasmer_runtime_core::backend::Compiler;
 
-#[cfg(feature = "default-compiler")]
+#[cfg(feature = "cache")]
 pub use self::cache::Cache;
 
 /// Compile WebAssembly binary code into a [`Module`].
@@ -177,6 +177,7 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
 /// # Ok(())
 /// # }
 /// ```
+#[cfg(feature = "cache")]
 pub fn compile_cache(wasm: &[u8]) -> error::CompileResult<Cache> {
     let default_compiler = default_compiler();
 

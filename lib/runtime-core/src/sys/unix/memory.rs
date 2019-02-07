@@ -26,10 +26,6 @@ impl Memory {
 
         let raw_fd = RawFd::from_file(file);
 
-        use std::time::Instant;
-
-        let start = Instant::now();
-
         let ptr = unsafe {
             libc::mmap(
                 ptr::null_mut(),
@@ -40,10 +36,6 @@ impl Memory {
                 0,
             )
         };
-
-        let elapsed = start.elapsed();
-
-        println!("mmap time: {:?}", elapsed);
 
         if ptr == -1 as _ {
             Err(errno::errno().to_string())

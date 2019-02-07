@@ -176,7 +176,6 @@ impl LocalBacking {
                             let sig_id = vm::SigId(
                                 SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
                             );
-                            println!("func_index: {:?}, sig_id: {:?}", func_index, sig_id);
 
                             let (func, ctx) = match func_index.local_or_import(module) {
                                 LocalOrImport::Local(local_func_index) => (
@@ -215,7 +214,6 @@ impl LocalBacking {
                             let sig_id = vm::SigId(
                                 SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
                             );
-                            println!("func_index: {:?}, sig_id: {:?}", func_index, sig_id);
 
                             let (func, ctx) = match func_index.local_or_import(module) {
                                 LocalOrImport::Local(local_func_index) => (
