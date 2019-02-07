@@ -33,6 +33,9 @@ extern crate serde;
 
 use wasmparser::{self, WasmDecoder};
 
+/// An empty struct to implement logic needed for Cranelift internals.
+///
+/// See the design (#SPC-arch.clif_compiler) for more information.
 pub struct CraneliftCompiler {}
 
 impl CraneliftCompiler {

@@ -58,7 +58,7 @@
 //!     let value = add_one.call(42)?;
 //!
 //!     assert_eq!(value, 43);
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -122,6 +122,8 @@ pub use self::cache::Cache;
 /// This function is useful if it is necessary to
 /// compile a module before it can be instantiated
 /// (otherwise, the [`instantiate`] function should be used).
+///
+/// design: #SPC-arch.compile
 ///
 /// [`Module`]: struct.Module.html
 /// [`instantiate`]: fn.instantiate.html

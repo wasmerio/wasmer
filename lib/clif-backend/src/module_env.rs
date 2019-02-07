@@ -19,6 +19,9 @@ use wasmer_runtime_core::{
     units::Pages,
 };
 
+/// Module environment for cranelift compiler.
+///
+/// See the design (#SPC-arch.module_env) for more details.
 pub struct ModuleEnv<'module, 'isa> {
     pub module: &'module mut Module,
     isa: &'isa isa::TargetIsa,
@@ -380,6 +383,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     }
 
     /// Provides the contents of a function body.
+    ///
+    /// design: #SPC-arch.define_function_body
     fn define_function_body(&mut self, body_bytes: &'data [u8]) -> cranelift_wasm::WasmResult<()> {
         let mut func_translator = FuncTranslator::new();
 

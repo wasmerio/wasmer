@@ -1,3 +1,4 @@
+/// #SPC-arch
 extern crate structopt;
 
 use std::fs::File;
@@ -50,6 +51,8 @@ fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
 }
 
 /// Execute a wasm/wat file
+///
+/// design: #SPC-arch.execute_wasm
 fn execute_wasm(options: &Run) -> Result<(), String> {
     let wasm_path = &options.path;
 

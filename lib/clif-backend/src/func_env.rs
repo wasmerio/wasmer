@@ -14,6 +14,7 @@ use wasmer_runtime_core::{
     vm,
 };
 
+/// #SPC-arch.func_env
 pub struct FuncEnv<'env, 'module, 'isa> {
     env: &'env ModuleEnv<'module, 'isa>,
 }
