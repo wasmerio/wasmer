@@ -1,4 +1,10 @@
-use libc::{abort, c_char, c_int, exit, pid_t, EAGAIN};
+use libc::{abort, c_char, c_int, exit, EAGAIN};
+
+#[cfg(not(target_os = "windows"))]
+use libc::pid_t;
+
+#[cfg(target_os = "windows")]
+type pid_t = c_int;
 
 use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
