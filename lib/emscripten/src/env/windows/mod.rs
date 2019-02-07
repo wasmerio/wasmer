@@ -6,6 +6,7 @@ use std::ffi::{CStr, CString};
 use std::mem;
 use std::os::raw::c_char;
 
+use crate::utils::read_cstring_from_wasm;
 use crate::utils::{
     allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs, read_string_from_wasm,
 };
@@ -49,8 +50,8 @@ pub fn _setenv(name: u32, value: u32, overwrite: u32, ctx: &mut Ctx) -> c_int {
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
     let value_addr = emscripten_memory_pointer!(ctx.memory(0), value);
     // setenv does not exist on windows, so we hack it with _putenv
-    let name = read_string_from_wasm(ctx.memory(0), name);
-    let value = read_string_from_wasm(ctx.memory(0), value);
+    let name = read_cstring_from_wasm(ctx.memory(0), name);
+    let value = read_cstring_from_wasm(ctx.memory(0), value);
     let putenv_string = format!("{}={}", name, value);
     let putenv_cstring = CString::new(putenv_string).unwrap();
     let putenv_raw_ptr = putenv_cstring.as_ptr();
@@ -73,7 +74,7 @@ pub fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
 pub fn _unsetenv(name: u32, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_unsetenv");
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
-    let name = read_string_from_wasm(ctx.memory(0), name);
+    let name = read_cstring_from_wasm(ctx.memory(0), name);
     // no unsetenv on windows, so use putenv with an empty value
     let unsetenv_string = format!("{}=", name);
     let unsetenv_cstring = CString::from::<String>(unsetenv_string);

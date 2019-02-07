@@ -2,6 +2,7 @@ use super::env;
 use super::env::get_emscripten_data;
 use libc::stat;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::mem::size_of;
 use std::os::raw::c_char;
 use std::os::raw::c_int;
@@ -14,7 +15,6 @@ use wasmer_runtime_core::{
     units::Pages,
     vm::Ctx,
 };
-use std::ffi::CString;
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
