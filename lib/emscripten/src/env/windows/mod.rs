@@ -1,9 +1,5 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{
-    c_int,
-    c_long,
-    getenv,
-};
+use libc::{c_int, c_long, getenv};
 
 use core::slice;
 use std::ffi::{CStr, CString};
