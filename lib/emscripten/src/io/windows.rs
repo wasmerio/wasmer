@@ -5,7 +5,10 @@ use wasmer_runtime_core::vm::Ctx;
 // this cfg_attr will try to link with the legacy lib that does not inline printf
 // this will allow for compiliation, but will produce a linker error if there is a problem
 // finding printf.
-#[cfg_attr(all(windows, target_env="msvc"), link(name="legacy_stdio_definitions", kind="static-nobundle"))]
+#[cfg_attr(
+    all(windows, target_env = "msvc"),
+    link(name = "legacy_stdio_definitions", kind = "static-nobundle")
+)]
 extern "C" {
     #[link_name = "printf"]
     pub fn _printf(s: *const c_char, ...) -> c_int;
