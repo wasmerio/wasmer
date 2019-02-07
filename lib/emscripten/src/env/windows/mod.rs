@@ -1,23 +1,18 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 use libc::{c_int, c_long, getenv};
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::mem;
 use std::os::raw::c_char;
 
-use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, read_string_from_wasm};
-use crate::EmscriptenData;
+use crate::env::call_malloc;
+use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
 use wasmer_runtime_core::vm::Ctx;
 
 #[link(name = "c")]
 extern "C" {
     #[link_name = "_putenv"]
     pub fn putenv(s: *const c_char) -> c_int;
-}
-
-pub fn _getaddrinfo(_one: i32, _two: i32, _three: i32, _four: i32, _ctx: &mut Ctx) -> i32 {
-    debug!("emscripten::_getaddrinfo");
-    -1
 }
 
 // #[no_mangle]
@@ -129,64 +124,8 @@ pub fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
     }
 }
 
-pub fn call_malloc(size: u32, ctx: &mut Ctx) -> u32 {
-    get_emscripten_data(ctx).malloc.call(size).unwrap()
-}
-
-pub fn call_memalign(alignment: u32, size: u32, ctx: &mut Ctx) -> u32 {
-    get_emscripten_data(ctx)
-        .memalign
-        .call(alignment, size)
-        .unwrap()
-}
-
-pub fn call_memset(pointer: u32, value: u32, size: u32, ctx: &mut Ctx) -> u32 {
-    get_emscripten_data(ctx)
-        .memset
-        .call(pointer, value, size)
-        .unwrap()
-}
-
-pub(crate) fn get_emscripten_data(ctx: &mut Ctx) -> &mut EmscriptenData {
-    unsafe { &mut *(ctx.data as *mut EmscriptenData) }
-}
-
-pub fn _getpagesize(_ctx: &mut Ctx) -> u32 {
-    debug!("emscripten::_getpagesize");
-    16384
-}
-
-#[allow(clippy::cast_ptr_alignment)]
-pub fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
-    debug!("emscripten::___build_environment {}", environ);
-    const MAX_ENV_VALUES: u32 = 64;
-    const TOTAL_ENV_SIZE: u32 = 1024;
-    let environment = emscripten_memory_pointer!(ctx.memory(0), environ) as *mut c_int;
-    unsafe {
-        let (pool_offset, _pool_slice): (u32, &mut [u8]) =
-            allocate_on_stack(TOTAL_ENV_SIZE as u32, ctx);
-        let (env_offset, _env_slice): (u32, &mut [u8]) =
-            allocate_on_stack((MAX_ENV_VALUES * 4) as u32, ctx);
-        let env_ptr = emscripten_memory_pointer!(ctx.memory(0), env_offset) as *mut c_int;
-        let mut _pool_ptr = emscripten_memory_pointer!(ctx.memory(0), pool_offset) as *mut c_int;
-        *env_ptr = pool_offset as i32;
-        *environment = env_offset as i32;
-
-        // *env_ptr = 0;
-    };
-    // unsafe {
-    //     *env_ptr = 0;
-    // };
-}
-
 pub fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
     debug!("emscripten::_sysconf {}", name);
     // stub because sysconf is not valid on windows
     0
-}
-
-pub fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _ctx: &mut Ctx) {
-    debug!("emscripten::___assert_fail {} {} {} {}", a, b, c, d);
-    // TODO: Implement like emscripten expects regarding memory/page size
-    // TODO raise an error
 }
