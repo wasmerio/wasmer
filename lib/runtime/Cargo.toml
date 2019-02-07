@@ -17,3 +17,4 @@ lazy_static = "1.2.0"
 default = ["default-compiler", "cache"]
 default-compiler = ["wasmer-clif-backend/cache", "wasmer-runtime-core/cache"]
 cache = ["default-compiler"]
+debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
