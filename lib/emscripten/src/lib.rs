@@ -95,7 +95,7 @@ pub struct EmscriptenData<'a> {
     pub memset: Func<'a, (u32, u32, u32), u32>,
     pub stack_alloc: Func<'a, u32, u32>,
 
-    pub jumps: Vec<UnsafeCell<[u8; 27]>>,
+    pub jumps: Vec<UnsafeCell<[u32; 27]>>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -143,6 +143,8 @@ pub fn run_emscripten_instance(
     if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
         instance.call("___emscripten_environ_constructor", &[])?;
     }
+
+    // println!("running emscripten instance");
 
     let main_func = instance.dyn_func("_main")?;
     let num_params = main_func.signature().params().len();
