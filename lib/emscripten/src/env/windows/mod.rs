@@ -1,15 +1,28 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 use libc::{
-    c_int, c_long, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, putenv, setenv,
-    sysconf, unsetenv,
+    c_int,
+    c_long,
+    getenv,
+    //sysconf, unsetenv,
 };
-use std::ffi::CStr;
+
+use core::slice;
+use std::ffi::{CStr, CString};
 use std::mem;
 use std::os::raw::c_char;
 
-use super::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use super::EmscriptenData;
+use crate::utils::{
+    allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs, read_string_from_wasm,
+};
+use crate::EmscriptenData;
+use wasmer_runtime_core::memory::Memory;
 use wasmer_runtime_core::vm::Ctx;
+
+#[link(name = "c")]
+extern "C" {
+    #[link_name = "_putenv"]
+    pub fn putenv(s: *const c_char) -> c_int;
+}
 
 pub fn _getaddrinfo(_one: i32, _two: i32, _three: i32, _four: i32, _ctx: &mut Ctx) -> i32 {
     debug!("emscripten::_getaddrinfo");
@@ -21,11 +34,13 @@ pub fn _getaddrinfo(_one: i32, _two: i32, _three: i32, _four: i32, _ctx: &mut Ct
 pub fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
+    let memory = ctx.memory(0);
+
+    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as _;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
-    let c_str = unsafe { getenv(name_addr) };
+    let c_str: *mut c_char = unsafe { getenv(name_addr as _) } as _;
     if c_str.is_null() {
         return 0;
     }
@@ -34,16 +49,19 @@ pub fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(name: c_int, value: c_int, overwrite: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _setenv(name: u32, value: u32, overwrite: u32, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_setenv");
-
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
-    let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as *const c_char;
-
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-    debug!("=> value({:?})", unsafe { CStr::from_ptr(value_addr) });
-
-    unsafe { setenv(name_addr, value_addr, overwrite) }
+    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
+    let value_addr = emscripten_memory_pointer!(ctx.memory(0), value);
+    // setenv does not exist on windows, so we hack it with _putenv
+    let name = read_string_from_wasm(ctx.memory(0), name);
+    let value = read_string_from_wasm(ctx.memory(0), value);
+    let putenv_string = format!("{}={}", name, value);
+    let putenv_cstring = CString::new(putenv_string).unwrap();
+    let putenv_raw_ptr = putenv_cstring.as_ptr();
+    debug!("=> name({:?})", name);
+    debug!("=> value({:?})", value);
+    unsafe { putenv(putenv_raw_ptr) }
 }
 
 /// emscripten: _putenv // (name: *const char);
@@ -53,15 +71,14 @@ pub fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-
-    unsafe { putenv(name_addr as _) }
+    unsafe { putenv(name_addr) }
 }
 
 /// emscripten: _unsetenv // (name: *const char);
 pub fn _unsetenv(name: c_int, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_unsetenv");
 
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
+    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
 
     debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
 
@@ -143,11 +160,10 @@ pub fn call_malloc(size: u32, ctx: &mut Ctx) -> u32 {
 }
 
 pub fn call_memalign(alignment: u32, size: u32, ctx: &mut Ctx) -> u32 {
-    if let Some(memalign) = &get_emscripten_data(ctx).memalign {
-        memalign.call(alignment, size).unwrap()
-    } else {
-        panic!("Memalign is set to None");
-    }
+    get_emscripten_data(ctx)
+        .memalign
+        .call(alignment, size)
+        .unwrap()
 }
 
 pub fn call_memset(pointer: u32, value: u32, size: u32, ctx: &mut Ctx) -> u32 {
@@ -189,10 +205,10 @@ pub fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
     // };
 }
 
-pub fn _sysconf(name: c_int, _ctx: &mut Ctx) -> i32 {
+pub fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
     debug!("emscripten::_sysconf {}", name);
     // TODO: Implement like emscripten expects regarding memory/page size
-    unsafe { sysconf(name) as i32 } // TODO review i64
+    unsafe { sysconf(name) }
 }
 
 pub fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _ctx: &mut Ctx) {
