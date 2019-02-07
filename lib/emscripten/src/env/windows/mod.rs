@@ -5,9 +5,9 @@ use std::ffi::CString;
 use std::mem;
 use std::os::raw::c_char;
 
-use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, read_string_from_wasm};
-use crate::EmscriptenData;
+use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
 use wasmer_runtime_core::vm::Ctx;
+use crate::env::call_malloc;
 
 #[link(name = "c")]
 extern "C" {
