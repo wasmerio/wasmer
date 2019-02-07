@@ -26,6 +26,6 @@ extern "C" fn signal_trap_handler(
     ucontext: *mut c_void,
 ) {
     unsafe {
-        recovery::do_unwind(signum, siginfo, ucontext);
+        recovery::do_unwind(signum, siginfo as _, ucontext);
     }
 }
