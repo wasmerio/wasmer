@@ -1,7 +1,20 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
-use libc::{c_char, c_int, time as libc_time, time_t};
+use libc::{c_char, c_int, time_t};
 use std::mem;
 use std::time::SystemTime;
+
+#[cfg(not(target_os = "windows"))]
+use libc::{clockid_t, time as libc_time};
+
+#[cfg(target_os = "windows")]
+type clockid_t = c_int;
+
+#[cfg(target_os = "windows")]
+#[link(name = "c")]
+extern "C" {
+    #[link_name = "time"]
+    pub fn libc_time(s: *const time_t) -> time_t;
+}
 
 use time;
 
@@ -14,15 +27,15 @@ use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
 #[cfg(target_os = "macos")]
 use libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
 #[cfg(target_os = "macos")]
-const CLOCK_MONOTONIC_COARSE: libc::clockid_t = 6;
+const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
 // some assumptions about the constants when targeting windows
 #[cfg(target_os = "windows")]
-const CLOCK_REALTIME: libc::clockid_t = 0;
+const CLOCK_REALTIME: clockid_t = 0;
 #[cfg(target_os = "windows")]
-const CLOCK_MONOTONIC: libc::clockid_t = 1;
+const CLOCK_MONOTONIC: clockid_t = 1;
 #[cfg(target_os = "windows")]
-const CLOCK_MONOTONIC_COARSE: libc::clockid_t = 6;
+const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
 /// emscripten: _gettimeofday
 #[allow(clippy::cast_ptr_alignment)]
@@ -51,7 +64,7 @@ pub fn _gettimeofday(tp: c_int, tz: c_int, ctx: &mut Ctx) -> c_int {
 
 /// emscripten: _clock_gettime
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _clock_gettime(clk_id: libc::clockid_t, tp: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _clock_gettime(clk_id: clockid_t, tp: c_int, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_clock_gettime {} {}", clk_id, tp);
     // debug!("Memory {:?}", ctx.memory(0)[..]);
     #[repr(C)]
@@ -82,7 +95,7 @@ pub fn _clock_gettime(clk_id: libc::clockid_t, tp: c_int, ctx: &mut Ctx) -> c_in
 }
 
 /// emscripten: ___clock_gettime
-pub fn ___clock_gettime(clk_id: libc::clockid_t, tp: c_int, ctx: &mut Ctx) -> c_int {
+pub fn ___clock_gettime(clk_id: clockid_t, tp: c_int, ctx: &mut Ctx) -> c_int {
     debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
     _clock_gettime(clk_id, tp, ctx)
 }
