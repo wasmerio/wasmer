@@ -53,20 +53,19 @@ pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, ctx: &mut 
 }
 
 /// This function expects nullbyte to be appended.
-pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
-    let s = CStr::from_ptr(cstr).to_str().unwrap();
+pub fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
+    let s = unsafe { CStr::from_ptr(cstr).to_str().unwrap() };
     let cstr_len = s.len();
     let space_offset = env::call_malloc((cstr_len as u32) + 1, ctx);
     let raw_memory = emscripten_memory_pointer!(ctx.memory(0), space_offset) as *mut c_char;
-    let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
-
+    let slice = unsafe { slice::from_raw_parts_mut(raw_memory, cstr_len) };
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
         *loc = byte as _;
     }
 
     // TODO: Appending null byte won't work, because there is CStr::from_ptr(cstr)
     //      at the top that crashes when there is no null byte
-    *raw_memory.add(cstr_len) = 0;
+    unsafe { *raw_memory.add(cstr_len) = 0; }
 
     space_offset
 }
