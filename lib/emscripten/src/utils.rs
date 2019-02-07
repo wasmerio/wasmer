@@ -158,13 +158,13 @@ pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
     (*stat_ptr).st_ino = stat.st_ino as _;
 }
 
-pub fn read_cstring_from_wasm(memory: &Memory, offset: u32) -> CString {
+pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
     let v: Vec<u8> = memory.view()[(offset as usize)..]
         .iter()
-        .take_while(|cell| cell.get() != 0)
         .map(|cell| cell.get())
+        .take_while(|&byte| byte != 0)
         .collect();
-    CString::new(v).unwrap()
+    String::from_utf8_lossy(&v).to_owned().to_string()
 }
 
 #[cfg(test)]
