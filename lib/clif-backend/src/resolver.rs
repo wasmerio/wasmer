@@ -136,9 +136,17 @@ impl FuncResolverBuilder {
                             msg: format!("unexpected libcall: {}", libcall),
                         })?,
                     },
-                    RelocationType::Intrinsic(ref name) => Err(CompileError::InternalError {
-                        msg: format!("unexpected intrinsic: {}", name),
-                    })?,
+                    RelocationType::Intrinsic(ref name) => match name.as_str() {
+                        "i32print" => i32_print as isize,
+                        "i64print" => i64_print as isize,
+                        "f32print" => f32_print as isize,
+                        "f64print" => f64_print as isize,
+                        "strtdbug" => start_debug as isize,
+                        "enddbug" => end_debug as isize,
+                        _ => Err(CompileError::InternalError {
+                            msg: format!("unexpected intrinsic: {}", name),
+                        })?,
+                    },
                     RelocationType::VmCall(vmcall) => match vmcall {
                         VmCall::Local(kind) => match kind {
                             VmCallKind::StaticMemoryGrow => vmcalls::local_static_memory_grow as _,
@@ -247,4 +255,23 @@ impl backend::FuncResolver for FuncResolver {
 #[inline]
 fn round_up(n: usize, multiple: usize) -> usize {
     (n + multiple - 1) & !(multiple - 1)
+}
+
+extern "C" fn i32_print(n: i32) {
+    print!(" i32: {},", n);
+}
+extern "C" fn i64_print(n: i64) {
+    print!(" i64: {},", n);
+}
+extern "C" fn f32_print(n: f32) {
+    print!(" f32: {},", n);
+}
+extern "C" fn f64_print(n: f64) {
+    print!(" f64: {},", n);
+}
+extern "C" fn start_debug(func_index: u32) {
+    print!("func ({}), args: [", func_index);
+}
+extern "C" fn end_debug() {
+    println!(" ]");
 }
