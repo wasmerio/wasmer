@@ -1,10 +1,5 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{
-    c_int,
-    c_long,
-    getenv,
-    //sysconf, unsetenv,
-};
+use libc::{c_int, c_long, getenv};
 
 use core::slice;
 use std::ffi::{CStr, CString};
@@ -100,24 +95,18 @@ pub fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
         pw_shell: u32,
     }
 
-    let name = unsafe {
-        let memory_name_ptr = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const c_char;
-        CStr::from_ptr(memory_name_ptr)
-    };
-
+    // stub this in windows as it is not valid
     unsafe {
-        let passwd = &*libc_getpwnam(name.as_ptr());
         let passwd_struct_offset = call_malloc(mem::size_of::<GuestPasswd>() as _, ctx);
-
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
-        (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx, passwd.pw_name);
-        (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx, passwd.pw_passwd);
-        (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx, passwd.pw_gecos);
-        (*passwd_struct_ptr).pw_dir = copy_cstr_into_wasm(ctx, passwd.pw_dir);
-        (*passwd_struct_ptr).pw_shell = copy_cstr_into_wasm(ctx, passwd.pw_shell);
-        (*passwd_struct_ptr).pw_uid = passwd.pw_uid;
-        (*passwd_struct_ptr).pw_gid = passwd.pw_gid;
+        (*passwd_struct_ptr).pw_name = 0;
+        (*passwd_struct_ptr).pw_passwd = 0;
+        (*passwd_struct_ptr).pw_gecos = 0;
+        (*passwd_struct_ptr).pw_dir = 0;
+        (*passwd_struct_ptr).pw_shell = 0;
+        (*passwd_struct_ptr).pw_uid = 0;
+        (*passwd_struct_ptr).pw_gid = 0;
 
         passwd_struct_offset as c_int
     }
@@ -135,22 +124,15 @@ pub fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
         gr_mem: u32,
     }
 
-    let name = unsafe {
-        let memory_name_ptr = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const c_char;
-        CStr::from_ptr(memory_name_ptr)
-    };
-
+    // stub the group struct as it is not supported on windows
     unsafe {
-        let group = &*libc_getgrnam(name.as_ptr());
         let group_struct_offset = call_malloc(mem::size_of::<GuestGroup>() as _, ctx);
-
         let group_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), group_struct_offset) as *mut GuestGroup;
-        (*group_struct_ptr).gr_name = copy_cstr_into_wasm(ctx, group.gr_name);
-        (*group_struct_ptr).gr_passwd = copy_cstr_into_wasm(ctx, group.gr_passwd);
-        (*group_struct_ptr).gr_gid = group.gr_gid;
-        (*group_struct_ptr).gr_mem = copy_terminated_array_of_cstrs(ctx, group.gr_mem);
-
+        (*group_struct_ptr).gr_name = 0;
+        (*group_struct_ptr).gr_passwd = 0;
+        (*group_struct_ptr).gr_gid = 0;
+        (*group_struct_ptr).gr_mem = 0;
         group_struct_offset as c_int
     }
 }
@@ -207,8 +189,8 @@ pub fn ___build_environment(environ: c_int, ctx: &mut Ctx) {
 
 pub fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
     debug!("emscripten::_sysconf {}", name);
-    // TODO: Implement like emscripten expects regarding memory/page size
-    unsafe { sysconf(name) }
+    // stub because sysconf is not valid on windows
+    0
 }
 
 pub fn ___assert_fail(a: c_int, b: c_int, c: c_int, d: c_int, _ctx: &mut Ctx) {
