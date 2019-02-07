@@ -113,7 +113,7 @@ impl Instance {
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = SigRegistry.lookup_signature(sig_index);
+            let signature = &self.module.info.signatures[sig_index];
 
             if signature.params() != Args::types() || signature.returns() != Rets::types() {
                 Err(ResolveError::Signature {
