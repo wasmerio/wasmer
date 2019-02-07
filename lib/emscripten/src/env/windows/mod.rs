@@ -5,8 +5,8 @@ use std::ffi::CString;
 use std::mem;
 use std::os::raw::c_char;
 
-use crate::env::call_malloc;
-use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
+use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, read_string_from_wasm};
+use crate::EmscriptenData;
 use wasmer_runtime_core::vm::Ctx;
 
 #[link(name = "c")]
@@ -17,21 +17,15 @@ extern "C" {
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub fn _getenv(name: i32, ctx: &mut Ctx) -> u32 {
+pub fn _getenv(name: u32, ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_getenv");
-
-    let memory = ctx.memory(0);
-
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as _;
-
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
-
-    let c_str: *mut c_char = unsafe { getenv(name_addr as _) } as _;
+    let name_string = read_string_from_wasm(ctx.memory(0), name);
+    debug!("=> name({:?})", name_string);
+    let c_str = unsafe { getenv(name_string.as_ptr() as *const libc::c_char) };
     if c_str.is_null() {
         return 0;
     }
-
-    unsafe { copy_cstr_into_wasm(ctx, c_str) }
+    unsafe { copy_cstr_into_wasm(ctx, c_str as *const c_char) }
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
