@@ -1,0 +1,19 @@
+# ---- Artifact Project Settings ----
+
+# Paths containing artifact markdown/toml files
+artifact_paths = ["architecture"]
+
+# Paths to exclude when loading artifacts
+exclude_artifact_paths = []
+
+# Paths containing code that has artifact links
+code_paths = [
+    "src/",
+    "lib/",
+]
+
+# Paths to exclude when searching through code
+exclude_code_paths = [
+    "lib/emscripten/emtests/",
+
+]
