@@ -47,7 +47,7 @@ impl Memory {
         range: impl RangeBounds<usize>,
         protect: Protect,
     ) -> Result<(), String> {
-        let protect = protect.to_protect_const();
+        let protect_const = protect.to_protect_const();
 
         let range_start = match range.start_bound() {
             Bound::Included(start) => *start,
@@ -69,12 +69,12 @@ impl Memory {
         assert!(size <= self.size);
 
         // Commit the virtual memory.
-        let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect);
+        let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect_const);
 
         if ptr.is_null() {
             Err("unable to protect memory".to_string())
         } else {
-            self.protection = protection;
+            self.protection = protect;
             Ok(())
         }
     }
