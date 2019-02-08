@@ -520,7 +520,7 @@ mod vm_ctx_tests {
             ) -> RuntimeResult<Vec<Value>> {
                 Ok(vec![])
             }
-            unsafe fn get_early_aborter(&self) -> Box<dyn EarlyAborter> {
+            fn get_early_aborter(&self) -> Box<dyn EarlyAborter> {
                 unimplemented!()
             }
         }
