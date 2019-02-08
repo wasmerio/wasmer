@@ -4,12 +4,12 @@ use crate::{
     trampoline::Trampolines,
 };
 use crate::{
-    call::HandlerData,
     libcalls,
     relocation::{
         ExternalRelocation, LibCall, LocalRelocation, LocalTrapSink, Reloc, RelocSink,
         RelocationType, TrapSink, VmCall, VmCallKind,
     },
+    signal::HandlerData,
 };
 
 use byteorder::{ByteOrder, LittleEndian};

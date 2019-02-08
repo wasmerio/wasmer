@@ -1,6 +1,6 @@
 #[cfg(feature = "cache")]
 use crate::cache::BackendCache;
-use crate::{call::Caller, resolver::FuncResolverBuilder, trampoline::Trampolines};
+use crate::{resolver::FuncResolverBuilder, signal::Caller, trampoline::Trampolines};
 
 use cranelift_codegen::{ir, isa};
 use cranelift_entity::EntityRef;

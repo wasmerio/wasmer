@@ -1,13 +1,20 @@
+//! Installing signal handlers allows us to handle traps and out-of-bounds memory
+//! accesses that occur when runniing webassembly.
+//!
+//! This code is inspired by: https://github.com/pepyakin/wasmtime/commit/625a2b6c0815b21996e111da51b9664feb174622
+//!
 //! When a WebAssembly module triggers any traps, we perform recovery here.
 //!
 //! This module uses TLS (thread-local storage) to track recovery information. Since the four signals we're handling
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
-
-use crate::call::sighandler::install_sighandler;
+//!
 use crate::relocation::{TrapCode, TrapData, TrapSink};
+use crate::signal::HandlerData;
 use libc::{c_int, c_void, siginfo_t};
-use nix::sys::signal::{Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV};
+use nix::sys::signal::{
+    sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
+};
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
@@ -17,9 +24,31 @@ use wasmer_runtime_core::{
     types::{MemoryIndex, TableIndex},
 };
 
+extern "C" fn signal_trap_handler(
+    signum: ::nix::libc::c_int,
+    siginfo: *mut siginfo_t,
+    ucontext: *mut c_void,
+) {
+    unsafe {
+        do_unwind(signum, siginfo as _, ucontext);
+    }
+}
+
 extern "C" {
     pub fn setjmp(env: *mut c_void) -> c_int;
     fn longjmp(env: *mut c_void, val: c_int) -> !;
+}
+
+pub unsafe fn install_sighandler() {
+    let sa = SigAction::new(
+        SigHandler::SigAction(signal_trap_handler),
+        SaFlags::SA_ONSTACK,
+        SigSet::empty(),
+    );
+    sigaction(SIGFPE, &sa).unwrap();
+    sigaction(SIGILL, &sa).unwrap();
+    sigaction(SIGSEGV, &sa).unwrap();
+    sigaction(SIGBUS, &sa).unwrap();
 }
 
 const SETJMP_BUFFER_LEN: usize = 27;
@@ -29,41 +58,6 @@ thread_local! {
     pub static SETJMP_BUFFER: UnsafeCell<[c_int; SETJMP_BUFFER_LEN]> = UnsafeCell::new([0; SETJMP_BUFFER_LEN]);
     pub static CAUGHT_ADDRESSES: Cell<(*const c_void, *const c_void)> = Cell::new((ptr::null(), ptr::null()));
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
-}
-
-unsafe impl Send for HandlerData {}
-unsafe impl Sync for HandlerData {}
-
-pub struct HandlerData {
-    pub trap_data: TrapSink,
-    exec_buffer_ptr: *const c_void,
-    exec_buffer_size: usize,
-}
-
-impl HandlerData {
-    pub fn new(
-        trap_data: TrapSink,
-        exec_buffer_ptr: *const c_void,
-        exec_buffer_size: usize,
-    ) -> Self {
-        Self {
-            trap_data,
-            exec_buffer_ptr,
-            exec_buffer_size,
-        }
-    }
-
-    pub fn lookup(&self, ip: *const c_void) -> Option<TrapData> {
-        let ip = ip as usize;
-        let buffer_ptr = self.exec_buffer_ptr as usize;
-
-        if buffer_ptr <= ip && ip < buffer_ptr + self.exec_buffer_size {
-            let offset = ip - buffer_ptr;
-            self.trap_data.lookup(offset)
-        } else {
-            None
-        }
-    }
 }
 
 pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> RuntimeResult<T> {

@@ -1,12 +1,12 @@
 #[cfg(feature = "cache")]
 mod cache;
-mod call;
 mod func_env;
 mod libcalls;
 mod module;
 mod module_env;
 mod relocation;
 mod resolver;
+mod signal;
 mod trampoline;
 
 use cranelift_codegen::{
