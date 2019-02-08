@@ -81,9 +81,7 @@ artifacts:
     name: wasmer.exe
 
 build_script:
-  - set BUILD_CMD=cargo +%TOOLCHAIN% build --target=%TARGET%
-  - echo [ %BUILD_CMD% ] & %BUILD_CMD%
+  - cargo build --verbose
 
 test_script:
-  - set TEST_CMD=cargo +%TOOLCHAIN% test --target=%TARGET% --no-fail-fast
-  - echo [ %TEST_CMD% ] & %TEST_CMD%
+  - cargo test --verbose
