@@ -16,7 +16,7 @@ use wasmer_runtime_core::{
     cache::{Cache, Error as CacheError},
 };
 use wasmer_runtime_core::{
-    backend::{Backend, EarlyAborter, FuncResolver, ProtectedCaller, Token},
+    backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper},
     error::{CompileResult, RuntimeResult},
     module::{ModuleInfo, ModuleInner, StringTable},
     structures::{Map, TypedIndex},
@@ -52,7 +52,7 @@ impl ProtectedCaller for Placeholder {
         Ok(vec![])
     }
 
-    fn get_early_aborter(&self) -> Box<dyn EarlyAborter> {
+    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
         unimplemented!()
     }
 }

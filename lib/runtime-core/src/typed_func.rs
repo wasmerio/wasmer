@@ -1,5 +1,5 @@
 use crate::{
-    backend::EarlyAborter,
+    backend::UserTrapper,
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
@@ -9,7 +9,7 @@ use crate::{
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
 
 thread_local! {
-    pub static EARLY_ABORTER: UnsafeCell<Option<Box<dyn EarlyAborter>>> = UnsafeCell::new(None);
+    pub static EARLY_TRAPPER: UnsafeCell<Option<Box<dyn UserTrapper>>> = UnsafeCell::new(None);
 }
 
 pub trait Safeness {}
@@ -36,14 +36,14 @@ where
     fn to_raw(&self) -> *const ();
 }
 
-pub trait AbortEarly<Rets>
+pub trait TrapEarly<Rets>
 where
     Rets: WasmTypeList,
 {
     fn report(self) -> Result<Rets, String>;
 }
 
-impl<Rets> AbortEarly<Rets> for Rets
+impl<Rets> TrapEarly<Rets> for Rets
 where
     Rets: WasmTypeList,
 {
@@ -52,7 +52,7 @@ where
     }
 }
 
-impl<Rets, E> AbortEarly<Rets> for Result<Rets, E>
+impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
     E: fmt::Debug,
@@ -183,12 +183,12 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Abort: AbortEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Abort> ExternalFunction<($( $x ),*), Rets> for FN {
+        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
             fn to_raw(&self) -> *const () {
                 assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
 
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Abort: AbortEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Abort>( $( $x: $x, )* ctx: &mut Ctx) -> Rets::CStruct {
+                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Trap>( $( $x: $x, )* ctx: &mut Ctx) -> Rets::CStruct {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
 
                     let msg = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
@@ -208,8 +208,8 @@ macro_rules! impl_traits {
                     };
 
                     unsafe {
-                        if let Some(early_aborter) = &*EARLY_ABORTER.with(|ucell| ucell.get()) {
-                            early_aborter.do_early_abort(msg)
+                        if let Some(early_trapper) = &*EARLY_TRAPPER.with(|ucell| ucell.get()) {
+                            early_trapper.do_early_trap(msg)
                         } else {
                             eprintln!("panic handling not setup");
                             std::process::exit(1)
@@ -217,7 +217,7 @@ macro_rules! impl_traits {
                     }
                 }
 
-                wrap::<$( $x, )* Rets, Abort, Self> as *const ()
+                wrap::<$( $x, )* Rets, Trap, Self> as *const ()
             }
         }
 

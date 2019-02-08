@@ -4,7 +4,7 @@ use hashbrown::HashSet;
 use libc::c_void;
 use std::{cell::Cell, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{EarlyAborter, ProtectedCaller, Token},
+    backend::{ProtectedCaller, Token, UserTrapper},
     error::RuntimeResult,
     export::Context,
     module::{ExportIndex, ModuleInfo, ModuleInner},
@@ -25,14 +25,14 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 thread_local! {
-    pub static ABORT_EARLY_DATA: Cell<Option<String>> = Cell::new(None);
+    pub static TRAP_EARLY_DATA: Cell<Option<String>> = Cell::new(None);
 }
 
-pub struct Aborter;
+pub struct Trapper;
 
-impl EarlyAborter for Aborter {
-    unsafe fn do_early_abort(&self, msg: String) -> ! {
-        ABORT_EARLY_DATA.with(|cell| cell.set(Some(msg)));
+impl UserTrapper for Trapper {
+    unsafe fn do_early_trap(&self, msg: String) -> ! {
+        TRAP_EARLY_DATA.with(|cell| cell.set(Some(msg)));
         trigger_trap()
     }
 }
@@ -132,8 +132,8 @@ impl ProtectedCaller for Caller {
             .collect())
     }
 
-    fn get_early_aborter(&self) -> Box<dyn EarlyAborter> {
-        Box::new(Aborter)
+    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+        Box::new(Trapper)
     }
 }
 

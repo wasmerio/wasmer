@@ -493,7 +493,7 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{Backend, EarlyAborter, FuncResolver, ProtectedCaller, Token};
+        use crate::backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper};
         use crate::error::RuntimeResult;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
@@ -520,7 +520,7 @@ mod vm_ctx_tests {
             ) -> RuntimeResult<Vec<Value>> {
                 Ok(vec![])
             }
-            fn get_early_aborter(&self) -> Box<dyn EarlyAborter> {
+            fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
                 unimplemented!()
             }
         }

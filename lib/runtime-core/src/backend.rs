@@ -83,11 +83,11 @@ pub trait ProtectedCaller: Send + Sync {
         _: Token,
     ) -> RuntimeResult<Vec<Value>>;
 
-    fn get_early_aborter(&self) -> Box<dyn EarlyAborter>;
+    fn get_early_trapper(&self) -> Box<dyn UserTrapper>;
 }
 
-pub trait EarlyAborter {
-    unsafe fn do_early_abort(&self, msg: String) -> !;
+pub trait UserTrapper {
+    unsafe fn do_early_trap(&self, msg: String) -> !;
 }
 
 pub trait FuncResolver: Send + Sync {

@@ -79,7 +79,7 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
         if signum != 0 {
             *jmp_buf = prev_jmp_buf;
 
-            if let Some(msg) = super::ABORT_EARLY_DATA.with(|cell| cell.replace(None)) {
+            if let Some(msg) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
                 Err(RuntimeError::User { msg })
             } else {
                 let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
