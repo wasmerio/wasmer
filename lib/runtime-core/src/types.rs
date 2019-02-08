@@ -1,3 +1,4 @@
+use crate::error::{CompileError, CompileResult};
 use crate::{memory::MemoryType, module::ModuleInner, structures::TypedIndex, units::Pages};
 use std::{borrow::Cow, mem};
 
@@ -15,6 +16,20 @@ pub enum Type {
     F64,
 }
 
+impl Type {
+    pub fn from_wasmparser_type(other: ::wasmparser::Type) -> CompileResult<Type> {
+        use wasmparser::Type as WPType;
+        match other {
+            WPType::I32 => Ok(Type::I32),
+            WPType::I64 => Ok(Type::I64),
+            WPType::F32 => Ok(Type::F32),
+            WPType::F64 => Ok(Type::F64),
+            _ => Err(CompileError::ValidationError {
+                msg: "type cannot be converted into a core type".into(),
+            }),
+        }
+    }
+}
 /// Represents a WebAssembly value.
 ///
 /// As the number of types in WebAssembly expand,

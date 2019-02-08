@@ -23,6 +23,7 @@ pub use crate::sig_registry::SigRegistry;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Backend {
     Cranelift,
+    Dynasm,
 }
 
 /// This type cannot be constructed from

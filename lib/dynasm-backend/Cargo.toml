@@ -1,0 +1,12 @@
+[package]
+name = "wasmer-dynasm-backend"
+version = "0.1.0"
+repository = "https://github.com/wasmerio/wasmer"
+description = "Wasmer runtime Dynasm compiler backend"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
+wasmparser = "0.23.0"
