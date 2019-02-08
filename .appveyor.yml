@@ -21,7 +21,7 @@ install:
   - cargo -vV
 
 artifacts:
-  - path: target\%TARGET%\debug\wasmer.exe
+  - path: target\debug\wasmer.exe
     name: wasmer.exe
 
 build_script:
