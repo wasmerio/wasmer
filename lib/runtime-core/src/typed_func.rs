@@ -1,11 +1,16 @@
 use crate::{
+    backend::EarlyAborter,
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
     types::{FuncSig, Type, WasmExternType},
     vm::Ctx,
 };
-use std::{fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
+use std::{cell::UnsafeCell, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
+
+thread_local! {
+    pub static EARLY_ABORTER: UnsafeCell<Option<Box<dyn EarlyAborter>>> = UnsafeCell::new(None);
+}
 
 pub trait Safeness {}
 pub struct Safe;
@@ -202,8 +207,14 @@ macro_rules! impl_traits {
                         },
                     };
 
-                    println!("panic handling not implemented yet, {}", msg);
-                    std::process::exit(1)
+                    unsafe {
+                        if let Some(early_aborter) = &*EARLY_ABORTER.with(|ucell| ucell.get()) {
+                            early_aborter.do_early_abort(msg)
+                        } else {
+                            eprintln!("panic handling not setup");
+                            std::process::exit(1)
+                        }
+                    }
                 }
 
                 wrap::<$( $x, )* Rets, Abort, Self> as *const ()

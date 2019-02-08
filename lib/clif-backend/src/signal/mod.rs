@@ -2,9 +2,9 @@ use crate::relocation::{TrapData, TrapSink};
 use crate::trampoline::Trampolines;
 use hashbrown::HashSet;
 use libc::c_void;
-use std::sync::Arc;
+use std::{cell::Cell, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{ProtectedCaller, Token},
+    backend::{EarlyAborter, ProtectedCaller, Token},
     error::RuntimeResult,
     export::Context,
     module::{ExportIndex, ModuleInfo, ModuleInner},
@@ -23,6 +23,19 @@ pub use self::unix::*;
 
 #[cfg(windows)]
 pub use self::windows::*;
+
+thread_local! {
+    pub static ABORT_EARLY_DATA: Cell<Option<String>> = Cell::new(None);
+}
+
+pub struct Aborter;
+
+impl EarlyAborter for Aborter {
+    unsafe fn do_early_abort(&self, msg: String) -> ! {
+        ABORT_EARLY_DATA.with(|cell| cell.set(Some(msg)));
+        trigger_trap()
+    }
+}
 
 pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
@@ -117,6 +130,10 @@ impl ProtectedCaller for Caller {
                 Type::F64 => Value::F64(f64::from_bits(x as u64)),
             })
             .collect())
+    }
+
+    fn get_early_aborter(&self) -> Box<dyn EarlyAborter> {
+        Box::new(Aborter)
     }
 }
 

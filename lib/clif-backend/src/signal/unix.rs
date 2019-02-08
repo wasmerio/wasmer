@@ -9,7 +9,7 @@
 //! are very special, the async signal unsafety of Rust's TLS implementation generally does not affect the correctness here
 //! unless you have memory unsafety elsewhere in your code.
 //!
-use crate::relocation::{TrapCode, TrapData, TrapSink};
+use crate::relocation::{TrapCode, TrapData};
 use crate::signal::HandlerData;
 use libc::{c_int, c_void, siginfo_t};
 use nix::sys::signal::{
@@ -60,6 +60,12 @@ thread_local! {
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
 }
 
+pub unsafe fn trigger_trap() -> ! {
+    let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
+
+    longjmp(jmp_buf as *mut c_void, 0)
+}
+
 pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> RuntimeResult<T> {
     unsafe {
         let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
@@ -72,54 +78,59 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
         let signum = setjmp(jmp_buf as *mut _);
         if signum != 0 {
             *jmp_buf = prev_jmp_buf;
-            let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
-            if let Some(TrapData {
-                trapcode,
-                srcloc: _,
-            }) = handler_data.lookup(inst_ptr)
-            {
-                Err(match Signal::from_c_int(signum) {
-                    Ok(SIGILL) => match trapcode {
-                        TrapCode::BadSignature => RuntimeError::IndirectCallSignature {
-                            table: TableIndex::new(0),
+            if let Some(msg) = super::ABORT_EARLY_DATA.with(|cell| cell.replace(None)) {
+                Err(RuntimeError::User { msg })
+            } else {
+                let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
+
+                if let Some(TrapData {
+                    trapcode,
+                    srcloc: _,
+                }) = handler_data.lookup(inst_ptr)
+                {
+                    Err(match Signal::from_c_int(signum) {
+                        Ok(SIGILL) => match trapcode {
+                            TrapCode::BadSignature => RuntimeError::IndirectCallSignature {
+                                table: TableIndex::new(0),
+                            },
+                            TrapCode::IndirectCallToNull => RuntimeError::IndirectCallToNull {
+                                table: TableIndex::new(0),
+                            },
+                            TrapCode::HeapOutOfBounds => RuntimeError::OutOfBoundsAccess {
+                                memory: MemoryIndex::new(0),
+                                addr: None,
+                            },
+                            TrapCode::TableOutOfBounds => RuntimeError::TableOutOfBounds {
+                                table: TableIndex::new(0),
+                            },
+                            _ => RuntimeError::Unknown {
+                                msg: "unknown trap".to_string(),
+                            },
                         },
-                        TrapCode::IndirectCallToNull => RuntimeError::IndirectCallToNull {
-                            table: TableIndex::new(0),
-                        },
-                        TrapCode::HeapOutOfBounds => RuntimeError::OutOfBoundsAccess {
+                        Ok(SIGSEGV) | Ok(SIGBUS) => RuntimeError::OutOfBoundsAccess {
                             memory: MemoryIndex::new(0),
                             addr: None,
                         },
-                        TrapCode::TableOutOfBounds => RuntimeError::TableOutOfBounds {
-                            table: TableIndex::new(0),
-                        },
-                        _ => RuntimeError::Unknown {
-                            msg: "unknown trap".to_string(),
-                        },
-                    },
-                    Ok(SIGSEGV) | Ok(SIGBUS) => RuntimeError::OutOfBoundsAccess {
-                        memory: MemoryIndex::new(0),
-                        addr: None,
-                    },
-                    Ok(SIGFPE) => RuntimeError::IllegalArithmeticOperation,
-                    _ => unimplemented!(),
+                        Ok(SIGFPE) => RuntimeError::IllegalArithmeticOperation,
+                        _ => unimplemented!(),
+                    }
+                    .into())
+                } else {
+                    let signal = match Signal::from_c_int(signum) {
+                        Ok(SIGFPE) => "floating-point exception",
+                        Ok(SIGILL) => "illegal instruction",
+                        Ok(SIGSEGV) => "segmentation violation",
+                        Ok(SIGBUS) => "bus error",
+                        Err(_) => "error while getting the Signal",
+                        _ => "unkown trapped signal",
+                    };
+                    // When the trap-handler is fully implemented, this will return more information.
+                    Err(RuntimeError::Unknown {
+                        msg: format!("trap at {:p} - {}", faulting_addr, signal),
+                    }
+                    .into())
                 }
-                .into())
-            } else {
-                let signal = match Signal::from_c_int(signum) {
-                    Ok(SIGFPE) => "floating-point exception",
-                    Ok(SIGILL) => "illegal instruction",
-                    Ok(SIGSEGV) => "segmentation violation",
-                    Ok(SIGBUS) => "bus error",
-                    Err(_) => "error while getting the Signal",
-                    _ => "unkown trapped signal",
-                };
-                // When the trap-handler is fully implemented, this will return more information.
-                Err(RuntimeError::Unknown {
-                    msg: format!("trap at {:p} - {}", faulting_addr, signal),
-                }
-                .into())
             }
         } else {
             let ret = f(); // TODO: Switch stack?

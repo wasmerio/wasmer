@@ -82,6 +82,12 @@ pub trait ProtectedCaller: Send + Sync {
         vmctx: *mut vm::Ctx,
         _: Token,
     ) -> RuntimeResult<Vec<Value>>;
+
+    fn get_early_aborter(&self) -> Box<dyn EarlyAborter>;
+}
+
+pub trait EarlyAborter {
+    unsafe fn do_early_abort(&self, msg: String) -> !;
 }
 
 pub trait FuncResolver: Send + Sync {
