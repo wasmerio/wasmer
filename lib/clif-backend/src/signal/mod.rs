@@ -1,11 +1,7 @@
-mod recovery;
-mod sighandler;
-
-pub use self::recovery::{call_protected, HandlerData};
-
+use crate::relocation::{TrapData, TrapSink};
 use crate::trampoline::Trampolines;
-
 use hashbrown::HashSet;
+use libc::c_void;
 use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{ProtectedCaller, Token},
@@ -15,6 +11,18 @@ use wasmer_runtime_core::{
     types::{FuncIndex, FuncSig, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
 };
+
+#[cfg(unix)]
+mod unix;
+
+#[cfg(windows)]
+mod windows;
+
+#[cfg(unix)]
+pub use self::unix::*;
+
+#[cfg(windows)]
+pub use self::windows::*;
 
 pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
@@ -145,4 +153,39 @@ fn get_func_from_index(
     let signature = Arc::clone(&module.info.signatures[sig_index]);
 
     (func_ptr, ctx, signature, sig_index)
+}
+
+unsafe impl Send for HandlerData {}
+unsafe impl Sync for HandlerData {}
+
+pub struct HandlerData {
+    pub trap_data: TrapSink,
+    exec_buffer_ptr: *const c_void,
+    exec_buffer_size: usize,
+}
+
+impl HandlerData {
+    pub fn new(
+        trap_data: TrapSink,
+        exec_buffer_ptr: *const c_void,
+        exec_buffer_size: usize,
+    ) -> Self {
+        Self {
+            trap_data,
+            exec_buffer_ptr,
+            exec_buffer_size,
+        }
+    }
+
+    pub fn lookup(&self, ip: *const c_void) -> Option<TrapData> {
+        let ip = ip as usize;
+        let buffer_ptr = self.exec_buffer_ptr as usize;
+
+        if buffer_ptr <= ip && ip < buffer_ptr + self.exec_buffer_size {
+            let offset = ip - buffer_ptr;
+            self.trap_data.lookup(offset)
+        } else {
+            None
+        }
+    }
 }

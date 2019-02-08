@@ -266,7 +266,10 @@ impl TrapSink {
     }
 
     pub fn lookup(&self, offset: usize) -> Option<TrapData> {
-        self.trap_datas.get(offset).map(|(_, trap_data)| *trap_data)
+        self.trap_datas
+            .iter()
+            .find(|(trap_offset, _)| *trap_offset == offset)
+            .map(|(_, trap_data)| *trap_data)
     }
 
     pub fn drain_local(&mut self, current_func_offset: usize, local: &mut LocalTrapSink) {
