@@ -12,7 +12,7 @@ pub struct StdioCapturer {
 }
 
 #[cfg(not(target_os = "windows"))]
-use libc::{STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO};
+use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO};
 
 #[cfg(target_os = "windows")]
 const STDIN_FILENO: libc::c_int = 0;
@@ -20,7 +20,6 @@ const STDIN_FILENO: libc::c_int = 0;
 const STDOUT_FILENO: libc::c_int = 1;
 #[cfg(target_os = "windows")]
 const STDERR_FILENO: libc::c_int = 2;
-
 
 // Implementation inspired in
 // https://github.com/rust-lang/rust/blob/7d52cbce6db83e4fc2d8706b4e4b9c7da76cbcf8/src/test/run-pass/issues/issue-30490.rs
