@@ -202,7 +202,8 @@ macro_rules! impl_traits {
                         },
                     };
 
-                    unimplemented!("panic handling not implemented yet: {}", msg)
+                    println!("panic handling not implemented yet, {}", msg);
+                    std::process::exit(1)
                 }
 
                 wrap::<$( $x, )* Rets, Abort, Self> as *const ()
