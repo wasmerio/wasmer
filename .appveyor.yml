@@ -24,9 +24,9 @@ environment:
 #    - CHANNEL: stable
 #      ARCH: i686
 #      ABI: msvc
-#    - CHANNEL: stable
-#      ARCH: x86_64
-#      ABI: msvc
+    - CHANNEL: stable
+      ARCH: x86_64
+      ABI: msvc
     #   - CHANNEL: beta
     #     ARCH: i686
     #     ABI: msvc
@@ -64,10 +64,10 @@ environment:
 #      ABI: gnu
 #      MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/4.9.2/threads-win32/dwarf/i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z/download
 #      MINGW_ARCHIVE: i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z
-    - CHANNEL: stable
-      ARCH: x86_64
-      ABI: gnu
-      MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/7.3.0/threads-posix/seh/x86_64-7.3.0-release-posix-seh-rt_v5-rev0.7z/download#mingw-w64-x86_64-7.3.0-posix-seh.7z
+#    - CHANNEL: stable
+#      ARCH: x86_64
+#      ABI: gnu
+#      MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/7.3.0/threads-posix/seh/x86_64-7.3.0-release-posix-seh-rt_v5-rev0.7z/download#mingw-w64-x86_64-7.3.0-posix-seh.7z
 
 install:
   - echo %PATH%
