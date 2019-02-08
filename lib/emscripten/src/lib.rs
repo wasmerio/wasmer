@@ -121,15 +121,6 @@ impl<'a> EmscriptenData<'a> {
     }
 }
 
-// impl<'a> fmt::Debug for EmscriptenData<'a> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         f.debug_struct("EmscriptenData")
-//             .field("malloc", &(self.malloc as usize))
-//             .field("free", &(self.free as usize))
-//             .finish()
-//     }
-// }
-
 pub fn run_emscripten_instance(
     _module: &Module,
     instance: &mut Instance,
@@ -271,32 +262,6 @@ impl EmscriptenGlobals {
             }
         };
 
-        // let memory_base = STATIC_BASE;
-        // let table_base = 0;
-        // let temp_double_ptr = STATIC_TOP;
-
-        // let table_base = 0;
-
-        // let STACK_TOP = STATIC_BASE + static_bump;
-        // let stack_top
-
-        // let temp_double_ptr = STACK_TOP;
-
-        // let data = EmscriptenGlobalsData {
-        //     abort: 0, // TODO review usage
-        //     // env
-        //     stacktop: STACK_TOP,
-        //     stack_max: STACK_MAX,
-        //     dynamictop_ptr: dynamictop_ptr(STATIC_BUMP),
-        //     memory_base: memory_base,
-        //     table_base: table_base,
-        //     temp_double_ptr: temp_double_ptr,
-
-        //     // global
-        //     infinity: std::f64::INFINITY,
-        //     nan: std::f64::NAN,
-        // };
-
         emscripten_set_up_memory(&memory, &data);
 
         Self {
@@ -310,24 +275,7 @@ impl EmscriptenGlobals {
 }
 
 pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject {
-    // use crate::varargs::VarArgs;
-    // let mut imports = ImportObject::new();
-    // let mut env_namespace = Namespace::new();
-    // let mut asm_namespace = Namespace::new();
-    // let mut global_namespace = Namespace::new();
-    // let mut global_math_namespace = Namespace::new();
-
-    // // Add globals.
-    // // NOTE: There is really no need for checks, these globals should always be available.
-
-    // // We generate a fake Context that traps on access
-    // let null_ctx = Context::External(ptr::null_mut());
-
-    //    env_namespace.insert("memory".to_string(), Export::Memory(globals.memory.clone()));
-
-    //    env_namespace.insert("table".to_string(), Export::Table(globals.table.clone()));
-
-    let import_object = imports! {
+    imports! {
         "env" => {
             "memory" => Export::Memory(globals.memory.clone()),
             "table" => Export::Table(globals.table.clone()),
@@ -525,18 +473,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "asm2wasm" => {
             "f64-rem" => func!(crate::math::f64_rem),
         },
-    };
-    // mock_external!(env_namespace, _sched_yield);
-    // mock_external!(env_namespace, _llvm_stacksave);
-    // mock_external!(env_namespace, _getgrent);
-    // mock_external!(env_namespace, _dlerror);
-
-    // imports.register("env", env_namespace);
-    // imports.register("asm2wasm", asm_namespace);
-    // imports.register("global", global_namespace);
-    // imports.register("global.Math", global_math_namespace);
-
-    import_object
+    }
 }
 
 /// The current version of this crate
