@@ -1,7 +1,6 @@
 test_ccall
 test_demangle_stacks
 emscripten_get_compiler_setting
-env
 fs_exports
 getvalue_setvalue
 legacy_exported_runtime_numbers

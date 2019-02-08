@@ -1,5 +1,4 @@
 #[test]
-#[ignore]
 fn test_env() {
     assert_emscripten_output!(
         "../../emtests/env.wasm",
