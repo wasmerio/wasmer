@@ -10,7 +10,6 @@ use libc::{clockid_t, time as libc_time};
 type clockid_t = c_int;
 
 #[cfg(target_os = "windows")]
-#[link(name = "c")]
 extern "C" {
     #[link_name = "time"]
     pub fn libc_time(s: *const time_t) -> time_t;
