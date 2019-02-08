@@ -137,11 +137,11 @@ impl ProtectedCaller for Caller {
     }
 }
 
-fn get_func_from_index(
-    module: &ModuleInner,
+fn get_func_from_index<'a>(
+    module: &'a ModuleInner,
     import_backing: &ImportBacking,
     func_index: FuncIndex,
-) -> (*const vm::Func, Context, Arc<FuncSig>, SigIndex) {
+) -> (*const vm::Func, Context, &'a FuncSig, SigIndex) {
     let sig_index = *module
         .info
         .func_assoc
@@ -167,7 +167,7 @@ fn get_func_from_index(
         }
     };
 
-    let signature = Arc::clone(&module.info.signatures[sig_index]);
+    let signature = &module.info.signatures[sig_index];
 
     (func_ptr, ctx, signature, sig_index)
 }

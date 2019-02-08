@@ -14,7 +14,7 @@ use crate::{
     },
     vm,
 };
-use std::{slice, sync::Arc};
+use std::slice;
 
 #[derive(Debug)]
 pub struct LocalBacking {
@@ -172,10 +172,11 @@ impl LocalBacking {
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
                             let sig_index = module.info.func_assoc[func_index];
-                            let signature = &module.info.signatures[sig_index];
-                            let sig_id = vm::SigId(
-                                SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
-                            );
+                            // let signature = &module.info.signatures[sig_index];
+                            let signature = SigRegistry
+                                .lookup_signature_ref(&module.info.signatures[sig_index]);
+                            let sig_id =
+                                vm::SigId(SigRegistry.lookup_sig_index(signature).index() as u32);
 
                             let (func, ctx) = match func_index.local_or_import(module) {
                                 LocalOrImport::Local(local_func_index) => (
@@ -210,10 +211,11 @@ impl LocalBacking {
                     table.anyfunc_direct_access_mut(|elements| {
                         for (i, &func_index) in init.elements.iter().enumerate() {
                             let sig_index = module.info.func_assoc[func_index];
-                            let signature = &module.info.signatures[sig_index];
-                            let sig_id = vm::SigId(
-                                SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
-                            );
+                            let signature = SigRegistry
+                                .lookup_signature_ref(&module.info.signatures[sig_index]);
+                            // let signature = &module.info.signatures[sig_index];
+                            let sig_id =
+                                vm::SigId(SigRegistry.lookup_sig_index(signature).index() as u32);
 
                             let (func, ctx) = match func_index.local_or_import(module) {
                                 LocalOrImport::Local(local_func_index) => (
@@ -379,7 +381,7 @@ fn import_functions(
                 ctx,
                 signature,
             }) => {
-                if *expected_sig == signature {
+                if *expected_sig == *signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
                         vmctx: match ctx {
@@ -391,8 +393,8 @@ fn import_functions(
                     link_errors.push(LinkError::IncorrectImportSignature {
                         namespace: namespace.to_string(),
                         name: name.to_string(),
-                        expected: expected_sig.clone(),
-                        found: signature.clone(),
+                        expected: (*expected_sig).clone(),
+                        found: (*signature).clone(),
                     });
                 }
             }

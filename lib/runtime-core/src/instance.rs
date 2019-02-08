@@ -7,6 +7,7 @@ use crate::{
     import::{ImportObject, LikeNamespace},
     memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
+    sig_registry::SigRegistry,
     table::Table,
     typed_func::{Func, Safe, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
@@ -112,11 +113,12 @@ impl Instance {
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = &self.module.info.signatures[sig_index];
+            let signature =
+                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
 
             if signature.params() != Args::types() || signature.returns() != Rets::types() {
                 Err(ResolveError::Signature {
-                    expected: Arc::clone(&signature),
+                    expected: (*signature).clone(),
                     found: Args::types().to_vec(),
                 })?;
             }
@@ -183,7 +185,8 @@ impl Instance {
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = Arc::clone(&self.module.info.signatures[sig_index]);
+            let signature =
+                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
 
             Ok(DynFunc {
                 signature,
@@ -374,13 +377,10 @@ impl InstanceInner {
             }
         };
 
-        let signature = &module.info.signatures[sig_index];
+        let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
+        // let signature = &module.info.signatures[sig_index];
 
-        (
-            unsafe { FuncPointer::new(func_ptr) },
-            ctx,
-            Arc::clone(signature),
-        )
+        (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
 
     fn get_memory_from_index(&self, module: &ModuleInner, mem_index: MemoryIndex) -> Memory {
@@ -457,7 +457,7 @@ impl<'a> DynFunc<'a> {
     pub fn call(&mut self, params: &[Value]) -> CallResult<Vec<Value>> {
         if !self.signature.check_param_value_types(params) {
             Err(ResolveError::Signature {
-                expected: self.signature.clone(),
+                expected: (*self.signature).clone(),
                 found: params.iter().map(|val| val.ty()).collect(),
             })?
         }
