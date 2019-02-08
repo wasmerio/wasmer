@@ -18,6 +18,32 @@ pub struct Memory {
 }
 
 impl Memory {
+    pub fn with_size_protect(size: usize, protection: Protect) -> Result<Self, String> {
+        if size == 0 {
+            return Ok(Self {
+                ptr: ptr::null_mut(),
+                size: 0,
+                protection,
+            });
+        }
+
+        let size = round_up_to_page_size(size, page_size::get());
+
+        let protect = protection.to_protect_const();
+
+        let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, protect) };
+
+        if ptr.is_null() {
+            Err("unable to allocate memory".to_string())
+        } else {
+            Ok(Self {
+                ptr: ptr as *mut u8,
+                size,
+                protection,
+            })
+        }
+    }
+
     pub fn with_size(size: usize) -> Result<Self, String> {
         if size == 0 {
             return Ok(Self {
