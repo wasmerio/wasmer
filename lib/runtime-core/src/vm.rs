@@ -493,7 +493,7 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{Backend, FuncResolver, ProtectedCaller, EarlyAborter, Token};
+        use crate::backend::{Backend, EarlyAborter, FuncResolver, ProtectedCaller, Token};
         use crate::error::RuntimeResult;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
