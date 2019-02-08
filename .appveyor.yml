@@ -27,6 +27,7 @@ environment:
     - CHANNEL: stable
       ARCH: x86_64
       ABI: msvc
+      TARGET: x86_64-pc-windows-msvc
     #   - CHANNEL: beta
     #     ARCH: i686
     #     ABI: msvc
@@ -84,4 +85,5 @@ build_script:
   - cargo build --verbose
 
 test_script:
+  - RUST_BACKTRACE=1
   - cargo test --verbose
