@@ -7,7 +7,6 @@ use crate::{
     import::{ImportObject, LikeNamespace},
     memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
-    sig_registry::SigRegistry,
     table::Table,
     typed_func::{Func, Safe, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
