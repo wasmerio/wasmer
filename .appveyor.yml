@@ -1,6 +1,3 @@
-# This appveyor build file is heavily inspired by uutils/coreutils
-# https://raw.githubusercontent.com/uutils/coreutils/d0db7bbaa46dabf65b71e3e33b1ed7595aaacc56/.appveyor.yml
-
 branches:
   except:
     - master
@@ -9,66 +6,12 @@ version: "{build} ~ {branch}"
 
 os: Visual Studio 2017
 
-matrix:
-  allow_failures:
-    - CHANNEL: stable
-#   - ABI: gnu
-
 environment:
   matrix:
-    # minimum version
-#    - CHANNEL: 1.31.0
-#      ARCH: i686
-#      ABI: msvc
-#    # "msvc" ABI
-#    - CHANNEL: stable
-#      ARCH: i686
-#      ABI: msvc
     - CHANNEL: stable
       ARCH: x86_64
       ABI: msvc
       TARGET: x86_64-pc-windows-msvc
-    #   - CHANNEL: beta
-    #     ARCH: i686
-    #     ABI: msvc
-    #   - CHANNEL: beta
-    #     ARCH: x86_64
-    #     ABI: msvc
-#    - CHANNEL: nightly
-#      ARCH: i686
-#      ABI: msvc
-#    - CHANNEL: nightly
-#      ARCH: x86_64
-#      ABI: msvc
-#    # "gnu" ABI
-#    - CHANNEL: stable
-#      ARCH: i686
-#      ABI: gnu
-#    - CHANNEL: stable
-#      ARCH: x86_64
-#      ABI: gnu
-    #   - CHANNEL: beta
-    #     ARCH: i686
-    #     ABI: gnu
-    #   - CHANNEL: beta
-    #     ARCH: x86_64
-    #     ABI: gnu
-    #   - CHANNEL: nightly
-    #     ARCH: i686
-    #     ABI: gnu
-    #   - CHANNEL: nightly
-    #     ARCH: x86_64
-    #     ABI: gnu
-    # * specific gnu compilers
-#    - CHANNEL: stable
-#      ARCH: i686
-#      ABI: gnu
-#      MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/4.9.2/threads-win32/dwarf/i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z/download
-#      MINGW_ARCHIVE: i686-4.9.2-release-win32-dwarf-rt_v4-rev4.7z
-#    - CHANNEL: stable
-#      ARCH: x86_64
-#      ABI: gnu
-#      MINGW_URL: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/7.3.0/threads-posix/seh/x86_64-7.3.0-release-posix-seh-rt_v5-rev0.7z/download#mingw-w64-x86_64-7.3.0-posix-seh.7z
 
 install:
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
@@ -85,5 +28,5 @@ build_script:
   - cargo build --verbose
 
 test_script:
-  - RUST_BACKTRACE=1
+  - set RUST_BACKTRACE=1
   - cargo test --verbose
