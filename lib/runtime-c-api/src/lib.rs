@@ -87,7 +87,10 @@ pub struct wasmer_limits_t {
 
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_validate(wasm_bytes: *mut uint8_t, wasm_bytes_len: uint32_t) -> bool {
+pub unsafe extern "C" fn wasmer_validate(
+    wasm_bytes: *mut uint8_t,
+    wasm_bytes_len: uint32_t,
+) -> bool {
     if wasm_bytes.is_null() {
         return false;
     }
@@ -162,7 +165,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
     }
     let bytes: &[u8] =
         unsafe { ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize) };
-    let result = wasmer_runtime::instantiate(bytes, *import_object);
+    let result = wasmer_runtime::instantiate(bytes, &*import_object);
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {
