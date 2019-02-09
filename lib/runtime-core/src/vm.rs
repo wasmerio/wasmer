@@ -116,7 +116,7 @@ impl Ctx {
     pub fn memory(&self, mem_index: u32) -> &Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
-        match mem_index.local_or_import(module) {
+        match mem_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_mem_index) => unsafe {
                 let local_backing = &*self.local_backing;
                 &local_backing.memories[local_mem_index]

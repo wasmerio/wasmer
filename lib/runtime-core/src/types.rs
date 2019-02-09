@@ -1,4 +1,9 @@
-use crate::{memory::MemoryType, module::ModuleInner, structures::TypedIndex, units::Pages};
+use crate::{
+    memory::MemoryType,
+    module::{ModuleInfo, ModuleInner},
+    structures::TypedIndex,
+    units::Pages,
+};
 use std::{borrow::Cow, mem};
 
 /// Represents a WebAssembly type.
@@ -340,23 +345,23 @@ define_map_index![
 macro_rules! define_local_or_import {
     ($ty:ident, $local_ty:ident, $imported_ty:ident, $imports:ident) => {
         impl $ty {
-            pub fn local_or_import(self, module: &ModuleInner) -> LocalOrImport<$ty> {
-                if self.index() < module.info.$imports.len() {
+            pub fn local_or_import(self, info: &ModuleInfo) -> LocalOrImport<$ty> {
+                if self.index() < info.$imports.len() {
                     LocalOrImport::Import(<Self as LocalImport>::Import::new(self.index()))
                 } else {
-                    LocalOrImport::Local(<Self as LocalImport>::Local::new(self.index() - module.info.$imports.len()))
+                    LocalOrImport::Local(<Self as LocalImport>::Local::new(self.index() - info.$imports.len()))
                 }
             }
         }
 
         impl $local_ty {
-            pub fn convert_up(self, module: &ModuleInner) -> $ty {
-                $ty ((self.index() + module.info.$imports.len()) as u32)
+            pub fn convert_up(self, info: &ModuleInfo) -> $ty {
+                $ty ((self.index() + info.$imports.len()) as u32)
             }
         }
 
         impl $imported_ty {
-            pub fn convert_up(self, _module: &ModuleInner) -> $ty {
+            pub fn convert_up(self, _module: &ModuleInfo) -> $ty {
                 $ty (self.index() as u32)
             }
         }

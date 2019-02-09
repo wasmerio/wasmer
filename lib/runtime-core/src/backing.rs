@@ -91,7 +91,7 @@ impl LocalBacking {
                 }
             } as usize;
 
-            match init.memory_index.local_or_import(module) {
+            match init.memory_index.local_or_import(&module.info) {
                 LocalOrImport::Local(local_memory_index) => {
                     let memory_desc = module.info.memories[local_memory_index];
                     let data_top = init_base + init.data.len();
@@ -159,7 +159,7 @@ impl LocalBacking {
                 }
             } as usize;
 
-            match init.table_index.local_or_import(module) {
+            match init.table_index.local_or_import(&module.info) {
                 LocalOrImport::Local(local_table_index) => {
                     let table = &tables[local_table_index];
 
@@ -178,7 +178,7 @@ impl LocalBacking {
                             let sig_id =
                                 vm::SigId(SigRegistry.lookup_sig_index(signature).index() as u32);
 
-                            let (func, ctx) = match func_index.local_or_import(module) {
+                            let (func, ctx) = match func_index.local_or_import(&module.info) {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
                                         .func_resolver
@@ -217,7 +217,7 @@ impl LocalBacking {
                             let sig_id =
                                 vm::SigId(SigRegistry.lookup_sig_index(signature).index() as u32);
 
-                            let (func, ctx) = match func_index.local_or_import(module) {
+                            let (func, ctx) = match func_index.local_or_import(&module.info) {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
                                         .func_resolver
@@ -366,7 +366,7 @@ fn import_functions(
         },
     ) in &module.info.imported_functions
     {
-        let sig_index = module.info.func_assoc[index.convert_up(module)];
+        let sig_index = module.info.func_assoc[index.convert_up(&module.info)];
         let expected_sig = &module.info.signatures[sig_index];
 
         let namespace = module.info.namespace_table.get(*namespace_index);
