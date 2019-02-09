@@ -165,6 +165,22 @@ pub unsafe extern "C" fn wasmer_table_new(
 
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
+pub extern "C" fn wasmer_table_grow(
+    table: *mut wasmer_table_t,
+    delta: uint32_t,
+) -> wasmer_table_result_t {
+    let table = unsafe { Box::from_raw(table as *mut Table) };
+    let maybe_delta = table.grow(delta);
+    Box::into_raw(table);
+    if let Some(_delta) = maybe_delta {
+        wasmer_table_result_t::WASMER_TABLE_OK
+    } else {
+        wasmer_table_result_t::WASMER_TABLE_ERROR
+    }
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
 pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
     let table = unsafe { Box::from_raw(table as *mut Table) };
     let len = table.size();

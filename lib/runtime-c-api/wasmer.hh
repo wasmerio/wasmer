@@ -99,6 +99,8 @@ wasmer_memory_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits
 
 void wasmer_table_destroy(wasmer_table_t *table);
 
+wasmer_table_result_t wasmer_table_grow(wasmer_table_t *table, uint32_t delta);
+
 uint32_t wasmer_table_length(wasmer_table_t *table);
 
 wasmer_table_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
