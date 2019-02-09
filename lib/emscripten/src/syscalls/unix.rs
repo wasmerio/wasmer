@@ -1,5 +1,4 @@
 use crate::varargs::VarArgs;
-use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
@@ -9,39 +8,28 @@ use libc::{
     c_char,
     c_int,
     c_void,
-    chdir,
     chown,
     // fcntl, setsockopt, getppid
-    close,
     connect,
     dup2,
-    exit,
     fcntl,
-    fstat,
     getgid,
     getpeername,
-    getpid,
     getsockname,
     getsockopt,
-    gid_t,
     in_addr_t,
     in_port_t,
     ioctl,
     // iovec,
     listen,
-    lseek,
     mkdir,
     msghdr,
-    off_t,
-    open,
     pid_t,
     pread,
     pwrite,
-    read,
     // readv,
     recvfrom,
     recvmsg,
-    rmdir,
     // ENOTTY,
     rusage,
     sa_family_t,
@@ -54,11 +42,8 @@ use libc::{
     sockaddr,
     socket,
     socklen_t,
-    ssize_t,
-    stat,
     uname,
     utsname,
-    write,
     EINVAL,
     // sockaddr_in,
     FIOCLEX,
@@ -71,9 +56,7 @@ use libc::{
 };
 use wasmer_runtime_core::vm::Ctx;
 
-use super::env;
 use std::mem;
-use std::slice;
 
 // Linking to functions that are not provided by rust libc
 #[cfg(target_os = "macos")]
