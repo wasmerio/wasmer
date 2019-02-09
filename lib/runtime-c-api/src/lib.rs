@@ -7,10 +7,10 @@ use std::slice;
 use std::str;
 use std::sync::Arc;
 use std::{ffi::c_void, mem, ptr};
-use wasmer_runtime::{ImportObject, Instance, Memory, Value};
+use wasmer_runtime::{ImportObject, Instance, Memory, Table, Value};
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::{LikeNamespace, Namespace};
-use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, Type};
+use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
 use wasmer_runtime_core::units::Pages;
 
 #[allow(non_camel_case_types)]
@@ -46,6 +46,14 @@ pub enum wasmer_memory_result_t {
     WASMER_MEMORY_ERROR = 2,
 }
 
+#[allow(non_camel_case_types)]
+#[no_mangle]
+#[repr(C)]
+pub enum wasmer_table_result_t {
+    WASMER_TABLE_OK = 1,
+    WASMER_TABLE_ERROR = 2,
+}
+
 #[repr(u32)]
 #[derive(Clone)]
 pub enum wasmer_value_tag {
@@ -74,10 +82,10 @@ pub struct wasmer_value_t {
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_memory_t();
-//{
-//    pub ptr: *mut uint8_t,
-//    pub len: uint32_t,
-//}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_table_t();
 
 #[repr(C)]
 pub struct wasmer_limits_t {
@@ -118,7 +126,6 @@ pub unsafe extern "C" fn wasmer_memory_new(
     let new_memory = match result {
         Ok(memory) => memory,
         Err(error) => {
-            println!("Err: {:?}", error);
             return wasmer_memory_result_t::WASMER_MEMORY_ERROR;
         }
     };
@@ -133,6 +140,44 @@ pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t
     let Pages(len) = memory.size();
     Box::into_raw(memory);
     len
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_table_new(
+    mut table: *mut *mut wasmer_table_t,
+    limits: wasmer_limits_t,
+) -> wasmer_table_result_t {
+    let desc = TableDescriptor {
+        element: ElementType::Anyfunc,
+        minimum: limits.min,
+        maximum: Some(limits.max),
+    };
+    let result = Table::new(desc);
+    let new_table = match result {
+        Ok(table) => table,
+        Err(error) => {
+            return wasmer_table_result_t::WASMER_TABLE_ERROR;
+        }
+    };
+    unsafe { *table = Box::into_raw(Box::new(new_table)) as *mut wasmer_table_t };
+    wasmer_table_result_t::WASMER_TABLE_OK
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
+    let table = unsafe { Box::from_raw(table as *mut Table) };
+    let len = table.size();
+    Box::into_raw(table);
+    len
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_table_destroy(table: *mut wasmer_table_t) {
+    if !table.is_null() {
+        drop(unsafe { Box::from_raw(table as *mut Table) });
+    }
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -169,7 +214,6 @@ pub unsafe extern "C" fn wasmer_instantiate(
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {
-            println!("Err: {:?}", error);
             return wasmer_compile_result_t::WASMER_COMPILE_ERROR;
         }
     };
