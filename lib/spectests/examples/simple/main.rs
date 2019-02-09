@@ -3,7 +3,7 @@ use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime_core::{
     cache::Cache,
-    error::Result,
+    error,
     global::Global,
     memory::Memory,
     prelude::*,
@@ -14,7 +14,7 @@ use wasmer_runtime_core::{
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
-fn main() -> Result<()> {
+fn main() -> error::Result<()> {
     let compiler = CraneliftCompiler::new();
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
 
@@ -61,14 +61,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn print_num(n: i32, ctx: &mut vm::Ctx) -> i32 {
+fn print_num(n: i32, ctx: &mut vm::Ctx) -> Result<i32, ()> {
     println!("print_num({})", n);
 
     let memory: &Memory = ctx.memory(0);
 
     let a: i32 = memory.view()[0].get();
 
-    a + n + 1
+    Ok(a + n + 1)
 }
 
 static IMPORT_MODULE: &str = r#"

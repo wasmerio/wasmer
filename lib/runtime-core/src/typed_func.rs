@@ -1,11 +1,16 @@
 use crate::{
+    backend::UserTrapper,
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
     types::{FuncSig, Type, WasmExternType},
     vm::Ctx,
 };
-use std::{marker::PhantomData, mem, ptr, sync::Arc};
+use std::{cell::UnsafeCell, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
+
+thread_local! {
+    pub static EARLY_TRAPPER: UnsafeCell<Option<Box<dyn UserTrapper>>> = UnsafeCell::new(None);
+}
 
 pub trait Safeness {}
 pub struct Safe;
@@ -28,8 +33,43 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn to_raw(self) -> *const ();
+    fn to_raw(&self) -> *const ();
 }
+
+pub trait TrapEarly<Rets>
+where
+    Rets: WasmTypeList,
+{
+    fn report(self) -> Result<Rets, String>;
+}
+
+impl<Rets> TrapEarly<Rets> for Rets
+where
+    Rets: WasmTypeList,
+{
+    fn report(self) -> Result<Rets, String> {
+        Ok(self)
+    }
+}
+
+impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
+where
+    Rets: WasmTypeList,
+    E: fmt::Debug,
+{
+    fn report(self) -> Result<Rets, String> {
+        self.map_err(|err| format!("Error: {:?}", err))
+    }
+}
+
+// pub fn Func<'a, Args, Rets, F>(f: F) -> Func<'a, Args, Rets, Unsafe>
+// where
+//     Args: WasmTypeList,
+//     Rets: WasmTypeList,
+//     F: ExternalFunction<Args, Rets>
+// {
+//     Func::new(f)
+// }
 
 pub struct Func<'a, Args = (), Rets = (), Safety: Safeness = Safe> {
     f: *const (),
@@ -143,18 +183,41 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, FN: Fn( $( $x, )* &mut Ctx) -> Rets> ExternalFunction<($( $x ),*), Rets> for FN {
+        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
-            fn to_raw(self) -> *const () {
+            fn to_raw(&self) -> *const () {
                 assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
 
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, FN: Fn( $( $x, )* &mut Ctx) -> Rets>( $( $x: $x, )* ctx: &mut Ctx) -> Rets::CStruct {
+                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Trap>( $( $x: $x, )* ctx: &mut Ctx) -> Rets::CStruct {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
-                    let rets = f( $( $x, )* ctx);
-                    rets.into_c_struct()
+
+                    let msg = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                        f( $( $x, )* ctx).report()
+                    })) {
+                        Ok(Ok(returns)) => return returns.into_c_struct(),
+                        Ok(Err(err)) => err,
+                        Err(err) => {
+                            if let Some(s) = err.downcast_ref::<&str>() {
+                                s.to_string()
+                            } else if let Some(s) = err.downcast_ref::<String>() {
+                                s.clone()
+                            } else {
+                                "a panic occurred, but no additional information is available".to_string()
+                            }
+                        },
+                    };
+
+                    unsafe {
+                        if let Some(early_trapper) = &*EARLY_TRAPPER.with(|ucell| ucell.get()) {
+                            early_trapper.do_early_trap(msg)
+                        } else {
+                            eprintln!("panic handling not setup");
+                            std::process::exit(1)
+                        }
+                    }
                 }
 
-                wrap::<$( $x, )* Rets, Self> as *const ()
+                wrap::<$( $x, )* Rets, Trap, Self> as *const ()
             }
         }
 
