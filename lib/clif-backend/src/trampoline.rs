@@ -169,6 +169,7 @@ fn generate_func(func_sig: &FuncSig) -> ir::Function {
     let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(entry_ebb);
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
+    args_vec.push(vmctx_ptr);
     for (index, wasm_ty) in func_sig.params().iter().enumerate() {
         let mem_flags = ir::MemFlags::trusted();
 
@@ -180,7 +181,6 @@ fn generate_func(func_sig: &FuncSig) -> ir::Function {
         );
         args_vec.push(val);
     }
-    args_vec.push(vmctx_ptr);
 
     let call_inst = pos.ins().call_indirect(export_sig_ref, func_ptr, &args_vec);
 

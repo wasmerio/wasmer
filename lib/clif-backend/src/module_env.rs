@@ -536,14 +536,14 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
                 let func_index = pos.ins().iconst(ir::types::I32, func_index.index() as i64);
 
-                pos.ins().call(start_debug, &[func_index, vmctx]);
+                pos.ins().call(start_debug, &[vmctx, func_index]);
 
                 for param in new_ebb_params.iter().cloned() {
                     match pos.func.dfg.value_type(param) {
-                        ir::types::I32 => pos.ins().call(i32_print, &[param, vmctx]),
-                        ir::types::I64 => pos.ins().call(i64_print, &[param, vmctx]),
-                        ir::types::F32 => pos.ins().call(f32_print, &[param, vmctx]),
-                        ir::types::F64 => pos.ins().call(f64_print, &[param, vmctx]),
+                        ir::types::I32 => pos.ins().call(i32_print, &[vmctx, param]),
+                        ir::types::I64 => pos.ins().call(i64_print, &[vmctx, param]),
+                        ir::types::F32 => pos.ins().call(f32_print, &[vmctx, param]),
+                        ir::types::F64 => pos.ins().call(f64_print, &[vmctx, param]),
                         _ => unimplemented!(),
                     };
                 }

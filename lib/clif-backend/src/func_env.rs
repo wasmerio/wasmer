@@ -460,7 +460,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         // and the vmctx parameter.
         let mut args = Vec::with_capacity(call_args.len() + 1);
         args.extend(call_args.iter().cloned());
-        args.push(vmctx_ptr);
+        args.insert(0, vmctx_ptr);
 
         Ok(pos.ins().call_indirect(sig_ref, func_ptr, &args))
     }
@@ -486,7 +486,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
                 args.extend(call_args.iter().cloned());
-                args.push(vmctx);
+                args.insert(0, vmctx);
 
                 Ok(pos.ins().call(callee, &args))
             }
@@ -533,7 +533,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
                 args.extend(call_args.iter().cloned());
-                args.push(imported_vmctx_addr);
+                args.insert(0, imported_vmctx_addr);
 
                 Ok(pos
                     .ins()
@@ -604,7 +604,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         let call_inst = pos
             .ins()
-            .call(mem_grow_func, &[const_mem_index, by_value, vmctx]);
+            .call(mem_grow_func, &[vmctx, const_mem_index, by_value]);
 
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
@@ -664,7 +664,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("missing vmctx parameter");
 
-        let call_inst = pos.ins().call(mem_grow_func, &[const_mem_index, vmctx]);
+        let call_inst = pos.ins().call(mem_grow_func, &[vmctx, const_mem_index]);
 
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
