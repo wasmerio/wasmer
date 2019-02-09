@@ -23,7 +23,6 @@ install:
 
 integration-tests: release
 	echo "Running Integration Tests"
-	# Commented for now until we fix emscripten
 	./integration_tests/lua/test.sh
 	./integration_tests/nginx/test.sh
 
