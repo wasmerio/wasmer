@@ -37,6 +37,10 @@ typedef struct wasmer_instance_context_t wasmer_instance_context_t;
 
 typedef struct wasmer_instance_t wasmer_instance_t;
 
+typedef struct {
+
+} wasmer_global_t;
+
 typedef union {
   int32_t I32;
   int64_t I64;
@@ -50,6 +54,11 @@ typedef struct {
 } wasmer_value_t;
 
 typedef struct {
+  bool mutable_;
+  wasmer_value_tag kind;
+} wasmer_global_descriptor_t;
+
+typedef struct {
 
 } wasmer_memory_t;
 
@@ -61,6 +70,16 @@ typedef struct {
 typedef struct {
 
 } wasmer_table_t;
+
+void wasmer_global_destroy(wasmer_global_t *global);
+
+wasmer_value_t wasmer_global_get(wasmer_global_t *global);
+
+wasmer_global_descriptor_t wasmer_global_get_descriptor(wasmer_global_t *global);
+
+wasmer_global_t *wasmer_global_new(wasmer_value_t value, bool mutable_);
+
+void wasmer_global_set(wasmer_global_t *global, wasmer_value_t value);
 
 void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
 

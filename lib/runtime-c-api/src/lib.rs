@@ -7,10 +7,12 @@ use std::slice;
 use std::str;
 use std::sync::Arc;
 use std::{ffi::c_void, mem, ptr};
-use wasmer_runtime::{ImportObject, Instance, Memory, Table, Value};
+use wasmer_runtime::{Global, ImportObject, Instance, Memory, Table, Value};
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::{LikeNamespace, Namespace};
-use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
+use wasmer_runtime_core::types::{
+    ElementType, FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type,
+};
 use wasmer_runtime_core::units::Pages;
 
 #[allow(non_camel_case_types)]
@@ -81,11 +83,22 @@ pub struct wasmer_value_t {
 
 #[repr(C)]
 #[derive(Clone)]
+pub struct wasmer_global_descriptor_t {
+    mutable: bool,
+    kind: wasmer_value_tag,
+}
+
+#[repr(C)]
+#[derive(Clone)]
 pub struct wasmer_memory_t();
 
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_table_t();
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_global_t();
 
 #[repr(C)]
 pub struct wasmer_limits_t {
@@ -193,6 +206,59 @@ pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
 pub extern "C" fn wasmer_table_destroy(table: *mut wasmer_table_t) {
     if !table.is_null() {
         drop(unsafe { Box::from_raw(table as *mut Table) });
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_global_new(
+    value: wasmer_value_t,
+    mutable: bool,
+) -> *mut wasmer_global_t {
+    let global = if mutable {
+        Global::new_mutable(value.into())
+    } else {
+        Global::new(value.into())
+    };
+    unsafe { Box::into_raw(Box::new(global)) as *mut wasmer_global_t }
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_global_get(global: *mut wasmer_global_t) -> wasmer_value_t {
+    let global = unsafe { Box::from_raw(global as *mut Global) };
+    let value: wasmer_value_t = global.get().into();
+    Box::into_raw(global);
+    value
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_global_set(global: *mut wasmer_global_t, value: wasmer_value_t) {
+    let global = unsafe { Box::from_raw(global as *mut Global) };
+    global.set(value.into());
+    Box::into_raw(global);
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_global_get_descriptor(
+    global: *mut wasmer_global_t,
+) -> wasmer_global_descriptor_t {
+    let global = unsafe { Box::from_raw(global as *mut Global) };
+    let descriptor = global.descriptor();
+    let desc = wasmer_global_descriptor_t {
+        mutable: descriptor.mutable,
+        kind: descriptor.ty.into(),
+    };
+    Box::into_raw(global);
+    desc
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
+    if !global.is_null() {
+        drop(unsafe { Box::from_raw(global as *mut Global) });
     }
 }
 
@@ -392,6 +458,41 @@ impl From<wasmer_value_t> for Value {
                 } => Value::F64(F64),
                 _ => panic!("not implemented"),
             }
+        }
+    }
+}
+
+impl From<Value> for wasmer_value_t {
+    fn from(val: Value) -> Self {
+        match val {
+            Value::I32(x) => wasmer_value_t {
+                tag: wasmer_value_tag::WASM_I32,
+                value: wasmer_value { I32: x },
+            },
+            Value::I64(x) => wasmer_value_t {
+                tag: wasmer_value_tag::WASM_I64,
+                value: wasmer_value { I64: x },
+            },
+            Value::F32(x) => wasmer_value_t {
+                tag: wasmer_value_tag::WASM_F32,
+                value: wasmer_value { F32: x },
+            },
+            Value::F64(x) => wasmer_value_t {
+                tag: wasmer_value_tag::WASM_F64,
+                value: wasmer_value { F64: x },
+            },
+        }
+    }
+}
+
+impl From<Type> for wasmer_value_tag {
+    fn from(ty: Type) -> Self {
+        match ty {
+            Type::I32 => wasmer_value_tag::WASM_I32,
+            Type::I64 => wasmer_value_tag::WASM_I64,
+            Type::F32 => wasmer_value_tag::WASM_F32,
+            Type::F64 => wasmer_value_tag::WASM_F64,
+            _ => panic!("not implemented"),
         }
     }
 }
