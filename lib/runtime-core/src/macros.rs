@@ -38,7 +38,7 @@ macro_rules! func {
 ///     },
 /// };
 ///
-/// fn foo(n: i32, _: &mut Ctx) -> i32 {
+/// fn foo(_: &mut Ctx, n: i32) -> i32 {
 ///     n
 /// }
 /// ```

@@ -183,16 +183,16 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
+        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
             fn to_raw(&self) -> *const () {
                 assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
 
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Trap>( $( $x: $x, )* ctx: &mut Ctx) -> Rets::CStruct {
+                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
 
                     let msg = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        f( $( $x, )* ctx).report()
+                        f( ctx $( ,$x )* ).report()
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => err,
@@ -271,7 +271,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_call() {
-        fn foo(a: i32, b: i32, _ctx: &mut Ctx) -> (i32, i32) {
+        fn foo(_ctx: &mut Ctx, a: i32, b: i32) -> (i32, i32) {
             (a, b)
         }
 
@@ -282,7 +282,7 @@ mod tests {
     fn test_imports() {
         use crate::{func, imports};
 
-        fn foo(a: i32, _ctx: &mut Ctx) -> i32 {
+        fn foo(_ctx: &mut Ctx, a: i32) -> i32 {
             a
         }
 
