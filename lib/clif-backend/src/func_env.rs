@@ -32,7 +32,7 @@ impl<'env, 'module, 'isa> FuncEnv<'env, 'module, 'isa> {
         let mut signature = self.env.signatures[Converter(clif_sig_index).into()].clone();
 
         // Add the vmctx parameter type to it
-        signature.params.push(ir::AbiParam::special(
+        signature.params.insert(0, ir::AbiParam::special(
             self.pointer_type(),
             ir::ArgumentPurpose::VMContext,
         ));
@@ -559,9 +559,9 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let signature = pos.func.import_signature(ir::Signature {
             call_conv: self.target_config().default_call_conv,
             params: vec![
-                ir::AbiParam::new(ir::types::I32),
-                ir::AbiParam::new(ir::types::I32),
                 ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
+                ir::AbiParam::new(ir::types::I32),
+                ir::AbiParam::new(ir::types::I32),
             ],
             returns: vec![ir::AbiParam::new(ir::types::I32)],
         });
@@ -623,8 +623,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let signature = pos.func.import_signature(ir::Signature {
             call_conv: self.target_config().default_call_conv,
             params: vec![
-                ir::AbiParam::new(ir::types::I32),
                 ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
+                ir::AbiParam::new(ir::types::I32),
             ],
             returns: vec![ir::AbiParam::new(ir::types::I32)],
         });

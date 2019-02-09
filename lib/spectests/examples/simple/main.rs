@@ -61,7 +61,7 @@ fn main() -> error::Result<()> {
     Ok(())
 }
 
-fn print_num(n: i32, ctx: &mut vm::Ctx) -> Result<i32, ()> {
+fn print_num(ctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
     println!("print_num({})", n);
 
     let memory: &Memory = ctx.memory(0);

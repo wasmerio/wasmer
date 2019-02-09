@@ -34,7 +34,6 @@ use wasmer_runtime_core::{
     types::{FuncSig, LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
-use wasmer_runtime_core::vm::Ctx;
 
 extern "C" {
     #[cfg(not(target_os = "windows"))]
@@ -351,21 +350,21 @@ fn round_up(n: usize, multiple: usize) -> usize {
     (n + multiple - 1) & !(multiple - 1)
 }
 
-extern "C" fn i32_print(_ctx: &mut Ctx, n: i32) {
+extern "C" fn i32_print(_ctx: &mut vm::Ctx, n: i32) {
     print!(" i32: {},", n);
 }
-extern "C" fn i64_print(_ctx: &mut Ctx, n: i64) {
+extern "C" fn i64_print(_ctx: &mut vm::Ctx, n: i64) {
     print!(" i64: {},", n);
 }
-extern "C" fn f32_print(_ctx: &mut Ctx, n: f32) {
+extern "C" fn f32_print(_ctx: &mut vm::Ctx, n: f32) {
     print!(" f32: {},", n);
 }
-extern "C" fn f64_print(_ctx: &mut Ctx, n: f64) {
+extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
     print!(" f64: {},", n);
 }
-extern "C" fn start_debug(_ctx: &mut Ctx, func_index: u32) {
+extern "C" fn start_debug(_ctx: &mut vm::Ctx, func_index: u32) {
     print!("func ({}), args: [", func_index);
 }
-extern "C" fn end_debug(_ctx: &mut Ctx) {
+extern "C" fn end_debug(_ctx: &mut vm::Ctx) {
     println!(" ]");
 }
