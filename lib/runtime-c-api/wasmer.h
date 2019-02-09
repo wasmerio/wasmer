@@ -112,6 +112,8 @@ wasmer_compile_result_t wasmer_instantiate(wasmer_instance_t **instance,
 
 void wasmer_memory_destroy(wasmer_memory_t *memory);
 
+wasmer_memory_result_t wasmer_memory_grow(wasmer_memory_t *memory, uint32_t delta);
+
 uint32_t wasmer_memory_length(wasmer_memory_t *memory);
 
 wasmer_memory_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);

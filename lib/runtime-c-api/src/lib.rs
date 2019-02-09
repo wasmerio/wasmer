@@ -148,6 +148,22 @@ pub unsafe extern "C" fn wasmer_memory_new(
 
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
+pub extern "C" fn wasmer_memory_grow(
+    memory: *mut wasmer_memory_t,
+    delta: uint32_t,
+) -> wasmer_memory_result_t {
+    let memory = unsafe { Box::from_raw(memory as *mut Memory) };
+    let maybe_delta = memory.grow(Pages(delta));
+    Box::into_raw(memory);
+    if let Some(_delta) = maybe_delta {
+        wasmer_memory_result_t::WASMER_MEMORY_OK
+    } else {
+        wasmer_memory_result_t::WASMER_MEMORY_ERROR
+    }
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
 pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t {
     let memory = unsafe { Box::from_raw(memory as *mut Memory) };
     let Pages(len) = memory.size();
