@@ -94,7 +94,7 @@ use libc::SO_NOSIGPIPE;
 const SO_NOSIGPIPE: c_int = 0;
 
 // chown
-pub fn ___syscall212(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall212(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall212 (chown) {}", which);
 
     let pathname: u32 = varargs.get(ctx);
@@ -107,7 +107,7 @@ pub fn ___syscall212(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
 }
 
 // mkdir
-pub fn ___syscall39(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall39(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", which);
     let pathname: u32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
@@ -116,7 +116,7 @@ pub fn ___syscall39(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int 
 }
 
 // getgid
-pub fn ___syscall201(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
+pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall201 (getgid)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
@@ -125,7 +125,7 @@ pub fn ___syscall201(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
 }
 
 // getgid32
-pub fn ___syscall202(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
+pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     // gid_t
     debug!("emscripten::___syscall202 (getgid32)");
     unsafe {
@@ -135,7 +135,7 @@ pub fn ___syscall202(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
 }
 
 /// dup3
-pub fn ___syscall330(_which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> pid_t {
+pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
     // Implementation based on description at https://linux.die.net/man/2/dup3
     debug!("emscripten::___syscall330 (dup3)");
     let oldfd: c_int = varargs.get(ctx);
@@ -169,7 +169,7 @@ pub fn ___syscall330(_which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> pid_
 }
 
 /// ioctl
-pub fn ___syscall54(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall54(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall54 (ioctl) {}", which);
     let fd: i32 = varargs.get(ctx);
     let request: u32 = varargs.get(ctx);
@@ -212,7 +212,7 @@ pub fn ___syscall54(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int 
 
 // socketcall
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall102(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall102 (socketcall) {}", which);
     let call: u32 = varargs.get(ctx);
     let mut socket_varargs: VarArgs = varargs.get(ctx);
@@ -464,7 +464,7 @@ pub fn ___syscall102(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
 }
 
 // pread
-pub fn ___syscall180(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall180(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall180 (pread) {}", which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
@@ -481,7 +481,7 @@ pub fn ___syscall180(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
 }
 
 // pwrite
-pub fn ___syscall181(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall181(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall181 (pwrite) {}", which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
@@ -503,7 +503,7 @@ pub fn ___syscall181(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
 
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall114(_which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> pid_t {
+pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
     debug!("emscripten::___syscall114 (wait4)");
     let pid: pid_t = varargs.get(ctx);
     let status: u32 = varargs.get(ctx);
@@ -521,7 +521,7 @@ pub fn ___syscall114(_which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> pid_
 
 // select
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall142(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall142(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall142 (newselect) {}", which);
 
     let nfds: i32 = varargs.get(ctx);
@@ -540,7 +540,7 @@ pub fn ___syscall142(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int
 }
 
 // setpgid
-pub fn ___syscall57(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall57(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall57 (setpgid) {}", which);
     let pid: i32 = varargs.get(ctx);
     let pgid: i32 = varargs.get(ctx);
@@ -549,7 +549,7 @@ pub fn ___syscall57(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int 
 
 /// uname
 // NOTE: Wondering if we should return custom utsname, like Emscripten.
-pub fn ___syscall122(which: c_int, mut varargs: VarArgs, ctx: &mut Ctx) -> c_int {
+pub fn ___syscall122(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall122 (uname) {}", which);
     let buf: u32 = varargs.get(ctx);
     debug!("=> buf: {}", buf);
