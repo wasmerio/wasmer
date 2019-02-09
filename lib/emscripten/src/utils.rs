@@ -1,22 +1,49 @@
-use wasmer_runtime_core::{module::Module, Instance};
-//use wasmer_runtime_core::Instance;
 use super::env;
+use super::env::get_emscripten_data;
 use libc::stat;
 use std::ffi::CStr;
+use std::ffi::CString;
+use std::mem::size_of;
 use std::os::raw::c_char;
+use std::os::raw::c_int;
 use std::slice;
+use wasmer_runtime_core::memory::Memory;
+use wasmer_runtime_core::{
+    module::Module,
+    structures::TypedIndex,
+    types::{ImportedMemoryIndex, ImportedTableIndex},
+    units::Pages,
+    vm::Ctx,
+};
+
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
-    for (_, import_name) in &module.0.imported_functions {
-        if import_name.name == "_emscripten_memcpy_big" && import_name.namespace == "env" {
+    for (_, import_name) in &module.0.info.imported_functions {
+        let namespace = module
+            .0
+            .info
+            .namespace_table
+            .get(import_name.namespace_index);
+        let field = module.0.info.name_table.get(import_name.name_index);
+        if field == "_emscripten_memcpy_big" && namespace == "env" {
             return true;
         }
     }
     false
 }
 
-pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: &Instance) -> u32 {
-    let buf_addr = instance.memory_offset_addr(0, buf as _) as *mut c_char;
+pub fn get_emscripten_table_size(module: &Module) -> (u32, Option<u32>) {
+    let (_, table) = &module.0.info.imported_tables[ImportedTableIndex::new(0)];
+    (table.minimum, table.maximum)
+}
+
+pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
+    let (_, memory) = &module.0.info.imported_memories[ImportedMemoryIndex::new(0)];
+    (memory.minimum, memory.maximum)
+}
+
+pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, ctx: &mut Ctx) -> u32 {
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_char;
 
     for i in 0..max {
         *buf_addr.add(i as _) = *string.add(i as _);
@@ -26,15 +53,15 @@ pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, instance: 
 }
 
 /// This function expects nullbyte to be appended.
-pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) -> u32 {
+pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
-    let space_offset = env::call_malloc((cstr_len as i32) + 1, instance);
-    let raw_memory = instance.memory_offset_addr(0, space_offset as _) as *mut u8;
+    let space_offset = env::call_malloc((cstr_len as u32) + 1, ctx);
+    let raw_memory = emscripten_memory_pointer!(ctx.memory(0), space_offset) as *mut c_char;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
     for (byte, loc) in s.bytes().zip(slice.iter_mut()) {
-        *loc = byte;
+        *loc = byte as _;
     }
 
     // TODO: Appending null byte won't work, because there is CStr::from_ptr(cstr)
@@ -44,23 +71,19 @@ pub unsafe fn copy_cstr_into_wasm(instance: &mut Instance, cstr: *const c_char) 
     space_offset
 }
 
-pub unsafe fn allocate_on_stack<'a, T: Copy>(
-    count: u32,
-    instance: &'a Instance,
-) -> (u32, &'a mut [T]) {
-    unimplemented!("allocate_on_stack not implemented")
-    //    let offset = (instance.emscripten_data().as_ref().unwrap().stack_alloc)(
-    //        count * (size_of::<T>() as u32),
-    //        instance,
-    //    );
-    //    let addr = instance.memory_offset_addr(0, offset as _) as *mut T;
-    //    let slice = slice::from_raw_parts_mut(addr, count as usize);
-    //
-    //    (offset, slice)
+pub unsafe fn allocate_on_stack<'a, T: Copy>(count: u32, ctx: &'a mut Ctx) -> (u32, &'a mut [T]) {
+    let offset = get_emscripten_data(ctx)
+        .stack_alloc
+        .call(count * (size_of::<T>() as u32))
+        .unwrap();
+    let addr = emscripten_memory_pointer!(ctx.memory(0), offset) as *mut T;
+    let slice = slice::from_raw_parts_mut(addr, count as usize);
+
+    (offset, slice)
 }
 
-pub unsafe fn allocate_cstr_on_stack<'a>(s: &str, instance: &'a Instance) -> (u32, &'a [u8]) {
-    let (offset, slice) = allocate_on_stack((s.len() + 1) as u32, instance);
+pub unsafe fn allocate_cstr_on_stack<'a>(s: &str, ctx: &'a mut Ctx) -> (u32, &'a [u8]) {
+    let (offset, slice) = allocate_on_stack((s.len() + 1) as u32, ctx);
 
     use std::iter;
     for (byte, loc) in s.bytes().chain(iter::once(0)).zip(slice.iter_mut()) {
@@ -70,10 +93,7 @@ pub unsafe fn allocate_cstr_on_stack<'a>(s: &str, instance: &'a Instance) -> (u3
     (offset, slice)
 }
 
-pub unsafe fn copy_terminated_array_of_cstrs(
-    _instance: &mut Instance,
-    cstrs: *mut *mut c_char,
-) -> u32 {
+pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
     let total_num = {
         let mut ptr = cstrs;
         let mut counter = 0;
@@ -111,8 +131,8 @@ pub struct GuestStat {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat) {
-    let stat_ptr = instance.memory_offset_addr(0, buf as _) as *mut GuestStat;
+pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
+    let stat_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut GuestStat;
     (*stat_ptr).st_dev = stat.st_dev as _;
     (*stat_ptr).__st_dev_padding = 0;
     (*stat_ptr).__st_ino_truncated = stat.st_ino as _;
@@ -138,30 +158,39 @@ pub unsafe fn copy_stat_into_wasm(instance: &mut Instance, buf: u32, stat: &stat
     (*stat_ptr).st_ino = stat.st_ino as _;
 }
 
+pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
+    let v: Vec<u8> = memory.view()[(offset as usize)..]
+        .iter()
+        .map(|cell| cell.get())
+        .take_while(|&byte| byte != 0)
+        .collect();
+    String::from_utf8_lossy(&v).to_owned().to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::is_emscripten_module;
     use std::sync::Arc;
     use wabt::wat2wasm;
     use wasmer_clif_backend::CraneliftCompiler;
-    use wasmer_runtime_core::{compile, module::Module};
+    use wasmer_runtime_core::compile_with;
 
     #[test]
     fn should_detect_emscripten_files() {
-        const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
-        let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
-        let module =
-            compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        const WAST_BYTES: &[u8] = include_bytes!("tests/is_emscripten_true.wast");
+        let wasm_binary = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert to wasm");
+        let module = compile_with(&wasm_binary[..], &CraneliftCompiler::new())
+            .expect("WASM can't be compiled");
         let module = Arc::new(module);
         assert!(is_emscripten_module(&module));
     }
 
     #[test]
     fn should_detect_non_emscripten_files() {
-        const wast_bytes: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
-        let wasm_binary = wat2wasm(wast_bytes.to_vec()).expect("Can't convert to wasm");
-        let module =
-            compile(&wasm_binary[..], &CraneliftCompiler::new()).expect("WASM can't be compiled");
+        const WAST_BYTES: &[u8] = include_bytes!("tests/is_emscripten_false.wast");
+        let wasm_binary = wat2wasm(WAST_BYTES.to_vec()).expect("Can't convert to wasm");
+        let module = compile_with(&wasm_binary[..], &CraneliftCompiler::new())
+            .expect("WASM can't be compiled");
         let module = Arc::new(module);
         assert!(!is_emscripten_module(&module));
     }

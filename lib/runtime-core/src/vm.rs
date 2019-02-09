@@ -110,10 +110,10 @@ impl Ctx {
     /// fn read_memory(ctx: &Ctx) -> u8 {
     ///     let first_memory = ctx.memory(0);
     ///     // Read the first byte of that linear memory.
-    ///     first_memory.read(0).unwrap()
+    ///     first_memory.view()[0].get()
     /// }
     /// ```
-    pub fn memory<'a>(&'a self, mem_index: u32) -> &'a Memory {
+    pub fn memory(&self, mem_index: u32) -> &Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
         match mem_index.local_or_import(module) {
@@ -195,7 +195,7 @@ impl ImportedFunc {
 }
 
 /// Definition of a table used by the VM. (obviously)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalTable {
     /// pointer to the elements in the table.
@@ -222,7 +222,7 @@ impl LocalTable {
 }
 
 /// Definition of a memory used by the VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalMemory {
     /// Pointer to the bottom of this linear memory.
@@ -251,7 +251,7 @@ impl LocalMemory {
 }
 
 /// Definition of a global used by the VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct LocalGlobal {
     pub data: u64,
@@ -277,7 +277,7 @@ impl LocalGlobal {
 pub struct SigId(pub u32);
 
 /// Caller-checked anyfunc
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Anyfunc {
     pub func: *const Func,
@@ -423,7 +423,7 @@ mod vm_offset_tests {
 #[cfg(test)]
 mod vm_ctx_tests {
     use super::{Ctx, ImportBacking, LocalBacking};
-    use crate::module::ModuleInner;
+    use crate::module::{ModuleInfo, ModuleInner, StringTable};
     use crate::structures::Map;
     use std::ffi::c_void;
 
@@ -493,7 +493,7 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{FuncResolver, ProtectedCaller, SigRegistry, Token};
+        use crate::backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper};
         use crate::error::RuntimeResult;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
@@ -520,30 +520,39 @@ mod vm_ctx_tests {
             ) -> RuntimeResult<Vec<Value>> {
                 Ok(vec![])
             }
+            fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+                unimplemented!()
+            }
         }
 
         ModuleInner {
             func_resolver: Box::new(Placeholder),
             protected_caller: Box::new(Placeholder),
-            memories: Map::new(),
-            globals: Map::new(),
-            tables: Map::new(),
+            info: ModuleInfo {
+                memories: Map::new(),
+                globals: Map::new(),
+                tables: Map::new(),
 
-            // These are strictly imported and the typesystem ensures that.
-            imported_functions: Map::new(),
-            imported_memories: Map::new(),
-            imported_tables: Map::new(),
-            imported_globals: Map::new(),
+                // These are strictly imported and the typesystem ensures that.
+                imported_functions: Map::new(),
+                imported_memories: Map::new(),
+                imported_tables: Map::new(),
+                imported_globals: Map::new(),
 
-            exports: HashMap::new(),
+                exports: HashMap::new(),
 
-            data_initializers: Vec::new(),
-            elem_initializers: Vec::new(),
+                data_initializers: Vec::new(),
+                elem_initializers: Vec::new(),
 
-            start_func: None,
+                start_func: None,
 
-            func_assoc: Map::new(),
-            sig_registry: SigRegistry,
+                func_assoc: Map::new(),
+                signatures: Map::new(),
+                backend: Backend::Cranelift,
+
+                namespace_table: StringTable::new(),
+                name_table: StringTable::new(),
+            },
         }
     }
 }

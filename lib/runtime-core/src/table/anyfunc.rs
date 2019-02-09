@@ -1,6 +1,6 @@
 use crate::{
     error::CreationError,
-    instance::Function,
+    instance::DynFunc,
     sig_registry::SigRegistry,
     structures::TypedIndex,
     types::{FuncSig, TableDescriptor},
@@ -14,7 +14,7 @@ enum AnyfuncInner<'a> {
         ptr: *const vm::Func,
         signature: Arc<FuncSig>,
     },
-    Managed(Function<'a>),
+    Managed(DynFunc<'a>),
 }
 
 pub struct Anyfunc<'a> {
@@ -35,8 +35,8 @@ impl<'a> Anyfunc<'a> {
     }
 }
 
-impl<'a> From<Function<'a>> for Anyfunc<'a> {
-    fn from(function: Function<'a>) -> Self {
+impl<'a> From<DynFunc<'a>> for Anyfunc<'a> {
+    fn from(function: DynFunc<'a>) -> Self {
         Anyfunc {
             inner: AnyfuncInner::Managed(function),
         }

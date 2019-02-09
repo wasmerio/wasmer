@@ -3,12 +3,12 @@ use crate::types::{
 };
 use std::sync::Arc;
 
-pub type Result<T> = std::result::Result<T, Box<Error>>;
-pub type CompileResult<T> = std::result::Result<T, Box<CompileError>>;
+pub type Result<T> = std::result::Result<T, Error>;
+pub type CompileResult<T> = std::result::Result<T, CompileError>;
 pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
-pub type RuntimeResult<T> = std::result::Result<T, Box<RuntimeError>>;
-pub type CallResult<T> = std::result::Result<T, Box<CallError>>;
-pub type ResolveResult<T> = std::result::Result<T, Box<ResolveError>>;
+pub type RuntimeResult<T> = std::result::Result<T, RuntimeError>;
+pub type CallResult<T> = std::result::Result<T, CallError>;
+pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
 
 /// This is returned when the chosen compiler is unable to
 /// successfully compile the provided webassembly module into
@@ -83,12 +83,26 @@ impl PartialEq for LinkError {
 /// Comparing two `RuntimeError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum RuntimeError {
-    OutOfBoundsAccess { memory: MemoryIndex, addr: u32 },
-    TableOutOfBounds { table: TableIndex },
-    IndirectCallSignature { table: TableIndex },
-    IndirectCallToNull { table: TableIndex },
+    OutOfBoundsAccess {
+        memory: MemoryIndex,
+        addr: Option<u32>,
+    },
+    TableOutOfBounds {
+        table: TableIndex,
+    },
+    IndirectCallSignature {
+        table: TableIndex,
+    },
+    IndirectCallToNull {
+        table: TableIndex,
+    },
     IllegalArithmeticOperation,
-    Unknown { msg: String },
+    User {
+        msg: String,
+    },
+    Unknown {
+        msg: String,
+    },
 }
 
 impl PartialEq for RuntimeError {
@@ -175,80 +189,50 @@ impl PartialEq for Error {
     }
 }
 
-impl From<Box<CompileError>> for Box<Error> {
-    fn from(compile_err: Box<CompileError>) -> Self {
-        Box::new(Error::CompileError(*compile_err))
-    }
-}
-
-impl From<Vec<LinkError>> for Box<Error> {
-    fn from(link_err: Vec<LinkError>) -> Self {
-        Box::new(Error::LinkError(link_err))
-    }
-}
-
-impl From<Box<RuntimeError>> for Box<Error> {
-    fn from(runtime_err: Box<RuntimeError>) -> Self {
-        Box::new(Error::RuntimeError(*runtime_err))
-    }
-}
-
-impl From<Box<ResolveError>> for Box<Error> {
-    fn from(resolve_err: Box<ResolveError>) -> Self {
-        Box::new(Error::ResolveError(*resolve_err))
-    }
-}
-
-impl From<Box<CallError>> for Box<Error> {
-    fn from(call_err: Box<CallError>) -> Self {
-        Box::new(Error::CallError(*call_err))
-    }
-}
-
-impl From<Box<RuntimeError>> for Box<CallError> {
-    fn from(runtime_err: Box<RuntimeError>) -> Self {
-        Box::new(CallError::Runtime(*runtime_err))
-    }
-}
-
-impl From<Box<ResolveError>> for Box<CallError> {
-    fn from(resolve_err: Box<ResolveError>) -> Self {
-        Box::new(CallError::Resolve(*resolve_err))
-    }
-}
-
-impl From<CompileError> for Box<Error> {
+impl From<CompileError> for Error {
     fn from(compile_err: CompileError) -> Self {
-        Box::new(Error::CompileError(compile_err))
+        Error::CompileError(compile_err)
     }
 }
 
-impl From<RuntimeError> for Box<Error> {
+impl From<RuntimeError> for Error {
     fn from(runtime_err: RuntimeError) -> Self {
-        Box::new(Error::RuntimeError(runtime_err))
+        Error::RuntimeError(runtime_err)
     }
 }
 
-impl From<CallError> for Box<Error> {
-    fn from(call_err: CallError) -> Self {
-        Box::new(Error::CallError(call_err))
-    }
-}
-
-impl From<CreationError> for Box<Error> {
-    fn from(creation_err: CreationError) -> Self {
-        Box::new(Error::CreationError(creation_err))
-    }
-}
-
-impl From<RuntimeError> for Box<CallError> {
-    fn from(runtime_err: RuntimeError) -> Self {
-        Box::new(CallError::Runtime(runtime_err))
-    }
-}
-
-impl From<ResolveError> for Box<CallError> {
+impl From<ResolveError> for Error {
     fn from(resolve_err: ResolveError) -> Self {
-        Box::new(CallError::Resolve(resolve_err))
+        Error::ResolveError(resolve_err)
+    }
+}
+
+impl From<CallError> for Error {
+    fn from(call_err: CallError) -> Self {
+        Error::CallError(call_err)
+    }
+}
+
+impl From<CreationError> for Error {
+    fn from(creation_err: CreationError) -> Self {
+        Error::CreationError(creation_err)
+    }
+}
+
+impl From<Vec<LinkError>> for Error {
+    fn from(link_errs: Vec<LinkError>) -> Self {
+        Error::LinkError(link_errs)
+    }
+}
+
+impl From<RuntimeError> for CallError {
+    fn from(runtime_err: RuntimeError) -> Self {
+        CallError::Runtime(runtime_err)
+    }
+}
+
+impl From<ResolveError> for CallError {
+    fn from(resolve_err: ResolveError) -> Self {
+        CallError::Resolve(resolve_err)
     }
 }

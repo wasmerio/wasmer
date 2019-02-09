@@ -4,4 +4,5 @@ extern crate wasmer_runtime_core;
 
 #[macro_use]
 pub mod update;
+pub mod utils;
 pub mod webassembly;

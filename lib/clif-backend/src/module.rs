@@ -1,4 +1,7 @@
-use crate::{call::Caller, resolver::FuncResolverBuilder, trampoline::Trampolines};
+#[cfg(feature = "cache")]
+use crate::cache::BackendCache;
+use crate::{resolver::FuncResolverBuilder, signal::Caller, trampoline::Trampolines};
+
 use cranelift_codegen::{ir, isa};
 use cranelift_entity::EntityRef;
 use cranelift_wasm;
@@ -7,11 +10,15 @@ use std::{
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
+#[cfg(feature = "cache")]
 use wasmer_runtime_core::{
-    backend::SigRegistry,
-    backend::{FuncResolver, ProtectedCaller, Token},
+    backend::sys::Memory,
+    cache::{Cache, Error as CacheError},
+};
+use wasmer_runtime_core::{
+    backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper},
     error::{CompileResult, RuntimeResult},
-    module::ModuleInner,
+    module::{ModuleInfo, ModuleInner, StringTable},
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
@@ -44,6 +51,10 @@ impl ProtectedCaller for Placeholder {
     ) -> RuntimeResult<Vec<Value>> {
         Ok(vec![])
     }
+
+    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+        unimplemented!()
+    }
 }
 
 /// This contains all of the items in a `ModuleInner` except the `func_resolver`.
@@ -59,24 +70,30 @@ impl Module {
                 func_resolver: Box::new(Placeholder),
                 protected_caller: Box::new(Placeholder),
 
-                memories: Map::new(),
-                globals: Map::new(),
-                tables: Map::new(),
+                info: ModuleInfo {
+                    memories: Map::new(),
+                    globals: Map::new(),
+                    tables: Map::new(),
 
-                imported_functions: Map::new(),
-                imported_memories: Map::new(),
-                imported_tables: Map::new(),
-                imported_globals: Map::new(),
+                    imported_functions: Map::new(),
+                    imported_memories: Map::new(),
+                    imported_tables: Map::new(),
+                    imported_globals: Map::new(),
 
-                exports: HashMap::new(),
+                    exports: HashMap::new(),
 
-                data_initializers: Vec::new(),
-                elem_initializers: Vec::new(),
+                    data_initializers: Vec::new(),
+                    elem_initializers: Vec::new(),
 
-                start_func: None,
+                    start_func: None,
 
-                func_assoc: Map::new(),
-                sig_registry: SigRegistry,
+                    func_assoc: Map::new(),
+                    signatures: Map::new(),
+                    backend: Backend::Cranelift,
+
+                    namespace_table: StringTable::new(),
+                    name_table: StringTable::new(),
+                },
             },
         }
     }
@@ -86,18 +103,59 @@ impl Module {
         isa: &isa::TargetIsa,
         functions: Map<LocalFuncIndex, ir::Function>,
     ) -> CompileResult<ModuleInner> {
-        let imported_functions_len = self.module.imported_functions.len();
         let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(isa, functions, imported_functions_len)?;
+            FuncResolverBuilder::new(isa, functions, &self.module.info)?;
 
-        self.module.func_resolver = Box::new(func_resolver_builder.finalize()?);
+        self.module.func_resolver =
+            Box::new(func_resolver_builder.finalize(&self.module.info.signatures)?);
 
-        let trampolines = Trampolines::new(isa, &self.module);
+        let trampolines = Trampolines::new(isa, &self.module.info);
 
         self.module.protected_caller =
-            Box::new(Caller::new(&self.module, handler_data, trampolines));
+            Box::new(Caller::new(&self.module.info, handler_data, trampolines));
 
         Ok(self.module)
+    }
+
+    #[cfg(feature = "cache")]
+    pub fn compile_to_backend_cache(
+        self,
+        isa: &isa::TargetIsa,
+        functions: Map<LocalFuncIndex, ir::Function>,
+    ) -> CompileResult<(ModuleInfo, BackendCache, Memory)> {
+        let (func_resolver_builder, handler_data) =
+            FuncResolverBuilder::new(isa, functions, &self.module.info)?;
+
+        let trampolines = Trampolines::new(isa, &self.module.info);
+
+        let trampoline_cache = trampolines.to_trampoline_cache();
+
+        let (backend_cache, compiled_code) =
+            func_resolver_builder.to_backend_cache(trampoline_cache, handler_data);
+
+        Ok((self.module.info, backend_cache, compiled_code))
+    }
+
+    #[cfg(feature = "cache")]
+    pub fn from_cache(cache: Cache) -> Result<ModuleInner, CacheError> {
+        let (info, compiled_code, backend_cache) = BackendCache::from_cache(cache)?;
+
+        let (func_resolver_builder, trampolines, handler_data) =
+            FuncResolverBuilder::new_from_backend_cache(backend_cache, compiled_code, &info)?;
+
+        let func_resolver = Box::new(
+            func_resolver_builder
+                .finalize(&info.signatures)
+                .map_err(|e| CacheError::Unknown(format!("{:?}", e)))?,
+        );
+
+        let protected_caller = Box::new(Caller::new(&info, handler_data, trampolines));
+
+        Ok(ModuleInner {
+            func_resolver,
+            protected_caller,
+            info,
+        })
     }
 }
 

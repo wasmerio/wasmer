@@ -1,20 +1,41 @@
-mod recovery;
-mod sighandler;
-
-pub use self::recovery::{call_protected, HandlerData};
-
+use crate::relocation::{TrapData, TrapSink};
 use crate::trampoline::Trampolines;
-
 use hashbrown::HashSet;
-use std::sync::Arc;
+use libc::c_void;
+use std::{cell::Cell, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{ProtectedCaller, Token},
+    backend::{ProtectedCaller, Token, UserTrapper},
     error::RuntimeResult,
     export::Context,
-    module::{ExportIndex, ModuleInner},
+    module::{ExportIndex, ModuleInfo, ModuleInner},
     types::{FuncIndex, FuncSig, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
 };
+
+#[cfg(unix)]
+mod unix;
+
+#[cfg(windows)]
+mod windows;
+
+#[cfg(unix)]
+pub use self::unix::*;
+
+#[cfg(windows)]
+pub use self::windows::*;
+
+thread_local! {
+    pub static TRAP_EARLY_DATA: Cell<Option<String>> = Cell::new(None);
+}
+
+pub struct Trapper;
+
+impl UserTrapper for Trapper {
+    unsafe fn do_early_trap(&self, msg: String) -> ! {
+        TRAP_EARLY_DATA.with(|cell| cell.set(Some(msg)));
+        trigger_trap()
+    }
+}
 
 pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
@@ -23,7 +44,7 @@ pub struct Caller {
 }
 
 impl Caller {
-    pub fn new(module: &ModuleInner, handler_data: HandlerData, trampolines: Trampolines) -> Self {
+    pub fn new(module: &ModuleInfo, handler_data: HandlerData, trampolines: Trampolines) -> Self {
         let mut func_export_set = HashSet::new();
         for export_index in module.exports.values() {
             if let ExportIndex::Func(func_index) = export_index {
@@ -110,6 +131,10 @@ impl ProtectedCaller for Caller {
             })
             .collect())
     }
+
+    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+        Box::new(Trapper)
+    }
 }
 
 fn get_func_from_index(
@@ -118,6 +143,7 @@ fn get_func_from_index(
     func_index: FuncIndex,
 ) -> (*const vm::Func, Context, Arc<FuncSig>, SigIndex) {
     let sig_index = *module
+        .info
         .func_assoc
         .get(func_index)
         .expect("broken invariant, incorrect func index");
@@ -141,7 +167,42 @@ fn get_func_from_index(
         }
     };
 
-    let signature = module.sig_registry.lookup_signature(sig_index);
+    let signature = Arc::clone(&module.info.signatures[sig_index]);
 
     (func_ptr, ctx, signature, sig_index)
+}
+
+unsafe impl Send for HandlerData {}
+unsafe impl Sync for HandlerData {}
+
+pub struct HandlerData {
+    pub trap_data: TrapSink,
+    exec_buffer_ptr: *const c_void,
+    exec_buffer_size: usize,
+}
+
+impl HandlerData {
+    pub fn new(
+        trap_data: TrapSink,
+        exec_buffer_ptr: *const c_void,
+        exec_buffer_size: usize,
+    ) -> Self {
+        Self {
+            trap_data,
+            exec_buffer_ptr,
+            exec_buffer_size,
+        }
+    }
+
+    pub fn lookup(&self, ip: *const c_void) -> Option<TrapData> {
+        let ip = ip as usize;
+        let buffer_ptr = self.exec_buffer_ptr as usize;
+
+        if buffer_ptr <= ip && ip < buffer_ptr + self.exec_buffer_size {
+            let offset = ip - buffer_ptr;
+            self.trap_data.lookup(offset)
+        } else {
+            None
+        }
+    }
 }

@@ -26,8 +26,8 @@ install:
 
 integration-tests: release
 	echo "Running Integration Tests"
-	# Commented for now until we fix emscripten
-	# ./integration_tests/nginx/test.sh
+	./integration_tests/lua/test.sh
+	./integration_tests/nginx/test.sh
 
 lint:
 	cargo fmt --all -- --check
@@ -37,9 +37,8 @@ precommit: lint test
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	# cargo test --all -- --test-threads=1 $(runargs)
+	cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
-	cargo test -p wasmer-spectests -- --test-threads=1 $(runargs)
 	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
 

@@ -82,6 +82,7 @@ use wasmer_runtime_core::import::ImportObject;
 use wasmer_runtime_core::types::Value;
 use wasmer_runtime_core::{{Instance, module::Module}};
 use wasmer_runtime_core::error::Result;
+use wasmer_runtime_core::vm::Ctx;
 
 static IMPORT_MODULE: &str = r#"
 (module
@@ -99,7 +100,7 @@ pub fn generate_imports() -> ImportObject {
     let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new())
         .expect("WASM can't be compiled");
     let instance = module
-        .instantiate(ImportObject::new())
+        .instantiate(&ImportObject::new())
         .expect("WASM can't be instantiated");
     let mut imports = ImportObject::new();
     imports.register("spectest", instance);
@@ -358,7 +359,7 @@ fn test_module_{}() {{
     println!(\"{{}}\", module_str);
     let wasm_binary = wat2wasm(module_str.as_bytes()).expect(\"WAST not valid or malformed\");
     let module = wasmer_runtime_core::compile_with(&wasm_binary[..], &CraneliftCompiler::new()).expect(\"WASM can't be compiled\");
-    module.instantiate(generate_imports()).expect(\"WASM can't be instantiated\")
+    module.instantiate(&generate_imports()).expect(\"WASM can't be instantiated\")
 }}\n",
                 self.last_module,
                 // We do this to ident four spaces, so it looks aligned to the function body
@@ -369,23 +370,6 @@ fn test_module_{}() {{
             )
             .as_str(),
         );
-
-        // We set the start call to the module
-        let start_module_call = format!("start_module_{}", self.last_module);
-        self.buffer.push_str(
-            format!(
-                "\nfn {}(instance: &mut Instance) {{
-    // TODO Review is explicit start needed? Start now called in runtime::Instance::new()
-    //instance.start();
-}}\n",
-                start_module_call
-            )
-            .as_str(),
-        );
-        self.module_calls
-            .entry(self.last_module)
-            .or_insert(Vec::new())
-            .push(start_module_call);
     }
 
     fn visit_assert_invalid(&mut self, module: &ModuleBinary) {
