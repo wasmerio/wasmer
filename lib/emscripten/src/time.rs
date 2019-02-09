@@ -7,6 +7,9 @@ use std::time::SystemTime;
 use libc::{clockid_t, time as libc_time};
 
 #[cfg(target_os = "windows")]
+use libc::time_t;
+
+#[cfg(target_os = "windows")]
 type clockid_t = c_int;
 
 #[cfg(target_os = "windows")]
