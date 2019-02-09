@@ -150,7 +150,8 @@ impl Drop for Memory {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
             let success = unsafe { VirtualFree(self.ptr as _, self.size, MEM_DECOMMIT) };
-            assert_eq!(success, 0, "failed to unmap memory: {}", errno::errno());
+            // If the function succeeds, the return value is nonzero.
+            assert_eq!(success, 1, "failed to unmap memory: {}", errno::errno());
         }
     }
 }

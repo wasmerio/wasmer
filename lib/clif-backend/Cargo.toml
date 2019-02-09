@@ -37,6 +37,9 @@ optional = true
 version = "0.0.7"
 optional = true
 
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["errhandlingapi", "minwindef", "minwinbase", "winnt"] }
+
 [features]
 cache = ["serde", "serde_derive", "serde_bytes", "serde-bench", "wasmer-runtime-core/cache"]
 debug = ["wasmer-runtime-core/debug"]

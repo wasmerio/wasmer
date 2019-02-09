@@ -819,6 +819,7 @@ dependencies = [
  "target-lexicon 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.1.2",
  "wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winapi 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
