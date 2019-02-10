@@ -441,6 +441,14 @@ pub extern "C" fn wasmer_instance_context_memory(
 
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
+pub extern "C" fn wasmer_memory_data(mem: *mut wasmer_memory_t) -> *mut uint8_t {
+    let memory = mem as *mut Memory;
+    use std::cell::Cell;
+    unsafe { ((*memory).view::<u8>()[..]).as_ptr() as *mut Cell<u8> as *mut u8 }
+}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
 pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> uint32_t {
     let memory = mem as *mut Memory;
     let Bytes(len) = unsafe { (*memory).size().bytes() };
