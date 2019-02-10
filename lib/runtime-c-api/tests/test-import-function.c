@@ -4,10 +4,14 @@
 #include <stdint.h>
 
 static print_str_called = false;
+static memory_len = 0;
 
 void print_str(int32_t ptr, int32_t len, wasmer_instance_context_t *ctx) {
-    printf("In print_str\n");
+    wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
+    uint32_t mem_len = wasmer_memory_length(memory);
+    printf("In print_str, memory len: %d\n", mem_len);
     print_str_called = true;
+    memory_len = mem_len;
 }
 
 int main()
@@ -38,7 +42,7 @@ int main()
     assert(call_result == WASMER_CALL_OK);
 
     assert(print_str_called);
-
+    assert(memory_len == 17);
 
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);

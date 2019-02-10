@@ -104,7 +104,8 @@ wasmer_call_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                           wasmer_value_t *results,
                                           int results_len);
 
-void wasmer_instance_context_memory(wasmer_instance_context_t *instance);
+const wasmer_memory_t *wasmer_instance_context_memory(wasmer_instance_context_t *ctx,
+                                                      uint32_t memory_idx);
 
 void wasmer_instance_destroy(wasmer_instance_t *instance);
 

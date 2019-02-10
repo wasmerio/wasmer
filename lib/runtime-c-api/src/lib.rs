@@ -428,8 +428,16 @@ pub unsafe extern "C" fn wasmer_imports_set_import_func(
     //    };
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_instance_context_memory(instance: *mut wasmer_instance_context_t) {}
+pub extern "C" fn wasmer_instance_context_memory(
+    ctx: *mut wasmer_instance_context_t,
+    memory_idx: uint32_t,
+) -> *const wasmer_memory_t {
+    let mut ctx = unsafe { Box::from_raw(ctx as *mut Ctx) };
+    let memory = ctx.memory(0);
+    memory as *const Memory as *const wasmer_memory_t
+}
 
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
