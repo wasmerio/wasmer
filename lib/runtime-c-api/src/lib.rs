@@ -316,7 +316,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
         }
     };
     unsafe { *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t };
-    //    Box::into_raw(import_object); // TODO Review is this the correct way not to drop
+    Box::into_raw(import_object);
     wasmer_compile_result_t::WASMER_COMPILE_OK
 }
 

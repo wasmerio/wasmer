@@ -41,6 +41,6 @@ int main()
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);
     printf("Destroy import object\n");
-    //wasmer_import_object_destroy(import_object); // TODO update instantiate and try this again
+    wasmer_import_object_destroy(import_object);
     return 0;
 }
