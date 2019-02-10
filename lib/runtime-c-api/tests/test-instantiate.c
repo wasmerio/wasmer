@@ -38,6 +38,19 @@ int main()
     assert(results[0].value.I32 == 15);
     assert(call_result == WASMER_CALL_OK);
 
+
+    wasmer_call_result_t call_result2 = wasmer_instance_call(instance, "sum", params, 1, results, 1);
+    printf("Call result bad:  %d\n", call_result2);
+    assert(call_result2 == WASMER_CALL_ERROR);
+
+    int error_len = wasmer_last_error_length();
+    printf("Error len: `%d`\n", error_len);
+    char *error_str = malloc(error_len);
+    wasmer_last_error_message(error_str, error_len);
+    printf("Error str: `%s`\n", error_str);
+    assert(0 == strcmp(error_str, "Call error"));
+    free(error_str);
+
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);
     printf("Destroy import object\n");

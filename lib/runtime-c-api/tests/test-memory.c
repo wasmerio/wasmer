@@ -31,6 +31,26 @@ int main()
     // Err, grow beyond max
     wasmer_memory_result_t grow_result2 = wasmer_memory_grow(memory, 10);
     assert(grow_result2 == WASMER_MEMORY_ERROR);
+//    int error_len = wasmer_last_error_length();
+//    char *error_str = malloc(error_len);
+//    wasmer_last_error_message(error_str, error_len);
+//    assert(0 == strcmp(error_str, "Creation error"));
+//    free(error_str);
+
+
+//    wasmer_memory_t *bad_memory = NULL;
+//    wasmer_limits_t bad_descriptor;
+//    bad_descriptor.min = 15;
+//    bad_descriptor.max = 10;
+//    wasmer_memory_result_t bad_memory_result = wasmer_memory_new(&bad_memory, bad_descriptor);
+//    printf("Bad memory result:  %d\n", bad_memory_result);
+//    assert(memory_result == WASMER_MEMORY_ERROR);
+//
+//    int error_len = wasmer_last_error_length();
+//    char *error_str = malloc(error_len);
+//    wasmer_last_error_message(error_str, error_len);
+//    assert(0 == strcmp(error_str, "Creation error"));
+//    free(error_str);
 
     printf("Destroy memory\n");
     wasmer_memory_destroy(memory);

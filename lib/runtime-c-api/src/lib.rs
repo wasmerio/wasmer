@@ -2,6 +2,8 @@ extern crate wasmer_runtime;
 extern crate wasmer_runtime_core;
 
 use libc::{c_char, c_int, int32_t, int64_t, uint32_t, uint8_t};
+use std::cell::RefCell;
+use std::error::Error;
 use std::ffi::CStr;
 use std::slice;
 use std::str;
@@ -139,6 +141,7 @@ pub unsafe extern "C" fn wasmer_memory_new(
     let new_memory = match result {
         Ok(memory) => memory,
         Err(error) => {
+            update_last_error(error);
             return wasmer_memory_result_t::WASMER_MEMORY_ERROR;
         }
     };
@@ -185,6 +188,7 @@ pub unsafe extern "C" fn wasmer_table_new(
     let new_table = match result {
         Ok(table) => table,
         Err(error) => {
+            update_last_error(error);
             return wasmer_table_result_t::WASMER_TABLE_ERROR;
         }
     };
@@ -381,7 +385,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
             wasmer_call_result_t::WASMER_CALL_OK
         }
         Err(err) => {
-            println!("Call Err: {:?}", err);
+            update_last_error(err);
             wasmer_call_result_t::WASMER_CALL_ERROR
         }
     }
@@ -536,4 +540,63 @@ impl From<wasmer_value_tag> for Type {
             }
         }
     }
+}
+
+// Error reporting
+
+thread_local! {
+    static LAST_ERROR: RefCell<Option<Box<Error>>> = RefCell::new(None);
+}
+
+fn update_last_error<E: Error + 'static>(err: E) {
+    LAST_ERROR.with(|prev| {
+        *prev.borrow_mut() = Some(Box::new(err));
+    });
+}
+
+/// Retrieve the most recent error, clearing it in the process.
+fn take_last_error() -> Option<Box<Error>> {
+    LAST_ERROR.with(|prev| prev.borrow_mut().take())
+}
+
+#[no_mangle]
+pub extern "C" fn wasmer_last_error_length() -> c_int {
+    LAST_ERROR.with(|prev| match *prev.borrow() {
+        Some(ref err) => err.to_string().len() as c_int + 1,
+        None => 0,
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: c_int) -> c_int {
+    if buffer.is_null() {
+        // buffer pointer is null
+        return -1;
+    }
+
+    let last_error = match take_last_error() {
+        Some(err) => err,
+        None => return 0,
+    };
+
+    let error_message = last_error.to_string();
+
+    let buffer = slice::from_raw_parts_mut(buffer as *mut u8, length as usize);
+
+    if error_message.len() >= buffer.len() {
+        // buffer to small for err  message
+        return -1;
+    }
+
+    ptr::copy_nonoverlapping(
+        error_message.as_ptr(),
+        buffer.as_mut_ptr(),
+        error_message.len(),
+    );
+
+    // Add a trailing null so people using the string as a `char *` don't
+    // accidentally read into garbage.
+    buffer[error_message.len()] = 0;
+
+    error_message.len() as c_int
 }

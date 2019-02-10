@@ -1,6 +1,8 @@
 use crate::types::{
     FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
 };
+use std::error::Error as StdError;
+use std::fmt;
 use std::sync::Arc;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -154,6 +156,14 @@ impl PartialEq for CallError {
     }
 }
 
+impl fmt::Display for CallError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Call error")
+    }
+}
+
+impl StdError for CallError {}
+
 /// This error type is produced when creating something,
 /// like a `Memory` or a `Table`.
 #[derive(Debug, Clone)]
@@ -167,6 +177,14 @@ impl PartialEq for CreationError {
         false
     }
 }
+
+impl fmt::Display for CreationError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Creation error")
+    }
+}
+
+impl StdError for CreationError {}
 
 /// The amalgamation of all errors that can occur
 /// during the compilation, instantiation, or execution
