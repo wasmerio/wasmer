@@ -113,6 +113,8 @@ wasmer_compile_result_t wasmer_instantiate(wasmer_instance_t **instance,
                                            uint32_t wasm_bytes_len,
                                            wasmer_import_object_t *import_object);
 
+uint32_t wasmer_memory_data_length(wasmer_memory_t *mem);
+
 void wasmer_memory_destroy(wasmer_memory_t *memory);
 
 wasmer_memory_result_t wasmer_memory_grow(wasmer_memory_t *memory, uint32_t delta);

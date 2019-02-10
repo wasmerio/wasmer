@@ -24,6 +24,10 @@ int main()
     printf("Memory pages length:  %d\n", new_len);
     assert(new_len == 12);
 
+    uint32_t bytes_len =  wasmer_memory_data_length(memory);
+    printf("Memory bytes length:  %d\n", bytes_len);
+    assert(bytes_len  == 12 * 65536);
+
     // Err, grow beyond max
     wasmer_memory_result_t grow_result2 = wasmer_memory_grow(memory, 10);
     assert(grow_result2 == WASMER_MEMORY_ERROR);

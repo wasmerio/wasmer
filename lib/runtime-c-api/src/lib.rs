@@ -7,13 +7,13 @@ use std::slice;
 use std::str;
 use std::sync::Arc;
 use std::{ffi::c_void, mem, ptr};
-use wasmer_runtime::{Global, ImportObject, Instance, Memory, Table, Value};
+use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Table, Value};
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::{LikeNamespace, Namespace};
 use wasmer_runtime_core::types::{
     ElementType, FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type,
 };
-use wasmer_runtime_core::units::Pages;
+use wasmer_runtime_core::units::{Bytes, Pages};
 
 #[allow(non_camel_case_types)]
 pub struct wasmer_import_object_t();
@@ -428,21 +428,16 @@ pub unsafe extern "C" fn wasmer_imports_set_import_func(
     //    };
 }
 
-//#[no_mangle]
-//pub extern "C" fn wasmer_debug_print(kind: uint8_t, thing: *mut c_void) {
-//    match kind {
-//        1 => {
-//            println!("wasmer import object:");
-//            let import_object = unsafe { Box::from_raw(thing as *mut ImportObject) };
-//            println!("after import object");
-//            Box::into_raw(import_object);
-//        },
-//        _ => panic!("unknown kind {:?}", kind)
-//    }
-//}
-
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_memory(instance: *mut wasmer_instance_context_t) {}
+
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> uint32_t {
+    let memory = mem as *mut Memory;
+    let Bytes(len) = unsafe { (*memory).size().bytes() };
+    len as uint32_t
+}
 
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
