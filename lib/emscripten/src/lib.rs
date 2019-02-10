@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
 
+use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
 use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
@@ -11,11 +12,12 @@ use wasmer_runtime_core::{
     import::ImportObject,
     imports,
     memory::Memory,
+    module::ImportName,
     table::Table,
-    types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
+    types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type, Value},
     units::Pages,
     vm::Ctx,
-    Func, Instance, Module,
+    Func, Instance, IsExport, Module,
 };
 
 #[macro_use]
@@ -55,6 +57,11 @@ const TOTAL_STACK: u32 = 5_242_880;
 const DYNAMICTOP_PTR_DIFF: u32 = 1088;
 // TODO: make this variable
 const STATIC_BUMP: u32 = 215_536;
+
+lazy_static! {
+    static ref OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG: FuncSig =
+        { FuncSig::new(vec![], vec![Type::I32]) };
+}
 
 // The address globals begin at. Very low in memory, for code size and optimization opportunities.
 // Above 0 is static memory, starting with globals.
@@ -187,6 +194,7 @@ pub struct EmscriptenGlobalsData {
     memory_base: u32,
     table_base: u32,
     temp_double_ptr: u32,
+    use_old_abort_on_cannot_grow_memory: bool,
 
     // Global namespace
     infinity: f64,
@@ -205,6 +213,27 @@ pub struct EmscriptenGlobals {
 
 impl EmscriptenGlobals {
     pub fn new(module: &Module /*, static_bump: u32 */) -> Self {
+        let mut use_old_abort_on_cannot_grow_memory = false;
+        for (
+            index,
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+        ) in &module.0.info.imported_functions
+        {
+            let namespace = module.0.info.namespace_table.get(*namespace_index);
+            let name = module.0.info.name_table.get(*name_index);
+            if name == "abortOnCannotGrowMemory" && namespace == "env" {
+                let sig_index = module.0.info.func_assoc[index.convert_up(&module.0)];
+                let expected_sig = &module.0.info.signatures[sig_index];
+                if **expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
+                    use_old_abort_on_cannot_grow_memory = true;
+                }
+                break;
+            }
+        }
+
         let (table_min, table_max) = get_emscripten_table_size(&module);
         let (memory_min, memory_max) = get_emscripten_memory_size(&module);
 
@@ -247,6 +276,7 @@ impl EmscriptenGlobals {
                 memory_base,
                 table_base,
                 temp_double_ptr,
+                use_old_abort_on_cannot_grow_memory,
 
                 infinity: std::f64::INFINITY,
                 nan: std::f64::NAN,
@@ -266,6 +296,12 @@ impl EmscriptenGlobals {
 }
 
 pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject {
+    let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
+        func!(crate::memory::abort_on_cannot_grow_memory_old).to_export()
+    } else {
+        func!(crate::memory::abort_on_cannot_grow_memory).to_export()
+    };
+
     imports! {
         "env" => {
             "memory" => Export::Memory(globals.memory.clone()),
@@ -409,8 +445,10 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_sigsuspend" => func!(crate::signal::_sigsuspend),
 
             // Memory
-            "abortOnCannotGrowMemory" => func!(crate::memory::abort_on_cannot_grow_memory),
+            "abortOnCannotGrowMemory" => abort_on_cannot_grow_memory_export,
             "_emscripten_memcpy_big" => func!(crate::memory::_emscripten_memcpy_big),
+            "_emscripten_get_heap_size" => func!(crate::memory::_emscripten_get_heap_size),
+            "_emscripten_resize_heap" => func!(crate::memory::_emscripten_resize_heap),
             "enlargeMemory" => func!(crate::memory::enlarge_memory),
             "getTotalMemory" => func!(crate::memory::get_total_memory),
             "___map_file" => func!(crate::memory::___map_file),
