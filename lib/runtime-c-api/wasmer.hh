@@ -1,3 +1,6 @@
+#ifndef WASMER_H
+#define WASMER_H
+
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>
@@ -129,3 +132,5 @@ wasmer_table_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t l
 bool wasmer_validate(uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 
 } // extern "C"
+
+#endif // WASMER_H

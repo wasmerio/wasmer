@@ -1,3 +1,6 @@
+#ifndef WASMER_H
+#define WASMER_H
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -127,3 +130,5 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
 wasmer_table_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
 bool wasmer_validate(uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
+
+#endif /* WASMER_H */

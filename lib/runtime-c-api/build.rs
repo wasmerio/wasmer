@@ -19,6 +19,7 @@ fn build() {
     cbindgen::Builder::new()
         .with_crate(crate_dir.clone())
         .with_language(Language::C)
+        .with_include_guard("WASMER_H")
         .generate()
         .expect("Unable to generate C bindings")
         .write_to_file("wasmer.h");
@@ -26,6 +27,7 @@ fn build() {
     cbindgen::Builder::new()
         .with_crate(crate_dir)
         .with_language(Language::Cxx)
+        .with_include_guard("WASMER_H")
         .generate()
         .expect("Unable to generate C++ bindings")
         .write_to_file("wasmer.hh");
