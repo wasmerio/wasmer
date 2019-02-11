@@ -3,6 +3,7 @@ use crate::{
     error::Result,
     import::ImportObject,
     structures::{Map, TypedIndex},
+    typed_func::EARLY_TRAPPER,
     types::{
         FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
         ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
@@ -63,6 +64,10 @@ pub struct Module(#[doc(hidden)] pub Arc<ModuleInner>);
 
 impl Module {
     pub(crate) fn new(inner: Arc<ModuleInner>) -> Self {
+        unsafe {
+            EARLY_TRAPPER
+                .with(|ucell| *ucell.get() = Some(inner.protected_caller.get_early_trapper()));
+        }
         Module(inner)
     }
 

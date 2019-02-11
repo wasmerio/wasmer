@@ -9,7 +9,6 @@ use crate::env::call_malloc;
 use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
 use wasmer_runtime_core::vm::Ctx;
 
-#[link(name = "c")]
 extern "C" {
     #[link_name = "_putenv"]
     pub fn putenv(s: *const c_char) -> c_int;

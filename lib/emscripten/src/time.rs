@@ -1,5 +1,5 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
-use libc::{c_char, c_int, time_t};
+use libc::{c_char, c_int};
 use std::mem;
 use std::time::SystemTime;
 
@@ -7,10 +7,12 @@ use std::time::SystemTime;
 use libc::{clockid_t, time as libc_time};
 
 #[cfg(target_os = "windows")]
+use libc::time_t;
+
+#[cfg(target_os = "windows")]
 type clockid_t = c_int;
 
 #[cfg(target_os = "windows")]
-#[link(name = "c")]
 extern "C" {
     #[link_name = "time"]
     pub fn libc_time(s: *const time_t) -> time_t;

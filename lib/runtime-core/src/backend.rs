@@ -83,6 +83,12 @@ pub trait ProtectedCaller: Send + Sync {
         vmctx: *mut vm::Ctx,
         _: Token,
     ) -> RuntimeResult<Vec<Value>>;
+
+    fn get_early_trapper(&self) -> Box<dyn UserTrapper>;
+}
+
+pub trait UserTrapper {
+    unsafe fn do_early_trap(&self, msg: String) -> !;
 }
 
 pub trait FuncResolver: Send + Sync {

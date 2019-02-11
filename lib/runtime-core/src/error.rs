@@ -106,6 +106,9 @@ pub enum RuntimeError {
         table: TableIndex,
     },
     IllegalArithmeticOperation,
+    User {
+        msg: String,
+    },
     Unknown {
         msg: String,
     },

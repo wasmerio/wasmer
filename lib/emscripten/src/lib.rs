@@ -1,29 +1,20 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
 
-use byteorder::{ByteOrder, LittleEndian};
-use libc::c_int;
 use std::cell::UnsafeCell;
-use std::{f64, ffi::c_void, fmt, mem, ptr};
+use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
     error::CallResult,
-    export::{Context, Export, FuncPointer},
+    export::Export,
     func,
     global::Global,
-    import::{ImportObject, Namespace},
+    import::ImportObject,
     imports,
     memory::Memory,
     table::Table,
-    types::{
-        ElementType, FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor,
-        Type::{self, *},
-        Value,
-    },
+    types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
     units::Pages,
     vm::Ctx,
-    vm::LocalGlobal,
-    vm::LocalMemory,
-    vm::LocalTable,
     Func, Instance, Module,
 };
 
@@ -52,7 +43,7 @@ mod time;
 mod utils;
 mod varargs;
 
-pub use self::storage::align_memory;
+pub use self::storage::{align_memory, static_alloc};
 pub use self::utils::{
     allocate_cstr_on_stack, allocate_on_stack, get_emscripten_memory_size,
     get_emscripten_table_size, is_emscripten_module,
@@ -70,7 +61,7 @@ const STATIC_BUMP: u32 = 215_536;
 // Then the stack.
 // Then 'dynamic' memory for sbrk.
 const GLOBAL_BASE: u32 = 1024;
-const STATIC_BASE: i32 = GLOBAL_BASE as i32;
+const STATIC_BASE: u32 = GLOBAL_BASE;
 
 fn stacktop(static_bump: u32) -> u32 {
     align_memory(dynamictop_ptr(static_bump) + 4)
@@ -120,15 +111,6 @@ impl<'a> EmscriptenData<'a> {
         }
     }
 }
-
-// impl<'a> fmt::Debug for EmscriptenData<'a> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         f.debug_struct("EmscriptenData")
-//             .field("malloc", &(self.malloc as usize))
-//             .field("free", &(self.free as usize))
-//             .finish()
-//     }
-// }
 
 pub fn run_emscripten_instance(
     _module: &Module,
@@ -187,71 +169,28 @@ fn store_module_arguments(path: &str, args: Vec<&str>, ctx: &mut Ctx) -> (u32, u
     (argc as u32, argv_offset)
 }
 
-pub fn emscripten_set_up_memory(memory: &mut Memory) {
-    let dynamictop_ptr = dynamictop_ptr(STATIC_BUMP) as usize;
-    let dynamictop_ptr_offset = dynamictop_ptr + mem::size_of::<u32>();
+pub fn emscripten_set_up_memory(memory: &Memory, globals: &EmscriptenGlobalsData) {
+    let dynamictop_ptr = globals.dynamictop_ptr;
+    let stack_max = globals.stack_max;
 
-    // println!("value = {:?}");
+    let dynamic_base = align_memory(stack_max);
 
-    // We avoid failures of setting the u32 in our memory if it's out of bounds
-    unimplemented!()
-    //    if dynamictop_ptr_offset > memory.len() {
-    //        return; // TODO: We should panic instead?
-    //    }
-    //
-    //    // debug!("###### dynamic_base = {:?}", dynamic_base(STATIC_BUMP));
-    //    // debug!("###### dynamictop_ptr = {:?}", dynamictop_ptr);
-    //    // debug!("###### dynamictop_ptr_offset = {:?}", dynamictop_ptr_offset);
-    //
-    //    let mem = &mut memory[dynamictop_ptr..dynamictop_ptr_offset];
-    //    LittleEndian::write_u32(mem, dynamic_base(STATIC_BUMP));
-}
-
-macro_rules! mock_external {
-    ($namespace:ident, $name:ident) => {{
-        fn _mocked_fn() -> i32 {
-            debug!("emscripten::{} <mock>", stringify!($name));
-            -1
-        }
-
-        $namespace.insert(
-            stringify!($name),
-            Export::Function {
-                func: unsafe { FuncPointer::new(_mocked_fn as _) },
-                ctx: Context::Internal,
-                signature: FuncSig {
-                    params: vec![],
-                    returns: vec![I32],
-                },
-            },
-        );
-    }};
-}
-
-macro_rules! global {
-    ($value:expr) => {{
-        unsafe {
-            GlobalPointer::new(
-                // NOTE: Taking a shortcut here. LocalGlobal is a struct containing just u64.
-                std::mem::transmute::<&u64, *mut LocalGlobal>(&$value),
-            )
-        }
-    }};
+    memory.view::<u32>()[(dynamictop_ptr / 4) as usize].set(dynamic_base);
 }
 
 pub struct EmscriptenGlobalsData {
     abort: u64,
     // Env namespace
-    stacktop: u64,
-    stack_max: u64,
-    dynamictop_ptr: u64,
-    memory_base: u64,
-    table_base: u64,
-    temp_double_ptr: u64,
+    stacktop: u32,
+    stack_max: u32,
+    dynamictop_ptr: u32,
+    memory_base: u32,
+    table_base: u32,
+    temp_double_ptr: u32,
 
     // Global namespace
-    infinity: u64,
-    nan: u64,
+    infinity: f64,
+    nan: f64,
 }
 
 pub struct EmscriptenGlobals {
@@ -265,7 +204,7 @@ pub struct EmscriptenGlobals {
 }
 
 impl EmscriptenGlobals {
-    pub fn new(module: &Module) -> Self {
+    pub fn new(module: &Module /*, static_bump: u32 */) -> Self {
         let (table_min, table_max) = get_emscripten_table_size(&module);
         let (memory_min, memory_max) = get_emscripten_memory_size(&module);
 
@@ -275,7 +214,7 @@ impl EmscriptenGlobals {
             maximum: memory_max,
             shared: false,
         };
-        let mut memory = Memory::new(memory_type).unwrap();
+        let memory = Memory::new(memory_type).unwrap();
 
         let table_type = TableDescriptor {
             element: ElementType::Anyfunc,
@@ -284,23 +223,37 @@ impl EmscriptenGlobals {
         };
         let mut table = Table::new(table_type).unwrap();
 
-        let memory_base = STATIC_BASE as u64;
-        let table_base = 0 as u64;
-        let temp_double_ptr = 0 as u64;
-        let data = EmscriptenGlobalsData {
-            abort: 0, // TODO review usage
-            // env
-            stacktop: stacktop(STATIC_BUMP) as _,
-            stack_max: stack_max(STATIC_BUMP) as _,
-            dynamictop_ptr: dynamictop_ptr(STATIC_BUMP) as _,
-            memory_base: memory_base,
-            table_base: table_base,
-            temp_double_ptr: temp_double_ptr,
+        let data = {
+            let static_bump = STATIC_BUMP;
 
-            // global
-            infinity: std::f64::INFINITY.to_bits() as _,
-            nan: std::f64::NAN.to_bits() as _,
+            let mut STATIC_TOP = STATIC_BASE + static_bump;
+
+            let memory_base = STATIC_BASE;
+            let table_base = 0;
+
+            let temp_double_ptr = STATIC_TOP;
+            STATIC_TOP += 16;
+
+            let dynamictop_ptr = static_alloc(&mut STATIC_TOP, 4);
+
+            let stacktop = align_memory(STATIC_TOP);
+            let stack_max = stacktop + TOTAL_STACK;
+
+            EmscriptenGlobalsData {
+                abort: 0,
+                stacktop,
+                stack_max,
+                dynamictop_ptr,
+                memory_base,
+                table_base,
+                temp_double_ptr,
+
+                infinity: std::f64::INFINITY,
+                nan: std::f64::NAN,
+            }
         };
+
+        emscripten_set_up_memory(&memory, &data);
 
         Self {
             data,
@@ -313,38 +266,21 @@ impl EmscriptenGlobals {
 }
 
 pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject {
-    // use crate::varargs::VarArgs;
-    // let mut imports = ImportObject::new();
-    // let mut env_namespace = Namespace::new();
-    // let mut asm_namespace = Namespace::new();
-    // let mut global_namespace = Namespace::new();
-    // let mut global_math_namespace = Namespace::new();
-
-    // // Add globals.
-    // // NOTE: There is really no need for checks, these globals should always be available.
-
-    // // We generate a fake Context that traps on access
-    // let null_ctx = Context::External(ptr::null_mut());
-
-    //    env_namespace.insert("memory".to_string(), Export::Memory(globals.memory.clone()));
-
-    //    env_namespace.insert("table".to_string(), Export::Table(globals.table.clone()));
-
-    let import_object = imports! {
+    imports! {
         "env" => {
             "memory" => Export::Memory(globals.memory.clone()),
             "table" => Export::Table(globals.table.clone()),
 
             // Globals
-            "STACKTOP" => Global::new(Value::I32(stacktop(STATIC_BUMP) as i32)),
-            "STACK_MAX" => Global::new(Value::I32(stack_max(STATIC_BUMP) as i32)),
-            "DYNAMICTOP_PTR" => Global::new(Value::I32(dynamictop_ptr(STATIC_BUMP) as i32)),
-            "tableBase" => Global::new(Value::I32(0)),
-            "__table_base" => Global::new(Value::I32(0)),
-            "ABORT" => Global::new(Value::I32(0)),
-            "memoryBase" => Global::new(Value::I32(STATIC_BASE)),
-            "__memory_base" => Global::new(Value::I32(STATIC_BASE)),
-            "tempDoublePtr" => Global::new(Value::I32(0)),
+            "STACKTOP" => Global::new(Value::I32(globals.data.stacktop as i32)),
+            "STACK_MAX" => Global::new(Value::I32(globals.data.stack_max as i32)),
+            "DYNAMICTOP_PTR" => Global::new(Value::I32(globals.data.dynamictop_ptr as i32)),
+            "tableBase" => Global::new(Value::I32(globals.data.table_base as i32)),
+            "__table_base" => Global::new(Value::I32(globals.data.table_base as i32)),
+            "ABORT" => Global::new(Value::I32(globals.data.abort as i32)),
+            "memoryBase" => Global::new(Value::I32(globals.data.memory_base as i32)),
+            "__memory_base" => Global::new(Value::I32(globals.data.memory_base as i32)),
+            "tempDoublePtr" => Global::new(Value::I32(globals.data.temp_double_ptr as i32)),
 
             // IO
             "printf" => func!(crate::io::printf),
@@ -528,18 +464,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "asm2wasm" => {
             "f64-rem" => func!(crate::math::f64_rem),
         },
-    };
-    // mock_external!(env_namespace, _sched_yield);
-    // mock_external!(env_namespace, _llvm_stacksave);
-    // mock_external!(env_namespace, _getgrent);
-    // mock_external!(env_namespace, _dlerror);
-
-    // imports.register("env", env_namespace);
-    // imports.register("asm2wasm", asm_namespace);
-    // imports.register("global", global_namespace);
-    // imports.register("global.Math", global_math_namespace);
-
-    import_object
+    }
 }
 
 /// The current version of this crate

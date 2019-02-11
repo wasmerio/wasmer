@@ -35,6 +35,13 @@ use wasmer_runtime_core::{
     vm, vmcalls,
 };
 
+extern "C" {
+    #[cfg(not(target_os = "windows"))]
+    pub fn __rust_probestack();
+    #[cfg(all(target_os = "windows", target_pointer_width = "64"))]
+    pub fn __chkstk();
+}
+
 #[allow(dead_code)]
 pub struct FuncResolverBuilder {
     resolver: FuncResolver,
@@ -215,7 +222,10 @@ impl FuncResolverBuilder {
                         LibCall::FloorF64 => libcalls::floorf64 as isize,
                         LibCall::TruncF64 => libcalls::truncf64 as isize,
                         LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
-                        LibCall::Probestack => libcalls::__rust_probestack as isize,
+                        #[cfg(all(target_pointer_width = "64", target_os = "windows"))]
+                        Probestack => __chkstk as isize,
+                        #[cfg(not(target_os = "windows"))]
+                        Probestack => __rust_probestack as isize,
                     },
                     RelocationType::Intrinsic(ref name) => match name.as_str() {
                         "i32print" => i32_print as isize,
