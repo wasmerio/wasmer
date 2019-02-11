@@ -8,5 +8,7 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
-wasmparser = "0.23.0"
+wasmer-runtime-core = { path = "../runtime-core" }
+wasmparser = "0.28.0"
+dynasm = "0.3.0"
+dynasmrt = "0.3.1"
