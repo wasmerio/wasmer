@@ -419,8 +419,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::I32),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::I32),
                         ],
                         returns: vec![],
                     });
@@ -457,8 +457,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::I32),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::I32),
                         ],
                         returns: vec![],
                     });
@@ -476,8 +476,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::I64),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::I64),
                         ],
                         returns: vec![],
                     });
@@ -495,8 +495,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::F32),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::F32),
                         ],
                         returns: vec![],
                     });
@@ -514,8 +514,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::F64),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::F64),
                         ],
                         returns: vec![],
                     });
