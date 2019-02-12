@@ -459,8 +459,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         // Build a value list for the indirect call instruction containing the call_args
         // and the vmctx parameter.
         let mut args = Vec::with_capacity(call_args.len() + 1);
+        args.push(vmctx_ptr);
         args.extend(call_args.iter().cloned());
-        args.insert(0, vmctx_ptr);
 
         Ok(pos.ins().call_indirect(sig_ref, func_ptr, &args))
     }
@@ -485,8 +485,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                     .expect("missing vmctx parameter");
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
+                args.push(vmctx);
                 args.extend(call_args.iter().cloned());
-                args.insert(0, vmctx);
 
                 Ok(pos.ins().call(callee, &args))
             }
@@ -532,8 +532,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                 let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
+                args.push(imported_vmctx_addr);
                 args.extend(call_args.iter().cloned());
-                args.insert(0, imported_vmctx_addr);
 
                 Ok(pos
                     .ins()
