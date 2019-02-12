@@ -13,9 +13,9 @@ use crate::{
 // +****************************+
 
 pub unsafe extern "C" fn local_static_memory_grow(
+    ctx: &mut vm::Ctx,
     memory_index: LocalMemoryIndex,
     delta: Pages,
-    ctx: &mut vm::Ctx,
 ) -> i32 {
     let local_memory = *ctx.memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut StaticMemory;
@@ -28,8 +28,8 @@ pub unsafe extern "C" fn local_static_memory_grow(
 }
 
 pub unsafe extern "C" fn local_static_memory_size(
-    memory_index: LocalMemoryIndex,
     ctx: &vm::Ctx,
+    memory_index: LocalMemoryIndex,
 ) -> Pages {
     let local_memory = *ctx.memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut StaticMemory;
@@ -38,9 +38,9 @@ pub unsafe extern "C" fn local_static_memory_size(
 }
 
 pub unsafe extern "C" fn local_dynamic_memory_grow(
+    ctx: &mut vm::Ctx,
     memory_index: LocalMemoryIndex,
     delta: Pages,
-    ctx: &mut vm::Ctx,
 ) -> i32 {
     let local_memory = *ctx.memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut DynamicMemory;
@@ -53,8 +53,8 @@ pub unsafe extern "C" fn local_dynamic_memory_grow(
 }
 
 pub unsafe extern "C" fn local_dynamic_memory_size(
-    memory_index: LocalMemoryIndex,
     ctx: &vm::Ctx,
+    memory_index: LocalMemoryIndex,
 ) -> Pages {
     let local_memory = *ctx.memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut DynamicMemory;
@@ -67,9 +67,9 @@ pub unsafe extern "C" fn local_dynamic_memory_size(
 // +****************************+
 
 pub unsafe extern "C" fn imported_static_memory_grow(
+    ctx: &mut vm::Ctx,
     import_memory_index: ImportedMemoryIndex,
     delta: Pages,
-    ctx: &mut vm::Ctx,
 ) -> i32 {
     let local_memory = *ctx.imported_memories.add(import_memory_index.index());
     let memory = (*local_memory).memory as *mut StaticMemory;
@@ -82,8 +82,8 @@ pub unsafe extern "C" fn imported_static_memory_grow(
 }
 
 pub unsafe extern "C" fn imported_static_memory_size(
-    import_memory_index: ImportedMemoryIndex,
     ctx: &vm::Ctx,
+    import_memory_index: ImportedMemoryIndex,
 ) -> Pages {
     let local_memory = *ctx.imported_memories.add(import_memory_index.index());
     let memory = (*local_memory).memory as *mut StaticMemory;
@@ -92,9 +92,9 @@ pub unsafe extern "C" fn imported_static_memory_size(
 }
 
 pub unsafe extern "C" fn imported_dynamic_memory_grow(
+    ctx: &mut vm::Ctx,
     memory_index: ImportedMemoryIndex,
     delta: Pages,
-    ctx: &mut vm::Ctx,
 ) -> i32 {
     let local_memory = *ctx.imported_memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut DynamicMemory;
@@ -107,8 +107,8 @@ pub unsafe extern "C" fn imported_dynamic_memory_grow(
 }
 
 pub unsafe extern "C" fn imported_dynamic_memory_size(
-    memory_index: ImportedMemoryIndex,
     ctx: &vm::Ctx,
+    memory_index: ImportedMemoryIndex,
 ) -> Pages {
     let local_memory = *ctx.imported_memories.add(memory_index.index());
     let memory = (*local_memory).memory as *mut DynamicMemory;
@@ -121,9 +121,9 @@ pub unsafe extern "C" fn imported_dynamic_memory_size(
 // +****************************+
 
 pub unsafe extern "C" fn local_table_grow(
+    ctx: &mut vm::Ctx,
     table_index: LocalTableIndex,
     delta: u32,
-    ctx: &mut vm::Ctx,
 ) -> i32 {
     let _ = table_index;
     let _ = delta;
@@ -131,7 +131,7 @@ pub unsafe extern "C" fn local_table_grow(
     unimplemented!()
 }
 
-pub unsafe extern "C" fn local_table_size(table_index: LocalTableIndex, ctx: &vm::Ctx) -> u32 {
+pub unsafe extern "C" fn local_table_size(ctx: &vm::Ctx, table_index: LocalTableIndex) -> u32 {
     let _ = table_index;
     let _ = ctx;
     unimplemented!()
