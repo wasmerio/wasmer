@@ -138,9 +138,9 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
     }
     #[allow(non_snake_case)]
     unsafe fn call<Rets: WasmTypeList>(self, f: *const (), ctx: *mut Ctx) -> Rets {
-        let f: extern "C" fn(A, *mut Ctx) -> Rets = mem::transmute(f);
+        let f: extern "C" fn(*mut Ctx, A) -> Rets = mem::transmute(f);
         let (a,) = self;
-        f(a, ctx)
+        f(ctx, a)
     }
 }
 
@@ -175,10 +175,10 @@ macro_rules! impl_traits {
             }
             #[allow(non_snake_case)]
             unsafe fn call<Rets: WasmTypeList>(self, f: *const (), ctx: *mut Ctx) -> Rets {
-                let f: extern fn( $( $x, )* *mut Ctx) -> Rets::CStruct = mem::transmute(f);
+                let f: extern fn(*mut Ctx $( ,$x )*) -> Rets::CStruct = mem::transmute(f);
                 #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
-                let c_struct = f( $( $x, )* ctx);
+                let c_struct = f(ctx $( ,$x )*);
                 Rets::from_c_struct(c_struct)
             }
         }
