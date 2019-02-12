@@ -32,10 +32,10 @@ impl<'env, 'module, 'isa> FuncEnv<'env, 'module, 'isa> {
         let mut signature = self.env.signatures[Converter(clif_sig_index).into()].clone();
 
         // Add the vmctx parameter type to it
-        signature.params.insert(0, ir::AbiParam::special(
-            self.pointer_type(),
-            ir::ArgumentPurpose::VMContext,
-        ));
+        signature.params.insert(
+            0,
+            ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
+        );
 
         // Return signature
         signature
