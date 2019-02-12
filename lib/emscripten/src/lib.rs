@@ -1,29 +1,20 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
 
-use byteorder::{ByteOrder, LittleEndian};
-use libc::c_int;
 use std::cell::UnsafeCell;
-use std::{f64, ffi::c_void, fmt, mem, ptr};
+use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
     error::CallResult,
-    export::{Context, Export, FuncPointer},
+    export::Export,
     func,
     global::Global,
-    import::{ImportObject, Namespace},
+    import::ImportObject,
     imports,
     memory::Memory,
     table::Table,
-    types::{
-        ElementType, FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor,
-        Type::{self, *},
-        Value,
-    },
+    types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
     units::Pages,
     vm::Ctx,
-    vm::LocalGlobal,
-    vm::LocalMemory,
-    vm::LocalTable,
     Func, Instance, Module,
 };
 

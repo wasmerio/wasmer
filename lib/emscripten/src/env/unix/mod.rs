@@ -1,15 +1,14 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
 use libc::{
-    c_int, c_long, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, putenv, setenv,
-    sysconf, unsetenv,
+    c_int, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, putenv, setenv, sysconf,
+    unsetenv,
 };
 use std::ffi::CStr;
 use std::mem;
 use std::os::raw::c_char;
 
 use crate::env::call_malloc;
-use crate::utils::{allocate_on_stack, copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use crate::EmscriptenData;
+use crate::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
 use wasmer_runtime_core::vm::Ctx;
 
 // #[no_mangle]

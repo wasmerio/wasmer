@@ -16,48 +16,30 @@ use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
-    accept,
-    bind,
     // ENOTTY,
-    c_char,
     c_int,
     c_void,
     chdir,
     // fcntl, setsockopt, getppid
     close,
-    connect,
     dup2,
     exit,
     fstat,
-    getpeername,
     getpid,
-    getsockname,
-    getsockopt,
     // iovec,
-    listen,
     lseek,
-    mkdir,
-    off_t,
     open,
     read,
     // readv,
-    recvfrom,
     rmdir,
     // writev,
-    sendto,
-    setsockopt,
-    sockaddr,
-    socket,
-    ssize_t,
     stat,
     write,
-    EINVAL,
     // sockaddr_in,
 };
 use wasmer_runtime_core::vm::Ctx;
 
 use super::env;
-use std::mem;
 use std::slice;
 // use std::sys::fd::FileDesc;
 

@@ -1,10 +1,13 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
-use libc::{c_char, c_int, time_t};
+use libc::{c_char, c_int};
 use std::mem;
 use std::time::SystemTime;
 
 #[cfg(not(target_os = "windows"))]
 use libc::{clockid_t, time as libc_time};
+
+#[cfg(target_os = "windows")]
+use libc::time_t;
 
 #[cfg(target_os = "windows")]
 type clockid_t = c_int;
