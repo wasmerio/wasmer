@@ -281,6 +281,7 @@ pub fn read_module<MCG: ModuleCodeGenerator<FCG>, FCG: FunctionCodeGenerator>(
                         let (count, ty) = local?;
                         fcg.feed_local(ty, count as usize)?;
                     }
+                    fcg.begin_body()?;
                     for op in item.get_operators_reader()? {
                         let op = op?;
                         fcg.feed_opcode(op)?;
