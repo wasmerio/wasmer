@@ -1,13 +1,12 @@
-use hashbrown::HashMap;
 use inkwell::{
-    basic_block::BasicBlock,
     builder::Builder,
     context::Context,
     module::Module,
     types::{BasicType, BasicTypeEnum, FunctionType},
-    values::{AggregateValue, BasicValue, BasicValueEnum, FunctionValue},
-    IntPredicate,
+    values::{BasicValue, FunctionValue},
+    FloatPredicate, IntPredicate,
 };
+use smallvec::SmallVec;
 use wasmer_runtime_core::{
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
@@ -19,20 +18,18 @@ use crate::intrinsics::Intrinsics;
 use crate::read_info::type_to_type;
 use crate::state::State;
 
-fn func_sig_to_llvm(context: &Context, sig: &FuncSig) -> FunctionType {
-    let param_types: Vec<_> = sig
-        .params()
-        .iter()
-        .map(|&ty| type_to_llvm(context, ty))
-        .collect();
+fn func_sig_to_llvm(context: &Context, intrinsics: &Intrinsics, sig: &FuncSig) -> FunctionType {
+    let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
+
+    let param_types: Vec<_> = user_param_types.collect();
 
     match sig.returns() {
-        [] => context.void_type().fn_type(&param_types, false),
-        [single_value] => type_to_llvm(context, *single_value).fn_type(&param_types, false),
+        [] => intrinsics.void_ty.fn_type(&param_types, false),
+        [single_value] => type_to_llvm(intrinsics, *single_value).fn_type(&param_types, false),
         returns @ _ => {
             let basic_types: Vec<_> = returns
                 .iter()
-                .map(|&ty| type_to_llvm(context, ty))
+                .map(|&ty| type_to_llvm(intrinsics, ty))
                 .collect();
 
             context
@@ -42,12 +39,12 @@ fn func_sig_to_llvm(context: &Context, sig: &FuncSig) -> FunctionType {
     }
 }
 
-fn type_to_llvm(context: &Context, ty: Type) -> BasicTypeEnum {
+fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
     match ty {
-        Type::I32 => context.i32_type().as_basic_type_enum(),
-        Type::I64 => context.i64_type().as_basic_type_enum(),
-        Type::F32 => context.f32_type().as_basic_type_enum(),
-        Type::F64 => context.f64_type().as_basic_type_enum(),
+        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
+        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
+        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
+        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
     }
 }
 
@@ -64,7 +61,7 @@ pub fn parse_function_bodies(
     let signatures: Map<SigIndex, FunctionType> = info
         .signatures
         .iter()
-        .map(|(_, sig)| func_sig_to_llvm(&context, sig))
+        .map(|(_, sig)| func_sig_to_llvm(&context, &intrinsics, sig))
         .collect();
     let functions: Map<LocalFuncIndex, FunctionValue> = info
         .func_assoc
@@ -72,7 +69,7 @@ pub fn parse_function_bodies(
         .skip(info.imported_functions.len())
         .map(|(func_index, &sig_index)| {
             module.add_function(
-                &format!("fn:{}", func_index.index()),
+                &format!("fn{}", func_index.index()),
                 signatures[sig_index],
                 None,
             )
@@ -114,7 +111,9 @@ fn parse_function(
     locals_reader: LocalsReader,
     op_reader: OperatorsReader,
 ) -> Result<(), BinaryReaderError> {
-    let llvm_sig = &signatures[info.func_assoc[func_index.convert_up(info)]];
+    let sig_index = info.func_assoc[func_index.convert_up(info)];
+    let func_sig = &info.signatures[sig_index];
+    let llvm_sig = &signatures[sig_index];
 
     let function = functions[func_index];
     let entry_block = context.append_basic_block(&function, "entry");
@@ -126,7 +125,7 @@ fn parse_function(
     locals.extend(function.get_param_iter().enumerate().map(|(index, param)| {
         let ty = param.get_type();
 
-        let alloca = builder.build_alloca(ty, &state.var_name());
+        let alloca = builder.build_alloca(ty, &format!("local{}", index));
         builder.build_store(alloca, param);
         alloca
     }));
@@ -136,15 +135,15 @@ fn parse_function(
 
         let wasmer_ty = type_to_type(ty)?;
 
-        let ty = type_to_llvm(context, wasmer_ty);
+        let ty = type_to_llvm(intrinsics, wasmer_ty);
 
-        let alloca = builder.build_alloca(ty, &state.var_name());
+        let alloca = builder.build_alloca(ty, &format!("local{}", index));
 
         let default_value = match wasmer_ty {
-            Type::I32 => context.i32_type().const_int(0, false).as_basic_value_enum(),
-            Type::I64 => context.i64_type().const_int(0, false).as_basic_value_enum(),
-            Type::F32 => context.f32_type().const_float(0.0).as_basic_value_enum(),
-            Type::F64 => context.f64_type().const_float(0.0).as_basic_value_enum(),
+            Type::I32 => intrinsics.i32_zero.as_basic_value_enum(),
+            Type::I64 => intrinsics.i64_zero.as_basic_value_enum(),
+            Type::F32 => intrinsics.f32_zero.as_basic_value_enum(),
+            Type::F64 => intrinsics.f64_zero.as_basic_value_enum(),
         };
 
         builder.build_store(alloca, default_value);
@@ -154,6 +153,149 @@ fn parse_function(
 
     for op in op_reader {
         match op? {
+            /***************************
+             * Control Flow instructions.
+             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
+             ***************************/
+            Operator::Block { ty } => {
+                let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
+                    message: "not currently in a block",
+                    offset: -1isize as usize,
+                })?;
+
+                let end_block = context.append_basic_block(&function, &state.block_name());
+                builder.position_at_end(&end_block);
+
+                let phis = if let Ok(wasmer_ty) = type_to_type(ty) {
+                    let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
+                    [llvm_ty]
+                        .iter()
+                        .map(|&ty| builder.build_phi(ty, &state.var_name()))
+                        .collect()
+                } else {
+                    SmallVec::new()
+                };
+
+                state.push_block(end_block, phis);
+                builder.position_at_end(&current_block);
+            }
+            Operator::Loop { ty } => {
+
+                // let loop_body = context.append_basic_block(&function, &state.block_name());
+                // let next = context.append_basic_block(&function, &state.block_name());
+                // builder.build_unconditional_branch(&body);
+                // let num_return_values = if ty == wasmparser::Type::EmptyBlockType { 0 } else { 1 };
+                // state.push_loop(loop_body, next, num_return_values);
+            }
+            Operator::Br { relative_depth } => {
+                let frame = state.frame_at_depth(relative_depth)?;
+
+                let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
+                    message: "not currently in a block",
+                    offset: -1isize as usize,
+                })?;
+
+                let values = state.peekn(frame.phis().len())?;
+
+                // For each result of the block we're branching to,
+                // pop a value off the value stack and load it into
+                // the corresponding phi.
+                for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                    phi.add_incoming(&[(value, &current_block)]);
+                }
+
+                builder.build_unconditional_branch(frame.dest());
+
+                state.popn(frame.phis().len())?;
+
+                builder.build_unreachable();
+            }
+            Operator::BrIf { relative_depth } => {
+                let cond = state.pop1()?;
+                let frame = state.frame_at_depth(relative_depth)?;
+
+                let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
+                    message: "not currently in a block",
+                    offset: -1isize as usize,
+                })?;
+
+                let param_stack = state.peekn(frame.phis().len())?;
+
+                for (phi, value) in frame.phis().iter().zip(param_stack.iter()) {
+                    phi.add_incoming(&[(value, &current_block)]);
+                }
+
+                let false_block = context.append_basic_block(&function, &state.block_name());
+
+                let cond_value = builder.build_int_compare(
+                    IntPredicate::NE,
+                    cond.into_int_value(),
+                    intrinsics.i32_zero,
+                    &state.var_name(),
+                );
+                builder.build_conditional_branch(cond_value, frame.dest(), &false_block);
+                builder.position_at_end(&false_block);
+            }
+            Operator::BrTable { ref table } => {
+                let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
+                    message: "not currently in a block",
+                    offset: -1isize as usize,
+                })?;
+
+                let (label_depths, default_depth) = table.read_table()?;
+
+                let index = state.pop1()?;
+
+                let default_frame = state.frame_at_depth(default_depth)?;
+
+                let res_len = default_frame.phis().len();
+
+                let args = state.peekn(res_len)?;
+
+                for (phi, value) in default_frame.phis().iter().zip(args.iter()) {
+                    phi.add_incoming(&[(value, &current_block)]);
+                }
+
+                let cases: Vec<_> = label_depths
+                    .iter()
+                    .enumerate()
+                    .map(|(case_index, &depth)| {
+                        let frame = state.frame_at_depth(depth)?;
+                        let case_index_literal =
+                            context.i32_type().const_int(case_index as u64, false);
+
+                        for (phi, value) in frame.phis().iter().zip(args.iter()) {
+                            phi.add_incoming(&[(value, &current_block)]);
+                        }
+
+                        Ok((case_index_literal, frame.dest()))
+                    })
+                    .collect::<Result<_, _>>()?;
+
+                builder.build_switch(index.into_int_value(), default_frame.dest(), &cases[..]);
+
+                state.popn(res_len)?;
+                builder.build_unreachable();
+            }
+
+            Operator::End => {
+                let frame = state.pop_frame()?;
+
+                // Push each phi value to the value stack.
+                for phi in frame.phis() {
+                    state.push1(phi.as_basic_value());
+                }
+
+                state.reset_stack(&frame);
+            }
+
+            Operator::Unreachable => {
+                // Emit an unreachable instruction.
+                // If llvm cannot prove that this is never touched,
+                // it will emit a `ud2` instruction on x86_64 arches.
+                builder.build_unreachable();
+            }
+
             /***************************
              * Basic instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#basic-instructions
@@ -167,21 +309,21 @@ fn parse_function(
 
             // Generate const values.
             Operator::I32Const { value } => {
-                let i = context.i32_type().const_int(value as u64, false);
+                let i = intrinsics.i32_ty.const_int(value as u64, false);
                 state.push1(i);
             }
             Operator::I64Const { value } => {
-                let i = context.i64_type().const_int(value as u64, false);
+                let i = intrinsics.i64_ty.const_int(value as u64, false);
                 state.push1(i);
             }
             Operator::F32Const { value } => {
-                let f = context
-                    .f32_type()
+                let f = intrinsics
+                    .f32_ty
                     .const_float(f64::from_bits(value.bits() as u64));
                 state.push1(f);
             }
             Operator::F64Const { value } => {
-                let f = context.f64_type().const_float(f64::from_bits(value.bits()));
+                let f = intrinsics.f64_ty.const_float(f64::from_bits(value.bits()));
                 state.push1(f);
             }
 
@@ -243,9 +385,7 @@ fn parse_function(
                             }
                         }
                     }
-                    LocalOrImport::Import(import_func_index) => {
-                        // unimplemented!()
-                    }
+                    LocalOrImport::Import(import_func_index) => unimplemented!(),
                 }
             }
             Operator::CallIndirect { index, table_index } => {
@@ -339,7 +479,7 @@ fn parse_function(
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let lhs = builder.build_left_shift(v1, v2, &state.var_name());
                 let rhs = {
-                    let int_width = context.i32_type().const_int(32 as u64, false);
+                    let int_width = intrinsics.i32_ty.const_int(32 as u64, false);
                     let rhs = builder.build_int_sub(int_width, v2, &state.var_name());
                     builder.build_right_shift(v1, rhs, false, &state.var_name())
                 };
@@ -351,7 +491,7 @@ fn parse_function(
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let lhs = builder.build_left_shift(v1, v2, &state.var_name());
                 let rhs = {
-                    let int_width = context.i64_type().const_int(64 as u64, false);
+                    let int_width = intrinsics.i64_ty.const_int(64 as u64, false);
                     let rhs = builder.build_int_sub(int_width, v2, &state.var_name());
                     builder.build_right_shift(v1, rhs, false, &state.var_name())
                 };
@@ -363,7 +503,7 @@ fn parse_function(
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let lhs = builder.build_right_shift(v1, v2, false, &state.var_name());
                 let rhs = {
-                    let int_width = context.i32_type().const_int(32 as u64, false);
+                    let int_width = intrinsics.i32_ty.const_int(32 as u64, false);
                     let rhs = builder.build_int_sub(int_width, v2, &state.var_name());
                     builder.build_left_shift(v1, rhs, &state.var_name())
                 };
@@ -375,7 +515,7 @@ fn parse_function(
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let lhs = builder.build_right_shift(v1, v2, false, &state.var_name());
                 let rhs = {
-                    let int_width = context.i64_type().const_int(64 as u64, false);
+                    let int_width = intrinsics.i64_ty.const_int(64 as u64, false);
                     let rhs = builder.build_int_sub(int_width, v2, &state.var_name());
                     builder.build_left_shift(v1, rhs, &state.var_name())
                 };
@@ -384,8 +524,8 @@ fn parse_function(
             }
             Operator::I32Clz => {
                 let input = state.pop1()?;
-                let ensure_defined_zero = context
-                    .bool_type()
+                let ensure_defined_zero = intrinsics
+                    .i1_ty
                     .const_int(1 as u64, false)
                     .as_basic_value_enum();
                 let res = builder
@@ -401,8 +541,8 @@ fn parse_function(
             }
             Operator::I64Clz => {
                 let input = state.pop1()?;
-                let ensure_defined_zero = context
-                    .bool_type()
+                let ensure_defined_zero = intrinsics
+                    .i1_ty
                     .const_int(1 as u64, false)
                     .as_basic_value_enum();
                 let res = builder
@@ -418,8 +558,8 @@ fn parse_function(
             }
             Operator::I32Ctz => {
                 let input = state.pop1()?;
-                let ensure_defined_zero = context
-                    .bool_type()
+                let ensure_defined_zero = intrinsics
+                    .i1_ty
                     .const_int(1 as u64, false)
                     .as_basic_value_enum();
                 let res = builder
@@ -435,8 +575,8 @@ fn parse_function(
             }
             Operator::I64Ctz => {
                 let input = state.pop1()?;
-                let ensure_defined_zero = context
-                    .bool_type()
+                let ensure_defined_zero = intrinsics
+                    .i1_ty
                     .const_int(1 as u64, false)
                     .as_basic_value_enum();
                 let res = builder
@@ -470,16 +610,22 @@ fn parse_function(
             }
             Operator::I32Eqz => {
                 let input = state.pop1()?.into_int_value();
-                let zero = context.i32_type().const_int(0, false);
-                let res =
-                    builder.build_int_compare(IntPredicate::EQ, input, zero, &state.var_name());
+                let res = builder.build_int_compare(
+                    IntPredicate::EQ,
+                    input,
+                    intrinsics.i32_zero,
+                    &state.var_name(),
+                );
                 state.push1(res);
             }
             Operator::I64Eqz => {
                 let input = state.pop1()?.into_int_value();
-                let zero = context.i64_type().const_int(0, false);
-                let res =
-                    builder.build_int_compare(IntPredicate::EQ, input, zero, &state.var_name());
+                let res = builder.build_int_compare(
+                    IntPredicate::EQ,
+                    input,
+                    intrinsics.i64_zero,
+                    &state.var_name(),
+                );
                 state.push1(res);
             }
 
@@ -493,7 +639,7 @@ fn parse_function(
                 let res = builder.build_float_add(v1, v2, &state.var_name());
                 state.push1(res);
             }
-            Operator::F32Sub | Operator::F32Sub => {
+            Operator::F32Sub | Operator::F64Sub => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
                 let res = builder.build_float_sub(v1, v2, &state.var_name());
@@ -748,12 +894,133 @@ fn parse_function(
              * Floating-Point Comparison instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#floating-point-comparison-instructions
              ***************************/
-            Operator::Unreachable => {
-                // Emit an unreachable instruction.
-                // If llvm cannot prove that this is never touched,
-                // it will emit a `ud2` instruction on x86_64 arches.
-                builder.build_unreachable();
+            Operator::F32Eq | Operator::F64Eq => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let res =
+                    builder.build_float_compare(FloatPredicate::OEQ, v1, v2, &state.var_name());
+                state.push1(res);
             }
+            Operator::F32Ne | Operator::F64Ne => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let res =
+                    builder.build_float_compare(FloatPredicate::UNE, v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32Lt | Operator::F64Lt => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let res =
+                    builder.build_float_compare(FloatPredicate::OLT, v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32Le | Operator::F64Le => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let res =
+                    builder.build_float_compare(FloatPredicate::OLE, v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32Gt | Operator::F64Gt => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let res =
+                    builder.build_float_compare(FloatPredicate::OGT, v1, v2, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32Ge | Operator::F64Ge => {
+                let (v1, v2) = state.pop2()?;
+                let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
+                let res =
+                    builder.build_float_compare(FloatPredicate::OGE, v1, v2, &state.var_name());
+                state.push1(res);
+            }
+
+            /***************************
+             * Conversion instructions.
+             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#conversion-instructions
+             ***************************/
+            Operator::I32WrapI64 => {
+                let v1 = state.pop1()?.into_int_value();
+                let res = builder.build_int_truncate(v1, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64ExtendSI32 => {
+                let v1 = state.pop1()?.into_int_value();
+                let res = builder.build_int_s_extend(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64ExtendUI32 => {
+                let v1 = state.pop1()?.into_int_value();
+                let res = builder.build_int_z_extend(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I32TruncSF32 | Operator::I32TruncSF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                let res =
+                    builder.build_float_to_signed_int(v1, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64TruncSF32 | Operator::I64TruncSF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                let res =
+                    builder.build_float_to_signed_int(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I32TruncUF32 | Operator::I32TruncUF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                let res =
+                    builder.build_float_to_unsigned_int(v1, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64TruncUF32 | Operator::I64TruncUF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                let res =
+                    builder.build_float_to_unsigned_int(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32DemoteF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                let res = builder.build_float_trunc(v1, intrinsics.f32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F64PromoteF32 => {
+                let v1 = state.pop1()?.into_float_value();
+                let res = builder.build_float_ext(v1, intrinsics.f64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32ConvertSI32 | Operator::F32ConvertSI64 => {
+                let v1 = state.pop1()?.into_int_value();
+                let res =
+                    builder.build_signed_int_to_float(v1, intrinsics.f32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F64ConvertSI32 | Operator::F64ConvertSI64 => {
+                let v1 = state.pop1()?.into_int_value();
+                let res =
+                    builder.build_signed_int_to_float(v1, intrinsics.f64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F32ConvertUI32 | Operator::F32ConvertUI64 => {
+                let v1 = state.pop1()?.into_int_value();
+                let res =
+                    builder.build_unsigned_int_to_float(v1, intrinsics.f32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::F64ConvertUI32 | Operator::F64ConvertUI64 => {
+                let v1 = state.pop1()?.into_int_value();
+                let res =
+                    builder.build_unsigned_int_to_float(v1, intrinsics.f64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I32ReinterpretF32
+            | Operator::F32ReinterpretI32
+            | Operator::I64ReinterpretF64
+            | Operator::F64ReinterpretI64 => {
+                unimplemented!("waiting on better bitcasting support in inkwell")
+            }
+
             op @ _ => {
                 println!("{}", module.print_to_string().to_string());
                 unimplemented!("{:?}", op);

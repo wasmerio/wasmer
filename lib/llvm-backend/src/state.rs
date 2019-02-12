@@ -1,25 +1,38 @@
 use inkwell::{
     basic_block::BasicBlock,
-    values::{BasicValue, BasicValueEnum},
+    values::{BasicValue, BasicValueEnum, PhiValue},
 };
+use smallvec::SmallVec;
+use std::cell::Cell;
 use wasmparser::BinaryReaderError;
 
-enum ControlFrame {
-    If {
-        dest: BasicBlock,
-        stack_size_snapshot: usize,
-    },
+pub enum ControlFrame {
     Block {
-        dest: BasicBlock,
+        end_label: BasicBlock,
+        phis: SmallVec<[PhiValue; 1]>,
         stack_size_snapshot: usize,
-        num_ret_values: usize,
     },
+}
+
+impl ControlFrame {
+    pub fn dest(&self) -> &BasicBlock {
+        match self {
+            ControlFrame::Block { ref end_label, .. } => end_label,
+        }
+    }
+
+    pub fn phis(&self) -> &[PhiValue] {
+        match self {
+            ControlFrame::Block { ref phis, .. } => phis.as_slice(),
+        }
+    }
 }
 
 pub struct State {
     stack: Vec<BasicValueEnum>,
     control_stack: Vec<ControlFrame>,
-    value_counter: usize,
+    value_counter: Cell<usize>,
+    block_counter: Cell<usize>,
 }
 
 impl State {
@@ -27,13 +40,47 @@ impl State {
         Self {
             stack: vec![],
             control_stack: vec![],
-            value_counter: 0,
+            value_counter: Cell::new(0),
+            block_counter: Cell::new(0),
         }
     }
 
-    pub fn var_name(&mut self) -> String {
-        let s = self.value_counter.to_string();
-        self.value_counter += 1;
+    pub fn reset_stack(&mut self, frame: &ControlFrame) {
+        let stack_size_snapshot = match frame {
+            ControlFrame::Block {
+                stack_size_snapshot,
+                ..
+            } => *stack_size_snapshot,
+        };
+        self.stack.truncate(stack_size_snapshot);
+    }
+
+    pub fn frame_at_depth(&self, depth: u32) -> Result<&ControlFrame, BinaryReaderError> {
+        let index = self.control_stack.len() - 1 - (depth as usize);
+        self.control_stack.get(index).ok_or(BinaryReaderError {
+            message: "invalid control stack depth",
+            offset: -1isize as usize,
+        })
+    }
+
+    pub fn pop_frame(&mut self) -> Result<ControlFrame, BinaryReaderError> {
+        self.control_stack.pop().ok_or(BinaryReaderError {
+            message: "cannot pop from control stack",
+            offset: -1isize as usize,
+        })
+    }
+
+    pub fn block_name(&self) -> String {
+        let counter = self.block_counter.get();
+        let s = format!("block{}", counter);
+        self.block_counter.set(counter + 1);
+        s
+    }
+
+    pub fn var_name(&self) -> String {
+        let counter = self.value_counter.get();
+        let s = format!("s{}", counter);
+        self.value_counter.set(counter + 1);
         s
     }
 
@@ -42,7 +89,7 @@ impl State {
     }
 
     pub fn pop1(&mut self) -> Result<BasicValueEnum, BinaryReaderError> {
-        self.stack.pop().ok_or_else(|| BinaryReaderError {
+        self.stack.pop().ok_or(BinaryReaderError {
             message: "invalid value stack",
             offset: -1isize as usize,
         })
@@ -66,7 +113,7 @@ impl State {
     pub fn peek1(&self) -> Result<BasicValueEnum, BinaryReaderError> {
         self.stack
             .get(self.stack.len() - 1)
-            .ok_or_else(|| BinaryReaderError {
+            .ok_or(BinaryReaderError {
                 message: "invalid value stack",
                 offset: -1isize as usize,
             })
@@ -76,7 +123,7 @@ impl State {
     pub fn peekn(&self, n: usize) -> Result<&[BasicValueEnum], BinaryReaderError> {
         self.stack
             .get(self.stack.len() - n..)
-            .ok_or_else(|| BinaryReaderError {
+            .ok_or(BinaryReaderError {
                 message: "invalid value stack",
                 offset: -1isize as usize,
             })
@@ -95,11 +142,11 @@ impl State {
         Ok(())
     }
 
-    pub fn push_block(&mut self, dest: BasicBlock, num_ret_values: usize) {
+    pub fn push_block(&mut self, end_label: BasicBlock, phis: SmallVec<[PhiValue; 1]>) {
         self.control_stack.push(ControlFrame::Block {
-            dest,
+            end_label,
+            phis,
             stack_size_snapshot: self.stack.len(),
-            num_ret_values,
         });
     }
 }

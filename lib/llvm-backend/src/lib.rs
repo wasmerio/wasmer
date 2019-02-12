@@ -1,7 +1,7 @@
 use wasmer_runtime_core::{
     backend::{Compiler, Token},
     error::CompileError,
-    module::{ModuleInfo, ModuleInner},
+    module::ModuleInner,
 };
 
 mod code;

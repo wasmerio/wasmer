@@ -1,4 +1,9 @@
-use inkwell::{context::Context, module::Module, types::BasicType, values::FunctionValue};
+use inkwell::{
+    context::Context,
+    module::Module,
+    types::{BasicType, FloatType, IntType, VoidType},
+    values::{FloatValue, FunctionValue, IntValue},
+};
 
 pub struct Intrinsics {
     pub ctlz_i32: FunctionValue,
@@ -36,27 +41,53 @@ pub struct Intrinsics {
 
     pub copysign_f32: FunctionValue,
     pub copysign_f64: FunctionValue,
+
+    pub void_ty: VoidType,
+    pub i1_ty: IntType,
+    pub i32_ty: IntType,
+    pub i64_ty: IntType,
+    pub f32_ty: FloatType,
+    pub f64_ty: FloatType,
+
+    pub i1_zero: IntValue,
+    pub i32_zero: IntValue,
+    pub i64_zero: IntValue,
+    pub f32_zero: FloatValue,
+    pub f64_zero: FloatValue,
 }
 
 impl Intrinsics {
     pub fn declare(module: &Module, context: &Context) -> Self {
-        let i1_ty = context.bool_type().as_basic_type_enum();
-        let i32_ty = context.i32_type().as_basic_type_enum();
-        let i64_ty = context.i64_type().as_basic_type_enum();
-        let f32_ty = context.f32_type().as_basic_type_enum();
-        let f64_ty = context.f64_type().as_basic_type_enum();
+        let void_ty = context.void_type();
+        let i1_ty = context.bool_type();
+        let i32_ty = context.i32_type();
+        let i64_ty = context.i64_type();
+        let f32_ty = context.f32_type();
+        let f64_ty = context.f64_type();
 
-        let ret_i32_take_i32_i1 = i32_ty.fn_type(&[i32_ty, i1_ty], false);
-        let ret_i64_take_i64_i1 = i64_ty.fn_type(&[i64_ty, i1_ty], false);
+        let i1_zero = i1_ty.const_int(0, false);
+        let i32_zero = i32_ty.const_int(0, false);
+        let i64_zero = i64_ty.const_int(0, false);
+        let f32_zero = f32_ty.const_float(0.0);
+        let f64_zero = f64_ty.const_float(0.0);
 
-        let ret_i32_take_i32 = i32_ty.fn_type(&[i32_ty], false);
-        let ret_i64_take_i64 = i64_ty.fn_type(&[i64_ty], false);
+        let i1_ty_basic = i1_ty.as_basic_type_enum();
+        let i32_ty_basic = i32_ty.as_basic_type_enum();
+        let i64_ty_basic = i64_ty.as_basic_type_enum();
+        let f32_ty_basic = f32_ty.as_basic_type_enum();
+        let f64_ty_basic = f64_ty.as_basic_type_enum();
 
-        let ret_f32_take_f32 = f32_ty.fn_type(&[f32_ty], false);
-        let ret_f64_take_f64 = f64_ty.fn_type(&[f64_ty], false);
+        let ret_i32_take_i32_i1 = i32_ty.fn_type(&[i32_ty_basic, i1_ty_basic], false);
+        let ret_i64_take_i64_i1 = i64_ty.fn_type(&[i64_ty_basic, i1_ty_basic], false);
 
-        let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty, f32_ty], false);
-        let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty, f64_ty], false);
+        let ret_i32_take_i32 = i32_ty.fn_type(&[i32_ty_basic], false);
+        let ret_i64_take_i64 = i64_ty.fn_type(&[i64_ty_basic], false);
+
+        let ret_f32_take_f32 = f32_ty.fn_type(&[f32_ty_basic], false);
+        let ret_f64_take_f64 = f64_ty.fn_type(&[f64_ty_basic], false);
+
+        let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
+        let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
 
         Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
@@ -94,6 +125,19 @@ impl Intrinsics {
 
             copysign_f32: module.add_function("llvm.copysign.f32", ret_f32_take_f32_f32, None),
             copysign_f64: module.add_function("llvm.copysign.f64", ret_f64_take_f64_f64, None),
+
+            void_ty,
+            i1_ty,
+            i32_ty,
+            i64_ty,
+            f32_ty,
+            f64_ty,
+
+            i1_zero,
+            i32_zero,
+            i64_zero,
+            f32_zero,
+            f64_zero,
         }
     }
 }
