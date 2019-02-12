@@ -2,10 +2,8 @@ use super::env;
 use super::env::get_emscripten_data;
 use libc::stat;
 use std::ffi::CStr;
-use std::ffi::CString;
 use std::mem::size_of;
 use std::os::raw::c_char;
-use std::os::raw::c_int;
 use std::slice;
 use wasmer_runtime_core::memory::Memory;
 use wasmer_runtime_core::{

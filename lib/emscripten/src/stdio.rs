@@ -12,7 +12,7 @@ pub struct StdioCapturer {
 }
 
 #[cfg(not(target_os = "windows"))]
-use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO};
+use libc::{STDERR_FILENO, STDOUT_FILENO};
 
 #[cfg(target_os = "windows")]
 const STDIN_FILENO: libc::c_int = 0;
