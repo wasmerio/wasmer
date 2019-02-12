@@ -17,9 +17,9 @@ int main()
     fclose(file);
 
     wasmer_instance_t *instance = NULL;
-    wasmer_compile_result_t compile_result = wasmer_instantiate(&instance, bytes, len, import_object);
+    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, import_object);
     printf("Compile result:  %d\n", compile_result);
-    assert(compile_result == WASMER_COMPILE_OK);
+    assert(compile_result == WASMER_OK);
 
     wasmer_value_t param_one;
     param_one.tag = WASM_I32;
@@ -32,16 +32,16 @@ int main()
     wasmer_value_t result_one;
     wasmer_value_t results[] = {result_one};
 
-    wasmer_call_result_t call_result = wasmer_instance_call(instance, "sum", params, 2, results, 1);
+    wasmer_result_t call_result = wasmer_instance_call(instance, "sum", params, 2, results, 1);
     printf("Call result:  %d\n", call_result);
     printf("Result: %d\n", results[0].value.I32);
     assert(results[0].value.I32 == 15);
-    assert(call_result == WASMER_CALL_OK);
+    assert(call_result == WASMER_OK);
 
 
-    wasmer_call_result_t call_result2 = wasmer_instance_call(instance, "sum", params, 1, results, 1);
+    wasmer_result_t call_result2 = wasmer_instance_call(instance, "sum", params, 1, results, 1);
     printf("Call result bad:  %d\n", call_result2);
-    assert(call_result2 == WASMER_CALL_ERROR);
+    assert(call_result2 == WASMER_ERROR);
 
     int error_len = wasmer_last_error_length();
     printf("Error len: `%d`\n", error_len);

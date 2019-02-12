@@ -5,24 +5,9 @@
 #include <cstdint>
 #include <cstdlib>
 
-enum class wasmer_call_result_t {
-  WASMER_CALL_OK = 1,
-  WASMER_CALL_ERROR = 2,
-};
-
-enum class wasmer_compile_result_t {
-  WASMER_COMPILE_OK = 1,
-  WASMER_COMPILE_ERROR = 2,
-};
-
-enum class wasmer_memory_result_t {
-  WASMER_MEMORY_OK = 1,
-  WASMER_MEMORY_ERROR = 2,
-};
-
-enum class wasmer_table_result_t {
-  WASMER_TABLE_OK = 1,
-  WASMER_TABLE_ERROR = 2,
+enum class wasmer_result_t {
+  WASMER_OK = 1,
+  WASMER_ERROR = 2,
 };
 
 enum class wasmer_value_tag : uint32_t {
@@ -97,22 +82,22 @@ void wasmer_imports_set_import_func(wasmer_import_object_t *import_object,
                                     const wasmer_value_tag *returns,
                                     int returns_len);
 
-wasmer_call_result_t wasmer_instance_call(wasmer_instance_t *instance,
-                                          const char *name,
-                                          const wasmer_value_t *params,
-                                          int params_len,
-                                          wasmer_value_t *results,
-                                          int results_len);
+wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance,
+                                     const char *name,
+                                     const wasmer_value_t *params,
+                                     int params_len,
+                                     wasmer_value_t *results,
+                                     int results_len);
 
 const wasmer_memory_t *wasmer_instance_context_memory(wasmer_instance_context_t *ctx,
                                                       uint32_t memory_idx);
 
 void wasmer_instance_destroy(wasmer_instance_t *instance);
 
-wasmer_compile_result_t wasmer_instantiate(wasmer_instance_t **instance,
-                                           uint8_t *wasm_bytes,
-                                           uint32_t wasm_bytes_len,
-                                           wasmer_import_object_t *import_object);
+wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance,
+                                   uint8_t *wasm_bytes,
+                                   uint32_t wasm_bytes_len,
+                                   wasmer_import_object_t *import_object);
 
 int wasmer_last_error_length();
 
@@ -124,19 +109,19 @@ uint32_t wasmer_memory_data_length(wasmer_memory_t *mem);
 
 void wasmer_memory_destroy(wasmer_memory_t *memory);
 
-wasmer_memory_result_t wasmer_memory_grow(wasmer_memory_t *memory, uint32_t delta);
+wasmer_result_t wasmer_memory_grow(wasmer_memory_t *memory, uint32_t delta);
 
 uint32_t wasmer_memory_length(wasmer_memory_t *memory);
 
-wasmer_memory_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
+wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
 
 void wasmer_table_destroy(wasmer_table_t *table);
 
-wasmer_table_result_t wasmer_table_grow(wasmer_table_t *table, uint32_t delta);
+wasmer_result_t wasmer_table_grow(wasmer_table_t *table, uint32_t delta);
 
 uint32_t wasmer_table_length(wasmer_table_t *table);
 
-wasmer_table_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
+wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
 bool wasmer_validate(uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 

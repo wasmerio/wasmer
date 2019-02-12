@@ -29,33 +29,9 @@ pub struct wasmer_instance_context_t();
 #[allow(non_camel_case_types)]
 #[no_mangle]
 #[repr(C)]
-pub enum wasmer_compile_result_t {
-    WASMER_COMPILE_OK = 1,
-    WASMER_COMPILE_ERROR = 2,
-}
-
-#[allow(non_camel_case_types)]
-#[no_mangle]
-#[repr(C)]
-pub enum wasmer_call_result_t {
-    WASMER_CALL_OK = 1,
-    WASMER_CALL_ERROR = 2,
-}
-
-#[allow(non_camel_case_types)]
-#[no_mangle]
-#[repr(C)]
-pub enum wasmer_memory_result_t {
-    WASMER_MEMORY_OK = 1,
-    WASMER_MEMORY_ERROR = 2,
-}
-
-#[allow(non_camel_case_types)]
-#[no_mangle]
-#[repr(C)]
-pub enum wasmer_table_result_t {
-    WASMER_TABLE_OK = 1,
-    WASMER_TABLE_ERROR = 2,
+pub enum wasmer_result_t {
+    WASMER_OK = 1,
+    WASMER_ERROR = 2,
 }
 
 #[repr(u32)]
@@ -131,7 +107,7 @@ pub extern "C" fn wasmer_import_object_new() -> *mut wasmer_import_object_t {
 pub unsafe extern "C" fn wasmer_memory_new(
     mut memory: *mut *mut wasmer_memory_t,
     limits: wasmer_limits_t,
-) -> wasmer_memory_result_t {
+) -> wasmer_result_t {
     let desc = MemoryDescriptor {
         minimum: Pages(limits.min),
         maximum: Some(Pages(limits.max)),
@@ -142,11 +118,11 @@ pub unsafe extern "C" fn wasmer_memory_new(
         Ok(memory) => memory,
         Err(error) => {
             update_last_error(error);
-            return wasmer_memory_result_t::WASMER_MEMORY_ERROR;
+            return wasmer_result_t::WASMER_ERROR;
         }
     };
     unsafe { *memory = Box::into_raw(Box::new(new_memory)) as *mut wasmer_memory_t };
-    wasmer_memory_result_t::WASMER_MEMORY_OK
+    wasmer_result_t::WASMER_OK
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -154,14 +130,14 @@ pub unsafe extern "C" fn wasmer_memory_new(
 pub extern "C" fn wasmer_memory_grow(
     memory: *mut wasmer_memory_t,
     delta: uint32_t,
-) -> wasmer_memory_result_t {
+) -> wasmer_result_t {
     let memory = unsafe { Box::from_raw(memory as *mut Memory) };
     let maybe_delta = memory.grow(Pages(delta));
     Box::into_raw(memory);
     if let Some(_delta) = maybe_delta {
-        wasmer_memory_result_t::WASMER_MEMORY_OK
+        wasmer_result_t::WASMER_OK
     } else {
-        wasmer_memory_result_t::WASMER_MEMORY_ERROR
+        wasmer_result_t::WASMER_ERROR
     }
 }
 
@@ -178,7 +154,7 @@ pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t
 pub unsafe extern "C" fn wasmer_table_new(
     mut table: *mut *mut wasmer_table_t,
     limits: wasmer_limits_t,
-) -> wasmer_table_result_t {
+) -> wasmer_result_t {
     let desc = TableDescriptor {
         element: ElementType::Anyfunc,
         minimum: limits.min,
@@ -189,11 +165,11 @@ pub unsafe extern "C" fn wasmer_table_new(
         Ok(table) => table,
         Err(error) => {
             update_last_error(error);
-            return wasmer_table_result_t::WASMER_TABLE_ERROR;
+            return wasmer_result_t::WASMER_ERROR;
         }
     };
     unsafe { *table = Box::into_raw(Box::new(new_table)) as *mut wasmer_table_t };
-    wasmer_table_result_t::WASMER_TABLE_OK
+    wasmer_result_t::WASMER_OK
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -201,14 +177,14 @@ pub unsafe extern "C" fn wasmer_table_new(
 pub extern "C" fn wasmer_table_grow(
     table: *mut wasmer_table_t,
     delta: uint32_t,
-) -> wasmer_table_result_t {
+) -> wasmer_result_t {
     let table = unsafe { Box::from_raw(table as *mut Table) };
     let maybe_delta = table.grow(delta);
     Box::into_raw(table);
     if let Some(_delta) = maybe_delta {
-        wasmer_table_result_t::WASMER_TABLE_OK
+        wasmer_result_t::WASMER_OK
     } else {
-        wasmer_table_result_t::WASMER_TABLE_ERROR
+        wasmer_result_t::WASMER_ERROR
     }
 }
 
@@ -305,10 +281,10 @@ pub unsafe extern "C" fn wasmer_instantiate(
     wasm_bytes: *mut uint8_t,
     wasm_bytes_len: uint32_t,
     import_object: *mut wasmer_import_object_t,
-) -> wasmer_compile_result_t {
+) -> wasmer_result_t {
     let import_object = unsafe { Box::from_raw(import_object as *mut ImportObject) };
     if wasm_bytes.is_null() {
-        return wasmer_compile_result_t::WASMER_COMPILE_ERROR;
+        return wasmer_result_t::WASMER_ERROR;
     }
     let bytes: &[u8] =
         unsafe { ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize) };
@@ -316,12 +292,12 @@ pub unsafe extern "C" fn wasmer_instantiate(
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {
-            return wasmer_compile_result_t::WASMER_COMPILE_ERROR;
+            return wasmer_result_t::WASMER_ERROR;
         }
     };
     unsafe { *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t };
     Box::into_raw(import_object);
-    wasmer_compile_result_t::WASMER_COMPILE_OK
+    wasmer_result_t::WASMER_OK
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -333,17 +309,17 @@ pub unsafe extern "C" fn wasmer_instance_call(
     params_len: c_int,
     results: *mut wasmer_value_t,
     results_len: c_int,
-) -> wasmer_call_result_t {
+) -> wasmer_result_t {
     // TODO handle params and results
     if instance.is_null() {
-        return wasmer_call_result_t::WASMER_CALL_ERROR;
+        return wasmer_result_t::WASMER_ERROR;
     }
     if name.is_null() {
-        return wasmer_call_result_t::WASMER_CALL_ERROR;
+        return wasmer_result_t::WASMER_ERROR;
     }
 
     if params.is_null() {
-        return wasmer_call_result_t::WASMER_CALL_ERROR;
+        return wasmer_result_t::WASMER_ERROR;
     }
 
     let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
@@ -382,11 +358,11 @@ pub unsafe extern "C" fn wasmer_instance_call(
                 };
                 results[0] = ret;
             }
-            wasmer_call_result_t::WASMER_CALL_OK
+            wasmer_result_t::WASMER_OK
         }
         Err(err) => {
             update_last_error(err);
-            wasmer_call_result_t::WASMER_CALL_ERROR
+            wasmer_result_t::WASMER_ERROR
         }
     }
 }

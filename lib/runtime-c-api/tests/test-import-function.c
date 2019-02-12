@@ -39,15 +39,15 @@ int main()
     fclose(file);
 
     wasmer_instance_t *instance = NULL;
-    wasmer_compile_result_t compile_result = wasmer_instantiate(&instance, bytes, len, import_object);
+    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, import_object);
     printf("Compile result:  %d\n", compile_result);
-    assert(compile_result == WASMER_COMPILE_OK);
+    assert(compile_result == WASMER_OK);
 
     wasmer_value_t params[] = {};
     wasmer_value_t results[] = {};
-    wasmer_call_result_t call_result = wasmer_instance_call(instance, "hello_wasm", params, 0, results, 0);
+    wasmer_result_t call_result = wasmer_instance_call(instance, "hello_wasm", params, 0, results, 0);
     printf("Call result:  %d\n", call_result);
-    assert(call_result == WASMER_CALL_OK);
+    assert(call_result == WASMER_OK);
 
     assert(print_str_called);
     assert(memory_len == 17);

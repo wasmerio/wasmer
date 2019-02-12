@@ -9,16 +9,16 @@ int main()
     wasmer_limits_t descriptor;
     descriptor.min = 10;
     descriptor.max = 15;
-    wasmer_memory_result_t memory_result = wasmer_memory_new(&memory, descriptor);
+    wasmer_result_t memory_result = wasmer_memory_new(&memory, descriptor);
     printf("Memory result:  %d\n", memory_result);
-    assert(memory_result == WASMER_MEMORY_OK);
+    assert(memory_result == WASMER_OK);
 
     uint32_t len = wasmer_memory_length(memory);
     printf("Memory pages length:  %d\n", len);
     assert(len == 10);
 
-    wasmer_memory_result_t grow_result = wasmer_memory_grow(memory, 2);
-    assert(grow_result == WASMER_MEMORY_OK);
+    wasmer_result_t grow_result = wasmer_memory_grow(memory, 2);
+    assert(grow_result == WASMER_OK);
 
     uint32_t new_len =  wasmer_memory_length(memory);
     printf("Memory pages length:  %d\n", new_len);
@@ -29,8 +29,8 @@ int main()
     assert(bytes_len  == 12 * 65536);
 
     // Err, grow beyond max
-    wasmer_memory_result_t grow_result2 = wasmer_memory_grow(memory, 10);
-    assert(grow_result2 == WASMER_MEMORY_ERROR);
+    wasmer_result_t grow_result2 = wasmer_memory_grow(memory, 10);
+    assert(grow_result2 == WASMER_ERROR);
 //    int error_len = wasmer_last_error_length();
 //    char *error_str = malloc(error_len);
 //    wasmer_last_error_message(error_str, error_len);
@@ -42,7 +42,7 @@ int main()
 //    wasmer_limits_t bad_descriptor;
 //    bad_descriptor.min = 15;
 //    bad_descriptor.max = 10;
-//    wasmer_memory_result_t bad_memory_result = wasmer_memory_new(&bad_memory, bad_descriptor);
+//    wasmer_result_t bad_memory_result = wasmer_memory_new(&bad_memory, bad_descriptor);
 //    printf("Bad memory result:  %d\n", bad_memory_result);
 //    assert(memory_result == WASMER_MEMORY_ERROR);
 //
