@@ -85,6 +85,7 @@ pub struct wasmer_limits_t {
     pub max: uint32_t,
 }
 
+/// Returns true for valid wasm bytes and false for invalid bytes
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_validate(
@@ -99,11 +100,22 @@ pub unsafe extern "C" fn wasmer_validate(
     wasmer_runtime_core::validate(bytes)
 }
 
+/// Creates a new ImportObject and returns a pointer to it.
+/// The caller owns the object and should call `wasmer_import_object_destroy` to free it.
 #[no_mangle]
 pub extern "C" fn wasmer_import_object_new() -> *mut wasmer_import_object_t {
     Box::into_raw(Box::new(ImportObject::new())) as *mut wasmer_import_object_t
 }
 
+/// Creates a new Memory for the given descriptor and initializes the given
+/// pointer to pointer to a pointer to the new memory.
+///
+/// The caller owns the object and should call `wasmer_memory_destroy` to free it.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_memory_new(
     mut memory: *mut *mut wasmer_memory_t,
@@ -126,6 +138,12 @@ pub unsafe extern "C" fn wasmer_memory_new(
     wasmer_result_t::WASMER_OK
 }
 
+/// Grows a Memory by the given number of pages.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_grow(
@@ -145,6 +163,7 @@ pub extern "C" fn wasmer_memory_grow(
     }
 }
 
+/// Returns the current length in pages of the given memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t {
@@ -154,6 +173,15 @@ pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t
     len
 }
 
+/// Creates a new Table for the given descriptor and initializes the given
+/// pointer to pointer to a pointer to the new Table.
+///
+/// The caller owns the object and should call `wasmer_table_destroy` to free it.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_table_new(
     mut table: *mut *mut wasmer_table_t,
@@ -176,6 +204,12 @@ pub unsafe extern "C" fn wasmer_table_new(
     wasmer_result_t::WASMER_OK
 }
 
+/// Grows a Table by the given number of elements.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_table_grow(
@@ -195,6 +229,7 @@ pub extern "C" fn wasmer_table_grow(
     }
 }
 
+/// Returns the current length of the given Table
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
@@ -204,6 +239,7 @@ pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
     len
 }
 
+/// Frees memory for the given Table
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_table_destroy(table: *mut wasmer_table_t) {
@@ -212,6 +248,8 @@ pub extern "C" fn wasmer_table_destroy(table: *mut wasmer_table_t) {
     }
 }
 
+/// Creates a new Global and returns a pointer to it.
+/// The caller owns the object and should call `wasmer_global_destroy` to free it.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_global_new(
     value: wasmer_value_t,
@@ -225,6 +263,7 @@ pub unsafe extern "C" fn wasmer_global_new(
     unsafe { Box::into_raw(Box::new(global)) as *mut wasmer_global_t }
 }
 
+/// Gets the value stored by the given Global
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_global_get(global: *mut wasmer_global_t) -> wasmer_value_t {
@@ -234,6 +273,7 @@ pub extern "C" fn wasmer_global_get(global: *mut wasmer_global_t) -> wasmer_valu
     value
 }
 
+/// Sets the value stored by the given Global
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_global_set(global: *mut wasmer_global_t, value: wasmer_value_t) {
@@ -242,6 +282,7 @@ pub extern "C" fn wasmer_global_set(global: *mut wasmer_global_t, value: wasmer_
     Box::into_raw(global);
 }
 
+/// Returns a descriptor (type, mutability) of the given Global
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_global_get_descriptor(
@@ -257,6 +298,7 @@ pub extern "C" fn wasmer_global_get_descriptor(
     desc
 }
 
+/// Frees memory for the given Global
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
@@ -265,6 +307,7 @@ pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
     }
 }
 
+/// Frees memory for the given ImportObject
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import_object_t) {
@@ -273,6 +316,7 @@ pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import
     }
 }
 
+/// Frees memory for the given Memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_destroy(memory: *mut wasmer_memory_t) {
@@ -281,6 +325,12 @@ pub extern "C" fn wasmer_memory_destroy(memory: *mut wasmer_memory_t) {
     }
 }
 
+/// Creates a new Instance from the given wasm bytes and imports.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instantiate(
@@ -315,6 +365,13 @@ pub unsafe extern "C" fn wasmer_instantiate(
     wasmer_result_t::WASMER_OK
 }
 
+/// Calls an instances exported function by `name` with the provided parameters.
+/// Results are set using the provided `results` pointer.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instance_call(
@@ -387,6 +444,12 @@ pub unsafe extern "C" fn wasmer_instance_call(
     }
 }
 
+/// Registers a `func` with provided `name` and `namespace` into the ImportObject.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_imports_set_import_func(
@@ -428,6 +491,8 @@ pub unsafe extern "C" fn wasmer_imports_set_import_func(
     //    };
 }
 
+/// Gets the memory within the context at the index `memory_idx`.
+/// The index is always 0 until multiple memories are supported.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_memory(
@@ -439,6 +504,7 @@ pub extern "C" fn wasmer_instance_context_memory(
     memory as *const Memory as *const wasmer_memory_t
 }
 
+/// Gets the start pointer to the bytes within a Memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_data(mem: *mut wasmer_memory_t) -> *mut uint8_t {
@@ -447,6 +513,7 @@ pub extern "C" fn wasmer_memory_data(mem: *mut wasmer_memory_t) -> *mut uint8_t 
     unsafe { ((*memory).view::<u8>()[..]).as_ptr() as *mut Cell<u8> as *mut u8 }
 }
 
+/// Gets the size in bytes of a Memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> uint32_t {
@@ -455,6 +522,7 @@ pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> uint32
     len as uint32_t
 }
 
+/// Frees memory for the given Instance
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_destroy(instance: *mut wasmer_instance_t) {
@@ -555,6 +623,15 @@ fn take_last_error() -> Option<Box<Error>> {
     LAST_ERROR.with(|prev| prev.borrow_mut().take())
 }
 
+/// Gets the length in bytes of the last error.
+/// This can be used to dynamically allocate a buffer with the correct number of
+/// bytes needed to store a message.
+///
+/// # Example
+/// ```
+/// int error_len = wasmer_last_error_length();
+/// char *error_str = malloc(error_len);
+/// ```
 #[no_mangle]
 pub extern "C" fn wasmer_last_error_length() -> c_int {
     LAST_ERROR.with(|prev| match *prev.borrow() {
@@ -563,6 +640,19 @@ pub extern "C" fn wasmer_last_error_length() -> c_int {
     })
 }
 
+/// Stores the last error message into the provided buffer up to the given `length`.
+/// The `length` parameter must be large enough to store the last error message.
+///
+/// Returns the length of the string in bytes.
+/// Returns `-1` if an error occurs.
+///
+/// # Example
+/// ```
+/// int error_len = wasmer_last_error_length();
+/// char *error_str = malloc(error_len);
+/// wasmer_last_error_message(error_str, error_len);
+/// printf("Error str: `%s`\n", error_str);
+/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: c_int) -> c_int {
     if buffer.is_null() {
