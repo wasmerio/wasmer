@@ -5,6 +5,7 @@ use libc::{c_char, c_int, int32_t, int64_t, uint32_t, uint8_t};
 use std::cell::RefCell;
 use std::error::Error;
 use std::ffi::CStr;
+use std::fmt;
 use std::slice;
 use std::str;
 use std::sync::Arc;
@@ -137,6 +138,9 @@ pub extern "C" fn wasmer_memory_grow(
     if let Some(_delta) = maybe_delta {
         wasmer_result_t::WASMER_OK
     } else {
+        update_last_error(CApiError {
+            msg: "unable to grow memory".to_string(),
+        });
         wasmer_result_t::WASMER_ERROR
     }
 }
@@ -184,6 +188,9 @@ pub extern "C" fn wasmer_table_grow(
     if let Some(_delta) = maybe_delta {
         wasmer_result_t::WASMER_OK
     } else {
+        update_last_error(CApiError {
+            msg: "unable to grow table".to_string(),
+        });
         wasmer_result_t::WASMER_ERROR
     }
 }
@@ -284,6 +291,9 @@ pub unsafe extern "C" fn wasmer_instantiate(
 ) -> wasmer_result_t {
     let import_object = unsafe { Box::from_raw(import_object as *mut ImportObject) };
     if wasm_bytes.is_null() {
+        update_last_error(CApiError {
+            msg: "wasm bytes ptr is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     }
     let bytes: &[u8] =
@@ -292,6 +302,11 @@ pub unsafe extern "C" fn wasmer_instantiate(
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {
+            // TODO the trait bound `wasmer_runtime::error::Error: std::error::Error` is not satisfied
+            //update_last_error(error);
+            update_last_error(CApiError {
+                msg: "error instantiating".to_string(),
+            });
             return wasmer_result_t::WASMER_ERROR;
         }
     };
@@ -310,22 +325,27 @@ pub unsafe extern "C" fn wasmer_instance_call(
     results: *mut wasmer_value_t,
     results_len: c_int,
 ) -> wasmer_result_t {
-    // TODO handle params and results
     if instance.is_null() {
+        update_last_error(CApiError {
+            msg: "instance ptr is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     }
     if name.is_null() {
+        update_last_error(CApiError {
+            msg: "name ptr is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     }
-
     if params.is_null() {
+        update_last_error(CApiError {
+            msg: "params ptr is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     }
 
     let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
-    // TODO Fix this conversion and params
     let params: Vec<Value> = params.iter().cloned().map(|x| x.into()).collect();
-    //    let params= &[Value::I32(3), Value::I32(4)];
 
     let func_name_c = unsafe { CStr::from_ptr(name) };
     let func_name_r = func_name_c.to_str().unwrap();
@@ -576,3 +596,16 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
 
     error_message.len() as c_int
 }
+
+#[derive(Debug)]
+struct CApiError {
+    msg: String,
+}
+
+impl fmt::Display for CApiError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", &self.msg)
+    }
+}
+
+impl Error for CApiError {}
