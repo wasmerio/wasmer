@@ -51,6 +51,7 @@ pub struct X64FunctionCode {
     begin_label: DynamicLabel,
     cleanup_label: DynamicLabel,
     assembler: Option<Assembler>,
+    returns: Vec<WpType>,
     locals: Vec<Local>,
     num_params: usize,
     current_stack_offset: usize,
@@ -94,6 +95,7 @@ impl ModuleCodeGenerator<X64FunctionCode> for X64ModuleCodeGenerator {
             begin_label: begin_label,
             cleanup_label: assembler.new_dynamic_label(),
             assembler: Some(assembler),
+            returns: vec![],
             locals: vec![],
             num_params: 0,
             current_stack_offset: 0,
@@ -101,6 +103,15 @@ impl ModuleCodeGenerator<X64FunctionCode> for X64ModuleCodeGenerator {
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
+    }
+
+    fn finalize(&mut self) -> Result<(), CodegenError> {
+        let mut assembler = match self.functions.last_mut() {
+            Some(x) => x.assembler.take().unwrap(),
+            None => return Ok(()),
+        };
+        let output = assembler.finalize().unwrap();
+        Ok(())
     }
 }
 
@@ -121,6 +132,11 @@ impl X64FunctionCode {
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
+    fn feed_return(&mut self, ty: WpType) -> Result<(), CodegenError> {
+        self.returns.push(ty);
+        Ok(())
+    }
+
     fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError> {
         let assembler = self.assembler.as_mut().unwrap();
         let size = get_size_of_type(&ty)?;
@@ -246,8 +262,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         message: "I32Add type mismatch",
                     });
                 }
-                Self::gen_rt_pop(assembler, &b);
-                Self::gen_rt_pop(assembler, &a);
+                Self::gen_rt_pop(assembler, &b)?;
+                Self::gen_rt_pop(assembler, &a)?;
 
                 self.value_stack.push(WpType::I32);
 
@@ -268,6 +284,35 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::Drop => {
                 let info = self.value_stack.pop()?;
                 Self::gen_rt_pop(assembler, &info)?;
+            }
+            Operator::Return => match self.returns.len() {
+                0 => {}
+                1 => {
+                    let val = self.value_stack.pop()?;
+                    let ty = self.returns[0];
+                    let reg = val.location.get_register()?;
+                    if is_dword(get_size_of_type(&ty)?) {
+                        dynasm!(
+                            assembler
+                            ; mov eax, Rd(Register::from_scratch_reg(reg) as u8)
+                            ; jmp =>self.cleanup_label
+                        );
+                    } else {
+                        dynasm!(
+                            assembler
+                            ; mov rax, Rq(Register::from_scratch_reg(reg) as u8)
+                            ; jmp =>self.cleanup_label
+                        );
+                    }
+                }
+                _ => {
+                    return Err(CodegenError {
+                        message: "multiple return values is not yet supported",
+                    })
+                }
+            },
+            Operator::End => {
+                // todo
             }
             _ => unimplemented!(),
         }
