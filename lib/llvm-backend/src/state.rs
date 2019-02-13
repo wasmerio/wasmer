@@ -6,33 +6,73 @@ use smallvec::SmallVec;
 use std::cell::Cell;
 use wasmparser::BinaryReaderError;
 
+#[derive(Debug)]
 pub enum ControlFrame {
     Block {
-        end_label: BasicBlock,
+        next: BasicBlock,
         phis: SmallVec<[PhiValue; 1]>,
         stack_size_snapshot: usize,
     },
+    Loop {
+        body: BasicBlock,
+        next: BasicBlock,
+        phis: SmallVec<[PhiValue; 1]>,
+        stack_size_snapshot: usize,
+    },
+    IfElse {
+        if_then: BasicBlock,
+        if_else: BasicBlock,
+        next: BasicBlock,
+        phis: SmallVec<[PhiValue; 1]>,
+        stack_size_snapshot: usize,
+        if_else_state: IfElseState,
+    },
+}
+
+#[derive(Debug)]
+pub enum IfElseState {
+    If,
+    Else,
 }
 
 impl ControlFrame {
-    pub fn dest(&self) -> &BasicBlock {
+    pub fn code_after(&self) -> &BasicBlock {
         match self {
-            ControlFrame::Block { ref end_label, .. } => end_label,
+            ControlFrame::Block { ref next, .. }
+            | ControlFrame::Loop { ref next, .. }
+            | ControlFrame::IfElse { ref next, .. } => next,
+        }
+    }
+
+    pub fn br_dest(&self) -> &BasicBlock {
+        match self {
+            ControlFrame::Block { ref next, .. } | ControlFrame::IfElse { ref next, .. } => next,
+            ControlFrame::Loop { ref body, .. } => body,
         }
     }
 
     pub fn phis(&self) -> &[PhiValue] {
         match self {
-            ControlFrame::Block { ref phis, .. } => phis.as_slice(),
+            ControlFrame::Block { ref phis, .. }
+            | ControlFrame::Loop { ref phis, .. }
+            | ControlFrame::IfElse { ref phis, .. } => phis.as_slice(),
+        }
+    }
+
+    pub fn is_loop(&self) -> bool {
+        match self {
+            ControlFrame::Loop { .. } => true,
+            _ => false,
         }
     }
 }
 
+#[derive(Debug)]
 pub struct State {
     stack: Vec<BasicValueEnum>,
     control_stack: Vec<ControlFrame>,
     value_counter: Cell<usize>,
-    block_counter: Cell<usize>,
+    pub reachable: bool,
 }
 
 impl State {
@@ -41,7 +81,7 @@ impl State {
             stack: vec![],
             control_stack: vec![],
             value_counter: Cell::new(0),
-            block_counter: Cell::new(0),
+            reachable: true,
         }
     }
 
@@ -50,9 +90,24 @@ impl State {
             ControlFrame::Block {
                 stack_size_snapshot,
                 ..
+            }
+            | ControlFrame::Loop {
+                stack_size_snapshot,
+                ..
+            }
+            | ControlFrame::IfElse {
+                stack_size_snapshot,
+                ..
             } => *stack_size_snapshot,
         };
         self.stack.truncate(stack_size_snapshot);
+    }
+
+    pub fn outermost_frame(&self) -> Result<&ControlFrame, BinaryReaderError> {
+        self.control_stack.get(0).ok_or(BinaryReaderError {
+            message: "invalid control stack depth",
+            offset: -1isize as usize,
+        })
     }
 
     pub fn frame_at_depth(&self, depth: u32) -> Result<&ControlFrame, BinaryReaderError> {
@@ -63,18 +118,22 @@ impl State {
         })
     }
 
+    pub fn frame_at_depth_mut(
+        &mut self,
+        depth: u32,
+    ) -> Result<&mut ControlFrame, BinaryReaderError> {
+        let index = self.control_stack.len() - 1 - (depth as usize);
+        self.control_stack.get_mut(index).ok_or(BinaryReaderError {
+            message: "invalid control stack depth",
+            offset: -1isize as usize,
+        })
+    }
+
     pub fn pop_frame(&mut self) -> Result<ControlFrame, BinaryReaderError> {
         self.control_stack.pop().ok_or(BinaryReaderError {
             message: "cannot pop from control stack",
             offset: -1isize as usize,
         })
-    }
-
-    pub fn block_name(&self) -> String {
-        let counter = self.block_counter.get();
-        let s = format!("block{}", counter);
-        self.block_counter.set(counter + 1);
-        s
     }
 
     pub fn var_name(&self) -> String {
@@ -129,6 +188,12 @@ impl State {
             })
     }
 
+    pub fn popn_save(&mut self, n: usize) -> Result<Vec<BasicValueEnum>, BinaryReaderError> {
+        let v = self.peekn(n)?.to_vec();
+        self.popn(n)?;
+        Ok(v)
+    }
+
     pub fn popn(&mut self, n: usize) -> Result<(), BinaryReaderError> {
         if self.stack.len() < n {
             return Err(BinaryReaderError {
@@ -142,11 +207,37 @@ impl State {
         Ok(())
     }
 
-    pub fn push_block(&mut self, end_label: BasicBlock, phis: SmallVec<[PhiValue; 1]>) {
+    pub fn push_block(&mut self, next: BasicBlock, phis: SmallVec<[PhiValue; 1]>) {
         self.control_stack.push(ControlFrame::Block {
-            end_label,
+            next,
             phis,
             stack_size_snapshot: self.stack.len(),
+        });
+    }
+
+    pub fn push_loop(&mut self, body: BasicBlock, next: BasicBlock, phis: SmallVec<[PhiValue; 1]>) {
+        self.control_stack.push(ControlFrame::Loop {
+            body,
+            next,
+            phis,
+            stack_size_snapshot: self.stack.len(),
+        });
+    }
+
+    pub fn push_if(
+        &mut self,
+        if_then: BasicBlock,
+        if_else: BasicBlock,
+        next: BasicBlock,
+        phis: SmallVec<[PhiValue; 1]>,
+    ) {
+        self.control_stack.push(ControlFrame::IfElse {
+            if_then,
+            if_else,
+            next,
+            phis,
+            stack_size_snapshot: self.stack.len(),
+            if_else_state: IfElseState::If,
         });
     }
 }

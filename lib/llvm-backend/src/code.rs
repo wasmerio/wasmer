@@ -2,21 +2,22 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
+    passes::PassManager,
     types::{BasicType, BasicTypeEnum, FunctionType},
-    values::{BasicValue, FunctionValue},
+    values::{BasicValue, FunctionValue, PhiValue},
     FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 use wasmer_runtime_core::{
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
-    types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type},
+    types::{FuncIndex, MemoryIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, MemoryType},
 };
 use wasmparser::{BinaryReaderError, CodeSectionReader, LocalsReader, Operator, OperatorsReader};
 
 use crate::intrinsics::Intrinsics;
 use crate::read_info::type_to_type;
-use crate::state::State;
+use crate::state::{ControlFrame, IfElseState, State};
 
 fn func_sig_to_llvm(context: &Context, intrinsics: &Intrinsics, sig: &FuncSig) -> FunctionType {
     let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
@@ -116,10 +117,37 @@ fn parse_function(
     let llvm_sig = &signatures[sig_index];
 
     let function = functions[func_index];
-    let entry_block = context.append_basic_block(&function, "entry");
-    builder.position_at_end(&entry_block);
-
     let mut state = State::new();
+    let entry_block = context.append_basic_block(&function, "entry");
+
+    let return_block = context.append_basic_block(&function, "return");
+    builder.position_at_end(&return_block);
+
+    let phis: SmallVec<[PhiValue; 1]> = func_sig
+        .returns()
+        .iter()
+        .map(|&wasmer_ty| type_to_llvm(intrinsics, wasmer_ty))
+        .map(|ty| builder.build_phi(ty, &state.var_name()))
+        .collect();
+
+    match phis.as_slice() {
+        // No returns.
+        &[] => {
+            builder.build_return(None);
+        }
+        &[one_value] => {
+            let value = one_value.as_basic_value();
+            builder.build_return(Some(&value));
+        }
+        returns @ _ => {
+            // let struct_ty = llvm_sig.get_return_type().as_struct_type();
+            // let ret_struct = struct_ty.const_zero();
+            unimplemented!("multi-value returns not yet implemented")
+        }
+    }
+
+    state.push_block(return_block, phis);
+    builder.position_at_end(&entry_block);
 
     let mut locals = Vec::with_capacity(locals_reader.get_count() as usize);
     locals.extend(function.get_param_iter().enumerate().map(|(index, param)| {
@@ -163,7 +191,7 @@ fn parse_function(
                     offset: -1isize as usize,
                 })?;
 
-                let end_block = context.append_basic_block(&function, &state.block_name());
+                let end_block = context.append_basic_block(&function, "end");
                 builder.position_at_end(&end_block);
 
                 let phis = if let Ok(wasmer_ty) = type_to_type(ty) {
@@ -180,12 +208,24 @@ fn parse_function(
                 builder.position_at_end(&current_block);
             }
             Operator::Loop { ty } => {
+                let loop_body = context.append_basic_block(&function, "loop_body");
+                let loop_next = context.append_basic_block(&function, "loop_outer");
 
-                // let loop_body = context.append_basic_block(&function, &state.block_name());
-                // let next = context.append_basic_block(&function, &state.block_name());
-                // builder.build_unconditional_branch(&body);
-                // let num_return_values = if ty == wasmparser::Type::EmptyBlockType { 0 } else { 1 };
-                // state.push_loop(loop_body, next, num_return_values);
+                builder.build_unconditional_branch(&loop_body);
+
+                builder.position_at_end(&loop_next);
+                let phis = if let Ok(wasmer_ty) = type_to_type(ty) {
+                    let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
+                    [llvm_ty]
+                        .iter()
+                        .map(|&ty| builder.build_phi(ty, &state.var_name()))
+                        .collect()
+                } else {
+                    SmallVec::new()
+                };
+
+                builder.position_at_end(&loop_body);
+                state.push_loop(loop_body, loop_next, phis);
             }
             Operator::Br { relative_depth } => {
                 let frame = state.frame_at_depth(relative_depth)?;
@@ -195,7 +235,13 @@ fn parse_function(
                     offset: -1isize as usize,
                 })?;
 
-                let values = state.peekn(frame.phis().len())?;
+                let value_len = if frame.is_loop() {
+                    0
+                } else {
+                    frame.phis().len()
+                };
+
+                let values = state.peekn(value_len)?;
 
                 // For each result of the block we're branching to,
                 // pop a value off the value stack and load it into
@@ -204,11 +250,10 @@ fn parse_function(
                     phi.add_incoming(&[(value, &current_block)]);
                 }
 
-                builder.build_unconditional_branch(frame.dest());
+                builder.build_unconditional_branch(frame.br_dest());
 
-                state.popn(frame.phis().len())?;
-
-                builder.build_unreachable();
+                state.popn(value_len)?;
+                state.reachable = false;
             }
             Operator::BrIf { relative_depth } => {
                 let cond = state.pop1()?;
@@ -219,13 +264,19 @@ fn parse_function(
                     offset: -1isize as usize,
                 })?;
 
-                let param_stack = state.peekn(frame.phis().len())?;
+                let value_len = if frame.is_loop() {
+                    0
+                } else {
+                    frame.phis().len()
+                };
+
+                let param_stack = state.peekn(value_len)?;
 
                 for (phi, value) in frame.phis().iter().zip(param_stack.iter()) {
                     phi.add_incoming(&[(value, &current_block)]);
                 }
 
-                let false_block = context.append_basic_block(&function, &state.block_name());
+                let else_block = context.append_basic_block(&function, "else");
 
                 let cond_value = builder.build_int_compare(
                     IntPredicate::NE,
@@ -233,8 +284,8 @@ fn parse_function(
                     intrinsics.i32_zero,
                     &state.var_name(),
                 );
-                builder.build_conditional_branch(cond_value, frame.dest(), &false_block);
-                builder.position_at_end(&false_block);
+                builder.build_conditional_branch(cond_value, frame.br_dest(), &else_block);
+                builder.position_at_end(&else_block);
             }
             Operator::BrTable { ref table } => {
                 let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
@@ -268,25 +319,131 @@ fn parse_function(
                             phi.add_incoming(&[(value, &current_block)]);
                         }
 
-                        Ok((case_index_literal, frame.dest()))
+                        Ok((case_index_literal, frame.br_dest()))
                     })
                     .collect::<Result<_, _>>()?;
 
-                builder.build_switch(index.into_int_value(), default_frame.dest(), &cases[..]);
+                builder.build_switch(index.into_int_value(), default_frame.br_dest(), &cases[..]);
 
                 state.popn(res_len)?;
                 builder.build_unreachable();
             }
+            Operator::If { ty } => {
+                let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
+                    message: "not currently in a block",
+                    offset: -1isize as usize,
+                })?;
+                let if_then_block = context.append_basic_block(&function, "if_then");
+                let if_else_block = context.append_basic_block(&function, "if_else");
+                let end_block = context.append_basic_block(&function, "if_end");
+
+                let end_phis = {
+                    builder.position_at_end(&end_block);
+
+                    let phis = if let Ok(wasmer_ty) = type_to_type(ty) {
+                        let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
+                        [llvm_ty]
+                            .iter()
+                            .map(|&ty| builder.build_phi(ty, &state.var_name()))
+                            .collect()
+                    } else {
+                        SmallVec::new()
+                    };
+
+                    builder.position_at_end(&current_block);
+                    phis
+                };
+
+                let cond = state.pop1()?;
+
+                let cond_value = builder.build_int_compare(
+                    IntPredicate::NE,
+                    cond.into_int_value(),
+                    intrinsics.i32_zero,
+                    &state.var_name(),
+                );
+
+                builder.build_conditional_branch(cond_value, &if_then_block, &if_else_block);
+                builder.position_at_end(&if_then_block);
+                state.push_if(if_then_block, if_else_block, end_block, end_phis);
+            }
+            Operator::Else => {
+                if state.reachable {
+                    let frame = state.frame_at_depth(0)?;
+                    builder.build_unconditional_branch(frame.code_after());
+                    let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
+                        message: "not currently in a block",
+                        offset: -1isize as usize,
+                    })?;
+
+                    for phi in frame.phis().to_vec().iter().rev() {
+                        let value = state.pop1()?;
+                        phi.add_incoming(&[(&value, &current_block)])
+                    }
+                }
+
+                let (if_else_block, if_else_state) = if let ControlFrame::IfElse {
+                    if_else,
+                    if_else_state,
+                    ..
+                } = state.frame_at_depth_mut(0)?
+                {
+                    (if_else, if_else_state)
+                } else {
+                    unreachable!()
+                };
+
+                *if_else_state = IfElseState::Else;
+
+                builder.position_at_end(if_else_block);
+                state.reachable = true;
+            }
 
             Operator::End => {
                 let frame = state.pop_frame()?;
+                let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
+                    message: "not currently in a block",
+                    offset: -1isize as usize,
+                })?;
+
+                if state.reachable {
+                    builder.build_unconditional_branch(frame.code_after());
+
+                    for phi in frame.phis().iter().rev() {
+                        let value = state.pop1()?;
+                        phi.add_incoming(&[(&value, &current_block)])
+                    }
+                }
+
+                if let ControlFrame::IfElse {
+                    if_else,
+                    next,
+                    phis,
+                    if_else_state,
+                    ..
+                } = &frame
+                {
+                    if let IfElseState::If = if_else_state {
+                        builder.position_at_end(if_else);
+                        builder.build_unconditional_branch(next);
+                    }
+                }
+
+                builder.position_at_end(frame.code_after());
+                state.reset_stack(&frame);
+
+                state.reachable = true;
 
                 // Push each phi value to the value stack.
                 for phi in frame.phis() {
                     state.push1(phi.as_basic_value());
                 }
+            }
+            Operator::Return => {
+                let frame = state.outermost_frame()?;
 
-                state.reset_stack(&frame);
+                builder.build_unconditional_branch(frame.br_dest());
+                state.reachable = false;
             }
 
             Operator::Unreachable => {
@@ -294,6 +451,7 @@ fn parse_function(
                 // If llvm cannot prove that this is never touched,
                 // it will emit a `ud2` instruction on x86_64 arches.
                 builder.build_unreachable();
+                state.reachable = false;
             }
 
             /***************************
@@ -1021,12 +1179,39 @@ fn parse_function(
                 unimplemented!("waiting on better bitcasting support in inkwell")
             }
 
+            Operator::MemoryGrow { reserved } => {
+
+                let memory_grow_const = intrinsics.i32_ty.const_int(reserved as u64, false);
+
+                let memory_index = MemoryIndex::new(reserved);
+                match memory_index.local_or_import(info) {
+                    LocalOrImport::Local(local_mem_index) => {
+                        let mem_desc = &info.memories[local_mem_index];
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => {
+
+                            }
+                        }
+                    },
+                    LocalOrImport::Import(import_mem_index) => {
+
+                    },
+                }
+            }
+
             op @ _ => {
                 println!("{}", module.print_to_string().to_string());
                 unimplemented!("{:?}", op);
             }
         }
     }
+
+    let pass_manager = PassManager::create_for_module();
+    pass_manager.add_promote_memory_to_register_pass();
+    pass_manager.add_cfg_simplification_pass();
+    pass_manager.run_on_module(module);
+
+    println!("{}", module.print_to_string().to_string());
 
     Ok(())
 }

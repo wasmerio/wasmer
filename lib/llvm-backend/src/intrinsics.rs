@@ -54,6 +54,22 @@ pub struct Intrinsics {
     pub i64_zero: IntValue,
     pub f32_zero: FloatValue,
     pub f64_zero: FloatValue,
+
+    // VM intrinsics.
+    pub memory_grow_dynamic_local: FunctionValue,
+    pub memory_grow_static_local: FunctionValue,
+    pub memory_grow_shared_local: FunctionValue,
+    pub memory_grow_dynamic_import: FunctionValue,
+    pub memory_grow_static_import: FunctionValue,
+    pub memory_grow_shared_import: FunctionValue,
+
+    pub memory_size_dynamic_local: FunctionValue,
+    pub memory_size_static_local: FunctionValue,
+    pub memory_size_shared_local: FunctionValue,
+    pub memory_size_dynamic_import: FunctionValue,
+    pub memory_size_static_import: FunctionValue,
+    pub memory_size_shared_import: FunctionValue,
+    // pub ctx_ty: StructType,
 }
 
 impl Intrinsics {
@@ -64,6 +80,7 @@ impl Intrinsics {
         let i64_ty = context.i64_type();
         let f32_ty = context.f32_type();
         let f64_ty = context.f64_type();
+        // let ctx_ty = context.struct_type(&[], false);
 
         let i1_zero = i1_ty.const_int(0, false);
         let i32_zero = i32_ty.const_int(0, false);
@@ -88,6 +105,9 @@ impl Intrinsics {
 
         let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
         let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
+
+        let ret_i32_take_i64_i32_i32 = i32_ty.fn_type(&[i64_ty, i32_ty, i32_ty], false);
+        let ret_i32_take_i64_i32 = i32_ty.fn_type(&[i64_ty, i32_ty], false);
 
         Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
@@ -138,6 +158,25 @@ impl Intrinsics {
             i64_zero,
             f32_zero,
             f64_zero,
+
+            // VM intrinsics.
+            memory_grow_dynamic_local: module.add_function("vm.memory.grow.dynamic.local", ret_i32_take_i64_i32_i32, None),
+            memory_grow_static_local: module.add_function("vm.memory.grow.static.local", ret_i32_take_i64_i32_i32, None),
+            memory_grow_shared_local: module.add_function("vm.memory.grow.shared.local", ret_i32_take_i64_i32_i32, None),
+            memory_grow_dynamic_import: module.add_function("vm.memory.grow.dynamic.import", ret_i32_take_i64_i32_i32, None),
+            memory_grow_static_import: module.add_function("vm.memory.grow.static.import", ret_i32_take_i64_i32_i32, None),
+            memory_grow_shared_import: module.add_function("vm.memory.grow.shared.import", ret_i32_take_i64_i32_i32, None),
+
+            memory_size_dynamic_local: module.add_function("vm.memory.size.dynamic.local", ret_i32_take_i64_i32, None),
+            memory_size_static_local: module.add_function("vm.memory.size.static.local", ret_i32_take_i64_i32, None),
+            memory_size_shared_local: module.add_function("vm.memory.size.shared.local", ret_i32_take_i64_i32, None),
+            memory_size_dynamic_import: module.add_function("vm.memory.size.dynamic.import", ret_i32_take_i64_i32, None),
+            memory_size_static_import: module.add_function("vm.memory.size.static.import", ret_i32_take_i64_i32, None),
+            memory_size_shared_import: module.add_function("vm.memory.size.shared.import", ret_i32_take_i64_i32, None),
         }
     }
 }
+
+// pub struct CtxType {
+//     ctx_ty: StructType,
+// }

@@ -285,7 +285,12 @@ pub fn type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
                 offset: -1isize as usize,
             });
         }
-        _ => panic!("broken invariant, invalid type"),
+        _ => {
+            return Err(BinaryReaderError {
+                message: "that type is not supported as a wasmer type",
+                offset: -1isize as usize,
+            });
+        }
     })
 }
 
