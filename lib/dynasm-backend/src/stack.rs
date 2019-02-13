@@ -1,3 +1,4 @@
+use crate::codegen::CodegenError;
 use dynasmrt::DynamicLabel;
 use wasmparser::Type as WpType;
 
@@ -51,6 +52,26 @@ pub enum ValueLocation {
     Stack,
 }
 
+impl ValueLocation {
+    pub fn is_register(&self) -> bool {
+        if let ValueLocation::Register(_) = *self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn get_register(&self) -> Result<u8, CodegenError> {
+        if let ValueLocation::Register(id) = *self {
+            Ok(id)
+        } else {
+            Err(CodegenError {
+                message: "not a register location"
+            })
+        }
+    }
+}
+
 impl ValueStack {
     pub fn new(num_regs: u8) -> ValueStack {
         ValueStack {
@@ -85,22 +106,34 @@ impl ValueStack {
         loc
     }
 
-    pub fn pop(&mut self) -> Option<ValueInfo> {
-        self.values.pop()
-    }
-
-    pub fn pop2(&mut self) -> Option<(ValueInfo, ValueInfo)> {
-        if self.values.len() < 2 {
-            None
-        } else {
-            let v2 = self.values.pop().unwrap();
-            let v1 = self.values.pop().unwrap();
-            Some((v1, v2))
+    pub fn pop(&mut self) -> Result<ValueInfo, CodegenError> {
+        match self.values.pop() {
+            Some(x) => Ok(x),
+            None => Err(CodegenError {
+                message: "no value on top of stack",
+            }),
         }
     }
 
-    pub fn peek(&self) -> Option<ValueInfo> {
-        self.values.last().cloned()
+    pub fn pop2(&mut self) -> Result<(ValueInfo, ValueInfo), CodegenError> {
+        if self.values.len() < 2 {
+            Err(CodegenError {
+                message: "less than 2 values on top of stack",
+            })
+        } else {
+            let v2 = self.values.pop().unwrap();
+            let v1 = self.values.pop().unwrap();
+            Ok((v1, v2))
+        }
+    }
+
+    pub fn peek(&self) -> Result<ValueInfo, CodegenError> {
+        match self.values.last().cloned() {
+            Some(x) => Ok(x),
+            None => Err(CodegenError {
+                message: "no value on top of stack",
+            }),
+        }
     }
 
     pub fn reset_depth(&mut self, target_depth: usize) {
