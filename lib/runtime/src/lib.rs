@@ -188,10 +188,10 @@ pub fn compile_cache(wasm: &[u8]) -> error::CompileResult<Cache> {
 #[cfg(feature = "default-compiler")]
 fn default_compiler() -> &'static dyn Compiler {
     use lazy_static::lazy_static;
-    use wasmer_clif_backend::CraneliftCompiler;
+    use wasmer_dynasm_backend::SinglePassCompiler;
 
     lazy_static! {
-        static ref DEFAULT_COMPILER: CraneliftCompiler = { CraneliftCompiler::new() };
+        static ref DEFAULT_COMPILER: SinglePassCompiler = { SinglePassCompiler {} };
     }
 
     &*DEFAULT_COMPILER as &dyn Compiler

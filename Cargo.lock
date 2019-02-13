@@ -896,6 +896,7 @@ version = "0.1.4"
 dependencies = [
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.1.2",
+ "wasmer-dynasm-backend 0.1.0",
  "wasmer-runtime-core 0.1.2",
 ]
 

@@ -41,7 +41,7 @@ impl From<CodegenError> for LoadError {
 pub fn read_module<MCG: ModuleCodeGenerator<FCG>, FCG: FunctionCodeGenerator>(
     wasm: &[u8],
     backend: Backend,
-    mut mcg: MCG,
+    mcg: &mut MCG,
 ) -> Result<ModuleInfo, LoadError> {
     let mut info = ModuleInfo {
         memories: Map::new(),
@@ -72,6 +72,7 @@ pub fn read_module<MCG: ModuleCodeGenerator<FCG>, FCG: FunctionCodeGenerator>(
 
     loop {
         if reader.eof() {
+            mcg.finalize()?;
             return Ok(info);
         }
 
@@ -269,12 +270,14 @@ pub fn read_module<MCG: ModuleCodeGenerator<FCG>, FCG: FunctionCodeGenerator>(
                 for i in 0..code_reader.get_count() {
                     let item = code_reader.read()?;
                     let mut fcg = mcg.next_function()?;
-                    for param in info
+                    let sig = info
                         .signatures
                         .get(*info.func_assoc.get(FuncIndex::new(i as usize)).unwrap())
-                        .unwrap()
-                        .params()
-                    {
+                        .unwrap();
+                    for ret in sig.returns() {
+                        fcg.feed_return(type_to_wp_type(*ret))?;
+                    }
+                    for param in sig.params() {
                         fcg.feed_param(type_to_wp_type(*param))?;
                     }
                     for local in item.get_locals_reader()? {
