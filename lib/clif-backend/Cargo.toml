@@ -9,7 +9,6 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
-wasmer-clif-backend-windows = { path = "../clif-backend-windows", version = "0.0.1" }
 cranelift-native = "0.26.0"
 cranelift-codegen = "0.26.0"
 cranelift-entity = "0.26.0"
@@ -40,6 +39,7 @@ optional = true
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["errhandlingapi", "minwindef", "minwinbase", "winnt"] }
+wasmer-clif-backend-windows = { path = "../clif-backend-windows", version = "0.0.1" }
 
 [features]
 cache = ["serde", "serde_derive", "serde_bytes", "serde-bench", "wasmer-runtime-core/cache"]
