@@ -29,4 +29,5 @@ build_script:
 
 test_script:
   - set RUST_BACKTRACE=1
-  - cargo test --verbose
+  - cd ./lib/spectests && cargo test -- --test-threads 1 && cd ../..
+

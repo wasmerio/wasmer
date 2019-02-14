@@ -27,7 +27,7 @@ wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 
 [workspace]
-members = ["lib/clif-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests"]
+members = ["lib/clif-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler"]
 
 [build-dependencies]
 wabt = "0.7.2"
