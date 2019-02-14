@@ -1,8 +1,6 @@
-use std::fs::remove_file;
 use wabt::wat2wasm;
 use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime_core::{
-    cache::Cache,
     error,
     global::Global,
     memory::Memory,
@@ -15,7 +13,6 @@ use wasmer_runtime_core::{
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
 
 fn main() -> error::Result<()> {
-    let compiler = CraneliftCompiler::new();
     let wasm_binary = wat2wasm(IMPORT_MODULE.as_bytes()).expect("WAST not valid or malformed");
 
     let inner_module = wasmer_runtime_core::compile_with(&wasm_binary, &CraneliftCompiler::new())?;

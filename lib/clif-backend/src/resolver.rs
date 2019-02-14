@@ -223,9 +223,9 @@ impl FuncResolverBuilder {
                         LibCall::TruncF64 => libcalls::truncf64 as isize,
                         LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
                         #[cfg(all(target_pointer_width = "64", target_os = "windows"))]
-                        Probestack => __chkstk as isize,
+                        LibCall::Probestack => __chkstk as isize,
                         #[cfg(not(target_os = "windows"))]
-                        Probestack => __rust_probestack as isize,
+                        LibCall::Probestack => __rust_probestack as isize,
                     },
                     RelocationType::Intrinsic(ref name) => match name.as_str() {
                         "i32print" => i32_print as isize,

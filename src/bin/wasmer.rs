@@ -69,7 +69,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
-    let (_abi, import_object, em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
+    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
             InstanceABI::Emscripten,

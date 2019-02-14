@@ -110,6 +110,7 @@ impl ProtectedCaller for Caller {
             .lookup(sig_index)
             .expect("that trampoline doesn't exist");
 
+        #[cfg(not(target_os = "windows"))]
         call_protected(&self.handler_data, || unsafe {
             // Leap of faith.
             trampoline(
@@ -119,6 +120,17 @@ impl ProtectedCaller for Caller {
                 return_vec.as_mut_ptr(),
             );
         })?;
+
+        // the trampoline is called from C on windows
+        #[cfg(target_os = "windows")]
+        call_protected(
+            &self.handler_data,
+            trampoline,
+            vmctx_ptr,
+            func_ptr,
+            param_vec.as_ptr(),
+            return_vec.as_mut_ptr(),
+        )?;
 
         Ok(return_vec
             .iter()
