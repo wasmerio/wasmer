@@ -113,6 +113,11 @@ fn main() {
     let options = CLIOptions::from_args();
     match options {
         CLIOptions::Run(options) => run(options),
+        #[cfg(not(target_os = "windows"))]
         CLIOptions::SelfUpdate => update::self_update(),
+        #[cfg(target_os = "windows")]
+        CLIOptions::SelfUpdate => {
+            println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
+        }
     }
 }
