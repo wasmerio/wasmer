@@ -21,6 +21,7 @@ enum CLIOptions {
     Run(Run),
 
     /// Update wasmer to the latest version
+    #[cfg(not(target_os = "windows"))]
     #[structopt(name = "self-update")]
     SelfUpdate,
 }
@@ -113,6 +114,7 @@ fn main() {
     let options = CLIOptions::from_args();
     match options {
         CLIOptions::Run(options) => run(options),
+        #[cfg(not(target_os = "windows"))]
         CLIOptions::SelfUpdate => update::self_update(),
     }
 }
