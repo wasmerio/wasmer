@@ -1,8 +1,11 @@
 use crate::relocation::{TrapCode, TrapData};
 use crate::signal::HandlerData;
-use std::ffi::c_void;
+use crate::trampoline::Trampoline;
 use std::cell::Cell;
+use std::ffi::c_void;
 use std::ptr;
+use wasmer_clif_backend_windows::CallProtectedData;
+pub use wasmer_clif_backend_windows::_call_protected;
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::vm::Func;
 use wasmer_runtime_core::{
@@ -17,9 +20,6 @@ use winapi::um::minwinbase::{
     EXCEPTION_FLT_STACK_CHECK, EXCEPTION_FLT_UNDERFLOW, EXCEPTION_ILLEGAL_INSTRUCTION,
     EXCEPTION_INT_DIVIDE_BY_ZERO, EXCEPTION_INT_OVERFLOW, EXCEPTION_STACK_OVERFLOW,
 };
-use crate::trampoline::Trampoline;
-use wasmer_clif_backend_windows::CallProtectedData;
-pub use wasmer_clif_backend_windows::_call_protected;
 
 thread_local! {
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
@@ -33,7 +33,6 @@ pub fn call_protected(
     param_vec: *const u64,
     return_vec: *mut u64,
 ) -> RuntimeResult<()> {
-
     // TODO: trap early
     // user code error
     //    if let Some(msg) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
