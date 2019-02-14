@@ -1,7 +1,7 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
 use std::sync::Arc;
 use wasmer_runtime_core::{
-    backend::Backend,
+    backend::{Backend, ProtectedCaller},
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -38,7 +38,11 @@ impl From<CodegenError> for LoadError {
     }
 }
 
-pub fn read_module<MCG: ModuleCodeGenerator<FCG>, FCG: FunctionCodeGenerator>(
+pub fn read_module<
+    MCG: ModuleCodeGenerator<FCG, PC>,
+    FCG: FunctionCodeGenerator,
+    PC: ProtectedCaller,
+>(
     wasm: &[u8],
     backend: Backend,
     mcg: &mut MCG,
@@ -72,7 +76,6 @@ pub fn read_module<MCG: ModuleCodeGenerator<FCG>, FCG: FunctionCodeGenerator>(
 
     loop {
         if reader.eof() {
-            mcg.finalize()?;
             return Ok(info);
         }
 
@@ -285,9 +288,17 @@ pub fn read_module<MCG: ModuleCodeGenerator<FCG>, FCG: FunctionCodeGenerator>(
                         fcg.feed_local(ty, count as usize)?;
                     }
                     fcg.begin_body()?;
+                    let mut last_is_return = false;
                     for op in item.get_operators_reader()? {
                         let op = op?;
+                        last_is_return = match op {
+                            Operator::Return => true,
+                            _ => false,
+                        };
                         fcg.feed_opcode(op)?;
+                    }
+                    if !last_is_return {
+                        fcg.feed_opcode(Operator::Return)?;
                     }
                     fcg.finalize()?;
                 }
