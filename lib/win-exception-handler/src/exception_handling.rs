@@ -45,11 +45,9 @@ pub fn _call_protected(
             &mut out_result,
         )
     };
-    println!("result from __call_protected: {}", result);
     if result == 1 {
         Ok(())
     } else {
-        println!("returning error from _call_protected");
         Err(out_result)
     }
 }
