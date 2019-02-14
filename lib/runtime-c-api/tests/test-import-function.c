@@ -8,11 +8,13 @@ static memory_len = 0;
 static ptr_len = 0;
 static char actual_str[14] = {};
 
-void print_str(int32_t ptr, int32_t len, wasmer_instance_context_t *ctx) {
+void print_str(int32_t ptr, int32_t len, wasmer_instance_context_t *ctx)
+{
     wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
     uint32_t mem_len = wasmer_memory_length(memory);
     uint8_t *mem_bytes = wasmer_memory_data(memory);
-    for(int32_t idx = 0; idx < len; idx++){
+    for (int32_t idx = 0; idx < len; idx++)
+    {
         actual_str[idx] = mem_bytes[ptr + idx];
     }
     actual_str[13] = '\0';
@@ -54,8 +56,8 @@ int main()
     assert(ptr_len == 13);
     assert(0 == strcmp(actual_str, "Hello, World!"));
 
-    printf("Destroy instance\n");
-    wasmer_instance_destroy(instance);
+    // printf("Destroy instance\n");
+    // wasmer_instance_destroy(instance);
     printf("Destroy import object\n");
     wasmer_import_object_destroy(import_object);
     return 0;

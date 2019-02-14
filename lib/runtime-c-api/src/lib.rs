@@ -5,6 +5,7 @@ use libc::{c_char, c_int, int32_t, int64_t, uint32_t, uint8_t};
 use std::cell::RefCell;
 use std::error::Error;
 use std::ffi::CStr;
+use std::ffi::CString;
 use std::fmt;
 use std::slice;
 use std::str;
@@ -77,12 +78,57 @@ pub struct wasmer_table_t();
 
 #[repr(C)]
 #[derive(Clone)]
+pub struct wasmer_func_t();
+
+#[repr(C)]
+#[derive(Clone)]
 pub struct wasmer_global_t();
 
 #[repr(C)]
 pub struct wasmer_limits_t {
     pub min: uint32_t,
     pub max: uint32_t,
+}
+
+#[repr(C)]
+pub struct wasmer_func_signature {
+    pub params: *const wasmer_value_tag,
+    pub params_len: c_int,
+    pub returns: *const wasmer_value_tag,
+    pub returns_len: c_int,
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_import {
+    tag: wasmer_import_export_kind,
+    value: wasmer_import_export_value,
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_export_t;
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_exports_t;
+
+#[repr(u32)]
+#[derive(Clone)]
+pub enum wasmer_import_export_kind {
+    WASM_FUNCTION,
+    WASM_GLOBAL,
+    WASM_MEMORY,
+    WASM_TABLE,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union wasmer_import_export_value {
+    func: *const wasmer_func_t,
+    table: *const wasmer_table_t,
+    memory: *const wasmer_memory_t,
+    global: *const wasmer_global_t,
 }
 
 /// Returns true for valid wasm bytes and false for invalid bytes
@@ -413,7 +459,6 @@ pub unsafe extern "C" fn wasmer_instance_call(
     Box::into_raw(instance);
     match result {
         Ok(results_vec) => {
-            println!("Call Res: {:?}", results_vec);
             if results_vec.len() > 0 {
                 let ret = match results_vec[0] {
                     Value::I32(x) => wasmer_value_t {
@@ -443,6 +488,83 @@ pub unsafe extern "C" fn wasmer_instance_call(
         }
     }
 }
+
+/// Gets Exports for the given instance
+///
+/// The caller owns the object and should call `wasmer_exports_destroy` to free it.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_instance_exports(
+    instance: *mut wasmer_instance_t,
+    exports: *mut *mut wasmer_exports_t,
+) {
+    let mut instance = unsafe { Box::from_raw(instance as *mut Instance) };
+    let named_exports: Box<NamedExports> =
+        Box::new(NamedExports(instance.exports().map(|e| e.into()).collect()));
+    unsafe { *exports = Box::into_raw(named_exports) as *mut wasmer_exports_t };
+    Box::into_raw(instance);
+}
+
+pub struct NamedExports(Vec<NamedExport>);
+
+/// Frees the memory for the given exports
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
+    if !exports.is_null() {
+        drop(unsafe { Box::from_raw(exports as *mut NamedExports) });
+    }
+}
+
+/// Gets the length of the exports
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_exports_len(exports: *mut wasmer_exports_t) -> c_int {
+    if exports.is_null() {
+        return 0;
+    }
+    (*(exports as *mut NamedExports)).0.len() as c_int
+}
+
+/// Gets wasmer_export by index
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_exports_get(
+    exports: *mut wasmer_exports_t,
+    idx: c_int,
+) -> *mut wasmer_export_t {
+    if exports.is_null() {
+        return ptr::null_mut();
+    }
+    let mut named_exports = unsafe { Box::from_raw(exports as *mut NamedExports) };
+    let ptr = &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t;
+    Box::into_raw(named_exports);
+    ptr
+}
+
+/// Gets wasmer_export kind
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_export_kind(
+    export: *mut wasmer_export_t,
+) -> wasmer_import_export_kind {
+    let named_export = &*(export as *mut NamedExport);
+    match named_export.export {
+        Export::Table(_) => wasmer_import_export_kind::WASM_TABLE,
+        Export::Function { .. } => wasmer_import_export_kind::WASM_FUNCTION,
+        Export::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
+        Export::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
+    }
+}
+
+///// Gets wasmer_export func
+//#[no_mangle]
+//pub unsafe extern "C" fn wasmer_export_name(export: *mut wasmer_export_t) {
+//    if exports.is_null() {
+//        return ptr::null_mut();
+//    }
+//    let named_export = &*(export as *mut NamedExport);
+//}
 
 /// Registers a `func` with provided `name` and `namespace` into the ImportObject.
 ///
@@ -606,6 +728,12 @@ impl From<wasmer_value_tag> for Type {
     }
 }
 
+impl From<(std::string::String, wasmer_runtime_core::export::Export)> for NamedExport {
+    fn from((name, export): (String, Export)) -> Self {
+        NamedExport { name, export }
+    }
+}
+
 // Error reporting
 
 thread_local! {
@@ -699,3 +827,8 @@ impl fmt::Display for CApiError {
 }
 
 impl Error for CApiError {}
+
+struct NamedExport {
+    name: String,
+    export: Export,
+}

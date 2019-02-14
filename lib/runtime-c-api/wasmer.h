@@ -6,6 +6,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+enum wasmer_import_export_kind {
+  WASM_FUNCTION,
+  WASM_GLOBAL,
+  WASM_MEMORY,
+  WASM_TABLE,
+};
+typedef uint32_t wasmer_import_export_kind;
+
 typedef enum {
   WASMER_OK = 1,
   WASMER_ERROR = 2,
@@ -24,6 +32,14 @@ typedef struct wasmer_import_object_t wasmer_import_object_t;
 typedef struct wasmer_instance_context_t wasmer_instance_context_t;
 
 typedef struct wasmer_instance_t wasmer_instance_t;
+
+typedef struct {
+
+} wasmer_export_t;
+
+typedef struct {
+
+} wasmer_exports_t;
 
 typedef struct {
 
@@ -58,6 +74,26 @@ typedef struct {
 typedef struct {
 
 } wasmer_table_t;
+
+/**
+ * Gets wasmer_export kind
+ */
+wasmer_import_export_kind wasmer_export_kind(wasmer_export_t *export_);
+
+/**
+ * Frees the memory for the given exports
+ */
+void wasmer_exports_destroy(wasmer_exports_t *exports);
+
+/**
+ * Gets wasmer_export by index
+ */
+wasmer_export_t *wasmer_exports_get(wasmer_exports_t *exports, int idx);
+
+/**
+ * Gets the length of the exports
+ */
+int wasmer_exports_len(wasmer_exports_t *exports);
 
 /**
  * Frees memory for the given Global
@@ -136,6 +172,12 @@ const wasmer_memory_t *wasmer_instance_context_memory(wasmer_instance_context_t 
  * Frees memory for the given Instance
  */
 void wasmer_instance_destroy(wasmer_instance_t *instance);
+
+/**
+ * Gets Exports for the given instance
+ * The caller owns the object and should call `wasmer_exports_destroy` to free it.
+ */
+void wasmer_instance_exports(wasmer_instance_t *instance, wasmer_exports_t **exports);
 
 /**
  * Creates a new Instance from the given wasm bytes and imports.
