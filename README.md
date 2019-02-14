@@ -47,10 +47,10 @@ Wasmer is structured into different directories:
 
 Building wasmer requires [rustup](https://rustup.rs/).
 
-To install on Windows, download and run [`rustup-init.exe`](https://win.rustup.rs/)
+To build on Windows, download and run [`rustup-init.exe`](https://win.rustup.rs/)
 then follow the onscreen instructions.
 
-To install on other systems, run:
+To build on other systems, run:
 
 ```sh
 curl https://sh.rustup.rs -sSf | sh
@@ -86,14 +86,16 @@ sudo apt install cmake
 
 #### Windows (MSVC)
 
-Right now Windows support is _highly experimental_.
-We are working on this so Wasmer can soon be released for Windows.
+Windows support is _highly experimental_. Only simple wasm programs may be run, and no syscalls are allowed. This means
+nginx and lua do not work on Windows. See [this issue for ongoing Emscripten syscall polyfills for Windows](https://github.com/wasmerio/wasmer/pull/176).
 
 1. Install Python for Windows (https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
    You should change the installation to install the "Add python.exe to Path" feature.
 
 2. Install Git for Windows (https://git-scm.com/download/win). DO allow it to add git.exe to the PATH (default
    settings for the installer are fine).
+
+3. Install CMake (https://cmake.org/download/). Ensure CMake is in the PATH.
 
 ## Building
 
