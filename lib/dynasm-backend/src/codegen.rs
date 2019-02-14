@@ -1,8 +1,9 @@
+use wasmer_runtime_core::backend::ProtectedCaller;
 use wasmparser::{Operator, Type as WpType};
 
-pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator> {
+pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, PC: ProtectedCaller> {
     fn next_function(&mut self) -> Result<&mut FCG, CodegenError>;
-    fn finalize(&mut self) -> Result<(), CodegenError>;
+    fn finalize(self) -> Result<PC, CodegenError>;
 }
 
 pub trait FunctionCodeGenerator {

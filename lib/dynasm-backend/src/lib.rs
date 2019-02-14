@@ -11,6 +11,8 @@ mod codegen_x64;
 mod parse;
 mod stack;
 
+use crate::codegen::{CodegenError, ModuleCodeGenerator};
+use crate::parse::LoadError;
 use std::ptr::NonNull;
 use wasmer_runtime_core::{
     backend::{Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
@@ -32,33 +34,8 @@ impl FuncResolver for Placeholder {
         _module: &ModuleInner,
         _local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
+        panic!();
         None
-    }
-}
-
-impl ProtectedCaller for Placeholder {
-    fn call(
-        &self,
-        _module: &ModuleInner,
-        _func_index: FuncIndex,
-        _params: &[Value],
-        _import_backing: &ImportBacking,
-        _vmctx: *mut vm::Ctx,
-        _: Token,
-    ) -> RuntimeResult<Vec<Value>> {
-        Ok(vec![])
-    }
-
-    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
-        pub struct Trapper;
-
-        impl UserTrapper for Trapper {
-            unsafe fn do_early_trap(&self, msg: String) -> ! {
-                panic!("{}", msg);
-            }
-        }
-
-        Box::new(Trapper)
     }
 }
 
@@ -67,18 +44,28 @@ pub struct SinglePassCompiler {}
 impl Compiler for SinglePassCompiler {
     fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner> {
         let mut mcg = codegen_x64::X64ModuleCodeGenerator::new();
-        let info = match parse::read_module(wasm, Backend::Dynasm, &mut mcg) {
-            Ok(x) => x,
-            Err(e) => {
-                return Err(CompileError::InternalError {
-                    msg: format!("{:?}", e),
-                })
-            }
-        };
+        let info = parse::read_module(wasm, Backend::Dynasm, &mut mcg)?;
+        let ec = mcg.finalize()?;
         Ok(ModuleInner {
             func_resolver: Box::new(Placeholder),
-            protected_caller: Box::new(Placeholder),
+            protected_caller: Box::new(ec),
             info: info,
         })
+    }
+}
+
+impl From<CodegenError> for CompileError {
+    fn from(other: CodegenError) -> CompileError {
+        CompileError::InternalError {
+            msg: other.message.into(),
+        }
+    }
+}
+
+impl From<LoadError> for CompileError {
+    fn from(other: LoadError) -> CompileError {
+        CompileError::InternalError {
+            msg: format!("{:?}", other),
+        }
     }
 }

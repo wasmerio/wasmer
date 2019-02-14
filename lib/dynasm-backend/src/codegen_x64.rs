@@ -1,6 +1,19 @@
 use super::codegen::*;
 use super::stack::{ValueInfo, ValueLocation, ValueStack};
-use dynasmrt::{x64::Assembler, DynamicLabel, DynasmApi, DynasmLabelApi};
+use dynasmrt::{
+    x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
+};
+use wasmer_runtime_core::{
+    backend::{Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
+    error::{CompileError, CompileResult, RuntimeError, RuntimeResult},
+    module::{ModuleInfo, ModuleInner, StringTable},
+    structures::{Map, TypedIndex},
+    types::{
+        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
+        Value,
+    },
+    vm::{self, ImportBacking},
+};
 use wasmparser::{Operator, Type as WpType};
 
 #[repr(u8)]
@@ -49,6 +62,7 @@ pub struct X64ModuleCodeGenerator {
 pub struct X64FunctionCode {
     id: usize,
     begin_label: DynamicLabel,
+    begin_offset: AssemblyOffset,
     cleanup_label: DynamicLabel,
     assembler: Option<Assembler>,
     returns: Vec<WpType>,
@@ -56,6 +70,55 @@ pub struct X64FunctionCode {
     num_params: usize,
     current_stack_offset: usize,
     value_stack: ValueStack,
+}
+
+pub struct X64ExecutionContext {
+    code: ExecutableBuffer,
+    functions: Vec<X64FunctionCode>,
+}
+
+impl ProtectedCaller for X64ExecutionContext {
+    fn call(
+        &self,
+        _module: &ModuleInner,
+        _func_index: FuncIndex,
+        _params: &[Value],
+        _import_backing: &ImportBacking,
+        _vmctx: *mut vm::Ctx,
+        _: Token,
+    ) -> RuntimeResult<Vec<Value>> {
+        let index = _func_index.index();
+        let ptr = self.code.ptr(self.functions[index].begin_offset);
+        let return_ty = self.functions[index].returns.last().cloned();
+
+        if self.functions[index].num_params != _params.len() {
+            return Err(RuntimeError::User {
+                msg: "param count mismatch".into(),
+            });
+        }
+
+        match self.functions[index].num_params {
+            2 => unsafe {
+                let ptr: extern "C" fn(i64, i64) -> i64 = ::std::mem::transmute(ptr);
+                Ok(vec![Value::I32(
+                    ptr(value_to_i64(&_params[0]), value_to_i64(&_params[1])) as i32,
+                )])
+            },
+            _ => unimplemented!(),
+        }
+    }
+
+    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+        pub struct Trapper;
+
+        impl UserTrapper for Trapper {
+            unsafe fn do_early_trap(&self, msg: String) -> ! {
+                panic!("{}", msg);
+            }
+        }
+
+        Box::new(Trapper)
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -70,7 +133,7 @@ impl X64ModuleCodeGenerator {
     }
 }
 
-impl ModuleCodeGenerator<X64FunctionCode> for X64ModuleCodeGenerator {
+impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCodeGenerator {
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
         let mut assembler = match self.functions.last_mut() {
             Some(x) => x.assembler.take().unwrap(),
@@ -84,6 +147,7 @@ impl ModuleCodeGenerator<X64FunctionCode> for X64ModuleCodeGenerator {
             },
         };
         let begin_label = assembler.new_dynamic_label();
+        let begin_offset = assembler.offset();
         dynasm!(
             assembler
             ; => begin_label
@@ -93,6 +157,7 @@ impl ModuleCodeGenerator<X64FunctionCode> for X64ModuleCodeGenerator {
         let code = X64FunctionCode {
             id: self.functions.len(),
             begin_label: begin_label,
+            begin_offset: begin_offset,
             cleanup_label: assembler.new_dynamic_label(),
             assembler: Some(assembler),
             returns: vec![],
@@ -105,13 +170,20 @@ impl ModuleCodeGenerator<X64FunctionCode> for X64ModuleCodeGenerator {
         Ok(self.functions.last_mut().unwrap())
     }
 
-    fn finalize(&mut self) -> Result<(), CodegenError> {
+    fn finalize(mut self) -> Result<X64ExecutionContext, CodegenError> {
         let mut assembler = match self.functions.last_mut() {
             Some(x) => x.assembler.take().unwrap(),
-            None => return Ok(()),
+            None => {
+                return Err(CodegenError {
+                    message: "no function",
+                })
+            }
         };
         let output = assembler.finalize().unwrap();
-        Ok(())
+        Ok(X64ExecutionContext {
+            code: output,
+            functions: self.functions,
+        })
     }
 }
 
@@ -344,4 +416,13 @@ fn get_size_of_type(ty: &WpType) -> Result<usize, CodegenError> {
 
 fn is_dword(n: usize) -> bool {
     n == 4
+}
+
+fn value_to_i64(v: &Value) -> i64 {
+    match *v {
+        Value::F32(x) => x.to_bits() as u64 as i64,
+        Value::F64(x) => x.to_bits() as u64 as i64,
+        Value::I32(x) => x as u64 as i64,
+        Value::I64(x) => x as u64 as i64,
+    }
 }
