@@ -39,7 +39,7 @@ optional = true
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["errhandlingapi", "minwindef", "minwinbase", "winnt"] }
-wasmer-clif-backend-windows = { path = "../clif-backend-windows", version = "0.0.1" }
+wasmer-win-exception-handler = { path = "../win-exception-handler", version = "0.0.1" }
 
 [features]
 cache = ["serde", "serde_derive", "serde_bytes", "serde-bench", "wasmer-runtime-core/cache"]

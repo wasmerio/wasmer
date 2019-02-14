@@ -4,8 +4,8 @@ use crate::trampoline::Trampoline;
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::ptr;
-use wasmer_clif_backend_windows::CallProtectedData;
-pub use wasmer_clif_backend_windows::_call_protected;
+use wasmer_win_exception_handler::CallProtectedData;
+pub use wasmer_win_exception_handler::_call_protected;
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::vm::Func;
 use wasmer_runtime_core::{
