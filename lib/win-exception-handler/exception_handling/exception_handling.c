@@ -30,6 +30,9 @@ exceptionHandler(struct _EXCEPTION_POINTERS *ExceptionInfo) {
         return EXCEPTION_CONTINUE_SEARCH;
     }
     alreadyHandlingException = TRUE;
+
+    // Basically, here, we coerce the os to resume us into a context that calls `longjmp` instead of just continuing.
+    // Presumably, we cannot `longjmp` out of the signal/exception context, like we can on unix.
     pCONTEXT->Rip = (uintptr_t)(&longjmpOutOfHere);
     pCONTEXT->Rsp = (uintptr_t)(savedStackPointer);
     return EXCEPTION_CONTINUE_EXECUTION;
