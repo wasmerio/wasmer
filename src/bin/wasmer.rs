@@ -21,7 +21,6 @@ enum CLIOptions {
     Run(Run),
 
     /// Update wasmer to the latest version
-    #[cfg(not(target_os = "windows"))]
     #[structopt(name = "self-update")]
     SelfUpdate,
 }
@@ -116,5 +115,9 @@ fn main() {
         CLIOptions::Run(options) => run(options),
         #[cfg(not(target_os = "windows"))]
         CLIOptions::SelfUpdate => update::self_update(),
-    }
+        #[cfg(target_os = "windows")]
+        CLIOptions::SelfUpdate => {
+            println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
+        }
+}
 }
