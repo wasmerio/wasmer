@@ -1,11 +1,16 @@
 use std::ffi::c_void;
 use wasmer_runtime_core::vm::{Ctx, Func};
 
+#[cfg(target_os = "windows")]
 type func_t = Func;
+#[cfg(target_os = "windows")]
 type wasmer_instance_context_t = Ctx;
-type Trampoline = unsafe extern "C" fn(*mut Ctx, *const func_t, *const u64, *mut u64) -> c_void;
+#[cfg(target_os = "windows")]
+type Trampoline = unsafe extern "C" fn(*mut Ctx, *const func_t, *const u64, *mut u64) -> c_void
+#[cfg(target_os = "windows")]
 type CallProtectedResult = Result<(), CallProtectedData>;
 
+#[cfg(target_os = "windows")]
 #[repr(C)]
 pub struct CallProtectedData {
     pub code: u64,
@@ -13,6 +18,7 @@ pub struct CallProtectedData {
     pub instructionPointer: u64,
 }
 
+#[cfg(target_os = "windows")]
 extern "C" {
     #[link_name = "callProtected"]
     pub fn __call_protected(
@@ -25,6 +31,7 @@ extern "C" {
     ) -> u8;
 }
 
+#[cfg(target_os = "windows")]
 pub fn _call_protected(
     trampoline: Trampoline,
     ctx: *mut Ctx,
