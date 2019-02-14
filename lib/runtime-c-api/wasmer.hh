@@ -34,11 +34,16 @@ struct wasmer_export_t {
 
 };
 
-struct wasmer_exports_t {
+struct wasmer_byte_array {
+  const uint8_t *bytes;
+  uint32_t bytes_len;
+};
+
+struct wasmer_func_t {
 
 };
 
-struct wasmer_global_t {
+struct wasmer_exports_t {
 
 };
 
@@ -52,6 +57,10 @@ union wasmer_value {
 struct wasmer_value_t {
   wasmer_value_tag tag;
   wasmer_value value;
+};
+
+struct wasmer_global_t {
+
 };
 
 struct wasmer_global_descriptor_t {
@@ -77,6 +86,12 @@ extern "C" {
 /// Gets wasmer_export kind
 wasmer_import_export_kind wasmer_export_kind(wasmer_export_t *export_);
 
+/// Gets func from wasm_export
+wasmer_byte_array wasmer_export_name(wasmer_export_t *export_);
+
+/// Gets func from wasm_export
+const wasmer_func_t *wasmer_export_to_func(wasmer_export_t *export_);
+
 /// Frees the memory for the given exports
 void wasmer_exports_destroy(wasmer_exports_t *exports);
 
@@ -85,6 +100,17 @@ wasmer_export_t *wasmer_exports_get(wasmer_exports_t *exports, int idx);
 
 /// Gets the length of the exports
 int wasmer_exports_len(wasmer_exports_t *exports);
+
+/// Calls a `func` with the provided parameters.
+/// Results are set using the provided `results` pointer.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_func_call(wasmer_func_t *func,
+                                 const wasmer_value_t *params,
+                                 int params_len,
+                                 wasmer_value_t *results,
+                                 int results_len);
 
 /// Frees memory for the given Global
 void wasmer_global_destroy(wasmer_global_t *global);

@@ -131,6 +131,12 @@ pub union wasmer_import_export_value {
     global: *const wasmer_global_t,
 }
 
+#[repr(C)]
+pub struct wasmer_byte_array {
+    bytes: *const uint8_t,
+    bytes_len: uint32_t,
+}
+
 /// Returns true for valid wasm bytes and false for invalid bytes
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
@@ -555,6 +561,101 @@ pub unsafe extern "C" fn wasmer_export_kind(
         Export::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
         Export::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
     }
+}
+
+/// Gets func from wasm_export
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_export_to_func(
+    export: *mut wasmer_export_t,
+) -> *const wasmer_func_t {
+    let named_export = &*(export as *mut NamedExport);
+    &named_export.export as *const Export as *const wasmer_func_t
+}
+
+/// Gets name from wasmer_export
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_export_name(export: *mut wasmer_export_t) -> wasmer_byte_array {
+    let named_export = &*(export as *mut NamedExport);
+    wasmer_byte_array {
+        bytes: named_export.name.as_ptr(),
+        bytes_len: named_export.name.len() as u32,
+    }
+}
+
+/// Calls a `func` with the provided parameters.
+/// Results are set using the provided `results` pointer.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_func_call(
+    func: *mut wasmer_func_t,
+    params: *const wasmer_value_t,
+    params_len: c_int,
+    results: *mut wasmer_value_t,
+    results_len: c_int,
+) -> wasmer_result_t {
+    if func.is_null() {
+        update_last_error(CApiError {
+            msg: "func ptr is null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+    if params.is_null() {
+        update_last_error(CApiError {
+            msg: "params ptr is null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
+    let params: Vec<Value> = params.iter().cloned().map(|x| x.into()).collect();
+
+    let export_func = unsafe { Box::from_raw(func as *mut Export) };
+
+    let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
+    //    TODO implement func.call
+    update_last_error(CApiError {
+        msg: "wasmer_func_call not yet implemented".to_string(),
+    });
+    return wasmer_result_t::WASMER_ERROR;
+    //    let result = instance.call(func_name_r, &params[..]);
+    //    Box::into_raw(export_func);
+    //    match result {
+    //        Ok(results_vec) => {
+    //            if results_vec.len() > 0 {
+    //                let ret = match results_vec[0] {
+    //                    Value::I32(x) => wasmer_value_t {
+    //                        tag: wasmer_value_tag::WASM_I32,
+    //                        value: wasmer_value { I32: x },
+    //                    },
+    //                    Value::I64(x) => wasmer_value_t {
+    //                        tag: wasmer_value_tag::WASM_I64,
+    //                        value: wasmer_value { I64: x },
+    //                    },
+    //                    Value::F32(x) => wasmer_value_t {
+    //                        tag: wasmer_value_tag::WASM_F32,
+    //                        value: wasmer_value { F32: x },
+    //                    },
+    //                    Value::F64(x) => wasmer_value_t {
+    //                        tag: wasmer_value_tag::WASM_F64,
+    //                        value: wasmer_value { F64: x },
+    //                    },
+    //                };
+    //                results[0] = ret;
+    //            }
+    //            wasmer_result_t::WASMER_OK
+    //        }
+    //        Err(err) => {
+    //            update_last_error(err);
+    //            wasmer_result_t::WASMER_ERROR
+    //        }
+    //    }
 }
 
 ///// Gets wasmer_export func
