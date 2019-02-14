@@ -119,5 +119,5 @@ fn main() {
         CLIOptions::SelfUpdate => {
             println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
         }
-}
+    }
 }
