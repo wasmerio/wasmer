@@ -4,8 +4,6 @@ use crate::trampoline::Trampoline;
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::ptr;
-use wasmer_win_exception_handler::CallProtectedData;
-pub use wasmer_win_exception_handler::_call_protected;
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::vm::Func;
 use wasmer_runtime_core::{
@@ -13,6 +11,8 @@ use wasmer_runtime_core::{
     structures::TypedIndex,
     types::{MemoryIndex, TableIndex},
 };
+use wasmer_win_exception_handler::CallProtectedData;
+pub use wasmer_win_exception_handler::_call_protected;
 use winapi::shared::minwindef::DWORD;
 use winapi::um::minwinbase::{
     EXCEPTION_ACCESS_VIOLATION, EXCEPTION_FLT_DENORMAL_OPERAND, EXCEPTION_FLT_DIVIDE_BY_ZERO,
