@@ -72,6 +72,7 @@ pub struct State {
     stack: Vec<BasicValueEnum>,
     control_stack: Vec<ControlFrame>,
     value_counter: Cell<usize>,
+
     pub reachable: bool,
 }
 

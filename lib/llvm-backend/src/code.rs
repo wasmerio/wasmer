@@ -3,30 +3,35 @@ use inkwell::{
     context::Context,
     module::Module,
     passes::PassManager,
-    types::{BasicType, BasicTypeEnum, FunctionType},
-    values::{BasicValue, FunctionValue, PhiValue},
+    types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
+    values::{BasicValue, FunctionValue, PhiValue, PointerValue},
     FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 use wasmer_runtime_core::{
+    memory::MemoryType,
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
-    types::{FuncIndex, MemoryIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, MemoryType},
+    types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex, Type},
 };
-use wasmparser::{BinaryReaderError, CodeSectionReader, LocalsReader, Operator, OperatorsReader};
+use wasmparser::{
+    BinaryReaderError, CodeSectionReader, LocalsReader, MemoryImmediate, Operator, OperatorsReader,
+};
 
-use crate::intrinsics::Intrinsics;
+use crate::intrinsics::{CtxType, Intrinsics};
 use crate::read_info::type_to_type;
 use crate::state::{ControlFrame, IfElseState, State};
 
 fn func_sig_to_llvm(context: &Context, intrinsics: &Intrinsics, sig: &FuncSig) -> FunctionType {
     let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
-    let param_types: Vec<_> = user_param_types.collect();
+    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+        .chain(user_param_types)
+        .collect();
 
     match sig.returns() {
-        [] => intrinsics.void_ty.fn_type(&param_types, false),
-        [single_value] => type_to_llvm(intrinsics, *single_value).fn_type(&param_types, false),
+        &[] => intrinsics.void_ty.fn_type(&param_types, false),
+        &[single_value] => type_to_llvm(intrinsics, single_value).fn_type(&param_types, false),
         returns @ _ => {
             let basic_types: Vec<_> = returns
                 .iter()
@@ -149,14 +154,22 @@ fn parse_function(
     state.push_block(return_block, phis);
     builder.position_at_end(&entry_block);
 
-    let mut locals = Vec::with_capacity(locals_reader.get_count() as usize);
-    locals.extend(function.get_param_iter().enumerate().map(|(index, param)| {
-        let ty = param.get_type();
+    let mut ctx = intrinsics.ctx(info, builder, &function);
 
-        let alloca = builder.build_alloca(ty, &format!("local{}", index));
-        builder.build_store(alloca, param);
-        alloca
-    }));
+    let mut locals = Vec::with_capacity(locals_reader.get_count() as usize);
+    locals.extend(
+        function
+            .get_param_iter()
+            .skip(1)
+            .enumerate()
+            .map(|(index, param)| {
+                let ty = param.get_type();
+
+                let alloca = builder.build_alloca(ty, &format!("local{}", index));
+                builder.build_store(alloca, param);
+                alloca
+            }),
+    );
 
     for (index, local) in locals_reader.into_iter().enumerate().skip(locals.len()) {
         let (_, ty) = local?;
@@ -520,11 +533,13 @@ fn parse_function(
                     LocalOrImport::Local(local_func_index) => {
                         let func_sig = &info.signatures[sigindex];
                         let func_value = functions[local_func_index];
-                        let call_site = builder.build_call(
-                            func_value,
-                            &state.peekn(func_sig.params().len())?.to_vec(),
-                            &state.var_name(),
-                        );
+                        let params: Vec<_> = [ctx.basic()]
+                            .iter()
+                            .chain(state.peekn(func_sig.params().len())?.iter())
+                            .map(|v| *v)
+                            .collect();
+
+                        let call_site = builder.build_call(func_value, &params, &state.var_name());
                         if let Some(basic_value) = call_site.try_as_basic_value().left() {
                             match func_sig.returns().len() {
                                 1 => state.push1(basic_value),
@@ -1179,24 +1194,378 @@ fn parse_function(
                 unimplemented!("waiting on better bitcasting support in inkwell")
             }
 
+            /***************************
+             * Load and Store instructions.
+             * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#load-and-store-instructions
+             ***************************/
+            Operator::I32Load { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                )?;
+                let result = builder.build_load(effective_address, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64Load { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                )?;
+                let result = builder.build_load(effective_address, &state.var_name());
+                state.push1(result);
+            }
+            Operator::F32Load { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                )?;
+                let result = builder.build_load(effective_address, &state.var_name());
+                state.push1(result);
+            }
+            Operator::F64Load { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.f64_ptr_ty,
+                )?;
+                let result = builder.build_load(effective_address, &state.var_name());
+                state.push1(result);
+            }
+
+            Operator::I32Store { memarg } => {
+                let value = state.pop1()?;
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                )?;
+                builder.build_store(effective_address, value);
+            }
+            Operator::I64Store { memarg } => {
+                let value = state.pop1()?;
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i64_ptr_ty,
+                )?;
+                builder.build_store(effective_address, value);
+            }
+            Operator::F32Store { memarg } => {
+                let value = state.pop1()?;
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.f32_ptr_ty,
+                )?;
+                builder.build_store(effective_address, value);
+            }
+            Operator::F64Store { memarg } => {
+                let value = state.pop1()?;
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.f64_ptr_ty,
+                )?;
+                builder.build_store(effective_address, value);
+            }
+
+            Operator::I32Load8S { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I32Load16S { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_s_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64Load8S { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64Load16S { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64Load32S { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_s_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+
+            Operator::I32Load8U { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I32Load16U { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i32_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64Load8U { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64Load16U { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+            Operator::I64Load32U { memarg } => {
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                )?;
+                let narrow_result = builder
+                    .build_load(effective_address, &state.var_name())
+                    .into_int_value();
+                let result =
+                    builder.build_int_z_extend(narrow_result, intrinsics.i64_ty, &state.var_name());
+                state.push1(result);
+            }
+
+            Operator::I32Store8 { memarg } | Operator::I64Store8 { memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i8_ptr_ty,
+                )?;
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                builder.build_store(effective_address, narrow_value);
+            }
+            Operator::I32Store16 { memarg } | Operator::I64Store16 { memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i16_ptr_ty,
+                )?;
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                builder.build_store(effective_address, narrow_value);
+            }
+            Operator::I64Store32 { memarg } => {
+                let value = state.pop1()?.into_int_value();
+                let effective_address = resolve_memory_ptr(
+                    builder,
+                    intrinsics,
+                    &mut state,
+                    &mut ctx,
+                    memarg,
+                    intrinsics.i32_ptr_ty,
+                )?;
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                builder.build_store(effective_address, narrow_value);
+            }
+
             Operator::MemoryGrow { reserved } => {
-
-                let memory_grow_const = intrinsics.i32_ty.const_int(reserved as u64, false);
-
-                let memory_index = MemoryIndex::new(reserved);
-                match memory_index.local_or_import(info) {
+                let memory_index = MemoryIndex::new(reserved as usize);
+                let func_value = match memory_index.local_or_import(info) {
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => {
-
-                            }
+                            MemoryType::Dynamic => intrinsics.memory_grow_dynamic_local,
+                            MemoryType::Static => intrinsics.memory_grow_static_local,
+                            MemoryType::SharedStatic => intrinsics.memory_grow_shared_local,
                         }
-                    },
+                    }
                     LocalOrImport::Import(import_mem_index) => {
+                        let mem_desc = &info.imported_memories[import_mem_index].1;
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => intrinsics.memory_grow_dynamic_import,
+                            MemoryType::Static => intrinsics.memory_grow_static_import,
+                            MemoryType::SharedStatic => intrinsics.memory_grow_shared_import,
+                        }
+                    }
+                };
 
-                    },
-                }
+                let memory_index_const = intrinsics
+                    .i32_ty
+                    .const_int(reserved as u64, false)
+                    .as_basic_value_enum();
+                let delta = state.pop1()?;
+
+                let result = builder.build_call(
+                    func_value,
+                    &[ctx.basic(), memory_index_const, delta],
+                    &state.var_name(),
+                );
+                state.push1(result.try_as_basic_value().left().unwrap());
+            }
+            Operator::MemorySize { reserved } => {
+                let memory_index = MemoryIndex::new(reserved as usize);
+                let func_value = match memory_index.local_or_import(info) {
+                    LocalOrImport::Local(local_mem_index) => {
+                        let mem_desc = &info.memories[local_mem_index];
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => intrinsics.memory_size_dynamic_local,
+                            MemoryType::Static => intrinsics.memory_size_static_local,
+                            MemoryType::SharedStatic => intrinsics.memory_size_shared_local,
+                        }
+                    }
+                    LocalOrImport::Import(import_mem_index) => {
+                        let mem_desc = &info.imported_memories[import_mem_index].1;
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => intrinsics.memory_size_dynamic_import,
+                            MemoryType::Static => intrinsics.memory_size_static_import,
+                            MemoryType::SharedStatic => intrinsics.memory_size_shared_import,
+                        }
+                    }
+                };
+
+                let memory_index_const = intrinsics
+                    .i32_ty
+                    .const_int(reserved as u64, false)
+                    .as_basic_value_enum();
+                let result = builder.build_call(
+                    func_value,
+                    &[ctx.basic(), memory_index_const],
+                    &state.var_name(),
+                );
+                state.push1(result.try_as_basic_value().left().unwrap());
             }
 
             op @ _ => {
@@ -1209,9 +1578,41 @@ fn parse_function(
     let pass_manager = PassManager::create_for_module();
     pass_manager.add_promote_memory_to_register_pass();
     pass_manager.add_cfg_simplification_pass();
+    pass_manager.add_instruction_combining_pass();
+    // pass_manager.add_aggressive_inst_combiner_pass();
+    // pass_manager.add_merged_load_store_motion_pass();
+    // pass_manager.add_sccp_pass();
+    pass_manager.add_gvn_pass();
+    pass_manager.add_new_gvn_pass();
+    pass_manager.add_aggressive_dce_pass();
     pass_manager.run_on_module(module);
 
     println!("{}", module.print_to_string().to_string());
 
     Ok(())
+}
+
+fn resolve_memory_ptr(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    state: &mut State,
+    ctx: &mut CtxType,
+    memarg: MemoryImmediate,
+    ptr_ty: PointerType,
+) -> Result<PointerValue, BinaryReaderError> {
+    // Ignore alignment hint for the time being.
+    let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
+    let var_offset_i32 = state.pop1()?.into_int_value();
+    let var_offset =
+        builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
+    let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
+    let (mem_base, mem_bound) = ctx.memory(MemoryIndex::new(0));
+    let mem_base_int = builder.build_ptr_to_int(mem_base, intrinsics.i64_ty, &state.var_name());
+    let effective_address_int =
+        builder.build_int_add(mem_base_int, effective_offset, &state.var_name());
+    Ok(builder.build_int_to_ptr(
+        effective_address_int,
+        intrinsics.i32_ptr_ty,
+        &state.var_name(),
+    ))
 }

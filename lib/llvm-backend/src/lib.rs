@@ -34,19 +34,16 @@ fn test_read_module() {
         (module
         (type $t0 (func (param i32) (result i32)))
         (type $t1 (func (result i32)))
+        (memory 1)
         (func $foo (type $t0) (param i32) (result i32)
             get_local 0
-            (if
-                (then
-                    i32.const 42
-                    set_local 0
-                )
-                (else 
-                    i32.const 24
-                    set_local 0
-                )
-            )
-            get_local 0
+            i32.load offset=16
+            i32.const 1
+            memory.grow
+            drop
+            i32.const 0
+            i32.load offset=4
+            i32.add
         ))
     "#;
     let wasm = wat2wasm(wat).unwrap();
