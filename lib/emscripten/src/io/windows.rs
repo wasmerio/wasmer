@@ -5,25 +5,26 @@ use wasmer_runtime_core::vm::Ctx;
 // this cfg_attr will try to link with the legacy lib that does not inline printf
 // this will allow for compiliation, but will produce a linker error if there is a problem
 // finding printf.
-#[cfg_attr(
-    all(windows, target_env = "msvc"),
-    link(name = "legacy_stdio_definitions", kind = "static-nobundle")
-)]
-extern "C" {
-    #[link_name = "printf"]
-    pub fn _printf(s: *const c_char, ...) -> c_int;
-}
+//#[cfg_attr(
+//    all(windows, target_env = "msvc"),
+//    link(name = "legacy_stdio_definitions", kind = "static-nobundle")
+//)]
+//extern "C" {
+//    #[link_name = "printf"]
+//    pub fn _printf(s: *const c_char, ...) -> c_int;
+//}
 
 /// putchar
-pub fn putchar(chr: i32, ctx: &mut Ctx) {
+pub fn putchar(ctx: &mut Ctx, chr: i32) {
     unsafe { libc::putchar(chr) };
 }
 
 /// printf
-pub fn printf(memory_offset: i32, extra: i32, ctx: &mut Ctx) -> i32 {
+pub fn printf(ctx: &mut Ctx, memory_offset: i32, extra: i32) -> i32 {
     debug!("emscripten::printf {}, {}", memory_offset, extra);
-    unsafe {
-        let addr = emscripten_memory_pointer!(ctx.memory(0), memory_offset) as _;
-        _printf(addr, extra)
-    }
+    //    unsafe {
+    //        let addr = emscripten_memory_pointer!(ctx.memory(0), memory_offset) as _;
+    //        _printf(addr, extra)
+    //    }
+    -1
 }

@@ -9,7 +9,6 @@ use crate::env::call_malloc;
 use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
 use wasmer_runtime_core::vm::Ctx;
 
-#[link(name = "c")]
 extern "C" {
     #[link_name = "_putenv"]
     pub fn putenv(s: *const c_char) -> c_int;
@@ -17,7 +16,7 @@ extern "C" {
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub fn _getenv(name: u32, ctx: &mut Ctx) -> u32 {
+pub fn _getenv(ctx: &mut Ctx, name: u32) -> u32 {
     debug!("emscripten::_getenv");
     let name_string = read_string_from_wasm(ctx.memory(0), name);
     debug!("=> name({:?})", name_string);
@@ -29,7 +28,7 @@ pub fn _getenv(name: u32, ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(name: u32, value: u32, overwrite: u32, ctx: &mut Ctx) -> c_int {
+pub fn _setenv(ctx: &mut Ctx, name: u32, value: u32, overwrite: u32) -> c_int {
     debug!("emscripten::_setenv");
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
     let value_addr = emscripten_memory_pointer!(ctx.memory(0), value);
@@ -45,7 +44,7 @@ pub fn _setenv(name: u32, value: u32, overwrite: u32, ctx: &mut Ctx) -> c_int {
 }
 
 /// emscripten: _putenv // (name: *const char);
-pub fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _putenv(ctx: &mut Ctx, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -55,7 +54,7 @@ pub fn _putenv(name: c_int, ctx: &mut Ctx) -> c_int {
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub fn _unsetenv(name: u32, ctx: &mut Ctx) -> c_int {
+pub fn _unsetenv(ctx: &mut Ctx, name: u32) -> c_int {
     debug!("emscripten::_unsetenv");
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
     let name = read_string_from_wasm(ctx.memory(0), name);
@@ -68,7 +67,7 @@ pub fn _unsetenv(name: u32, ctx: &mut Ctx) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
 
     #[repr(C)]
@@ -84,7 +83,7 @@ pub fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
 
     // stub this in windows as it is not valid
     unsafe {
-        let passwd_struct_offset = call_malloc(mem::size_of::<GuestPasswd>() as _, ctx);
+        let passwd_struct_offset = call_malloc(ctx, mem::size_of::<GuestPasswd>() as _);
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
         (*passwd_struct_ptr).pw_name = 0;
@@ -100,7 +99,7 @@ pub fn _getpwnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
 
     #[repr(C)]
@@ -113,7 +112,7 @@ pub fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
 
     // stub the group struct as it is not supported on windows
     unsafe {
-        let group_struct_offset = call_malloc(mem::size_of::<GuestGroup>() as _, ctx);
+        let group_struct_offset = call_malloc(ctx, mem::size_of::<GuestGroup>() as _);
         let group_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), group_struct_offset) as *mut GuestGroup;
         (*group_struct_ptr).gr_name = 0;
@@ -124,7 +123,7 @@ pub fn _getgrnam(name_ptr: c_int, ctx: &mut Ctx) -> c_int {
     }
 }
 
-pub fn _sysconf(name: c_int, _ctx: &mut Ctx) -> c_long {
+pub fn _sysconf(_ctx: &mut Ctx, name: c_int) -> c_long {
     debug!("emscripten::_sysconf {}", name);
     // stub because sysconf is not valid on windows
     0

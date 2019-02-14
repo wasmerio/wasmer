@@ -2,10 +2,8 @@ use super::env;
 use super::env::get_emscripten_data;
 use libc::stat;
 use std::ffi::CStr;
-use std::ffi::CString;
 use std::mem::size_of;
 use std::os::raw::c_char;
-use std::os::raw::c_int;
 use std::slice;
 use wasmer_runtime_core::memory::Memory;
 use wasmer_runtime_core::{
@@ -42,7 +40,7 @@ pub fn get_emscripten_memory_size(module: &Module) -> (Pages, Option<Pages>) {
     (memory.minimum, memory.maximum)
 }
 
-pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, ctx: &mut Ctx) -> u32 {
+pub unsafe fn write_to_buf(ctx: &mut Ctx, string: *const c_char, buf: u32, max: u32) -> u32 {
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_char;
 
     for i in 0..max {
@@ -56,7 +54,7 @@ pub unsafe fn write_to_buf(string: *const c_char, buf: u32, max: u32, ctx: &mut 
 pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
     let s = CStr::from_ptr(cstr).to_str().unwrap();
     let cstr_len = s.len();
-    let space_offset = env::call_malloc((cstr_len as u32) + 1, ctx);
+    let space_offset = env::call_malloc(ctx, (cstr_len as u32) + 1);
     let raw_memory = emscripten_memory_pointer!(ctx.memory(0), space_offset) as *mut c_char;
     let slice = slice::from_raw_parts_mut(raw_memory, cstr_len);
 
@@ -71,7 +69,7 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut Ctx, cstr: *const c_char) -> u32 {
     space_offset
 }
 
-pub unsafe fn allocate_on_stack<'a, T: Copy>(count: u32, ctx: &'a mut Ctx) -> (u32, &'a mut [T]) {
+pub unsafe fn allocate_on_stack<'a, T: Copy>(ctx: &'a mut Ctx, count: u32) -> (u32, &'a mut [T]) {
     let offset = get_emscripten_data(ctx)
         .stack_alloc
         .call(count * (size_of::<T>() as u32))
@@ -82,8 +80,8 @@ pub unsafe fn allocate_on_stack<'a, T: Copy>(count: u32, ctx: &'a mut Ctx) -> (u
     (offset, slice)
 }
 
-pub unsafe fn allocate_cstr_on_stack<'a>(s: &str, ctx: &'a mut Ctx) -> (u32, &'a [u8]) {
-    let (offset, slice) = allocate_on_stack((s.len() + 1) as u32, ctx);
+pub unsafe fn allocate_cstr_on_stack<'a>(ctx: &'a mut Ctx, s: &str) -> (u32, &'a [u8]) {
+    let (offset, slice) = allocate_on_stack(ctx, (s.len() + 1) as u32);
 
     use std::iter;
     for (byte, loc) in s.bytes().chain(iter::once(0)).zip(slice.iter_mut()) {

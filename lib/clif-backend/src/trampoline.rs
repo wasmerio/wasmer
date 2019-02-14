@@ -7,6 +7,7 @@ use cranelift_codegen::{
     isa, Context,
 };
 use hashbrown::HashMap;
+use std::ffi::c_void;
 use std::{iter, mem};
 use wasmer_runtime_core::{
     backend::sys::{Memory, Protect},
@@ -22,6 +23,9 @@ impl RelocSink for NullRelocSink {
     fn reloc_external(&mut self, _: u32, _: Reloc, _: &ir::ExternalName, _: i64) {}
     fn reloc_jt(&mut self, _: u32, _: Reloc, _: ir::JumpTable) {}
 }
+
+pub type Trampoline =
+    unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64) -> c_void;
 
 pub struct Trampolines {
     memory: Memory,
@@ -138,10 +142,7 @@ impl Trampolines {
         }
     }
 
-    pub fn lookup(
-        &self,
-        sig_index: SigIndex,
-    ) -> Option<unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64)> {
+    pub fn lookup(&self, sig_index: SigIndex) -> Option<Trampoline> {
         let offset = *self.offsets.get(&sig_index)?;
         let ptr = unsafe { self.memory.as_ptr().add(offset) };
 
@@ -169,6 +170,7 @@ fn generate_func(func_sig: &FuncSig) -> ir::Function {
     let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(entry_ebb);
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
+    args_vec.push(vmctx_ptr);
     for (index, wasm_ty) in func_sig.params().iter().enumerate() {
         let mem_flags = ir::MemFlags::trusted();
 
@@ -180,7 +182,6 @@ fn generate_func(func_sig: &FuncSig) -> ir::Function {
         );
         args_vec.push(val);
     }
-    args_vec.push(vmctx_ptr);
 
     let call_inst = pos.ins().call_indirect(export_sig_ref, func_ptr, &args_vec);
 
@@ -212,7 +213,9 @@ fn wasm_ty_to_clif(ty: Type) -> ir::types::Type {
 }
 
 fn generate_trampoline_signature() -> ir::Signature {
-    let mut sig = ir::Signature::new(isa::CallConv::SystemV);
+    let isa = super::get_isa();
+    let call_convention = isa.default_call_conv();
+    let mut sig = ir::Signature::new(call_convention);
 
     let ptr_param = ir::AbiParam {
         value_type: ir::types::I64,
@@ -227,24 +230,25 @@ fn generate_trampoline_signature() -> ir::Signature {
 }
 
 fn generate_export_signature(func_sig: &FuncSig) -> ir::Signature {
-    let mut export_clif_sig = ir::Signature::new(isa::CallConv::SystemV);
+    let isa = super::get_isa();
+    let call_convention = isa.default_call_conv();
+    let mut export_clif_sig = ir::Signature::new(call_convention);
 
-    export_clif_sig.params = func_sig
-        .params()
-        .iter()
-        .map(|wasm_ty| ir::AbiParam {
-            value_type: wasm_ty_to_clif(*wasm_ty),
-            purpose: ir::ArgumentPurpose::Normal,
-            extension: ir::ArgumentExtension::None,
-            location: ir::ArgumentLoc::Unassigned,
-        })
-        .chain(iter::once(ir::AbiParam {
-            value_type: ir::types::I64,
-            purpose: ir::ArgumentPurpose::VMContext,
-            extension: ir::ArgumentExtension::None,
-            location: ir::ArgumentLoc::Unassigned,
-        }))
-        .collect();
+    let func_sig_iter = func_sig.params().iter().map(|wasm_ty| ir::AbiParam {
+        value_type: wasm_ty_to_clif(*wasm_ty),
+        purpose: ir::ArgumentPurpose::Normal,
+        extension: ir::ArgumentExtension::None,
+        location: ir::ArgumentLoc::Unassigned,
+    });
+
+    export_clif_sig.params = iter::once(ir::AbiParam {
+        value_type: ir::types::I64,
+        purpose: ir::ArgumentPurpose::VMContext,
+        extension: ir::ArgumentExtension::None,
+        location: ir::ArgumentLoc::Unassigned,
+    })
+    .chain(func_sig_iter)
+    .collect();
 
     export_clif_sig.returns = func_sig
         .returns()

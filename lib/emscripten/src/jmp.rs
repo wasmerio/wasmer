@@ -4,29 +4,28 @@ use std::cell::UnsafeCell;
 use wasmer_runtime_core::vm::Ctx;
 
 /// setjmp
-pub fn __setjmp(env_addr: u32, ctx: &mut Ctx) -> c_int {
+pub fn __setjmp(ctx: &mut Ctx, env_addr: u32) -> c_int {
     debug!("emscripten::__setjmp (setjmp)");
     unsafe {
-        unimplemented!()
-        //        // Rather than using the env as the holder of the jump buffer pointer,
-        //        // we use the environment address to store the index relative to jumps
-        //        // so the address of the jump it's outside the wasm memory itself.
-        //        let jump_index = ctx.memory(0).as_ptr().add(env_addr as usize) as *mut i8;
-        //        // We create the jump buffer outside of the wasm memory
-        //        let jump_buf: UnsafeCell<[c_int; 27]> = UnsafeCell::new([0; 27]);
-        //        let jumps = &mut get_emscripten_data(ctx).jumps;
-        //        let result = setjmp(jump_buf.get() as _);
-        //        // We set the jump index to be the last value of jumps
-        //        *jump_index = jumps.len() as _;
-        //        // We hold the reference of the jump buffer
-        //        jumps.push(jump_buf);
-        //        result
+        // Rather than using the env as the holder of the jump buffer pointer,
+        // we use the environment address to store the index relative to jumps
+        // so the address of the jump it's outside the wasm memory itself.
+        let jump_index = emscripten_memory_pointer!(ctx.memory(0), env_addr) as *mut i8;
+        // We create the jump buffer outside of the wasm memory
+        let jump_buf: UnsafeCell<[u32; 27]> = UnsafeCell::new([0; 27]);
+        let jumps = &mut get_emscripten_data(ctx).jumps;
+        let result = setjmp(jump_buf.get() as _);
+        // We set the jump index to be the last 3value of jumps
+        *jump_index = jumps.len() as _;
+        // We hold the reference of the jump buffer
+        jumps.push(jump_buf);
+        result
     }
 }
 
 /// longjmp
 #[allow(unreachable_code)]
-pub fn __longjmp(env_addr: u32, val: c_int, ctx: &mut Ctx) {
+pub fn __longjmp(ctx: &mut Ctx, env_addr: u32, val: c_int) {
     debug!("emscripten::__longjmp (longmp)");
     unsafe {
         // We retrieve the jump index from the env address
