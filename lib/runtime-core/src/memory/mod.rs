@@ -44,6 +44,16 @@ pub struct Memory {
     variant: MemoryVariant,
 }
 
+impl Grow for Memory {
+    /// Grow this memory by the specified number of pages.
+    fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
+        match &self.variant {
+            MemoryVariant::Unshared(unshared_mem) => unshared_mem.grow(delta),
+            MemoryVariant::Shared(shared_mem) => shared_mem.grow(delta),
+        }
+    }
+}
+
 impl Memory {
     /// Create a new `Memory` from a [`MemoryDescriptor`]
     ///
@@ -83,14 +93,6 @@ impl Memory {
     /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
     pub fn descriptor(&self) -> MemoryDescriptor {
         self.desc
-    }
-
-    /// Grow this memory by the specfied number of pages.
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
-        match &self.variant {
-            MemoryVariant::Unshared(unshared_mem) => unshared_mem.grow(delta),
-            MemoryVariant::Shared(shared_mem) => shared_mem.grow(delta),
-        }
     }
 
     /// The size, in wasm pages, of this memory.
@@ -240,7 +242,22 @@ impl UnsharedMemory {
         })
     }
 
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+    pub fn size(&self) -> Pages {
+        let storage = self.internal.storage.borrow();
+
+        match &*storage {
+            UnsharedMemoryStorage::Dynamic(ref dynamic_memory) => dynamic_memory.size(),
+            UnsharedMemoryStorage::Static(ref static_memory) => static_memory.size(),
+        }
+    }
+
+    pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
+        self.internal.local.as_ptr()
+    }
+}
+
+impl Grow for UnsharedMemory {
+    fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         let mut storage = self.internal.storage.borrow_mut();
 
         let mut local = self.internal.local.get();
@@ -254,20 +271,7 @@ impl UnsharedMemory {
 
         self.internal.local.set(local);
 
-        pages
-    }
-
-    pub fn size(&self) -> Pages {
-        let storage = self.internal.storage.borrow();
-
-        match &*storage {
-            UnsharedMemoryStorage::Dynamic(ref dynamic_memory) => dynamic_memory.size(),
-            UnsharedMemoryStorage::Static(ref static_memory) => static_memory.size(),
-        }
-    }
-
-    pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
-        self.internal.local.as_ptr()
+        pages.ok_or(GrowError{})
     }
 }
 
@@ -288,11 +292,13 @@ impl SharedMemory {
         Ok(Self { desc })
     }
 
-    pub fn grow(&self, _delta: Pages) -> Option<Pages> {
+    pub fn size(&self) -> Pages {
         unimplemented!()
     }
+}
 
-    pub fn size(&self) -> Pages {
+impl Grow for SharedMemory {
+    fn grow(&self, _delta: Pages) -> Result<Pages, GrowError> {
         unimplemented!()
     }
 }
