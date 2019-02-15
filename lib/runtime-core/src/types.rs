@@ -15,6 +15,12 @@ pub enum Type {
     F64,
 }
 
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Represents a WebAssembly value.
 ///
 /// As the number of types in WebAssembly expand,
