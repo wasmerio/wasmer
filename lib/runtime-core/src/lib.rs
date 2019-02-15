@@ -16,6 +16,7 @@ pub mod cache;
 pub mod error;
 pub mod export;
 pub mod global;
+pub mod grow;
 pub mod import;
 pub mod instance;
 pub mod memory;
