@@ -300,12 +300,14 @@ impl FuncSig {
 
 impl std::fmt::Display for FuncSig {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let params = self.params
+        let params = self
+            .params
             .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        let returns = self.returns
+        let returns = self
+            .returns
             .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
