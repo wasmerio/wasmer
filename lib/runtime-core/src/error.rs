@@ -241,6 +241,15 @@ impl PartialEq for CallError {
     }
 }
 
+impl std::fmt::Display for CallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CallError::Resolve(resolve_error) => write!(f, "Call error: {}", resolve_error),
+            CallError::Runtime(runtime_error) => write!(f, "Call error: {}", runtime_error),
+        }
+    }
+}
+
 /// This error type is produced when creating something,
 /// like a `Memory` or a `Table`.
 #[derive(Debug, Clone)]
