@@ -65,7 +65,10 @@ impl Memory {
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
         if let Some(max) = desc.maximum {
             if max < desc.minimum {
-                return Err(CreationError::UnableToCreateMemory);
+                return Err(CreationError::InvalidDescriptor(
+                    "Max number of memory pages is less than the minimum number of pages"
+                        .to_string(),
+                ));
             }
         }
 

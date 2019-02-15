@@ -52,7 +52,9 @@ impl Table {
     pub fn new(desc: TableDescriptor) -> Result<Self, CreationError> {
         if let Some(max) = desc.maximum {
             if max < desc.minimum {
-                return Err(CreationError::UnableToCreateTable);
+                return Err(CreationError::InvalidDescriptor(
+                    "Max table size is less than the minimum size".to_string(),
+                ));
             }
         }
 
