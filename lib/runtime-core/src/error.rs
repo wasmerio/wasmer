@@ -1,6 +1,7 @@
 use crate::types::{
     FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
 };
+use core::borrow::Borrow;
 use std::sync::Arc;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -75,6 +76,31 @@ impl PartialEq for LinkError {
     }
 }
 
+impl std::fmt::Display for LinkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LinkError::ImportNotFound {namespace, name} => write!(f, "Import not found, namespace: {}, name: {}", namespace, name),
+            LinkError::IncorrectGlobalDescriptor {namespace, name,expected,found} => {
+                write!(f, "Incorrect global descriptor, namespace: {}, name: {}, expected global descriptor: {:?}, found global descriptor: {:?}", namespace, name, expected, found)
+            },
+            LinkError::IncorrectImportSignature{namespace, name,expected,found} => {
+                write!(f, "Incorrect import signature, namespace: {}, name: {}, expected signature: {}, found signature: {}", namespace, name, expected, found)
+            }
+            LinkError::IncorrectImportType{namespace, name,expected,found} => {
+                write!(f, "Incorrect import type, namespace: {}, name: {}, expected type: {}, found type: {}", namespace, name, expected, found)
+            }
+            LinkError::IncorrectMemoryDescriptor{namespace, name,expected,found} => {
+                write!(f, "Incorrect memory descriptor, namespace: {}, name: {}, expected memory descriptor: {:?}, found memory descriptor: {:?}", namespace, name, expected, found)
+            },
+            LinkError::IncorrectTableDescriptor{namespace, name,expected,found} => {
+                write!(f, "Incorrect table descriptor, namespace: {}, name: {}, expected table descriptor: {:?}, found table descriptor: {:?}", namespace, name, expected, found)
+            },
+        }
+    }
+}
+
+impl std::error::Error for LinkError {}
+
 /// This is the error type returned when calling
 /// a webassembly function.
 ///
@@ -134,6 +160,31 @@ impl PartialEq for ResolveError {
         false
     }
 }
+
+impl std::fmt::Display for ResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ResolveError::ExportNotFound { name } => write!(f, "Export not found: {}", name),
+            ResolveError::ExportWrongType { name } => write!(f, "Export wrong type: {}", name),
+            ResolveError::Signature { expected, found } => {
+                let found = found
+                    .as_slice()
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let expected: &FuncSig = expected.borrow();
+                write!(
+                    f,
+                    "Parameters of type [{}] did not match signature {}",
+                    found, expected
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ResolveError {}
 
 /// This error type is produced by calling a wasm function
 /// exported from a module.
