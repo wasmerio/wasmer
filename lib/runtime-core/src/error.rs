@@ -27,6 +27,19 @@ impl PartialEq for CompileError {
     }
 }
 
+impl std::fmt::Display for CompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CompileError::InternalError { msg } => {
+                write!(f, "Internal compiler error: \"{}\"", msg)
+            }
+            CompileError::ValidationError { msg } => write!(f, "Validation error \"{}\"", msg),
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
+
 /// This is returned when the runtime is unable to
 /// correctly link the module with the provided imports.
 ///
