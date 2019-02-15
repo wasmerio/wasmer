@@ -5,20 +5,22 @@ use inkwell::{
     passes::PassManager,
     types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
     values::{BasicValue, FunctionValue, PhiValue, PointerValue},
-    FloatPredicate, IntPredicate,
+    AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 use wasmer_runtime_core::{
     memory::MemoryType,
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
-    types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex, Type},
+    types::{
+        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex, Type,
+    },
 };
 use wasmparser::{
     BinaryReaderError, CodeSectionReader, LocalsReader, MemoryImmediate, Operator, OperatorsReader,
 };
 
-use crate::intrinsics::{CtxType, Intrinsics};
+use crate::intrinsics::{CtxType, GlobalCache, Intrinsics};
 use crate::read_info::type_to_type;
 use crate::state::{ControlFrame, IfElseState, State};
 
@@ -515,8 +517,32 @@ fn parse_function(
                 builder.build_store(pointer_value, v);
             }
 
-            Operator::GetGlobal { global_index } => unimplemented!(),
-            Operator::SetGlobal { global_index } => unimplemented!(),
+            Operator::GetGlobal { global_index } => {
+                let index = GlobalIndex::new(global_index as usize);
+                let global_cache = ctx.global_cache(index);
+                match global_cache {
+                    GlobalCache::Const { value } => {
+                        state.push1(value.as_basic_value_enum());
+                    }
+                    GlobalCache::Mut { ptr_to_value } => {
+                        let value = builder.build_load(ptr_to_value, "global_value");
+                        state.push1(value);
+                    }
+                }
+            }
+            Operator::SetGlobal { global_index } => {
+                let value = state.pop1()?;
+                let index = GlobalIndex::new(global_index as usize);
+                let global_cache = ctx.global_cache(index);
+                match global_cache {
+                    GlobalCache::Mut { ptr_to_value } => {
+                        builder.build_store(ptr_to_value, value);
+                    }
+                    GlobalCache::Const { value: _ } => {
+                        unreachable!("cannot set non-mutable globals")
+                    }
+                }
+            }
 
             Operator::Select => {
                 let (v1, v2, cond) = state.pop3()?;
@@ -528,10 +554,10 @@ fn parse_function(
                 let func_index = FuncIndex::new(function_index as usize);
                 let sigindex = info.func_assoc[func_index];
                 let llvm_sig = signatures[sigindex];
+                let func_sig = &info.signatures[sig_index];
 
-                match func_index.local_or_import(info) {
+                let call_site = match func_index.local_or_import(info) {
                     LocalOrImport::Local(local_func_index) => {
-                        let func_sig = &info.signatures[sigindex];
                         let func_value = functions[local_func_index];
                         let params: Vec<_> = [ctx.basic()]
                             .iter()
@@ -539,26 +565,45 @@ fn parse_function(
                             .map(|v| *v)
                             .collect();
 
-                        let call_site = builder.build_call(func_value, &params, &state.var_name());
-                        if let Some(basic_value) = call_site.try_as_basic_value().left() {
-                            match func_sig.returns().len() {
-                                1 => state.push1(basic_value),
-                                count @ _ => {
-                                    // This is a multi-value return.
-                                    let struct_value = basic_value.into_struct_value();
-                                    for i in 0..(count as u32) {
-                                        let value = builder.build_extract_value(
-                                            struct_value,
-                                            i,
-                                            &state.var_name(),
-                                        );
-                                        state.push1(value);
-                                    }
-                                }
+                        builder.build_call(func_value, &params, &state.var_name())
+                    }
+                    LocalOrImport::Import(import_func_index) => {
+                        let (func_ptr_untyped, ctx_ptr) = ctx.imported_func(import_func_index);
+                        let params: Vec<_> = [ctx_ptr.as_basic_value_enum()]
+                            .iter()
+                            .chain(state.peekn(func_sig.params().len())?.iter())
+                            .map(|v| *v)
+                            .collect();
+
+                        let func_ptr_ty = llvm_sig.ptr_type(AddressSpace::Generic);
+
+                        // Once we can just bitcast between pointer types, remove this.
+                        let func_ptr = {
+                            let ptr_int = builder.build_ptr_to_int(
+                                func_ptr_untyped,
+                                intrinsics.i64_ty,
+                                "func_ptr_int",
+                            );
+                            builder.build_int_to_ptr(ptr_int, func_ptr_ty, "typed_func_ptr")
+                        };
+
+                        builder.build_call(func_ptr, &params, &state.var_name())
+                    }
+                };
+
+                if let Some(basic_value) = call_site.try_as_basic_value().left() {
+                    match func_sig.returns().len() {
+                        1 => state.push1(basic_value),
+                        count @ _ => {
+                            // This is a multi-value return.
+                            let struct_value = basic_value.into_struct_value();
+                            for i in 0..(count as u32) {
+                                let value =
+                                    builder.build_extract_value(struct_value, i, &state.var_name());
+                                state.push1(value);
                             }
                         }
                     }
-                    LocalOrImport::Import(import_func_index) => unimplemented!(),
                 }
             }
             Operator::CallIndirect { index, table_index } => {
@@ -1129,25 +1174,37 @@ fn parse_function(
                 let res = builder.build_int_z_extend(v1, intrinsics.i64_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32TruncSF32 | Operator::I32TruncSF64 => {
+            Operator::I32TruncSF32
+            | Operator::I32TruncSF64
+            | Operator::I32TruncSSatF32
+            | Operator::I32TruncSSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
                 let res =
                     builder.build_float_to_signed_int(v1, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I64TruncSF32 | Operator::I64TruncSF64 => {
+            Operator::I64TruncSF32
+            | Operator::I64TruncSF64
+            | Operator::I64TruncSSatF32
+            | Operator::I64TruncSSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
                 let res =
                     builder.build_float_to_signed_int(v1, intrinsics.i64_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32TruncUF32 | Operator::I32TruncUF64 => {
+            Operator::I32TruncUF32
+            | Operator::I32TruncUF64
+            | Operator::I32TruncUSatF32
+            | Operator::I32TruncUSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
                 let res =
                     builder.build_float_to_unsigned_int(v1, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I64TruncUF32 | Operator::I64TruncUF64 => {
+            Operator::I64TruncUF32
+            | Operator::I64TruncUF64
+            | Operator::I64TruncUSatF32
+            | Operator::I64TruncUSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
                 let res =
                     builder.build_float_to_unsigned_int(v1, intrinsics.i64_ty, &state.var_name());
@@ -1192,6 +1249,51 @@ fn parse_function(
             | Operator::I64ReinterpretF64
             | Operator::F64ReinterpretI64 => {
                 unimplemented!("waiting on better bitcasting support in inkwell")
+            }
+
+            /***************************
+             * Sign-extension operators.
+             * https://github.com/WebAssembly/sign-extension-ops/blob/master/proposals/sign-extension-ops/Overview.md
+             ***************************/
+            Operator::I32Extend8S => {
+                let value = state.pop1()?.into_int_value();
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let extended_value =
+                    builder.build_int_s_extend(narrow_value, intrinsics.i32_ty, &state.var_name());
+                state.push1(extended_value);
+            }
+            Operator::I32Extend16S => {
+                let value = state.pop1()?.into_int_value();
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let extended_value =
+                    builder.build_int_s_extend(narrow_value, intrinsics.i32_ty, &state.var_name());
+                state.push1(extended_value);
+            }
+            Operator::I64Extend8S => {
+                let value = state.pop1()?.into_int_value();
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i8_ty, &state.var_name());
+                let extended_value =
+                    builder.build_int_s_extend(narrow_value, intrinsics.i64_ty, &state.var_name());
+                state.push1(extended_value);
+            }
+            Operator::I64Extend16S => {
+                let value = state.pop1()?.into_int_value();
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i16_ty, &state.var_name());
+                let extended_value =
+                    builder.build_int_s_extend(narrow_value, intrinsics.i64_ty, &state.var_name());
+                state.push1(extended_value);
+            }
+            Operator::I64Extend32S => {
+                let value = state.pop1()?.into_int_value();
+                let narrow_value =
+                    builder.build_int_truncate(value, intrinsics.i32_ty, &state.var_name());
+                let extended_value =
+                    builder.build_int_s_extend(narrow_value, intrinsics.i64_ty, &state.var_name());
+                state.push1(extended_value);
             }
 
             /***************************
@@ -1566,14 +1668,14 @@ fn parse_function(
                     &state.var_name(),
                 );
                 state.push1(result.try_as_basic_value().left().unwrap());
-            }
-
-            op @ _ => {
-                println!("{}", module.print_to_string().to_string());
-                unimplemented!("{:?}", op);
-            }
+            } // op @ _ => {
+              //     println!("{}", module.print_to_string().to_string());
+              //     unimplemented!("{:?}", op);
+              // }
         }
     }
+
+    println!("finished translating");
 
     let pass_manager = PassManager::create_for_module();
     pass_manager.add_promote_memory_to_register_pass();
@@ -1585,6 +1687,7 @@ fn parse_function(
     pass_manager.add_gvn_pass();
     pass_manager.add_new_gvn_pass();
     pass_manager.add_aggressive_dce_pass();
+    pass_manager.add_verifier_pass();
     pass_manager.run_on_module(module);
 
     println!("{}", module.print_to_string().to_string());

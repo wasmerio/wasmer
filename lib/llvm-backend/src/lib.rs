@@ -30,20 +30,17 @@ impl Compiler for LLVMCompiler {
 #[test]
 fn test_read_module() {
     use wabt::wat2wasm;
+    // let wasm = include_bytes!("../../spectests/examples/simple/simple.wasm") as &[u8];
     let wat = r#"
         (module
         (type $t0 (func (param i32) (result i32)))
         (type $t1 (func (result i32)))
         (memory 1)
+        (global $g0 (mut i32) (i32.const 0))
         (func $foo (type $t0) (param i32) (result i32)
             get_local 0
-            i32.load offset=16
-            i32.const 1
-            memory.grow
-            drop
-            i32.const 0
-            i32.load offset=4
-            i32.add
+            set_global $g0
+            get_global $g0
         ))
     "#;
     let wasm = wat2wasm(wat).unwrap();

@@ -12,8 +12,17 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::ModuleInfo,
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex},
+    types::{GlobalIndex, ImportedFuncIndex, LocalOrImport, MemoryIndex, TableIndex, Type},
 };
+
+fn type_to_llvm_ptr(intrinsics: &Intrinsics, ty: Type) -> PointerType {
+    match ty {
+        Type::I32 => intrinsics.i32_ptr_ty,
+        Type::I64 => intrinsics.i64_ptr_ty,
+        Type::F32 => intrinsics.f32_ptr_ty,
+        Type::F64 => intrinsics.f64_ptr_ty,
+    }
+}
 
 pub struct Intrinsics {
     pub ctlz_i32: FunctionValue,
@@ -111,8 +120,6 @@ impl Intrinsics {
         let f32_ptr_ty = f32_ty.ptr_type(AddressSpace::Generic);
         let f64_ptr_ty = f64_ty.ptr_type(AddressSpace::Generic);
 
-        let opaque_ptr_ty = void_ty.ptr_type(AddressSpace::Generic);
-
         let i1_zero = i1_ty.const_int(0, false);
         let i32_zero = i32_ty.const_int(0, false);
         let i64_zero = i64_ty.const_int(0, false);
@@ -125,19 +132,16 @@ impl Intrinsics {
         let f32_ty_basic = f32_ty.as_basic_type_enum();
         let f64_ty_basic = f64_ty.as_basic_type_enum();
         let i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
-        let opaque_ptr_ty_basic = opaque_ptr_ty.as_basic_type_enum();
 
         let ctx_ty = context.opaque_struct_type("ctx");
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
 
         let local_memory_ty =
-            context.struct_type(&[i8_ptr_ty_basic, i64_ty_basic, opaque_ptr_ty_basic], false);
+            context.struct_type(&[i8_ptr_ty_basic, i64_ty_basic, i8_ptr_ty_basic], false);
         let local_table_ty = local_memory_ty;
         let local_global_ty = i64_ty;
-        let imported_func_ty = context.struct_type(
-            &[opaque_ptr_ty_basic, ctx_ptr_ty.as_basic_type_enum()],
-            false,
-        );
+        let imported_func_ty =
+            context.struct_type(&[i8_ptr_ty_basic, ctx_ptr_ty.as_basic_type_enum()], false);
         ctx_ty.set_body(
             &[
                 local_memory_ty
@@ -184,9 +188,12 @@ impl Intrinsics {
         let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
         let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
 
-        let ret_i32_take_i64_i32_i32 =
-            i32_ty.fn_type(&[i64_ty_basic, i32_ty_basic, i32_ty_basic], false);
-        let ret_i32_take_i64_i32 = i32_ty.fn_type(&[i64_ty_basic, i32_ty_basic], false);
+        let ret_i32_take_ctx_i32_i32 = i32_ty.fn_type(
+            &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+            false,
+        );
+        let ret_i32_take_ctx_i32 =
+            i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false);
 
         Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
@@ -250,63 +257,63 @@ impl Intrinsics {
             // VM intrinsics.
             memory_grow_dynamic_local: module.add_function(
                 "vm.memory.grow.dynamic.local",
-                ret_i32_take_i64_i32_i32,
+                ret_i32_take_ctx_i32_i32,
                 None,
             ),
             memory_grow_static_local: module.add_function(
                 "vm.memory.grow.static.local",
-                ret_i32_take_i64_i32_i32,
+                ret_i32_take_ctx_i32_i32,
                 None,
             ),
             memory_grow_shared_local: module.add_function(
                 "vm.memory.grow.shared.local",
-                ret_i32_take_i64_i32_i32,
+                ret_i32_take_ctx_i32_i32,
                 None,
             ),
             memory_grow_dynamic_import: module.add_function(
                 "vm.memory.grow.dynamic.import",
-                ret_i32_take_i64_i32_i32,
+                ret_i32_take_ctx_i32_i32,
                 None,
             ),
             memory_grow_static_import: module.add_function(
                 "vm.memory.grow.static.import",
-                ret_i32_take_i64_i32_i32,
+                ret_i32_take_ctx_i32_i32,
                 None,
             ),
             memory_grow_shared_import: module.add_function(
                 "vm.memory.grow.shared.import",
-                ret_i32_take_i64_i32_i32,
+                ret_i32_take_ctx_i32_i32,
                 None,
             ),
 
             memory_size_dynamic_local: module.add_function(
                 "vm.memory.size.dynamic.local",
-                ret_i32_take_i64_i32,
+                ret_i32_take_ctx_i32,
                 None,
             ),
             memory_size_static_local: module.add_function(
                 "vm.memory.size.static.local",
-                ret_i32_take_i64_i32,
+                ret_i32_take_ctx_i32,
                 None,
             ),
             memory_size_shared_local: module.add_function(
                 "vm.memory.size.shared.local",
-                ret_i32_take_i64_i32,
+                ret_i32_take_ctx_i32,
                 None,
             ),
             memory_size_dynamic_import: module.add_function(
                 "vm.memory.size.dynamic.import",
-                ret_i32_take_i64_i32,
+                ret_i32_take_ctx_i32,
                 None,
             ),
             memory_size_static_import: module.add_function(
                 "vm.memory.size.static.import",
-                ret_i32_take_i64_i32,
+                ret_i32_take_ctx_i32,
                 None,
             ),
             memory_size_shared_import: module.add_function(
                 "vm.memory.size.shared.import",
-                ret_i32_take_i64_i32,
+                ret_i32_take_ctx_i32,
                 None,
             ),
 
@@ -332,6 +339,9 @@ impl Intrinsics {
             info,
 
             cached_memories: HashMap::new(),
+            cached_tables: HashMap::new(),
+            cached_globals: HashMap::new(),
+            cached_imported_functions: HashMap::new(),
 
             _phantom: PhantomData,
         }
@@ -351,6 +361,22 @@ enum MemoryCache {
     },
 }
 
+struct TableCache {
+    ptr_to_base_ptr: PointerValue,
+    ptr_to_bounds: PointerValue,
+}
+
+#[derive(Clone, Copy)]
+pub enum GlobalCache {
+    Mut { ptr_to_value: PointerValue },
+    Const { value: IntValue },
+}
+
+struct ImportedFuncCache {
+    func_ptr: PointerValue,
+    ctx_ptr: PointerValue,
+}
+
 pub struct CtxType<'a> {
     ctx_ty: StructType,
     ctx_ptr_ty: PointerType,
@@ -362,6 +388,9 @@ pub struct CtxType<'a> {
     info: &'a ModuleInfo,
 
     cached_memories: HashMap<MemoryIndex, MemoryCache>,
+    cached_tables: HashMap<TableIndex, TableCache>,
+    cached_globals: HashMap<GlobalIndex, GlobalCache>,
+    cached_imported_functions: HashMap<ImportedFuncIndex, ImportedFuncCache>,
 
     _phantom: PhantomData<&'a FunctionValue>,
 }
@@ -443,6 +472,119 @@ impl<'a> CtxType<'a> {
             MemoryCache::Static { base_ptr, bounds } => (*base_ptr, *bounds),
         }
     }
+
+    pub fn global_cache(&mut self, index: GlobalIndex) -> GlobalCache {
+        let (cached_globals, builder, ctx_ptr_value, info, intrinsics) = (
+            &mut self.cached_globals,
+            self.builder,
+            self.ctx_ptr_value,
+            self.info,
+            self.intrinsics,
+        );
+
+        *cached_globals.entry(index).or_insert_with(|| {
+            let (globals_array_ptr_ptr, index, mutable, wasmer_ty) =
+                match index.local_or_import(info) {
+                    LocalOrImport::Local(local_global_index) => {
+                        let desc = info.globals[local_global_index].desc;
+                        (
+                            unsafe {
+                                builder.build_struct_gep(ctx_ptr_value, 2, "globals_array_ptr_ptr")
+                            },
+                            local_global_index.index() as u64,
+                            desc.mutable,
+                            desc.ty,
+                        )
+                    }
+                    LocalOrImport::Import(import_global_index) => {
+                        let desc = info.imported_globals[import_global_index].1;
+                        (
+                            unsafe {
+                                builder.build_struct_gep(ctx_ptr_value, 5, "globals_array_ptr_ptr")
+                            },
+                            import_global_index.index() as u64,
+                            desc.mutable,
+                            desc.ty,
+                        )
+                    }
+                };
+
+            let llvm_ptr_ty = type_to_llvm_ptr(intrinsics, wasmer_ty);
+
+            let global_array_ptr = builder
+                .build_load(globals_array_ptr_ptr, "global_array_ptr")
+                .into_pointer_value();
+            let const_index = intrinsics.i32_ty.const_int(index, false);
+            let global_ptr_ptr = unsafe {
+                builder.build_in_bounds_gep(global_array_ptr, &[const_index], "global_ptr_ptr")
+            };
+            let global_ptr = builder
+                .build_load(global_ptr_ptr, "global_ptr")
+                .into_pointer_value();
+
+            let global_ptr_typed = {
+                let int = builder.build_ptr_to_int(global_ptr, intrinsics.i64_ty, "global_ptr_int");
+                builder.build_int_to_ptr(int, llvm_ptr_ty, "global_ptr_typed")
+            };
+            println!("global_ptr: {:?}", global_ptr_typed);
+
+            if mutable {
+                GlobalCache::Mut {
+                    ptr_to_value: global_ptr_typed,
+                }
+            } else {
+                GlobalCache::Const {
+                    value: builder
+                        .build_load(global_ptr_typed, "global_value")
+                        .into_int_value(),
+                }
+            }
+        })
+    }
+
+    pub fn imported_func(&mut self, index: ImportedFuncIndex) -> (PointerValue, PointerValue) {
+        let (cached_imported_functions, builder, ctx_ptr_value, intrinsics) = (
+            &mut self.cached_imported_functions,
+            self.builder,
+            self.ctx_ptr_value,
+            self.intrinsics,
+        );
+
+        let imported_func_cache = cached_imported_functions.entry(index).or_insert_with(|| {
+            let func_array_ptr_ptr = unsafe {
+                builder.build_struct_gep(ctx_ptr_value, 6, "imported_func_array_ptr_ptr")
+            };
+            let func_array_ptr = builder
+                .build_load(func_array_ptr_ptr, "func_array_ptr")
+                .into_pointer_value();
+            let const_index = intrinsics.i32_ty.const_int(index.index() as u64, false);
+            let imported_func_ptr_ptr = unsafe {
+                builder.build_in_bounds_gep(func_array_ptr, &[const_index], "imported_func_ptr_ptr")
+            };
+            let imported_func_ptr = builder
+                .build_load(imported_func_ptr_ptr, "imported_func_ptr")
+                .into_pointer_value();
+            let (func_ptr_ptr, ctx_ptr_ptr) = unsafe {
+                (
+                    builder.build_struct_gep(imported_func_ptr, 0, "func_ptr_ptr"),
+                    builder.build_struct_gep(imported_func_ptr, 1, "ctx_ptr_ptr"),
+                )
+            };
+
+            let func_ptr = builder
+                .build_load(func_ptr_ptr, "func_ptr")
+                .into_pointer_value();
+            let ctx_ptr = builder
+                .build_load(ctx_ptr_ptr, "ctx_ptr")
+                .into_pointer_value();
+
+            ImportedFuncCache { func_ptr, ctx_ptr }
+        });
+
+        (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr)
+    }
+
+    // pub fn table(&mut self, table_index: TableIndex, elem_index: IntValue) ->
 }
 
 // pub struct Ctx {
