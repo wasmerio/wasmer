@@ -72,13 +72,27 @@ struct wasmer_memory_t {
 
 };
 
+struct wasmer_table_t {
+
+};
+
+union wasmer_import_export_value {
+  const wasmer_func_t *func;
+  const wasmer_table_t *table;
+  const wasmer_memory_t *memory;
+  const wasmer_global_t *global;
+};
+
+struct wasmer_import_t {
+  wasmer_byte_array module_name;
+  wasmer_byte_array import_name;
+  wasmer_import_export_kind tag;
+  wasmer_import_export_value value;
+};
+
 struct wasmer_limits_t {
   uint32_t min;
   uint32_t max;
-};
-
-struct wasmer_table_t {
-
 };
 
 extern "C" {
@@ -86,7 +100,7 @@ extern "C" {
 /// Gets wasmer_export kind
 wasmer_import_export_kind wasmer_export_kind(wasmer_export_t *export_);
 
-/// Gets func from wasm_export
+/// Gets name from wasmer_export
 wasmer_byte_array wasmer_export_name(wasmer_export_t *export_);
 
 /// Gets func from wasm_export
@@ -111,6 +125,17 @@ wasmer_result_t wasmer_func_call(wasmer_func_t *func,
                                  int params_len,
                                  wasmer_value_t *results,
                                  int results_len);
+
+/// Frees memory for the given Func
+void wasmer_func_destroy(wasmer_func_t *func);
+
+/// Creates new func
+/// The caller owns the object and should call `wasmer_func_destroy` to free it.
+const wasmer_func_t *wasmer_func_new(void (*func)(void *data),
+                                     const wasmer_value_tag *params,
+                                     int params_len,
+                                     const wasmer_value_tag *returns,
+                                     int returns_len);
 
 /// Frees memory for the given Global
 void wasmer_global_destroy(wasmer_global_t *global);
@@ -179,7 +204,8 @@ void wasmer_instance_exports(wasmer_instance_t *instance, wasmer_exports_t **exp
 wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance,
                                    uint8_t *wasm_bytes,
                                    uint32_t wasm_bytes_len,
-                                   wasmer_import_object_t *import_object);
+                                   wasmer_import_t *imports,
+                                   int imports_len);
 
 /// Gets the length in bytes of the last error.
 /// This can be used to dynamically allocate a buffer with the correct number of

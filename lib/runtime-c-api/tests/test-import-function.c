@@ -2,6 +2,7 @@
 #include "../wasmer.h"
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 
 static print_str_called = false;
 static memory_len = 0;
@@ -26,10 +27,32 @@ void print_str(int32_t ptr, int32_t len, wasmer_instance_context_t *ctx)
 
 int main()
 {
-    wasmer_import_object_t *import_object = wasmer_import_object_new();
+//    wasmer_import_object_t *import_object = wasmer_import_object_new();
     wasmer_value_tag params_sig[] = {WASM_I32, WASM_I32};
     wasmer_value_tag returns_sig[] = {};
-    wasmer_imports_set_import_func(import_object, "env", "print_str", print_str, params_sig, 2, returns_sig, 0);
+
+    printf("Creating new func\n");
+    wasmer_func_t *func = wasmer_func_new(print_str, params_sig, 2, returns_sig, 0);
+    wasmer_import_t import;
+
+    char *module_name = "env";
+    wasmer_byte_array module_name_bytes;
+    module_name_bytes.bytes = module_name;
+    module_name_bytes.bytes_len = strlen(module_name);
+    char *import_name = "print_str";
+    wasmer_byte_array import_name_bytes;
+    import_name_bytes.bytes = import_name;
+    import_name_bytes.bytes_len = strlen(import_name);
+
+    import.module_name = module_name_bytes;
+    import.import_name = import_name_bytes;
+    import.tag = WASM_FUNCTION;
+    import.value.func = func;
+    wasmer_import_t imports[] = {import};
+
+
+//    wasmer_imports_set_import_func(import_object, "env", "print_str", print_str, params_sig, 2, returns_sig, 0);
+
 
     // Read the wasm file bytes
     FILE *file = fopen("wasm_sample_app.wasm", "r");
@@ -40,9 +63,15 @@ int main()
     fread(bytes, 1, len, file);
     fclose(file);
 
+    printf("Instantiating\n");
     wasmer_instance_t *instance = NULL;
-    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, import_object);
+    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 1);
     printf("Compile result:  %d\n", compile_result);
+    int error_len = wasmer_last_error_length();
+    printf("Error len: `%d`\n", error_len);
+    char *error_str = malloc(error_len);
+    wasmer_last_error_message(error_str, error_len);
+    printf("Error str: `%s`\n", error_str);
     assert(compile_result == WASMER_OK);
 
     wasmer_value_t params[] = {};
@@ -56,9 +85,11 @@ int main()
     assert(ptr_len == 13);
     assert(0 == strcmp(actual_str, "Hello, World!"));
 
+    printf("Destroying func\n");
+  //  wasmer_func_destroy(func);
     // printf("Destroy instance\n");
     // wasmer_instance_destroy(instance);
-    printf("Destroy import object\n");
-    wasmer_import_object_destroy(import_object);
+//    printf("Destroy import object\n");
+//    wasmer_import_object_destroy(import_object);
     return 0;
 }

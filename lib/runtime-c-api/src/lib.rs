@@ -3,6 +3,7 @@ extern crate wasmer_runtime_core;
 
 use libc::{c_char, c_int, int32_t, int64_t, uint32_t, uint8_t};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::CStr;
 use std::ffi::CString;
@@ -99,8 +100,9 @@ pub struct wasmer_func_signature {
 }
 
 #[repr(C)]
-#[derive(Clone)]
-pub struct wasmer_import {
+pub struct wasmer_import_t {
+    module_name: wasmer_byte_array,
+    import_name: wasmer_byte_array,
     tag: wasmer_import_export_kind,
     value: wasmer_import_export_value,
 }
@@ -389,18 +391,63 @@ pub unsafe extern "C" fn wasmer_instantiate(
     mut instance: *mut *mut wasmer_instance_t,
     wasm_bytes: *mut uint8_t,
     wasm_bytes_len: uint32_t,
-    import_object: *mut wasmer_import_object_t,
+    imports: *mut wasmer_import_t,
+    imports_len: c_int,
 ) -> wasmer_result_t {
-    let import_object = unsafe { Box::from_raw(import_object as *mut ImportObject) };
     if wasm_bytes.is_null() {
         update_last_error(CApiError {
             msg: "wasm bytes ptr is null".to_string(),
         });
         return wasmer_result_t::WASMER_ERROR;
     }
+    let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
+    let mut import_object = ImportObject::new();
+    let mut namespaces = HashMap::new();
+    for import in imports {
+        let module_name = slice::from_raw_parts(
+            import.module_name.bytes,
+            import.module_name.bytes_len as usize,
+        );
+        let module_name = if let Ok(s) = std::str::from_utf8(module_name) {
+            s
+        } else {
+            update_last_error(CApiError {
+                msg: "error converting module name to string".to_string(),
+            });
+            return wasmer_result_t::WASMER_ERROR;
+        };
+        let import_name = slice::from_raw_parts(
+            import.import_name.bytes,
+            import.import_name.bytes_len as usize,
+        );
+        let import_name = if let Ok(s) = std::str::from_utf8(import_name) {
+            s
+        } else {
+            update_last_error(CApiError {
+                msg: "error converting import_name to string".to_string(),
+            });
+            return wasmer_result_t::WASMER_ERROR;
+        };
+
+        let namespace = namespaces
+            .entry(module_name)
+            .or_insert_with(|| Namespace::new());
+
+        let export = match import.tag {
+            wasmer_import_export_kind::WASM_MEMORY => import.value.memory as *mut Export,
+            wasmer_import_export_kind::WASM_FUNCTION => import.value.func as *mut Export,
+            wasmer_import_export_kind::WASM_GLOBAL => import.value.global as *mut Export,
+            wasmer_import_export_kind::WASM_TABLE => import.value.table as *mut Export,
+        };
+        namespace.insert(import_name, unsafe { *Box::from_raw(export) });
+    }
+    for (module_name, namespace) in namespaces.into_iter() {
+        import_object.register(module_name, namespace);
+    }
+
     let bytes: &[u8] =
         unsafe { ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize) };
-    let result = wasmer_runtime::instantiate(bytes, &*import_object);
+    let result = wasmer_runtime::instantiate(bytes, &import_object);
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {
@@ -413,7 +460,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
         }
     };
     unsafe { *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t };
-    Box::into_raw(import_object);
+    Box::into_raw(Box::new(import_object));
     wasmer_result_t::WASMER_OK
 }
 
@@ -560,6 +607,40 @@ pub unsafe extern "C" fn wasmer_export_kind(
         Export::Function { .. } => wasmer_import_export_kind::WASM_FUNCTION,
         Export::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
         Export::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
+    }
+}
+
+/// Creates new func
+///
+/// The caller owns the object and should call `wasmer_func_destroy` to free it.
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_func_new(
+    func: extern "C" fn(data: *mut c_void),
+    params: *const wasmer_value_tag,
+    params_len: c_int,
+    returns: *const wasmer_value_tag,
+    returns_len: c_int,
+) -> *const wasmer_func_t {
+    let params: &[wasmer_value_tag] = slice::from_raw_parts(params, params_len as usize);
+    let params: Vec<Type> = params.iter().cloned().map(|x| x.into()).collect();
+    let returns: &[wasmer_value_tag] = slice::from_raw_parts(returns, returns_len as usize);
+    let returns: Vec<Type> = returns.iter().cloned().map(|x| x.into()).collect();
+
+    let export = Box::new(Export::Function {
+        func: unsafe { FuncPointer::new(func as _) },
+        ctx: Context::Internal,
+        signature: Arc::new(FuncSig::new(params, returns)),
+    });
+    Box::into_raw(export) as *mut wasmer_func_t
+}
+
+/// Frees memory for the given Func
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_func_destroy(func: *mut wasmer_func_t) {
+    if !func.is_null() {
+        drop(unsafe { Box::from_raw(func as *mut Export) });
     }
 }
 

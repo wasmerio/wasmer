@@ -5,7 +5,7 @@
 
 int main()
 {
-    wasmer_import_object_t *import_object = wasmer_import_object_new();
+//    wasmer_import_object_t *import_object = wasmer_import_object_new();
 
     // Read the wasm file bytes
     FILE *file = fopen("sum.wasm", "r");
@@ -16,8 +16,9 @@ int main()
     fread(bytes, 1, len, file);
     fclose(file);
 
+    wasmer_import_t imports[] = {};
     wasmer_instance_t *instance = NULL;
-    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, import_object);
+    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 0);
     printf("Compile result:  %d\n", compile_result);
     assert(compile_result == WASMER_OK);
 
@@ -61,8 +62,6 @@ int main()
 
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);
-    printf("Destroy import object\n");
-    wasmer_import_object_destroy(import_object);
     printf("Destroy exports\n");
     wasmer_exports_destroy(exports);
     return 0;
