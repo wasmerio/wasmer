@@ -266,6 +266,7 @@ impl std::fmt::Display for CallError {
 pub enum CreationError {
     UnableToCreateMemory,
     UnableToCreateTable,
+    InvalidDescriptor(String),
 }
 
 impl PartialEq for CreationError {
@@ -279,6 +280,11 @@ impl std::fmt::Display for CreationError {
         match self {
             CreationError::UnableToCreateMemory => write!(f, "Unable to Create Memory"),
             CreationError::UnableToCreateTable => write!(f, "Unable to Create Table"),
+            CreationError::InvalidDescriptor(msg) => write!(
+                f,
+                "Unable to create because the supplied descriptor is invalid: \"{}\"",
+                msg
+            ),
         }
     }
 }
