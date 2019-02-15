@@ -153,20 +153,30 @@ impl PartialEq for RuntimeError {
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            RuntimeError::IndirectCallSignature { table} =>
-                write!(f, "Indirect call signature error with Table Index \"{:?}\"", table),
-            RuntimeError::IndirectCallToNull {table} =>
-                write!(f, "Indirect call to null with table index \"{:?}\"", table),
+            RuntimeError::IndirectCallSignature { table } => write!(
+                f,
+                "Indirect call signature error with Table Index \"{:?}\"",
+                table
+            ),
+            RuntimeError::IndirectCallToNull { table } => {
+                write!(f, "Indirect call to null with table index \"{:?}\"", table)
+            }
             RuntimeError::IllegalArithmeticOperation => write!(f, "Illegal arithmetic operation"),
-            RuntimeError::OutOfBoundsAccess { memory, addr} => {
-                match addr {
-                    Some(addr) => write!(f, "Out-of-bounds access with memory index {:?} and address {}", memory, addr),
-                    None => write!(f, "Out-of-bounds access with memory index {:?}", memory),
-                }
+            RuntimeError::OutOfBoundsAccess { memory, addr } => match addr {
+                Some(addr) => write!(
+                    f,
+                    "Out-of-bounds access with memory index {:?} and address {}",
+                    memory, addr
+                ),
+                None => write!(f, "Out-of-bounds access with memory index {:?}", memory),
             },
-            RuntimeError::TableOutOfBounds {table} => write!(f, "Table out of bounds with table index \"{:?}\"", table),
-            RuntimeError::Unknown { msg} => write!(f, "Unknown runtime error with message: \"{}\"", msg),
-            RuntimeError::User { msg} => write!(f, "User runtime error with message: \"{}\"", msg),
+            RuntimeError::TableOutOfBounds { table } => {
+                write!(f, "Table out of bounds with table index \"{:?}\"", table)
+            }
+            RuntimeError::Unknown { msg } => {
+                write!(f, "Unknown runtime error with message: \"{}\"", msg)
+            }
+            RuntimeError::User { msg } => write!(f, "User runtime error with message: \"{}\"", msg),
         }
     }
 }
