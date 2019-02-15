@@ -312,11 +312,7 @@ impl std::fmt::Display for FuncSig {
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(
-            f,
-            "Signature resolution error: [{}] -> [{}]",
-            params, returns
-        )
+        write!(f, "[{}] -> [{}]", params, returns)
     }
 }
 
