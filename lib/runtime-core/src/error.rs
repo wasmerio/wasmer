@@ -219,6 +219,17 @@ impl PartialEq for CreationError {
     }
 }
 
+impl std::fmt::Display for CreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CreationError::UnableToCreateMemory => write!(f, "Unable to Create Memory"),
+            CreationError::UnableToCreateTable => write!(f, "Unable to Create Table"),
+        }
+    }
+}
+
+impl std::error::Error for CreationError {}
+
 /// The amalgamation of all errors that can occur
 /// during the compilation, instantiation, or execution
 /// of a webassembly module.
