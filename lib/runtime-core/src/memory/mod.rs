@@ -1,5 +1,5 @@
 use crate::{
-    error::CreationError,
+    error::{ CreationError, GrowError },
     export::Export,
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
@@ -7,6 +7,7 @@ use crate::{
     types::{MemoryDescriptor, ValueType},
     units::Pages,
     vm,
+    grow::Grow,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -18,16 +19,11 @@ pub use self::atomic::Atomic;
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
 pub use self::view::{Atomically, MemoryView};
-use crate::error::GrowError;
 
 mod atomic;
 mod dynamic;
 mod static_;
 mod view;
-
-trait Grow {
-    fn grow(&self, delta: Pages) -> Result<Pages, GrowError>;
-}
 
 #[derive(Clone)]
 enum MemoryVariant {
@@ -44,7 +40,7 @@ pub struct Memory {
     variant: MemoryVariant,
 }
 
-impl Grow for Memory {
+impl Grow<Pages> for Memory {
     /// Grow this memory by the specified number of pages.
     fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         match &self.variant {
@@ -256,7 +252,7 @@ impl UnsharedMemory {
     }
 }
 
-impl Grow for UnsharedMemory {
+impl Grow<Pages> for UnsharedMemory {
     fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         let mut storage = self.internal.storage.borrow_mut();
 
@@ -271,7 +267,7 @@ impl Grow for UnsharedMemory {
 
         self.internal.local.set(local);
 
-        pages.ok_or(GrowError{})
+        pages.ok_or(GrowError::MemoryGrowError)
     }
 }
 
@@ -297,7 +293,7 @@ impl SharedMemory {
     }
 }
 
-impl Grow for SharedMemory {
+impl Grow<Pages> for SharedMemory {
     fn grow(&self, _delta: Pages) -> Result<Pages, GrowError> {
         unimplemented!()
     }

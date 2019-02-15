@@ -15,6 +15,7 @@ use crate::{
     vm,
 };
 use std::{slice, sync::Arc};
+use crate::grow::Grow;
 
 #[derive(Debug)]
 pub struct LocalBacking {
