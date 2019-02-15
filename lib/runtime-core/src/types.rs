@@ -15,6 +15,12 @@ pub enum Type {
     F64,
 }
 
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Represents a WebAssembly value.
 ///
 /// As the number of types in WebAssembly expand,
@@ -289,6 +295,24 @@ impl FuncSig {
                 .iter()
                 .zip(params.iter().map(|val| val.ty()))
                 .all(|(t0, ref t1)| t0 == t1)
+    }
+}
+
+impl std::fmt::Display for FuncSig {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let params = self
+            .params
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let returns = self
+            .returns
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        write!(f, "[{}] -> [{}]", params, returns)
     }
 }
 
