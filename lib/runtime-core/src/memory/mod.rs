@@ -18,11 +18,16 @@ pub use self::atomic::Atomic;
 pub use self::dynamic::DynamicMemory;
 pub use self::static_::{SharedStaticMemory, StaticMemory};
 pub use self::view::{Atomically, MemoryView};
+use crate::error::GrowError;
 
 mod atomic;
 mod dynamic;
 mod static_;
 mod view;
+
+trait Grow {
+    fn grow(&self, delta: Pages) -> Result<Pages, GrowError>;
+}
 
 #[derive(Clone)]
 enum MemoryVariant {
