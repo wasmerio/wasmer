@@ -50,6 +50,12 @@ impl Table {
     /// # }
     /// ```
     pub fn new(desc: TableDescriptor) -> Result<Self, CreationError> {
+        if let Some(max) = desc.maximum {
+            if max < desc.minimum {
+                return Err(CreationError::UnableToCreateTable);
+            }
+        }
+
         let mut local = vm::LocalTable {
             base: ptr::null_mut(),
             count: 0,

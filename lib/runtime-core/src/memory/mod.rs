@@ -63,6 +63,12 @@ impl Memory {
     /// # }
     /// ```
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+        if let Some(max) = desc.maximum {
+            if max < desc.minimum {
+                return Err(CreationError::UnableToCreateMemory);
+            }
+        }
+
         let variant = if !desc.shared {
             MemoryVariant::Unshared(UnsharedMemory::new(desc)?)
         } else {
