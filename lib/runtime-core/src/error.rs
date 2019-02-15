@@ -2,6 +2,7 @@ use crate::types::{
     FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
 };
 use std::sync::Arc;
+use core::borrow::Borrow;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
@@ -134,6 +135,26 @@ impl PartialEq for ResolveError {
         false
     }
 }
+
+impl std::fmt::Display for ResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ResolveError::ExportNotFound {name} => write!(f, "Export not found: {}", name),
+            ResolveError::ExportWrongType {name} => write!(f, "Export wrong type: {}", name),
+            ResolveError::Signature {expected, found} => {
+                let found = found.as_slice()
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let expected: &FuncSig = expected.borrow();
+                write!(f, "Parameters of type [{}] did not match signature {}", found, expected)
+            },
+        }
+    }
+}
+
+impl std::error::Error for ResolveError {}
 
 /// This error type is produced by calling a wasm function
 /// exported from a module.
