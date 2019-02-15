@@ -11,8 +11,8 @@ mod anyfunc;
 
 pub use self::anyfunc::Anyfunc;
 use self::anyfunc::AnyfuncTable;
-use crate::grow::Grow;
 use crate::error::GrowError;
+use crate::grow::Grow;
 
 pub enum Element<'a> {
     Anyfunc(Anyfunc<'a>),
@@ -114,9 +114,9 @@ impl Grow<u32> for Table {
         }
 
         match &mut *self.storage.borrow_mut() {
-            (TableStorage::Anyfunc(ref mut anyfunc_table), ref mut local) => {
-                anyfunc_table.grow(delta, local).ok_or(GrowError::TableGrowError)
-            }
+            (TableStorage::Anyfunc(ref mut anyfunc_table), ref mut local) => anyfunc_table
+                .grow(delta, local)
+                .ok_or(GrowError::TableGrowError),
         }
     }
 }

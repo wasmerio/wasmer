@@ -1,13 +1,13 @@
 use crate::{
-    error::{ CreationError, GrowError },
+    error::{CreationError, GrowError},
     export::Export,
+    grow::Grow,
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
     memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
     types::{MemoryDescriptor, ValueType},
     units::Pages,
     vm,
-    grow::Grow,
 };
 use std::{
     cell::{Cell, RefCell},
