@@ -311,3 +311,20 @@ impl From<ResolveError> for CallError {
         CallError::Resolve(resolve_err)
     }
 }
+
+#[derive(Debug)]
+pub enum GrowError {
+    MemoryGrowError,
+    TableGrowError,
+}
+
+impl std::fmt::Display for GrowError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            GrowError::MemoryGrowError => write!(f, "Unable to grow memory"),
+            GrowError::TableGrowError => write!(f, "Unable to grow table"),
+        }
+    }
+}
+
+impl std::error::Error for GrowError {}
