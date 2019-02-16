@@ -59,7 +59,7 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
 pub fn parse_function_bodies(
     info: &ModuleInfo,
     code_reader: CodeSectionReader,
-) -> Result<(), BinaryReaderError> {
+) -> Result<(Module, Intrinsics), BinaryReaderError> {
     let context = Context::create();
     let module = context.create_module("module");
     let builder = context.create_builder();
@@ -104,7 +104,22 @@ pub fn parse_function_bodies(
         )?;
     }
 
-    Ok(())
+    let pass_manager = PassManager::create_for_module();
+    pass_manager.add_promote_memory_to_register_pass();
+    pass_manager.add_cfg_simplification_pass();
+    pass_manager.add_instruction_combining_pass();
+    // pass_manager.add_aggressive_inst_combiner_pass();
+    // pass_manager.add_merged_load_store_motion_pass();
+    // pass_manager.add_sccp_pass();
+    pass_manager.add_gvn_pass();
+    pass_manager.add_new_gvn_pass();
+    pass_manager.add_aggressive_dce_pass();
+    pass_manager.add_verifier_pass();
+    pass_manager.run_on_module(&module);
+
+    println!("{}", module.print_to_string().to_string());
+
+    Ok((module, intrinsics))
 }
 
 fn parse_function(
@@ -1668,29 +1683,13 @@ fn parse_function(
                     &state.var_name(),
                 );
                 state.push1(result.try_as_basic_value().left().unwrap());
-            } // op @ _ => {
-              //     println!("{}", module.print_to_string().to_string());
-              //     unimplemented!("{:?}", op);
-              // }
+            }
+            op @ _ => {
+                println!("{}", module.print_to_string().to_string());
+                unimplemented!("{:?}", op);
+            }
         }
     }
-
-    println!("finished translating");
-
-    let pass_manager = PassManager::create_for_module();
-    pass_manager.add_promote_memory_to_register_pass();
-    pass_manager.add_cfg_simplification_pass();
-    pass_manager.add_instruction_combining_pass();
-    // pass_manager.add_aggressive_inst_combiner_pass();
-    // pass_manager.add_merged_load_store_motion_pass();
-    // pass_manager.add_sccp_pass();
-    pass_manager.add_gvn_pass();
-    pass_manager.add_new_gvn_pass();
-    pass_manager.add_aggressive_dce_pass();
-    pass_manager.add_verifier_pass();
-    pass_manager.run_on_module(module);
-
-    println!("{}", module.print_to_string().to_string());
 
     Ok(())
 }

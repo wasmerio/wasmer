@@ -1,6 +1,6 @@
 use crate::{
     memory::MemoryType,
-    module::{ModuleInfo, ModuleInner},
+    module::ModuleInfo,
     structures::TypedIndex,
     units::Pages,
 };
