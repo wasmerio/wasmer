@@ -12,7 +12,7 @@ use std::slice;
 use std::str;
 use std::sync::Arc;
 use std::{ffi::c_void, mem, ptr};
-use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Table, Value};
+use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Module, Table, Value};
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::{LikeNamespace, Namespace};
 use wasmer_runtime_core::types::{
@@ -22,6 +22,9 @@ use wasmer_runtime_core::units::{Bytes, Pages};
 
 #[allow(non_camel_case_types)]
 pub struct wasmer_import_object_t();
+
+#[allow(non_camel_case_types)]
+pub struct wasmer_module_t();
 
 #[allow(non_camel_case_types)]
 pub struct wasmer_instance_t();
@@ -376,6 +379,42 @@ pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import
 pub extern "C" fn wasmer_memory_destroy(memory: *mut wasmer_memory_t) {
     if !memory.is_null() {
         drop(unsafe { Box::from_raw(memory as *mut Memory) });
+    }
+}
+
+/// Creates a new Module from the given wasm bytes.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_compile(
+    mut module: *mut *mut wasmer_module_t,
+    wasm_bytes: *mut uint8_t,
+    wasm_bytes_len: uint32_t,
+) -> wasmer_result_t {
+    let bytes: &[u8] =
+        unsafe { ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize) };
+    let result = wasmer_runtime::compile(bytes);
+    let new_module = match result {
+        Ok(instance) => instance,
+        Err(error) => {
+            update_last_error(error);
+            return wasmer_result_t::WASMER_ERROR;
+        }
+    };
+    unsafe { *module = Box::into_raw(Box::new(new_module)) as *mut wasmer_module_t };
+    wasmer_result_t::WASMER_OK
+}
+
+/// Frees memory for the given Module
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_module_destroy(module: *mut wasmer_module_t) {
+    if !module.is_null() {
+        drop(unsafe { Box::from_raw(module as *mut Module) });
     }
 }
 

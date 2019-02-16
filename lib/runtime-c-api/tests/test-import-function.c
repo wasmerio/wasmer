@@ -67,17 +67,20 @@ int main()
     wasmer_instance_t *instance = NULL;
     wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 1);
     printf("Compile result:  %d\n", compile_result);
-    int error_len = wasmer_last_error_length();
-    printf("Error len: `%d`\n", error_len);
-    char *error_str = malloc(error_len);
-    wasmer_last_error_message(error_str, error_len);
-    printf("Error str: `%s`\n", error_str);
+
     assert(compile_result == WASMER_OK);
 
     wasmer_value_t params[] = {};
     wasmer_value_t results[] = {};
     wasmer_result_t call_result = wasmer_instance_call(instance, "hello_wasm", params, 0, results, 0);
     printf("Call result:  %d\n", call_result);
+
+    int error_len = wasmer_last_error_length();
+    printf("Error len: `%d`\n", error_len);
+    char *error_str = malloc(error_len);
+    wasmer_last_error_message(error_str, error_len);
+    printf("Error str: `%s`\n", error_str);
+
     assert(call_result == WASMER_OK);
 
     assert(print_str_called);

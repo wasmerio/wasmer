@@ -48,7 +48,7 @@ int main()
     char *error_str = malloc(error_len);
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
-    assert(0 == strcmp(error_str, "Call error"));
+    assert(0 == strcmp(error_str, "Call error: Parameters of type [I32] did not match signature [I32, I32] -> [I32]"));
     free(error_str);
 
     printf("Destroy instance\n");

@@ -30,6 +30,8 @@ struct wasmer_instance_context_t;
 
 struct wasmer_instance_t;
 
+struct wasmer_module_t;
+
 struct wasmer_export_t {
 
 };
@@ -96,6 +98,14 @@ struct wasmer_limits_t {
 };
 
 extern "C" {
+
+/// Creates a new Module from the given wasm bytes.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_compile(wasmer_module_t **module,
+                               uint8_t *wasm_bytes,
+                               uint32_t wasm_bytes_len);
 
 /// Gets wasmer_export kind
 wasmer_import_export_kind wasmer_export_kind(wasmer_export_t *export_);
@@ -255,6 +265,9 @@ uint32_t wasmer_memory_length(wasmer_memory_t *memory);
 /// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
+
+/// Frees memory for the given Module
+void wasmer_module_destroy(wasmer_module_t *module);
 
 /// Frees memory for the given Table
 void wasmer_table_destroy(wasmer_table_t *table);
