@@ -69,7 +69,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
-    let (_abi, import_object, em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
+    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
             InstanceABI::Emscripten,
@@ -113,6 +113,11 @@ fn main() {
     let options = CLIOptions::from_args();
     match options {
         CLIOptions::Run(options) => run(options),
+        #[cfg(not(target_os = "windows"))]
         CLIOptions::SelfUpdate => update::self_update(),
+        #[cfg(target_os = "windows")]
+        CLIOptions::SelfUpdate => {
+            println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
+        }
     }
 }

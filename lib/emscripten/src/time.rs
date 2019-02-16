@@ -41,7 +41,7 @@ const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
 /// emscripten: _gettimeofday
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _gettimeofday(tp: c_int, tz: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _gettimeofday(ctx: &mut Ctx, tp: c_int, tz: c_int) -> c_int {
     debug!("emscripten::_gettimeofday {} {}", tp, tz);
     #[repr(C)]
     struct GuestTimeVal {
@@ -66,7 +66,7 @@ pub fn _gettimeofday(tp: c_int, tz: c_int, ctx: &mut Ctx) -> c_int {
 
 /// emscripten: _clock_gettime
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _clock_gettime(clk_id: clockid_t, tp: c_int, ctx: &mut Ctx) -> c_int {
+pub fn _clock_gettime(ctx: &mut Ctx, clk_id: clockid_t, tp: c_int) -> c_int {
     debug!("emscripten::_clock_gettime {} {}", clk_id, tp);
     // debug!("Memory {:?}", ctx.memory(0)[..]);
     #[repr(C)]
@@ -97,9 +97,9 @@ pub fn _clock_gettime(clk_id: clockid_t, tp: c_int, ctx: &mut Ctx) -> c_int {
 }
 
 /// emscripten: ___clock_gettime
-pub fn ___clock_gettime(clk_id: clockid_t, tp: c_int, ctx: &mut Ctx) -> c_int {
+pub fn ___clock_gettime(ctx: &mut Ctx, clk_id: clockid_t, tp: c_int) -> c_int {
     debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
-    _clock_gettime(clk_id, tp, ctx)
+    _clock_gettime(ctx, clk_id, tp)
 }
 
 /// emscripten: _clock
@@ -109,22 +109,22 @@ pub fn _clock(_ctx: &mut Ctx) -> c_int {
 }
 
 /// emscripten: _difftime
-pub fn _difftime(t0: u32, t1: u32, _ctx: &mut Ctx) -> f64 {
+pub fn _difftime(_ctx: &mut Ctx, t0: u32, t1: u32) -> f64 {
     debug!("emscripten::_difftime");
     (t0 - t1) as _
 }
 
-pub fn _gmtime_r(_one: i32, _two: i32, _ctx: &mut Ctx) -> i32 {
+pub fn _gmtime_r(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::_gmtime_r");
     -1
 }
 
-pub fn _mktime(_one: i32, _ctx: &mut Ctx) -> i32 {
+pub fn _mktime(_ctx: &mut Ctx, _one: i32) -> i32 {
     debug!("emscripten::_mktime");
     -1
 }
 
-pub fn _gmtime(_one: i32, _ctx: &mut Ctx) -> i32 {
+pub fn _gmtime(_ctx: &mut Ctx, _one: i32) -> i32 {
     debug!("emscripten::_gmtime");
     -1
 }
@@ -151,7 +151,7 @@ pub fn _tvset(_ctx: &mut Ctx) {
 
 /// formats time as a C string
 #[allow(clippy::cast_ptr_alignment)]
-unsafe fn fmt_time(time: u32, ctx: &mut Ctx) -> *const c_char {
+unsafe fn fmt_time(ctx: &mut Ctx, time: u32) -> *const c_char {
     let date = &*(emscripten_memory_pointer!(ctx.memory(0), time) as *mut guest_tm);
 
     let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -176,11 +176,11 @@ unsafe fn fmt_time(time: u32, ctx: &mut Ctx) -> *const c_char {
 }
 
 /// emscripten: _asctime
-pub fn _asctime(time: u32, ctx: &mut Ctx) -> u32 {
+pub fn _asctime(ctx: &mut Ctx, time: u32) -> u32 {
     debug!("emscripten::_asctime {}", time);
 
     unsafe {
-        let time_str_ptr = fmt_time(time, ctx);
+        let time_str_ptr = fmt_time(ctx, time);
         copy_cstr_into_wasm(ctx, time_str_ptr)
 
         // let c_str = emscripten_memory_pointer!(ctx.memory(0), res) as *mut i8;
@@ -190,7 +190,7 @@ pub fn _asctime(time: u32, ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: _asctime_r
-pub fn _asctime_r(time: u32, buf: u32, ctx: &mut Ctx) -> u32 {
+pub fn _asctime_r(ctx: &mut Ctx, time: u32, buf: u32) -> u32 {
     debug!("emscripten::_asctime_r {}, {}", time, buf);
 
     unsafe {
@@ -198,8 +198,8 @@ pub fn _asctime_r(time: u32, buf: u32, ctx: &mut Ctx) -> u32 {
         //      to write out more than 26 bytes (including the null terminator).
         //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
         //      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.
-        let time_str_ptr = fmt_time(time, ctx);
-        write_to_buf(time_str_ptr, buf, 26, ctx)
+        let time_str_ptr = fmt_time(ctx, time);
+        write_to_buf(ctx, time_str_ptr, buf, 26)
 
         // let c_str = emscripten_memory_pointer!(ctx.memory(0), res) as *mut i8;
         // use std::ffi::CStr;
@@ -209,7 +209,7 @@ pub fn _asctime_r(time: u32, buf: u32, ctx: &mut Ctx) -> u32 {
 
 /// emscripten: _localtime
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _localtime(time_p: u32, ctx: &mut Ctx) -> c_int {
+pub fn _localtime(ctx: &mut Ctx, time_p: u32) -> c_int {
     debug!("emscripten::_localtime {}", time_p);
     // NOTE: emscripten seems to want tzset() called in this function
     //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
@@ -222,7 +222,7 @@ pub fn _localtime(time_p: u32, ctx: &mut Ctx) -> c_int {
     let result_tm = time::at(timespec);
 
     unsafe {
-        let tm_struct_offset = env::call_malloc(mem::size_of::<guest_tm>() as _, ctx);
+        let tm_struct_offset = env::call_malloc(ctx, mem::size_of::<guest_tm>() as _);
         let tm_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), tm_struct_offset) as *mut guest_tm;
         // debug!(
@@ -247,7 +247,7 @@ pub fn _localtime(time_p: u32, ctx: &mut Ctx) -> c_int {
 }
 /// emscripten: _localtime_r
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _localtime_r(time_p: u32, result: u32, ctx: &mut Ctx) -> c_int {
+pub fn _localtime_r(ctx: &mut Ctx, time_p: u32, result: u32) -> c_int {
     debug!("emscripten::_localtime_r {}", time_p);
 
     // NOTE: emscripten seems to want tzset() called in this function
@@ -284,7 +284,7 @@ pub fn _localtime_r(time_p: u32, result: u32, ctx: &mut Ctx) -> c_int {
 
 /// emscripten: _time
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _time(time_p: u32, ctx: &mut Ctx) -> i32 {
+pub fn _time(ctx: &mut Ctx, time_p: u32) -> i32 {
     debug!("emscripten::_time {}", time_p);
 
     unsafe {
@@ -295,11 +295,11 @@ pub fn _time(time_p: u32, ctx: &mut Ctx) -> i32 {
 
 /// emscripten: _strftime
 pub fn _strftime(
+    _ctx: &mut Ctx,
     s_ptr: c_int,
     maxsize: u32,
     format_ptr: c_int,
     tm_ptr: c_int,
-    _ctx: &mut Ctx,
 ) -> i32 {
     debug!(
         "emscripten::_strftime {} {} {} {}",

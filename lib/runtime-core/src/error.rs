@@ -1,8 +1,7 @@
 use crate::types::{
     FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
 };
-use std::error::Error as StdError;
-use std::fmt;
+use core::borrow::Borrow;
 use std::sync::Arc;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -28,6 +27,19 @@ impl PartialEq for CompileError {
         false
     }
 }
+
+impl std::fmt::Display for CompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CompileError::InternalError { msg } => {
+                write!(f, "Internal compiler error: \"{}\"", msg)
+            }
+            CompileError::ValidationError { msg } => write!(f, "Validation error \"{}\"", msg),
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
 
 /// This is returned when the runtime is unable to
 /// correctly link the module with the provided imports.
@@ -77,6 +89,31 @@ impl PartialEq for LinkError {
     }
 }
 
+impl std::fmt::Display for LinkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LinkError::ImportNotFound {namespace, name} => write!(f, "Import not found, namespace: {}, name: {}", namespace, name),
+            LinkError::IncorrectGlobalDescriptor {namespace, name,expected,found} => {
+                write!(f, "Incorrect global descriptor, namespace: {}, name: {}, expected global descriptor: {:?}, found global descriptor: {:?}", namespace, name, expected, found)
+            },
+            LinkError::IncorrectImportSignature{namespace, name,expected,found} => {
+                write!(f, "Incorrect import signature, namespace: {}, name: {}, expected signature: {}, found signature: {}", namespace, name, expected, found)
+            }
+            LinkError::IncorrectImportType{namespace, name,expected,found} => {
+                write!(f, "Incorrect import type, namespace: {}, name: {}, expected type: {}, found type: {}", namespace, name, expected, found)
+            }
+            LinkError::IncorrectMemoryDescriptor{namespace, name,expected,found} => {
+                write!(f, "Incorrect memory descriptor, namespace: {}, name: {}, expected memory descriptor: {:?}, found memory descriptor: {:?}", namespace, name, expected, found)
+            },
+            LinkError::IncorrectTableDescriptor{namespace, name,expected,found} => {
+                write!(f, "Incorrect table descriptor, namespace: {}, name: {}, expected table descriptor: {:?}, found table descriptor: {:?}", namespace, name, expected, found)
+            },
+        }
+    }
+}
+
+impl std::error::Error for LinkError {}
+
 /// This is the error type returned when calling
 /// a webassembly function.
 ///
@@ -113,6 +150,39 @@ impl PartialEq for RuntimeError {
     }
 }
 
+impl std::fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            RuntimeError::IndirectCallSignature { table } => write!(
+                f,
+                "Indirect call signature error with Table Index \"{:?}\"",
+                table
+            ),
+            RuntimeError::IndirectCallToNull { table } => {
+                write!(f, "Indirect call to null with table index \"{:?}\"", table)
+            }
+            RuntimeError::IllegalArithmeticOperation => write!(f, "Illegal arithmetic operation"),
+            RuntimeError::OutOfBoundsAccess { memory, addr } => match addr {
+                Some(addr) => write!(
+                    f,
+                    "Out-of-bounds access with memory index {:?} and address {}",
+                    memory, addr
+                ),
+                None => write!(f, "Out-of-bounds access with memory index {:?}", memory),
+            },
+            RuntimeError::TableOutOfBounds { table } => {
+                write!(f, "Table out of bounds with table index \"{:?}\"", table)
+            }
+            RuntimeError::Unknown { msg } => {
+                write!(f, "Unknown runtime error with message: \"{}\"", msg)
+            }
+            RuntimeError::User { msg } => write!(f, "User runtime error with message: \"{}\"", msg),
+        }
+    }
+}
+
+impl std::error::Error for RuntimeError {}
+
 /// This error type is produced by resolving a wasm function
 /// given its name.
 ///
@@ -137,6 +207,31 @@ impl PartialEq for ResolveError {
     }
 }
 
+impl std::fmt::Display for ResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ResolveError::ExportNotFound { name } => write!(f, "Export not found: {}", name),
+            ResolveError::ExportWrongType { name } => write!(f, "Export wrong type: {}", name),
+            ResolveError::Signature { expected, found } => {
+                let found = found
+                    .as_slice()
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let expected: &FuncSig = expected.borrow();
+                write!(
+                    f,
+                    "Parameters of type [{}] did not match signature {}",
+                    found, expected
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ResolveError {}
+
 /// This error type is produced by calling a wasm function
 /// exported from a module.
 ///
@@ -156,13 +251,14 @@ impl PartialEq for CallError {
     }
 }
 
-impl fmt::Display for CallError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Call error")
+impl std::fmt::Display for CallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CallError::Resolve(resolve_error) => write!(f, "Call error: {}", resolve_error),
+            CallError::Runtime(runtime_error) => write!(f, "Call error: {}", runtime_error),
+        }
     }
 }
-
-impl StdError for CallError {}
 
 /// This error type is produced when creating something,
 /// like a `Memory` or a `Table`.
@@ -170,6 +266,7 @@ impl StdError for CallError {}
 pub enum CreationError {
     UnableToCreateMemory,
     UnableToCreateTable,
+    InvalidDescriptor(String),
 }
 
 impl PartialEq for CreationError {
@@ -178,13 +275,21 @@ impl PartialEq for CreationError {
     }
 }
 
-impl fmt::Display for CreationError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Creation error")
+impl std::fmt::Display for CreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CreationError::UnableToCreateMemory => write!(f, "Unable to Create Memory"),
+            CreationError::UnableToCreateTable => write!(f, "Unable to Create Table"),
+            CreationError::InvalidDescriptor(msg) => write!(
+                f,
+                "Unable to create because the supplied descriptor is invalid: \"{}\"",
+                msg
+            ),
+        }
     }
 }
 
-impl StdError for CreationError {}
+impl std::error::Error for CreationError {}
 
 /// The amalgamation of all errors that can occur
 /// during the compilation, instantiation, or execution
@@ -254,3 +359,11 @@ impl From<ResolveError> for CallError {
         CallError::Resolve(resolve_err)
     }
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl std::error::Error for Error {}

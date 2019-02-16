@@ -132,7 +132,7 @@ pub fn run_emscripten_instance(
     let num_params = main_func.signature().params().len();
     let _result = match num_params {
         2 => {
-            let (argc, argv) = store_module_arguments(path, args, instance.context_mut());
+            let (argc, argv) = store_module_arguments(instance.context_mut(), path, args);
             instance.call("_main", &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
         }
         0 => {
@@ -149,17 +149,17 @@ pub fn run_emscripten_instance(
     Ok(())
 }
 
-fn store_module_arguments(path: &str, args: Vec<&str>, ctx: &mut Ctx) -> (u32, u32) {
+fn store_module_arguments(ctx: &mut Ctx, path: &str, args: Vec<&str>) -> (u32, u32) {
     let argc = args.len() + 1;
 
     let mut args_slice = vec![0; argc];
-    args_slice[0] = unsafe { allocate_cstr_on_stack(path, ctx).0 };
+    args_slice[0] = unsafe { allocate_cstr_on_stack(ctx, path).0 };
     for (slot, arg) in args_slice[1..argc].iter_mut().zip(args.iter()) {
-        *slot = unsafe { allocate_cstr_on_stack(&arg, ctx).0 };
+        *slot = unsafe { allocate_cstr_on_stack(ctx, &arg).0 };
     }
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
-        unsafe { allocate_on_stack(((argc + 1) * 4) as u32, ctx) };
+        unsafe { allocate_on_stack(ctx, ((argc + 1) * 4) as u32) };
     assert!(!argv_slice.is_empty());
     for (slot, arg) in argv_slice[0..argc].iter_mut().zip(args_slice.iter()) {
         *slot = *arg

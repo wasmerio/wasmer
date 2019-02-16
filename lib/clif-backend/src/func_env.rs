@@ -32,10 +32,10 @@ impl<'env, 'module, 'isa> FuncEnv<'env, 'module, 'isa> {
         let mut signature = self.env.signatures[Converter(clif_sig_index).into()].clone();
 
         // Add the vmctx parameter type to it
-        signature.params.push(ir::AbiParam::special(
-            self.pointer_type(),
-            ir::ArgumentPurpose::VMContext,
-        ));
+        signature.params.insert(
+            0,
+            ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
+        );
 
         // Return signature
         signature
@@ -459,8 +459,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         // Build a value list for the indirect call instruction containing the call_args
         // and the vmctx parameter.
         let mut args = Vec::with_capacity(call_args.len() + 1);
-        args.extend(call_args.iter().cloned());
         args.push(vmctx_ptr);
+        args.extend(call_args.iter().cloned());
 
         Ok(pos.ins().call_indirect(sig_ref, func_ptr, &args))
     }
@@ -485,8 +485,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                     .expect("missing vmctx parameter");
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
-                args.extend(call_args.iter().cloned());
                 args.push(vmctx);
+                args.extend(call_args.iter().cloned());
 
                 Ok(pos.ins().call(callee, &args))
             }
@@ -532,8 +532,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                 let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
-                args.extend(call_args.iter().cloned());
                 args.push(imported_vmctx_addr);
+                args.extend(call_args.iter().cloned());
 
                 Ok(pos
                     .ins()
@@ -559,9 +559,9 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let signature = pos.func.import_signature(ir::Signature {
             call_conv: self.target_config().default_call_conv,
             params: vec![
-                ir::AbiParam::new(ir::types::I32),
-                ir::AbiParam::new(ir::types::I32),
                 ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
+                ir::AbiParam::new(ir::types::I32),
+                ir::AbiParam::new(ir::types::I32),
             ],
             returns: vec![ir::AbiParam::new(ir::types::I32)],
         });
@@ -604,7 +604,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         let call_inst = pos
             .ins()
-            .call(mem_grow_func, &[const_mem_index, by_value, vmctx]);
+            .call(mem_grow_func, &[vmctx, const_mem_index, by_value]);
 
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
@@ -623,8 +623,8 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let signature = pos.func.import_signature(ir::Signature {
             call_conv: self.target_config().default_call_conv,
             params: vec![
-                ir::AbiParam::new(ir::types::I32),
                 ir::AbiParam::special(self.pointer_type(), ir::ArgumentPurpose::VMContext),
+                ir::AbiParam::new(ir::types::I32),
             ],
             returns: vec![ir::AbiParam::new(ir::types::I32)],
         });
@@ -664,7 +664,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("missing vmctx parameter");
 
-        let call_inst = pos.ins().call(mem_grow_func, &[const_mem_index, vmctx]);
+        let call_inst = pos.ins().call(mem_grow_func, &[vmctx, const_mem_index]);
 
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }

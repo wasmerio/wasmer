@@ -223,9 +223,9 @@ impl FuncResolverBuilder {
                         LibCall::TruncF64 => libcalls::truncf64 as isize,
                         LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
                         #[cfg(all(target_pointer_width = "64", target_os = "windows"))]
-                        Probestack => __chkstk as isize,
+                        LibCall::Probestack => __chkstk as isize,
                         #[cfg(not(target_os = "windows"))]
-                        Probestack => __rust_probestack as isize,
+                        LibCall::Probestack => __rust_probestack as isize,
                     },
                     RelocationType::Intrinsic(ref name) => match name.as_str() {
                         "i32print" => i32_print as isize,
@@ -350,21 +350,21 @@ fn round_up(n: usize, multiple: usize) -> usize {
     (n + multiple - 1) & !(multiple - 1)
 }
 
-extern "C" fn i32_print(n: i32) {
+extern "C" fn i32_print(_ctx: &mut vm::Ctx, n: i32) {
     print!(" i32: {},", n);
 }
-extern "C" fn i64_print(n: i64) {
+extern "C" fn i64_print(_ctx: &mut vm::Ctx, n: i64) {
     print!(" i64: {},", n);
 }
-extern "C" fn f32_print(n: f32) {
+extern "C" fn f32_print(_ctx: &mut vm::Ctx, n: f32) {
     print!(" f32: {},", n);
 }
-extern "C" fn f64_print(n: f64) {
+extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
     print!(" f64: {},", n);
 }
-extern "C" fn start_debug(func_index: u32) {
+extern "C" fn start_debug(_ctx: &mut vm::Ctx, func_index: u32) {
     print!("func ({}), args: [", func_index);
 }
-extern "C" fn end_debug() {
+extern "C" fn end_debug(_ctx: &mut vm::Ctx) {
     println!(" ]");
 }
