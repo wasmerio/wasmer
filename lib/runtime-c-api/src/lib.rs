@@ -157,13 +157,6 @@ pub unsafe extern "C" fn wasmer_validate(
     wasmer_runtime_core::validate(bytes)
 }
 
-/// Creates a new ImportObject and returns a pointer to it.
-/// The caller owns the object and should call `wasmer_import_object_destroy` to free it.
-#[no_mangle]
-pub extern "C" fn wasmer_import_object_new() -> *mut wasmer_import_object_t {
-    Box::into_raw(Box::new(ImportObject::new())) as *mut wasmer_import_object_t
-}
-
 /// Creates a new Memory for the given descriptor and initializes the given
 /// pointer to pointer to a pointer to the new memory.
 ///
@@ -361,15 +354,6 @@ pub extern "C" fn wasmer_global_get_descriptor(
 pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
     if !global.is_null() {
         drop(unsafe { Box::from_raw(global as *mut Global) });
-    }
-}
-
-/// Frees memory for the given ImportObject
-#[allow(clippy::cast_ptr_alignment)]
-#[no_mangle]
-pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import_object_t) {
-    if !import_object.is_null() {
-        drop(unsafe { Box::from_raw(import_object as *mut ImportObject) });
     }
 }
 
@@ -900,53 +884,6 @@ pub unsafe extern "C" fn wasmer_func_call(
 //    }
 //    let named_export = &*(export as *mut NamedExport);
 //}
-
-/// Registers a `func` with provided `name` and `namespace` into the ImportObject.
-///
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
-///
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
-#[allow(clippy::cast_ptr_alignment)]
-#[no_mangle]
-pub unsafe extern "C" fn wasmer_imports_set_import_func(
-    import_object: *mut wasmer_import_object_t,
-    namespace: *const c_char,
-    name: *const c_char,
-    func: extern "C" fn(data: *mut c_void),
-    params: *const wasmer_value_tag,
-    params_len: c_int,
-    returns: *const wasmer_value_tag,
-    returns_len: c_int,
-) {
-    let mut import_object = unsafe { Box::from_raw(import_object as *mut ImportObject) };
-    let namespace_c = unsafe { CStr::from_ptr(namespace) };
-    let namespace_r = namespace_c.to_str().unwrap();
-    let name_c = unsafe { CStr::from_ptr(name) };
-    let name_r = name_c.to_str().unwrap();
-
-    let params: &[wasmer_value_tag] = slice::from_raw_parts(params, params_len as usize);
-    let params: Vec<Type> = params.iter().cloned().map(|x| x.into()).collect();
-    let returns: &[wasmer_value_tag] = slice::from_raw_parts(returns, returns_len as usize);
-    let returns: Vec<Type> = returns.iter().cloned().map(|x| x.into()).collect();
-
-    let export = Export::Function {
-        func: unsafe { FuncPointer::new(func as _) },
-        ctx: Context::Internal,
-        signature: Arc::new(FuncSig::new(params, returns)),
-    };
-
-    // TODO handle existing namespace
-    //    let maybe_namespace = import_object.get_namespace(namespace_r);
-    //    if let Some(n) = maybe_namespace {
-    //        n.insert(name_r, export);
-    //    } else {
-    let mut namespace = Namespace::new();
-    namespace.insert(name_r, export);
-    import_object.register(namespace_r, namespace);
-    Box::into_raw(import_object);
-    //    };
-}
 
 /// Gets the memory within the context at the index `memory_idx`.
 /// The index is always 0 until multiple memories are supported.

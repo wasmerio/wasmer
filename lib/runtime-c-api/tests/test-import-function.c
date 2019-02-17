@@ -27,7 +27,6 @@ void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
 
 int main()
 {
-//    wasmer_import_object_t *import_object = wasmer_import_object_new();
     wasmer_value_tag params_sig[] = {WASM_I32, WASM_I32};
     wasmer_value_tag returns_sig[] = {};
 
@@ -49,10 +48,6 @@ int main()
     import.tag = WASM_FUNCTION;
     import.value.func = func;
     wasmer_import_t imports[] = {import};
-
-
-//    wasmer_imports_set_import_func(import_object, "env", "print_str", print_str, params_sig, 2, returns_sig, 0);
-
 
     // Read the wasm file bytes
     FILE *file = fopen("wasm_sample_app.wasm", "r");
@@ -92,7 +87,5 @@ int main()
   //  wasmer_func_destroy(func);
     // printf("Destroy instance\n");
     // wasmer_instance_destroy(instance);
-//    printf("Destroy import object\n");
-//    wasmer_import_object_destroy(import_object);
     return 0;
 }

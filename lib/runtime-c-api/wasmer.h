@@ -27,8 +27,6 @@ enum wasmer_value_tag {
 };
 typedef uint32_t wasmer_value_tag;
 
-typedef struct wasmer_import_object_t wasmer_import_object_t;
-
 typedef struct wasmer_instance_context_t wasmer_instance_context_t;
 
 typedef struct wasmer_instance_t wasmer_instance_t;
@@ -227,32 +225,6 @@ wasmer_global_t *wasmer_global_new(wasmer_value_t value, bool mutable_);
  * Sets the value stored by the given Global
  */
 void wasmer_global_set(wasmer_global_t *global, wasmer_value_t value);
-
-/**
- * Frees memory for the given ImportObject
- */
-void wasmer_import_object_destroy(wasmer_import_object_t *import_object);
-
-/**
- * Creates a new ImportObject and returns a pointer to it.
- * The caller owns the object and should call `wasmer_import_object_destroy` to free it.
- */
-wasmer_import_object_t *wasmer_import_object_new(void);
-
-/**
- * Registers a `func` with provided `name` and `namespace` into the ImportObject.
- * Returns `wasmer_result_t::WASMER_OK` upon success.
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
- */
-void wasmer_imports_set_import_func(wasmer_import_object_t *import_object,
-                                    const char *namespace_,
-                                    const char *name,
-                                    void (*func)(void *data),
-                                    const wasmer_value_tag *params,
-                                    int params_len,
-                                    const wasmer_value_tag *returns,
-                                    int returns_len);
 
 /**
  * Calls an instances exported function by `name` with the provided parameters.
