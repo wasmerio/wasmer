@@ -9,7 +9,7 @@ static memory_len = 0;
 static ptr_len = 0;
 static char actual_str[14] = {};
 
-void print_str(int32_t ptr, int32_t len, wasmer_instance_context_t *ctx)
+void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
 {
     wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
     uint32_t mem_len = wasmer_memory_length(memory);
