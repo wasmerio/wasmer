@@ -19,8 +19,6 @@ int main()
     printf("Compile result:  %d\n", compile_result);
     assert(compile_result == WASMER_OK);
 
-    // TODO add module exports
-
     printf("Destroy module\n");
     wasmer_module_destroy(module);
     return 0;

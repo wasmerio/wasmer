@@ -5,7 +5,6 @@
 
 int main()
 {
-
     // Read the wasm file bytes
     FILE *file = fopen("sum.wasm", "r");
     fseek(file, 0, SEEK_END);

@@ -5,8 +5,6 @@
 
 int main()
 {
-//    wasmer_import_object_t *import_object = wasmer_import_object_new();
-
     // Read the wasm file bytes
     FILE *file = fopen("sum.wasm", "r");
     fseek(file, 0, SEEK_END);
