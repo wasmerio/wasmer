@@ -43,6 +43,26 @@ int main()
         assert(name_bytes.bytes[idx] == expected[idx]);
     }
 
+    uint32_t params_arity;
+    wasmer_func_params_arity(func, &params_arity);
+    assert(params_arity == 2);
+
+    wasmer_value_tag *params_sig = malloc(sizeof(wasmer_value_tag) * params_arity);
+    wasmer_func_params(func, params_sig , params_arity);
+    assert(params_sig[0] == WASM_I32);
+    assert(params_sig[1] == WASM_I32);
+    free(params_sig);
+
+    uint32_t returns_arity;
+    wasmer_func_returns_arity(func, &returns_arity);
+    assert(returns_arity == 1);
+
+    wasmer_value_tag *returns_sig = malloc(sizeof(wasmer_value_tag) * returns_arity);
+    wasmer_func_returns(func, returns_sig , returns_arity);
+    assert(returns_sig[0] == WASM_I32);
+    free(returns_sig);
+
+
 //    wasmer_value_t param_one;
 //    param_one.tag = WASM_I32;
 //    param_one.value.I32 = 7;

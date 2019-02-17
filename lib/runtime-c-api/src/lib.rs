@@ -674,6 +674,120 @@ pub unsafe extern "C" fn wasmer_func_new(
     Box::into_raw(export) as *mut wasmer_func_t
 }
 
+/// Sets the result parameter to the arity of the params of the wasmer_func_t
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_func_params_arity(
+    func: *mut wasmer_func_t,
+    result: *mut uint32_t,
+) -> wasmer_result_t {
+    let mut export = unsafe { Box::from_raw(func as *mut Export) };
+    let result = if let Export::Function { ref signature, .. } = *export {
+        unsafe { *result = signature.params().len() as uint32_t };
+        wasmer_result_t::WASMER_OK
+    } else {
+        update_last_error(CApiError {
+            msg: "func ptr error in wasmer_func_params_arity".to_string(),
+        });
+        wasmer_result_t::WASMER_ERROR
+    };
+    Box::into_raw(export);
+    result
+}
+
+/// Sets the params buffer to the parameter types of the given wasmer_func_t
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_func_params(
+    func: *mut wasmer_func_t,
+    params: *mut wasmer_value_tag,
+    params_len: c_int,
+) -> wasmer_result_t {
+    let mut export = unsafe { Box::from_raw(func as *mut Export) };
+    let result = if let Export::Function { ref signature, .. } = *export {
+        let params: &mut [wasmer_value_tag] =
+            slice::from_raw_parts_mut(params, params_len as usize);
+        for (i, item) in signature.params().iter().enumerate() {
+            params[i] = item.into();
+        }
+        wasmer_result_t::WASMER_OK
+    } else {
+        update_last_error(CApiError {
+            msg: "func ptr error in wasmer_func_params".to_string(),
+        });
+        wasmer_result_t::WASMER_ERROR
+    };
+    Box::into_raw(export);
+    result
+}
+
+/// Sets the returns buffer to the parameter types of the given wasmer_func_t
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_func_returns(
+    func: *mut wasmer_func_t,
+    returns: *mut wasmer_value_tag,
+    returns_len: c_int,
+) -> wasmer_result_t {
+    let mut export = unsafe { Box::from_raw(func as *mut Export) };
+    let result = if let Export::Function { ref signature, .. } = *export {
+        let returns: &mut [wasmer_value_tag] =
+            slice::from_raw_parts_mut(returns, returns_len as usize);
+        for (i, item) in signature.returns().iter().enumerate() {
+            returns[i] = item.into();
+        }
+        wasmer_result_t::WASMER_OK
+    } else {
+        update_last_error(CApiError {
+            msg: "func ptr error in wasmer_func_returns".to_string(),
+        });
+        wasmer_result_t::WASMER_ERROR
+    };
+    Box::into_raw(export);
+    result
+}
+
+/// Sets the result parameter to the arity of the returns of the wasmer_func_t
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_func_returns_arity(
+    func: *mut wasmer_func_t,
+    result: *mut uint32_t,
+) -> wasmer_result_t {
+    let mut export = unsafe { Box::from_raw(func as *mut Export) };
+    let result = if let Export::Function { ref signature, .. } = *export {
+        unsafe { *result = signature.returns().len() as uint32_t };
+        wasmer_result_t::WASMER_OK
+    } else {
+        update_last_error(CApiError {
+            msg: "func ptr error in wasmer_func_results_arity".to_string(),
+        });
+        wasmer_result_t::WASMER_ERROR
+    };
+    Box::into_raw(export);
+    result
+}
+
 /// Frees memory for the given Func
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
@@ -952,6 +1066,17 @@ impl From<wasmer_value_tag> for Type {
 impl From<(std::string::String, wasmer_runtime_core::export::Export)> for NamedExport {
     fn from((name, export): (String, Export)) -> Self {
         NamedExport { name, export }
+    }
+}
+
+impl From<&wasmer_runtime::wasm::Type> for wasmer_value_tag {
+    fn from(ty: &Type) -> Self {
+        match *ty {
+            Type::I32 => wasmer_value_tag::WASM_I32,
+            Type::I64 => wasmer_value_tag::WASM_I64,
+            Type::F32 => wasmer_value_tag::WASM_F32,
+            Type::F64 => wasmer_value_tag::WASM_F64,
+        }
     }
 }
 
