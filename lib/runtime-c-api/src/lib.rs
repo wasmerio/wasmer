@@ -6,18 +6,14 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::CStr;
-use std::ffi::CString;
 use std::fmt;
 use std::slice;
-use std::str;
 use std::sync::Arc;
-use std::{ffi::c_void, mem, ptr};
+use std::{ffi::c_void, ptr};
 use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Module, Table, Value};
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
-use wasmer_runtime_core::import::{LikeNamespace, Namespace};
-use wasmer_runtime_core::types::{
-    ElementType, FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type,
-};
+use wasmer_runtime_core::import::Namespace;
+use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
 use wasmer_runtime_core::units::{Bytes, Pages};
 
 #[allow(non_camel_case_types)]
@@ -841,7 +837,7 @@ pub unsafe extern "C" fn wasmer_func_call(
     update_last_error(CApiError {
         msg: "wasmer_func_call not yet implemented".to_string(),
     });
-    return wasmer_result_t::WASMER_ERROR;
+    wasmer_result_t::WASMER_ERROR
     //    let result = instance.call(func_name_r, &params[..]);
     //    Box::into_raw(export_func);
     //    match result {
@@ -875,15 +871,6 @@ pub unsafe extern "C" fn wasmer_func_call(
     //        }
     //    }
 }
-
-///// Gets wasmer_export func
-//#[no_mangle]
-//pub unsafe extern "C" fn wasmer_export_name(export: *mut wasmer_export_t) {
-//    if exports.is_null() {
-//        return ptr::null_mut();
-//    }
-//    let named_export = &*(export as *mut NamedExport);
-//}
 
 /// Gets the memory within the context at the index `memory_idx`.
 /// The index is always 0 until multiple memories are supported.
