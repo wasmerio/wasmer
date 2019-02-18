@@ -116,7 +116,7 @@ impl Ctx {
     pub fn memory(&self, mem_index: u32) -> &Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
-        match mem_index.local_or_import(module) {
+        match mem_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_mem_index) => unsafe {
                 let local_backing = &*self.local_backing;
                 &local_backing.memories[local_mem_index]
@@ -497,6 +497,7 @@ mod vm_ctx_tests {
         use crate::backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper};
         use crate::error::RuntimeResult;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
+        use crate::module::WasmHash;
         use hashbrown::HashMap;
         use std::ptr::NonNull;
         struct Placeholder;
@@ -553,6 +554,8 @@ mod vm_ctx_tests {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
+
+                wasm_hash: WasmHash::generate(&[]),
             },
         }
     }

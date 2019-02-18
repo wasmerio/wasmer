@@ -51,6 +51,18 @@ pub struct ModuleInfo {
 
     pub namespace_table: StringTable<NamespaceIndex>,
     pub name_table: StringTable<NameIndex>,
+
+    pub wasm_hash: WasmHash,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+pub struct WasmHash([u8; 32]);
+
+impl WasmHash {
+    pub fn generate(wasm: &[u8]) -> Self {
+        WasmHash(super::cache::hash_data(wasm))
+    }
 }
 
 /// A compiled WebAssembly module.
@@ -60,7 +72,9 @@ pub struct ModuleInfo {
 ///
 /// [`compile`]: fn.compile.html
 /// [`compile_with`]: fn.compile_with.html
-pub struct Module(#[doc(hidden)] pub Arc<ModuleInner>);
+pub struct Module {
+    inner: Arc<ModuleInner>,
+}
 
 impl Module {
     pub(crate) fn new(inner: Arc<ModuleInner>) -> Self {
@@ -68,7 +82,7 @@ impl Module {
             EARLY_TRAPPER
                 .with(|ucell| *ucell.get() = Some(inner.protected_caller.get_early_trapper()));
         }
-        Module(inner)
+        Module { inner }
     }
 
     /// Instantiate a WebAssembly module with the provided [`ImportObject`].
@@ -94,7 +108,7 @@ impl Module {
     /// # }
     /// ```
     pub fn instantiate(&self, import_object: &ImportObject) -> Result<Instance> {
-        Instance::new(Arc::clone(&self.0), import_object)
+        Instance::new(Arc::clone(&self.inner), import_object)
     }
 }
 

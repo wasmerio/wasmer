@@ -160,7 +160,7 @@ fn get_func_from_index(
         .get(func_index)
         .expect("broken invariant, incorrect func index");
 
-    let (func_ptr, ctx) = match func_index.local_or_import(module) {
+    let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
         LocalOrImport::Local(local_func_index) => (
             module
                 .func_resolver

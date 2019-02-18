@@ -75,7 +75,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let local_global_addr = match global_index.local_or_import(self.env.module) {
+        let local_global_addr = match global_index.local_or_import(&self.env.module.info) {
             LocalOrImport::Local(local_global_index) => {
                 let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
@@ -145,7 +145,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let (local_memory_ptr_ptr, description) = match mem_index.local_or_import(self.env.module) {
+        let (local_memory_ptr_ptr, description) = match mem_index.local_or_import(&self.env.module.info) {
             LocalOrImport::Local(local_mem_index) => {
                 let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
@@ -253,7 +253,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let (table_struct_ptr_ptr, description) = match table_index.local_or_import(self.env.module)
+        let (table_struct_ptr_ptr, description) = match table_index.local_or_import(&self.env.module.info)
         {
             LocalOrImport::Local(local_table_index) => {
                 let tables_base = func.create_global_value(ir::GlobalValueData::Load {
@@ -476,7 +476,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
     ) -> cranelift_wasm::WasmResult<ir::Inst> {
         let callee_index: FuncIndex = Converter(clif_callee_index).into();
 
-        match callee_index.local_or_import(self.env.module) {
+        match callee_index.local_or_import(&self.env.module.info) {
             LocalOrImport::Local(_) => {
                 // this is an internal function
                 let vmctx = pos
@@ -568,7 +568,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (namespace, mem_index, description) = match mem_index.local_or_import(self.env.module) {
+        let (namespace, mem_index, description) = match mem_index.local_or_import(&self.env.module.info) {
             LocalOrImport::Local(local_mem_index) => (
                 call_names::LOCAL_NAMESPACE,
                 local_mem_index.index(),
@@ -631,7 +631,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (namespace, mem_index, description) = match mem_index.local_or_import(self.env.module) {
+        let (namespace, mem_index, description) = match mem_index.local_or_import(&self.env.module.info) {
             LocalOrImport::Local(local_mem_index) => (
                 call_names::LOCAL_NAMESPACE,
                 local_mem_index.index(),

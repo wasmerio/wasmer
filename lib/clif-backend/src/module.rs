@@ -6,115 +6,83 @@ use cranelift_codegen::{ir, isa};
 use cranelift_entity::EntityRef;
 use cranelift_wasm;
 use hashbrown::HashMap;
-use std::{
-    ops::{Deref, DerefMut},
-    ptr::NonNull,
-};
+
 #[cfg(feature = "cache")]
 use wasmer_runtime_core::{
     backend::sys::Memory,
     cache::{Cache, Error as CacheError},
 };
+
 use wasmer_runtime_core::{
-    backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper},
-    error::{CompileResult, RuntimeResult},
-    module::{ModuleInfo, ModuleInner, StringTable},
+    backend::Backend,
+    error::CompileResult,
+    module::{ModuleInfo, ModuleInner, StringTable, WasmHash},
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
-        Value,
     },
-    vm::{self, ImportBacking},
 };
-
-struct Placeholder;
-
-impl FuncResolver for Placeholder {
-    fn get(
-        &self,
-        _module: &ModuleInner,
-        _local_func_index: LocalFuncIndex,
-    ) -> Option<NonNull<vm::Func>> {
-        None
-    }
-}
-
-impl ProtectedCaller for Placeholder {
-    fn call(
-        &self,
-        _module: &ModuleInner,
-        _func_index: FuncIndex,
-        _params: &[Value],
-        _import_backing: &ImportBacking,
-        _vmctx: *mut vm::Ctx,
-        _: Token,
-    ) -> RuntimeResult<Vec<Value>> {
-        Ok(vec![])
-    }
-
-    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
-        unimplemented!()
-    }
-}
 
 /// This contains all of the items in a `ModuleInner` except the `func_resolver`.
 pub struct Module {
-    pub module: ModuleInner,
+    pub info: ModuleInfo,
 }
 
 impl Module {
-    pub fn empty() -> Self {
+    pub fn new(wasm: &[u8]) -> Self {
         Self {
-            module: ModuleInner {
-                // this is a placeholder
-                func_resolver: Box::new(Placeholder),
-                protected_caller: Box::new(Placeholder),
+            info: ModuleInfo {
+                memories: Map::new(),
+                globals: Map::new(),
+                tables: Map::new(),
 
-                info: ModuleInfo {
-                    memories: Map::new(),
-                    globals: Map::new(),
-                    tables: Map::new(),
+                imported_functions: Map::new(),
+                imported_memories: Map::new(),
+                imported_tables: Map::new(),
+                imported_globals: Map::new(),
 
-                    imported_functions: Map::new(),
-                    imported_memories: Map::new(),
-                    imported_tables: Map::new(),
-                    imported_globals: Map::new(),
+                exports: HashMap::new(),
 
-                    exports: HashMap::new(),
+                data_initializers: Vec::new(),
+                elem_initializers: Vec::new(),
 
-                    data_initializers: Vec::new(),
-                    elem_initializers: Vec::new(),
+                start_func: None,
 
-                    start_func: None,
+                func_assoc: Map::new(),
+                signatures: Map::new(),
+                backend: Backend::Cranelift,
 
-                    func_assoc: Map::new(),
-                    signatures: Map::new(),
-                    backend: Backend::Cranelift,
+                namespace_table: StringTable::new(),
+                name_table: StringTable::new(),
 
-                    namespace_table: StringTable::new(),
-                    name_table: StringTable::new(),
-                },
+                wasm_hash: WasmHash::generate(wasm),
             },
         }
     }
 
     pub fn compile(
-        mut self,
+        self,
         isa: &isa::TargetIsa,
         functions: Map<LocalFuncIndex, ir::Function>,
     ) -> CompileResult<ModuleInner> {
         let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(isa, functions, &self.module.info)?;
+            FuncResolverBuilder::new(isa, functions, &self.info)?;
+        
 
-        self.module.func_resolver =
-            Box::new(func_resolver_builder.finalize(&self.module.info.signatures)?);
+        let func_resolver =
+            Box::new(func_resolver_builder.finalize(&self.info.signatures)?);
 
-        let trampolines = Trampolines::new(isa, &self.module.info);
+        let trampolines = Trampolines::new(isa, &self.info);
 
-        self.module.protected_caller =
-            Box::new(Caller::new(&self.module.info, handler_data, trampolines));
+        let protected_caller =
+            Box::new(Caller::new(&self.info, handler_data, trampolines));
 
-        Ok(self.module)
+        Ok(ModuleInner {
+            func_resolver,
+            protected_caller,
+
+            info: self.info,
+        })
     }
 
     #[cfg(feature = "cache")]
@@ -124,16 +92,16 @@ impl Module {
         functions: Map<LocalFuncIndex, ir::Function>,
     ) -> CompileResult<(ModuleInfo, BackendCache, Memory)> {
         let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(isa, functions, &self.module.info)?;
+            FuncResolverBuilder::new(isa, functions, &self.info)?;
 
-        let trampolines = Trampolines::new(isa, &self.module.info);
+        let trampolines = Trampolines::new(isa, &self.info);
 
         let trampoline_cache = trampolines.to_trampoline_cache();
 
         let (backend_cache, compiled_code) =
             func_resolver_builder.to_backend_cache(trampoline_cache, handler_data);
 
-        Ok((self.module.info, backend_cache, compiled_code))
+        Ok((self.info, backend_cache, compiled_code))
     }
 
     #[cfg(feature = "cache")]
@@ -156,20 +124,6 @@ impl Module {
             protected_caller,
             info,
         })
-    }
-}
-
-impl Deref for Module {
-    type Target = ModuleInner;
-
-    fn deref(&self) -> &ModuleInner {
-        &self.module
-    }
-}
-
-impl DerefMut for Module {
-    fn deref_mut(&mut self) -> &mut ModuleInner {
-        &mut self.module
     }
 }
 

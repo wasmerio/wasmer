@@ -99,3 +99,7 @@ pub trait FuncResolver: Send + Sync {
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>>;
 }
+
+pub trait CacheGen: Send + Sync {
+    fn generate_cache(&self, module: &ModuleInner) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError>;
+}
