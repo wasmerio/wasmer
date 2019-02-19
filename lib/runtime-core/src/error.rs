@@ -3,6 +3,7 @@ use crate::types::{
 };
 use core::borrow::Borrow;
 use std::sync::Arc;
+use crate::sys::Memory;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
@@ -372,9 +373,10 @@ impl std::error::Error for Error {}
 pub enum GrowError {
     MemoryGrowError,
     TableGrowError,
-    ExceededMaxPages(usize, usize, usize),
+    ExceededMaxPages(PageError),
     ExceededMaxPagesForMemory(usize, usize),
-    CouldNotProtectMemory(MemoryProtectionError)
+    CouldNotProtectMemory(MemoryProtectionError),
+    CouldNotCreateMemory(MemoryCreationError),
 }
 
 impl std::fmt::Display for GrowError {
@@ -382,8 +384,10 @@ impl std::fmt::Display for GrowError {
         match self {
             GrowError::MemoryGrowError => write!(f, "Unable to grow memory"),
             GrowError::TableGrowError => write!(f, "Unable to grow table"),
-            GrowError::ExceededMaxPages(left, right, added) => write!(f, "Failed to add pages because would exceed maximum number of pages. Left: {}, Right: {}, Pages added: {}", left, right, added),
+            GrowError::ExceededMaxPages(e) => write!(f, "Grow Error: {}", e),
             GrowError::ExceededMaxPagesForMemory(left, added) => write!(f, "Failed to add pages because would exceed maximum number of pages for the memory. Left: {}, Added: {}", left, added),
+            GrowError::CouldNotCreateMemory(e) => write!(f, "Grow Error: {}", e),
+            GrowError::CouldNotProtectMemory(e) => write!(f, "Grow Error: {}", e),
         }
     }
 }
@@ -407,10 +411,7 @@ impl std::error::Error for PageError {}
 
 impl Into<GrowError> for PageError {
     fn into(self) -> GrowError {
-        match self {
-            PageError::ExceededMaxPages(left, right, added) => GrowError::ExceededMaxPages(left, right, added),
-            _ => unimplemented!(),
-        }
+        GrowError::ExceededMaxPages(self)
     }
 }
 
@@ -427,6 +428,12 @@ impl std::fmt::Display for MemoryCreationError {
     }
 }
 impl std::error::Error for MemoryCreationError {}
+
+impl Into<GrowError> for MemoryCreationError {
+    fn into(self) -> GrowError {
+        GrowError::CouldNotCreateMemory(self)
+    }
+}
 
 #[derive(Debug)]
 pub enum MemoryProtectionError {

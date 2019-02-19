@@ -67,7 +67,7 @@ impl StaticMemory {
             return Ok(self.current);
         }
 
-        let new_pages = self.current.checked_add(delta)?;
+        let new_pages = self.current.checked_add(delta).map_err(|e| e.into())?;
 
         if let Some(max) = self.max {
             if new_pages > max {
