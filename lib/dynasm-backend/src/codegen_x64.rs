@@ -153,6 +153,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             ; => begin_label
             ; push rbp
             ; mov rbp, rsp
+            //; int 3
         );
         let code = X64FunctionCode {
             id: self.functions.len(),
@@ -164,7 +165,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             locals: vec![],
             num_params: 0,
             current_stack_offset: 0,
-            value_stack: ValueStack::new(8),
+            value_stack: ValueStack::new(4),
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -334,9 +335,6 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         message: "I32Add type mismatch",
                     });
                 }
-                Self::gen_rt_pop(assembler, &b)?;
-                Self::gen_rt_pop(assembler, &a)?;
-
                 self.value_stack.push(WpType::I32);
 
                 if a.location.is_register() && b.location.is_register() {
@@ -349,8 +347,27 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         assembler
                         ; add Rd(a_reg as u8), Rd(b_reg as u8)
                     );
+                } else if a.location.is_register() {
+                    let a_reg = Register::from_scratch_reg(a.location.get_register()?);
+                    dynasm!(
+                        assembler
+                        ; mov eax, [rsp]
+                        ; add rsp, 4
+                        ; add Rd(a_reg as u8), eax
+                    );
+                } else if b.location.is_register() {
+                    unreachable!();
                 } else {
-                    unimplemented!();
+                    dynasm!(
+                        assembler
+                        ; push rcx
+                        ; mov eax, [rsp + 12]
+                        ; mov ecx, [rsp + 8]
+                        ; add eax, ecx
+                        ; mov [rsp + 12], eax
+                        ; pop rcx
+                        ; add rsp, 4
+                    );
                 }
             }
             Operator::Drop => {
