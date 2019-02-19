@@ -1,11 +1,12 @@
 #[cfg(feature = "cache")]
-use crate::cache::BackendCache;
+use crate::cache::{BackendCache, CacheGenerator};
 use crate::{resolver::FuncResolverBuilder, signal::Caller, trampoline::Trampolines};
 
 use cranelift_codegen::{ir, isa};
 use cranelift_entity::EntityRef;
 use cranelift_wasm;
 use hashbrown::HashMap;
+use std::sync::Arc;
 
 #[cfg(feature = "cache")]
 use wasmer_runtime_core::{
@@ -67,42 +68,44 @@ impl Module {
     ) -> CompileResult<ModuleInner> {
         let (func_resolver_builder, handler_data) =
             FuncResolverBuilder::new(isa, functions, &self.info)?;
-        
 
-        let func_resolver =
-            Box::new(func_resolver_builder.finalize(&self.info.signatures)?);
+        let trampolines = Arc::new(Trampolines::new(isa, &self.info));
 
-        let trampolines = Trampolines::new(isa, &self.info);
+        let (func_resolver, backend_cache) =
+            func_resolver_builder.finalize(&self.info.signatures, Arc::clone(&trampolines), handler_data.clone())?;
 
         let protected_caller =
-            Box::new(Caller::new(&self.info, handler_data, trampolines));
+            Caller::new(&self.info, handler_data, trampolines);
+        
+        let cache_gen = Box::new(CacheGenerator::new(backend_cache, Arc::clone(&func_resolver.memory)));
 
         Ok(ModuleInner {
-            func_resolver,
-            protected_caller,
+            func_resolver: Box::new(func_resolver),
+            protected_caller: Box::new(protected_caller),
+            cache_gen,
 
             info: self.info,
         })
     }
 
-    #[cfg(feature = "cache")]
-    pub fn compile_to_backend_cache(
-        self,
-        isa: &isa::TargetIsa,
-        functions: Map<LocalFuncIndex, ir::Function>,
-    ) -> CompileResult<(ModuleInfo, BackendCache, Memory)> {
-        let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(isa, functions, &self.info)?;
+    // #[cfg(feature = "cache")]
+    // pub fn compile_to_backend_cache(
+    //     self,
+    //     isa: &isa::TargetIsa,
+    //     functions: Map<LocalFuncIndex, ir::Function>,
+    // ) -> CompileResult<(ModuleInfo, BackendCache, Memory)> {
+    //     let (func_resolver_builder, handler_data) =
+    //         FuncResolverBuilder::new(isa, functions, &self.info)?;
 
-        let trampolines = Trampolines::new(isa, &self.info);
+    //     let trampolines = Trampolines::new(isa, &self.info);
 
-        let trampoline_cache = trampolines.to_trampoline_cache();
+    //     let trampoline_cache = trampolines.to_trampoline_cache();
 
-        let (backend_cache, compiled_code) =
-            func_resolver_builder.to_backend_cache(trampoline_cache, handler_data);
+    //     let (backend_cache, compiled_code) =
+    //         func_resolver_builder.to_backend_cache(trampoline_cache, handler_data);
 
-        Ok((self.info, backend_cache, compiled_code))
-    }
+    //     Ok((self.info, backend_cache, compiled_code))
+    // }
 
     #[cfg(feature = "cache")]
     pub fn from_cache(cache: Cache) -> Result<ModuleInner, CacheError> {
@@ -111,17 +114,19 @@ impl Module {
         let (func_resolver_builder, trampolines, handler_data) =
             FuncResolverBuilder::new_from_backend_cache(backend_cache, compiled_code, &info)?;
 
-        let func_resolver = Box::new(
+        let (func_resolver, backend_cache) = 
             func_resolver_builder
-                .finalize(&info.signatures)
-                .map_err(|e| CacheError::Unknown(format!("{:?}", e)))?,
-        );
+                .finalize(&info.signatures, Arc::clone(&trampolines), handler_data.clone())
+                .map_err(|e| CacheError::Unknown(format!("{:?}", e)))?;
 
-        let protected_caller = Box::new(Caller::new(&info, handler_data, trampolines));
+        let protected_caller = Caller::new(&info, handler_data, trampolines);
+        let cache_gen = Box::new(CacheGenerator::new(backend_cache, Arc::clone(&func_resolver.memory)));
 
         Ok(ModuleInner {
-            func_resolver,
-            protected_caller,
+            func_resolver: Box::new(func_resolver),
+            protected_caller: Box::new(protected_caller),
+            cache_gen,
+
             info,
         })
     }

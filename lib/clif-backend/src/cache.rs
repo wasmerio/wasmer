@@ -2,14 +2,40 @@ use crate::relocation::{ExternalRelocation, TrapSink};
 
 use hashbrown::HashMap;
 use wasmer_runtime_core::{
-    backend::sys::Memory,
+    backend::{
+        sys::Memory,
+        CacheGen,
+    },
     cache::{Cache, Error},
-    module::ModuleInfo,
+    module::{ModuleInfo, ModuleInner},
     structures::Map,
     types::{LocalFuncIndex, SigIndex},
 };
+use std::{
+    sync::Arc,
+    cell::UnsafeCell,
+};
 
 use serde_bench::{deserialize, serialize};
+
+pub struct CacheGenerator {
+    backend_cache: BackendCache,
+    memory: Arc<Memory>,
+}
+
+impl CacheGenerator {
+    pub fn new(backend_cache: BackendCache, memory: Arc<Memory>) -> Self {
+        Self { backend_cache, memory }
+    }
+}
+
+impl CacheGen for CacheGenerator {
+    fn generate_cache(&self, module: &ModuleInner) -> Result<(Box<ModuleInfo>, Box<[u8]>, Arc<Memory>), Error> {
+        let info = Box::new(module.info.clone());
+        
+        Err(Error::Unknown("".to_string()))
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct TrampolineCache {
@@ -22,7 +48,7 @@ pub struct TrampolineCache {
 pub struct BackendCache {
     pub external_relocs: Map<LocalFuncIndex, Box<[ExternalRelocation]>>,
     pub offsets: Map<LocalFuncIndex, usize>,
-    pub trap_sink: TrapSink,
+    pub trap_sink: Arc<TrapSink>,
     pub trampolines: TrampolineCache,
 }
 

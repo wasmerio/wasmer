@@ -62,36 +62,36 @@ impl Compiler for CraneliftCompiler {
         module::Module::from_cache(cache)
     }
 
-    #[cfg(feature = "cache")]
-    fn compile_to_backend_cache_data(
-        &self,
-        wasm: &[u8],
-        _: Token,
-    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)> {
-        validate(wasm)?;
+    // #[cfg(feature = "cache")]
+    // fn compile_to_backend_cache_data(
+    //     &self,
+    //     wasm: &[u8],
+    //     _: Token,
+    // ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)> {
+    //     validate(wasm)?;
 
-        let isa = get_isa();
+    //     let isa = get_isa();
 
-        let mut module = module::Module::new(wasm);
-        let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
+    //     let mut module = module::Module::new(wasm);
+    //     let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
 
-        let func_bodies = module_env.translate(wasm)?;
+    //     let func_bodies = module_env.translate(wasm)?;
 
-        let (info, backend_cache, compiled_code) = module
-            .compile_to_backend_cache(&*isa, func_bodies)
-            .map_err(|e| CompileError::InternalError {
-                msg: format!("{:?}", e),
-            })?;
+    //     let (info, backend_cache, compiled_code) = module
+    //         .compile_to_backend_cache(&*isa, func_bodies)
+    //         .map_err(|e| CompileError::InternalError {
+    //             msg: format!("{:?}", e),
+    //         })?;
 
-        let buffer =
-            backend_cache
-                .into_backend_data()
-                .map_err(|e| CompileError::InternalError {
-                    msg: format!("{:?}", e),
-                })?;
+    //     let buffer =
+    //         backend_cache
+    //             .into_backend_data()
+    //             .map_err(|e| CompileError::InternalError {
+    //                 msg: format!("{:?}", e),
+    //             })?;
 
-        Ok((Box::new(info), buffer, compiled_code))
-    }
+    //     Ok((Box::new(info), buffer, compiled_code))
+    // }
 }
 
 fn get_isa() -> Box<isa::TargetIsa> {

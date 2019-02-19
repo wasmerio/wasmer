@@ -1,5 +1,5 @@
 use crate::{
-    backend::{Backend, FuncResolver, ProtectedCaller},
+    backend::{Backend, FuncResolver, ProtectedCaller, CacheGen},
     error::Result,
     import::ImportObject,
     structures::{Map, TypedIndex},
@@ -21,10 +21,12 @@ use std::sync::Arc;
 pub struct ModuleInner {
     pub func_resolver: Box<dyn FuncResolver>,
     pub protected_caller: Box<dyn ProtectedCaller>,
+    pub cache_gen: Box<dyn CacheGen>,
 
     pub info: ModuleInfo,
 }
 
+#[derive(Clone)]
 #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
 pub struct ModuleInfo {
     // This are strictly local and the typsystem ensures that.

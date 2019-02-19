@@ -58,7 +58,7 @@ impl Trampolines {
     }
 
     #[cfg(feature = "cache")]
-    pub fn to_trampoline_cache(self) -> TrampolineCache {
+    pub fn to_trampoline_cache(&self) -> TrampolineCache {
         let mut code = vec![0; self.memory.size()];
 
         unsafe {
@@ -67,7 +67,7 @@ impl Trampolines {
 
         TrampolineCache {
             code,
-            offsets: self.offsets,
+            offsets: self.offsets.clone(),
         }
     }
 

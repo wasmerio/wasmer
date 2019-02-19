@@ -17,6 +17,7 @@ use cranelift_codegen::{ir, isa, Context};
 use std::{
     mem,
     ptr::{write_unaligned, NonNull},
+    cell::UnsafeCell,
     sync::Arc,
 };
 #[cfg(feature = "cache")]
@@ -56,7 +57,7 @@ impl FuncResolverBuilder {
         backend_cache: BackendCache,
         mut code: Memory,
         info: &ModuleInfo,
-    ) -> Result<(Self, Trampolines, HandlerData), CacheError> {
+    ) -> Result<(Self, Arc<Trampolines>, HandlerData), CacheError> {
         unsafe {
             code.protect(.., Protect::ReadWrite)
                 .map_err(|e| CacheError::Unknown(e.to_string()))?;
@@ -69,33 +70,15 @@ impl FuncResolverBuilder {
             Self {
                 resolver: FuncResolver {
                     map: backend_cache.offsets,
-                    memory: code,
+                    memory: Arc::new(UnsafeCell::new(code)),
                 },
                 local_relocs: Map::new(),
                 external_relocs: backend_cache.external_relocs,
                 import_len: info.imported_functions.len(),
             },
-            Trampolines::from_trampoline_cache(backend_cache.trampolines),
+            Arc::new(Trampolines::from_trampoline_cache(backend_cache.trampolines)),
             handler_data,
         ))
-    }
-
-    #[cfg(feature = "cache")]
-    pub fn to_backend_cache(
-        mut self,
-        trampolines: TrampolineCache,
-        handler_data: HandlerData,
-    ) -> (BackendCache, Memory) {
-        self.relocate_locals();
-        (
-            BackendCache {
-                external_relocs: self.external_relocs,
-                offsets: self.resolver.map,
-                trap_sink: handler_data.trap_data,
-                trampolines,
-            },
-            self.resolver.memory,
-        )
     }
 
     pub fn new(
@@ -169,10 +152,10 @@ impl FuncResolverBuilder {
             previous_end = new_end;
         }
 
-        let handler_data = HandlerData::new(trap_sink, memory.as_ptr() as _, memory.size());
+        let handler_data = HandlerData::new(Arc::new(trap_sink), memory.as_ptr() as _, memory.size());
 
         let mut func_resolver_builder = Self {
-            resolver: FuncResolver { map, memory },
+            resolver: FuncResolver { map, memory: Arc::new(UnsafeCell::new(memory)) },
             local_relocs,
             external_relocs,
             import_len: info.imported_functions.len(),
@@ -207,128 +190,143 @@ impl FuncResolverBuilder {
     }
 
     pub fn finalize(
-        mut self,
+        self,
         signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
-    ) -> CompileResult<FuncResolver> {
-        for (index, relocs) in self.external_relocs.iter() {
-            for ref reloc in relocs.iter() {
-                let target_func_address: isize = match reloc.target {
-                    RelocationType::LibCall(libcall) => match libcall {
-                        LibCall::CeilF32 => libcalls::ceilf32 as isize,
-                        LibCall::FloorF32 => libcalls::floorf32 as isize,
-                        LibCall::TruncF32 => libcalls::truncf32 as isize,
-                        LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
-                        LibCall::CeilF64 => libcalls::ceilf64 as isize,
-                        LibCall::FloorF64 => libcalls::floorf64 as isize,
-                        LibCall::TruncF64 => libcalls::truncf64 as isize,
-                        LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
-                        #[cfg(all(target_pointer_width = "64", target_os = "windows"))]
-                        LibCall::Probestack => __chkstk as isize,
-                        #[cfg(not(target_os = "windows"))]
-                        LibCall::Probestack => __rust_probestack as isize,
-                    },
-                    RelocationType::Intrinsic(ref name) => match name.as_str() {
-                        "i32print" => i32_print as isize,
-                        "i64print" => i64_print as isize,
-                        "f32print" => f32_print as isize,
-                        "f64print" => f64_print as isize,
-                        "strtdbug" => start_debug as isize,
-                        "enddbug" => end_debug as isize,
-                        _ => Err(CompileError::InternalError {
-                            msg: format!("unexpected intrinsic: {}", name),
-                        })?,
-                    },
-                    RelocationType::VmCall(vmcall) => match vmcall {
-                        VmCall::Local(kind) => match kind {
-                            VmCallKind::StaticMemoryGrow => vmcalls::local_static_memory_grow as _,
-                            VmCallKind::StaticMemorySize => vmcalls::local_static_memory_size as _,
+        trampolines: Arc<Trampolines>,
+        handler_data: HandlerData,
+    ) -> CompileResult<(FuncResolver, BackendCache)> {
+        {
+            let mut memory = unsafe { (*self.resolver.memory.get()) };
 
-                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
-                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
-
-                            VmCallKind::DynamicMemoryGrow => {
-                                vmcalls::local_dynamic_memory_grow as _
-                            }
-                            VmCallKind::DynamicMemorySize => {
-                                vmcalls::local_dynamic_memory_size as _
-                            }
+            for (index, relocs) in self.external_relocs.iter() {
+                for ref reloc in relocs.iter() {
+                    let target_func_address: isize = match reloc.target {
+                        RelocationType::LibCall(libcall) => match libcall {
+                            LibCall::CeilF32 => libcalls::ceilf32 as isize,
+                            LibCall::FloorF32 => libcalls::floorf32 as isize,
+                            LibCall::TruncF32 => libcalls::truncf32 as isize,
+                            LibCall::NearestF32 => libcalls::nearbyintf32 as isize,
+                            LibCall::CeilF64 => libcalls::ceilf64 as isize,
+                            LibCall::FloorF64 => libcalls::floorf64 as isize,
+                            LibCall::TruncF64 => libcalls::truncf64 as isize,
+                            LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
+                            #[cfg(all(target_pointer_width = "64", target_os = "windows"))]
+                            LibCall::Probestack => __chkstk as isize,
+                            #[cfg(not(target_os = "windows"))]
+                            LibCall::Probestack => __rust_probestack as isize,
                         },
-                        VmCall::Import(kind) => match kind {
-                            VmCallKind::StaticMemoryGrow => {
-                                vmcalls::imported_static_memory_grow as _
-                            }
-                            VmCallKind::StaticMemorySize => {
-                                vmcalls::imported_static_memory_size as _
-                            }
-
-                            VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
-                            VmCallKind::SharedStaticMemorySize => unimplemented!(),
-
-                            VmCallKind::DynamicMemoryGrow => {
-                                vmcalls::imported_dynamic_memory_grow as _
-                            }
-                            VmCallKind::DynamicMemorySize => {
-                                vmcalls::imported_dynamic_memory_size as _
-                            }
+                        RelocationType::Intrinsic(ref name) => match name.as_str() {
+                            "i32print" => i32_print as isize,
+                            "i64print" => i64_print as isize,
+                            "f32print" => f32_print as isize,
+                            "f64print" => f64_print as isize,
+                            "strtdbug" => start_debug as isize,
+                            "enddbug" => end_debug as isize,
+                            _ => Err(CompileError::InternalError {
+                                msg: format!("unexpected intrinsic: {}", name),
+                            })?,
                         },
-                    },
-                    RelocationType::Signature(sig_index) => {
-                        let sig_index =
-                            SigRegistry.lookup_sig_index(Arc::clone(&signatures[sig_index]));
-                        sig_index.index() as _
+                        RelocationType::VmCall(vmcall) => match vmcall {
+                            VmCall::Local(kind) => match kind {
+                                VmCallKind::StaticMemoryGrow => vmcalls::local_static_memory_grow as _,
+                                VmCallKind::StaticMemorySize => vmcalls::local_static_memory_size as _,
+
+                                VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
+                                VmCallKind::SharedStaticMemorySize => unimplemented!(),
+
+                                VmCallKind::DynamicMemoryGrow => {
+                                    vmcalls::local_dynamic_memory_grow as _
+                                }
+                                VmCallKind::DynamicMemorySize => {
+                                    vmcalls::local_dynamic_memory_size as _
+                                }
+                            },
+                            VmCall::Import(kind) => match kind {
+                                VmCallKind::StaticMemoryGrow => {
+                                    vmcalls::imported_static_memory_grow as _
+                                }
+                                VmCallKind::StaticMemorySize => {
+                                    vmcalls::imported_static_memory_size as _
+                                }
+
+                                VmCallKind::SharedStaticMemoryGrow => unimplemented!(),
+                                VmCallKind::SharedStaticMemorySize => unimplemented!(),
+
+                                VmCallKind::DynamicMemoryGrow => {
+                                    vmcalls::imported_dynamic_memory_grow as _
+                                }
+                                VmCallKind::DynamicMemorySize => {
+                                    vmcalls::imported_dynamic_memory_size as _
+                                }
+                            },
+                        },
+                        RelocationType::Signature(sig_index) => {
+                            let sig_index =
+                                SigRegistry.lookup_sig_index(Arc::clone(&signatures[sig_index]));
+                            sig_index.index() as _
+                        }
+                    };
+
+                    // We need the address of the current function
+                    // because some of these calls are relative.
+                    let func_addr = self.resolver.lookup(index).unwrap().as_ptr();
+
+                    // Determine relocation type and apply relocation.
+                    match reloc.reloc {
+                        Reloc::Abs8 => {
+                            let ptr_to_write = (target_func_address as u64)
+                                .checked_add(reloc.addend as u64)
+                                .unwrap();
+                            let empty_space_offset = self.resolver.map[index] + reloc.offset as usize;
+                            let ptr_slice = unsafe {
+                                &mut memory.as_slice_mut()
+                                    [empty_space_offset..empty_space_offset + 8]
+                            };
+                            LittleEndian::write_u64(ptr_slice, ptr_to_write);
+                        }
+                        Reloc::X86PCRel4 | Reloc::X86CallPCRel4 => unsafe {
+                            let reloc_address = (func_addr as usize) + reloc.offset as usize;
+                            let reloc_delta = target_func_address
+                                .wrapping_sub(reloc_address as isize)
+                                .wrapping_add(reloc.addend as isize);
+
+                            write_unaligned(reloc_address as *mut u32, reloc_delta as u32);
+                        },
                     }
-                };
-
-                // We need the address of the current function
-                // because some of these calls are relative.
-                let func_addr = self.resolver.lookup(index).unwrap().as_ptr();
-
-                // Determine relocation type and apply relocation.
-                match reloc.reloc {
-                    Reloc::Abs8 => {
-                        let ptr_to_write = (target_func_address as u64)
-                            .checked_add(reloc.addend as u64)
-                            .unwrap();
-                        let empty_space_offset = self.resolver.map[index] + reloc.offset as usize;
-                        let ptr_slice = unsafe {
-                            &mut self.resolver.memory.as_slice_mut()
-                                [empty_space_offset..empty_space_offset + 8]
-                        };
-                        LittleEndian::write_u64(ptr_slice, ptr_to_write);
-                    }
-                    Reloc::X86PCRel4 | Reloc::X86CallPCRel4 => unsafe {
-                        let reloc_address = (func_addr as usize) + reloc.offset as usize;
-                        let reloc_delta = target_func_address
-                            .wrapping_sub(reloc_address as isize)
-                            .wrapping_add(reloc.addend as isize);
-
-                        write_unaligned(reloc_address as *mut u32, reloc_delta as u32);
-                    },
                 }
+            }
+
+            unsafe {
+                memory
+                    .protect(.., Protect::ReadExec)
+                    .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
             }
         }
 
-        unsafe {
-            self.resolver
-                .memory
-                .protect(.., Protect::ReadExec)
-                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
-        }
+        let backend_cache = BackendCache {
+            external_relocs: self.external_relocs.clone(),
+            offsets: self.resolver.map.clone(),
+            trap_sink: handler_data.trap_data,
+            trampolines: trampolines.to_trampoline_cache(),
+        };
 
-        Ok(self.resolver)
+        Ok((self.resolver, backend_cache))
     }
 }
+
+unsafe impl Sync for FuncResolver {}
+unsafe impl Send for FuncResolver {}
 
 /// Resolves a function index to a function address.
 pub struct FuncResolver {
     map: Map<LocalFuncIndex, usize>,
-    memory: Memory,
+    pub(crate) memory: Arc<UnsafeCell<Memory>>,
 }
 
 impl FuncResolver {
     fn lookup(&self, local_func_index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
         let offset = *self.map.get(local_func_index)?;
-        let ptr = unsafe { self.memory.as_ptr().add(offset) };
+        let ptr = unsafe { (*self.memory.get()).as_ptr().add(offset) };
 
         NonNull::new(ptr).map(|nonnull| nonnull.cast())
     }

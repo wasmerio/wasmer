@@ -90,17 +90,17 @@ pub fn validate(wasm: &[u8]) -> bool {
     }
 }
 
-#[cfg(feature = "cache")]
-pub fn compile_to_cache_with(
-    wasm: &[u8],
-    compiler: &dyn backend::Compiler,
-) -> CompileResult<Cache> {
-    let token = backend::Token::generate();
-    let (info, backend_metadata, compiled_code) =
-        compiler.compile_to_backend_cache_data(wasm, token)?;
+// #[cfg(feature = "cache")]
+// pub fn compile_to_cache_with(
+//     wasm: &[u8],
+//     compiler: &dyn backend::Compiler,
+// ) -> CompileResult<Cache> {
+//     let token = backend::Token::generate();
+//     let (info, backend_metadata, compiled_code) =
+//         compiler.compile_to_backend_cache_data(wasm, token)?;
 
-    Ok(Cache::new(wasm, info, backend_metadata, compiled_code))
-}
+//     Ok(Cache::new(wasm, info, backend_metadata, compiled_code))
+// }
 
 #[cfg(feature = "cache")]
 pub unsafe fn load_cache_with(

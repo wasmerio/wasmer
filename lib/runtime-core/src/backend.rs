@@ -45,13 +45,6 @@ pub trait Compiler {
 
     #[cfg(feature = "cache")]
     unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError>;
-
-    #[cfg(feature = "cache")]
-    fn compile_to_backend_cache_data(
-        &self,
-        wasm: &[u8],
-        _: Token,
-    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)>;
 }
 
 /// The functionality exposed by this trait is expected to be used
@@ -101,5 +94,5 @@ pub trait FuncResolver: Send + Sync {
 }
 
 pub trait CacheGen: Send + Sync {
-    fn generate_cache(&self, module: &ModuleInner) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError>;
+    fn generate_cache(&self, module: &ModuleInner) -> Result<(Box<ModuleInfo>, Box<[u8]>, Arc<Memory>), CacheError>;
 }
