@@ -6,6 +6,8 @@ use winapi::um::winnt::{
     MEM_COMMIT, MEM_DECOMMIT, MEM_RESERVE, PAGE_EXECUTE_READ, PAGE_NOACCESS, PAGE_READONLY,
     PAGE_READWRITE,
 };
+use crate::error::MemoryCreationError;
+use crate::error::MemoryProtectionError;
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -44,7 +46,7 @@ impl Memory {
         }
     }
 
-    pub fn with_size(size: usize) -> Result<Self, String> {
+    pub fn with_size(size: usize) -> Result<Self, MemoryCreationError> {
         if size == 0 {
             return Ok(Self {
                 ptr: ptr::null_mut(),
@@ -58,7 +60,7 @@ impl Memory {
         let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, PAGE_NOACCESS) };
 
         if ptr.is_null() {
-            Err("unable to allocate memory".to_string())
+            Err(MemoryCreationError::VirtualMemoryAllocationFailed(size, "unable to allocate memory".to_string()))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
@@ -72,7 +74,7 @@ impl Memory {
         &mut self,
         range: impl RangeBounds<usize>,
         protect: Protect,
-    ) -> Result<(), String> {
+    ) -> Result<(), MemoryProtectionError> {
         let protect_const = protect.to_protect_const();
 
         let range_start = match range.start_bound() {
@@ -98,7 +100,7 @@ impl Memory {
         let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect_const);
 
         if ptr.is_null() {
-            Err("unable to protect memory".to_string())
+            Err(MemoryProtectionError::ProtectionFailed(start as usize, size, "unable to protect memory".to_string()))
         } else {
             self.protection = protect;
             Ok(())

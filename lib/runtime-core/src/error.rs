@@ -372,6 +372,9 @@ impl std::error::Error for Error {}
 pub enum GrowError {
     MemoryGrowError,
     TableGrowError,
+    ExceededMaxPages(usize, usize, usize),
+    ExceededMaxPagesForMemory(usize, usize),
+    CouldNotProtectMemory(MemoryProtectionError)
 }
 
 impl std::fmt::Display for GrowError {
@@ -379,8 +382,68 @@ impl std::fmt::Display for GrowError {
         match self {
             GrowError::MemoryGrowError => write!(f, "Unable to grow memory"),
             GrowError::TableGrowError => write!(f, "Unable to grow table"),
+            GrowError::ExceededMaxPages(left, right, added) => write!(f, "Failed to add pages because would exceed maximum number of pages. Left: {}, Right: {}, Pages added: {}", left, right, added),
+            GrowError::ExceededMaxPagesForMemory(left, added) => write!(f, "Failed to add pages because would exceed maximum number of pages for the memory. Left: {}, Added: {}", left, added),
         }
     }
 }
 
 impl std::error::Error for GrowError {}
+
+#[derive(Debug)]
+pub enum PageError {
+                    // left, right, added
+    ExceededMaxPages(usize, usize, usize),
+}
+
+impl std::fmt::Display for PageError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            PageError::ExceededMaxPages(left, right, added) => write!(f, "Failed to add pages because would exceed maximum number of pages. Left: {}, Right: {}, Pages added: {}", left, right, added),
+        }
+    }
+}
+impl std::error::Error for PageError {}
+
+impl Into<GrowError> for PageError {
+    fn into(self) -> GrowError {
+        match self {
+            PageError::ExceededMaxPages(left, right, added) => GrowError::ExceededMaxPages(left, right, added),
+            _ => unimplemented!(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum MemoryCreationError {
+    VirtualMemoryAllocationFailed(usize, String),
+}
+
+impl std::fmt::Display for MemoryCreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            MemoryCreationError::VirtualMemoryAllocationFailed(size, msg) => write!(f, "Allocation virtual memory with size {} failed. \nErrno message: {}", size, msg),
+        }
+    }
+}
+impl std::error::Error for MemoryCreationError {}
+
+#[derive(Debug)]
+pub enum MemoryProtectionError {
+    ProtectionFailed(usize, usize, String),
+}
+
+impl std::fmt::Display for MemoryProtectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            MemoryProtectionError::ProtectionFailed(start, size, msg) => write!(f, "Allocation virtual memory starting at {} with size {} failed. \nErrno message: {}", start, size, msg),
+        }
+    }
+}
+impl std::error::Error for MemoryProtectionError {}
+
+impl Into<GrowError> for MemoryProtectionError {
+    fn into(self) -> GrowError {
+        GrowError::CouldNotProtectMemory(self)
+    }
+}

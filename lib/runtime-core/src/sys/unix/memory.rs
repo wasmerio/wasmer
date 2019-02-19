@@ -3,6 +3,7 @@ use nix::libc;
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{fs::File, os::unix::io::IntoRawFd, path::Path, ptr, rc::Rc, slice};
+use crate::error::MemoryCreationError;
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -16,7 +17,7 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn from_file_path<P>(path: P, protection: Protect) -> Result<Self, String>
+    pub fn from_file_path<P>(path: P, protection: Protect) -> Result<Self, MemoryCreationError>
     where
         P: AsRef<Path>,
     {
@@ -38,7 +39,7 @@ impl Memory {
         };
 
         if ptr == -1 as _ {
-            Err(errno::errno().to_string())
+            Err(MemoryCreationError::VirtualMemoryAllocationFailed(size, errno::errno().to_string()))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
@@ -84,7 +85,7 @@ impl Memory {
         }
     }
 
-    pub fn with_size(size: usize) -> Result<Self, String> {
+    pub fn with_size(size: usize) -> Result<Self, MemoryCreationError> {
         if size == 0 {
             return Ok(Self {
                 ptr: ptr::null_mut(),
@@ -108,7 +109,7 @@ impl Memory {
         };
 
         if ptr == -1 as _ {
-            Err(errno::errno().to_string())
+            Err(MemoryCreationError::VirtualMemoryAllocationFailed(size, errno::errno().to_string()))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,

@@ -258,7 +258,7 @@ impl UnsharedMemory {
 
         self.internal.local.set(local);
 
-        pages.ok_or(GrowError::MemoryGrowError)
+        pages
     }
 
     pub fn size(&self) -> Pages {
