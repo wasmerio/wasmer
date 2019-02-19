@@ -40,7 +40,7 @@ impl Memory {
         };
 
         if ptr == -1 as _ {
-            Err(MemoryCreationError::VirtualMemoryAllocationFailed(size, errno::errno().to_string()))
+            Err(MemoryCreationError::VirtualMemoryAllocationFailed(file_len as usize, errno::errno().to_string()))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
