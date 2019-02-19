@@ -52,6 +52,22 @@ impl Register {
             _ => unreachable!(),
         }
     }
+
+    pub fn is_used(&self, stack: &ValueStack) -> bool {
+        use self::Register::*;
+        for val in &stack.values {
+            match val.location {
+                ValueLocation::Register(x) => {
+                    if Register::from_scratch_reg(x) == *self {
+                        return true;
+                    }
+                }
+                ValueLocation::Stack => break,
+            }
+        }
+
+        false
+    }
 }
 
 #[derive(Default)]
@@ -202,6 +218,136 @@ impl X64FunctionCode {
         }
         Ok(())
     }
+
+    /// Emits a binary operator.
+    ///
+    /// Guarantees that the first Register parameter to callback `f` will never be `Register::RAX`.
+    fn emit_binop_i32<F: FnOnce(&mut Assembler, &ValueStack, Register, Register)>(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        f: F,
+    ) -> Result<(), CodegenError> {
+        let (a, b) = value_stack.pop2()?;
+        if a.ty != WpType::I32 || b.ty != WpType::I32 {
+            return Err(CodegenError {
+                message: "I32Add type mismatch",
+            });
+        }
+        value_stack.push(WpType::I32);
+
+        if a.location.is_register() && b.location.is_register() {
+            // output is in a_reg.
+            f(
+                assembler,
+                value_stack,
+                Register::from_scratch_reg(a.location.get_register()?),
+                Register::from_scratch_reg(b.location.get_register()?),
+            );
+        } else if a.location.is_register() {
+            dynasm!(
+                assembler
+                ; mov eax, [rsp]
+                ; add rsp, 4
+            );
+            f(
+                assembler,
+                value_stack,
+                Register::from_scratch_reg(a.location.get_register()?),
+                Register::RAX,
+            );
+        } else if b.location.is_register() {
+            unreachable!();
+        } else {
+            dynasm!(
+                assembler
+                ; push rcx
+                ; mov ecx, [rsp + 12]
+                ; mov eax, [rsp + 8]
+            );
+            f(assembler, value_stack, Register::RCX, Register::RAX);
+            dynasm!(
+                assembler
+                ; mov [rsp + 12], ecx
+                ; pop rcx
+                ; add rsp, 4
+            );
+        }
+
+        Ok(())
+    }
+
+    fn emit_div_i32(
+        assembler: &mut Assembler,
+        value_stack: &ValueStack,
+        left: Register,
+        right: Register,
+        signed: bool,
+        out: Register,
+    ) {
+        let dx_used = Register::RDX.is_used(value_stack);
+        if dx_used {
+            dynasm!(
+                assembler
+                ; push rdx
+            );
+        }
+
+        if right == Register::RAX {
+            dynasm!(
+                assembler
+                ; push rax
+                ; mov eax, Rd(left as u8)
+                ; mov edx, 0
+                ; mov Rd(left as u8), [rsp]
+            );
+
+            if signed {
+                dynasm!(
+                    assembler
+                    ; idiv Rd(left as u8)
+                );
+            } else {
+                dynasm!(
+                    assembler
+                    ; div Rd(left as u8)
+                );
+            }
+
+            dynasm!(
+                assembler
+                ; mov Rd(left as u8), Rd(out as u8)
+                ; pop rax
+            );
+        } else {
+            dynasm!(
+                assembler
+                ; mov eax, Rd(left as u8)
+                ; mov edx, 0
+            );
+            if signed {
+                dynasm!(
+                    assembler
+                    ; idiv Rd(right as u8)
+                );
+            } else {
+                dynasm!(
+                    assembler
+                    ; div Rd(right as u8)
+                );
+            }
+            dynasm!(
+                assembler
+                ; mov Rd(left as u8), Rd(out as u8)
+            );
+        }
+
+        if dx_used {
+            dynasm!(
+                assembler
+                ; pop rdx
+            );
+        }
+    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -329,46 +475,104 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 }
             }
             Operator::I32Add => {
-                let (a, b) = self.value_stack.pop2()?;
-                if a.ty != WpType::I32 || b.ty != WpType::I32 {
-                    return Err(CodegenError {
-                        message: "I32Add type mismatch",
-                    });
-                }
-                self.value_stack.push(WpType::I32);
-
-                if a.location.is_register() && b.location.is_register() {
-                    let (a_reg, b_reg) = (
-                        Register::from_scratch_reg(a.location.get_register()?),
-                        Register::from_scratch_reg(b.location.get_register()?),
-                    );
-                    // output is in a_reg.
-                    dynasm!(
-                        assembler
-                        ; add Rd(a_reg as u8), Rd(b_reg as u8)
-                    );
-                } else if a.location.is_register() {
-                    let a_reg = Register::from_scratch_reg(a.location.get_register()?);
-                    dynasm!(
-                        assembler
-                        ; mov eax, [rsp]
-                        ; add rsp, 4
-                        ; add Rd(a_reg as u8), eax
-                    );
-                } else if b.location.is_register() {
-                    unreachable!();
-                } else {
-                    dynasm!(
-                        assembler
-                        ; push rcx
-                        ; mov eax, [rsp + 12]
-                        ; mov ecx, [rsp + 8]
-                        ; add eax, ecx
-                        ; mov [rsp + 12], eax
-                        ; pop rcx
-                        ; add rsp, 4
-                    );
-                }
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; add Rd(left as u8), Rd(right as u8)
+                        )
+                    },
+                )?;
+            }
+            Operator::I32Sub => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; sub Rd(left as u8), Rd(right as u8)
+                        )
+                    },
+                )?;
+            }
+            Operator::I32Mul => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; imul Rd(left as u8), Rd(right as u8)
+                        )
+                    },
+                )?;
+            }
+            Operator::I32DivU => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_div_i32(
+                            assembler,
+                            value_stack,
+                            left,
+                            right,
+                            false,
+                            Register::RAX,
+                        );
+                    },
+                )?;
+            }
+            Operator::I32DivS => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_div_i32(
+                            assembler,
+                            value_stack,
+                            left,
+                            right,
+                            true,
+                            Register::RAX,
+                        );
+                    },
+                )?;
+            }
+            Operator::I32RemU => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_div_i32(
+                            assembler,
+                            value_stack,
+                            left,
+                            right,
+                            false,
+                            Register::RDX,
+                        );
+                    },
+                )?;
+            }
+            Operator::I32RemS => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_div_i32(
+                            assembler,
+                            value_stack,
+                            left,
+                            right,
+                            true,
+                            Register::RDX,
+                        );
+                    },
+                )?;
             }
             Operator::Drop => {
                 let info = self.value_stack.pop()?;
