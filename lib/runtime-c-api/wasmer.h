@@ -94,8 +94,13 @@ typedef struct {
 } wasmer_import_t;
 
 typedef struct {
+  bool has_some;
+  uint32_t some;
+} wasmer_limit_option_t;
+
+typedef struct {
   uint32_t min;
-  uint32_t max;
+  wasmer_limit_option_t max;
 } wasmer_limits_t;
 
 /**

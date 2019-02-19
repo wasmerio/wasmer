@@ -90,9 +90,14 @@ struct wasmer_import_t {
   wasmer_import_export_value value;
 };
 
+struct wasmer_limit_option_t {
+  bool has_some;
+  uint32_t some;
+};
+
 struct wasmer_limits_t {
   uint32_t min;
-  uint32_t max;
+  wasmer_limit_option_t max;
 };
 
 extern "C" {

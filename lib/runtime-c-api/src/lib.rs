@@ -87,7 +87,13 @@ pub struct wasmer_global_t();
 #[repr(C)]
 pub struct wasmer_limits_t {
     pub min: uint32_t,
-    pub max: uint32_t,
+    pub max: wasmer_limit_option_t,
+}
+
+#[repr(C)]
+pub struct wasmer_limit_option_t {
+    pub has_some: bool,
+    pub some: uint32_t,
 }
 
 #[repr(C)]
@@ -167,9 +173,14 @@ pub unsafe extern "C" fn wasmer_memory_new(
     mut memory: *mut *mut wasmer_memory_t,
     limits: wasmer_limits_t,
 ) -> wasmer_result_t {
+    let max = if limits.max.has_some {
+        Some(Pages(limits.max.some))
+    } else {
+        None
+    };
     let desc = MemoryDescriptor {
         minimum: Pages(limits.min),
-        maximum: Some(Pages(limits.max)),
+        maximum: max,
         shared: false,
     };
     let result = Memory::new(desc);
@@ -231,10 +242,15 @@ pub unsafe extern "C" fn wasmer_table_new(
     mut table: *mut *mut wasmer_table_t,
     limits: wasmer_limits_t,
 ) -> wasmer_result_t {
+    let max = if limits.max.has_some {
+        Some(limits.max.some)
+    } else {
+        None
+    };
     let desc = TableDescriptor {
         element: ElementType::Anyfunc,
         minimum: limits.min,
-        maximum: Some(limits.max),
+        maximum: max,
     };
     let result = Table::new(desc);
     let new_table = match result {
