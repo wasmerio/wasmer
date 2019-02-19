@@ -1,6 +1,6 @@
 use crate::{
-    backend::{Backend, FuncResolver, ProtectedCaller, CacheGen},
-    error::Result,
+    backend::{Backend, FuncResolver, ProtectedCaller},
+    error,
     import::ImportObject,
     structures::{Map, TypedIndex},
     typed_func::EARLY_TRAPPER,
@@ -10,8 +10,11 @@ use crate::{
         LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor, MemoryIndex,
         SigIndex, TableDescriptor, TableIndex,
     },
+    cache::{Cache, Error as CacheError},
     Instance,
 };
+
+use crate::backend::CacheGen;
 use hashbrown::HashMap;
 use indexmap::IndexMap;
 use std::sync::Arc;
@@ -21,13 +24,15 @@ use std::sync::Arc;
 pub struct ModuleInner {
     pub func_resolver: Box<dyn FuncResolver>,
     pub protected_caller: Box<dyn ProtectedCaller>,
+
+    
     pub cache_gen: Box<dyn CacheGen>,
 
     pub info: ModuleInfo,
 }
 
 #[derive(Clone)]
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct ModuleInfo {
     // This are strictly local and the typsystem ensures that.
     pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,
@@ -57,13 +62,19 @@ pub struct ModuleInfo {
     pub wasm_hash: WasmHash,
 }
 
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct WasmHash([u8; 32]);
+
 
 impl WasmHash {
     pub fn generate(wasm: &[u8]) -> Self {
-        WasmHash(super::cache::hash_data(wasm))
+        WasmHash(crate::cache::hash_data(wasm))
+    }
+
+    pub(crate) fn into_array(self) -> [u8; 32] {
+        self.0
     }
 }
 
@@ -109,22 +120,27 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn instantiate(&self, import_object: &ImportObject) -> Result<Instance> {
+    pub fn instantiate(&self, import_object: &ImportObject) -> error::Result<Instance> {
         Instance::new(Arc::clone(&self.inner), import_object)
+    }
+
+    pub fn cache(&self) -> Result<Cache, CacheError> {
+        let (info, backend_cache, code) = self.inner.cache_gen.generate_cache(&self.inner)?;
+        
     }
 }
 
 impl ModuleInner {}
 
 #[doc(hidden)]
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct ImportName {
     pub namespace_index: NamespaceIndex,
     pub name_index: NameIndex,
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
     Func(FuncIndex),
@@ -134,7 +150,7 @@ pub enum ExportIndex {
 }
 
 /// A data initializer for linear memory.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct DataInitializer {
     /// The index of the memory to initialize.
@@ -147,7 +163,7 @@ pub struct DataInitializer {
 }
 
 /// A WebAssembly table initializer.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct TableInitializer {
     /// The index of a table to initialize.
@@ -209,7 +225,7 @@ impl<K: TypedIndex> StringTableBuilder<K> {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct StringTable<K: TypedIndex> {
     table: Map<K, (u32, u32)>,
@@ -233,7 +249,7 @@ impl<K: TypedIndex> StringTable<K> {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NamespaceIndex(u32);
 
@@ -249,7 +265,7 @@ impl TypedIndex for NamespaceIndex {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NameIndex(u32);
 

@@ -1,4 +1,4 @@
-#[cfg(feature = "cache")]
+
 use crate::cache::{BackendCache, CacheGenerator};
 use crate::{resolver::FuncResolverBuilder, signal::Caller, trampoline::Trampolines};
 
@@ -8,7 +8,7 @@ use cranelift_wasm;
 use hashbrown::HashMap;
 use std::sync::Arc;
 
-#[cfg(feature = "cache")]
+
 use wasmer_runtime_core::{
     backend::sys::Memory,
     cache::{Cache, Error as CacheError},
@@ -17,12 +17,14 @@ use wasmer_runtime_core::{
 use wasmer_runtime_core::{
     backend::Backend,
     error::CompileResult,
-    module::{ModuleInfo, ModuleInner, StringTable, WasmHash},
+    module::{ModuleInfo, ModuleInner, StringTable},
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
     },
 };
+
+use wasmer_runtime_core::module::WasmHash;
 
 /// This contains all of the items in a `ModuleInner` except the `func_resolver`.
 pub struct Module {
@@ -56,6 +58,7 @@ impl Module {
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
 
+                
                 wasm_hash: WasmHash::generate(wasm),
             },
         }
@@ -77,37 +80,19 @@ impl Module {
         let protected_caller =
             Caller::new(&self.info, handler_data, trampolines);
         
+        
         let cache_gen = Box::new(CacheGenerator::new(backend_cache, Arc::clone(&func_resolver.memory)));
 
         Ok(ModuleInner {
             func_resolver: Box::new(func_resolver),
             protected_caller: Box::new(protected_caller),
-            cache_gen,
+             cache_gen,
 
             info: self.info,
         })
     }
 
-    // #[cfg(feature = "cache")]
-    // pub fn compile_to_backend_cache(
-    //     self,
-    //     isa: &isa::TargetIsa,
-    //     functions: Map<LocalFuncIndex, ir::Function>,
-    // ) -> CompileResult<(ModuleInfo, BackendCache, Memory)> {
-    //     let (func_resolver_builder, handler_data) =
-    //         FuncResolverBuilder::new(isa, functions, &self.info)?;
-
-    //     let trampolines = Trampolines::new(isa, &self.info);
-
-    //     let trampoline_cache = trampolines.to_trampoline_cache();
-
-    //     let (backend_cache, compiled_code) =
-    //         func_resolver_builder.to_backend_cache(trampoline_cache, handler_data);
-
-    //     Ok((self.info, backend_cache, compiled_code))
-    // }
-
-    #[cfg(feature = "cache")]
+    
     pub fn from_cache(cache: Cache) -> Result<ModuleInner, CacheError> {
         let (info, compiled_code, backend_cache) = BackendCache::from_cache(cache)?;
 
@@ -120,12 +105,14 @@ impl Module {
                 .map_err(|e| CacheError::Unknown(format!("{:?}", e)))?;
 
         let protected_caller = Caller::new(&info, handler_data, trampolines);
+
+        
         let cache_gen = Box::new(CacheGenerator::new(backend_cache, Arc::clone(&func_resolver.memory)));
 
         Ok(ModuleInner {
             func_resolver: Box::new(func_resolver),
             protected_caller: Box::new(protected_caller),
-            cache_gen,
+             cache_gen,
 
             info,
         })

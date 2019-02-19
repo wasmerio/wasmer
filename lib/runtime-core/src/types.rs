@@ -2,7 +2,7 @@ use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, unit
 use std::{borrow::Cow, mem};
 
 /// Represents a WebAssembly type.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     /// The `i32` type.
@@ -25,7 +25,7 @@ impl std::fmt::Display for Type {
 ///
 /// As the number of types in WebAssembly expand,
 /// this structure will expand as well.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// The `i32` type.
@@ -171,14 +171,14 @@ impl ValueType for f64 {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {
     /// Any wasm function.
     Anyfunc,
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy)]
 pub struct TableDescriptor {
     /// Type of data stored in this table.
@@ -203,7 +203,7 @@ impl TableDescriptor {
 /// A const value initializer.
 /// Over time, this will be able to represent more and more
 /// complex expressions.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Initializer {
     /// Corresponds to a `const.*` instruction.
@@ -212,7 +212,7 @@ pub enum Initializer {
     GetGlobal(ImportedGlobalIndex),
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlobalDescriptor {
     pub mutable: bool,
@@ -220,7 +220,7 @@ pub struct GlobalDescriptor {
 }
 
 /// A wasm global.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct GlobalInit {
     pub desc: GlobalDescriptor,
@@ -228,7 +228,7 @@ pub struct GlobalInit {
 }
 
 /// A wasm memory.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemoryDescriptor {
     /// The minimum number of allowed pages.
@@ -261,7 +261,7 @@ impl MemoryDescriptor {
 
 /// The signature of a function that is either implemented
 /// in a wasm module or exposed to wasm by the host.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FuncSig {
     params: Cow<'static, [Type]>,
@@ -324,7 +324,7 @@ pub trait LocalImport {
 #[rustfmt::skip]
 macro_rules! define_map_index {
     ($ty:ident) => {
-        #[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+        #[derive(Serialize, Deserialize)]
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
         pub struct $ty (u32);
         impl TypedIndex for $ty {
@@ -400,7 +400,7 @@ define_local_or_import![
     (GlobalIndex | (LocalGlobalIndex, ImportedGlobalIndex): imported_globals),
 ];
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SigIndex(u32);
 impl TypedIndex for SigIndex {

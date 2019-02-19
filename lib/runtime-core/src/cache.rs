@@ -6,6 +6,7 @@ use std::{
     fs::File,
     io::{self, Seek, SeekFrom, Write},
     mem,
+    sync::Arc,
     path::Path,
     slice,
 };
@@ -67,31 +68,26 @@ impl CacheHeader {
 struct CacheInner {
     info: Box<ModuleInfo>,
     #[serde(with = "serde_bytes")]
-    backend_metadata: Vec<u8>,
-    compiled_code: Memory,
+    backend_metadata: Box<[u8]>,
+    compiled_code: Arc<Memory>,
 }
 
 pub struct Cache {
     inner: CacheInner,
-    wasm_hash: Box<[u8; 32]>,
 }
 
 impl Cache {
-    pub(crate) fn new(
-        wasm: &[u8],
+    pub(crate) fn from_parts(
         info: Box<ModuleInfo>,
-        backend_metadata: Vec<u8>,
-        compiled_code: Memory,
+        backend_metadata: Box<[u8]>,
+        compiled_code: Arc<Memory>,
     ) -> Self {
-        let wasm_hash = hash_data(wasm);
-
         Self {
             inner: CacheInner {
                 info,
                 backend_metadata,
                 compiled_code,
             },
-            wasm_hash: Box::new(wasm_hash),
         }
     }
 
@@ -110,7 +106,6 @@ impl Cache {
 
         Ok(Cache {
             inner,
-            wasm_hash: Box::new(header.wasm_hash),
         })
     }
 
@@ -118,12 +113,8 @@ impl Cache {
         &self.inner.info
     }
 
-    pub fn wasm_hash(&self) -> &[u8; 32] {
-        &self.wasm_hash
-    }
-
     #[doc(hidden)]
-    pub fn consume(self) -> (ModuleInfo, Vec<u8>, Memory) {
+    pub fn consume(self) -> (ModuleInfo, Box<[u8]>, Arc<Memory>) {
         (
             *self.inner.info,
             self.inner.backend_metadata,
@@ -152,11 +143,7 @@ impl Cache {
         file.seek(SeekFrom::Start(0))
             .map_err(|e| Error::Unknown(e.to_string()))?;
 
-        let wasm_hash = {
-            let mut array = [0u8; 32];
-            array.copy_from_slice(&*self.wasm_hash);
-            array
-        };
+        let wasm_hash = self.inner.info.wasm_hash.into_array();
 
         let cache_header = CacheHeader {
             magic: [

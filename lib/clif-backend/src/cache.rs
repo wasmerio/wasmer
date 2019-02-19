@@ -32,8 +32,7 @@ impl CacheGenerator {
 impl CacheGen for CacheGenerator {
     fn generate_cache(&self, module: &ModuleInner) -> Result<(Box<ModuleInfo>, Box<[u8]>, Arc<Memory>), Error> {
         let info = Box::new(module.info.clone());
-        
-        Err(Error::Unknown("".to_string()))
+        Ok((info, self.backend_cache.into_backend_data()?.into_boxed_slice(), Arc::clone(&self.memory)))
     }
 }
 
@@ -54,18 +53,26 @@ pub struct BackendCache {
 
 impl BackendCache {
     pub fn from_cache(cache: Cache) -> Result<(ModuleInfo, Memory, Self), Error> {
-        let (info, backend_data, compiled_code) = cache.consume();
+        let (info, backend_data, compiled_code_arc) = cache.consume();
 
-        let backend_cache = deserialize(backend_data.as_slice())
+        // If this is the only references to this arc, move the memory out.
+        // else, clone the memory to a new location. This could take a long time,
+        // depending on the throughput of your memcpy implementation.
+        let compiled_code = match Arc::try_unwrap(compiled_code_arc) {
+            Ok(code) => code,
+            Err(arc) => (*arc).clone(),
+        };
+
+        let backend_cache = deserialize(&backend_data)
             .map_err(|e| Error::DeserializeError(e.to_string()))?;
 
         Ok((info, compiled_code, backend_cache))
     }
 
-    pub fn into_backend_data(self) -> Result<Vec<u8>, Error> {
+    pub fn into_backend_data(&self) -> Result<Vec<u8>, Error> {
         let mut buffer = Vec::new();
 
-        serialize(&mut buffer, &self).map_err(|e| Error::SerializeError(e.to_string()))?;
+        serialize(&mut buffer, self).map_err(|e| Error::SerializeError(e.to_string()))?;
 
         Ok(buffer)
     }

@@ -205,7 +205,17 @@ impl Drop for Memory {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+impl Clone for Memory {
+    fn clone(&self) -> Self {
+        let mut new = Memory::with_size_protect(self.size, self.protection).unwrap();
+        unsafe {
+            new.as_slice_mut().copy_from_slice(self.as_slice());
+        }
+        new
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {

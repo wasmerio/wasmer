@@ -2,11 +2,11 @@ use crate::{
     backing::ImportBacking,
     error::CompileResult,
     error::RuntimeResult,
-    module::ModuleInner,
+    module::{ModuleInner},
     types::{FuncIndex, LocalFuncIndex, Value},
     vm,
 };
-#[cfg(feature = "cache")]
+
 use crate::{
     cache::{Cache, Error as CacheError},
     module::ModuleInfo,
@@ -14,12 +14,14 @@ use crate::{
 };
 use std::ptr::NonNull;
 
+use std::sync::Arc;
+
 pub mod sys {
     pub use crate::sys::*;
 }
 pub use crate::sig_registry::SigRegistry;
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Backend {
     Cranelift,
@@ -43,7 +45,7 @@ pub trait Compiler {
     /// be called from inside the runtime.
     fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner>;
 
-    #[cfg(feature = "cache")]
+    
     unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError>;
 }
 
@@ -92,6 +94,7 @@ pub trait FuncResolver: Send + Sync {
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>>;
 }
+
 
 pub trait CacheGen: Send + Sync {
     fn generate_cache(&self, module: &ModuleInner) -> Result<(Box<ModuleInfo>, Box<[u8]>, Arc<Memory>), CacheError>;

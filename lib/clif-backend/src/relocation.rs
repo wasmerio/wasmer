@@ -22,7 +22,7 @@ pub mod call_names {
     pub const DYNAMIC_MEM_SIZE: u32 = 5;
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Reloc {
     Abs8,
@@ -30,7 +30,7 @@ pub enum Reloc {
     X86CallPCRel4,
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Copy, Clone)]
 pub enum LibCall {
     Probestack,
@@ -44,7 +44,7 @@ pub enum LibCall {
     NearestF64,
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct ExternalRelocation {
     /// The relocation code.
@@ -66,7 +66,7 @@ pub struct LocalRelocation {
     pub target: FuncIndex,
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy)]
 pub enum VmCallKind {
     StaticMemoryGrow,
@@ -79,7 +79,7 @@ pub enum VmCallKind {
     DynamicMemorySize,
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy)]
 pub enum VmCall {
     Local(VmCallKind),
@@ -87,7 +87,7 @@ pub enum VmCall {
 }
 
 /// Specify the type of relocation
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub enum RelocationType {
     Intrinsic(String),
@@ -218,7 +218,7 @@ impl binemit::RelocSink for RelocSink {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy)]
 pub enum TrapCode {
     StackOverflow,
@@ -244,7 +244,7 @@ impl RelocSink {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Copy)]
 pub struct TrapData {
     pub trapcode: TrapCode,
@@ -253,7 +253,7 @@ pub struct TrapData {
 
 /// Simple implementation of a TrapSink
 /// that saves the info for later.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Serialize, Deserialize)]
 pub struct TrapSink {
     trap_datas: Vec<(usize, TrapData)>,
 }

@@ -1,4 +1,4 @@
-#[cfg(feature = "cache")]
+
 mod cache;
 mod func_env;
 mod libcalls;
@@ -14,7 +14,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
-#[cfg(feature = "cache")]
+
 use wasmer_runtime_core::{
     backend::sys::Memory,
     cache::{Cache, Error as CacheError},
@@ -25,10 +25,10 @@ use wasmer_runtime_core::{
     error::{CompileError, CompileResult},
     module::ModuleInner,
 };
-#[cfg(feature = "cache")]
+
 #[macro_use]
 extern crate serde_derive;
-#[cfg(feature = "cache")]
+
 extern crate serde;
 
 use wasmparser::{self, WasmDecoder};
@@ -57,12 +57,12 @@ impl Compiler for CraneliftCompiler {
     }
 
     /// Create a wasmer Module from an already-compiled cache.
-    #[cfg(feature = "cache")]
+    
     unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError> {
         module::Module::from_cache(cache)
     }
 
-    // #[cfg(feature = "cache")]
+    // 
     // fn compile_to_backend_cache_data(
     //     &self,
     //     wasm: &[u8],

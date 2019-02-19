@@ -2,7 +2,7 @@
 #[macro_use]
 extern crate field_offset;
 
-#[cfg(feature = "cache")]
+
 #[macro_use]
 extern crate serde_derive;
 
@@ -11,7 +11,7 @@ mod macros;
 #[doc(hidden)]
 pub mod backend;
 mod backing;
-#[cfg(feature = "cache")]
+
 pub mod cache;
 pub mod error;
 pub mod export;
@@ -44,7 +44,7 @@ pub use self::module::Module;
 pub use self::typed_func::Func;
 use std::sync::Arc;
 
-#[cfg(feature = "cache")]
+
 use self::cache::{Cache, Error as CacheError};
 
 pub mod prelude {
@@ -90,7 +90,7 @@ pub fn validate(wasm: &[u8]) -> bool {
     }
 }
 
-// #[cfg(feature = "cache")]
+// 
 // pub fn compile_to_cache_with(
 //     wasm: &[u8],
 //     compiler: &dyn backend::Compiler,
@@ -102,7 +102,7 @@ pub fn validate(wasm: &[u8]) -> bool {
 //     Ok(Cache::new(wasm, info, backend_metadata, compiled_code))
 // }
 
-#[cfg(feature = "cache")]
+
 pub unsafe fn load_cache_with(
     cache: Cache,
     compiler: &dyn backend::Compiler,
