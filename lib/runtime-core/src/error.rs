@@ -418,12 +418,14 @@ impl Into<GrowError> for PageError {
 #[derive(Debug)]
 pub enum MemoryCreationError {
     VirtualMemoryAllocationFailed(usize, String),
+    CouldNotCreateMemoryFromFile(std::io::Error),
 }
 
 impl std::fmt::Display for MemoryCreationError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             MemoryCreationError::VirtualMemoryAllocationFailed(size, msg) => write!(f, "Allocation virtual memory with size {} failed. \nErrno message: {}", size, msg),
+            MemoryCreationError::CouldNotCreateMemoryFromFile(e) => write!(f, "IO Error: {}", e),
         }
     }
 }
@@ -432,6 +434,12 @@ impl std::error::Error for MemoryCreationError {}
 impl Into<GrowError> for MemoryCreationError {
     fn into(self) -> GrowError {
         GrowError::CouldNotCreateMemory(self)
+    }
+}
+
+impl From<std::io::Error> for MemoryCreationError {
+    fn from(io_error: std::io::Error) -> Self {
+        MemoryCreationError::CouldNotCreateMemoryFromFile(io_error)
     }
 }
 

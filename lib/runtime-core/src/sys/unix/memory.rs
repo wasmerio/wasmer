@@ -22,9 +22,9 @@ impl Memory {
     where
         P: AsRef<Path>,
     {
-        let file = File::open(path).map_err(|e| e.to_string())?;
+        let file = File::open(path)?;
 
-        let file_len = file.metadata().map_err(|e| e.to_string())?.len();
+        let file_len = file.metadata()?.len();
 
         let raw_fd = RawFd::from_file(file);
 
