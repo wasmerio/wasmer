@@ -1,3 +1,4 @@
+use crate::error::GrowError;
 use crate::{
     error::CreationError,
     sys,
@@ -5,7 +6,6 @@ use crate::{
     units::{Bytes, Pages},
     vm,
 };
-use crate::error::GrowError;
 
 pub const DYNAMIC_GUARD_SIZE: usize = 4096;
 
@@ -75,16 +75,20 @@ impl DynamicMemory {
 
         if let Some(max) = self.max {
             if new_pages > max {
-                return Err(GrowError::ExceededMaxPagesForMemory(new_pages.0 as usize, max.0 as usize))
+                return Err(GrowError::ExceededMaxPagesForMemory(
+                    new_pages.0 as usize,
+                    max.0 as usize,
+                ));
             }
         }
 
-        let mut new_memory =
-            sys::Memory::with_size(new_pages.bytes().0 + DYNAMIC_GUARD_SIZE).map_err(|e| e.into())?;
+        let mut new_memory = sys::Memory::with_size(new_pages.bytes().0 + DYNAMIC_GUARD_SIZE)
+            .map_err(|e| e.into())?;
 
         unsafe {
             new_memory
-                .protect(0..new_pages.bytes().0, sys::Protect::ReadWrite).map_err(|e| e.into())?;
+                .protect(0..new_pages.bytes().0, sys::Protect::ReadWrite)
+                .map_err(|e| e.into())?;
 
             new_memory.as_slice_mut()[..self.current.bytes().0]
                 .copy_from_slice(&self.memory.as_slice()[..self.current.bytes().0]);

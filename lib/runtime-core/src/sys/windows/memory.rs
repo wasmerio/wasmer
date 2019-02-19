@@ -1,3 +1,5 @@
+use crate::error::MemoryCreationError;
+use crate::error::MemoryProtectionError;
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{ptr, slice};
@@ -6,8 +8,6 @@ use winapi::um::winnt::{
     MEM_COMMIT, MEM_DECOMMIT, MEM_RESERVE, PAGE_EXECUTE_READ, PAGE_NOACCESS, PAGE_READONLY,
     PAGE_READWRITE,
 };
-use crate::error::MemoryCreationError;
-use crate::error::MemoryProtectionError;
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -60,7 +60,10 @@ impl Memory {
         let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, PAGE_NOACCESS) };
 
         if ptr.is_null() {
-            Err(MemoryCreationError::VirtualMemoryAllocationFailed(size, "unable to allocate memory".to_string()))
+            Err(MemoryCreationError::VirtualMemoryAllocationFailed(
+                size,
+                "unable to allocate memory".to_string(),
+            ))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
@@ -100,7 +103,11 @@ impl Memory {
         let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect_const);
 
         if ptr.is_null() {
-            Err(MemoryProtectionError::ProtectionFailed(start as usize, size, "unable to protect memory".to_string()))
+            Err(MemoryProtectionError::ProtectionFailed(
+                start as usize,
+                size,
+                "unable to protect memory".to_string(),
+            ))
         } else {
             self.protection = protect;
             Ok(())

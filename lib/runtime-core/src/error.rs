@@ -1,9 +1,9 @@
+use crate::sys::Memory;
 use crate::types::{
     FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
 };
 use core::borrow::Borrow;
 use std::sync::Arc;
-use crate::sys::Memory;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
@@ -396,7 +396,7 @@ impl std::error::Error for GrowError {}
 
 #[derive(Debug)]
 pub enum PageError {
-                    // left, right, added
+    // left, right, added
     ExceededMaxPages(usize, usize, usize),
 }
 
@@ -424,7 +424,11 @@ pub enum MemoryCreationError {
 impl std::fmt::Display for MemoryCreationError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            MemoryCreationError::VirtualMemoryAllocationFailed(size, msg) => write!(f, "Allocation virtual memory with size {} failed. \nErrno message: {}", size, msg),
+            MemoryCreationError::VirtualMemoryAllocationFailed(size, msg) => write!(
+                f,
+                "Allocation virtual memory with size {} failed. \nErrno message: {}",
+                size, msg
+            ),
             MemoryCreationError::CouldNotCreateMemoryFromFile(e) => write!(f, "IO Error: {}", e),
         }
     }
@@ -451,7 +455,11 @@ pub enum MemoryProtectionError {
 impl std::fmt::Display for MemoryProtectionError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            MemoryProtectionError::ProtectionFailed(start, size, msg) => write!(f, "Allocation virtual memory starting at {} with size {} failed. \nErrno message: {}", start, size, msg),
+            MemoryProtectionError::ProtectionFailed(start, size, msg) => write!(
+                f,
+                "Allocation virtual memory starting at {} with size {} failed. \nErrno message: {}",
+                start, size, msg
+            ),
         }
     }
 }

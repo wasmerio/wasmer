@@ -1,8 +1,8 @@
+use crate::error::PageError;
 use std::{
     fmt,
     ops::{Add, Sub},
 };
-use crate::error::PageError;
 
 const WASM_PAGE_SIZE: usize = 65_536;
 const WASM_MAX_PAGES: usize = 65_536;
@@ -18,7 +18,11 @@ impl Pages {
         if added <= WASM_MAX_PAGES {
             Ok(Pages(added as u32))
         } else {
-            Err(PageError::ExceededMaxPages(self.0 as usize, rhs.0 as usize, added))
+            Err(PageError::ExceededMaxPages(
+                self.0 as usize,
+                rhs.0 as usize,
+                added,
+            ))
         }
     }
 

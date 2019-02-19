@@ -1,3 +1,4 @@
+use crate::error::GrowError;
 use crate::{
     error::CreationError,
     memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
@@ -6,7 +7,6 @@ use crate::{
     units::Pages,
     vm,
 };
-use crate::error::GrowError;
 
 /// This is an internal-only api.
 ///
@@ -71,7 +71,10 @@ impl StaticMemory {
 
         if let Some(max) = self.max {
             if new_pages > max {
-                return Err(GrowError::ExceededMaxPagesForMemory(new_pages.0 as usize, max.0 as usize))
+                return Err(GrowError::ExceededMaxPagesForMemory(
+                    new_pages.0 as usize,
+                    max.0 as usize,
+                ));
             }
         }
 
