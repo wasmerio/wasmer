@@ -196,9 +196,8 @@ pub extern "C" fn wasmer_memory_grow(
     memory: *mut wasmer_memory_t,
     delta: uint32_t,
 ) -> wasmer_result_t {
-    let memory = unsafe { Box::from_raw(memory as *mut Memory) };
+    let memory = unsafe { &*(memory as *mut Memory) };
     let maybe_delta = memory.grow(Pages(delta));
-    Box::into_raw(memory);
     if let Some(_delta) = maybe_delta {
         wasmer_result_t::WASMER_OK
     } else {
@@ -213,9 +212,8 @@ pub extern "C" fn wasmer_memory_grow(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t {
-    let memory = unsafe { Box::from_raw(memory as *mut Memory) };
+    let memory = unsafe { &*(memory as *mut Memory) };
     let Pages(len) = memory.size();
-    Box::into_raw(memory);
     len
 }
 
@@ -262,9 +260,8 @@ pub extern "C" fn wasmer_table_grow(
     table: *mut wasmer_table_t,
     delta: uint32_t,
 ) -> wasmer_result_t {
-    let table = unsafe { Box::from_raw(table as *mut Table) };
+    let table = unsafe { &*(table as *mut Table) };
     let maybe_delta = table.grow(delta);
-    Box::into_raw(table);
     if let Some(_delta) = maybe_delta {
         wasmer_result_t::WASMER_OK
     } else {
@@ -279,9 +276,8 @@ pub extern "C" fn wasmer_table_grow(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
-    let table = unsafe { Box::from_raw(table as *mut Table) };
+    let table = unsafe { &*(table as *mut Table) };
     let len = table.size();
-    Box::into_raw(table);
     len
 }
 
@@ -313,9 +309,8 @@ pub unsafe extern "C" fn wasmer_global_new(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_global_get(global: *mut wasmer_global_t) -> wasmer_value_t {
-    let global = unsafe { Box::from_raw(global as *mut Global) };
+    let global = unsafe { &*(global as *mut Global) };
     let value: wasmer_value_t = global.get().into();
-    Box::into_raw(global);
     value
 }
 
@@ -323,9 +318,8 @@ pub extern "C" fn wasmer_global_get(global: *mut wasmer_global_t) -> wasmer_valu
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_global_set(global: *mut wasmer_global_t, value: wasmer_value_t) {
-    let global = unsafe { Box::from_raw(global as *mut Global) };
+    let global = unsafe { &*(global as *mut Global) };
     global.set(value.into());
-    Box::into_raw(global);
 }
 
 /// Returns a descriptor (type, mutability) of the given Global
@@ -334,13 +328,12 @@ pub extern "C" fn wasmer_global_set(global: *mut wasmer_global_t, value: wasmer_
 pub extern "C" fn wasmer_global_get_descriptor(
     global: *mut wasmer_global_t,
 ) -> wasmer_global_descriptor_t {
-    let global = unsafe { Box::from_raw(global as *mut Global) };
+    let global = unsafe { &*(global as *mut Global) };
     let descriptor = global.descriptor();
     let desc = wasmer_global_descriptor_t {
         mutable: descriptor.mutable,
         kind: descriptor.ty.into(),
     };
-    Box::into_raw(global);
     desc
 }
 
@@ -458,7 +451,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
             wasmer_import_export_kind::WASM_GLOBAL => import.value.global as *mut Export,
             wasmer_import_export_kind::WASM_TABLE => import.value.table as *mut Export,
         };
-        namespace.insert(import_name, unsafe { *Box::from_raw(export) });
+        namespace.insert(import_name, unsafe { *Box::from_raw(export) }); // TODO Review
     }
     for (module_name, namespace) in namespaces.into_iter() {
         import_object.register(module_name, namespace);
@@ -524,11 +517,10 @@ pub unsafe extern "C" fn wasmer_instance_call(
 
     let func_name_c = unsafe { CStr::from_ptr(name) };
     let func_name_r = func_name_c.to_str().unwrap();
-    let instance = unsafe { Box::from_raw(instance as *mut Instance) };
 
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
-    let result = instance.call(func_name_r, &params[..]);
-    Box::into_raw(instance);
+    let result = (&*(instance as *mut Instance)).call(func_name_r, &params[..]);
+
     match result {
         Ok(results_vec) => {
             if results_vec.len() > 0 {
@@ -570,11 +562,10 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     instance: *mut wasmer_instance_t,
     exports: *mut *mut wasmer_exports_t,
 ) {
-    let mut instance = unsafe { Box::from_raw(instance as *mut Instance) };
+    let mut instance = unsafe { &mut *(instance as *mut Instance) };
     let named_exports: Box<NamedExports> =
         Box::new(NamedExports(instance.exports().map(|e| e.into()).collect()));
     unsafe { *exports = Box::into_raw(named_exports) as *mut wasmer_exports_t };
-    Box::into_raw(instance);
 }
 
 pub struct NamedExports(Vec<NamedExport>);
@@ -608,9 +599,8 @@ pub unsafe extern "C" fn wasmer_exports_get(
     if exports.is_null() {
         return ptr::null_mut();
     }
-    let mut named_exports = unsafe { Box::from_raw(exports as *mut NamedExports) };
+    let mut named_exports = unsafe { &mut *(exports as *mut NamedExports) };
     let ptr = &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t;
-    Box::into_raw(named_exports);
     ptr
 }
 
@@ -666,7 +656,7 @@ pub unsafe extern "C" fn wasmer_func_params_arity(
     func: *mut wasmer_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut export = unsafe { Box::from_raw(func as *mut Export) };
+    let mut export = unsafe { &mut *(func as *mut Export) };
     let result = if let Export::Function { ref signature, .. } = *export {
         unsafe { *result = signature.params().len() as uint32_t };
         wasmer_result_t::WASMER_OK
@@ -676,7 +666,6 @@ pub unsafe extern "C" fn wasmer_func_params_arity(
         });
         wasmer_result_t::WASMER_ERROR
     };
-    Box::into_raw(export);
     result
 }
 
@@ -693,7 +682,7 @@ pub unsafe extern "C" fn wasmer_func_params(
     params: *mut wasmer_value_tag,
     params_len: c_int,
 ) -> wasmer_result_t {
-    let mut export = unsafe { Box::from_raw(func as *mut Export) };
+    let mut export = unsafe { &mut *(func as *mut Export) };
     let result = if let Export::Function { ref signature, .. } = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
@@ -707,7 +696,6 @@ pub unsafe extern "C" fn wasmer_func_params(
         });
         wasmer_result_t::WASMER_ERROR
     };
-    Box::into_raw(export);
     result
 }
 
@@ -724,7 +712,7 @@ pub unsafe extern "C" fn wasmer_func_returns(
     returns: *mut wasmer_value_tag,
     returns_len: c_int,
 ) -> wasmer_result_t {
-    let mut export = unsafe { Box::from_raw(func as *mut Export) };
+    let mut export = unsafe { &mut *(func as *mut Export) };
     let result = if let Export::Function { ref signature, .. } = *export {
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
@@ -738,7 +726,6 @@ pub unsafe extern "C" fn wasmer_func_returns(
         });
         wasmer_result_t::WASMER_ERROR
     };
-    Box::into_raw(export);
     result
 }
 
@@ -754,7 +741,7 @@ pub unsafe extern "C" fn wasmer_func_returns_arity(
     func: *mut wasmer_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut export = unsafe { Box::from_raw(func as *mut Export) };
+    let mut export = unsafe { &*(func as *mut Export) };
     let result = if let Export::Function { ref signature, .. } = *export {
         unsafe { *result = signature.returns().len() as uint32_t };
         wasmer_result_t::WASMER_OK
@@ -764,7 +751,6 @@ pub unsafe extern "C" fn wasmer_func_returns_arity(
         });
         wasmer_result_t::WASMER_ERROR
     };
-    Box::into_raw(export);
     result
 }
 
@@ -830,7 +816,7 @@ pub unsafe extern "C" fn wasmer_func_call(
     let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
     let params: Vec<Value> = params.iter().cloned().map(|x| x.into()).collect();
 
-    let export_func = unsafe { Box::from_raw(func as *mut Export) };
+    let export_func = unsafe { &*(func as *mut Export) };
 
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
     //    TODO implement func.call
@@ -880,7 +866,7 @@ pub extern "C" fn wasmer_instance_context_memory(
     ctx: *mut wasmer_instance_context_t,
     memory_idx: uint32_t,
 ) -> *const wasmer_memory_t {
-    let mut ctx = unsafe { Box::from_raw(ctx as *mut Ctx) };
+    let mut ctx = unsafe { &mut *(ctx as *mut Ctx) };
     let memory = ctx.memory(0);
     memory as *const Memory as *const wasmer_memory_t
 }
