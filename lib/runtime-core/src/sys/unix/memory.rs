@@ -4,6 +4,7 @@ use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{fs::File, os::unix::io::IntoRawFd, path::Path, ptr, rc::Rc, slice};
 use crate::error::MemoryCreationError;
+use crate::error::MemoryProtectionError;
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -124,7 +125,7 @@ impl Memory {
         &mut self,
         range: impl RangeBounds<usize>,
         protection: Protect,
-    ) -> Result<(), String> {
+    ) -> Result<(), MemoryProtectionError>  {
         let protect = protection.to_protect_const();
 
         let range_start = match range.start_bound() {
@@ -148,7 +149,7 @@ impl Memory {
 
         let success = libc::mprotect(start as _, size, protect as i32);
         if success == -1 {
-            Err(errno::errno().to_string())
+            Err(MemoryProtectionError::ProtectionFailed(start as usize, size, errno::errno().to_string()))
         } else {
             self.protection = protection;
             Ok(())
