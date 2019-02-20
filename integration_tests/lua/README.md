@@ -1,8 +1,8 @@
 # `lua` integration test
 
 
-This starts wasmer with the lua wasm file. The test asserts on
-the output of wasmer. Run test with: 
+This starts Wasmer with the Lua Wasm file. The test makes assertions on
+the output of Wasmer. Run test with:
 
 ```
 > ./integration_tests/lua/test.sh
