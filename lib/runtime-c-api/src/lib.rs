@@ -467,7 +467,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
             wasmer_import_export_kind::WASM_GLOBAL => import.value.global as *mut Export,
             wasmer_import_export_kind::WASM_TABLE => import.value.table as *mut Export,
         };
-        namespace.insert(import_name, unsafe { *Box::from_raw(export) }); // TODO Review
+        namespace.insert(import_name, unsafe { (&*export).clone() });
     }
     for (module_name, namespace) in namespaces.into_iter() {
         import_object.register(module_name, namespace);
@@ -488,7 +488,6 @@ pub unsafe extern "C" fn wasmer_instantiate(
         }
     };
     unsafe { *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t };
-    Box::into_raw(Box::new(import_object));
     wasmer_result_t::WASMER_OK
 }
 

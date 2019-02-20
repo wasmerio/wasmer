@@ -84,7 +84,7 @@ int main()
     assert(0 == strcmp(actual_str, "Hello, World!"));
 
     printf("Destroying func\n");
-  //  wasmer_func_destroy(func);
+    wasmer_func_destroy(func);
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);
     return 0;
