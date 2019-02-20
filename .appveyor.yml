@@ -30,9 +30,9 @@ test_script:
   - cd ./lib/spectests && cargo test -- --test-threads 1 && cd ../..
 
 before_deploy:
-  - cd installer
+  - cd ./src/installer
   - iscc wasmer.iss
-  - copy /y .\WasmerInstaller.exe ..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
+  - copy /y .\WasmerInstaller.exe ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
   - appveyor PushArtifact WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
 
 artifacts:
