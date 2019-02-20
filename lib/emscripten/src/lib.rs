@@ -27,6 +27,7 @@ mod file_descriptor;
 pub mod stdio;
 
 // EMSCRIPTEN APIS
+mod emscripten_target;
 mod env;
 mod errno;
 mod exception;
@@ -92,8 +93,17 @@ pub struct EmscriptenData<'a> {
     pub memalign: Option<Func<'a, (u32, u32), u32>>,
     pub memset: Func<'a, (u32, u32, u32), u32>,
     pub stack_alloc: Func<'a, u32, u32>,
-
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
+
+    pub dyn_call_i: Option<Func<'a, i32, i32>>,
+    pub dyn_call_ii: Option<Func<'a, (i32, i32), i32>>,
+    pub dyn_call_iii: Option<Func<'a, (i32, i32, i32), i32>>,
+    pub dyn_call_iiii: Option<Func<'a, (i32, i32, i32, i32), i32>>,
+    pub dyn_call_v: Option<Func<'a, (i32)>>,
+    pub dyn_call_vi: Option<Func<'a, (i32, i32)>>,
+    pub dyn_call_vii: Option<Func<'a, (i32, i32, i32)>>,
+    pub dyn_call_viii: Option<Func<'a, (i32, i32, i32, i32)>>,
+    pub dyn_call_viiii: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -108,6 +118,16 @@ impl<'a> EmscriptenData<'a> {
         let memset = instance.func("_memset").unwrap();
         let stack_alloc = instance.func("stackAlloc").unwrap();
 
+        let dyn_call_i = instance.func("dynCall_i").ok();
+        let dyn_call_ii = instance.func("dynCall_ii").ok();
+        let dyn_call_iii = instance.func("dynCall_iii").ok();
+        let dyn_call_iiii = instance.func("dynCall_iiii").ok();
+        let dyn_call_v = instance.func("dynCall_v").ok();
+        let dyn_call_vi = instance.func("dynCall_vi").ok();
+        let dyn_call_vii = instance.func("dynCall_vii").ok();
+        let dyn_call_viii = instance.func("dynCall_viii").ok();
+        let dyn_call_viiii = instance.func("dynCall_viiii").ok();
+
         EmscriptenData {
             malloc,
             free,
@@ -115,6 +135,15 @@ impl<'a> EmscriptenData<'a> {
             memset,
             stack_alloc,
             jumps: Vec::new(),
+            dyn_call_i,
+            dyn_call_ii,
+            dyn_call_iii,
+            dyn_call_iiii,
+            dyn_call_v,
+            dyn_call_vi,
+            dyn_call_vii,
+            dyn_call_viii,
+            dyn_call_viiii,
         }
     }
 }
@@ -491,6 +520,42 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_dlopen" => func!(crate::linking::_dlopen),
             "_dlsym" => func!(crate::linking::_dlsym),
 
+            // wasm32-unknown-emscripten
+            "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
+            "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
+            "nullFunc_ji" => func!(crate::emscripten_target::nullFunc_ji),
+            "invoke_i" => func!(crate::emscripten_target::invoke_i),
+            "invoke_ii" => func!(crate::emscripten_target::invoke_ii),
+            "invoke_iii" => func!(crate::emscripten_target::invoke_iii),
+            "invoke_iiii" => func!(crate::emscripten_target::invoke_iiii),
+            "invoke_v" => func!(crate::emscripten_target::invoke_v),
+            "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
+            "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
+            "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
+            "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
+            "__Unwind_Backtrace" => func!(crate::emscripten_target::__Unwind_Backtrace),
+            "__Unwind_FindEnclosingFunction" => func!(crate::emscripten_target::__Unwind_FindEnclosingFunction),
+            "__Unwind_GetIPInfo" => func!(crate::emscripten_target::__Unwind_GetIPInfo),
+            "___cxa_find_matching_catch_2" => func!(crate::emscripten_target::___cxa_find_matching_catch_2),
+            "___cxa_find_matching_catch_3" => func!(crate::emscripten_target::___cxa_find_matching_catch_3),
+            "___cxa_free_exception" => func!(crate::emscripten_target::___cxa_free_exception),
+            "___resumeException" => func!(crate::emscripten_target::___resumeException),
+            "_dladdr" => func!(crate::emscripten_target::_dladdr),
+            "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
+            "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
+            "_pthread_cond_signal" => func!(crate::emscripten_target::_pthread_cond_signal),
+            "_pthread_cond_wait" => func!(crate::emscripten_target::_pthread_cond_wait),
+            "_pthread_condattr_destroy" => func!(crate::emscripten_target::_pthread_condattr_destroy),
+            "_pthread_condattr_init" => func!(crate::emscripten_target::_pthread_condattr_init),
+            "_pthread_condattr_setclock" => func!(crate::emscripten_target::_pthread_condattr_setclock),
+            "_pthread_mutex_destroy" => func!(crate::emscripten_target::_pthread_mutex_destroy),
+            "_pthread_mutex_init" => func!(crate::emscripten_target::_pthread_mutex_init),
+            "_pthread_mutexattr_destroy" => func!(crate::emscripten_target::_pthread_mutexattr_destroy),
+            "_pthread_mutexattr_init" => func!(crate::emscripten_target::_pthread_mutexattr_init),
+            "_pthread_mutexattr_settype" => func!(crate::emscripten_target::_pthread_mutexattr_settype),
+            "_pthread_rwlock_rdlock" => func!(crate::emscripten_target::_pthread_rwlock_rdlock),
+            "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
+            "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
         },
         "global" => {
           "NaN" => Global::new(Value::F64(f64::NAN)),
