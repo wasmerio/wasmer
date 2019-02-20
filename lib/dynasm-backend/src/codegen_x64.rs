@@ -1,5 +1,5 @@
 use super::codegen::*;
-use super::stack::{ValueInfo, ValueLocation, ValueStack};
+use super::stack::{ControlFrame, ControlStack, ValueInfo, ValueLocation, ValueStack};
 use dynasmrt::{
     x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
 };
@@ -86,6 +86,7 @@ pub struct X64FunctionCode {
     num_params: usize,
     current_stack_offset: usize,
     value_stack: ValueStack,
+    control_stack: Option<ControlStack>,
 }
 
 pub struct X64ExecutionContext {
@@ -182,6 +183,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             num_params: 0,
             current_stack_offset: 0,
             value_stack: ValueStack::new(4),
+            control_stack: None,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -348,6 +350,159 @@ impl X64FunctionCode {
             );
         }
     }
+
+    fn emit_leave_frame(
+        assembler: &mut Assembler,
+        frame: &ControlFrame,
+        value_stack: &mut ValueStack,
+    ) -> Result<(), CodegenError> {
+        let ret_ty = match frame.returns.len() {
+            1 => Some(frame.returns[0]),
+            0 => None,
+            _ => {
+                return Err(CodegenError {
+                    message: "more than one block returns are not yet supported",
+                })
+            }
+        };
+
+        if ret_ty.is_some() && frame.loop_like {
+            return Err(CodegenError {
+                message: "return value is not supported for loops",
+            });
+        }
+
+        if value_stack.values.len() < frame.value_stack_depth_before + frame.returns.len() {
+            return Err(CodegenError {
+                message: "value stack underflow",
+            });
+        }
+
+        if let Some(ty) = ret_ty {
+            let ret = value_stack.pop()?;
+            match ret.location {
+                ValueLocation::Register(x) => {
+                    dynasm!(
+                        assembler
+                        ; mov rax, Rq(x)
+                    );
+                }
+                ValueLocation::Stack => {
+                    if is_dword(get_size_of_type(&ty)?) {
+                        dynasm!(
+                            assembler
+                            ; mov eax, [rsp]
+                            ; add rsp, 4
+                        );
+                    } else {
+                        dynasm!(
+                            assembler
+                            ; mov rax, [rsp]
+                            ; add rsp, 8
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn emit_block_end(
+        assembler: &mut Assembler,
+        control_stack: &mut ControlStack,
+        value_stack: &mut ValueStack,
+    ) -> Result<(), CodegenError> {
+        let frame = match control_stack.frames.pop() {
+            Some(x) => x,
+            None => {
+                return Err(CodegenError {
+                    message: "no frame",
+                })
+            }
+        };
+
+        Self::emit_leave_frame(assembler, &frame, value_stack)?;
+
+        if value_stack.values.len() != frame.value_stack_depth_before {
+            return Err(CodegenError {
+                message: "value_stack.values.len() != frame.value_stack_depth_before",
+            });
+        }
+
+        if !frame.loop_like {
+            dynasm!(
+                assembler
+                ; => frame.label
+            );
+        }
+
+        if frame.returns.len() == 1 {
+            let loc = value_stack.push(frame.returns[0]);
+            match loc {
+                ValueLocation::Register(x) => {
+                    let reg = Register::from_scratch_reg(x);
+                    dynasm!(
+                        assembler
+                        ; mov Rq(x as u8), rax
+                    );
+                }
+                ValueLocation::Stack => {
+                    if is_dword(get_size_of_type(&frame.returns[0])?) {
+                        dynasm!(
+                            assembler
+                            ; sub rsp, 4
+                            ; mov [rsp], eax
+                        );
+                    } else {
+                        dynasm!(
+                            assembler
+                            ; sub rsp, 8
+                            ; mov [rsp], rax
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn emit_jmp(
+        assembler: &mut Assembler,
+        control_stack: &ControlStack,
+        value_stack: &mut ValueStack,
+        relative_frame_offset: usize,
+    ) -> Result<(), CodegenError> {
+        let frame = if relative_frame_offset >= control_stack.frames.len() {
+            return Err(CodegenError {
+                message: "jmp offset out of bounds",
+            });
+        } else {
+            &control_stack.frames[control_stack.frames.len() - 1 - relative_frame_offset]
+        };
+
+        Self::emit_leave_frame(assembler, frame, value_stack)?;
+
+        let mut sp_diff: usize = 0;
+
+        for i in 0..value_stack.values.len() - frame.value_stack_depth_before {
+            let vi = value_stack.values[value_stack.values.len() - 1 - i];
+            if vi.location == ValueLocation::Stack {
+                sp_diff += get_size_of_type(&vi.ty)?;
+            } else {
+                break;
+            }
+        }
+
+        dynasm!(
+            assembler
+            ; add rsp, sp_diff as i32
+            ; jmp =>frame.label
+        );
+
+        Ok(())
+    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -425,6 +580,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
         Ok(())
     }
     fn begin_body(&mut self) -> Result<(), CodegenError> {
+        self.control_stack = Some(ControlStack::new(
+            self.assembler.as_mut().unwrap().new_dynamic_label(),
+            self.returns.clone(),
+        ));
         Ok(())
     }
     fn feed_opcode(&mut self, op: Operator) -> Result<(), CodegenError> {
@@ -574,6 +733,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 )?;
             }
+            Operator::Block { ty } => {}
             Operator::Drop => {
                 let info = self.value_stack.pop()?;
                 Self::gen_rt_pop(assembler, &info)?;
@@ -605,22 +765,56 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 }
             },
             Operator::End => {
-                // todo
+                Self::emit_block_end(
+                    assembler,
+                    self.control_stack.as_mut().unwrap(),
+                    &mut self.value_stack,
+                )?;
             }
             _ => unimplemented!(),
         }
         Ok(())
     }
+
     fn finalize(&mut self) -> Result<(), CodegenError> {
         let assembler = self.assembler.as_mut().unwrap();
+
         dynasm!(
             assembler
             ; ud2
             ; => self.cleanup_label
+        );
+
+        if self.returns.len() == 1 {
+            if self.value_stack.values.len() != 1 {
+                return Err(CodegenError {
+                    message: "returns.len() != value_stack.values.len()",
+                });
+            }
+            let value_info = self.value_stack.pop()?;
+            if value_info.ty != self.returns[0] {
+                return Err(CodegenError {
+                    message: "return type mismatch",
+                });
+            }
+            if let ValueLocation::Register(x) = value_info.location {
+                let reg = Register::from_scratch_reg(x);
+                dynasm!(
+                    assembler
+                    ; mov rax, Rq(reg as u8)
+                );
+            } else {
+                unreachable!();
+            }
+        }
+
+        dynasm!(
+            assembler
             ; mov rsp, rbp
             ; pop rbp
             ; ret
         );
+
         Ok(())
     }
 }

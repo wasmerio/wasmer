@@ -46,7 +46,7 @@ pub struct ValueInfo {
     pub location: ValueLocation,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ValueLocation {
     Register(u8),
     Stack,
@@ -66,7 +66,7 @@ impl ValueLocation {
             Ok(id)
         } else {
             Err(CodegenError {
-                message: "not a register location"
+                message: "not a register location",
             })
         }
     }
@@ -138,5 +138,18 @@ impl ValueStack {
 
     pub fn reset_depth(&mut self, target_depth: usize) {
         self.values.truncate(target_depth);
+    }
+}
+
+impl ControlStack {
+    pub fn new(label: DynamicLabel, returns: Vec<WpType>) -> ControlStack {
+        ControlStack {
+            frames: vec![ControlFrame {
+                label: label,
+                loop_like: false,
+                returns: returns,
+                value_stack_depth_before: 0,
+            }],
+        }
     }
 }
