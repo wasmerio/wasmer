@@ -211,10 +211,8 @@ pub extern "C" fn wasmer_memory_grow(
     let delta_result = memory.grow(Pages(delta));
     match delta_result {
         Ok(_) => wasmer_result_t::WASMER_OK,
-        Err(_) => {
-            update_last_error(CApiError {
-                msg: "unable to grow memory".to_string(),
-            });
+        Err(grow_error) => {
+            update_last_error(grow_error);
             wasmer_result_t::WASMER_ERROR
         }
     }
@@ -281,10 +279,8 @@ pub extern "C" fn wasmer_table_grow(
     let delta_result = table.grow(delta);
     match delta_result {
         Ok(_) => wasmer_result_t::WASMER_OK,
-        Err(_) => {
-            update_last_error(CApiError {
-                msg: "unable to grow table".to_string(),
-            });
+        Err(grow_error) => {
+            update_last_error(grow_error);
             wasmer_result_t::WASMER_ERROR
         }
     }
