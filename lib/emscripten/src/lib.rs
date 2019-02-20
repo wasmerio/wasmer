@@ -95,15 +95,15 @@ pub struct EmscriptenData<'a> {
     pub stack_alloc: Func<'a, u32, u32>,
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
 
-    pub dyn_call_i: Func<'a, i32, i32>,
-    pub dyn_call_ii: Func<'a, (i32, i32), i32>,
-    pub dyn_call_iii: Func<'a, (i32, i32, i32), i32>,
-    pub dyn_call_iiii: Func<'a, (i32, i32, i32, i32), i32>,
-    pub dyn_call_v: Func<'a, (i32)>,
-    pub dyn_call_vi: Func<'a, (i32, i32)>,
-    pub dyn_call_vii: Func<'a, (i32, i32, i32)>,
-    pub dyn_call_viii: Func<'a, (i32, i32, i32, i32)>,
-    pub dyn_call_viiii: Func<'a, (i32, i32, i32, i32, i32)>,
+    pub dyn_call_i: Option<Func<'a, i32, i32>>,
+    pub dyn_call_ii: Option<Func<'a, (i32, i32), i32>>,
+    pub dyn_call_iii: Option<Func<'a, (i32, i32, i32), i32>>,
+    pub dyn_call_iiii: Option<Func<'a, (i32, i32, i32, i32), i32>>,
+    pub dyn_call_v: Option<Func<'a, (i32)>>,
+    pub dyn_call_vi: Option<Func<'a, (i32, i32)>>,
+    pub dyn_call_vii: Option<Func<'a, (i32, i32, i32)>>,
+    pub dyn_call_viii: Option<Func<'a, (i32, i32, i32, i32)>>,
+    pub dyn_call_viiii: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -118,15 +118,15 @@ impl<'a> EmscriptenData<'a> {
         let memset = instance.func("_memset").unwrap();
         let stack_alloc = instance.func("stackAlloc").unwrap();
 
-        let dyn_call_i = instance.func("dynCall_i").unwrap();
-        let dyn_call_ii = instance.func("dynCall_ii").unwrap();
-        let dyn_call_iii = instance.func("dynCall_iii").unwrap();
-        let dyn_call_iiii = instance.func("dynCall_iiii").unwrap();
-        let dyn_call_v = instance.func("dynCall_v").unwrap();
-        let dyn_call_vi = instance.func("dynCall_vi").unwrap();
-        let dyn_call_vii = instance.func("dynCall_vii").unwrap();
-        let dyn_call_viii = instance.func("dynCall_viii").unwrap();
-        let dyn_call_viiii = instance.func("dynCall_viiii").unwrap();
+        let dyn_call_i = instance.func("dynCall_i").ok();
+        let dyn_call_ii = instance.func("dynCall_ii").ok();
+        let dyn_call_iii = instance.func("dynCall_iii").ok();
+        let dyn_call_iiii = instance.func("dynCall_iiii").ok();
+        let dyn_call_v = instance.func("dynCall_v").ok();
+        let dyn_call_vi = instance.func("dynCall_vi").ok();
+        let dyn_call_vii = instance.func("dynCall_vii").ok();
+        let dyn_call_viii = instance.func("dynCall_viii").ok();
+        let dyn_call_viiii = instance.func("dynCall_viiii").ok();
 
         EmscriptenData {
             malloc,
