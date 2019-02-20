@@ -208,14 +208,15 @@ pub extern "C" fn wasmer_memory_grow(
     delta: uint32_t,
 ) -> wasmer_result_t {
     let memory = unsafe { &*(memory as *mut Memory) };
-    let maybe_delta = memory.grow(Pages(delta));
-    if let Some(_delta) = maybe_delta {
-        wasmer_result_t::WASMER_OK
-    } else {
-        update_last_error(CApiError {
-            msg: "unable to grow memory".to_string(),
-        });
-        wasmer_result_t::WASMER_ERROR
+    let delta_result = memory.grow(Pages(delta));
+    match delta_result {
+        Ok(_) => wasmer_result_t::WASMER_OK,
+        Err(_) => {
+            update_last_error(CApiError {
+                msg: "unable to grow memory".to_string(),
+            });
+            wasmer_result_t::WASMER_ERROR
+        }
     }
 }
 
@@ -277,14 +278,15 @@ pub extern "C" fn wasmer_table_grow(
     delta: uint32_t,
 ) -> wasmer_result_t {
     let table = unsafe { &*(table as *mut Table) };
-    let maybe_delta = table.grow(delta);
-    if let Some(_delta) = maybe_delta {
-        wasmer_result_t::WASMER_OK
-    } else {
-        update_last_error(CApiError {
-            msg: "unable to grow table".to_string(),
-        });
-        wasmer_result_t::WASMER_ERROR
+    let delta_result = table.grow(delta);
+    match delta_result {
+        Ok(_) => wasmer_result_t::WASMER_OK,
+        Err(_) => {
+            update_last_error(CApiError {
+                msg: "unable to grow table".to_string(),
+            });
+            wasmer_result_t::WASMER_ERROR
+        }
     }
 }
 
