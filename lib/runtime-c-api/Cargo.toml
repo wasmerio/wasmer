@@ -1,0 +1,25 @@
+[package]
+name = "wasmer-runtime-c-api"
+version = "0.1.4"
+description = "Wasmer c-api library"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+edition = "2018"
+readme = "README.md"
+
+[dependencies]
+wasmer-runtime = { path = "../runtime", version = "0.1.2" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
+libc = "0.2"
+
+[lib]
+crate-type = ["cdylib"]
+
+[build-dependencies]
+cbindgen = { version = "0.7.1", optional = true }
+
+[features]
+generate-c-api-headers = ["cbindgen"]
+
+

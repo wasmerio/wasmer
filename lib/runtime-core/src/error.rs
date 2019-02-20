@@ -260,6 +260,8 @@ impl std::fmt::Display for CallError {
     }
 }
 
+impl std::error::Error for CallError {}
+
 /// This error type is produced when creating something,
 /// like a `Memory` or a `Table`.
 #[derive(Debug, Clone)]
