@@ -86,6 +86,7 @@ pub struct X64FunctionCode {
     current_stack_offset: usize,
     value_stack: ValueStack,
     control_stack: Option<ControlStack>,
+    unreachable_depth: usize,
 }
 
 pub struct X64ExecutionContext {
@@ -182,6 +183,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             current_stack_offset: 0,
             value_stack: ValueStack::new(4),
             control_stack: None,
+            unreachable_depth: 0,
         };
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
@@ -516,6 +518,38 @@ impl X64FunctionCode {
 
         Ok(())
     }
+
+    fn emit_return(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        returns: &Vec<WpType>,
+    ) -> Result<(), CodegenError> {
+        match returns.len() {
+            0 => {}
+            1 => {
+                if value_stack.values.iter().last().map(|x| x.ty) != Some(returns[0]) {
+                    return Err(CodegenError {
+                        message: "self.value_stack.last().cloned() != Some(self.returns[0])",
+                    });
+                }
+                Self::emit_pop_into_ax(assembler, value_stack)?;
+            }
+            _ => {
+                return Err(CodegenError {
+                    message: "multiple return values is not yet supported",
+                })
+            }
+        }
+
+        dynasm!(
+            assembler
+            ; mov rsp, rbp
+            ; pop rbp
+            ; ret
+        );
+
+        Ok(())
+    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -600,7 +634,28 @@ impl FunctionCodeGenerator for X64FunctionCode {
         Ok(())
     }
     fn feed_opcode(&mut self, op: Operator) -> Result<(), CodegenError> {
+        let was_unreachable;
+
+        if self.unreachable_depth > 0 {
+            was_unreachable = true;
+            match op {
+                Operator::Block { .. } | Operator::Loop { .. } | Operator::If { .. } => {
+                    self.unreachable_depth += 1;
+                }
+                Operator::End => {
+                    self.unreachable_depth -= 1;
+                }
+                _ => {}
+            }
+            if self.unreachable_depth > 0 {
+                return Ok(());
+            }
+        } else {
+            was_unreachable = false;
+        }
+
         let assembler = self.assembler.as_mut().unwrap();
+
         match op {
             Operator::GetLocal { local_index } => {
                 let local_index = local_index as usize;
@@ -751,35 +806,25 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let info = self.value_stack.pop()?;
                 Self::gen_rt_pop(assembler, &info)?;
             }
-            Operator::Return => match self.returns.len() {
-                0 => {}
-                1 => {
-                    if self.value_stack.values.iter().last().map(|x| x.ty) != Some(self.returns[0])
-                    {
-                        return Err(CodegenError {
-                            message: "self.value_stack.last().cloned() != Some(self.returns[0])",
-                        });
-                    }
-                    Self::emit_pop_into_ax(assembler, &mut self.value_stack)?;
+            Operator::Return => {
+                Self::emit_return(assembler, &mut self.value_stack, &self.returns)?;
+                self.unreachable_depth = 1;
+            }
+            Operator::End => {
+                if self.control_stack.as_ref().unwrap().frames.len() == 1 {
+                    let frame = self.control_stack.as_mut().unwrap().frames.pop().unwrap();
+                    Self::emit_leave_frame(assembler, &frame, &mut self.value_stack)?;
                     dynasm!(
                         assembler
-                        ; mov rsp, rbp
-                        ; pop rbp
-                        ; ret
+                        ; =>frame.label
                     );
+                } else {
+                    Self::emit_block_end(
+                        assembler,
+                        self.control_stack.as_mut().unwrap(),
+                        &mut self.value_stack,
+                    )?;
                 }
-                _ => {
-                    return Err(CodegenError {
-                        message: "multiple return values is not yet supported",
-                    })
-                }
-            },
-            Operator::End => {
-                Self::emit_block_end(
-                    assembler,
-                    self.control_stack.as_mut().unwrap(),
-                    &mut self.value_stack,
-                )?;
             }
             Operator::Br { relative_depth } => {
                 Self::emit_jmp(
@@ -788,6 +833,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     &mut self.value_stack,
                     relative_depth as usize,
                 )?;
+                self.unreachable_depth = 1;
             }
             _ => unimplemented!(),
         }
@@ -799,7 +845,9 @@ impl FunctionCodeGenerator for X64FunctionCode {
 
         dynasm!(
             assembler
-            ; ud2
+            ; mov rsp, rbp
+            ; pop rbp
+            ; ret
         );
 
         if self.value_stack.values.len() != 0
