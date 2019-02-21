@@ -170,7 +170,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             ; => begin_label
             ; push rbp
             ; mov rbp, rsp
-            ; int 3
+            //; int 3
         );
         let code = X64FunctionCode {
             id: self.functions.len(),
@@ -351,6 +351,44 @@ impl X64FunctionCode {
         }
     }
 
+    fn emit_peek_into_ax(
+        assembler: &mut Assembler,
+        value_stack: &ValueStack,
+    ) -> Result<(), CodegenError> {
+        let val = match value_stack.values.last() {
+            Some(x) => *x,
+            None => {
+                return Err(CodegenError {
+                    message: "no value",
+                })
+            }
+        };
+        match val.location {
+            ValueLocation::Register(x) => {
+                let reg = Register::from_scratch_reg(x);
+                dynasm!(
+                    assembler
+                    ; mov rax, Rq(reg as u8)
+                );
+            }
+            ValueLocation::Stack => {
+                if is_dword(get_size_of_type(&val.ty)?) {
+                    dynasm!(
+                        assembler
+                        ; mov eax, [rsp]
+                    );
+                } else {
+                    dynasm!(
+                        assembler
+                        ; mov rax, [rsp]
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn emit_pop_into_ax(
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
@@ -388,6 +426,7 @@ impl X64FunctionCode {
         assembler: &mut Assembler,
         frame: &ControlFrame,
         value_stack: &mut ValueStack,
+        peek: bool,
     ) -> Result<(), CodegenError> {
         let ret_ty = match frame.returns.len() {
             1 => Some(frame.returns[0]),
@@ -417,7 +456,11 @@ impl X64FunctionCode {
                     message: "value type != return type",
                 });
             }
-            Self::emit_pop_into_ax(assembler, value_stack)?;
+            if peek {
+                Self::emit_peek_into_ax(assembler, value_stack)?;
+            } else {
+                Self::emit_pop_into_ax(assembler, value_stack)?;
+            }
         }
 
         Ok(())
@@ -427,6 +470,7 @@ impl X64FunctionCode {
         assembler: &mut Assembler,
         control_stack: &mut ControlStack,
         value_stack: &mut ValueStack,
+        was_unreachable: bool,
     ) -> Result<(), CodegenError> {
         let frame = match control_stack.frames.pop() {
             Some(x) => x,
@@ -437,7 +481,9 @@ impl X64FunctionCode {
             }
         };
 
-        Self::emit_leave_frame(assembler, &frame, value_stack)?;
+        if !was_unreachable {
+            Self::emit_leave_frame(assembler, &frame, value_stack, false)?;
+        }
 
         if value_stack.values.len() != frame.value_stack_depth_before {
             return Err(CodegenError {
@@ -497,7 +543,7 @@ impl X64FunctionCode {
             &control_stack.frames[control_stack.frames.len() - 1 - relative_frame_offset]
         };
 
-        Self::emit_leave_frame(assembler, frame, value_stack)?;
+        Self::emit_leave_frame(assembler, frame, value_stack, true)?;
 
         let mut sp_diff: usize = 0;
 
@@ -801,7 +847,21 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 )?;
             }
-            Operator::Block { ty } => {}
+            Operator::Block { ty } => {
+                self.control_stack
+                    .as_mut()
+                    .unwrap()
+                    .frames
+                    .push(ControlFrame {
+                        label: assembler.new_dynamic_label(),
+                        loop_like: false,
+                        returns: match ty {
+                            WpType::EmptyBlockType => vec![],
+                            _ => vec![ty],
+                        },
+                        value_stack_depth_before: self.value_stack.values.len(),
+                    });
+            }
             Operator::Drop => {
                 let info = self.value_stack.pop()?;
                 Self::gen_rt_pop(assembler, &info)?;
@@ -813,7 +873,11 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::End => {
                 if self.control_stack.as_ref().unwrap().frames.len() == 1 {
                     let frame = self.control_stack.as_mut().unwrap().frames.pop().unwrap();
-                    Self::emit_leave_frame(assembler, &frame, &mut self.value_stack)?;
+
+                    if !was_unreachable {
+                        Self::emit_leave_frame(assembler, &frame, &mut self.value_stack, false)?;
+                    }
+
                     dynasm!(
                         assembler
                         ; =>frame.label
@@ -823,6 +887,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         assembler,
                         self.control_stack.as_mut().unwrap(),
                         &mut self.value_stack,
+                        was_unreachable,
                     )?;
                 }
             }
@@ -834,6 +899,25 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     relative_depth as usize,
                 )?;
                 self.unreachable_depth = 1;
+            }
+            Operator::BrIf { relative_depth } => {
+                let no_br_label = assembler.new_dynamic_label();
+                Self::emit_pop_into_ax(assembler, &mut self.value_stack)?; // TODO: typeck?
+                dynasm!(
+                    assembler
+                    ; cmp eax, 0
+                    ; je =>no_br_label
+                );
+                Self::emit_jmp(
+                    assembler,
+                    self.control_stack.as_ref().unwrap(),
+                    &mut self.value_stack,
+                    relative_depth as usize,
+                )?;
+                dynasm!(
+                    assembler
+                    ; =>no_br_label
+                );
             }
             _ => unimplemented!(),
         }
