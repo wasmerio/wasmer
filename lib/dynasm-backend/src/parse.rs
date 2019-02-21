@@ -288,17 +288,9 @@ pub fn read_module<
                         fcg.feed_local(ty, count as usize)?;
                     }
                     fcg.begin_body()?;
-                    let mut last_is_return = false;
                     for op in item.get_operators_reader()? {
                         let op = op?;
-                        last_is_return = match op {
-                            Operator::Return => true,
-                            _ => false,
-                        };
                         fcg.feed_opcode(op)?;
-                    }
-                    if !last_is_return {
-                        fcg.feed_opcode(Operator::Return)?;
                     }
                     fcg.finalize()?;
                 }
