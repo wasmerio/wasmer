@@ -120,10 +120,11 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_j: Option<Func<'a, i32, i32>>,
     pub dyn_call_ji: Option<Func<'a, (i32, i32), i32>>,
     pub dyn_call_jij: Option<Func<'a, (i32, i32, i32, i32), i32>>,
-    pub dyn_call_jjj: Option<Func<'a,  (i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_jjj: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_viiij: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiijiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viiijiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiijiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viij: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiji: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
