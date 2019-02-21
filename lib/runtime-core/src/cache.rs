@@ -29,16 +29,34 @@ pub enum Error {
     InvalidatedCache,
 }
 
+impl From<io::Error> for Error {
+    fn from(io_err: io::Error) -> Self {
+        Error::IoError(io_err)
+    }
+}
+
+/// The hash of a wasm module.
+/// 
+/// Used as a key when loading and storing modules in a [`Cache`].
+/// 
+/// [`Cache`]: trait.Cache.html
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WasmHash([u8; 32]);
 
 impl WasmHash {
+    /// Hash a wasm module.
+    /// 
+    /// # Note: 
+    /// This does no verification that the supplied data
+    /// is, in fact, a wasm module.
     pub fn generate(wasm: &[u8]) -> Self {
         let mut array = [0u8; 32];
         array.copy_from_slice(Sha256::digest(wasm).as_slice());
         WasmHash(array)
     }
 
+    /// Create the hexadecimal representation of the
+    /// stored hash.
     pub fn encode(self) -> String {
         hex::encode(self.0)
     }
@@ -183,10 +201,13 @@ impl SerializedCache {
     }
 }
 
+/// A generic cache for storing and loading compiled wasm modules.
+/// 
+/// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
 pub trait Cache {
     type LoadError;
     type StoreError;
 
-    unsafe fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
+    fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
     fn store(&mut self, module: Module) -> Result<WasmHash, Self::StoreError>;
 }
