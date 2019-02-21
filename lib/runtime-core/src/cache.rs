@@ -36,17 +36,17 @@ impl From<io::Error> for Error {
 }
 
 /// The hash of a wasm module.
-/// 
+///
 /// Used as a key when loading and storing modules in a [`Cache`].
-/// 
+///
 /// [`Cache`]: trait.Cache.html
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WasmHash([u8; 32]);
 
 impl WasmHash {
     /// Hash a wasm module.
-    /// 
-    /// # Note: 
+    ///
+    /// # Note:
     /// This does no verification that the supplied data
     /// is, in fact, a wasm module.
     pub fn generate(wasm: &[u8]) -> Self {
@@ -202,7 +202,7 @@ impl SerializedCache {
 }
 
 /// A generic cache for storing and loading compiled wasm modules.
-/// 
+///
 /// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
 pub trait Cache {
     type LoadError;
