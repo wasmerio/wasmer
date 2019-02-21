@@ -12,6 +12,9 @@ environment:
       ABI: msvc
       TARGET: x86_64-pc-windows-msvc
 
+cache:
+  - 'C:\Users\appveyor\.cargo'
+
 install:
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
   - rustup-init.exe -yv --default-host %target%
