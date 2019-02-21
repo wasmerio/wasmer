@@ -99,7 +99,7 @@ pub mod wasm {
 }
 
 pub mod error {
-    pub use super::cache::Error as CacheError;
+    pub use wasmer_runtime_core::cache::Error as CacheError;
     pub use wasmer_runtime_core::error::*;
 }
 
@@ -108,11 +108,9 @@ pub mod units {
     pub use wasmer_runtime_core::units::{Bytes, Pages};
 }
 
-mod cache;
+pub mod cache;
 
 use wasmer_runtime_core::backend::Compiler;
-
-pub use self::cache::Cache;
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to

@@ -16,6 +16,7 @@ lazy_static = "1.2.0"
 indexmap = "1.0.2"
 errno = "0.2.4"
 libc = "0.2.48"
+hex = "0.3.2"
 
 # Dependencies for caching.
 [dependencies.serde]

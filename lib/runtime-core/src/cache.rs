@@ -1,4 +1,7 @@
-use crate::{module::ModuleInfo, sys::Memory};
+use crate::{
+    module::{Module, ModuleInfo},
+    sys::Memory,
+};
 use memmap::Mmap;
 use serde_bench::{deserialize, serialize};
 use sha2::{Digest, Sha256};
@@ -8,7 +11,6 @@ use std::{
     mem,
     path::Path,
     slice,
-    sync::Arc,
 };
 
 #[derive(Debug)]
@@ -27,23 +29,43 @@ pub enum Error {
     InvalidatedCache,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WasmHash([u8; 32]);
+
+impl WasmHash {
+    pub fn generate(wasm: &[u8]) -> Self {
+        let mut array = [0u8; 32];
+        array.copy_from_slice(Sha256::digest(wasm).as_slice());
+        WasmHash(array)
+    }
+
+    pub fn encode(self) -> String {
+        hex::encode(self.0)
+    }
+
+    pub(crate) fn into_array(self) -> [u8; 32] {
+        self.0
+    }
+}
+
 const CURRENT_CACHE_VERSION: u64 = 0;
 
 /// The header of a cache file.
 #[repr(C, packed)]
-struct CacheHeader {
+struct SerializedCacheHeader {
     magic: [u8; 8], // [W, A, S, M, E, R, \0, \0]
     version: u64,
     data_len: u64,
     wasm_hash: [u8; 32], // Sha256 of the wasm in binary format.
 }
 
-impl CacheHeader {
-    pub fn read_from_slice(buffer: &[u8]) -> Result<(&CacheHeader, &[u8]), Error> {
-        if buffer.len() >= mem::size_of::<CacheHeader>() {
+impl SerializedCacheHeader {
+    pub fn read_from_slice(buffer: &[u8]) -> Result<(&Self, &[u8]), Error> {
+        if buffer.len() >= mem::size_of::<SerializedCacheHeader>() {
             if &buffer[..8] == "WASMER\0\0".as_bytes() {
-                let (header_slice, body_slice) = buffer.split_at(mem::size_of::<CacheHeader>());
-                let header = unsafe { &*(header_slice.as_ptr() as *const CacheHeader) };
+                let (header_slice, body_slice) =
+                    buffer.split_at(mem::size_of::<SerializedCacheHeader>());
+                let header = unsafe { &*(header_slice.as_ptr() as *const SerializedCacheHeader) };
 
                 if header.version == CURRENT_CACHE_VERSION {
                     Ok((header, body_slice))
@@ -59,31 +81,31 @@ impl CacheHeader {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        let ptr = self as *const CacheHeader as *const u8;
-        unsafe { slice::from_raw_parts(ptr, mem::size_of::<CacheHeader>()) }
+        let ptr = self as *const SerializedCacheHeader as *const u8;
+        unsafe { slice::from_raw_parts(ptr, mem::size_of::<SerializedCacheHeader>()) }
     }
 }
 
 #[derive(Serialize, Deserialize)]
-struct CacheInner {
+struct SerializedCacheInner {
     info: Box<ModuleInfo>,
     #[serde(with = "serde_bytes")]
     backend_metadata: Box<[u8]>,
     compiled_code: Memory,
 }
 
-pub struct Cache {
-    inner: CacheInner,
+pub struct SerializedCache {
+    inner: SerializedCacheInner,
 }
 
-impl Cache {
+impl SerializedCache {
     pub(crate) fn from_parts(
         info: Box<ModuleInfo>,
         backend_metadata: Box<[u8]>,
         compiled_code: Memory,
     ) -> Self {
         Self {
-            inner: CacheInner {
+            inner: SerializedCacheInner {
                 info,
                 backend_metadata,
                 compiled_code,
@@ -91,7 +113,7 @@ impl Cache {
         }
     }
 
-    pub fn open<P>(path: P) -> Result<Cache, Error>
+    pub fn open<P>(path: P) -> Result<Self, Error>
     where
         P: AsRef<Path>,
     {
@@ -99,12 +121,12 @@ impl Cache {
 
         let mmap = unsafe { Mmap::map(&file).map_err(|e| Error::IoError(e))? };
 
-        let (header, body_slice) = CacheHeader::read_from_slice(&mmap[..])?;
+        let (_header, body_slice) = SerializedCacheHeader::read_from_slice(&mmap[..])?;
 
         let inner =
             deserialize(body_slice).map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
 
-        Ok(Cache { inner })
+        Ok(SerializedCache { inner })
     }
 
     pub fn info(&self) -> &ModuleInfo {
@@ -132,8 +154,10 @@ impl Cache {
 
         let data_len = buffer.len() as u64;
 
-        file.seek(SeekFrom::Start(mem::size_of::<CacheHeader>() as u64))
-            .map_err(|e| Error::IoError(e))?;
+        file.seek(SeekFrom::Start(
+            mem::size_of::<SerializedCacheHeader>() as u64
+        ))
+        .map_err(|e| Error::IoError(e))?;
 
         file.write(buffer.as_slice())
             .map_err(|e| Error::IoError(e))?;
@@ -143,7 +167,7 @@ impl Cache {
 
         let wasm_hash = self.inner.info.wasm_hash.into_array();
 
-        let cache_header = CacheHeader {
+        let cache_header = SerializedCacheHeader {
             magic: [
                 'W' as u8, 'A' as u8, 'S' as u8, 'M' as u8, 'E' as u8, 'R' as u8, 0, 0,
             ],
@@ -159,8 +183,10 @@ impl Cache {
     }
 }
 
-pub fn hash_data(data: &[u8]) -> [u8; 32] {
-    let mut array = [0u8; 32];
-    array.copy_from_slice(Sha256::digest(data).as_slice());
-    array
+pub trait Cache {
+    type LoadError;
+    type StoreError;
+
+    unsafe fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
+    fn store(&mut self, module: Module) -> Result<WasmHash, Self::StoreError>;
 }

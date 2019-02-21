@@ -1,46 +1,9 @@
 use crate::Module;
-use std::path::Path;
-use wasmer_runtime_core::cache::{hash_data, Cache as CoreCache};
-use wasmer_runtime_core::module::WasmHash;
+use std::{fs::create_dir_all, io, path::PathBuf};
 
-pub use wasmer_runtime_core::cache::Error;
+pub use wasmer_runtime_core::cache::{Cache, WasmHash};
+use wasmer_runtime_core::cache::{Error as CacheError, SerializedCache};
 
-// /// On-disk storage of compiled WebAssembly.
-// ///
-// /// A `Cache` can be used to quickly reload already
-// /// compiled WebAssembly from a previous execution
-// /// during which the wasm was explicitly compiled
-// /// as a `Cache`.
-// ///
-// /// # Usage:
-// ///
-// /// ```
-// /// use wasmer_runtime::{compile_cache, Cache};
-// ///
-// /// # use wasmer_runtime::error::{CompileResult, CacheError};
-// /// # fn make_cache(wasm: &[u8]) -> CompileResult<()> {
-// /// // Make a cache.
-// /// let cache = compile_cache(wasm)?;
-// ///
-// /// # Ok(())
-// /// # }
-// /// # fn usage_cache(cache: Cache) -> Result<(), CacheError> {
-// /// // Store the cache in a file.
-// /// cache.store("some_cache_file")?;
-// ///
-// /// // Load the cache.
-// /// let cache = Cache::load("some_cache_file")?;
-// /// let module = unsafe { cache.into_module()? };
-// /// # Ok(())
-// /// # }
-// /// ```
-// ///
-// /// # Performance Characteristics:
-// ///
-// /// Loading caches from files has been optimized for latency.
-// /// There is still more work to do that will reduce
-// /// loading time, especially for very large modules,
-// /// but it will require signifigant internal work.
 // ///
 // /// # Drawbacks:
 // ///
@@ -128,11 +91,66 @@ pub use wasmer_runtime_core::cache::Error;
 //     }
 // }
 
-pub trait Cache {
-    type Key;
-    type LoadError;
-    type StoreError;
+pub struct FSCache {
+    path: PathBuf,
+}
 
-    unsafe fn load(&self, key: Self::Key) -> Result<Module, Self::LoadError>;
-    fn store(&mut self, module: Module) -> Result<Self::Key, Self::StoreError>;
+impl FSCache {
+    pub fn open<P: Into<PathBuf>>(path: P) -> io::Result<FSCache> {
+        let path: PathBuf = path.into();
+
+        if path.exists() {
+            let metadata = path.metadata()?;
+            if metadata.is_dir() {
+                if !metadata.permissions().readonly() {
+                    Ok(Self { path })
+                } else {
+                    // This directory is readonly.
+                    Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        format!("the supplied path is readonly: {}", path.display()),
+                    ))
+                }
+            } else {
+                // This path points to a file.
+                Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!(
+                        "the supplied path already points to a file: {}",
+                        path.display()
+                    ),
+                ))
+            }
+        } else {
+            // Create the directory and any parent directories if they don't yet exist.
+            create_dir_all(&path)?;
+            Ok(Self { path })
+        }
+    }
+}
+
+impl Cache for FSCache {
+    type LoadError = CacheError;
+    type StoreError = CacheError;
+
+    unsafe fn load(&self, key: WasmHash) -> Result<Module, CacheError> {
+        let filename = key.encode();
+        let mut new_path_buf = self.path.clone();
+        new_path_buf.push(filename);
+
+        let serialized_cache = SerializedCache::open(new_path_buf)?;
+        wasmer_runtime_core::load_cache_with(serialized_cache, super::default_compiler())
+    }
+
+    fn store(&mut self, module: Module) -> Result<WasmHash, CacheError> {
+        let key = module.info().wasm_hash;
+        let filename = key.encode();
+        let mut new_path_buf = self.path.clone();
+        new_path_buf.push(filename);
+
+        let serialized_cache = module.cache()?;
+        serialized_cache.store(new_path_buf)?;
+
+        Ok(key)
+    }
 }

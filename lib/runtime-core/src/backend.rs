@@ -8,13 +8,11 @@ use crate::{
 };
 
 use crate::{
-    cache::{Cache, Error as CacheError},
+    cache::{Error as CacheError, SerializedCache},
     module::ModuleInfo,
     sys::Memory,
 };
 use std::ptr::NonNull;
-
-use std::sync::Arc;
 
 pub mod sys {
     pub use crate::sys::*;
@@ -44,7 +42,11 @@ pub trait Compiler {
     /// be called from inside the runtime.
     fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner>;
 
-    unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError>;
+    unsafe fn from_cache(
+        &self,
+        cache: SerializedCache,
+        _: Token,
+    ) -> Result<ModuleInner, CacheError>;
 }
 
 /// The functionality exposed by this trait is expected to be used

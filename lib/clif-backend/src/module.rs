@@ -7,7 +7,7 @@ use cranelift_wasm;
 use hashbrown::HashMap;
 use std::sync::Arc;
 
-use wasmer_runtime_core::cache::{Cache, Error as CacheError};
+use wasmer_runtime_core::cache::{Error as CacheError, SerializedCache, WasmHash};
 
 use wasmer_runtime_core::{
     backend::Backend,
@@ -18,8 +18,6 @@ use wasmer_runtime_core::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
     },
 };
-
-use wasmer_runtime_core::module::WasmHash;
 
 /// This contains all of the items in a `ModuleInner` except the `func_resolver`.
 pub struct Module {
@@ -90,7 +88,7 @@ impl Module {
         })
     }
 
-    pub fn from_cache(cache: Cache) -> Result<ModuleInner, CacheError> {
+    pub fn from_cache(cache: SerializedCache) -> Result<ModuleInner, CacheError> {
         let (info, compiled_code, backend_cache) = BackendCache::from_cache(cache)?;
 
         let (func_resolver_builder, trampolines, handler_data) =

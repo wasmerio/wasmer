@@ -1,6 +1,6 @@
 use crate::{
     backend::{Backend, FuncResolver, ProtectedCaller},
-    cache::{Cache, Error as CacheError},
+    cache::{Error as CacheError, SerializedCache, WasmHash},
     error,
     import::ImportObject,
     structures::{Map, TypedIndex},
@@ -60,19 +60,6 @@ pub struct ModuleInfo {
     pub wasm_hash: WasmHash,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct WasmHash([u8; 32]);
-
-impl WasmHash {
-    pub fn generate(wasm: &[u8]) -> Self {
-        WasmHash(crate::cache::hash_data(wasm))
-    }
-
-    pub(crate) fn into_array(self) -> [u8; 32] {
-        self.0
-    }
-}
-
 /// A compiled WebAssembly module.
 ///
 /// `Module` is returned by the [`compile`] and
@@ -119,9 +106,9 @@ impl Module {
         Instance::new(Arc::clone(&self.inner), import_object)
     }
 
-    pub fn cache(&self) -> Result<Cache, CacheError> {
+    pub fn cache(&self) -> Result<SerializedCache, CacheError> {
         let (info, backend_metadata, code) = self.inner.cache_gen.generate_cache(&self.inner)?;
-        Ok(Cache::from_parts(info, backend_metadata, code))
+        Ok(SerializedCache::from_parts(info, backend_metadata, code))
     }
 
     pub fn info(&self) -> &ModuleInfo {
