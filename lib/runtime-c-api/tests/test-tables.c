@@ -19,7 +19,7 @@ int main()
 
     uint32_t len = wasmer_table_length(table);
     printf("Table length:  %d\n", len);
-    assert(len == 15);
+    assert(len == 10);
 
 //    wasmer_result_t grow_result1 = wasmer_table_grow(table, 5);
 //    assert(grow_result1 == WASMER_OK);
