@@ -8,8 +8,7 @@ use std::{
 };
 
 /// Dense item map
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Map<K, V>
 where
     K: TypedIndex,

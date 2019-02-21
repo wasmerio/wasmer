@@ -2,7 +2,6 @@
 #[macro_use]
 extern crate field_offset;
 
-
 #[macro_use]
 extern crate serde_derive;
 
@@ -43,7 +42,6 @@ pub use self::module::Module;
 #[doc(inline)]
 pub use self::typed_func::Func;
 use std::sync::Arc;
-
 
 use self::cache::{Cache, Error as CacheError};
 
@@ -90,7 +88,7 @@ pub fn validate(wasm: &[u8]) -> bool {
     }
 }
 
-// 
+//
 // pub fn compile_to_cache_with(
 //     wasm: &[u8],
 //     compiler: &dyn backend::Compiler,
@@ -101,7 +99,6 @@ pub fn validate(wasm: &[u8]) -> bool {
 
 //     Ok(Cache::new(wasm, info, backend_metadata, compiled_code))
 // }
-
 
 pub unsafe fn load_cache_with(
     cache: Cache,

@@ -44,7 +44,11 @@ pub struct Caller {
 }
 
 impl Caller {
-    pub fn new(module: &ModuleInfo, handler_data: HandlerData, trampolines: Arc<Trampolines>) -> Self {
+    pub fn new(
+        module: &ModuleInfo,
+        handler_data: HandlerData,
+        trampolines: Arc<Trampolines>,
+    ) -> Self {
         let mut func_export_set = HashSet::new();
         for export_index in module.exports.values() {
             if let ExportIndex::Func(func_index) = export_index {

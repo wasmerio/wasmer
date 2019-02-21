@@ -10,7 +10,6 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
-
 use serde::{
     de::{self, SeqAccess, Visitor},
     ser::SerializeStruct,
@@ -20,7 +19,6 @@ use serde::{
 use serde_bytes::Bytes;
 
 use std::fmt;
-
 
 impl Serialize for Memory {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -35,7 +33,6 @@ impl Serialize for Memory {
         state.end()
     }
 }
-
 
 impl<'de> Deserialize<'de> for Memory {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

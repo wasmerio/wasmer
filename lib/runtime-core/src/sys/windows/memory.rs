@@ -158,16 +158,26 @@ impl Drop for Memory {
 
 impl Clone for Memory {
     fn clone(&self) -> Self {
-        let mut new = Memory::with_size_protect(self.size, self.protection).unwrap();
+        let temp_protection = if self.protection.is_writable() {
+            self.protection
+        } else {
+            Protect::ReadWrite
+        };
+
+        let mut new = Memory::with_size_protect(self.size, temp_protection).unwrap();
         unsafe {
             new.as_slice_mut().copy_from_slice(self.as_slice());
+
+            if temp_protection != self.protection {
+                new.protect(.., self.protection).unwrap();
+            }
         }
+
         new
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {
     None,

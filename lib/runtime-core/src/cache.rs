@@ -6,9 +6,9 @@ use std::{
     fs::File,
     io::{self, Seek, SeekFrom, Write},
     mem,
-    sync::Arc,
     path::Path,
     slice,
+    sync::Arc,
 };
 
 #[derive(Debug)]
@@ -69,7 +69,7 @@ struct CacheInner {
     info: Box<ModuleInfo>,
     #[serde(with = "serde_bytes")]
     backend_metadata: Box<[u8]>,
-    compiled_code: Arc<Memory>,
+    compiled_code: Memory,
 }
 
 pub struct Cache {
@@ -80,7 +80,7 @@ impl Cache {
     pub(crate) fn from_parts(
         info: Box<ModuleInfo>,
         backend_metadata: Box<[u8]>,
-        compiled_code: Arc<Memory>,
+        compiled_code: Memory,
     ) -> Self {
         Self {
             inner: CacheInner {
@@ -104,9 +104,7 @@ impl Cache {
         let inner =
             deserialize(body_slice).map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
 
-        Ok(Cache {
-            inner,
-        })
+        Ok(Cache { inner })
     }
 
     pub fn info(&self) -> &ModuleInfo {
@@ -114,7 +112,7 @@ impl Cache {
     }
 
     #[doc(hidden)]
-    pub fn consume(self) -> (ModuleInfo, Box<[u8]>, Arc<Memory>) {
+    pub fn consume(self) -> (ModuleInfo, Box<[u8]>, Memory) {
         (
             *self.inner.info,
             self.inner.backend_metadata,

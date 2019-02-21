@@ -1,8 +1,4 @@
-
-use crate::{
-    cache::{BackendCache, TrampolineCache},
-    trampoline::Trampolines,
-};
+use crate::{cache::BackendCache, trampoline::Trampolines};
 use crate::{
     libcalls,
     relocation::{
@@ -17,7 +13,6 @@ use cranelift_codegen::{ir, isa, Context};
 use std::{
     mem,
     ptr::{write_unaligned, NonNull},
-    cell::UnsafeCell,
     sync::Arc,
 };
 
@@ -43,7 +38,11 @@ extern "C" {
     pub fn __chkstk();
 }
 
-fn lookup_func(map: &SliceMap<LocalFuncIndex, usize>, memory: &Memory, local_func_index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
+fn lookup_func(
+    map: &SliceMap<LocalFuncIndex, usize>,
+    memory: &Memory,
+    local_func_index: LocalFuncIndex,
+) -> Option<NonNull<vm::Func>> {
     let offset = *map.get(local_func_index)?;
     let ptr = unsafe { memory.as_ptr().add(offset) };
 
@@ -60,7 +59,6 @@ pub struct FuncResolverBuilder {
 }
 
 impl FuncResolverBuilder {
-    
     pub fn new_from_backend_cache(
         backend_cache: BackendCache,
         mut code: Memory,
@@ -82,7 +80,9 @@ impl FuncResolverBuilder {
                 external_relocs: backend_cache.external_relocs,
                 import_len: info.imported_functions.len(),
             },
-            Arc::new(Trampolines::from_trampoline_cache(backend_cache.trampolines)),
+            Arc::new(Trampolines::from_trampoline_cache(
+                backend_cache.trampolines,
+            )),
             handler_data,
         ))
     }
@@ -158,7 +158,8 @@ impl FuncResolverBuilder {
             previous_end = new_end;
         }
 
-        let handler_data = HandlerData::new(Arc::new(trap_sink), memory.as_ptr() as _, memory.size());
+        let handler_data =
+            HandlerData::new(Arc::new(trap_sink), memory.as_ptr() as _, memory.size());
 
         let mut func_resolver_builder = Self {
             map,
@@ -177,12 +178,15 @@ impl FuncResolverBuilder {
         for (index, relocs) in self.local_relocs.iter() {
             for ref reloc in relocs.iter() {
                 let local_func_index = LocalFuncIndex::new(reloc.target.index() - self.import_len);
-                let target_func_address =
-                    lookup_func(&self.map, &self.memory, local_func_index).unwrap().as_ptr() as usize;
+                let target_func_address = lookup_func(&self.map, &self.memory, local_func_index)
+                    .unwrap()
+                    .as_ptr() as usize;
 
                 // We need the address of the current function
                 // because these calls are relative.
-                let func_addr = lookup_func(&self.map, &self.memory, index).unwrap().as_ptr() as usize;
+                let func_addr = lookup_func(&self.map, &self.memory, index)
+                    .unwrap()
+                    .as_ptr() as usize;
 
                 unsafe {
                     let reloc_address = func_addr + reloc.offset as usize;
@@ -273,7 +277,9 @@ impl FuncResolverBuilder {
 
                 // We need the address of the current function
                 // because some of these calls are relative.
-                let func_addr = lookup_func(&self.map, &self.memory, index).unwrap().as_ptr() as usize;
+                let func_addr = lookup_func(&self.map, &self.memory, index)
+                    .unwrap()
+                    .as_ptr() as usize;
 
                 // Determine relocation type and apply relocation.
                 match reloc.reloc {
@@ -313,10 +319,13 @@ impl FuncResolverBuilder {
             trampolines: trampolines.to_trampoline_cache(),
         };
 
-        Ok((FuncResolver {
-            map: self.map,
-            memory: Arc::new(self.memory),
-        }, backend_cache))
+        Ok((
+            FuncResolver {
+                map: self.map,
+                memory: Arc::new(self.memory),
+            },
+            backend_cache,
+        ))
     }
 }
 

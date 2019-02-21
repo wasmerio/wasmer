@@ -22,16 +22,14 @@ pub mod call_names {
     pub const DYNAMIC_MEM_SIZE: u32 = 5;
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Reloc {
     Abs8,
     X86PCRel4,
     X86CallPCRel4,
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum LibCall {
     Probestack,
     CeilF32,
@@ -44,8 +42,7 @@ pub enum LibCall {
     NearestF64,
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExternalRelocation {
     /// The relocation code.
     pub reloc: Reloc,
@@ -66,8 +63,7 @@ pub struct LocalRelocation {
     pub target: FuncIndex,
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum VmCallKind {
     StaticMemoryGrow,
     StaticMemorySize,
@@ -79,16 +75,14 @@ pub enum VmCallKind {
     DynamicMemorySize,
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum VmCall {
     Local(VmCallKind),
     Import(VmCallKind),
 }
 
 /// Specify the type of relocation
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RelocationType {
     Intrinsic(String),
     LibCall(LibCall),
@@ -218,8 +212,7 @@ impl binemit::RelocSink for RelocSink {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum TrapCode {
     StackOverflow,
     HeapOutOfBounds,
@@ -244,8 +237,7 @@ impl RelocSink {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct TrapData {
     pub trapcode: TrapCode,
     pub srcloc: u32,

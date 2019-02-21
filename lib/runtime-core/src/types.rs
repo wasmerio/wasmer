@@ -2,8 +2,7 @@ use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, unit
 use std::{borrow::Cow, mem};
 
 /// Represents a WebAssembly type.
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Type {
     /// The `i32` type.
     I32,
@@ -25,8 +24,7 @@ impl std::fmt::Display for Type {
 ///
 /// As the number of types in WebAssembly expand,
 /// this structure will expand as well.
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Value {
     /// The `i32` type.
     I32(i32),
@@ -171,15 +169,13 @@ impl ValueType for f64 {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {
     /// Any wasm function.
     Anyfunc,
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct TableDescriptor {
     /// Type of data stored in this table.
     pub element: ElementType,
@@ -203,8 +199,7 @@ impl TableDescriptor {
 /// A const value initializer.
 /// Over time, this will be able to represent more and more
 /// complex expressions.
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Initializer {
     /// Corresponds to a `const.*` instruction.
     Const(Value),
@@ -212,24 +207,21 @@ pub enum Initializer {
     GetGlobal(ImportedGlobalIndex),
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlobalDescriptor {
     pub mutable: bool,
     pub ty: Type,
 }
 
 /// A wasm global.
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GlobalInit {
     pub desc: GlobalDescriptor,
     pub init: Initializer,
 }
 
 /// A wasm memory.
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemoryDescriptor {
     /// The minimum number of allowed pages.
     pub minimum: Pages,
@@ -261,8 +253,7 @@ impl MemoryDescriptor {
 
 /// The signature of a function that is either implemented
 /// in a wasm module or exposed to wasm by the host.
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FuncSig {
     params: Cow<'static, [Type]>,
     returns: Cow<'static, [Type]>,
@@ -400,8 +391,7 @@ define_local_or_import![
     (GlobalIndex | (LocalGlobalIndex, ImportedGlobalIndex): imported_globals),
 ];
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct SigIndex(u32);
 impl TypedIndex for SigIndex {
     #[doc(hidden)]

@@ -494,11 +494,13 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper, CacheGen, sys::Memory};
+        use crate::backend::{
+            sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
+        };
         use crate::cache::Error as CacheError;
         use crate::error::RuntimeResult;
-        use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use crate::module::WasmHash;
+        use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
         use std::ptr::NonNull;
         struct Placeholder;
@@ -528,11 +530,13 @@ mod vm_ctx_tests {
             }
         }
         impl CacheGen for Placeholder {
-            fn generate_cache(&self, module: &ModuleInner) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+            fn generate_cache(
+                &self,
+                module: &ModuleInner,
+            ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
                 unimplemented!()
             }
         }
-        
 
         ModuleInner {
             func_resolver: Box::new(Placeholder),
