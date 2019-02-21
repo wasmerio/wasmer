@@ -497,9 +497,8 @@ mod vm_ctx_tests {
         use crate::backend::{
             sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
         };
-        use crate::cache::Error as CacheError;
+        use crate::cache::{Error as CacheError, WashHash};
         use crate::error::RuntimeResult;
-        use crate::module::WasmHash;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
         use std::ptr::NonNull;
