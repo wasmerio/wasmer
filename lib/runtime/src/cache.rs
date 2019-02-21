@@ -1,7 +1,7 @@
 use crate::Module;
 use std::path::Path;
 use wasmer_runtime_core::cache::{hash_data, Cache as CoreCache};
-use wasmer_runtime_core::module::{WasmHash};
+use wasmer_runtime_core::module::WasmHash;
 
 pub use wasmer_runtime_core::cache::Error;
 
@@ -136,4 +136,3 @@ pub trait Cache {
     unsafe fn load(&self, key: Self::Key) -> Result<Module, Self::LoadError>;
     fn store(&mut self, module: Module) -> Result<Self::Key, Self::StoreError>;
 }
-
