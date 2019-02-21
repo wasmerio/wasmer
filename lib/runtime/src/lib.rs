@@ -152,30 +152,6 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
     module.instantiate(import_object)
 }
 
-// /// Compile wasm into a [`Cache`] that can be stored to a file or
-// /// converted into [`Module`].
-// ///
-// /// [`Cache`]: struct.Cache.html
-// /// [`Module`]: struct.Module.html
-// ///
-// /// # Usage:
-// ///
-// /// ```
-// /// # use wasmer_runtime::error::CompileResult;
-// /// use wasmer_runtime::compile_cache;
-// ///
-// /// # fn make_cache(wasm: &[u8]) -> CompileResult<()> {
-// /// let cache = compile_cache(wasm)?;
-// /// # Ok(())
-// /// # }
-// /// ```
-// pub fn compile_cache(wasm: &[u8]) -> error::CompileResult<Cache> {
-//     let default_compiler = default_compiler();
-
-//     wasmer_runtime_core::compile_to_cache_with(wasm, default_compiler)
-//         .map(|core_cache| Cache(core_cache))
-// }
-
 fn default_compiler() -> &'static dyn Compiler {
     use lazy_static::lazy_static;
     use wasmer_clif_backend::CraneliftCompiler;
