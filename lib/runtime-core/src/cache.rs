@@ -75,7 +75,6 @@ struct ArtifactHeader {
     magic: [u8; 8], // [W, A, S, M, E, R, \0, \0]
     version: u64,
     data_len: u64,
-    wasm_hash: [u8; 64], // Sha256 of the wasm in binary format.
 }
 
 impl ArtifactHeader {

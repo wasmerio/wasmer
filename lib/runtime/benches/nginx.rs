@@ -14,7 +14,7 @@ fn compile_module() {
 }
 
 fn load_module(hash: WasmHash, cache: &impl Cache) {
-    cache.load(hash).unwrap();
+    cache.load(hash).expect("could not load module");
 }
 
 fn hashing_benchmark(c: &mut Criterion) {
@@ -31,10 +31,15 @@ fn compile_benchmark(c: &mut Criterion) {
 
 fn load_benchmark(c: &mut Criterion) {
     c.bench_function("nginx load", |b| {
-        let mut cache = unsafe { FileSystemCache::new(tempdir().unwrap().path()).unwrap() };
+        let tempdir = tempdir().unwrap();
+        let mut cache = unsafe {
+            FileSystemCache::new(tempdir.path()).expect("unable to create file system cache")
+        };
         let module = compile(NGINX_WASM).unwrap();
-        cache.store(module).unwrap();
         let wasm_hash = WasmHash::generate(NGINX_WASM);
+        cache
+            .store(wasm_hash, module)
+            .expect("unable to store into cache");
 
         b.iter(|| load_module(wasm_hash, &cache))
     });
