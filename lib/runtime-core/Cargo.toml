@@ -21,6 +21,7 @@ hex = "0.3.2"
 # Dependencies for caching.
 [dependencies.serde]
 version = "1.0"
+# This feature is required for serde to support serializing/deserializing reference counted pointers (e.g. Rc and Arc).
 features = ["rc"]
 [dependencies.serde_derive]
 version = "1.0"
