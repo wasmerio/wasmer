@@ -50,8 +50,6 @@ impl Module {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
-
-                wasm_hash: WasmHash::generate(wasm),
             },
         }
     }
