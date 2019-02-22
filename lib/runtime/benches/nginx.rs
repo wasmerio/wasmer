@@ -3,7 +3,7 @@ extern crate criterion;
 use criterion::Criterion;
 use wasmer_runtime::{
     cache::{Cache, FileSystemCache, WasmHash},
-    compile,
+    compile, validate,
 };
 
 static NGINX_WASM: &'static [u8] = include_bytes!("../../../examples/nginx/nginx.wasm");
@@ -15,6 +15,10 @@ fn compile_module() {
 fn load_module(cache: &impl Cache) {
     let wasm_hash = WasmHash::generate(NGINX_WASM);
     cache.load(wasm_hash).unwrap();
+}
+
+fn validate_benchmark(c: &mut Criterion) {
+    c.bench_function("nginx validate", |b| b.iter(|| validate(NGINX_WASM)));
 }
 
 fn compile_benchmark(c: &mut Criterion) {
@@ -34,6 +38,6 @@ fn load_benchmark(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = Criterion::default().sample_size(10);
-    targets = compile_benchmark, load_benchmark
+    targets = validate_benchmark, compile_benchmark, load_benchmark
 }
 criterion_main!(benches);
