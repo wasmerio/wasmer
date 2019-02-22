@@ -346,6 +346,17 @@ wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limi
 void wasmer_module_destroy(wasmer_module_t *module);
 
 /**
+ * Creates a new Instance from the given module and imports.
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_module_instantiate(wasmer_module_t *module,
+                                          wasmer_instance_t **instance,
+                                          wasmer_import_t *imports,
+                                          int imports_len);
+
+/**
  * Frees memory for the given Table
  */
 void wasmer_table_destroy(wasmer_table_t *table);

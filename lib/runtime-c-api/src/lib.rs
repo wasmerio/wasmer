@@ -398,6 +398,78 @@ pub unsafe extern "C" fn wasmer_compile(
     wasmer_result_t::WASMER_OK
 }
 
+/// Creates a new Instance from the given module and imports.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_instantiate(
+    module: *mut wasmer_module_t,
+    mut instance: *mut *mut wasmer_instance_t,
+    imports: *mut wasmer_import_t,
+    imports_len: c_int,
+) -> wasmer_result_t {
+    let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
+    let mut import_object = ImportObject::new();
+    let mut namespaces = HashMap::new();
+    for import in imports {
+        let module_name = slice::from_raw_parts(
+            import.module_name.bytes,
+            import.module_name.bytes_len as usize,
+        );
+        let module_name = if let Ok(s) = std::str::from_utf8(module_name) {
+            s
+        } else {
+            update_last_error(CApiError {
+                msg: "error converting module name to string".to_string(),
+            });
+            return wasmer_result_t::WASMER_ERROR;
+        };
+        let import_name = slice::from_raw_parts(
+            import.import_name.bytes,
+            import.import_name.bytes_len as usize,
+        );
+        let import_name = if let Ok(s) = std::str::from_utf8(import_name) {
+            s
+        } else {
+            update_last_error(CApiError {
+                msg: "error converting import_name to string".to_string(),
+            });
+            return wasmer_result_t::WASMER_ERROR;
+        };
+
+        let namespace = namespaces
+            .entry(module_name)
+            .or_insert_with(|| Namespace::new());
+
+        let export = match import.tag {
+            wasmer_import_export_kind::WASM_MEMORY => import.value.memory as *mut Export,
+            wasmer_import_export_kind::WASM_FUNCTION => import.value.func as *mut Export,
+            wasmer_import_export_kind::WASM_GLOBAL => import.value.global as *mut Export,
+            wasmer_import_export_kind::WASM_TABLE => import.value.table as *mut Export,
+        };
+        namespace.insert(import_name, unsafe { (&*export).clone() });
+    }
+    for (module_name, namespace) in namespaces.into_iter() {
+        import_object.register(module_name, namespace);
+    }
+
+    let module = unsafe { &*(module as *mut Module) };
+    let new_instance = if let Ok(res) = module.instantiate(&import_object) {
+        res
+    } else {
+        update_last_error(CApiError {
+            msg: "error instantiating from module".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    };
+    unsafe { *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t };
+    wasmer_result_t::WASMER_OK
+}
+
 /// Frees memory for the given Module
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
