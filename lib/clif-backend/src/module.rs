@@ -7,7 +7,7 @@ use cranelift_wasm;
 use hashbrown::HashMap;
 use std::sync::Arc;
 
-use wasmer_runtime_core::cache::{Error as CacheError, SerializedCache, WasmHash};
+use wasmer_runtime_core::cache::{Artifact, Error as CacheError, WasmHash};
 
 use wasmer_runtime_core::{
     backend::Backend,
@@ -88,7 +88,7 @@ impl Module {
         })
     }
 
-    pub fn from_cache(cache: SerializedCache) -> Result<ModuleInner, CacheError> {
+    pub fn from_cache(cache: Artifact) -> Result<ModuleInner, CacheError> {
         let (info, compiled_code, backend_cache) = BackendCache::from_cache(cache)?;
 
         let (func_resolver_builder, trampolines, handler_data) =

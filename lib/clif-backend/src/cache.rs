@@ -4,7 +4,7 @@ use hashbrown::HashMap;
 use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{sys::Memory, CacheGen},
-    cache::{Error, SerializedCache},
+    cache::{Artifact, Error},
     module::{ModuleInfo, ModuleInner},
     structures::Map,
     types::{LocalFuncIndex, SigIndex},
@@ -61,7 +61,7 @@ pub struct BackendCache {
 }
 
 impl BackendCache {
-    pub fn from_cache(cache: SerializedCache) -> Result<(ModuleInfo, Memory, Self), Error> {
+    pub fn from_cache(cache: Artifact) -> Result<(ModuleInfo, Memory, Self), Error> {
         let (info, backend_data, compiled_code) = cache.consume();
 
         let backend_cache =

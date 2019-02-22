@@ -28,8 +28,6 @@ version = "1.0"
 version = "0.10"
 [dependencies.serde-bench]
 version = "0.0.7"
-[dependencies.memmap]
-version = "0.7.0"
 [dependencies.sha2]
 version = "0.8.0"
 [dependencies.hashbrown]

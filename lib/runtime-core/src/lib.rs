@@ -43,7 +43,7 @@ pub use self::module::Module;
 pub use self::typed_func::Func;
 use std::sync::Arc;
 
-use self::cache::{Error as CacheError, SerializedCache};
+use self::cache::{Artifact, Error as CacheError};
 
 pub mod prelude {
     pub use crate::import::{ImportObject, Namespace};
@@ -89,7 +89,7 @@ pub fn validate(wasm: &[u8]) -> bool {
 }
 
 pub unsafe fn load_cache_with(
-    cache: SerializedCache,
+    cache: Artifact,
     compiler: &dyn backend::Compiler,
 ) -> std::result::Result<module::Module, CacheError> {
     let token = backend::Token::generate();

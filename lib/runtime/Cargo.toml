@@ -10,6 +10,7 @@ readme = "README.md"
 
 [dependencies]
 lazy_static = "1.2.0"
+memmap = "0.7.0"
 
 [dependencies.wasmer-runtime-core]
 path = "../runtime-core"

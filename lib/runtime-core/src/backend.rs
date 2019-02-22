@@ -8,7 +8,7 @@ use crate::{
 };
 
 use crate::{
-    cache::{Error as CacheError, SerializedCache},
+    cache::{Artifact, Error as CacheError},
     module::ModuleInfo,
     sys::Memory,
 };
@@ -42,11 +42,7 @@ pub trait Compiler {
     /// be called from inside the runtime.
     fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner>;
 
-    unsafe fn from_cache(
-        &self,
-        cache: SerializedCache,
-        _: Token,
-    ) -> Result<ModuleInner, CacheError>;
+    unsafe fn from_cache(&self, cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
 
 /// The functionality exposed by this trait is expected to be used

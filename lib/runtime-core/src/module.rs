@@ -1,6 +1,6 @@
 use crate::{
     backend::{Backend, FuncResolver, ProtectedCaller},
-    cache::{Error as CacheError, SerializedCache, WasmHash},
+    cache::{Artifact, Error as CacheError, WasmHash},
     error,
     import::ImportObject,
     structures::{Map, TypedIndex},
@@ -106,9 +106,9 @@ impl Module {
         Instance::new(Arc::clone(&self.inner), import_object)
     }
 
-    pub fn cache(&self) -> Result<SerializedCache, CacheError> {
+    pub fn cache(&self) -> Result<Artifact, CacheError> {
         let (info, backend_metadata, code) = self.inner.cache_gen.generate_cache(&self.inner)?;
-        Ok(SerializedCache::from_parts(info, backend_metadata, code))
+        Ok(Artifact::from_parts(info, backend_metadata, code))
     }
 
     pub fn info(&self) -> &ModuleInfo {

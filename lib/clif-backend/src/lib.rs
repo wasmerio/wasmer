@@ -14,7 +14,7 @@ use cranelift_codegen::{
 };
 use target_lexicon::Triple;
 
-use wasmer_runtime_core::cache::{Error as CacheError, SerializedCache};
+use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 use wasmer_runtime_core::{
     backend::{Compiler, Token},
     error::{CompileError, CompileResult},
@@ -53,11 +53,7 @@ impl Compiler for CraneliftCompiler {
 
     /// Create a wasmer Module from an already-compiled cache.
 
-    unsafe fn from_cache(
-        &self,
-        cache: SerializedCache,
-        _: Token,
-    ) -> Result<ModuleInner, CacheError> {
+    unsafe fn from_cache(&self, cache: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         module::Module::from_cache(cache)
     }
 

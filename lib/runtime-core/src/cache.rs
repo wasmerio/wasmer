@@ -2,16 +2,8 @@ use crate::{
     module::{Module, ModuleInfo},
     sys::Memory,
 };
-use memmap::Mmap;
-use serde_bench::{deserialize, serialize};
 use sha2::{Digest, Sha256};
-use std::{
-    fs::File,
-    io::{self, Seek, SeekFrom, Write},
-    mem,
-    path::Path,
-    slice,
-};
+use std::{io, mem, slice};
 
 #[derive(Debug)]
 pub enum InvalidFileType {
@@ -67,23 +59,43 @@ impl WasmHash {
 }
 
 const CURRENT_CACHE_VERSION: u64 = 0;
+static WASMER_CACHE_MAGIC: [u8; 8] = *b"WASMER\0\0";
 
 /// The header of a cache file.
 #[repr(C, packed)]
-struct SerializedCacheHeader {
+struct ArtifactHeader {
     magic: [u8; 8], // [W, A, S, M, E, R, \0, \0]
     version: u64,
     data_len: u64,
     wasm_hash: [u8; 32], // Sha256 of the wasm in binary format.
 }
 
-impl SerializedCacheHeader {
+impl ArtifactHeader {
     pub fn read_from_slice(buffer: &[u8]) -> Result<(&Self, &[u8]), Error> {
-        if buffer.len() >= mem::size_of::<SerializedCacheHeader>() {
-            if &buffer[..8] == "WASMER\0\0".as_bytes() {
+        if buffer.len() >= mem::size_of::<ArtifactHeader>() {
+            if &buffer[..8] == &WASMER_CACHE_MAGIC {
+                let (header_slice, body_slice) = buffer.split_at(mem::size_of::<ArtifactHeader>());
+                let header = unsafe { &*(header_slice.as_ptr() as *const ArtifactHeader) };
+
+                if header.version == CURRENT_CACHE_VERSION {
+                    Ok((header, body_slice))
+                } else {
+                    Err(Error::InvalidatedCache)
+                }
+            } else {
+                Err(Error::InvalidFile(InvalidFileType::InvalidMagic))
+            }
+        } else {
+            Err(Error::InvalidFile(InvalidFileType::InvalidSize))
+        }
+    }
+
+    pub fn read_from_slice_mut(buffer: &mut [u8]) -> Result<(&mut Self, &mut [u8]), Error> {
+        if buffer.len() >= mem::size_of::<ArtifactHeader>() {
+            if &buffer[..8] == &WASMER_CACHE_MAGIC {
                 let (header_slice, body_slice) =
-                    buffer.split_at(mem::size_of::<SerializedCacheHeader>());
-                let header = unsafe { &*(header_slice.as_ptr() as *const SerializedCacheHeader) };
+                    buffer.split_at_mut(mem::size_of::<ArtifactHeader>());
+                let header = unsafe { &mut *(header_slice.as_ptr() as *mut ArtifactHeader) };
 
                 if header.version == CURRENT_CACHE_VERSION {
                     Ok((header, body_slice))
@@ -99,31 +111,31 @@ impl SerializedCacheHeader {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        let ptr = self as *const SerializedCacheHeader as *const u8;
-        unsafe { slice::from_raw_parts(ptr, mem::size_of::<SerializedCacheHeader>()) }
+        let ptr = self as *const ArtifactHeader as *const u8;
+        unsafe { slice::from_raw_parts(ptr, mem::size_of::<ArtifactHeader>()) }
     }
 }
 
 #[derive(Serialize, Deserialize)]
-struct SerializedCacheInner {
+struct ArtifactInner {
     info: Box<ModuleInfo>,
     #[serde(with = "serde_bytes")]
     backend_metadata: Box<[u8]>,
     compiled_code: Memory,
 }
 
-pub struct SerializedCache {
-    inner: SerializedCacheInner,
+pub struct Artifact {
+    inner: ArtifactInner,
 }
 
-impl SerializedCache {
+impl Artifact {
     pub(crate) fn from_parts(
         info: Box<ModuleInfo>,
         backend_metadata: Box<[u8]>,
         compiled_code: Memory,
     ) -> Self {
         Self {
-            inner: SerializedCacheInner {
+            inner: ArtifactInner {
                 info,
                 backend_metadata,
                 compiled_code,
@@ -131,20 +143,13 @@ impl SerializedCache {
         }
     }
 
-    pub fn open<P>(path: P) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
-        let file = File::open(path).map_err(|e| Error::IoError(e))?;
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
+        let (_, body_slice) = ArtifactHeader::read_from_slice(bytes)?;
 
-        let mmap = unsafe { Mmap::map(&file).map_err(|e| Error::IoError(e))? };
+        let inner = serde_bench::deserialize(body_slice)
+            .map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
 
-        let (_header, body_slice) = SerializedCacheHeader::read_from_slice(&mmap[..])?;
-
-        let inner =
-            deserialize(body_slice).map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
-
-        Ok(SerializedCache { inner })
+        Ok(Artifact { inner })
     }
 
     pub fn info(&self) -> &ModuleInfo {
@@ -160,44 +165,25 @@ impl SerializedCache {
         )
     }
 
-    pub fn store<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-    {
-        let mut file = File::create(path).map_err(|e| Error::IoError(e))?;
-
-        let mut buffer = Vec::new();
-
-        serialize(&mut buffer, &self.inner).map_err(|e| Error::SerializeError(e.to_string()))?;
-
-        let data_len = buffer.len() as u64;
-
-        file.seek(SeekFrom::Start(
-            mem::size_of::<SerializedCacheHeader>() as u64
-        ))
-        .map_err(|e| Error::IoError(e))?;
-
-        file.write(buffer.as_slice())
-            .map_err(|e| Error::IoError(e))?;
-
-        file.seek(SeekFrom::Start(0))
-            .map_err(|e| Error::Unknown(e.to_string()))?;
-
-        let wasm_hash = self.inner.info.wasm_hash.into_array();
-
-        let cache_header = SerializedCacheHeader {
-            magic: [
-                'W' as u8, 'A' as u8, 'S' as u8, 'M' as u8, 'E' as u8, 'R' as u8, 0, 0,
-            ],
+    pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+        let cache_header = ArtifactHeader {
+            magic: WASMER_CACHE_MAGIC,
             version: CURRENT_CACHE_VERSION,
-            data_len,
-            wasm_hash,
+            data_len: 0,
+            wasm_hash: self.inner.info.wasm_hash.into_array(),
         };
 
-        file.write(cache_header.as_slice())
-            .map_err(|e| Error::IoError(e))?;
+        let mut buffer = cache_header.as_slice().to_vec();
 
-        Ok(())
+        serde_bench::serialize(&mut buffer, &self.inner)
+            .map_err(|e| Error::SerializeError(e.to_string()))?;
+
+        let data_len = (buffer.len() - mem::size_of::<ArtifactHeader>()) as u64;
+
+        let (header, _) = ArtifactHeader::read_from_slice_mut(&mut buffer)?;
+        header.data_len = data_len;
+
+        Ok(buffer)
     }
 }
 

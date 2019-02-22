@@ -1,8 +1,13 @@
 use crate::Module;
-use std::{fs::create_dir_all, io, path::PathBuf};
+use memmap::Mmap;
+use std::{
+    fs::{create_dir_all, File},
+    io::{self, Write},
+    path::PathBuf,
+};
 
-pub use wasmer_runtime_core::cache::{Cache, WasmHash};
-use wasmer_runtime_core::cache::{Error as CacheError, SerializedCache};
+use wasmer_runtime_core::cache::Error as CacheError;
+pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash};
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
@@ -80,8 +85,10 @@ impl Cache for FileSystemCache {
         let filename = key.encode();
         let mut new_path_buf = self.path.clone();
         new_path_buf.push(filename);
+        let file = File::open(new_path_buf)?;
+        let mmap = unsafe { Mmap::map(&file)? };
 
-        let serialized_cache = SerializedCache::open(new_path_buf)?;
+        let serialized_cache = Artifact::deserialize(&mmap[..])?;
         unsafe { wasmer_runtime_core::load_cache_with(serialized_cache, super::default_compiler()) }
     }
 
@@ -92,7 +99,10 @@ impl Cache for FileSystemCache {
         new_path_buf.push(filename);
 
         let serialized_cache = module.cache()?;
-        serialized_cache.store(new_path_buf)?;
+        let buffer = serialized_cache.serialize()?;
+
+        let mut file = File::create(new_path_buf)?;
+        file.write(&buffer)?;
 
         Ok(key)
     }
