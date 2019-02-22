@@ -48,6 +48,7 @@ use std::slice;
 // Other platforms do otherwise.
 use crate::env::get_emscripten_data;
 use crate::utils::copy_cstr_into_wasm;
+use crate::utils::read_string_from_wasm;
 #[cfg(target_os = "darwin")]
 use libc::SO_NOSIGPIPE;
 use std::ffi::CString;
@@ -191,20 +192,21 @@ pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 }
 
 // getcwd
-pub fn ___syscall183(ctx: &mut Ctx, buf: u32, _size: u32) -> u32 {
+pub fn ___syscall183(ctx: &mut Ctx, buf_offset: u32, _size: u32) -> u32 {
     debug!("emscripten::___syscall183");
     use std::env;
     let path = env::current_dir();
-    match path {
-        Ok(path_buf) => {
-            // write path into buffer
-            let path_string = path_buf.display().to_string();
-            let path_c_string = CString::new(path_string).unwrap();
-            let offset = unsafe { copy_cstr_into_wasm(ctx, path_c_string.as_ptr()) };
-            offset
+    let path_string = path.unwrap().display().to_string();
+    let len = path_string.len();
+    unsafe {
+        let pointer_to_buffer = emscripten_memory_pointer!(ctx.memory(0), buf_offset) as *mut libc::c_char;
+        let slice = slice::from_raw_parts_mut(pointer_to_buffer, len.clone());
+        for (byte, loc) in path_string.bytes().zip(slice.iter_mut()) {
+            *loc = byte as _;
         }
-        Err(e) => panic!("Failed to read current directory from environment."),
+        *pointer_to_buffer.add(len.clone()) = 0;
     }
+    buf_offset
 }
 
 // mmap2
