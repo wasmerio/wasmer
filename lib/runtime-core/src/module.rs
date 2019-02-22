@@ -56,8 +56,6 @@ pub struct ModuleInfo {
 
     pub namespace_table: StringTable<NamespaceIndex>,
     pub name_table: StringTable<NameIndex>,
-
-    pub wasm_hash: WasmHash,
 }
 
 /// A compiled WebAssembly module.
@@ -113,6 +111,14 @@ impl Module {
 
     pub fn info(&self) -> &ModuleInfo {
         &self.inner.info
+    }
+}
+
+impl Clone for Module {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
     }
 }
 

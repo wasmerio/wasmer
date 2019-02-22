@@ -1,5 +1,7 @@
 extern crate structopt;
 
+use std::env;
+use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -11,6 +13,8 @@ use structopt::StructOpt;
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
+use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash};
+use wasmer_runtime::error::CacheError;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -19,6 +23,10 @@ enum CLIOptions {
     /// Run a WebAssembly file. Formats accepted: wasm, wast
     #[structopt(name = "run")]
     Run(Run),
+
+    /// Wasmer cache
+    #[structopt(name = "cache")]
+    Cache(Cache),
 
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
@@ -39,6 +47,15 @@ struct Run {
     args: Vec<String>,
 }
 
+#[derive(Debug, StructOpt)]
+enum Cache {
+    #[structopt(name = "clean")]
+    Clean,
+
+    #[structopt(name = "dir")]
+    Dir,
+}
+
 /// Read the contents of a file
 fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
     let mut buffer: Vec<u8> = Vec::new();
@@ -47,6 +64,18 @@ fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
     // We force to close the file
     drop(file);
     Ok(buffer)
+}
+
+fn get_cache_dir() -> PathBuf {
+    match env::var("WASMER_CACHE_DIR") {
+        Ok(dir) => PathBuf::from(dir),
+        Err(_) => {
+            // We use a temporal directory for saving cache files
+            let mut temp_dir = env::temp_dir();
+            temp_dir.push("wasmer");
+            temp_dir
+        }
+    }
 }
 
 /// Execute a wasm/wat file
@@ -66,8 +95,34 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    let module = webassembly::compile(&wasm_binary[..])
-        .map_err(|e| format!("Can't compile module: {:?}", e))?;
+    let hash = WasmHash::generate(&wasm_binary);
+
+    let wasmer_cache_dir = get_cache_dir();
+
+    // We create a new cache instance.
+    // It could be possible to use any other kinds of caching, as long as they
+    // implement the Cache trait (with save and load functions)
+    let mut cache = unsafe {
+        FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
+    };
+
+    // cache.load will return the Module if it's able to deserialize it properly, and an error if:
+    // * The file is not found
+    // * The file exists, but it's corrupted or can't be converted to a module
+    let module = match cache.load(hash) {
+        Ok(module) => {
+            // We are able to load the module from cache
+            module
+        }
+        Err(_) => {
+            let module = webassembly::compile(&wasm_binary[..])
+                .map_err(|e| format!("Can't compile module: {:?}", e))?;
+
+            // We save the module into a cache file
+            cache.store(hash, module.clone()).unwrap();
+            module
+        }
+    };
 
     let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
@@ -119,5 +174,15 @@ fn main() {
         CLIOptions::SelfUpdate => {
             println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
         }
+        CLIOptions::Cache(cache) => match cache {
+            Cache::Clean => {
+                let cache_dir = get_cache_dir();
+                fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
+                fs::create_dir(cache_dir.clone()).expect("Can't create cache dir");
+            }
+            Cache::Dir => {
+                println!("{}", get_cache_dir().to_string_lossy());
+            }
+        },
     }
 }
