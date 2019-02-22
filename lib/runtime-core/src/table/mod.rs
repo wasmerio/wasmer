@@ -50,6 +50,14 @@ impl Table {
     /// # }
     /// ```
     pub fn new(desc: TableDescriptor) -> Result<Self, CreationError> {
+        if let Some(max) = desc.maximum {
+            if max < desc.minimum {
+                return Err(CreationError::InvalidDescriptor(
+                    "Max table size is less than the minimum size".to_string(),
+                ));
+            }
+        }
+
         let mut local = vm::LocalTable {
             base: ptr::null_mut(),
             count: 0,
@@ -139,4 +147,22 @@ impl fmt::Debug for Table {
             .field("size", &self.size())
             .finish()
     }
+}
+
+#[cfg(test)]
+mod table_tests {
+
+    use super::{ElementType, Table, TableDescriptor};
+
+    #[test]
+    fn test_initial_table_size() {
+        let table = Table::new(TableDescriptor {
+            element: ElementType::Anyfunc,
+            minimum: 10,
+            maximum: Some(20),
+        })
+        .unwrap();
+        assert_eq!(table.size(), 10);
+    }
+
 }

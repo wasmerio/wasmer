@@ -63,6 +63,15 @@ impl Memory {
     /// # }
     /// ```
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+        if let Some(max) = desc.maximum {
+            if max < desc.minimum {
+                return Err(CreationError::InvalidDescriptor(
+                    "Max number of memory pages is less than the minimum number of pages"
+                        .to_string(),
+                ));
+            }
+        }
+
         let variant = if !desc.shared {
             MemoryVariant::Unshared(UnsharedMemory::new(desc)?)
         } else {
@@ -296,4 +305,22 @@ impl Clone for SharedMemory {
     fn clone(&self) -> Self {
         unimplemented!()
     }
+}
+
+#[cfg(test)]
+mod memory_tests {
+
+    use super::{Memory, MemoryDescriptor, Pages};
+
+    #[test]
+    fn test_initial_memory_size() {
+        let unshared_memory = Memory::new(MemoryDescriptor {
+            minimum: Pages(10),
+            maximum: Some(Pages(20)),
+            shared: false,
+        })
+        .unwrap();
+        assert_eq!(unshared_memory.size(), Pages(10));
+    }
+
 }

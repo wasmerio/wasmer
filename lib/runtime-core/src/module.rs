@@ -1,6 +1,7 @@
 use crate::{
     backend::{Backend, FuncResolver, ProtectedCaller},
-    error::Result,
+    cache::{Artifact, Error as CacheError, WasmHash},
+    error,
     import::ImportObject,
     structures::{Map, TypedIndex},
     typed_func::EARLY_TRAPPER,
@@ -12,6 +13,8 @@ use crate::{
     },
     Instance,
 };
+
+use crate::backend::CacheGen;
 use hashbrown::HashMap;
 use indexmap::IndexMap;
 use std::sync::Arc;
@@ -22,10 +25,12 @@ pub struct ModuleInner {
     pub func_resolver: Box<dyn FuncResolver>,
     pub protected_caller: Box<dyn ProtectedCaller>,
 
+    pub cache_gen: Box<dyn CacheGen>,
+
     pub info: ModuleInfo,
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ModuleInfo {
     // This are strictly local and the typsystem ensures that.
     pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,
@@ -60,7 +65,9 @@ pub struct ModuleInfo {
 ///
 /// [`compile`]: fn.compile.html
 /// [`compile_with`]: fn.compile_with.html
-pub struct Module(#[doc(hidden)] pub Arc<ModuleInner>);
+pub struct Module {
+    inner: Arc<ModuleInner>,
+}
 
 impl Module {
     pub(crate) fn new(inner: Arc<ModuleInner>) -> Self {
@@ -68,7 +75,7 @@ impl Module {
             EARLY_TRAPPER
                 .with(|ucell| *ucell.get() = Some(inner.protected_caller.get_early_trapper()));
         }
-        Module(inner)
+        Module { inner }
     }
 
     /// Instantiate a WebAssembly module with the provided [`ImportObject`].
@@ -93,23 +100,38 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn instantiate(&self, import_object: &ImportObject) -> Result<Instance> {
-        Instance::new(Arc::clone(&self.0), import_object)
+    pub fn instantiate(&self, import_object: &ImportObject) -> error::Result<Instance> {
+        Instance::new(Arc::clone(&self.inner), import_object)
+    }
+
+    pub fn cache(&self) -> Result<Artifact, CacheError> {
+        let (info, backend_metadata, code) = self.inner.cache_gen.generate_cache(&self.inner)?;
+        Ok(Artifact::from_parts(info, backend_metadata, code))
+    }
+
+    pub fn info(&self) -> &ModuleInfo {
+        &self.inner.info
+    }
+}
+
+impl Clone for Module {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
     }
 }
 
 impl ModuleInner {}
 
 #[doc(hidden)]
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImportName {
     pub namespace_index: NamespaceIndex,
     pub name_index: NameIndex,
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
     Func(FuncIndex),
     Memory(MemoryIndex),
@@ -118,8 +140,7 @@ pub enum ExportIndex {
 }
 
 /// A data initializer for linear memory.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DataInitializer {
     /// The index of the memory to initialize.
     pub memory_index: MemoryIndex,
@@ -131,8 +152,7 @@ pub struct DataInitializer {
 }
 
 /// A WebAssembly table initializer.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TableInitializer {
     /// The index of a table to initialize.
     pub table_index: TableIndex,
@@ -193,8 +213,7 @@ impl<K: TypedIndex> StringTableBuilder<K> {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StringTable<K: TypedIndex> {
     table: Map<K, (u32, u32)>,
     buffer: String,
@@ -217,8 +236,7 @@ impl<K: TypedIndex> StringTable<K> {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NamespaceIndex(u32);
 
 impl TypedIndex for NamespaceIndex {
@@ -233,8 +251,7 @@ impl TypedIndex for NamespaceIndex {
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NameIndex(u32);
 
 impl TypedIndex for NameIndex {

@@ -10,9 +10,13 @@ build = "build/mod.rs"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.1.0" }
+lazy_static = "1.2.0"
 libc = { git = "https://github.com/rust-lang/libc" }
 byteorder = "1"
 time = "0.1.41"
+
+[target.'cfg(windows)'.dependencies]
+rand = "0.6"
 
 [dev-dependencies]
 wasmer-clif-backend = { path = "../clif-backend", version = "0.1.0" }

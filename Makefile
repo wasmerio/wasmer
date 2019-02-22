@@ -12,6 +12,9 @@ spectests:
 emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten
 
+capi:
+	WASM_EMSCRIPTEN_GENERATE_C_API_HEADERS=1 cargo build --manifest-path lib/runtime-c-api/Cargo.toml --features generate-c-api-headers
+
 # clean:
 #     rm -rf artifacts
 
@@ -34,9 +37,10 @@ precommit: lint test
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all -- --test-threads=1 $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api -- --test-threads=1 $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
-	# cargo test -p wasmer-spectests -- --test-threads=1 $(runargs)
+	cargo build -p wasmer-runtime-c-api
+	cargo test -p wasmer-runtime-c-api -- --nocapture
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows

@@ -386,7 +386,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             let name = ir::ExternalName::user(0, func_index.index() as u32);
 
             let sig = func_env.generate_signature(
-                self.get_func_type(Converter(func_index.convert_up(self.module)).into()),
+                self.get_func_type(Converter(func_index.convert_up(&self.module.info)).into()),
             );
 
             let mut func = ir::Function::with_name_signature(name, sig);

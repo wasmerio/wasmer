@@ -154,8 +154,8 @@ where
 }
 
 macro_rules! impl_traits {
-    ( $struct_name:ident, $( $x:ident ),* ) => {
-        #[repr(C)]
+    ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
+        #[repr($repr)]
         pub struct $struct_name <$( $x ),*> ( $( $x ),* );
 
         impl< $( $x: WasmExternType, )* > WasmTypeList for ( $( $x ),* ) {
@@ -234,18 +234,19 @@ macro_rules! impl_traits {
     };
 }
 
-impl_traits!(S0,);
-impl_traits!(S1, A);
-impl_traits!(S2, A, B);
-impl_traits!(S3, A, B, C);
-impl_traits!(S4, A, B, C, D);
-impl_traits!(S5, A, B, C, D, E);
-impl_traits!(S6, A, B, C, D, E, F);
-impl_traits!(S7, A, B, C, D, E, F, G);
-impl_traits!(S8, A, B, C, D, E, F, G, H);
-impl_traits!(S9, A, B, C, D, E, F, G, H, I);
-impl_traits!(S10, A, B, C, D, E, F, G, H, I, J);
-impl_traits!(S11, A, B, C, D, E, F, G, H, I, J, K);
+impl_traits!([C] S0,);
+impl_traits!([transparent] S1, A);
+impl_traits!([C] S2, A, B);
+impl_traits!([C] S3, A, B, C);
+impl_traits!([C] S4, A, B, C, D);
+impl_traits!([C] S5, A, B, C, D, E);
+impl_traits!([C] S6, A, B, C, D, E, F);
+impl_traits!([C] S7, A, B, C, D, E, F, G);
+impl_traits!([C] S8, A, B, C, D, E, F, G, H);
+impl_traits!([C] S9, A, B, C, D, E, F, G, H, I);
+impl_traits!([C] S10, A, B, C, D, E, F, G, H, I, J);
+impl_traits!([C] S11, A, B, C, D, E, F, G, H, I, J, K);
+impl_traits!([C] S12, A, B, C, D, E, F, G, H, I, J, K, L);
 
 impl<'a, Args, Rets, Safety> IsExport for Func<'a, Args, Rets, Safety>
 where

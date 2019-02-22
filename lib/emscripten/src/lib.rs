@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
 
+use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
 use std::{f64, ffi::c_void};
 use wasmer_runtime_core::{
@@ -11,11 +12,12 @@ use wasmer_runtime_core::{
     import::ImportObject,
     imports,
     memory::Memory,
+    module::ImportName,
     table::Table,
-    types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
+    types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type, Value},
     units::Pages,
     vm::Ctx,
-    Func, Instance, Module,
+    Func, Instance, IsExport, Module,
 };
 
 #[macro_use]
@@ -25,6 +27,7 @@ mod file_descriptor;
 pub mod stdio;
 
 // EMSCRIPTEN APIS
+mod emscripten_target;
 mod env;
 mod errno;
 mod exception;
@@ -56,6 +59,11 @@ const DYNAMICTOP_PTR_DIFF: u32 = 1088;
 // TODO: make this variable
 const STATIC_BUMP: u32 = 215_536;
 
+lazy_static! {
+    static ref OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG: FuncSig =
+        { FuncSig::new(vec![], vec![Type::I32]) };
+}
+
 // The address globals begin at. Very low in memory, for code size and optimization opportunities.
 // Above 0 is static memory, starting with globals.
 // Then the stack.
@@ -85,8 +93,46 @@ pub struct EmscriptenData<'a> {
     pub memalign: Option<Func<'a, (u32, u32), u32>>,
     pub memset: Func<'a, (u32, u32, u32), u32>,
     pub stack_alloc: Func<'a, u32, u32>,
-
     pub jumps: Vec<UnsafeCell<[u32; 27]>>,
+
+    pub dyn_call_i: Option<Func<'a, i32, i32>>,
+    pub dyn_call_ii: Option<Func<'a, (i32, i32), i32>>,
+    pub dyn_call_iii: Option<Func<'a, (i32, i32, i32), i32>>,
+    pub dyn_call_iiii: Option<Func<'a, (i32, i32, i32, i32), i32>>,
+    pub dyn_call_v: Option<Func<'a, (i32)>>,
+    pub dyn_call_vi: Option<Func<'a, (i32, i32)>>,
+    pub dyn_call_vii: Option<Func<'a, (i32, i32, i32)>>,
+    pub dyn_call_viii: Option<Func<'a, (i32, i32, i32, i32)>>,
+    pub dyn_call_viiii: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
+
+    // round 2
+    pub dyn_call_dii: Option<Func<'a, (i32, i32, i32), f64>>,
+    pub dyn_call_diiii: Option<Func<'a, (i32, i32, i32, i32, i32), f64>>,
+    pub dyn_call_iiiii: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_vd: Option<Func<'a, (i32, f64)>>,
+    pub dyn_call_viiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_iiji: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_j: Option<Func<'a, i32, i32>>,
+    pub dyn_call_ji: Option<Func<'a, (i32, i32), i32>>,
+    pub dyn_call_jij: Option<Func<'a, (i32, i32, i32, i32), i32>>,
+    pub dyn_call_jjj: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_viiij: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiijiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiijiiiiii:
+        Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viij: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viiji: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_vij: Option<Func<'a, (i32, i32, i32, i32)>>,
+    pub dyn_call_viji: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
+    pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -101,6 +147,44 @@ impl<'a> EmscriptenData<'a> {
         let memset = instance.func("_memset").unwrap();
         let stack_alloc = instance.func("stackAlloc").unwrap();
 
+        let dyn_call_i = instance.func("dynCall_i").ok();
+        let dyn_call_ii = instance.func("dynCall_ii").ok();
+        let dyn_call_iii = instance.func("dynCall_iii").ok();
+        let dyn_call_iiii = instance.func("dynCall_iiii").ok();
+        let dyn_call_v = instance.func("dynCall_v").ok();
+        let dyn_call_vi = instance.func("dynCall_vi").ok();
+        let dyn_call_vii = instance.func("dynCall_vii").ok();
+        let dyn_call_viii = instance.func("dynCall_viii").ok();
+        let dyn_call_viiii = instance.func("dynCall_viiii").ok();
+
+        // round 2
+        let dyn_call_dii = instance.func("dynCall_dii").ok();
+        let dyn_call_diiii = instance.func("dynCall_diiii").ok();
+        let dyn_call_iiiii = instance.func("dynCall_iiiii").ok();
+        let dyn_call_iiiiii = instance.func("dynCall_iiiiii").ok();
+        let dyn_call_vd = instance.func("dynCall_vd").ok();
+        let dyn_call_viiiii = instance.func("dynCall_viiiii").ok();
+        let dyn_call_viiiiii = instance.func("dynCall_viiiiii").ok();
+        let dyn_call_viiiiiii = instance.func("dynCall_viiiiiii").ok();
+        let dyn_call_viiiiiiii = instance.func("dynCall_viiiiiiii").ok();
+        let dyn_call_viiiiiiiii = instance.func("dynCall_viiiiiiiii").ok();
+        let dyn_call_iiji = instance.func("dynCall_iiji").ok();
+        let dyn_call_j = instance.func("dynCall_j").ok();
+        let dyn_call_ji = instance.func("dynCall_ji").ok();
+        let dyn_call_jij = instance.func("dynCall_jij").ok();
+        let dyn_call_jjj = instance.func("dynCall_jjj").ok();
+        let dyn_call_viiij = instance.func("dynCall_viiij").ok();
+        let dyn_call_viiijiiii = instance.func("dynCall_viiijiiii").ok();
+        let dyn_call_viiijiiiiii = instance.func("dynCall_viiijiiiiii").ok();
+        let dyn_call_viij = instance.func("dynCall_viij").ok();
+        let dyn_call_viiji = instance.func("dynCall_viiji").ok();
+        let dyn_call_viijiii = instance.func("dynCall_viijiii").ok();
+        let dyn_call_viijj = instance.func("dynCall_viijj").ok();
+        let dyn_call_vij = instance.func("dynCall_vij").ok();
+        let dyn_call_viji = instance.func("dynCall_viji").ok();
+        let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
+        let dyn_call_vijj = instance.func("dynCall_vijj").ok();
+
         EmscriptenData {
             malloc,
             free,
@@ -108,6 +192,43 @@ impl<'a> EmscriptenData<'a> {
             memset,
             stack_alloc,
             jumps: Vec::new(),
+            dyn_call_i,
+            dyn_call_ii,
+            dyn_call_iii,
+            dyn_call_iiii,
+            dyn_call_v,
+            dyn_call_vi,
+            dyn_call_vii,
+            dyn_call_viii,
+            dyn_call_viiii,
+
+            // round 2
+            dyn_call_dii,
+            dyn_call_diiii,
+            dyn_call_iiiii,
+            dyn_call_iiiiii,
+            dyn_call_vd,
+            dyn_call_viiiii,
+            dyn_call_viiiiii,
+            dyn_call_viiiiiii,
+            dyn_call_viiiiiiii,
+            dyn_call_viiiiiiiii,
+            dyn_call_iiji,
+            dyn_call_j,
+            dyn_call_ji,
+            dyn_call_jij,
+            dyn_call_jjj,
+            dyn_call_viiij,
+            dyn_call_viiijiiii,
+            dyn_call_viiijiiiiii,
+            dyn_call_viij,
+            dyn_call_viiji,
+            dyn_call_viijiii,
+            dyn_call_viijj,
+            dyn_call_vij,
+            dyn_call_viji,
+            dyn_call_vijiii,
+            dyn_call_vijj,
         }
     }
 }
@@ -187,6 +308,7 @@ pub struct EmscriptenGlobalsData {
     memory_base: u32,
     table_base: u32,
     temp_double_ptr: u32,
+    use_old_abort_on_cannot_grow_memory: bool,
 
     // Global namespace
     infinity: f64,
@@ -205,6 +327,27 @@ pub struct EmscriptenGlobals {
 
 impl EmscriptenGlobals {
     pub fn new(module: &Module /*, static_bump: u32 */) -> Self {
+        let mut use_old_abort_on_cannot_grow_memory = false;
+        for (
+            index,
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+        ) in &module.info().imported_functions
+        {
+            let namespace = module.info().namespace_table.get(*namespace_index);
+            let name = module.info().name_table.get(*name_index);
+            if name == "abortOnCannotGrowMemory" && namespace == "env" {
+                let sig_index = module.info().func_assoc[index.convert_up(module.info())];
+                let expected_sig = &module.info().signatures[sig_index];
+                if **expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
+                    use_old_abort_on_cannot_grow_memory = true;
+                }
+                break;
+            }
+        }
+
         let (table_min, table_max) = get_emscripten_table_size(&module);
         let (memory_min, memory_max) = get_emscripten_memory_size(&module);
 
@@ -247,6 +390,7 @@ impl EmscriptenGlobals {
                 memory_base,
                 table_base,
                 temp_double_ptr,
+                use_old_abort_on_cannot_grow_memory,
 
                 infinity: std::f64::INFINITY,
                 nan: std::f64::NAN,
@@ -266,6 +410,12 @@ impl EmscriptenGlobals {
 }
 
 pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject {
+    let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
+        func!(crate::memory::abort_on_cannot_grow_memory_old).to_export()
+    } else {
+        func!(crate::memory::abort_on_cannot_grow_memory).to_export()
+    };
+
     imports! {
         "env" => {
             "memory" => Export::Memory(globals.memory.clone()),
@@ -409,8 +559,10 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_sigsuspend" => func!(crate::signal::_sigsuspend),
 
             // Memory
-            "abortOnCannotGrowMemory" => func!(crate::memory::abort_on_cannot_grow_memory),
+            "abortOnCannotGrowMemory" => abort_on_cannot_grow_memory_export,
             "_emscripten_memcpy_big" => func!(crate::memory::_emscripten_memcpy_big),
+            "_emscripten_get_heap_size" => func!(crate::memory::_emscripten_get_heap_size),
+            "_emscripten_resize_heap" => func!(crate::memory::_emscripten_resize_heap),
             "enlargeMemory" => func!(crate::memory::enlarge_memory),
             "getTotalMemory" => func!(crate::memory::get_total_memory),
             "___map_file" => func!(crate::memory::___map_file),
@@ -453,6 +605,90 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_dlopen" => func!(crate::linking::_dlopen),
             "_dlsym" => func!(crate::linking::_dlsym),
 
+            // wasm32-unknown-emscripten
+            "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
+            "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
+            "nullFunc_ji" => func!(crate::emscripten_target::nullFunc_ji),
+            "invoke_i" => func!(crate::emscripten_target::invoke_i),
+            "invoke_ii" => func!(crate::emscripten_target::invoke_ii),
+            "invoke_iii" => func!(crate::emscripten_target::invoke_iii),
+            "invoke_iiii" => func!(crate::emscripten_target::invoke_iiii),
+            "invoke_v" => func!(crate::emscripten_target::invoke_v),
+            "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
+            "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
+            "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
+            "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
+            "__Unwind_Backtrace" => func!(crate::emscripten_target::__Unwind_Backtrace),
+            "__Unwind_FindEnclosingFunction" => func!(crate::emscripten_target::__Unwind_FindEnclosingFunction),
+            "__Unwind_GetIPInfo" => func!(crate::emscripten_target::__Unwind_GetIPInfo),
+            "___cxa_find_matching_catch_2" => func!(crate::emscripten_target::___cxa_find_matching_catch_2),
+            "___cxa_find_matching_catch_3" => func!(crate::emscripten_target::___cxa_find_matching_catch_3),
+            "___cxa_free_exception" => func!(crate::emscripten_target::___cxa_free_exception),
+            "___resumeException" => func!(crate::emscripten_target::___resumeException),
+            "_dladdr" => func!(crate::emscripten_target::_dladdr),
+            "_pthread_cond_destroy" => func!(crate::emscripten_target::_pthread_cond_destroy),
+            "_pthread_cond_init" => func!(crate::emscripten_target::_pthread_cond_init),
+            "_pthread_cond_signal" => func!(crate::emscripten_target::_pthread_cond_signal),
+            "_pthread_cond_wait" => func!(crate::emscripten_target::_pthread_cond_wait),
+            "_pthread_condattr_destroy" => func!(crate::emscripten_target::_pthread_condattr_destroy),
+            "_pthread_condattr_init" => func!(crate::emscripten_target::_pthread_condattr_init),
+            "_pthread_condattr_setclock" => func!(crate::emscripten_target::_pthread_condattr_setclock),
+            "_pthread_mutex_destroy" => func!(crate::emscripten_target::_pthread_mutex_destroy),
+            "_pthread_mutex_init" => func!(crate::emscripten_target::_pthread_mutex_init),
+            "_pthread_mutexattr_destroy" => func!(crate::emscripten_target::_pthread_mutexattr_destroy),
+            "_pthread_mutexattr_init" => func!(crate::emscripten_target::_pthread_mutexattr_init),
+            "_pthread_mutexattr_settype" => func!(crate::emscripten_target::_pthread_mutexattr_settype),
+            "_pthread_rwlock_rdlock" => func!(crate::emscripten_target::_pthread_rwlock_rdlock),
+            "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
+            "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
+            // round 2
+            "nullFunc_dii" => func!(crate::emscripten_target::nullFunc_dii),
+            "nullFunc_diiii" => func!(crate::emscripten_target::nullFunc_diiii),
+            "nullFunc_iiji" => func!(crate::emscripten_target::nullFunc_iiji),
+            "nullFunc_j" => func!(crate::emscripten_target::nullFunc_j),
+            "nullFunc_jij" => func!(crate::emscripten_target::nullFunc_jij),
+            "nullFunc_jjj" => func!(crate::emscripten_target::nullFunc_jjj),
+            "nullFunc_vd" => func!(crate::emscripten_target::nullFunc_vd),
+            "nullFunc_viiiiiii" => func!(crate::emscripten_target::nullFunc_viiiiiii),
+            "nullFunc_viiiiiiii" => func!(crate::emscripten_target::nullFunc_viiiiiiii),
+            "nullFunc_viiiiiiiii" => func!(crate::emscripten_target::nullFunc_viiiiiiiii),
+            "nullFunc_viiij" => func!(crate::emscripten_target::nullFunc_viiij),
+            "nullFunc_viiijiiii" => func!(crate::emscripten_target::nullFunc_viiijiiii),
+            "nullFunc_viiijiiiiii" => func!(crate::emscripten_target::nullFunc_viiijiiiiii),
+            "nullFunc_viij" => func!(crate::emscripten_target::nullFunc_viij),
+            "nullFunc_viiji" => func!(crate::emscripten_target::nullFunc_viiji),
+            "nullFunc_viijiii" => func!(crate::emscripten_target::nullFunc_viijiii),
+            "nullFunc_viijj" => func!(crate::emscripten_target::nullFunc_viijj),
+            "nullFunc_vij" => func!(crate::emscripten_target::nullFunc_vij),
+            "nullFunc_viji" => func!(crate::emscripten_target::nullFunc_viji),
+            "nullFunc_vijiii" => func!(crate::emscripten_target::nullFunc_vijiii),
+            "nullFunc_vijj" => func!(crate::emscripten_target::nullFunc_vijj),
+            "invoke_dii" => func!(crate::emscripten_target::invoke_dii),
+            "invoke_diiii" => func!(crate::emscripten_target::invoke_diiii),
+            "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),
+            "invoke_iiiiii" => func!(crate::emscripten_target::invoke_iiiiii),
+            "invoke_vd" => func!(crate::emscripten_target::invoke_vd),
+            "invoke_viiiii" => func!(crate::emscripten_target::invoke_viiiii),
+            "invoke_viiiiii" => func!(crate::emscripten_target::invoke_viiiiii),
+            "invoke_viiiiiii" => func!(crate::emscripten_target::invoke_viiiiiii),
+            "invoke_viiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiii),
+            "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
+            "invoke_iiji" => func!(crate::emscripten_target::invoke_iiji),
+            "invoke_j" => func!(crate::emscripten_target::invoke_j),
+            "invoke_ji" => func!(crate::emscripten_target::invoke_ji),
+            "invoke_jij" => func!(crate::emscripten_target::invoke_jij),
+            "invoke_jjj" => func!(crate::emscripten_target::invoke_jjj),
+            "invoke_viiij" => func!(crate::emscripten_target::invoke_viiij),
+            "invoke_viiijiiii" => func!(crate::emscripten_target::invoke_viiijiiii),
+            "invoke_viiijiiiiii" => func!(crate::emscripten_target::invoke_viiijiiiiii),
+            "invoke_viij" => func!(crate::emscripten_target::invoke_viij),
+            "invoke_viiji" => func!(crate::emscripten_target::invoke_viiji),
+            "invoke_viijiii" => func!(crate::emscripten_target::invoke_viijiii),
+            "invoke_viijj" => func!(crate::emscripten_target::invoke_viijj),
+            "invoke_vij" => func!(crate::emscripten_target::invoke_vij),
+            "invoke_viji" => func!(crate::emscripten_target::invoke_viji),
+            "invoke_vijiii" => func!(crate::emscripten_target::invoke_vijiii),
+            "invoke_vijj" => func!(crate::emscripten_target::invoke_vijj),
         },
         "global" => {
           "NaN" => Global::new(Value::F64(f64::NAN)),
