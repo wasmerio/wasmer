@@ -249,13 +249,13 @@ impl EmscriptenGlobals {
                 namespace_index,
                 name_index,
             },
-        ) in &module.0.info.imported_functions
+        ) in &module.info().imported_functions
         {
-            let namespace = module.0.info.namespace_table.get(*namespace_index);
-            let name = module.0.info.name_table.get(*name_index);
+            let namespace = module.info().namespace_table.get(*namespace_index);
+            let name = module.info().name_table.get(*name_index);
             if name == "abortOnCannotGrowMemory" && namespace == "env" {
-                let sig_index = module.0.info.func_assoc[index.convert_up(&module.0)];
-                let expected_sig = &module.0.info.signatures[sig_index];
+                let sig_index = module.info().func_assoc[index.convert_up(module.info())];
+                let expected_sig = &module.info().signatures[sig_index];
                 if **expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
                     use_old_abort_on_cannot_grow_memory = true;
                 }

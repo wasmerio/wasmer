@@ -139,7 +139,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                 // assert!(!desc.mutable);
                 let global_index: GlobalIndex = Converter(global_index).into();
                 let imported_global_index = global_index
-                    .local_or_import(self.module)
+                    .local_or_import(&self.module.info)
                     .import()
                     .expect("invalid global initializer when declaring an imported global");
                 Initializer::GetGlobal(imported_global_index)
@@ -249,7 +249,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         let base = match base {
             Some(global_index) => {
                 let global_index: GlobalIndex = Converter(global_index).into();
-                Initializer::GetGlobal(match global_index.local_or_import(self.module) {
+                Initializer::GetGlobal(match global_index.local_or_import(&self.module.info) {
                     LocalOrImport::Import(imported_global_index) => imported_global_index,
                     LocalOrImport::Local(_) => {
                         panic!("invalid global initializer when declaring an imported global")
@@ -319,7 +319,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         let base = match base {
             Some(global_index) => {
                 let global_index: GlobalIndex = Converter(global_index).into();
-                Initializer::GetGlobal(match global_index.local_or_import(self.module) {
+                Initializer::GetGlobal(match global_index.local_or_import(&self.module.info) {
                     LocalOrImport::Import(imported_global_index) => imported_global_index,
                     LocalOrImport::Local(_) => {
                         panic!("invalid global initializer when declaring an imported global")
@@ -389,7 +389,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             let name = ir::ExternalName::user(0, func_index.index() as u32);
 
             let sig = func_env.generate_signature(
-                self.get_func_type(Converter(func_index.convert_up(self.module)).into()),
+                self.get_func_type(Converter(func_index.convert_up(&self.module.info)).into()),
             );
 
             let mut func = ir::Function::with_name_signature(name, sig);
