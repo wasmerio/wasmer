@@ -199,7 +199,8 @@ pub fn ___syscall183(ctx: &mut Ctx, buf_offset: u32, _size: u32) -> u32 {
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
     unsafe {
-        let pointer_to_buffer = emscripten_memory_pointer!(ctx.memory(0), buf_offset) as *mut libc::c_char;
+        let pointer_to_buffer =
+            emscripten_memory_pointer!(ctx.memory(0), buf_offset) as *mut libc::c_char;
         let slice = slice::from_raw_parts_mut(pointer_to_buffer, len.clone());
         for (byte, loc) in path_string.bytes().zip(slice.iter_mut()) {
             *loc = byte as _;
