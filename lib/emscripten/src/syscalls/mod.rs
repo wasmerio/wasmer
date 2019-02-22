@@ -28,7 +28,7 @@ use libc::{
     getpid,
     // iovec,
     lseek,
-    open,
+    //    open,
     read,
     // readv,
     rmdir,
@@ -83,22 +83,6 @@ pub fn ___syscall4(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
     unsafe { write(fd, buf_addr, count) as i32 }
-}
-
-/// open
-pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall5 (open) {}", which);
-    let pathname: u32 = varargs.get(ctx);
-    let flags: i32 = varargs.get(ctx);
-    let mode: u32 = varargs.get(ctx);
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
-    let path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
-    let fd = unsafe { open(pathname_addr, flags, mode) };
-    debug!(
-        "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
-        pathname, flags, mode, fd, path_str
-    );
-    fd
 }
 
 /// close

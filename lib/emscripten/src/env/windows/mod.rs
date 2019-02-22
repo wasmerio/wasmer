@@ -7,6 +7,7 @@ use std::os::raw::c_char;
 
 use crate::env::call_malloc;
 use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
+use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
 
 extern "C" {

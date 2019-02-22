@@ -15,6 +15,9 @@ libc = { git = "https://github.com/rust-lang/libc" }
 byteorder = "1"
 time = "0.1.41"
 
+[target.'cfg(windows)'.dependencies]
+rand = "0.6"
+
 [dev-dependencies]
 wasmer-clif-backend = { path = "../clif-backend", version = "0.1.0" }
 wabt = "0.7.2"

@@ -246,6 +246,7 @@ impl_traits!([C] S8, A, B, C, D, E, F, G, H);
 impl_traits!([C] S9, A, B, C, D, E, F, G, H, I);
 impl_traits!([C] S10, A, B, C, D, E, F, G, H, I, J);
 impl_traits!([C] S11, A, B, C, D, E, F, G, H, I, J, K);
+impl_traits!([C] S12, A, B, C, D, E, F, G, H, I, J, K, L);
 
 impl<'a, Args, Rets, Safety> IsExport for Func<'a, Args, Rets, Safety>
 where
