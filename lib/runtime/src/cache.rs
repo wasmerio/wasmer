@@ -31,7 +31,7 @@ pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash};
 ///     let key = WasmHash::generate(&[]);
 ///     // Store a module into the cache given a key
 ///     fs_cache.store(key, module.clone())?;
-///     module
+///     Ok(module)
 /// }
 /// ```
 pub struct FileSystemCache {
