@@ -3,7 +3,7 @@ use crate::{
     sys::Memory,
 };
 use sha2::{Digest, Sha256};
-use std::{io, mem, slice};
+use std::{io, mem, slice, fmt};
 
 #[derive(Debug)]
 pub enum InvalidFileType {
@@ -191,8 +191,8 @@ impl Artifact {
 ///
 /// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
 pub trait Cache {
-    type LoadError;
-    type StoreError;
+    type LoadError: fmt::Debug;
+    type StoreError: fmt::Debug;
 
     fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
     fn store(&mut self, module: Module) -> Result<WasmHash, Self::StoreError>;

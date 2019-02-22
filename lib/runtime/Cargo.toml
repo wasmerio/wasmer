@@ -20,5 +20,12 @@ version = "0.1.2"
 path = "../clif-backend"
 version = "0.1.2"
 
+[dev-dependencies]
+criterion = "0.2"
+
 [features]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
+
+[[bench]]
+name = "nginx"
+harness = false
