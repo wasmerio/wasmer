@@ -19,19 +19,19 @@ pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash};
 /// # Usage:
 ///
 /// ```rust
-/// use wasmer_runtime::cache::{Cache, FileSystemCache};
+/// use wasmer_runtime::cache::{Cache, FileSystemCache, WasmHash};
 ///
 /// # use wasmer_runtime::{Module, error::CacheError};
-/// fn store_and_load_module(module: Module) -> Result<Module, CacheError> {
+/// fn store_module(module: Module) -> Result<Module, CacheError> {
 ///     // Create a new file system cache.
 ///     // This is unsafe because we can't ensure that the artifact wasn't
 ///     // corrupted or tampered with.
 ///     let mut fs_cache = unsafe { FileSystemCache::new("some/directory/goes/here")? };
-///     // Store a module into the cache.
-///     // The returned `key` is equivalent to `module.info().wasm_hash`.
-///     let key = fs_cache.store(module)?;
-///     // Load the module back from the cache with the `key`.
-///     fs_cache.load(key)
+///     // Compute a key for a given WebAssembly binary
+///     let key = WasmHash::generate(&[]);
+///     // Store a module into the cache given a key
+///     fs_cache.store(key, module.clone())?;
+///     Ok(module)
 /// }
 /// ```
 pub struct FileSystemCache {
@@ -92,8 +92,7 @@ impl Cache for FileSystemCache {
         unsafe { wasmer_runtime_core::load_cache_with(serialized_cache, super::default_compiler()) }
     }
 
-    fn store(&mut self, module: Module) -> Result<WasmHash, CacheError> {
-        let key = module.info().wasm_hash;
+    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), CacheError> {
         let filename = key.encode();
         let mut new_path_buf = self.path.clone();
         new_path_buf.push(filename);
@@ -104,6 +103,6 @@ impl Cache for FileSystemCache {
         let mut file = File::create(new_path_buf)?;
         file.write_all(&buffer)?;
 
-        Ok(key)
+        Ok(())
     }
 }
