@@ -29,7 +29,9 @@ version = "1.0"
 version = "0.10"
 [dependencies.serde-bench]
 version = "0.0.7"
-[dependencies.sha2]
+[dependencies.meowhash]
+version = "0.1.2"
+[dependencies.digest]
 version = "0.8.0"
 [dependencies.hashbrown]
 version = "0.1"
