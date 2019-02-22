@@ -21,6 +21,7 @@ path = "../clif-backend"
 version = "0.1.2"
 
 [dev-dependencies]
+tempfile = "3.0.7"
 criterion = "0.2"
 
 [features]
