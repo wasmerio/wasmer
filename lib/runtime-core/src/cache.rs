@@ -3,7 +3,7 @@ use crate::{
     sys::Memory,
 };
 use sha2::{Digest, Sha256};
-use std::{io, mem, slice, fmt};
+use std::{fmt, io, mem, slice};
 
 #[derive(Debug)]
 pub enum InvalidFileType {
