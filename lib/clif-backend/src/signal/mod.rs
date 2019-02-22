@@ -40,11 +40,15 @@ impl UserTrapper for Trapper {
 pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
     handler_data: HandlerData,
-    trampolines: Trampolines,
+    trampolines: Arc<Trampolines>,
 }
 
 impl Caller {
-    pub fn new(module: &ModuleInfo, handler_data: HandlerData, trampolines: Trampolines) -> Self {
+    pub fn new(
+        module: &ModuleInfo,
+        handler_data: HandlerData,
+        trampolines: Arc<Trampolines>,
+    ) -> Self {
         let mut func_export_set = HashSet::new();
         for export_index in module.exports.values() {
             if let ExportIndex::Func(func_index) = export_index {
@@ -160,7 +164,7 @@ fn get_func_from_index(
         .get(func_index)
         .expect("broken invariant, incorrect func index");
 
-    let (func_ptr, ctx) = match func_index.local_or_import(module) {
+    let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
         LocalOrImport::Local(local_func_index) => (
             module
                 .func_resolver
@@ -187,15 +191,16 @@ fn get_func_from_index(
 unsafe impl Send for HandlerData {}
 unsafe impl Sync for HandlerData {}
 
+#[derive(Clone)]
 pub struct HandlerData {
-    pub trap_data: TrapSink,
+    pub trap_data: Arc<TrapSink>,
     exec_buffer_ptr: *const c_void,
     exec_buffer_size: usize,
 }
 
 impl HandlerData {
     pub fn new(
-        trap_data: TrapSink,
+        trap_data: Arc<TrapSink>,
         exec_buffer_ptr: *const c_void,
         exec_buffer_size: usize,
     ) -> Self {
