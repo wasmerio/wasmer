@@ -46,10 +46,10 @@ use std::slice;
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
 // Other platforms do otherwise.
+use crate::env::get_emscripten_data;
+use crate::utils::copy_cstr_into_wasm;
 #[cfg(target_os = "darwin")]
 use libc::SO_NOSIGPIPE;
-use crate::utils::copy_cstr_into_wasm;
-use crate::env::get_emscripten_data;
 use std::ffi::CString;
 
 #[cfg(not(target_os = "darwin"))]
@@ -203,9 +203,7 @@ pub fn ___syscall183(ctx: &mut Ctx, buf: u32, _size: u32) -> u32 {
             let offset = unsafe { copy_cstr_into_wasm(ctx, path_c_string.as_ptr()) };
             offset
         }
-        Err(e) => {
-            unimplemented!()
-        }
+        Err(e) => panic!("Failed to read current directory from environment."),
     }
 }
 
