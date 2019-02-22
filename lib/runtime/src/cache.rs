@@ -27,8 +27,8 @@ pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash};
 ///     // This is unsafe because we can't ensure that the artifact wasn't
 ///     // corrupted or tampered with.
 ///     let mut fs_cache = unsafe { FileSystemCache::new("some/directory/goes/here")? };
-///     // Compute a key for a given WebAssembly module
-///     let key = WasmHash::generate(module)
+///     // Compute a key for a given WebAssembly binary
+///     let key = WasmHash::generate(&[]);
 ///     // Store a module into the cache given a key
 ///     fs_cache.store(key, module)?;
 /// }
