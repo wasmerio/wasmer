@@ -102,7 +102,7 @@ impl Cache for FileSystemCache {
         let buffer = serialized_cache.serialize()?;
 
         let mut file = File::create(new_path_buf)?;
-        file.write(&buffer)?;
+        file.write_all(&buffer)?;
 
         Ok(key)
     }
