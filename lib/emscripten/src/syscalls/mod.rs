@@ -48,6 +48,10 @@ use std::slice;
 // Other platforms do otherwise.
 #[cfg(target_os = "darwin")]
 use libc::SO_NOSIGPIPE;
+use crate::utils::copy_cstr_into_wasm;
+use crate::env::get_emscripten_data;
+use std::ffi::CString;
+
 #[cfg(not(target_os = "darwin"))]
 const SO_NOSIGPIPE: c_int = 0;
 
@@ -184,6 +188,25 @@ pub fn ___syscall97(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall110");
     -1
+}
+
+// getcwd
+pub fn ___syscall183(ctx: &mut Ctx, buf: u32, _size: u32) -> u32 {
+    debug!("emscripten::___syscall183");
+    use std::env;
+    let path = env::current_dir();
+    match path {
+        Ok(path_buf) => {
+            // write path into buffer
+            let path_string = path_buf.display().to_string();
+            let path_c_string = CString::new(path_string).unwrap();
+            let offset = unsafe { copy_cstr_into_wasm(ctx, path_c_string.as_ptr()) };
+            offset
+        }
+        Err(e) => {
+            unimplemented!()
+        }
+    }
 }
 
 // mmap2
