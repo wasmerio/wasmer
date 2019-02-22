@@ -19,5 +19,5 @@ wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2" }
 wabt = "0.7.2"
 
 [features]
-default = ["fast-tests", "wasmer-runtime-core/cache", "wasmer-clif-backend/cache"]
+default = ["fast-tests"]
 fast-tests = []

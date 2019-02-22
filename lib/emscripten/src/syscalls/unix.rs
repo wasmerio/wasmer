@@ -24,6 +24,7 @@ use libc::{
     listen,
     mkdir,
     msghdr,
+    open,
     pid_t,
     pread,
     pwrite,
@@ -75,6 +76,22 @@ use libc::wait4;
 use libc::SO_NOSIGPIPE;
 #[cfg(not(target_os = "darwin"))]
 const SO_NOSIGPIPE: c_int = 0;
+
+/// open
+pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall5 (open) {}", which);
+    let pathname: u32 = varargs.get(ctx);
+    let flags: i32 = varargs.get(ctx);
+    let mode: u32 = varargs.get(ctx);
+    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
+    let path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
+    let fd = unsafe { open(pathname_addr, flags, mode) };
+    debug!(
+        "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
+        pathname, flags, mode, fd, path_str
+    );
+    fd
+}
 
 // chown
 pub fn ___syscall212(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {

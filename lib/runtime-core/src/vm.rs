@@ -116,7 +116,7 @@ impl Ctx {
     pub fn memory(&self, mem_index: u32) -> &Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
-        match mem_index.local_or_import(module) {
+        match mem_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_mem_index) => unsafe {
                 let local_backing = &*self.local_backing;
                 &local_backing.memories[local_mem_index]
@@ -494,7 +494,10 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper};
+        use crate::backend::{
+            sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
+        };
+        use crate::cache::{Error as CacheError, WasmHash};
         use crate::error::RuntimeResult;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
@@ -525,10 +528,19 @@ mod vm_ctx_tests {
                 unimplemented!()
             }
         }
+        impl CacheGen for Placeholder {
+            fn generate_cache(
+                &self,
+                module: &ModuleInner,
+            ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+                unimplemented!()
+            }
+        }
 
         ModuleInner {
             func_resolver: Box::new(Placeholder),
             protected_caller: Box::new(Placeholder),
+            cache_gen: Box::new(Placeholder),
             info: ModuleInfo {
                 memories: Map::new(),
                 globals: Map::new(),
@@ -553,6 +565,8 @@ mod vm_ctx_tests {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
+
+                wasm_hash: WasmHash::generate(&[]),
             },
         }
     }

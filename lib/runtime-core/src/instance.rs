@@ -121,14 +121,14 @@ impl Instance {
                 })?;
             }
 
-            let ctx = match func_index.local_or_import(&*self.module) {
+            let ctx = match func_index.local_or_import(&self.module.info) {
                 LocalOrImport::Local(_) => self.inner.vmctx,
                 LocalOrImport::Import(imported_func_index) => {
                     self.inner.import_backing.vm_functions[imported_func_index].vmctx
                 }
             };
 
-            let func_ptr = match func_index.local_or_import(&self.module) {
+            let func_ptr = match func_index.local_or_import(&self.module.info) {
                 LocalOrImport::Local(local_func_index) => self
                     .module
                     .func_resolver
@@ -288,7 +288,7 @@ impl Instance {
             })?
         }
 
-        let vmctx = match func_index.local_or_import(&self.module) {
+        let vmctx = match func_index.local_or_import(&self.module.info) {
             LocalOrImport::Local(_) => self.inner.vmctx,
             LocalOrImport::Import(imported_func_index) => {
                 self.inner.import_backing.vm_functions[imported_func_index].vmctx
@@ -355,7 +355,7 @@ impl InstanceInner {
             .get(func_index)
             .expect("broken invariant, incorrect func index");
 
-        let (func_ptr, ctx) = match func_index.local_or_import(module) {
+        let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_func_index) => (
                 module
                     .func_resolver
@@ -384,7 +384,7 @@ impl InstanceInner {
     }
 
     fn get_memory_from_index(&self, module: &ModuleInner, mem_index: MemoryIndex) -> Memory {
-        match mem_index.local_or_import(module) {
+        match mem_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_mem_index) => self.backing.memories[local_mem_index].clone(),
             LocalOrImport::Import(imported_mem_index) => {
                 self.import_backing.memories[imported_mem_index].clone()
@@ -393,7 +393,7 @@ impl InstanceInner {
     }
 
     fn get_global_from_index(&self, module: &ModuleInner, global_index: GlobalIndex) -> Global {
-        match global_index.local_or_import(module) {
+        match global_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_global_index) => {
                 self.backing.globals[local_global_index].clone()
             }
@@ -404,7 +404,7 @@ impl InstanceInner {
     }
 
     fn get_table_from_index(&self, module: &ModuleInner, table_index: TableIndex) -> Table {
-        match table_index.local_or_import(module) {
+        match table_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_table_index) => {
                 self.backing.tables[local_table_index].clone()
             }
@@ -462,7 +462,7 @@ impl<'a> DynFunc<'a> {
             })?
         }
 
-        let vmctx = match self.func_index.local_or_import(self.module) {
+        let vmctx = match self.func_index.local_or_import(&self.module.info) {
             LocalOrImport::Local(_) => self.instance_inner.vmctx,
             LocalOrImport::Import(imported_func_index) => {
                 self.instance_inner.import_backing.vm_functions[imported_func_index].vmctx
@@ -488,7 +488,7 @@ impl<'a> DynFunc<'a> {
     }
 
     pub fn raw(&self) -> *const vm::Func {
-        match self.func_index.local_or_import(self.module) {
+        match self.func_index.local_or_import(&self.module.info) {
             LocalOrImport::Local(local_func_index) => self
                 .module
                 .func_resolver

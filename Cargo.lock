@@ -376,6 +376,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "hex"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "humantime"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1085,6 +1090,7 @@ dependencies = [
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.48 (git+https://github.com/rust-lang/libc)",
+ "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "wabt 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.1.2",
@@ -1096,6 +1102,7 @@ name = "wasmer-runtime"
 version = "0.1.4"
 dependencies = [
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "memmap 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-clif-backend 0.1.2",
  "wasmer-runtime-core 0.1.2",
 ]
@@ -1117,10 +1124,10 @@ dependencies = [
  "errno 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "field-offset 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "indexmap 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
- "memmap 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "page_size 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1264,6 +1271,7 @@ dependencies = [
 "checksum glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
 "checksum hashbrown 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "3bae29b6653b3412c2e71e9d486db9f9df5d701941d86683005efb9f2d28e3da"
 "checksum heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "20564e78d53d2bb135c343b3f47714a56af2061f1c928fdb541dc7b9fdd94205"
+"checksum hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
 "checksum humantime 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3ca7e5f2e110db35f93b837c81797f3714500b81d517bf20c431b16d3ca4f114"
 "checksum indexmap 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7e81a7c05f79578dbc15793d8b619db9ba32b4577003ef3af1a91c416798c58d"
 "checksum itoa 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "1306f3464951f30e30d12373d31c79fbd52d236e5e896fd92f96ec7babbbe60b"
