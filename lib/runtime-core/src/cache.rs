@@ -178,7 +178,6 @@ impl Artifact {
             magic: WASMER_CACHE_MAGIC,
             version: CURRENT_CACHE_VERSION,
             data_len: 0,
-            wasm_hash: self.inner.info.wasm_hash.into_array(),
         };
 
         let mut buffer = cache_header.as_slice().to_vec();
@@ -203,5 +202,5 @@ pub trait Cache {
     type StoreError: fmt::Debug;
 
     fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
-    fn store(&mut self, module: Module) -> Result<WasmHash, Self::StoreError>;
+    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
