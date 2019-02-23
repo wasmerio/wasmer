@@ -43,6 +43,7 @@ mod test_exceptions_2;
 mod test_exceptions_multi;
 mod test_exceptions_std;
 mod test_exceptions_white_list;
+mod test_execvp;
 mod test_fast_math;
 mod test_flexarray_struct;
 mod test_float32_precise;
