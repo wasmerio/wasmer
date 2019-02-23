@@ -7,7 +7,7 @@ use cranelift_wasm;
 use hashbrown::HashMap;
 use std::sync::Arc;
 
-use wasmer_runtime_core::cache::{Artifact, Error as CacheError, WasmHash};
+use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 
 use wasmer_runtime_core::{
     backend::Backend,
@@ -25,7 +25,7 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn new(wasm: &[u8]) -> Self {
+    pub fn new() -> Self {
         Self {
             info: ModuleInfo {
                 memories: Map::new(),

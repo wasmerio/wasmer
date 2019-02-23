@@ -202,7 +202,7 @@ impl FuncResolverBuilder {
 
     pub fn finalize(
         mut self,
-        signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
+        signatures: &SliceMap<SigIndex, FuncSig>,
         trampolines: Arc<Trampolines>,
         handler_data: HandlerData,
     ) -> CompileResult<(FuncResolver, BackendCache)> {

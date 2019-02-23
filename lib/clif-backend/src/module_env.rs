@@ -4,7 +4,6 @@ use crate::{
 };
 use cranelift_codegen::{ir, isa};
 use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
-use std::sync::Arc;
 use wasmer_runtime_core::{
     error::{CompileError, CompileResult},
     module::{
