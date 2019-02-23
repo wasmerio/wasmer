@@ -10,18 +10,16 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
-#[cfg(feature = "cache")]
 use serde::{
     de::{self, SeqAccess, Visitor},
     ser::SerializeStruct,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-#[cfg(feature = "cache")]
+
 use serde_bytes::Bytes;
-#[cfg(feature = "cache")]
+
 use std::fmt;
 
-#[cfg(feature = "cache")]
 impl Serialize for Memory {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -36,7 +34,6 @@ impl Serialize for Memory {
     }
 }
 
-#[cfg(feature = "cache")]
 impl<'de> Deserialize<'de> for Memory {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

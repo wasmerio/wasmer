@@ -1,14 +1,10 @@
-use crate::{module::ModuleInfo, sys::Memory};
-use memmap::Mmap;
-use serde_bench::{deserialize, serialize};
-use sha2::{Digest, Sha256};
-use std::{
-    fs::File,
-    io::{self, Seek, SeekFrom, Write},
-    mem,
-    path::Path,
-    slice,
+use crate::{
+    module::{Module, ModuleInfo},
+    sys::Memory,
 };
+use digest::Digest;
+use meowhash::MeowHasher;
+use std::{fmt, io, mem, slice};
 
 #[derive(Debug)]
 pub enum InvalidFileType {
@@ -26,23 +22,87 @@ pub enum Error {
     InvalidatedCache,
 }
 
+impl From<io::Error> for Error {
+    fn from(io_err: io::Error) -> Self {
+        Error::IoError(io_err)
+    }
+}
+
+/// The hash of a wasm module.
+///
+/// Used as a key when loading and storing modules in a [`Cache`].
+///
+/// [`Cache`]: trait.Cache.html
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WasmHash([u8; 32], [u8; 32]);
+
+impl WasmHash {
+    /// Hash a wasm module.
+    ///
+    /// # Note:
+    /// This does no verification that the supplied data
+    /// is, in fact, a wasm module.
+    pub fn generate(wasm: &[u8]) -> Self {
+        let mut first_part = [0u8; 32];
+        let mut second_part = [0u8; 32];
+        let generic_array = MeowHasher::digest(wasm);
+
+        first_part.copy_from_slice(&generic_array[0..32]);
+        second_part.copy_from_slice(&generic_array[32..64]);
+        WasmHash(first_part, second_part)
+    }
+
+    /// Create the hexadecimal representation of the
+    /// stored hash.
+    pub fn encode(self) -> String {
+        hex::encode(&self.into_array() as &[u8])
+    }
+
+    pub(crate) fn into_array(self) -> [u8; 64] {
+        let mut total = [0u8; 64];
+        total[0..32].copy_from_slice(&self.0);
+        total[32..64].copy_from_slice(&self.1);
+        total
+    }
+}
+
 const CURRENT_CACHE_VERSION: u64 = 0;
+static WASMER_CACHE_MAGIC: [u8; 8] = *b"WASMER\0\0";
 
 /// The header of a cache file.
 #[repr(C, packed)]
-struct CacheHeader {
+struct ArtifactHeader {
     magic: [u8; 8], // [W, A, S, M, E, R, \0, \0]
     version: u64,
     data_len: u64,
-    wasm_hash: [u8; 32], // Sha256 of the wasm in binary format.
 }
 
-impl CacheHeader {
-    pub fn read_from_slice(buffer: &[u8]) -> Result<(&CacheHeader, &[u8]), Error> {
-        if buffer.len() >= mem::size_of::<CacheHeader>() {
-            if &buffer[..8] == "WASMER\0\0".as_bytes() {
-                let (header_slice, body_slice) = buffer.split_at(mem::size_of::<CacheHeader>());
-                let header = unsafe { &*(header_slice.as_ptr() as *const CacheHeader) };
+impl ArtifactHeader {
+    pub fn read_from_slice(buffer: &[u8]) -> Result<(&Self, &[u8]), Error> {
+        if buffer.len() >= mem::size_of::<ArtifactHeader>() {
+            if &buffer[..8] == &WASMER_CACHE_MAGIC {
+                let (header_slice, body_slice) = buffer.split_at(mem::size_of::<ArtifactHeader>());
+                let header = unsafe { &*(header_slice.as_ptr() as *const ArtifactHeader) };
+
+                if header.version == CURRENT_CACHE_VERSION {
+                    Ok((header, body_slice))
+                } else {
+                    Err(Error::InvalidatedCache)
+                }
+            } else {
+                Err(Error::InvalidFile(InvalidFileType::InvalidMagic))
+            }
+        } else {
+            Err(Error::InvalidFile(InvalidFileType::InvalidSize))
+        }
+    }
+
+    pub fn read_from_slice_mut(buffer: &mut [u8]) -> Result<(&mut Self, &mut [u8]), Error> {
+        if buffer.len() >= mem::size_of::<ArtifactHeader>() {
+            if &buffer[..8] == &WASMER_CACHE_MAGIC {
+                let (header_slice, body_slice) =
+                    buffer.split_at_mut(mem::size_of::<ArtifactHeader>());
+                let header = unsafe { &mut *(header_slice.as_ptr() as *mut ArtifactHeader) };
 
                 if header.version == CURRENT_CACHE_VERSION {
                     Ok((header, body_slice))
@@ -58,72 +118,53 @@ impl CacheHeader {
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        let ptr = self as *const CacheHeader as *const u8;
-        unsafe { slice::from_raw_parts(ptr, mem::size_of::<CacheHeader>()) }
+        let ptr = self as *const ArtifactHeader as *const u8;
+        unsafe { slice::from_raw_parts(ptr, mem::size_of::<ArtifactHeader>()) }
     }
 }
 
 #[derive(Serialize, Deserialize)]
-struct CacheInner {
+struct ArtifactInner {
     info: Box<ModuleInfo>,
     #[serde(with = "serde_bytes")]
-    backend_metadata: Vec<u8>,
+    backend_metadata: Box<[u8]>,
     compiled_code: Memory,
 }
 
-pub struct Cache {
-    inner: CacheInner,
-    wasm_hash: Box<[u8; 32]>,
+pub struct Artifact {
+    inner: ArtifactInner,
 }
 
-impl Cache {
-    pub(crate) fn new(
-        wasm: &[u8],
+impl Artifact {
+    pub(crate) fn from_parts(
         info: Box<ModuleInfo>,
-        backend_metadata: Vec<u8>,
+        backend_metadata: Box<[u8]>,
         compiled_code: Memory,
     ) -> Self {
-        let wasm_hash = hash_data(wasm);
-
         Self {
-            inner: CacheInner {
+            inner: ArtifactInner {
                 info,
                 backend_metadata,
                 compiled_code,
             },
-            wasm_hash: Box::new(wasm_hash),
         }
     }
 
-    pub fn open<P>(path: P) -> Result<Cache, Error>
-    where
-        P: AsRef<Path>,
-    {
-        let file = File::open(path).map_err(|e| Error::IoError(e))?;
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
+        let (_, body_slice) = ArtifactHeader::read_from_slice(bytes)?;
 
-        let mmap = unsafe { Mmap::map(&file).map_err(|e| Error::IoError(e))? };
+        let inner = serde_bench::deserialize(body_slice)
+            .map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
 
-        let (header, body_slice) = CacheHeader::read_from_slice(&mmap[..])?;
-
-        let inner =
-            deserialize(body_slice).map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
-
-        Ok(Cache {
-            inner,
-            wasm_hash: Box::new(header.wasm_hash),
-        })
+        Ok(Artifact { inner })
     }
 
     pub fn info(&self) -> &ModuleInfo {
         &self.inner.info
     }
 
-    pub fn wasm_hash(&self) -> &[u8; 32] {
-        &self.wasm_hash
-    }
-
     #[doc(hidden)]
-    pub fn consume(self) -> (ModuleInfo, Vec<u8>, Memory) {
+    pub fn consume(self) -> (ModuleInfo, Box<[u8]>, Memory) {
         (
             *self.inner.info,
             self.inner.backend_metadata,
@@ -131,51 +172,34 @@ impl Cache {
         )
     }
 
-    pub fn store<P>(&self, path: P) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-    {
-        let mut file = File::create(path).map_err(|e| Error::IoError(e))?;
-
-        let mut buffer = Vec::new();
-
-        serialize(&mut buffer, &self.inner).map_err(|e| Error::SerializeError(e.to_string()))?;
-
-        let data_len = buffer.len() as u64;
-
-        file.seek(SeekFrom::Start(mem::size_of::<CacheHeader>() as u64))
-            .map_err(|e| Error::IoError(e))?;
-
-        file.write(buffer.as_slice())
-            .map_err(|e| Error::IoError(e))?;
-
-        file.seek(SeekFrom::Start(0))
-            .map_err(|e| Error::Unknown(e.to_string()))?;
-
-        let wasm_hash = {
-            let mut array = [0u8; 32];
-            array.copy_from_slice(&*self.wasm_hash);
-            array
-        };
-
-        let cache_header = CacheHeader {
-            magic: [
-                'W' as u8, 'A' as u8, 'S' as u8, 'M' as u8, 'E' as u8, 'R' as u8, 0, 0,
-            ],
+    pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+        let cache_header = ArtifactHeader {
+            magic: WASMER_CACHE_MAGIC,
             version: CURRENT_CACHE_VERSION,
-            data_len,
-            wasm_hash,
+            data_len: 0,
         };
 
-        file.write(cache_header.as_slice())
-            .map_err(|e| Error::IoError(e))?;
+        let mut buffer = cache_header.as_slice().to_vec();
 
-        Ok(())
+        serde_bench::serialize(&mut buffer, &self.inner)
+            .map_err(|e| Error::SerializeError(e.to_string()))?;
+
+        let data_len = (buffer.len() - mem::size_of::<ArtifactHeader>()) as u64;
+
+        let (header, _) = ArtifactHeader::read_from_slice_mut(&mut buffer)?;
+        header.data_len = data_len;
+
+        Ok(buffer)
     }
 }
 
-pub fn hash_data(data: &[u8]) -> [u8; 32] {
-    let mut array = [0u8; 32];
-    array.copy_from_slice(Sha256::digest(data).as_slice());
-    array
+/// A generic cache for storing and loading compiled wasm modules.
+///
+/// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
+pub trait Cache {
+    type LoadError: fmt::Debug;
+    type StoreError: fmt::Debug;
+
+    fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
+    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }

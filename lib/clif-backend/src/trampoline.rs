@@ -1,4 +1,3 @@
-#[cfg(feature = "cache")]
 use crate::cache::TrampolineCache;
 use cranelift_codegen::{
     binemit::{NullTrapSink, Reloc, RelocSink},
@@ -33,7 +32,6 @@ pub struct Trampolines {
 }
 
 impl Trampolines {
-    #[cfg(feature = "cache")]
     pub fn from_trampoline_cache(cache: TrampolineCache) -> Self {
         // pub struct TrampolineCache {
         //     #[serde(with = "serde_bytes")]
@@ -57,8 +55,7 @@ impl Trampolines {
         }
     }
 
-    #[cfg(feature = "cache")]
-    pub fn to_trampoline_cache(self) -> TrampolineCache {
+    pub fn to_trampoline_cache(&self) -> TrampolineCache {
         let mut code = vec![0; self.memory.size()];
 
         unsafe {
@@ -67,7 +64,7 @@ impl Trampolines {
 
         TrampolineCache {
             code,
-            offsets: self.offsets,
+            offsets: self.offsets.clone(),
         }
     }
 

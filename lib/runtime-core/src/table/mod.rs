@@ -149,3 +149,21 @@ impl fmt::Debug for Table {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod table_tests {
+
+    use super::{ElementType, Table, TableDescriptor};
+
+    #[test]
+    fn test_initial_table_size() {
+        let table = Table::new(TableDescriptor {
+            element: ElementType::Anyfunc,
+            minimum: 10,
+            maximum: Some(20),
+        })
+        .unwrap();
+        assert_eq!(table.size(), 10);
+    }
+
+}

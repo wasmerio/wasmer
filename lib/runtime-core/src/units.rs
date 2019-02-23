@@ -8,8 +8,7 @@ const WASM_PAGE_SIZE: usize = 65_536;
 const WASM_MAX_PAGES: usize = 65_536;
 
 /// Units of WebAssembly pages (as specified to be 65,536 bytes).
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Pages(pub u32);
 
 impl Pages {
@@ -38,8 +37,7 @@ impl fmt::Debug for Pages {
 }
 
 /// Units of WebAssembly memory in terms of 8-bit bytes.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Bytes(pub usize);
 
 impl fmt::Debug for Bytes {
