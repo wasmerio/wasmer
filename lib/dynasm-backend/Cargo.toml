@@ -12,3 +12,5 @@ wasmer-runtime-core = { path = "../runtime-core" }
 wasmparser = "0.28.0"
 dynasm = "0.3.0"
 dynasmrt = "0.3.1"
+lazy_static = "1.2.0"
+byteorder = "1"
