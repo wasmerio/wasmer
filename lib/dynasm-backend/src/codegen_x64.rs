@@ -1,8 +1,10 @@
 use super::codegen::*;
 use super::stack::{ControlFrame, ControlStack, ValueInfo, ValueLocation, ValueStack};
+use byteorder::{ByteOrder, LittleEndian};
 use dynasmrt::{
     x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
 };
+use std::{collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
     backend::{Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
     error::{CompileError, CompileResult, RuntimeError, RuntimeResult},
@@ -15,6 +17,40 @@ use wasmer_runtime_core::{
     vm::{self, ImportBacking},
 };
 use wasmparser::{Operator, Type as WpType};
+
+lazy_static! {
+    static ref CALL_WASM: unsafe extern "C" fn(params: *const u8, params_len: usize, target: *const u8) -> i64 = {
+        let mut assembler = Assembler::new().unwrap();
+        let offset = assembler.offset();
+        dynasm!(
+            assembler
+            ; lea rax, [>after_call]
+            ; push rax
+            ; push rbp
+            ; mov rbp, rsp
+            ; sub rsp, rsi // params_len
+            ; mov rcx, 0
+            ; mov r8, rsp
+            ; _loop:
+            ; cmp rsi, 0
+            ; je >_loop_end
+            ; mov eax, [rdi]
+            ; mov [r8], eax
+            ; add r8, 4
+            ; add rdi, 4
+            ; sub rsi, 4
+            ; jmp <_loop
+            ; _loop_end:
+            ; jmp rdx
+            ; after_call:
+            ; ret
+        );
+        let buf = assembler.finalize().unwrap();
+        let ret = unsafe { ::std::mem::transmute(buf.ptr(offset)) };
+        ::std::mem::forget(buf);
+        ret
+    };
+}
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -73,13 +109,19 @@ impl Register {
 #[derive(Default)]
 pub struct X64ModuleCodeGenerator {
     functions: Vec<X64FunctionCode>,
+    signatures: Option<Arc<Map<SigIndex, Arc<FuncSig>>>>,
+    function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
 }
 
 pub struct X64FunctionCode {
+    signatures: Arc<Map<SigIndex, Arc<FuncSig>>>,
+    function_signatures: Arc<Map<FuncIndex, SigIndex>>,
+
     id: usize,
     begin_label: DynamicLabel,
     begin_offset: AssemblyOffset,
     assembler: Option<Assembler>,
+    function_labels: Option<HashMap<usize, DynamicLabel>>,
     returns: Vec<WpType>,
     locals: Vec<Local>,
     num_params: usize,
@@ -114,23 +156,48 @@ impl ProtectedCaller for X64ExecutionContext {
             });
         }
 
-        match self.functions[index].num_params {
-            0 => unsafe {
-                let ptr: extern "C" fn() -> i64 = ::std::mem::transmute(ptr);
-                Ok(vec![Value::I32(ptr() as i32)])
-            },
-            1 => unsafe {
-                let ptr: extern "C" fn(i64) -> i64 = ::std::mem::transmute(ptr);
-                Ok(vec![Value::I32(ptr(value_to_i64(&_params[0])) as i32)])
-            },
-            2 => unsafe {
-                let ptr: extern "C" fn(i64, i64) -> i64 = ::std::mem::transmute(ptr);
-                Ok(vec![Value::I32(
-                    ptr(value_to_i64(&_params[0]), value_to_i64(&_params[1])) as i32,
-                )])
-            },
-            _ => unimplemented!(),
+        let f = &self.functions[index];
+        let mut total_size: usize = 0;
+
+        for local in &f.locals[0..f.num_params] {
+            total_size += get_size_of_type(&local.ty).unwrap();
         }
+
+        let mut param_buf: Vec<u8> = vec![0; total_size];
+        for i in 0..f.num_params {
+            let local = &f.locals[i];
+            let buf = &mut param_buf[total_size - local.stack_offset..];
+            let size = get_size_of_type(&local.ty).unwrap();
+
+            if is_dword(size) {
+                match _params[i] {
+                    Value::I32(x) => LittleEndian::write_u32(buf, x as u32),
+                    Value::F32(x) => LittleEndian::write_u32(buf, f32::to_bits(x)),
+                    _ => {
+                        return Err(RuntimeError::User {
+                            msg: "signature mismatch".into(),
+                        })
+                    }
+                }
+            } else {
+                match _params[i] {
+                    Value::I64(x) => LittleEndian::write_u64(buf, x as u64),
+                    Value::F64(x) => LittleEndian::write_u64(buf, f64::to_bits(x)),
+                    _ => {
+                        return Err(RuntimeError::User {
+                            msg: "signature mismatch".into(),
+                        })
+                    }
+                }
+            }
+        }
+
+        let ret = unsafe { CALL_WASM(param_buf.as_ptr(), param_buf.len(), ptr) };
+        Ok(if let Some(ty) = return_ty {
+            vec![Value::I64(ret)]
+        } else {
+            vec![]
+        })
     }
 
     fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
@@ -160,31 +227,41 @@ impl X64ModuleCodeGenerator {
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCodeGenerator {
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
-        let mut assembler = match self.functions.last_mut() {
-            Some(x) => x.assembler.take().unwrap(),
-            None => match Assembler::new() {
-                Ok(x) => x,
-                Err(_) => {
-                    return Err(CodegenError {
-                        message: "cannot initialize assembler",
-                    })
-                }
-            },
+        let (mut assembler, mut function_labels) = match self.functions.last_mut() {
+            Some(x) => (
+                x.assembler.take().unwrap(),
+                x.function_labels.take().unwrap(),
+            ),
+            None => (
+                match Assembler::new() {
+                    Ok(x) => x,
+                    Err(_) => {
+                        return Err(CodegenError {
+                            message: "cannot initialize assembler",
+                        })
+                    }
+                },
+                HashMap::new(),
+            ),
         };
-        let begin_label = assembler.new_dynamic_label();
+        let begin_label = *function_labels
+            .entry(self.functions.len())
+            .or_insert_with(|| assembler.new_dynamic_label());
         let begin_offset = assembler.offset();
         dynasm!(
             assembler
             ; => begin_label
-            ; push rbp
-            ; mov rbp, rsp
             //; int 3
         );
         let code = X64FunctionCode {
+            signatures: self.signatures.as_ref().unwrap().clone(),
+            function_signatures: self.function_signatures.as_ref().unwrap().clone(),
+
             id: self.functions.len(),
             begin_label: begin_label,
             begin_offset: begin_offset,
             assembler: Some(assembler),
+            function_labels: Some(function_labels),
             returns: vec![],
             locals: vec![],
             num_params: 0,
@@ -211,6 +288,22 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             code: output,
             functions: self.functions,
         })
+    }
+
+    fn feed_signatures(
+        &mut self,
+        signatures: Map<SigIndex, Arc<FuncSig>>,
+    ) -> Result<(), CodegenError> {
+        self.signatures = Some(Arc::new(signatures));
+        Ok(())
+    }
+
+    fn feed_function_signatures(
+        &mut self,
+        assoc: Map<FuncIndex, SigIndex>,
+    ) -> Result<(), CodegenError> {
+        self.function_signatures = Some(Arc::new(assoc));
+        Ok(())
     }
 }
 
@@ -486,6 +579,40 @@ impl X64FunctionCode {
         Ok(val.ty)
     }
 
+    fn emit_push_from_ax(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        ty: WpType,
+    ) -> Result<(), CodegenError> {
+        let loc = value_stack.push(ty);
+        match loc {
+            ValueLocation::Register(x) => {
+                let reg = Register::from_scratch_reg(x);
+                dynasm!(
+                    assembler
+                    ; mov Rq(reg as u8), rax
+                );
+            }
+            ValueLocation::Stack => {
+                if is_dword(get_size_of_type(&ty)?) {
+                    dynasm!(
+                        assembler
+                        ; sub rsp, 4
+                        ; mov [rsp], eax
+                    );
+                } else {
+                    dynasm!(
+                        assembler
+                        ; sub rsp, 8
+                        ; mov [rsp], rax
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn emit_leave_frame(
         assembler: &mut Assembler,
         frame: &ControlFrame,
@@ -658,6 +785,147 @@ impl X64FunctionCode {
 
         Ok(())
     }
+
+    fn emit_call_raw(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        target: DynamicLabel,
+        params: &[WpType],
+        returns: &[WpType],
+    ) -> Result<(), CodegenError> {
+        let mut total_size: usize = 0;
+        for ty in params {
+            total_size += get_size_of_type(ty)?;
+        }
+
+        if params.len() > value_stack.values.len() {
+            return Err(CodegenError {
+                message: "value stack underflow in call",
+            });
+        }
+
+        let mut saved_regs: Vec<Register> = Vec::new();
+
+        for v in &value_stack.values[0..value_stack.values.len() - params.len()] {
+            match v.location {
+                ValueLocation::Register(x) => {
+                    let reg = Register::from_scratch_reg(x);
+                    dynasm!(
+                        assembler
+                        ; push Rq(reg as u8)
+                    );
+                    saved_regs.push(reg);
+                }
+                ValueLocation::Stack => break,
+            }
+        }
+
+        dynasm!(
+            assembler
+            ; lea rax, [>after_call] // TODO: Is this correct?
+            ; push rax
+            ; push rbp
+        );
+
+        if total_size != 0 {
+            dynasm!(
+                assembler
+                ; sub rsp, total_size as i32
+            );
+        }
+
+        let mut offset: usize = 0;
+        let mut caller_stack_offset: usize = 0;
+        for ty in params {
+            let val = value_stack.pop()?;
+            if val.ty != *ty {
+                return Err(CodegenError {
+                    message: "value type mismatch",
+                });
+            }
+            let size = get_size_of_type(ty)?;
+
+            match val.location {
+                ValueLocation::Register(x) => {
+                    let reg = Register::from_scratch_reg(x);
+                    if is_dword(size) {
+                        dynasm!(
+                            assembler
+                            ; mov [rsp + offset as i32], Rd(reg as u8)
+                        );
+                    } else {
+                        dynasm!(
+                            assembler
+                            ; mov [rsp + offset as i32], Rq(reg as u8)
+                        );
+                    }
+                }
+                ValueLocation::Stack => {
+                    if is_dword(size) {
+                        dynasm!(
+                            assembler
+                            ; mov eax, [rsp + (total_size + 16 + caller_stack_offset) as i32]
+                            ; mov [rsp + offset as i32], eax
+                        );
+                    } else {
+                        dynasm!(
+                            assembler
+                            ; mov rax, [rsp + (total_size + 16 + caller_stack_offset) as i32]
+                            ; mov [rsp + offset as i32], rax
+                        );
+                    }
+                    caller_stack_offset += size;
+                }
+            }
+
+            offset += size;
+        }
+
+        assert_eq!(offset, total_size);
+
+        dynasm!(
+            assembler
+            ; mov rbp, rsp
+        );
+        if total_size != 0 {
+            dynasm!(
+                assembler
+                ; add rbp, total_size as i32
+            );
+        }
+        dynasm!(
+            assembler
+            ; jmp =>target
+            ; after_call:
+        );
+        if caller_stack_offset != 0 {
+            dynasm!(
+                assembler
+                ; add rsp, caller_stack_offset as i32
+            );
+        }
+
+        match returns.len() {
+            0 => {}
+            1 => {
+                Self::emit_push_from_ax(assembler, value_stack, returns[0])?;
+            }
+            _ => {
+                return Err(CodegenError {
+                    message: "more than 1 function returns are not supported",
+                })
+            }
+        }
+
+        for reg in saved_regs.iter().rev() {
+            dynasm!(
+                assembler
+                ; pop Rq(*reg as u8)
+            );
+        }
+
+        Ok(())
+    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -666,6 +934,11 @@ impl FunctionCodeGenerator for X64FunctionCode {
         Ok(())
     }
 
+    /// Stack layout of a call frame:
+    /// - Return address
+    /// - Old RBP
+    /// - Params in reversed order, caller initialized
+    /// - Locals in reversed order, callee initialized
     fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError> {
         let assembler = self.assembler.as_mut().unwrap();
         let size = get_size_of_type(&ty)?;
@@ -676,34 +949,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
             stack_offset: self.current_stack_offset,
         });
 
-        let param_reg = match self.num_params {
-            0 => Register::RDI,
-            1 => Register::RSI,
-            2 => Register::RDX,
-            3 => Register::RCX,
-            4 => Register::R8,
-            5 => Register::R9,
-            _ => {
-                return Err(CodegenError {
-                    message: "more than 6 function parameters is not yet supported",
-                })
-            }
-        };
         self.num_params += 1;
-
-        if is_dword(size) {
-            dynasm!(
-                assembler
-                ; sub rsp, 4
-                ; mov [rsp], Rd(param_reg as u8)
-            );
-        } else {
-            dynasm!(
-                assembler
-                ; sub rsp, 8
-                ; mov [rsp], Rq(param_reg as u8)
-            );
-        }
 
         Ok(())
     }
@@ -1137,6 +1383,42 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_return(assembler, &mut self.value_stack, &self.returns)?;
                 self.unreachable_depth = 1;
             }
+            Operator::Call { function_index } => {
+                let function_index = function_index as usize;
+                let label = *self
+                    .function_labels
+                    .as_mut()
+                    .unwrap()
+                    .entry(function_index)
+                    .or_insert_with(|| assembler.new_dynamic_label());
+                let sig_index = match self.function_signatures.get(FuncIndex::new(function_index)) {
+                    Some(x) => *x,
+                    None => {
+                        return Err(CodegenError {
+                            message: "signature not found",
+                        })
+                    }
+                };
+                let sig = match self.signatures.get(sig_index) {
+                    Some(x) => x,
+                    None => {
+                        return Err(CodegenError {
+                            message: "signature does not exist",
+                        })
+                    }
+                };
+                let param_types: Vec<WpType> =
+                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                let return_types: Vec<WpType> =
+                    sig.returns().iter().cloned().map(type_to_wp_type).collect();
+                Self::emit_call_raw(
+                    assembler,
+                    &mut self.value_stack,
+                    label,
+                    &param_types,
+                    &return_types,
+                )?;
+            }
             Operator::End => {
                 if self.control_stack.as_ref().unwrap().frames.len() == 1 {
                     let frame = self.control_stack.as_mut().unwrap().frames.pop().unwrap();
@@ -1253,5 +1535,14 @@ fn value_to_i64(v: &Value) -> i64 {
         Value::F64(x) => x.to_bits() as u64 as i64,
         Value::I32(x) => x as u64 as i64,
         Value::I64(x) => x as u64 as i64,
+    }
+}
+
+fn type_to_wp_type(ty: Type) -> WpType {
+    match ty {
+        Type::I32 => WpType::I32,
+        Type::I64 => WpType::I64,
+        Type::F32 => WpType::F32,
+        Type::F64 => WpType::F64,
     }
 }

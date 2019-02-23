@@ -6,6 +6,11 @@ extern crate dynasmrt;
 #[macro_use]
 extern crate dynasm;
 
+#[macro_use]
+extern crate lazy_static;
+
+extern crate byteorder;
+
 mod codegen;
 mod codegen_x64;
 mod parse;

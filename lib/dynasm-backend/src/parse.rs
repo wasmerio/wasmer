@@ -89,6 +89,8 @@ pub fn read_module<
                     let ty = ty?;
                     info.signatures.push(Arc::new(func_type_to_func_sig(ty)?));
                 }
+
+                mcg.feed_signatures(info.signatures.clone())?;
             }
             SectionCode::Import => {
                 let import_reader = section.get_import_section_reader()?;
@@ -148,6 +150,8 @@ pub fn read_module<
                     let sigindex = SigIndex::new(sigindex as usize);
                     info.func_assoc.push(sigindex);
                 }
+
+                mcg.feed_function_signatures(info.func_assoc.clone())?;
             }
             SectionCode::Table => {
                 let table_decl_reader = section.get_table_section_reader()?;

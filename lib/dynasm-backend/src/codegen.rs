@@ -1,9 +1,23 @@
-use wasmer_runtime_core::backend::ProtectedCaller;
+use std::sync::Arc;
+use wasmer_runtime_core::{
+    backend::ProtectedCaller,
+    structures::Map,
+    types::{FuncIndex, FuncSig, SigIndex},
+    units::Pages,
+};
 use wasmparser::{Operator, Type as WpType};
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, PC: ProtectedCaller> {
     fn next_function(&mut self) -> Result<&mut FCG, CodegenError>;
     fn finalize(self) -> Result<PC, CodegenError>;
+    fn feed_signatures(
+        &mut self,
+        signatures: Map<SigIndex, Arc<FuncSig>>,
+    ) -> Result<(), CodegenError>;
+    fn feed_function_signatures(
+        &mut self,
+        assoc: Map<FuncIndex, SigIndex>,
+    ) -> Result<(), CodegenError>;
 }
 
 pub trait FunctionCodeGenerator {
