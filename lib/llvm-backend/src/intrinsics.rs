@@ -12,7 +12,9 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::ModuleInfo,
     structures::TypedIndex,
-    types::{GlobalIndex, ImportedFuncIndex, LocalOrImport, MemoryIndex, TableIndex, Type},
+    types::{
+        GlobalIndex, ImportedFuncIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
+    },
 };
 
 fn type_to_llvm_ptr(intrinsics: &Intrinsics, ty: Type) -> PointerType {
@@ -61,6 +63,8 @@ pub struct Intrinsics {
     pub copysign_f32: FunctionValue,
     pub copysign_f64: FunctionValue,
 
+    pub expect_i1: FunctionValue,
+
     pub void_ty: VoidType,
     pub i1_ty: IntType,
     pub i8_ty: IntType,
@@ -76,6 +80,8 @@ pub struct Intrinsics {
     pub i64_ptr_ty: PointerType,
     pub f32_ptr_ty: PointerType,
     pub f64_ptr_ty: PointerType,
+
+    pub anyfunc_ty: StructType,
 
     pub i1_zero: IntValue,
     pub i32_zero: IntValue,
@@ -142,6 +148,17 @@ impl Intrinsics {
         let local_global_ty = i64_ty;
         let imported_func_ty =
             context.struct_type(&[i8_ptr_ty_basic, ctx_ptr_ty.as_basic_type_enum()], false);
+        let sigindex_ty = i32_ty;
+
+        let anyfunc_ty = context.struct_type(
+            &[
+                i8_ptr_ty_basic,
+                ctx_ptr_ty.as_basic_type_enum(),
+                sigindex_ty.as_basic_type_enum(),
+            ],
+            false,
+        );
+
         ctx_ty.set_body(
             &[
                 local_memory_ty
@@ -172,6 +189,9 @@ impl Intrinsics {
                     .ptr_type(AddressSpace::Generic)
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
+                sigindex_ty
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum(),
             ],
             false,
         );
@@ -194,6 +214,8 @@ impl Intrinsics {
         );
         let ret_i32_take_ctx_i32 =
             i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false);
+
+        let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
 
         Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
@@ -232,6 +254,8 @@ impl Intrinsics {
             copysign_f32: module.add_function("llvm.copysign.f32", ret_f32_take_f32_f32, None),
             copysign_f64: module.add_function("llvm.copysign.f64", ret_f64_take_f64_f64, None),
 
+            expect_i1: module.add_function("llvm.expect.i1", ret_i1_take_i1_i1, None),
+
             void_ty,
             i1_ty,
             i8_ty,
@@ -247,6 +271,8 @@ impl Intrinsics {
             i64_ptr_ty,
             f32_ptr_ty,
             f64_ptr_ty,
+
+            anyfunc_ty,
 
             i1_zero,
             i32_zero,
@@ -340,6 +366,7 @@ impl Intrinsics {
 
             cached_memories: HashMap::new(),
             cached_tables: HashMap::new(),
+            cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
             cached_imported_functions: HashMap::new(),
 
@@ -389,6 +416,7 @@ pub struct CtxType<'a> {
 
     cached_memories: HashMap<MemoryIndex, MemoryCache>,
     cached_tables: HashMap<TableIndex, TableCache>,
+    cached_sigindices: HashMap<SigIndex, IntValue>,
     cached_globals: HashMap<GlobalIndex, GlobalCache>,
     cached_imported_functions: HashMap<ImportedFuncIndex, ImportedFuncCache>,
 
@@ -471,6 +499,89 @@ impl<'a> CtxType<'a> {
             }
             MemoryCache::Static { base_ptr, bounds } => (*base_ptr, *bounds),
         }
+    }
+
+    pub fn table(&mut self, index: TableIndex) -> (PointerValue, IntValue) {
+        let (cached_tables, builder, info, ctx_ptr_value, intrinsics) = (
+            &mut self.cached_tables,
+            self.builder,
+            self.info,
+            self.ctx_ptr_value,
+            self.intrinsics,
+        );
+
+        let TableCache {
+            ptr_to_base_ptr,
+            ptr_to_bounds,
+        } = *cached_tables.entry(index).or_insert_with(|| {
+            let (table_array_ptr_ptr, index) = match index.local_or_import(info) {
+                LocalOrImport::Local(local_table_index) => (
+                    unsafe { builder.build_struct_gep(ctx_ptr_value, 1, "table_array_ptr_ptr") },
+                    local_table_index.index() as u64,
+                ),
+                LocalOrImport::Import(import_table_index) => (
+                    unsafe { builder.build_struct_gep(ctx_ptr_value, 4, "table_array_ptr_ptr") },
+                    import_table_index.index() as u64,
+                ),
+            };
+
+            let table_array_ptr = builder
+                .build_load(table_array_ptr_ptr, "table_array_ptr")
+                .into_pointer_value();
+            let const_index = intrinsics.i32_ty.const_int(index, false);
+            let table_ptr_ptr = unsafe {
+                builder.build_in_bounds_gep(table_array_ptr, &[const_index], "table_ptr_ptr")
+            };
+            let table_ptr = builder
+                .build_load(table_ptr_ptr, "table_ptr")
+                .into_pointer_value();
+
+            let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
+                (
+                    builder.build_struct_gep(table_ptr, 0, "base_ptr"),
+                    builder.build_struct_gep(table_ptr, 1, "bounds_ptr"),
+                )
+            };
+
+            TableCache {
+                ptr_to_base_ptr,
+                ptr_to_bounds,
+            }
+        });
+
+        (
+            builder
+                .build_load(ptr_to_base_ptr, "base_ptr")
+                .into_pointer_value(),
+            builder.build_load(ptr_to_bounds, "bounds").into_int_value(),
+        )
+    }
+
+    pub fn dynamic_sigindex(&mut self, index: SigIndex) -> IntValue {
+        let (cached_sigindices, builder, info, ctx_ptr_value, intrinsics) = (
+            &mut self.cached_sigindices,
+            self.builder,
+            self.info,
+            self.ctx_ptr_value,
+            self.intrinsics,
+        );
+
+        *cached_sigindices.entry(index).or_insert_with(|| {
+            let sigindex_array_ptr_ptr =
+                unsafe { builder.build_struct_gep(ctx_ptr_value, 7, "sigindex_array_ptr_ptr") };
+            let sigindex_array_ptr = builder
+                .build_load(sigindex_array_ptr_ptr, "sigindex_array_ptr")
+                .into_pointer_value();
+            let const_index = intrinsics.i32_ty.const_int(index.index() as u64, false);
+
+            let sigindex_ptr = unsafe {
+                builder.build_in_bounds_gep(sigindex_array_ptr, &[const_index], "sigindex_ptr")
+            };
+
+            builder
+                .build_load(sigindex_ptr, "sigindex")
+                .into_int_value()
+        })
     }
 
     pub fn global_cache(&mut self, index: GlobalIndex) -> GlobalCache {

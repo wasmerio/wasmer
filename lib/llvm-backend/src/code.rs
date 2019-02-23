@@ -13,7 +13,8 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex, Type,
+        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
+        TableIndex, Type,
     },
 };
 use wasmparser::{
@@ -622,6 +623,82 @@ fn parse_function(
                 }
             }
             Operator::CallIndirect { index, table_index } => {
+                let expected_dynamic_sigindex = ctx.dynamic_sigindex(SigIndex::new(index as usize));
+                let (table_base, table_bound) = ctx.table(TableIndex::new(table_index as usize));
+                let func_index = state.pop1()?.into_int_value();
+
+                // We assume the table has the `anyfunc` element type.
+                let casted_table_base = builder.build_pointer_cast(
+                    table_base,
+                    intrinsics.anyfunc_ty.ptr_type(AddressSpace::Generic),
+                    "casted_table_base",
+                );
+
+                let anyfunc_struct_ptr = unsafe {
+                    builder.build_in_bounds_gep(
+                        casted_table_base,
+                        &[func_index],
+                        "anyfunc_struct_ptr",
+                    )
+                };
+
+                // Load things from the anyfunc data structure.
+                let (func_ptr, ctx_ptr, found_dynamic_sigindex) = unsafe {
+                    (
+                        builder
+                            .build_load(
+                                builder.build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr"),
+                                "func_ptr",
+                            )
+                            .into_pointer_value(),
+                        builder
+                            .build_load(
+                                builder.build_struct_gep(anyfunc_struct_ptr, 1, "ctx_ptr_ptr"),
+                                "ctx_ptr",
+                            )
+                            .into_pointer_value(),
+                        builder
+                            .build_load(
+                                builder.build_struct_gep(anyfunc_struct_ptr, 2, "sigindex_ptr"),
+                                "sigindex",
+                            )
+                            .into_int_value(),
+                    )
+                };
+
+                let sigindices_equal = builder.build_int_compare(
+                    IntPredicate::EQ,
+                    expected_dynamic_sigindex,
+                    found_dynamic_sigindex,
+                    "sigindices_equal",
+                );
+
+                // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
+                let sigindices_equal = builder
+                    .build_call(
+                        intrinsics.expect_i1,
+                        &[
+                            sigindices_equal.as_basic_value_enum(),
+                            intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                        ],
+                        "sigindices_equal_expect",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+
+                let continue_block = context.append_basic_block(&function, "continue_block");
+                let sigindices_notequal_block =
+                    context.append_basic_block(&function, "sigindices_notequal_block");
+
+                builder.position_at_end(&sigindices_notequal_block);
+                builder.build_unreachable();
+                builder.position_at_end(&continue_block);
+
+                println!("func ptr: {:#?}", func_ptr);
+                println!("ctx ptr: {:#?}", ctx_ptr);
+                println!("found dynamic sigindex: {:#?}", found_dynamic_sigindex);
+
                 unimplemented!("{}, {}", index, table_index);
             }
 
