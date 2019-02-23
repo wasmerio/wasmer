@@ -31,6 +31,7 @@ mod emscripten_target;
 mod env;
 mod errno;
 mod exception;
+mod exec;
 mod io;
 mod jmp;
 mod linking;
@@ -438,6 +439,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "___lock" => func!(crate::lock::___lock),
             "___unlock" => func!(crate::lock::___unlock),
             "___wait" => func!(crate::lock::___wait),
+
+            // exec
+            "_execvp" => func!(crate::exec::_execvp),
 
             // Env
             "___assert_fail" => func!(crate::env::___assert_fail),
