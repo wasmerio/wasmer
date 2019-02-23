@@ -365,7 +365,24 @@ impl From<ResolveError> for CallError {
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            Error::CompileError(err) => write!(f, "compile error: {}", err),
+            Error::LinkError(errs) => {
+                if errs.len() == 1 {
+                    write!(f, "link error: {}", errs[0])
+                } else {
+                    write!(f, "{} link errors:", errs.len())?;
+                    for (i, err) in errs.iter().enumerate() {
+                        write!(f, " ({} of {}) {}", i + 1, errs.len(), err)?;
+                    }
+                    Ok(())
+                }
+            },
+            Error::RuntimeError(err) => write!(f, "runtime error: {}", err),
+            Error::ResolveError(err) => write!(f, "resolve error: {}", err),
+            Error::CallError(err) => write!(f, "call error: {}", err),
+            Error::CreationError(err) => write!(f, "creation error: {}", err),
+        }
     }
 }
 
