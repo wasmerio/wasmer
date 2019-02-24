@@ -122,6 +122,7 @@ pub struct X64FunctionCode {
     begin_offset: AssemblyOffset,
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, DynamicLabel>>,
+    br_table_data: Option<Vec<Vec<usize>>>,
     returns: Vec<WpType>,
     locals: Vec<Local>,
     num_params: usize,
@@ -134,6 +135,7 @@ pub struct X64FunctionCode {
 pub struct X64ExecutionContext {
     code: ExecutableBuffer,
     functions: Vec<X64FunctionCode>,
+    br_table_data: Vec<Vec<usize>>,
 }
 
 impl ProtectedCaller for X64ExecutionContext {
@@ -227,10 +229,11 @@ impl X64ModuleCodeGenerator {
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCodeGenerator {
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
-        let (mut assembler, mut function_labels) = match self.functions.last_mut() {
+        let (mut assembler, mut function_labels, br_table_data) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
                 x.function_labels.take().unwrap(),
+                x.br_table_data.take().unwrap(),
             ),
             None => (
                 match Assembler::new() {
@@ -242,6 +245,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
                     }
                 },
                 HashMap::new(),
+                vec![],
             ),
         };
         let begin_label = *function_labels
@@ -262,6 +266,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             begin_offset: begin_offset,
             assembler: Some(assembler),
             function_labels: Some(function_labels),
+            br_table_data: Some(br_table_data),
             returns: vec![],
             locals: vec![],
             num_params: 0,
@@ -275,8 +280,8 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
     }
 
     fn finalize(mut self) -> Result<X64ExecutionContext, CodegenError> {
-        let mut assembler = match self.functions.last_mut() {
-            Some(x) => x.assembler.take().unwrap(),
+        let (mut assembler, mut br_table_data) = match self.functions.last_mut() {
+            Some(x) => (x.assembler.take().unwrap(), x.br_table_data.take().unwrap()),
             None => {
                 return Err(CodegenError {
                     message: "no function",
@@ -284,9 +289,16 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             }
         };
         let output = assembler.finalize().unwrap();
+
+        for table in &mut br_table_data {
+            for entry in table {
+                *entry = output.ptr(AssemblyOffset(*entry)) as usize;
+            }
+        }
         Ok(X64ExecutionContext {
             code: output,
             functions: self.functions,
+            br_table_data: br_table_data,
         })
     }
 
@@ -1201,6 +1213,30 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 )?;
             }
+            Operator::I32And => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; and Rd(left as u8), Rd(right as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I32Or => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; or Rd(left as u8), Rd(right as u8)
+                        );
+                    },
+                )?;
+            }
             Operator::I32Eq => {
                 Self::emit_binop_i32(
                     assembler,
@@ -1487,6 +1523,57 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler
                     ; =>no_br_label
                 );
+            }
+            Operator::BrTable { table } => {
+                let (targets, default_target) = match table.read_table() {
+                    Ok(x) => x,
+                    Err(_) => {
+                        return Err(CodegenError {
+                            message: "cannot read br table",
+                        });
+                    }
+                };
+                let cond_ty = Self::emit_pop_into_ax(assembler, &mut self.value_stack)?;
+                if cond_ty != WpType::I32 {
+                    return Err(CodegenError {
+                        message: "expecting i32 for BrTable condition",
+                    });
+                }
+                let mut table = vec![0usize; targets.len()];
+                dynasm!(
+                    assembler
+                    ; cmp eax, targets.len() as i32
+                    ; jae >default_br
+                    ; shl rax, 3
+                    ; push rcx
+                    ; mov rcx, QWORD table.as_ptr() as usize as i64
+                    ; add rax, rcx
+                    ; pop rcx
+                    ; mov rax, [rax] // assuming upper 32 bits of rax are zeroed
+                    ; jmp rax
+                );
+                for (i, target) in targets.iter().enumerate() {
+                    let AssemblyOffset(offset) = assembler.offset();
+                    table[i] = offset;
+                    Self::emit_jmp(
+                        assembler,
+                        self.control_stack.as_ref().unwrap(),
+                        &mut self.value_stack,
+                        *target as usize,
+                    )?; // This does not actually modify value_stack.
+                }
+                dynasm!(
+                    assembler
+                    ; default_br:
+                );
+                Self::emit_jmp(
+                    assembler,
+                    self.control_stack.as_ref().unwrap(),
+                    &mut self.value_stack,
+                    default_target as usize,
+                )?;
+                self.br_table_data.as_mut().unwrap().push(table);
+                self.unreachable_depth = 1;
             }
             _ => unimplemented!(),
         }
