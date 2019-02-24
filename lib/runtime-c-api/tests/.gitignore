@@ -14,6 +14,7 @@ test-exports
 test-instantiate
 test-import-function
 test-memory
+test-module-imports
 test-module
 test-tables
 test-validate

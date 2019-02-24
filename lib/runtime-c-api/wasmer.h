@@ -73,6 +73,14 @@ typedef struct {
 
 typedef struct {
 
+} wasmer_import_descriptor_t;
+
+typedef struct {
+
+} wasmer_import_descriptors_t;
+
+typedef struct {
+
 } wasmer_memory_t;
 
 typedef struct {
@@ -230,6 +238,44 @@ wasmer_global_t *wasmer_global_new(wasmer_value_t value, bool mutable_);
  * Sets the value stored by the given Global
  */
 void wasmer_global_set(wasmer_global_t *global, wasmer_value_t value);
+
+/**
+ * Gets export descriptor kind
+ */
+wasmer_import_export_kind wasmer_import_descriptor_kind(wasmer_import_descriptor_t *export_);
+
+/**
+ * Gets module name for the import descriptor
+ */
+wasmer_byte_array wasmer_import_descriptor_module_name(wasmer_import_descriptor_t *import_descriptor);
+
+/**
+ * Gets name for the import descriptor
+ */
+wasmer_byte_array wasmer_import_descriptor_name(wasmer_import_descriptor_t *import_descriptor);
+
+/**
+ * Gets import descriptors for the given module
+ * The caller owns the object and should call `wasmer_import_descriptors_destroy` to free it.
+ */
+void wasmer_import_descriptors(wasmer_module_t *module,
+                               wasmer_import_descriptors_t **import_descriptors);
+
+/**
+ * Frees the memory for the given import descriptors
+ */
+void wasmer_import_descriptors_destroy(wasmer_import_descriptors_t *import_descriptors);
+
+/**
+ * Gets import descriptor by index
+ */
+wasmer_import_descriptor_t *wasmer_import_descriptors_get(wasmer_import_descriptors_t *import_descriptors,
+                                                          int idx);
+
+/**
+ * Gets the length of the import descriptors
+ */
+int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports);
 
 /**
  * Calls an instances exported function by `name` with the provided parameters.
