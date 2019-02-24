@@ -145,9 +145,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
             Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
         )
+    } else if wasmer_golang::is_golang_module(&module) {
+        (InstanceABI::Go, wasmer_golang::generate_golang_env(), None)
     } else {
         (
-            InstanceABI::None,
+            InstanceABI::Go,
             wasmer_runtime_core::import::ImportObject::new(),
             None,
         )

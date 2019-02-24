@@ -25,9 +25,10 @@ wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-runtime = { path = "lib/runtime" }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
+wasmer-golang = { path = "lib/golang" }
 
 [workspace]
-members = ["lib/clif-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api"]
+members = ["lib/clif-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/golang"]
 
 [build-dependencies]
 wabt = "0.7.2"

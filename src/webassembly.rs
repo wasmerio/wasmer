@@ -6,6 +6,7 @@ use wasmer_runtime::{
 };
 
 use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
+use wasmer_golang::{is_golang_module, run_golang_instance};
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -19,6 +20,7 @@ pub struct ResultObject {
 #[derive(PartialEq)]
 pub enum InstanceABI {
     Emscripten,
+    Go,
     None,
 }
 
@@ -83,8 +85,10 @@ pub fn run_instance(
     path: &str,
     args: Vec<&str>,
 ) -> CallResult<()> {
-    if is_emscripten_module(module) {
+    if is_emscripten_module(&module) {
         run_emscripten_instance(module, instance, path, args)?;
+    } else if is_golang_module(&module) {
+        run_golang_instance(module, instance, path, args)?;
     } else {
         instance.call("main", &[])?;
     };
