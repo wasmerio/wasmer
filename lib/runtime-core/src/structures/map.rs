@@ -56,6 +56,10 @@ where
     pub fn into_boxed_map(self) -> BoxedMap<K, V> {
         BoxedMap::new(self.elems.into_boxed_slice())
     }
+
+    pub fn into_vec(self) -> Vec<V> {
+        self.elems
+    }
 }
 
 impl<K, V> Map<K, V>
