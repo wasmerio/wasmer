@@ -19,6 +19,7 @@ wasmparser = "0.23.0"
 byteorder = "1"
 nix = "0.13.0"
 libc = "0.2.48"
+rayon = "1.0"
 
 # Dependencies for caching.
 [dependencies.serde]
