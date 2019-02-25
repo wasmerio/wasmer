@@ -876,13 +876,13 @@ impl X64FunctionCode {
                     if is_dword(size) {
                         dynasm!(
                             assembler
-                            ; mov eax, [rsp + (total_size + 16 + caller_stack_offset) as i32]
+                            ; mov eax, [rsp + (total_size + 16 + saved_regs.len() * 8 + caller_stack_offset) as i32]
                             ; mov [rsp + offset as i32], eax
                         );
                     } else {
                         dynasm!(
                             assembler
-                            ; mov rax, [rsp + (total_size + 16 + caller_stack_offset) as i32]
+                            ; mov rax, [rsp + (total_size + 16 + saved_regs.len() * 8 + caller_stack_offset) as i32]
                             ; mov [rsp + offset as i32], rax
                         );
                     }
@@ -910,6 +910,14 @@ impl X64FunctionCode {
             ; jmp =>target
             ; after_call:
         );
+
+        for reg in saved_regs.iter().rev() {
+            dynasm!(
+                assembler
+                ; pop Rq(*reg as u8)
+            );
+        }
+
         if caller_stack_offset != 0 {
             dynasm!(
                 assembler
@@ -927,13 +935,6 @@ impl X64FunctionCode {
                     message: "more than 1 function returns are not supported",
                 })
             }
-        }
-
-        for reg in saved_regs.iter().rev() {
-            dynasm!(
-                assembler
-                ; pop Rq(*reg as u8)
-            );
         }
 
         Ok(())
