@@ -24,6 +24,11 @@ lazy_static! {
         let offset = assembler.offset();
         dynasm!(
             assembler
+            ; push rbx
+            ; push r12
+            ; push r13
+            ; push r14
+            ; push r15
             ; lea rax, [>after_call]
             ; push rax
             ; push rbp
@@ -43,6 +48,11 @@ lazy_static! {
             ; _loop_end:
             ; jmp rdx
             ; after_call:
+            ; pop r15
+            ; pop r14
+            ; pop r13
+            ; pop r12
+            ; pop rbx
             ; ret
         );
         let buf = assembler.finalize().unwrap();
@@ -85,6 +95,11 @@ impl Register {
             5 => R9,
             6 => R10,
             7 => R11,
+            8 => RBX,
+            9 => R12,
+            10 => R13,
+            11 => R14,
+            12 => R15,
             _ => unreachable!(),
         }
     }
