@@ -286,7 +286,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             locals: vec![],
             num_params: 0,
             current_stack_offset: 0,
-            value_stack: ValueStack::new(4),
+            value_stack: ValueStack::new(4), // FIXME: Use of R8 and above registers generates incorrect assembly.
             control_stack: None,
             unreachable_depth: 0,
         };
