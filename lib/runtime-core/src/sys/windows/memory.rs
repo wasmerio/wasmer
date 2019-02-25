@@ -57,7 +57,14 @@ impl Memory {
 
         let size = round_up_to_page_size(size, page_size::get());
 
-        let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE | MEM_COMMIT, PAGE_NOACCESS) };
+        let ptr = unsafe {
+            VirtualAlloc(
+                ptr::null_mut(),
+                size,
+                MEM_RESERVE | MEM_COMMIT,
+                PAGE_NOACCESS,
+            )
+        };
 
         if ptr.is_null() {
             Err(MemoryCreationError::VirtualMemoryAllocationFailed(
