@@ -36,9 +36,9 @@ lazy_static! {
             ; je >_loop_end
             ; mov eax, [rdi]
             ; mov [r8], eax
-            ; add r8, 4
-            ; add rdi, 4
-            ; sub rsi, 4
+            ; add r8, 8
+            ; add rdi, 8
+            ; sub rsi, 8
             ; jmp <_loop
             ; _loop_end:
             ; jmp rdx
@@ -327,7 +327,7 @@ impl X64FunctionCode {
                 let size = get_size_of_type(&info.ty)?;
                 dynasm!(
                     assembler
-                    ; add rsp, size as i32
+                    ; add rsp, 8
                 );
             }
         }
@@ -396,8 +396,7 @@ impl X64FunctionCode {
         } else if a.location.is_register() {
             dynasm!(
                 assembler
-                ; mov eax, [rsp]
-                ; add rsp, 4
+                ; pop rax
             );
             f(
                 assembler,
@@ -411,15 +410,15 @@ impl X64FunctionCode {
             dynasm!(
                 assembler
                 ; push rcx
-                ; mov ecx, [rsp + 12]
+                ; mov ecx, [rsp + 16]
                 ; mov eax, [rsp + 8]
             );
             f(assembler, value_stack, Register::RCX, Register::RAX);
             dynasm!(
                 assembler
-                ; mov [rsp + 12], ecx
+                ; mov [rsp + 16], ecx
                 ; pop rcx
-                ; add rsp, 4
+                ; add rsp, 8
             );
         }
 
@@ -541,17 +540,10 @@ impl X64FunctionCode {
                 );
             }
             ValueLocation::Stack => {
-                if is_dword(get_size_of_type(&val.ty)?) {
-                    dynasm!(
-                        assembler
-                        ; mov eax, [rsp]
-                    );
-                } else {
-                    dynasm!(
-                        assembler
-                        ; mov rax, [rsp]
-                    );
-                }
+                dynasm!(
+                    assembler
+                    ; mov rax, [rsp]
+                );
             }
         }
 
@@ -572,19 +564,10 @@ impl X64FunctionCode {
                 );
             }
             ValueLocation::Stack => {
-                if is_dword(get_size_of_type(&val.ty)?) {
-                    dynasm!(
-                        assembler
-                        ; mov eax, [rsp]
-                        ; add rsp, 4
-                    );
-                } else {
-                    dynasm!(
-                        assembler
-                        ; mov rax, [rsp]
-                        ; add rsp, 8
-                    );
-                }
+                dynasm!(
+                    assembler
+                    ; pop rax
+                );
             }
         }
 
@@ -606,19 +589,10 @@ impl X64FunctionCode {
                 );
             }
             ValueLocation::Stack => {
-                if is_dword(get_size_of_type(&ty)?) {
-                    dynasm!(
-                        assembler
-                        ; sub rsp, 4
-                        ; mov [rsp], eax
-                    );
-                } else {
-                    dynasm!(
-                        assembler
-                        ; sub rsp, 8
-                        ; mov [rsp], rax
-                    );
-                }
+                dynasm!(
+                    assembler
+                    ; push rax
+                );
             }
         }
 
@@ -708,19 +682,10 @@ impl X64FunctionCode {
                     );
                 }
                 ValueLocation::Stack => {
-                    if is_dword(get_size_of_type(&frame.returns[0])?) {
-                        dynasm!(
-                            assembler
-                            ; sub rsp, 4
-                            ; mov [rsp], eax
-                        );
-                    } else {
-                        dynasm!(
-                            assembler
-                            ; sub rsp, 8
-                            ; mov [rsp], rax
-                        );
-                    }
+                    dynasm!(
+                        assembler
+                        ; push rax
+                    );
                 }
             }
         }
@@ -751,7 +716,7 @@ impl X64FunctionCode {
         for i in 0..value_stack.values.len() - frame.value_stack_depth_before {
             let vi = value_stack.values[value_stack.values.len() - 1 - i];
             if vi.location == ValueLocation::Stack {
-                sp_diff += get_size_of_type(&vi.ty)?;
+                sp_diff += 8
             } else {
                 break;
             }
@@ -798,6 +763,67 @@ impl X64FunctionCode {
         Ok(())
     }
 
+    fn emit_native_call_trampoline(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        target: usize,
+        ctx1: usize,
+        ctx2: usize,
+    ) -> Result<DynamicLabel, CodegenError> {
+        let label = assembler.new_dynamic_label();
+
+        dynasm!(
+            assembler
+            ; =>label
+        );
+
+        let mut saved_regs: Vec<Register> = Vec::new();
+
+        for v in &value_stack.values {
+            match v.location {
+                ValueLocation::Register(x) => {
+                    let reg = Register::from_scratch_reg(x);
+                    dynasm!(
+                        assembler
+                        ; push Rq(reg as u8)
+                    );
+                    saved_regs.push(reg);
+                }
+                ValueLocation::Stack => break,
+            }
+        }
+
+        dynasm!(
+            assembler
+            ; mov rdi, QWORD (ctx1 as i64)
+            ; mov rsi, QWORD (ctx2 as i64)
+            ; lea rdx, [rsp + (saved_regs.len() * 8) as i32]
+            ; mov rcx, rbp
+            ; push rbp
+            ; mov rbp, rsp
+            ; mov rax, QWORD (0xfffffffffffffff0u64 as i64)
+            ; and rsp, rax
+            ; mov rax, QWORD (target as i64)
+            ; call rax
+            ; mov rsp, rbp
+            ; pop rbp
+        );
+
+        for reg in saved_regs.iter().rev() {
+            dynasm!(
+                assembler
+                ; pop Rq(*reg as u8)
+            );
+        }
+
+        dynasm!(
+            assembler
+            ; ret
+        );
+
+        Ok(label)
+    }
+
     fn emit_call_raw(
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
@@ -805,10 +831,7 @@ impl X64FunctionCode {
         params: &[WpType],
         returns: &[WpType],
     ) -> Result<(), CodegenError> {
-        let mut total_size: usize = 0;
-        for ty in params {
-            total_size += get_size_of_type(ty)?;
-        }
+        let total_size: usize = params.len() * 8;
 
         if params.len() > value_stack.values.len() {
             return Err(CodegenError {
@@ -855,42 +878,26 @@ impl X64FunctionCode {
                     message: "value type mismatch",
                 });
             }
-            let size = get_size_of_type(ty)?;
 
             match val.location {
                 ValueLocation::Register(x) => {
                     let reg = Register::from_scratch_reg(x);
-                    if is_dword(size) {
-                        dynasm!(
-                            assembler
-                            ; mov [rsp + offset as i32], Rd(reg as u8)
-                        );
-                    } else {
-                        dynasm!(
-                            assembler
-                            ; mov [rsp + offset as i32], Rq(reg as u8)
-                        );
-                    }
+                    dynasm!(
+                        assembler
+                        ; mov [rsp + offset as i32], Rq(reg as u8)
+                    );
                 }
                 ValueLocation::Stack => {
-                    if is_dword(size) {
-                        dynasm!(
-                            assembler
-                            ; mov eax, [rsp + (total_size + 16 + saved_regs.len() * 8 + caller_stack_offset) as i32]
-                            ; mov [rsp + offset as i32], eax
-                        );
-                    } else {
-                        dynasm!(
-                            assembler
-                            ; mov rax, [rsp + (total_size + 16 + saved_regs.len() * 8 + caller_stack_offset) as i32]
-                            ; mov [rsp + offset as i32], rax
-                        );
-                    }
-                    caller_stack_offset += size;
+                    dynasm!(
+                        assembler
+                        ; mov rax, [rsp + (total_size + 16 + saved_regs.len() * 8 + caller_stack_offset) as i32]
+                        ; mov [rsp + offset as i32], rax
+                    );
+                    caller_stack_offset += 8;
                 }
             }
 
-            offset += size;
+            offset += 8;
         }
 
         assert_eq!(offset, total_size);
@@ -954,9 +961,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
     /// - Locals in reversed order, callee initialized
     fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError> {
         let assembler = self.assembler.as_mut().unwrap();
-        let size = get_size_of_type(&ty)?;
 
-        self.current_stack_offset += size;
+        self.current_stack_offset += 8;
         self.locals.push(Local {
             ty: ty,
             stack_offset: self.current_stack_offset,
@@ -970,25 +976,40 @@ impl FunctionCodeGenerator for X64FunctionCode {
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
         let assembler = self.assembler.as_mut().unwrap();
         let size = get_size_of_type(&ty)?;
-        for _ in 0..n {
-            // FIXME: check range of n
-            self.current_stack_offset += size;
-            self.locals.push(Local {
-                ty: ty,
-                stack_offset: self.current_stack_offset,
-            });
-            match size {
-                4 => dynasm!(
+
+        if is_dword(size) {
+            for _ in 0..n {
+                // FIXME: check range of n
+                self.current_stack_offset += 4;
+                self.locals.push(Local {
+                    ty: ty,
+                    stack_offset: self.current_stack_offset,
+                });
+                dynasm!(
                     assembler
                     ; sub rsp, 4
                     ; mov DWORD [rsp], 0
-                ),
-                8 => dynasm!(
+                );
+            }
+            if n % 2 == 1 {
+                self.current_stack_offset += 4;
+                dynasm!(
                     assembler
-                    ; sub rsp, 8
-                    ; mov QWORD [rsp], 0
-                ),
-                _ => unreachable!(),
+                    ; sub rsp, 4
+                );
+            }
+        } else {
+            for _ in 0..n {
+                // FIXME: check range of n
+                self.current_stack_offset += 8;
+                self.locals.push(Local {
+                    ty: ty,
+                    stack_offset: self.current_stack_offset,
+                });
+                dynasm!(
+                    assembler
+                    ; push 0
+                );
             }
         }
         Ok(())
@@ -1054,15 +1075,13 @@ impl FunctionCodeGenerator for X64FunctionCode {
                             dynasm!(
                                 assembler
                                 ; mov eax, [rbp - (local.stack_offset as i32)]
-                                ; sub rsp, 4
-                                ; mov [rsp], eax
+                                ; push rax
                             );
                         } else {
                             dynasm!(
                                 assembler
                                 ; mov rax, [rbp - (local.stack_offset as i32)]
-                                ; sub rsp, 8
-                                ; mov [rsp], rax
+                                ; push rax
                             );
                         }
                     }
@@ -1108,8 +1127,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     ValueLocation::Stack => {
                         dynasm!(
                             assembler
-                            ; sub rsp, 4
-                            ; mov DWORD [rsp], value
+                            ; push value
                         );
                     }
                 }
