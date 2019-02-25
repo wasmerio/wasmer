@@ -1,7 +1,6 @@
 extern crate structopt;
 
 use std::env;
-use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -14,7 +13,6 @@ use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash};
-use wasmer_runtime::error::CacheError;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -84,6 +82,12 @@ fn get_cache_dir() -> PathBuf {
 
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
+    // force disable caching on windows
+    #[cfg(target_os = "windows")]
+    let disable_cache = true;
+    #[cfg(not(target_os = "windows"))]
+    let disable_windows = options.disable_cache;
+
     let wasm_path = &options.path;
 
     let mut wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
@@ -99,7 +103,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    let module = if !options.disable_cache {
+    let module = if !disable_cache {
         // If we have cache enabled
 
         // We generate a hash for the given binary, so we can use it as key
@@ -188,8 +192,10 @@ fn main() {
         CLIOptions::SelfUpdate => {
             println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
         }
+        #[cfg(not(target_os = "windows"))]
         CLIOptions::Cache(cache) => match cache {
             Cache::Clean => {
+                use std::fs;
                 let cache_dir = get_cache_dir();
                 fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
                 fs::create_dir(cache_dir.clone()).expect("Can't create cache dir");
@@ -198,5 +204,9 @@ fn main() {
                 println!("{}", get_cache_dir().to_string_lossy());
             }
         },
+        #[cfg(target_os = "windows")]
+        CLIOptions::Cache(_) => {
+            println!("Caching is disabled for Windows.");
+        }
     }
 }
