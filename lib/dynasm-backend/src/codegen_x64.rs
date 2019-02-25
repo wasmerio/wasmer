@@ -159,10 +159,10 @@ impl ProtectedCaller for X64ExecutionContext {
         }
 
         let f = &self.functions[index];
-        let mut total_size: usize = 0;
+        let total_size = f.num_params * 8;
 
-        for local in &f.locals[0..f.num_params] {
-            total_size += get_size_of_type(&local.ty).unwrap();
+        if f.num_params > 0 && f.locals[f.num_params - 1].stack_offset != total_size {
+            panic!("internal error: inconsistent stack layout");
         }
 
         let mut param_buf: Vec<u8> = vec![0; total_size];
