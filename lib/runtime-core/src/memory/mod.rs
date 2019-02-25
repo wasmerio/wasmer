@@ -1,5 +1,5 @@
 use crate::{
-    error::CreationError,
+    error::{CreationError, GrowError},
     export::Export,
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
@@ -89,8 +89,8 @@ impl Memory {
         self.desc
     }
 
-    /// Grow this memory by the specfied number of pages.
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+    /// Grow this memory by the specified number of pages.
+    pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         match &self.variant {
             MemoryVariant::Unshared(unshared_mem) => unshared_mem.grow(delta),
             MemoryVariant::Shared(shared_mem) => shared_mem.grow(delta),
@@ -244,7 +244,7 @@ impl UnsharedMemory {
         })
     }
 
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+    pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         let mut storage = self.internal.storage.borrow_mut();
 
         let mut local = self.internal.local.get();
@@ -292,7 +292,7 @@ impl SharedMemory {
         Ok(Self { desc })
     }
 
-    pub fn grow(&self, _delta: Pages) -> Option<Pages> {
+    pub fn grow(&self, _delta: Pages) -> Result<Pages, GrowError> {
         unimplemented!()
     }
 
