@@ -377,7 +377,7 @@ impl std::fmt::Display for Error {
                     }
                     Ok(())
                 }
-            },
+            }
             Error::RuntimeError(err) => write!(f, "runtime error: {}", err),
             Error::ResolveError(err) => write!(f, "resolve error: {}", err),
             Error::CallError(err) => write!(f, "call error: {}", err),
