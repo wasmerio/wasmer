@@ -7,6 +7,7 @@ use crate::{
     },
     signal::HandlerData,
 };
+use rayon::prelude::*;
 
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
@@ -92,25 +93,45 @@ impl FuncResolverBuilder {
         function_bodies: Map<LocalFuncIndex, ir::Function>,
         info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {
-        let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
-        let mut local_relocs = Map::with_capacity(function_bodies.len());
-        let mut external_relocs = Map::new();
+        let num_func_bodies = function_bodies.len();
+        let mut compiled_functions: Vec<(Vec<u8>, RelocSink)> = Vec::with_capacity(num_func_bodies);
+        let mut local_relocs = Map::with_capacity(num_func_bodies);
+        let mut external_relocs = Map::with_capacity(num_func_bodies);
 
         let mut trap_sink = TrapSink::new();
-        let mut local_trap_sink = LocalTrapSink::new();
 
-        let mut ctx = Context::new();
+        let compiled_functions: Result<Vec<(Vec<u8>, (RelocSink, LocalTrapSink))>, CompileError> =
+            function_bodies
+                .into_vec()
+                .par_iter()
+                .map_init(
+                    || Context::new(),
+                    |ctx, func| {
+                        let mut code_buf = Vec::new();
+                        ctx.func = func.to_owned();
+                        let mut reloc_sink = RelocSink::new();
+                        let mut local_trap_sink = LocalTrapSink::new();
+
+                        ctx.compile_and_emit(
+                            isa,
+                            &mut code_buf,
+                            &mut reloc_sink,
+                            &mut local_trap_sink,
+                        )
+                        .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
+                        ctx.clear();
+                        Ok((code_buf, (reloc_sink, local_trap_sink)))
+                    },
+                )
+                .collect();
+
+        let compiled_functions = compiled_functions?;
         let mut total_size = 0;
-
-        for (_, func) in function_bodies {
-            ctx.func = func;
-            let mut code_buf = Vec::new();
-            let mut reloc_sink = RelocSink::new();
-
-            ctx.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut local_trap_sink)
-                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
-            ctx.clear();
-
+        // We separate into two iterators, one iterable and one into iterable
+        let (code_bufs, sinks): (Vec<Vec<u8>>, Vec<(RelocSink, LocalTrapSink)>) =
+            compiled_functions.into_iter().unzip();
+        for (code_buf, (reloc_sink, mut local_trap_sink)) in code_bufs.iter().zip(sinks.into_iter())
+        {
             // Clear the local trap sink and consolidate all trap info
             // into a single location.
             trap_sink.drain_local(total_size, &mut local_trap_sink);
@@ -118,7 +139,6 @@ impl FuncResolverBuilder {
             // Round up each function's size to pointer alignment.
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
 
-            compiled_functions.push(code_buf);
             local_relocs.push(reloc_sink.local_relocs.into_boxed_slice());
             external_relocs.push(reloc_sink.external_relocs.into_boxed_slice());
         }
@@ -145,10 +165,10 @@ impl FuncResolverBuilder {
             *i = 0xCC;
         }
 
-        let mut map = Map::with_capacity(compiled_functions.len());
+        let mut map = Map::with_capacity(num_func_bodies);
 
         let mut previous_end = 0;
-        for compiled in compiled_functions.iter() {
+        for compiled in code_bufs.iter() {
             let new_end = previous_end + round_up(compiled.len(), mem::size_of::<usize>());
             unsafe {
                 memory.as_slice_mut()[previous_end..previous_end + compiled.len()]

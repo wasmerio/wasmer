@@ -11,7 +11,7 @@ ChangesEnvironment=yes
 OutputBaseFilename=WasmerInstaller
 
 [Files]
-Source: "..\target\release\wasmer.exe"; DestDir: "{app}\bin"
+Source: "..\..\target\release\wasmer.exe"; DestDir: "{app}\bin"
 
 [Code]
 const EnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';

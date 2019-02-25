@@ -55,6 +55,7 @@ mod test_funcptrfunc;
 mod test_funcs;
 mod test_functionpointer_libfunc_varargs;
 mod test_fwrite_0;
+mod test_getcwd;
 mod test_getgep;
 mod test_getloadavg;
 mod test_getopt;
