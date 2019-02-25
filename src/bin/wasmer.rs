@@ -86,7 +86,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let disable_cache = true;
     #[cfg(not(target_os = "windows"))]
-    let disable_windows = options.disable_cache;
+    let disable_cache = options.disable_cache;
 
     let wasm_path = &options.path;
 
