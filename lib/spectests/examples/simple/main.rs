@@ -8,6 +8,7 @@ use wasmer_runtime_core::{
     table::Table,
     types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
     units::Pages,
+    Func,
 };
 
 static EXAMPLE_WASM: &'static [u8] = include_bytes!("simple.wasm");
@@ -37,7 +38,9 @@ fn main() -> error::Result<()> {
 
     let import_object = imports! {
         "env" => {
-            "print_i32" => func!(print_num),
+            "print_i32" => Func::new(|n| {
+                print_num(&memory, n)
+            }),
             "memory" => memory,
             "global" => global,
             "table" => table,
@@ -58,10 +61,8 @@ fn main() -> error::Result<()> {
     Ok(())
 }
 
-fn print_num(ctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
+fn print_num(memory: &Memory, n: i32) -> Result<i32, ()> {
     println!("print_num({})", n);
-
-    let memory: &Memory = ctx.memory(0);
 
     let a: i32 = memory.view()[0].get();
 
