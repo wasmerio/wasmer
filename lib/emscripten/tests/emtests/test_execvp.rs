@@ -2,7 +2,7 @@
 fn test_clock_gettime() {
     assert_emscripten_output!(
         "../../emtests/test_execvp.wasm",
-        "clock_gettime",
+        "test_execvp",
         vec![],
         "../../emtests/test_execvp.out"
     );
