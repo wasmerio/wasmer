@@ -2,7 +2,7 @@ use crate::{
     module::{Module, ModuleInfo},
     sys::Memory,
 };
-use blake2::{Blake2b, Digest};
+use blake2b_simd::blake2b;
 use std::{fmt, io, mem, slice};
 
 #[derive(Debug)]
@@ -45,9 +45,8 @@ impl WasmHash {
         let mut first_part = [0u8; 32];
         let mut second_part = [0u8; 32];
 
-        let mut hasher = Blake2b::new();
-        hasher.input(wasm);
-        let generic_array = hasher.result();
+        let mut hasher = blake2b(wasm);
+        let generic_array = hasher.as_bytes();
 
         first_part.copy_from_slice(&generic_array[0..32]);
         second_part.copy_from_slice(&generic_array[32..64]);
