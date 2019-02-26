@@ -4,7 +4,7 @@ use crate::{
     export::{Context, Export, FuncPointer},
     import::IsExport,
     types::{FuncSig, Type, WasmExternType},
-    vm::Ctx,
+    vm::{Ctx, Env, Func as VmFunc},
 };
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
 
@@ -23,7 +23,7 @@ pub trait WasmTypeList {
     fn from_c_struct(c_struct: Self::CStruct) -> Self;
     fn into_c_struct(self) -> Self::CStruct;
     fn types() -> &'static [Type];
-    unsafe fn call<Rets>(self, f: *const (), ctx: *mut Ctx) -> Rets
+    unsafe fn call<Rets>(self, f: *const VmFunc, env: *mut Env) -> Rets
     where
         Rets: WasmTypeList;
 }
@@ -33,7 +33,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn to_raw(&self) -> *const ();
+    fn to_raw(&self) -> (*const VmFunc, *mut Env);
 }
 
 pub trait TrapEarly<Rets>
@@ -72,8 +72,8 @@ where
 // }
 
 pub struct Func<'a, Args = (), Rets = (), Safety: Safeness = Safe> {
-    f: *const (),
-    ctx: *mut Ctx,
+    f: *const VmFunc,
+    env: *mut Env,
     _phantom: PhantomData<(&'a (), Safety, Args, Rets)>,
 }
 
@@ -82,10 +82,13 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub(crate) unsafe fn new_from_ptr(f: *const (), ctx: *mut Ctx) -> Func<'a, Args, Rets, Safe> {
+    pub(crate) unsafe fn new_from_ptr(
+        f: *const VmFunc,
+        env: *mut Env,
+    ) -> Func<'a, Args, Rets, Safe> {
         Func {
             f,
-            ctx,
+            env,
             _phantom: PhantomData,
         }
     }
@@ -100,9 +103,10 @@ where
     where
         F: ExternalFunction<Args, Rets>,
     {
+        let (f, env) = f.to_raw();
         Func {
-            f: f.to_raw(),
-            ctx: ptr::null_mut(),
+            f,
+            env,
             _phantom: PhantomData,
         }
     }
@@ -137,10 +141,10 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
         &[A::TYPE]
     }
     #[allow(non_snake_case)]
-    unsafe fn call<Rets: WasmTypeList>(self, f: *const (), ctx: *mut Ctx) -> Rets {
-        let f: extern "C" fn(*mut Ctx, A) -> Rets = mem::transmute(f);
+    unsafe fn call<Rets: WasmTypeList>(self, f: *const VmFunc, env: *mut Env) -> Rets {
+        let f: extern "C" fn(*mut Env, A) -> Rets = mem::transmute(f);
         let (a,) = self;
-        f(ctx, a)
+        f(env, a)
     }
 }
 
@@ -149,7 +153,7 @@ where
     Rets: WasmTypeList,
 {
     pub fn call(&self, a: A) -> Result<Rets, RuntimeError> {
-        Ok(unsafe { <A as WasmTypeList>::call(a, self.f, self.ctx) })
+        Ok(unsafe { <A as WasmTypeList>::call(a, self.f, self.env) })
     }
 }
 
@@ -174,25 +178,33 @@ macro_rules! impl_traits {
                 &[$( $x::TYPE, )*]
             }
             #[allow(non_snake_case)]
-            unsafe fn call<Rets: WasmTypeList>(self, f: *const (), ctx: *mut Ctx) -> Rets {
-                let f: extern fn(*mut Ctx $( ,$x )*) -> Rets::CStruct = mem::transmute(f);
+            unsafe fn call<Rets: WasmTypeList>(self, f: *const VmFunc, env: *mut Env) -> Rets {
+                let f: extern fn(*mut Env $( ,$x )*) -> Rets::CStruct = mem::transmute(f);
                 #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
-                let c_struct = f(ctx $( ,$x )*);
+                let c_struct = f(env $( ,$x )*);
                 Rets::from_c_struct(c_struct)
             }
         }
 
-        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
+        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* ) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
-            fn to_raw(&self) -> *const () {
-                assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
+            fn to_raw(&self) -> (*const VmFunc, *mut Env) {
+                let env_ptr: *mut Env = if mem::size_of::<Self>() != 0 {
+                    // This function captures some state.
+                    Box::leak(Box::new(unsafe { (self as *const Self).read() }))  as *mut _ as *mut Env
+                } else {
+                    // This function doesn't capture any state.
+                    ptr::null_mut()
+                };
+                // assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
 
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
-                    let f: FN = unsafe { mem::transmute_copy(&()) };
+                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* ) -> Trap>( env: *mut Env $( ,$x: $x )* ) -> Rets::CStruct {
+                    let f: FN = unsafe { (env as *mut FN).read() };
 
                     let msg = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        f( ctx $( ,$x )* ).report()
+
+                        f( $( $x, )* ).report()
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => err,
@@ -217,7 +229,10 @@ macro_rules! impl_traits {
                     }
                 }
 
-                wrap::<$( $x, )* Rets, Trap, Self> as *const ()
+                (
+                    wrap::<$( $x, )* Rets, Trap, Self> as *const VmFunc,
+                    env_ptr,
+                )
             }
         }
 
@@ -228,7 +243,7 @@ macro_rules! impl_traits {
             #[allow(non_snake_case)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
-                Ok(unsafe { <( $( $x ),* ) as WasmTypeList>::call(( $($x),* ), self.f, self.ctx) })
+                Ok(unsafe { <( $( $x ),* ) as WasmTypeList>::call(( $($x),* ), self.f, self.env) })
             }
         }
     };
@@ -272,18 +287,16 @@ mod tests {
     use super::*;
     #[test]
     fn test_call() {
-        fn foo(_ctx: &mut Ctx, a: i32, b: i32) -> (i32, i32) {
-            (a, b)
-        }
+        let c = 0;
 
-        let _f = Func::new(foo);
+        let _f = Func::new(|a: i32, b: i32| (a, b, c));
     }
 
     #[test]
     fn test_imports() {
         use crate::{func, imports};
 
-        fn foo(_ctx: &mut Ctx, a: i32) -> i32 {
+        fn foo(a: i32) -> i32 {
             a
         }
 

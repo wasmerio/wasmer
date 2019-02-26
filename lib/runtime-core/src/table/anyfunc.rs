@@ -12,6 +12,7 @@ use std::{ptr, sync::Arc};
 enum AnyfuncInner<'a> {
     Host {
         ptr: *const vm::Func,
+        env: *mut vm::Env,
         signature: Arc<FuncSig>,
     },
     Managed(DynFunc<'a>),
@@ -22,13 +23,14 @@ pub struct Anyfunc<'a> {
 }
 
 impl<'a> Anyfunc<'a> {
-    pub unsafe fn new<Sig>(func: *const vm::Func, signature: Sig) -> Self
+    pub unsafe fn new<Sig>(func: *const vm::Func, env: *mut vm::Env, signature: Sig) -> Self
     where
         Sig: Into<Arc<FuncSig>>,
     {
         Self {
             inner: AnyfuncInner::Host {
-                ptr: func as _,
+                ptr: func,
+                env,
                 signature: signature.into(),
             },
         }
@@ -99,13 +101,17 @@ impl AnyfuncTable {
     pub fn set(&mut self, index: u32, element: Anyfunc) -> Result<(), ()> {
         if let Some(slot) = self.backing.get_mut(index as usize) {
             let anyfunc = match element.inner {
-                AnyfuncInner::Host { ptr, signature } => {
+                AnyfuncInner::Host {
+                    ptr,
+                    env,
+                    signature,
+                } => {
                     let sig_index = SigRegistry.lookup_sig_index(signature);
                     let sig_id = vm::SigId(sig_index.index() as u32);
 
                     vm::Anyfunc {
                         func: ptr,
-                        ctx: ptr::null_mut(),
+                        env,
                         sig_id,
                     }
                 }
@@ -115,7 +121,7 @@ impl AnyfuncTable {
 
                     vm::Anyfunc {
                         func: func.raw(),
-                        ctx: func.instance_inner.vmctx,
+                        env: func.instance_inner.vmctx as _,
                         sig_id,
                     }
                 }

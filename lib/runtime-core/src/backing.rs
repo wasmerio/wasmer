@@ -177,7 +177,7 @@ impl LocalBacking {
                                 SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
                             );
 
-                            let (func, ctx) = match func_index.local_or_import(&module.info) {
+                            let (func, env) = match func_index.local_or_import(&module.info) {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
                                         .func_resolver
@@ -185,16 +185,16 @@ impl LocalBacking {
                                         .unwrap()
                                         .as_ptr()
                                         as *const vm::Func,
-                                    vmctx,
+                                    vmctx as _,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, vmctx } =
+                                    let vm::ImportedFunc { func, env } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx)
+                                    (func, env)
                                 }
                             };
 
-                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id };
+                            elements[init_base + i] = vm::Anyfunc { func, env, sig_id };
                         }
                     });
                 }
@@ -215,7 +215,7 @@ impl LocalBacking {
                                 SigRegistry.lookup_sig_index(Arc::clone(&signature)).index() as u32,
                             );
 
-                            let (func, ctx) = match func_index.local_or_import(&module.info) {
+                            let (func, env) = match func_index.local_or_import(&module.info) {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
                                         .func_resolver
@@ -223,16 +223,16 @@ impl LocalBacking {
                                         .unwrap()
                                         .as_ptr()
                                         as *const vm::Func,
-                                    vmctx,
+                                    vmctx as _,
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
-                                    let vm::ImportedFunc { func, vmctx } =
+                                    let vm::ImportedFunc { func, env } =
                                         imports.vm_functions[imported_func_index];
-                                    (func, vmctx)
+                                    (func, env)
                                 }
                             };
 
-                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id };
+                            elements[init_base + i] = vm::Anyfunc { func, env, sig_id };
                         }
                     });
                 }
@@ -382,10 +382,10 @@ fn import_functions(
                 if *expected_sig == signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
-                        vmctx: match ctx {
+                        env: match ctx {
                             Context::External(ctx) => ctx,
                             Context::Internal => vmctx,
-                        },
+                        } as _,
                     });
                 } else {
                     link_errors.push(LinkError::IncorrectImportSignature {

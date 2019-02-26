@@ -121,10 +121,10 @@ impl Instance {
                 })?;
             }
 
-            let ctx = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(_) => self.inner.vmctx,
+            let env = match func_index.local_or_import(&self.module.info) {
+                LocalOrImport::Local(_) => self.inner.vmctx as *mut vm::Env,
                 LocalOrImport::Import(imported_func_index) => {
-                    self.inner.import_backing.vm_functions[imported_func_index].vmctx
+                    self.inner.import_backing.vm_functions[imported_func_index].env
                 }
             };
 
@@ -141,7 +141,7 @@ impl Instance {
             };
 
             let typed_func: Func<Args, Rets, Safe> =
-                unsafe { Func::new_from_ptr(func_ptr as _, ctx) };
+                unsafe { Func::new_from_ptr(func_ptr as _, env) };
 
             Ok(typed_func)
         } else {
@@ -288,10 +288,10 @@ impl Instance {
             })?
         }
 
-        let vmctx = match func_index.local_or_import(&self.module.info) {
-            LocalOrImport::Local(_) => self.inner.vmctx,
+        let env = match func_index.local_or_import(&self.module.info) {
+            LocalOrImport::Local(_) => self.inner.vmctx as *mut vm::Env,
             LocalOrImport::Import(imported_func_index) => {
-                self.inner.import_backing.vm_functions[imported_func_index].vmctx
+                self.inner.import_backing.vm_functions[imported_func_index].env
             }
         };
 
@@ -302,7 +302,7 @@ impl Instance {
             func_index,
             args,
             &self.inner.import_backing,
-            vmctx,
+            env as _,
             token,
         )?;
 
@@ -369,7 +369,7 @@ impl InstanceInner {
                 let imported_func = &self.import_backing.vm_functions[imported_func_index];
                 (
                     imported_func.func as *const _,
-                    Context::External(imported_func.vmctx),
+                    Context::External(imported_func.env as _),
                 )
             }
         };
@@ -462,10 +462,10 @@ impl<'a> DynFunc<'a> {
             })?
         }
 
-        let vmctx = match self.func_index.local_or_import(&self.module.info) {
-            LocalOrImport::Local(_) => self.instance_inner.vmctx,
+        let env = match self.func_index.local_or_import(&self.module.info) {
+            LocalOrImport::Local(_) => self.instance_inner.vmctx as *mut vm::Env,
             LocalOrImport::Import(imported_func_index) => {
-                self.instance_inner.import_backing.vm_functions[imported_func_index].vmctx
+                self.instance_inner.import_backing.vm_functions[imported_func_index].env
             }
         };
 
@@ -476,7 +476,7 @@ impl<'a> DynFunc<'a> {
             self.func_index,
             params,
             &self.instance_inner.import_backing,
-            vmctx,
+            env as _,
             token,
         )?;
 

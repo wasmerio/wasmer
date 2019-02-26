@@ -165,19 +165,23 @@ impl Ctx {
     }
 }
 
-enum InnerFunc {}
 /// Used to provide type safety (ish) for passing around function pointers.
-/// The typesystem ensures this cannot be dereferenced since an
-/// empty enum cannot actually exist.
 #[repr(C)]
-pub struct Func(InnerFunc);
+pub struct Func {
+    _private: [u8; 0],
+}
 
-/// An imported function, which contains the vmctx that owns this function.
+#[repr(C)]
+pub struct Env {
+    _private: [u8; 0],
+}
+
+/// An imported function, which contains an environment.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
     pub func: *const Func,
-    pub vmctx: *mut Ctx,
+    pub env: *mut Env,
 }
 
 impl ImportedFunc {
@@ -282,7 +286,7 @@ pub struct SigId(pub u32);
 #[repr(C)]
 pub struct Anyfunc {
     pub func: *const Func,
-    pub ctx: *mut Ctx,
+    pub env: *mut Env,
     pub sig_id: SigId,
 }
 
@@ -290,7 +294,7 @@ impl Anyfunc {
     pub fn null() -> Self {
         Self {
             func: ptr::null(),
-            ctx: ptr::null_mut(),
+            env: ptr::null_mut(),
             sig_id: SigId(u32::max_value()),
         }
     }
@@ -364,7 +368,7 @@ mod vm_offset_tests {
 
         assert_eq!(
             ImportedFunc::offset_vmctx() as usize,
-            offset_of!(ImportedFunc => vmctx).get_byte_offset(),
+            offset_of!(ImportedFunc => env).get_byte_offset(),
         );
     }
 
@@ -411,7 +415,7 @@ mod vm_offset_tests {
 
         assert_eq!(
             Anyfunc::offset_vmctx() as usize,
-            offset_of!(Anyfunc => ctx).get_byte_offset(),
+            offset_of!(Anyfunc => env).get_byte_offset(),
         );
 
         assert_eq!(
