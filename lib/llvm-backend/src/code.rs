@@ -481,6 +481,7 @@ fn parse_function(
                 // Emit an unreachable instruction.
                 // If llvm cannot prove that this is never touched,
                 // it will emit a `ud2` instruction on x86_64 arches.
+                ctx.build_trap();
                 builder.build_unreachable();
                 state.reachable = false;
             }
@@ -623,7 +624,8 @@ fn parse_function(
                 }
             }
             Operator::CallIndirect { index, table_index } => {
-                let expected_dynamic_sigindex = ctx.dynamic_sigindex(SigIndex::new(index as usize));
+                let sig_index = SigIndex::new(index as usize);
+                let expected_dynamic_sigindex = ctx.dynamic_sigindex(sig_index);
                 let (table_base, table_bound) = ctx.table(TableIndex::new(table_index as usize));
                 let func_index = state.pop1()?.into_int_value();
 
@@ -651,12 +653,10 @@ fn parse_function(
                                 "func_ptr",
                             )
                             .into_pointer_value(),
-                        builder
-                            .build_load(
-                                builder.build_struct_gep(anyfunc_struct_ptr, 1, "ctx_ptr_ptr"),
-                                "ctx_ptr",
-                            )
-                            .into_pointer_value(),
+                        builder.build_load(
+                            builder.build_struct_gep(anyfunc_struct_ptr, 1, "ctx_ptr_ptr"),
+                            "ctx_ptr",
+                        ),
                         builder
                             .build_load(
                                 builder.build_struct_gep(anyfunc_struct_ptr, 2, "sigindex_ptr"),
@@ -685,21 +685,49 @@ fn parse_function(
                     )
                     .try_as_basic_value()
                     .left()
-                    .unwrap();
+                    .unwrap()
+                    .into_int_value();
 
                 let continue_block = context.append_basic_block(&function, "continue_block");
                 let sigindices_notequal_block =
                     context.append_basic_block(&function, "sigindices_notequal_block");
+                builder.build_conditional_branch(
+                    sigindices_equal,
+                    &continue_block,
+                    &sigindices_notequal_block,
+                );
 
                 builder.position_at_end(&sigindices_notequal_block);
+                ctx.build_trap();
                 builder.build_unreachable();
                 builder.position_at_end(&continue_block);
 
-                println!("func ptr: {:#?}", func_ptr);
-                println!("ctx ptr: {:#?}", ctx_ptr);
-                println!("found dynamic sigindex: {:#?}", found_dynamic_sigindex);
+                let wasmer_fn_sig = &info.signatures[sig_index];
+                let fn_ty = signatures[sig_index];
 
-                unimplemented!("{}, {}", index, table_index);
+                let pushed_args = state.popn_save(wasmer_fn_sig.params().len())?;
+
+                let args: Vec<_> = std::iter::once(ctx_ptr)
+                    .chain(pushed_args.into_iter())
+                    .collect();
+                println!("args: {:?}", args);
+
+                let typed_func_ptr = builder.build_pointer_cast(
+                    func_ptr,
+                    fn_ty.ptr_type(AddressSpace::Generic),
+                    "typed_func_ptr",
+                );
+
+                let call_site = builder.build_call(typed_func_ptr, &args, "indirect_call");
+
+                match wasmer_fn_sig.returns() {
+                    [] => {}
+                    [_] => {
+                        let value = call_site.try_as_basic_value().left().unwrap();
+                        state.push1(value);
+                    }
+                    returns @ _ => unimplemented!("multi-value returns"),
+                }
             }
 
             /***************************

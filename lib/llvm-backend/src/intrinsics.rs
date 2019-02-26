@@ -64,6 +64,7 @@ pub struct Intrinsics {
     pub copysign_f64: FunctionValue,
 
     pub expect_i1: FunctionValue,
+    pub trap: FunctionValue,
 
     pub void_ty: VoidType,
     pub i1_ty: IntType,
@@ -255,6 +256,7 @@ impl Intrinsics {
             copysign_f64: module.add_function("llvm.copysign.f64", ret_f64_take_f64_f64, None),
 
             expect_i1: module.add_function("llvm.expect.i1", ret_i1_take_i1_i1, None),
+            trap: module.add_function("llvm.trap", void_ty.fn_type(&[], false), None),
 
             void_ty,
             i1_ty,
@@ -695,7 +697,9 @@ impl<'a> CtxType<'a> {
         (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr)
     }
 
-    // pub fn table(&mut self, table_index: TableIndex, elem_index: IntValue) ->
+    pub fn build_trap(&self) {
+        self.builder.build_call(self.intrinsics.trap, &[], "trap");
+    }
 }
 
 // pub struct Ctx {
