@@ -62,6 +62,10 @@ fn runtimeNanotime(_ctx: &mut Ctx, val: i32) {
     panic!("runtimeNanotime not yet implemented");
 }
 
+fn runtimeWalltime(_ctx: &mut Ctx, val: i32) {
+    panic!("runtimeWalltime not yet implemented");
+}
+
 fn runtimeScheduleCallback(_ctx: &mut Ctx, val: i32) {
     panic!("runtimeScheduleCallback not yet implemented");
 }
@@ -113,6 +117,7 @@ pub fn generate_golang_env() -> ImportObject {
             "runtime.wasmExit" => func!(crate::runtimeWasmExit),
             "runtime.wasmWrite" => func!(crate::runtimeWasmWrite),
             "runtime.nanotime" => func!(crate::runtimeNanotime),
+            "runtime.walltime" => func!(crate::runtimeWalltime),
             "runtime.scheduleCallback" => func!(crate::runtimeScheduleCallback),
             "runtime.clearScheduledCallback" => func!(crate::runtimeClearScheduledCallback),
             "runtime.getRandomData" =>  func!(crate::runtimeGetRandomData),
