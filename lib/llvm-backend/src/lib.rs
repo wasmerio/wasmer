@@ -10,11 +10,11 @@ use wasmer_runtime_core::{
     module::ModuleInner,
 };
 
+mod backend;
 mod code;
 mod intrinsics;
 mod read_info;
 mod state;
-// mod backend;
 
 pub struct LLVMCompiler {
     _private: (),
@@ -28,13 +28,61 @@ impl LLVMCompiler {
 
 impl Compiler for LLVMCompiler {
     fn compile(&self, wasm: &[u8], _: Token) -> Result<ModuleInner, CompileError> {
-        let (_info, _code_reader) = read_info::read_module(wasm).unwrap();
+        let (info, code_reader) = read_info::read_module(wasm).unwrap();
+        let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
-        unimplemented!()
+        let backend = backend::LLVMBackend::new(module, intrinsics);
+
+        // Create placeholder values here.
+        let (protected_caller, cache_gen) = {
+            use wasmer_runtime_core::backend::{
+                sys::Memory, CacheGen, ProtectedCaller, UserTrapper,
+            };
+            use wasmer_runtime_core::cache::Error as CacheError;
+            use wasmer_runtime_core::error::RuntimeResult;
+            use wasmer_runtime_core::module::ModuleInfo;
+            use wasmer_runtime_core::types::{FuncIndex, Value};
+            use wasmer_runtime_core::vm;
+            struct Placeholder;
+            impl ProtectedCaller for Placeholder {
+                fn call(
+                    &self,
+                    _module: &ModuleInner,
+                    _func_index: FuncIndex,
+                    _params: &[Value],
+                    _import_backing: &vm::ImportBacking,
+                    _vmctx: *mut vm::Ctx,
+                    _: Token,
+                ) -> RuntimeResult<Vec<Value>> {
+                    Ok(vec![])
+                }
+                fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+                    unimplemented!()
+                }
+            }
+            impl CacheGen for Placeholder {
+                fn generate_cache(
+                    &self,
+                    module: &ModuleInner,
+                ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+                    unimplemented!()
+                }
+            }
+
+            (Box::new(Placeholder), Box::new(Placeholder))
+        };
+
+        Ok(ModuleInner {
+            func_resolver: Box::new(backend),
+            protected_caller,
+            cache_gen,
+
+            info,
+        })
     }
 
     unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        unimplemented!()
+        unimplemented!("the llvm backend doesn't support caching yet")
     }
 }
 
@@ -55,14 +103,9 @@ fn test_read_module() {
             get_local 0
             i32.const 0
             call_indirect (type $t0)
-            memory.grow
         )
         (func $foobar (type $t0)
             get_local 0
-        )
-        (func $bar (type $t0) (param i32) (result i32)
-            get_local 0
-            call $foo
         ))
     "#;
     let wasm = wat2wasm(wat).unwrap();
@@ -71,86 +114,50 @@ fn test_read_module() {
 
     let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
-    {
-        Target::initialize_x86(&InitializationConfig {
-            asm_parser: true,
-            asm_printer: true,
-            base: true,
-            disassembler: true,
-            info: true,
-            machine_code: true,
-        });
-        let triple = TargetMachine::get_default_triple().to_string();
-        let target = Target::from_triple(&triple).unwrap();
-        let target_machine = target
-            .create_target_machine(
-                &triple,
-                &TargetMachine::get_host_cpu_name().to_string(),
-                &TargetMachine::get_host_cpu_features().to_string(),
-                OptimizationLevel::Default,
-                RelocMode::PIC,
-                CodeModel::Default,
-            )
-            .unwrap();
+    // let backend = backend::LLVMBackend::new(module, intrinsics);
 
-        let memory_buffer = target_machine
-            .write_to_memory_buffer(&module, FileType::Object)
-            .unwrap();
-        // std::fs::write("memory_buffer", memory_buffer.as_slice()).unwrap();
-        let mem_buf_slice = memory_buffer.as_slice();
-
-        let macho = goblin::mach::MachO::parse(mem_buf_slice, 0).unwrap();
-        let symbols = macho.symbols.as_ref().unwrap();
-        let relocations = macho.relocations().unwrap();
-        for (_, reloc_iter, section) in relocations.into_iter() {
-            println!("section: {:#?}", section);
-            for reloc_info in reloc_iter {
-                let reloc_info = reloc_info.unwrap();
-                println!("\treloc_info: {:#?}", reloc_info);
-                println!(
-                    "\tsymbol: {:#?}",
-                    symbols.get(reloc_info.r_symbolnum()).unwrap()
-                );
-            }
-        }
+    extern "C" {
+        fn test_cpp();
     }
 
-    let exec_engine = module
-        .create_jit_execution_engine(OptimizationLevel::Default)
-        .unwrap();
+    unsafe { test_cpp() };
 
-    exec_engine.add_global_mapping(
-        &intrinsics.memory_grow_dynamic_local,
-        vmcalls::local_dynamic_memory_grow as usize,
-    );
-    exec_engine.add_global_mapping(
-        &intrinsics.memory_grow_static_local,
-        vmcalls::local_static_memory_grow as usize,
-    );
-    exec_engine.add_global_mapping(
-        &intrinsics.memory_grow_dynamic_import,
-        vmcalls::imported_dynamic_memory_grow as usize,
-    );
-    exec_engine.add_global_mapping(
-        &intrinsics.memory_grow_static_import,
-        vmcalls::imported_static_memory_grow as usize,
-    );
-    exec_engine.add_global_mapping(
-        &intrinsics.memory_size_dynamic_local,
-        vmcalls::local_dynamic_memory_size as usize,
-    );
-    exec_engine.add_global_mapping(
-        &intrinsics.memory_size_static_local,
-        vmcalls::local_static_memory_size as usize,
-    );
-    exec_engine.add_global_mapping(
-        &intrinsics.memory_size_dynamic_import,
-        vmcalls::imported_dynamic_memory_size as usize,
-    );
-    exec_engine.add_global_mapping(
-        &intrinsics.memory_size_static_import,
-        vmcalls::imported_static_memory_size as usize,
-    );
+    // let exec_engine = module
+    //     .create_jit_execution_engine(OptimizationLevel::Default)
+    //     .unwrap();
+
+    // exec_engine.add_global_mapping(
+    //     &intrinsics.memory_grow_dynamic_local,
+    //     vmcalls::local_dynamic_memory_grow as usize,
+    // );
+    // exec_engine.add_global_mapping(
+    //     &intrinsics.memory_grow_static_local,
+    //     vmcalls::local_static_memory_grow as usize,
+    // );
+    // exec_engine.add_global_mapping(
+    //     &intrinsics.memory_grow_dynamic_import,
+    //     vmcalls::imported_dynamic_memory_grow as usize,
+    // );
+    // exec_engine.add_global_mapping(
+    //     &intrinsics.memory_grow_static_import,
+    //     vmcalls::imported_static_memory_grow as usize,
+    // );
+    // exec_engine.add_global_mapping(
+    //     &intrinsics.memory_size_dynamic_local,
+    //     vmcalls::local_dynamic_memory_size as usize,
+    // );
+    // exec_engine.add_global_mapping(
+    //     &intrinsics.memory_size_static_local,
+    //     vmcalls::local_static_memory_size as usize,
+    // );
+    // exec_engine.add_global_mapping(
+    //     &intrinsics.memory_size_dynamic_import,
+    //     vmcalls::imported_dynamic_memory_size as usize,
+    // );
+    // exec_engine.add_global_mapping(
+    //     &intrinsics.memory_size_static_import,
+    //     vmcalls::imported_static_memory_size as usize,
+    // );
 
     // unsafe {
     //     let func: JitFunction<unsafe extern fn(*mut u8, i32) -> i32> = exec_engine.get_function("fn0").unwrap();
