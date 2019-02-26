@@ -2,8 +2,7 @@ use crate::{
     module::{Module, ModuleInfo},
     sys::Memory,
 };
-use digest::Digest;
-use meowhash::MeowHasher;
+use blake2::{Blake2b, Digest};
 use std::{fmt, io, mem, slice};
 
 #[derive(Debug)]
@@ -45,7 +44,10 @@ impl WasmHash {
     pub fn generate(wasm: &[u8]) -> Self {
         let mut first_part = [0u8; 32];
         let mut second_part = [0u8; 32];
-        let generic_array = MeowHasher::digest(wasm);
+
+        let mut hasher = Blake2b::new();
+        hasher.input(wasm);
+        let generic_array = hasher.result();
 
         first_part.copy_from_slice(&generic_array[0..32]);
         second_part.copy_from_slice(&generic_array[32..64]);
