@@ -405,23 +405,6 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             vm::Anyfunc::offset_func() as i32,
         );
 
-        // let vmctx_ptr = {
-        //     let loaded_vmctx_ptr = pos.ins().load(
-        //         ptr_type,
-        //         mflags,
-        //         entry_addr,
-        //         vm::Anyfunc::offset_vmctx() as i32,
-        //     );
-
-        //     let argument_vmctx_ptr = pos
-        //         .func
-        //         .special_param(ir::ArgumentPurpose::VMContext)
-        //         .expect("missing vmctx parameter");
-
-        //     // If the loaded vmctx ptr is zero, use the caller vmctx, else use the callee (loaded) vmctx.
-        //     pos.ins()
-        //         .select(loaded_vmctx_ptr, loaded_vmctx_ptr, argument_vmctx_ptr)
-        // };
         let env_ptr = pos.ins().load(
             ptr_type,
             mflags,
