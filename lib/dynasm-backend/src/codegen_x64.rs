@@ -121,16 +121,28 @@ impl Register {
     }
 }
 
-#[derive(Default)]
+#[repr(u64)]
+#[derive(Copy, Clone, Debug)]
+pub enum TrapCode {
+    Unreachable,
+}
+
+pub struct NativeTrampolines {
+    trap_unreachable: DynamicLabel,
+}
+
 pub struct X64ModuleCodeGenerator {
     functions: Vec<X64FunctionCode>,
     signatures: Option<Arc<Map<SigIndex, Arc<FuncSig>>>>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
+    assembler: Option<Assembler>,
+    native_trampolines: Arc<NativeTrampolines>,
 }
 
 pub struct X64FunctionCode {
     signatures: Arc<Map<SigIndex, Arc<FuncSig>>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
+    native_trampolines: Arc<NativeTrampolines>,
 
     id: usize,
     begin_label: DynamicLabel,
@@ -238,7 +250,23 @@ struct Local {
 
 impl X64ModuleCodeGenerator {
     pub fn new() -> X64ModuleCodeGenerator {
-        X64ModuleCodeGenerator::default()
+        let mut assembler = Assembler::new().unwrap();
+        let nt = NativeTrampolines {
+            trap_unreachable: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                do_trap,
+                0usize,
+                TrapCode::Unreachable,
+            ),
+        };
+
+        X64ModuleCodeGenerator {
+            functions: vec![],
+            signatures: None,
+            function_signatures: None,
+            assembler: Some(assembler),
+            native_trampolines: Arc::new(nt),
+        }
     }
 }
 
@@ -250,18 +278,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
                 x.function_labels.take().unwrap(),
                 x.br_table_data.take().unwrap(),
             ),
-            None => (
-                match Assembler::new() {
-                    Ok(x) => x,
-                    Err(_) => {
-                        return Err(CodegenError {
-                            message: "cannot initialize assembler",
-                        })
-                    }
-                },
-                HashMap::new(),
-                vec![],
-            ),
+            None => (self.assembler.take().unwrap(), HashMap::new(), vec![]),
         };
         let begin_label = *function_labels
             .entry(self.functions.len())
@@ -275,6 +292,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
         let code = X64FunctionCode {
             signatures: self.signatures.as_ref().unwrap().clone(),
             function_signatures: self.function_signatures.as_ref().unwrap().clone(),
+            native_trampolines: self.native_trampolines.clone(),
 
             id: self.functions.len(),
             begin_label: begin_label,
@@ -778,13 +796,17 @@ impl X64FunctionCode {
         Ok(())
     }
 
-    fn emit_native_call_trampoline(
+    fn emit_native_call_trampoline<A: Copy + Sized, B: Copy + Sized>(
         assembler: &mut Assembler,
-        value_stack: &mut ValueStack,
-        target: usize,
-        ctx1: usize,
-        ctx2: usize,
-    ) -> Result<DynamicLabel, CodegenError> {
+        target: unsafe extern "C" fn(
+            ctx1: A,
+            ctx2: B,
+            stack_top: *mut u8,
+            stack_base: *mut u8,
+        ) -> u64,
+        ctx1: A,
+        ctx2: B,
+    ) -> DynamicLabel {
         let label = assembler.new_dynamic_label();
 
         dynasm!(
@@ -792,27 +814,15 @@ impl X64FunctionCode {
             ; =>label
         );
 
-        let mut saved_regs: Vec<Register> = Vec::new();
-
-        for v in &value_stack.values {
-            match v.location {
-                ValueLocation::Register(x) => {
-                    let reg = Register::from_scratch_reg(x);
-                    dynasm!(
-                        assembler
-                        ; push Rq(reg as u8)
-                    );
-                    saved_regs.push(reg);
-                }
-                ValueLocation::Stack => break,
-            }
-        }
+        // FIXME: Check at compile time.
+        assert_eq!(::std::mem::size_of::<A>(), ::std::mem::size_of::<i64>());
+        assert_eq!(::std::mem::size_of::<B>(), ::std::mem::size_of::<i64>());
 
         dynasm!(
             assembler
-            ; mov rdi, QWORD (ctx1 as i64)
-            ; mov rsi, QWORD (ctx2 as i64)
-            ; lea rdx, [rsp + (saved_regs.len() * 8) as i32]
+            ; mov rdi, QWORD (unsafe { ::std::mem::transmute_copy::<A, i64>(&ctx1) })
+            ; mov rsi, QWORD (unsafe { ::std::mem::transmute_copy::<B, i64>(&ctx2) })
+            ; mov rdx, rsp
             ; mov rcx, rbp
             ; push rbp
             ; mov rbp, rsp
@@ -824,19 +834,12 @@ impl X64FunctionCode {
             ; pop rbp
         );
 
-        for reg in saved_regs.iter().rev() {
-            dynasm!(
-                assembler
-                ; pop Rq(*reg as u8)
-            );
-        }
-
         dynasm!(
             assembler
             ; ret
         );
 
-        Ok(label)
+        label
     }
 
     fn emit_call_raw(
@@ -1439,10 +1442,13 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     });
             }
             Operator::Unreachable => {
-                dynasm!(
-                    assembler
-                    ; ud2
-                );
+                Self::emit_call_raw(
+                    assembler,
+                    &mut self.value_stack,
+                    self.native_trampolines.trap_unreachable,
+                    &[],
+                    &[],
+                )?;
                 self.unreachable_depth = 1;
             }
             Operator::Drop => {
@@ -1666,4 +1672,13 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
     }
+}
+
+unsafe extern "C" fn do_trap(
+    ctx1: usize,
+    ctx2: TrapCode,
+    stack_top: *mut u8,
+    stack_base: *mut u8,
+) -> u64 {
+    panic!("TRAP CODE: {:?}", ctx2);
 }
