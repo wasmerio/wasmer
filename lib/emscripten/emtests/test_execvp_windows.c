@@ -2,7 +2,7 @@
 #include <unistd.h>
 
 int main() {
-    char command[] = "sh";
+    char command[] = "C:\\Windows\\System32\\cmd.exe";
     char arg1[] = "echo";
     char arg2[] = "foo";
     char* argv[3];
