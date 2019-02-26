@@ -190,7 +190,7 @@ impl ImportedFunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_vmctx() -> u8 {
+    pub fn offset_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -304,7 +304,7 @@ impl Anyfunc {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_vmctx() -> u8 {
+    pub fn offset_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
@@ -367,7 +367,7 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            ImportedFunc::offset_vmctx() as usize,
+            ImportedFunc::offset_env() as usize,
             offset_of!(ImportedFunc => env).get_byte_offset(),
         );
     }
@@ -414,7 +414,7 @@ mod vm_offset_tests {
         );
 
         assert_eq!(
-            Anyfunc::offset_vmctx() as usize,
+            Anyfunc::offset_env() as usize,
             offset_of!(Anyfunc => env).get_byte_offset(),
         );
 

@@ -405,23 +405,29 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
             vm::Anyfunc::offset_func() as i32,
         );
 
-        let vmctx_ptr = {
-            let loaded_vmctx_ptr = pos.ins().load(
-                ptr_type,
-                mflags,
-                entry_addr,
-                vm::Anyfunc::offset_vmctx() as i32,
-            );
+        // let vmctx_ptr = {
+        //     let loaded_vmctx_ptr = pos.ins().load(
+        //         ptr_type,
+        //         mflags,
+        //         entry_addr,
+        //         vm::Anyfunc::offset_vmctx() as i32,
+        //     );
 
-            let argument_vmctx_ptr = pos
-                .func
-                .special_param(ir::ArgumentPurpose::VMContext)
-                .expect("missing vmctx parameter");
+        //     let argument_vmctx_ptr = pos
+        //         .func
+        //         .special_param(ir::ArgumentPurpose::VMContext)
+        //         .expect("missing vmctx parameter");
 
-            // If the loaded vmctx ptr is zero, use the caller vmctx, else use the callee (loaded) vmctx.
-            pos.ins()
-                .select(loaded_vmctx_ptr, loaded_vmctx_ptr, argument_vmctx_ptr)
-        };
+        //     // If the loaded vmctx ptr is zero, use the caller vmctx, else use the callee (loaded) vmctx.
+        //     pos.ins()
+        //         .select(loaded_vmctx_ptr, loaded_vmctx_ptr, argument_vmctx_ptr)
+        // };
+        let env_ptr = pos.ins().load(
+            ptr_type,
+            mflags,
+            entry_addr,
+            vm::Anyfunc::offset_env() as i32,
+        );
 
         let found_sig = pos.ins().load(
             ir::types::I32,
@@ -461,7 +467,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         // Build a value list for the indirect call instruction containing the call_args
         // and the vmctx parameter.
         let mut args = Vec::with_capacity(call_args.len() + 1);
-        args.push(vmctx_ptr);
+        args.push(env_ptr);
         args.extend(call_args.iter().cloned());
 
         Ok(pos.ins().call_indirect(sig_ref, func_ptr, &args))
@@ -521,20 +527,20 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                     readonly: true,
                 });
 
-                let imported_vmctx_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
+                let imported_env_addr = pos.func.create_global_value(ir::GlobalValueData::Load {
                     base: imported_func_struct_addr,
-                    offset: (vm::ImportedFunc::offset_vmctx() as i32).into(),
+                    offset: (vm::ImportedFunc::offset_env() as i32).into(),
                     global_type: ptr_type,
                     readonly: true,
                 });
 
                 let imported_func_addr = pos.ins().global_value(ptr_type, imported_func_addr);
-                let imported_vmctx_addr = pos.ins().global_value(ptr_type, imported_vmctx_addr);
+                let imported_env_addr = pos.ins().global_value(ptr_type, imported_env_addr);
 
                 let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
 
                 let mut args = Vec::with_capacity(call_args.len() + 1);
-                args.push(imported_vmctx_addr);
+                args.push(imported_env_addr);
                 args.extend(call_args.iter().cloned());
 
                 Ok(pos

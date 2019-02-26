@@ -33,7 +33,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn to_raw(&self) -> (*const VmFunc, *mut Env);
+    fn to_raw(self) -> (*const VmFunc, *mut Env);
 }
 
 pub trait TrapEarly<Rets>
@@ -189,18 +189,17 @@ macro_rules! impl_traits {
 
         impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* ) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
-            fn to_raw(&self) -> (*const VmFunc, *mut Env) {
+            fn to_raw(self) -> (*const VmFunc, *mut Env) {
                 let env_ptr: *mut Env = if mem::size_of::<Self>() != 0 {
                     // This function captures some state.
-                    Box::leak(Box::new(unsafe { (self as *const Self).read() }))  as *mut _ as *mut Env
+                    Box::leak(Box::new(self))  as *mut _ as *mut Env
                 } else {
                     // This function doesn't capture any state.
                     ptr::null_mut()
                 };
-                // assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
 
                 extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* ) -> Trap>( env: *mut Env $( ,$x: $x )* ) -> Rets::CStruct {
-                    let f: FN = unsafe { (env as *mut FN).read() };
+                    let f: &mut FN = unsafe { &mut *(env as *mut FN) };
 
                     let msg = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
 
@@ -271,7 +270,7 @@ where
 {
     fn to_export(&self) -> Export {
         let func = unsafe { FuncPointer::new(self.f as _) };
-        let ctx = Context::Internal;
+        let ctx = Context::External(self.env as _);
         let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));
 
         Export::Function {

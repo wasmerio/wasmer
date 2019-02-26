@@ -178,7 +178,7 @@ fn get_func_from_index(
             let imported_func = import_backing.imported_func(imported_func_index);
             (
                 imported_func.func as *const _,
-                Context::External(imported_func.vmctx),
+                Context::External(imported_func.env as _),
             )
         }
     };
