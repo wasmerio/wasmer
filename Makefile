@@ -19,7 +19,7 @@ capi:
 #     rm -rf artifacts
 
 build:
-	cargo build
+	cargo build --features debug
 
 install:
 	cargo install --path .
@@ -46,6 +46,9 @@ release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
+
+debug-release:
+	cargo build --release --features debug
 
 debug-release:
 	cargo build --release --features "debug"

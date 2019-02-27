@@ -46,8 +46,13 @@ use std::slice;
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
 // Other platforms do otherwise.
+use crate::env::get_emscripten_data;
+use crate::utils::copy_cstr_into_wasm;
+use crate::utils::read_string_from_wasm;
 #[cfg(target_os = "darwin")]
 use libc::SO_NOSIGPIPE;
+use std::ffi::CString;
+
 #[cfg(not(target_os = "darwin"))]
 const SO_NOSIGPIPE: c_int = 0;
 
@@ -184,6 +189,25 @@ pub fn ___syscall97(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall110");
     -1
+}
+
+// getcwd
+pub fn ___syscall183(ctx: &mut Ctx, buf_offset: u32, _size: u32) -> u32 {
+    debug!("emscripten::___syscall183");
+    use std::env;
+    let path = env::current_dir();
+    let path_string = path.unwrap().display().to_string();
+    let len = path_string.len();
+    unsafe {
+        let pointer_to_buffer =
+            emscripten_memory_pointer!(ctx.memory(0), buf_offset) as *mut libc::c_char;
+        let slice = slice::from_raw_parts_mut(pointer_to_buffer, len.clone());
+        for (byte, loc) in path_string.bytes().zip(slice.iter_mut()) {
+            *loc = byte as _;
+        }
+        *pointer_to_buffer.add(len.clone()) = 0;
+    }
+    buf_offset
 }
 
 // mmap2
