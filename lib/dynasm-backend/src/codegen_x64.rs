@@ -1,5 +1,5 @@
 use super::codegen::*;
-use super::stack::{ControlFrame, ControlStack, ValueInfo, ValueLocation, ValueStack};
+use super::stack::{ControlFrame, ControlStack, IfElseState, ValueInfo, ValueLocation, ValueStack};
 use byteorder::{ByteOrder, LittleEndian};
 use dynasmrt::{
     x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
@@ -670,6 +670,52 @@ impl X64FunctionCode {
         Ok(())
     }
 
+    fn emit_else(
+        assembler: &mut Assembler,
+        control_stack: &mut ControlStack,
+        value_stack: &mut ValueStack,
+        was_unreachable: bool,
+    ) -> Result<(), CodegenError> {
+        let frame = match control_stack.frames.last_mut() {
+            Some(x) => x,
+            None => {
+                return Err(CodegenError {
+                    message: "no frame",
+                })
+            }
+        };
+
+        if !was_unreachable {
+            Self::emit_leave_frame(assembler, frame, value_stack, false)?;
+            if value_stack.values.len() != frame.value_stack_depth_before {
+                return Err(CodegenError {
+                    message: "value_stack.values.len() != frame.value_stack_depth_before",
+                });
+            }
+        } else {
+            // No need to actually unwind the stack here.
+            value_stack.reset_depth(frame.value_stack_depth_before);
+        }
+
+        match frame.if_else {
+            IfElseState::If(label) => {
+                dynasm!(
+                    assembler
+                    ; jmp =>frame.label
+                    ; => label
+                );
+                frame.if_else = IfElseState::Else;
+            }
+            _ => {
+                return Err(CodegenError {
+                    message: "unexpected if else state",
+                })
+            }
+        }
+
+        Ok(())
+    }
+
     fn emit_block_end(
         assembler: &mut Assembler,
         control_stack: &mut ControlStack,
@@ -698,10 +744,27 @@ impl X64FunctionCode {
         }
 
         if !frame.loop_like {
-            dynasm!(
-                assembler
-                ; => frame.label
-            );
+            match frame.if_else {
+                IfElseState::None | IfElseState::Else => {
+                    dynasm!(
+                        assembler
+                        ; => frame.label
+                    );
+                }
+                IfElseState::If(label) => {
+                    dynasm!(
+                        assembler
+                        ; => frame.label
+                        ; => label
+                    );
+
+                    if frame.returns.len() != 0 {
+                        return Err(CodegenError {
+                            message: "if without else, with non-empty returns",
+                        });
+                    }
+                }
+            }
         }
 
         if frame.returns.len() == 1 {
@@ -1434,6 +1497,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     .push(ControlFrame {
                         label: assembler.new_dynamic_label(),
                         loop_like: false,
+                        if_else: IfElseState::None,
                         returns: match ty {
                             WpType::EmptyBlockType => vec![],
                             _ => vec![ty],
@@ -1525,6 +1589,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     .push(ControlFrame {
                         label: label,
                         loop_like: true,
+                        if_else: IfElseState::None,
                         returns: match ty {
                             WpType::EmptyBlockType => vec![],
                             _ => vec![ty],
@@ -1535,6 +1600,40 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler
                     ; =>label
                 );
+            }
+            Operator::If { ty } => {
+                let label_end = assembler.new_dynamic_label();
+                let label_else = assembler.new_dynamic_label();
+
+                Self::emit_pop_into_ax(assembler, &mut self.value_stack)?; // TODO: typeck?
+
+                self.control_stack
+                    .as_mut()
+                    .unwrap()
+                    .frames
+                    .push(ControlFrame {
+                        label: label_end,
+                        loop_like: false,
+                        if_else: IfElseState::If(label_else),
+                        returns: match ty {
+                            WpType::EmptyBlockType => vec![],
+                            _ => vec![ty],
+                        },
+                        value_stack_depth_before: self.value_stack.values.len(),
+                    });
+                dynasm!(
+                    assembler
+                    ; cmp eax, 0
+                    ; je =>label_else
+                );
+            }
+            Operator::Else => {
+                Self::emit_else(
+                    assembler,
+                    self.control_stack.as_mut().unwrap(),
+                    &mut self.value_stack,
+                    was_unreachable,
+                )?;
             }
             Operator::Br { relative_depth } => {
                 Self::emit_jmp(

@@ -22,9 +22,17 @@ pub enum RegisterName {
 }*/
 
 #[derive(Debug)]
+pub enum IfElseState {
+    None,
+    If(DynamicLabel),
+    Else,
+}
+
+#[derive(Debug)]
 pub struct ControlFrame {
     pub label: DynamicLabel,
     pub loop_like: bool,
+    pub if_else: IfElseState,
     pub returns: Vec<WpType>,
     pub value_stack_depth_before: usize,
 }
@@ -147,6 +155,7 @@ impl ControlStack {
             frames: vec![ControlFrame {
                 label: label,
                 loop_like: false,
+                if_else: IfElseState::None,
                 returns: returns,
                 value_stack_depth_before: 0,
             }],
