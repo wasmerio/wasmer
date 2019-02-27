@@ -51,7 +51,7 @@ fn main() -> error::Result<()> {
     // We're not importing anything, so make an empty import object.
     let import_object = imports! {};
 
-    let mut instance = instantiate(WASM, import_object)?;
+    let mut instance = instantiate(WASM, &import_object)?;
 
     let values = instance
         .func("add_one")?

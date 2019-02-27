@@ -71,10 +71,10 @@ pub fn ___syscall3(ctx: &mut Ctx, which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall3 (read) {}", which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
-    let count = varargs.get(ctx);
+    let count: i32 = varargs.get(ctx);
     debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
-    let ret = unsafe { read(fd, buf_addr, count) };
+    let ret = unsafe { read(fd, buf_addr, count as _) };
     debug!("=> ret: {}", ret);
     ret as _
 }
@@ -84,10 +84,10 @@ pub fn ___syscall4(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall4 (write) {}", which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
-    let count = varargs.get(ctx);
+    let count: i32 = varargs.get(ctx);
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
-    unsafe { write(fd, buf_addr, count) as i32 }
+    unsafe { write(fd, buf_addr, count as _) as i32 }
 }
 
 /// close
@@ -241,10 +241,10 @@ pub fn ___syscall140(ctx: &mut Ctx, which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", which);
     let fd: i32 = varargs.get(ctx);
-    let offset = varargs.get(ctx);
+    let offset: i32 = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     debug!("=> fd: {}, offset: {}, whence = {}", fd, offset, whence);
-    unsafe { lseek(fd, offset, whence) as _ }
+    unsafe { lseek(fd, offset as _, whence) as _ }
 }
 
 /// readv
