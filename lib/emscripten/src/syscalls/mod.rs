@@ -241,10 +241,10 @@ pub fn ___syscall140(ctx: &mut Ctx, which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", which);
     let fd: i32 = varargs.get(ctx);
-    let offset = varargs.get(ctx);
+    let offset: i32 = varargs.get(ctx);
     let whence: i32 = varargs.get(ctx);
     debug!("=> fd: {}, offset: {}, whence = {}", fd, offset, whence);
-    unsafe { lseek(fd, offset, whence) as _ }
+    unsafe { lseek(fd, offset as _, whence) as _ }
 }
 
 /// readv
