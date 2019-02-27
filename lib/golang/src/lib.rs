@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
 use std::ffi::c_void;
+use std::mem::transmute;
+use std::time::{SystemTime, UNIX_EPOCH};
 use wasmer_runtime_core::{
     error::CallResult, import::ImportObject, module::Module, types::Value, vm::Ctx, Instance,
 };
@@ -58,8 +60,22 @@ fn runtimeWasmWrite(_ctx: &mut Ctx, val: i32) {
     panic!("runtimeWasmWrite not yet implemented");
 }
 
-fn runtimeNanotime(_ctx: &mut Ctx, val: i32) {
-    panic!("runtimeNanotime not yet implemented");
+fn runtimeNanotime(ctx: &mut Ctx, val: i32) {
+    let time_now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    let time_nanos = time_now.as_secs() * 1_000_000_000 + time_now.subsec_nanos() as u64;
+    setInt64(ctx, val + 8, time_nanos);
+}
+
+fn setInt64(ctx: &mut Ctx, ptr: i32, val: u64) {
+    let val_le_bytes = val.to_le_bytes();
+    let mem = ctx.memory(0);
+    for (mem_byte, val_byte) in mem.view::<u8>()[(ptr as usize)..]
+        .iter()
+        .zip(val_le_bytes.iter())
+    {
+        mem_byte.set(*val_byte);
+    }
+    //ctx.memory(0).view::<u64>()[ptr as usize].set(val);
 }
 
 fn runtimeWalltime(_ctx: &mut Ctx, val: i32) {
