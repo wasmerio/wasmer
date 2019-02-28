@@ -118,6 +118,7 @@ mod test_nested_struct_varargs;
 mod test_nl_types;
 mod test_perrar;
 mod test_phiundef;
+mod test_pipe;
 mod test_poll;
 mod test_posixtime;
 mod test_printf_2;
