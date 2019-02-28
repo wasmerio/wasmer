@@ -20,5 +20,11 @@ version = "0.1.2"
 path = "../clif-backend"
 version = "0.1.2"
 
+[dependencies.wasmer-llvm-backend]
+path = "../llvm-backend"
+
 [features]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
+
+[dev-dependencies]
+wabt = "0.7.4"

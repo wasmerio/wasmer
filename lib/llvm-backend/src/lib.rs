@@ -54,10 +54,10 @@ impl Compiler for LLVMCompiler {
                     _vmctx: *mut vm::Ctx,
                     _: Token,
                 ) -> RuntimeResult<Vec<Value>> {
-                    Ok(vec![])
+                    unimplemented!("the llvm-based backend does not yet implement ProtectedCaller")
                 }
                 fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
-                    unimplemented!()
+                    Box::new(Placeholder)
                 }
             }
             impl CacheGen for Placeholder {
@@ -66,6 +66,11 @@ impl Compiler for LLVMCompiler {
                     module: &ModuleInner,
                 ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
                     unimplemented!()
+                }
+            }
+            impl UserTrapper for Placeholder {
+                unsafe fn do_early_trap(&self, msg: String) -> ! {
+                    unimplemented!("do early trap: {}", msg)
                 }
             }
 
