@@ -162,7 +162,7 @@ pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 
     // call pipe and store the pointers in this array
     #[cfg(target_os = "windows")]
-    let result: c_int = unsafe { libc::pipe(fd_ptr, 0, 0) };
+    let result: c_int = unsafe { libc::pipe(fd_ptr, 2048, 0) };
     #[cfg(not(target_os = "windows"))]
     let result: c_int = unsafe { libc::pipe(fd_ptr) };
     result
