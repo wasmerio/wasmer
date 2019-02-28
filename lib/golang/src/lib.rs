@@ -50,7 +50,7 @@ pub fn run_golang_instance(
 }
 
 fn debug(_ctx: &mut Ctx, val: i32) {
-    panic!("debug not yet implemented");
+    println!("{}", val);
 }
 
 fn runtimeWasmExit(_ctx: &mut Ctx, val: i32) {
