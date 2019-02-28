@@ -1,8 +1,7 @@
 use libc::execvp;
+use std::cell::Cell;
 use std::ffi::CString;
 use wasmer_runtime_core::vm::Ctx;
-use std::slice;
-use std::cell::Cell;
 
 pub fn _execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
@@ -18,7 +17,7 @@ pub fn _execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32
     let command_name_string = CString::new(command_name_string_vec).unwrap();
 
     // get the array of args
-    let mut yy: Vec<*const i8> = emscripten_memory.view()[((argv_offset / 4) as usize)..]
+    let mut argv: Vec<*const i8> = emscripten_memory.view()[((argv_offset / 4) as usize)..]
         .iter()
         .map(|cell: &Cell<u32>| cell.get())
         .take_while(|&byte| byte != 0)
@@ -32,10 +31,10 @@ pub fn _execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32
         .collect();
 
     // push a nullptr on to the end of the args array, cuz C is terrible
-    yy.push(std::ptr::null());
+    argv.push(std::ptr::null());
 
     // construct raw pointers and hand them to `execvp`
     let command_pointer = command_name_string.as_ptr() as *const i8;
-    let args_pointer = yy.as_ptr();
+    let args_pointer = argv.as_ptr();
     unsafe { execvp(command_pointer, args_pointer) }
 }
