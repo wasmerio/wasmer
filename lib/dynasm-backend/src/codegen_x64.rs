@@ -99,7 +99,7 @@ impl Register {
             9 => R12,
             10 => R13,
             11 => R14,
-            12 => R15,
+            // 12 => R15, // R15 is reserved for memory base pointer.
             _ => unreachable!(),
         }
     }
