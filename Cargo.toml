@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -36,6 +36,6 @@ glob = "0.2.11"
 [features]
 default = ["fast-tests"]
 
-debug = []
+debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []

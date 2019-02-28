@@ -21,6 +21,10 @@ install:
   - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
   - rustc -vV
   - cargo -vV
+  # Install InnoSetup
+  - appveyor-retry appveyor DownloadFile https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/2017-08-22-is.exe
+  - 2017-08-22-is.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+  - set PATH="C:\Program Files (x86)\Inno Setup 5";%PATH%
 
 build_script:
   - cargo build --verbose
