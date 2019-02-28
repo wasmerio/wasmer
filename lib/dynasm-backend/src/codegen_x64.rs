@@ -1635,6 +1635,56 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     was_unreachable,
                 )?;
             }
+            Operator::Select => {
+                Self::emit_pop_into_ax(assembler, &mut self.value_stack)?;
+                let v_b = self.value_stack.pop()?;
+                let v_a = self.value_stack.pop()?;
+
+                if v_b.ty != v_a.ty {
+                    return Err(CodegenError {
+                        message: "select: type mismatch",
+                    });
+                }
+
+                dynasm!(
+                    assembler
+                    ; cmp eax, 0
+                );
+                match v_b.location {
+                    ValueLocation::Stack => {
+                        dynasm!(
+                            assembler
+                            ; cmove rax, [rsp]
+                            ; add rsp, 8
+                        );
+                    }
+                    ValueLocation::Register(x) => {
+                        let reg = Register::from_scratch_reg(x);
+                        dynasm!(
+                            assembler
+                            ; cmove rax, Rq(reg as u8)
+                        );
+                    }
+                }
+                match v_a.location {
+                    ValueLocation::Stack => {
+                        dynasm!(
+                            assembler
+                            ; cmovne rax, [rsp]
+                            ; add rsp, 8
+                        );
+                    }
+                    ValueLocation::Register(x) => {
+                        let reg = Register::from_scratch_reg(x);
+                        dynasm!(
+                            assembler
+                            ; cmovne rax, Rq(reg as u8)
+                        );
+                    }
+                }
+
+                Self::emit_push_from_ax(assembler, &mut self.value_stack, v_a.ty)?;
+            }
             Operator::Br { relative_depth } => {
                 Self::emit_jmp(
                     assembler,
