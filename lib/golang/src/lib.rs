@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate wasmer_runtime_core;
+use rand::Rng;
 use std::ffi::c_void;
 use std::mem::transmute;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -66,6 +67,19 @@ fn runtimeNanotime(ctx: &mut Ctx, val: i32) {
     setInt64(ctx, val + 8, time_nanos);
 }
 
+// Gets a little endian u64 from the memory at the given index
+fn getInt64(ctx: &Ctx, ptr: i32) -> u64 {
+    let mem = ctx.memory(0);
+    let mut bytes: [u8; 8] = Default::default();
+    use std::cell::Cell;
+    let slice = mem.view::<u8>()[(ptr as usize)..((ptr + 8) as usize)].as_ptr() as *mut Cell<u8>
+        as *const u8;
+    let slice = unsafe { std::slice::from_raw_parts(slice, 8) };
+    bytes.copy_from_slice(&slice[0..8]);
+    u64::from_le_bytes(bytes)
+}
+
+// Sets a little endian u64 to the memory at the given index
 fn setInt64(ctx: &mut Ctx, ptr: i32, val: u64) {
     let val_le_bytes = val.to_le_bytes();
     let mem = ctx.memory(0);
@@ -90,8 +104,17 @@ fn runtimeClearScheduledCallback(_ctx: &mut Ctx, val: i32) {
     panic!("runtimeClearScheduledCallback not yet implemented");
 }
 
-fn runtimeGetRandomData(_ctx: &mut Ctx, val: i32) {
-    panic!("runtimeGetRandomData not yet implemented");
+/// Fills a slice of bytes with random values
+fn runtimeGetRandomData(ctx: &mut Ctx, idx: i32) {
+    let idx = idx + 8;
+    let array = getInt64(ctx, idx);
+    let len = getInt64(ctx, idx + 8);
+    let mem = ctx.memory(0);
+    // fill the u8 bytes with random values
+    let mut rng = rand::thread_rng();
+    for mem_byte in mem.view::<u8>()[(array as usize)..((array + len) as usize)].iter() {
+        mem_byte.set(rng.gen());
+    }
 }
 
 fn syscallJsStringVal(_ctx: &mut Ctx, val: i32) {

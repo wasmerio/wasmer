@@ -13,6 +13,7 @@ lazy_static = "1.2.0"
 libc = { git = "https://github.com/rust-lang/libc" }
 byteorder = "1"
 time = "0.1.41"
+rand = "0.6"
 
 [target.'cfg(windows)'.dependencies]
 rand = "0.6"
