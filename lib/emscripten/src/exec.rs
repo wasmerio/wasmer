@@ -30,7 +30,7 @@ pub fn _execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32
         })
         .collect();
 
-    // push a nullptr on to the end of the args array, cuz C is terrible
+    // push a nullptr on to the end of the args array
     argv.push(std::ptr::null());
 
     // construct raw pointers and hand them to `execvp`
