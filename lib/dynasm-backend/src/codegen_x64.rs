@@ -19,7 +19,7 @@ use wasmer_runtime_core::{
 use wasmparser::{Operator, Type as WpType};
 
 lazy_static! {
-    static ref CALL_WASM: unsafe extern "C" fn(params: *const u8, params_len: usize, target: *const u8) -> i64 = {
+    static ref CALL_WASM: unsafe extern "C" fn(params: *const u8, params_len: usize, target: *const u8, memory_base: *mut u8) -> i64 = {
         let mut assembler = Assembler::new().unwrap();
         let offset = assembler.offset();
         dynasm!(
@@ -29,6 +29,7 @@ lazy_static! {
             ; push r13
             ; push r14
             ; push r15
+            ; mov r15, rcx // memory_base
             ; lea rax, [>after_call]
             ; push rax
             ; push rbp
@@ -221,7 +222,19 @@ impl ProtectedCaller for X64ExecutionContext {
             }
         }
 
-        let ret = unsafe { CALL_WASM(param_buf.as_ptr(), param_buf.len(), ptr) };
+        let memory_base: *mut u8 = if _module.info.memories.len() > 0 {
+            if _module.info.memories.len() != 1 {
+                return Err(RuntimeError::User {
+                    msg: "only one linear memory is supported".into(),
+                });
+            }
+            unsafe { (**(*_vmctx).memories).base }
+        } else {
+            ::std::ptr::null_mut()
+        };
+        //println!("MEMORY = {:?}", memory_base);
+
+        let ret = unsafe { CALL_WASM(param_buf.as_ptr(), param_buf.len(), ptr, memory_base) };
         Ok(if let Some(ty) = return_ty {
             vec![Value::I64(ret)]
         } else {
@@ -1027,6 +1040,27 @@ impl X64FunctionCode {
 
         Ok(())
     }
+
+    fn emit_memory_load<F: FnOnce(&mut Assembler)>(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        f: F,
+        out_ty: WpType,
+    ) -> Result<(), CodegenError> {
+        let ty = Self::emit_pop_into_ax(assembler, value_stack)?;
+        if ty != WpType::I32 {
+            return Err(CodegenError {
+                message: "memory address must be i32",
+            });
+        }
+        dynasm!(
+            assembler
+            ; add rax, r15
+        );
+        f(assembler);
+        Self::emit_push_from_ax(assembler, value_stack, out_ty)?;
+        Ok(())
+    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -1763,6 +1797,71 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 )?;
                 self.br_table_data.as_mut().unwrap().push(table);
                 self.unreachable_depth = 1;
+            }
+            Operator::I32Load { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler| {
+                        dynasm!(
+                            assembler
+                            ; mov eax, [rax + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I32,
+                )?;
+            }
+            Operator::I32Load8U { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler| {
+                        dynasm!(
+                            assembler
+                            ; movzx eax, BYTE [rax + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I32,
+                )?;
+            }
+            Operator::I32Load8S { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler| {
+                        dynasm!(
+                            assembler
+                            ; movsx eax, BYTE [rax + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I32,
+                )?;
+            }
+            Operator::I32Load16U { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler| {
+                        dynasm!(
+                            assembler
+                            ; movzx eax, WORD [rax + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I32,
+                )?;
+            }
+            Operator::I32Load16S { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler| {
+                        dynasm!(
+                            assembler
+                            ; movsx eax, WORD [rax + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I32,
+                )?;
             }
             _ => unimplemented!(),
         }
