@@ -49,6 +49,7 @@ lazy_static! {
             use std::io::Read;
             let mut s = String::new();
             file.read_to_string(&mut s).unwrap();
+            s.truncate(s.len() - 4);
             Some(s)
         } else {
             None

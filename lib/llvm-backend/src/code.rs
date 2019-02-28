@@ -616,7 +616,7 @@ fn parse_function(
                             let struct_value = basic_value.into_struct_value();
                             for i in 0..(count as u32) {
                                 let value =
-                                    builder.build_extract_value(struct_value, i, &state.var_name());
+                                    builder.build_extract_value(struct_value, i, &state.var_name()).unwrap();
                                 state.push1(value);
                             }
                         }
