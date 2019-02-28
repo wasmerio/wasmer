@@ -88,23 +88,17 @@ impl Compiler for LLVMCompiler {
 
 #[test]
 fn test_read_module() {
+    use std::mem::transmute;
     use wabt::wat2wasm;
-    use wasmer_runtime_core::vmcalls;
+    use wasmer_runtime_core::{structures::TypedIndex, types::LocalFuncIndex, vm, vmcalls};
     // let wasm = include_bytes!("../../spectests/examples/simple/simple.wasm") as &[u8];
     let wat = r#"
         (module
         (type $t0 (func (param i32) (result i32)))
         (type $t1 (func (result i32)))
         (memory 1)
-        (table 10 anyfunc)
-        (elem (i32.const 0) $foobar)
         (global $g0 (mut i32) (i32.const 0))
         (func $foo (type $t0) (param i32) (result i32)
-            get_local 0
-            i32.const 0
-            call_indirect (type $t0)
-        )
-        (func $foobar (type $t0)
             get_local 0
         ))
     "#;
@@ -114,54 +108,15 @@ fn test_read_module() {
 
     let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
-    // let backend = backend::LLVMBackend::new(module, intrinsics);
+    let backend = backend::LLVMBackend::new(module, intrinsics);
 
-    extern "C" {
-        fn test_cpp();
+    let func_ptr = backend.get_func(&info, LocalFuncIndex::new(0)).unwrap();
+
+    println!("func_ptr: {:p}", func_ptr.as_ptr());
+
+    unsafe {
+        let func: unsafe extern "C" fn(*mut vm::Ctx, i32) -> i32 = transmute(func_ptr);
+        let result = func(0 as _, 42);
+        println!("result: {}", result);
     }
-
-    unsafe { test_cpp() };
-
-    // let exec_engine = module
-    //     .create_jit_execution_engine(OptimizationLevel::Default)
-    //     .unwrap();
-
-    // exec_engine.add_global_mapping(
-    //     &intrinsics.memory_grow_dynamic_local,
-    //     vmcalls::local_dynamic_memory_grow as usize,
-    // );
-    // exec_engine.add_global_mapping(
-    //     &intrinsics.memory_grow_static_local,
-    //     vmcalls::local_static_memory_grow as usize,
-    // );
-    // exec_engine.add_global_mapping(
-    //     &intrinsics.memory_grow_dynamic_import,
-    //     vmcalls::imported_dynamic_memory_grow as usize,
-    // );
-    // exec_engine.add_global_mapping(
-    //     &intrinsics.memory_grow_static_import,
-    //     vmcalls::imported_static_memory_grow as usize,
-    // );
-    // exec_engine.add_global_mapping(
-    //     &intrinsics.memory_size_dynamic_local,
-    //     vmcalls::local_dynamic_memory_size as usize,
-    // );
-    // exec_engine.add_global_mapping(
-    //     &intrinsics.memory_size_static_local,
-    //     vmcalls::local_static_memory_size as usize,
-    // );
-    // exec_engine.add_global_mapping(
-    //     &intrinsics.memory_size_dynamic_import,
-    //     vmcalls::imported_dynamic_memory_size as usize,
-    // );
-    // exec_engine.add_global_mapping(
-    //     &intrinsics.memory_size_static_import,
-    //     vmcalls::imported_static_memory_size as usize,
-    // );
-
-    // unsafe {
-    //     let func: JitFunction<unsafe extern fn(*mut u8, i32) -> i32> = exec_engine.get_function("fn0").unwrap();
-    //     let result = func.call(0 as _, 0);
-    //     println!("result: {}", result);
-    // }
 }

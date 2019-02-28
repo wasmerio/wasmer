@@ -1,5 +1,4 @@
 #include "object_loader.hh"
-#include <llvm/ExecutionEngine/RuntimeDyld.h>
 #include <iostream>
 #include <memory>
 
@@ -40,20 +39,26 @@ public:
         uintptr_t read_write_data_size,
         uint32_t read_write_data_align
     ) override {
-        uint8_t *ptr_out = nullptr;
-        size_t size_out = 0;
+        uint8_t *code_ptr_out = nullptr;
+        size_t code_size_out = 0;
+        auto code_result = callbacks->alloc_memory(code_size, PROTECT_READ_WRITE, &code_ptr_out, &code_size_out);
+        assert(code_result == RESULT_OK);
+        code_section = Section { code_ptr_out, code_size_out };
+        code_bump_ptr = (uintptr_t)code_ptr_out;
 
-        auto code_result = callbacks->alloc_memory(code_size, PROTECT_READ_WRITE, &ptr_out, &size_out);
-        code_section = Section { ptr_out, size_out };
-        code_bump_ptr = (uintptr_t)ptr_out;
+        uint8_t *read_ptr_out = nullptr;
+        size_t read_size_out = 0;
+        auto read_result = callbacks->alloc_memory(read_data_size, PROTECT_READ_WRITE, &read_ptr_out, &read_size_out);
+        assert(read_result == RESULT_OK);
+        read_section = Section { read_ptr_out, read_size_out };
+        read_bump_ptr = (uintptr_t)read_ptr_out;
 
-        auto read_result = callbacks->alloc_memory(read_data_size, PROTECT_READ_WRITE, &ptr_out, &size_out);
-        read_section = Section { ptr_out, size_out };
-        read_bump_ptr = (uintptr_t)ptr_out;
-
-        auto readwrite_result = callbacks->alloc_memory(read_write_data_size, PROTECT_READ_WRITE, &ptr_out, &size_out);
-        readwrite_section = Section { ptr_out, size_out };
-        readwrite_bump_ptr = (uintptr_t)ptr_out;
+        uint8_t *readwrite_ptr_out = nullptr;
+        size_t readwrite_size_out = 0;
+        auto readwrite_result = callbacks->alloc_memory(read_write_data_size, PROTECT_READ_WRITE, &readwrite_ptr_out, &readwrite_size_out);
+        assert(readwrite_result == RESULT_OK);
+        readwrite_section = Section { readwrite_ptr_out, readwrite_size_out };
+        readwrite_bump_ptr = (uintptr_t)readwrite_ptr_out;
     }
 
     /* Turn on the `reserveAllocationSpace` callback. */
@@ -145,32 +150,37 @@ private:
     }
 };
 
-class WasmModule {
-public:
-    WasmModule(
+WasmModule::WasmModule(
         const uint8_t *object_start,
         size_t object_size,
         callbacks_t *callbacks
+) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks)))
+{
+    object_file = llvm::cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
+        llvm::StringRef((const char *)object_start, object_size), "object"
+    )));
 
-    ) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks))) {
-        object_file = llvm::cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
-            llvm::StringRef((const char *)object_start, object_size), "object"
-        )));
+    SymbolLookup symbol_resolver;
+    llvm::RuntimeDyld loader(*memory_manager, symbol_resolver);
 
-        SymbolLookup symbol_resolver;
-        llvm::RuntimeDyld loader(*memory_manager, symbol_resolver);
+    loader.setProcessAllSections(true);
 
-        loader.setProcessAllSections(true);
+    auto loaded_object_info = loader.loadObject(*object_file);
+    loader.finalizeWithMemoryManagerLocking();
 
-        auto loaded_object_info = loader.loadObject(*object_file);
-        loader.finalizeWithMemoryManagerLocking();
+    assert(!loader.hasError());
 
-        assert(!loader.hasError());
+    symbol_table = loader.getSymbolTable();
 
-        
-
+    for (auto const& pair : symbol_table) {
+        std::cout << "symbol: (" << (std::string)pair.first << ") => " << (void*)pair.second.getAddress() << std::endl;
     }
-private:
-    std::unique_ptr<MemoryManager> memory_manager;
-    std::unique_ptr<llvm::object::ObjectFile> object_file;
-};
+}
+
+void* WasmModule::get_func(llvm::StringRef name) const {
+    try {
+        return (void*)symbol_table.at(name).getAddress();
+    } catch (const std::out_of_range& e) {
+        return nullptr;
+    }
+}

@@ -11,8 +11,8 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "llvm7-0" }
 hashbrown = "0.1.8"
 smallvec = "0.6.8"
 goblin = "0.0.20"
-dlopen = "0.1.6"
-tempfile = "3.0.7"
+libc = "0.2.49"
+capstone = "0.5.0"
 
 [build-dependencies]
 cc = "1.0"
