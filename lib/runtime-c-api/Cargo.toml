@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-c-api"
-version = "0.2.0"
+version = "0.2.1"
 description = "Wasmer c-api library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -9,8 +9,8 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime = { path = "../runtime", version = "0.2.0" }
-wasmer-runtime-core = { path = "../runtime-core", version = "0.2.0" }
+wasmer-runtime = { path = "../runtime", version = "0.2.1" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
 libc = "0.2"
 
 [lib]
