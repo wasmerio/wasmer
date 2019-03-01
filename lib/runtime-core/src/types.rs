@@ -1,9 +1,4 @@
-use crate::{
-    memory::MemoryType,
-    module::ModuleInfo,
-    structures::TypedIndex,
-    units::Pages,
-};
+use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
 use std::{borrow::Cow, mem};
 
 /// Represents a WebAssembly type.
