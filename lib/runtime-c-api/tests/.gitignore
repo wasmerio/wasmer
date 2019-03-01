@@ -16,6 +16,7 @@ test-import-function
 test-memory
 test-module-imports
 test-module
+test-module-exports
 test-tables
 test-validate
 rust-build
