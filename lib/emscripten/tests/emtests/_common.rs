@@ -41,3 +41,47 @@ macro_rules! assert_emscripten_output {
         );
     }};
 }
+
+pub fn assert_emscripten_output_f(wasm_bytes: &[u8], name: &'static str, expected_string: String) {
+    use wasmer_clif_backend::CraneliftCompiler;
+    use wasmer_emscripten::{
+        EmscriptenGlobals,
+        generate_emscripten_env,
+        stdio::StdioCapturer
+    };
+
+    let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &CraneliftCompiler::new())
+        .expect("WASM can't be compiled");
+
+    let mut emscripten_globals = EmscriptenGlobals::new(&module);
+    let import_object = generate_emscripten_env(&mut emscripten_globals);
+    let mut instance = module.instantiate(&import_object)
+        .map_err(|err| format!("Can't instantiate the WebAssembly module: {:?}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
+
+    let capturer = StdioCapturer::new();
+
+    wasmer_emscripten::run_emscripten_instance(
+        &module,
+        &mut instance,
+    name,
+    vec![],
+    ).expect("run_emscripten_instance finishes");
+
+    let output = capturer.end().unwrap().0;
+    let expected_output = expected_string;
+
+    let x = format!("{} = {}", output, expected_output.clone());
+
+    let z = output.contains(expected_output.as_str());
+
+    println!("{} is {}", x, z);
+    println!("{}", z);
+
+    // will uncomment later
+//   assert!(
+//       z,
+//       "Output: `{}` does not contain expected output: `{}`",
+//       output,
+//       expected_output
+//   );
+}
