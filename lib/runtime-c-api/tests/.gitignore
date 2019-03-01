@@ -15,6 +15,7 @@ test-instantiate
 test-import-function
 test-memory
 test-module
+test-module-exports
 test-tables
 test-validate
 rust-build
