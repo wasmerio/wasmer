@@ -13,6 +13,7 @@ use std::{ffi::c_void, ptr};
 use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Module, Table, Value};
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::Namespace;
+use wasmer_runtime_core::module::ExportIndex;
 use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
 use wasmer_runtime_core::units::{Bytes, Pages};
 
@@ -112,6 +113,14 @@ pub struct wasmer_export_t;
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_exports_t;
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_export_descriptor_t;
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_export_descriptors_t;
 
 #[repr(u32)]
 #[derive(Clone)]
@@ -459,6 +468,91 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     };
     unsafe { *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t };
     wasmer_result_t::WASMER_OK
+}
+
+/// Gets export descriptors for the given module
+///
+/// The caller owns the object and should call `wasmer_export_descriptors_destroy` to free it.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_export_descriptors(
+    module: *mut wasmer_module_t,
+    export_descriptors: *mut *mut wasmer_export_descriptors_t,
+) {
+    let mut module = unsafe { &*(module as *mut Module) };
+
+    let named_export_descriptors: Box<NamedExportDescriptors> = Box::new(NamedExportDescriptors(
+        module.info().exports.iter().map(|e| e.into()).collect(),
+    ));
+    unsafe {
+        *export_descriptors =
+            Box::into_raw(named_export_descriptors) as *mut wasmer_export_descriptors_t
+    };
+}
+
+pub struct NamedExportDescriptors(Vec<NamedExportDescriptor>);
+
+/// Frees the memory for the given export descriptors
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_export_descriptors_destroy(
+    export_descriptors: *mut wasmer_export_descriptors_t,
+) {
+    if !export_descriptors.is_null() {
+        drop(unsafe { Box::from_raw(export_descriptors as *mut NamedExportDescriptors) });
+    }
+}
+
+/// Gets the length of the export descriptors
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_export_descriptors_len(
+    exports: *mut wasmer_export_descriptors_t,
+) -> c_int {
+    if exports.is_null() {
+        return 0;
+    }
+    (*(exports as *mut NamedExportDescriptors)).0.len() as c_int
+}
+
+/// Gets export descriptor by index
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_export_descriptors_get(
+    export_descriptors: *mut wasmer_export_descriptors_t,
+    idx: c_int,
+) -> *mut wasmer_export_descriptor_t {
+    if export_descriptors.is_null() {
+        return ptr::null_mut();
+    }
+    let mut named_export_descriptors =
+        unsafe { &mut *(export_descriptors as *mut NamedExportDescriptors) };
+    let ptr = &mut (*named_export_descriptors).0[idx as usize] as *mut NamedExportDescriptor
+        as *mut wasmer_export_descriptor_t;
+    ptr
+}
+
+/// Gets name for the export descriptor
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_export_descriptor_name(
+    export_descriptor: *mut wasmer_export_descriptor_t,
+) -> wasmer_byte_array {
+    let named_export_descriptor = &*(export_descriptor as *mut NamedExportDescriptor);
+    wasmer_byte_array {
+        bytes: named_export_descriptor.name.as_ptr(),
+        bytes_len: named_export_descriptor.name.len() as u32,
+    }
+}
+
+/// Gets export descriptor kind
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_export_descriptor_kind(
+    export: *mut wasmer_export_descriptor_t,
+) -> wasmer_import_export_kind {
+    let named_export_descriptor = &*(export as *mut NamedExportDescriptor);
+    named_export_descriptor.kind.clone()
 }
 
 /// Frees memory for the given Module
@@ -1178,6 +1272,21 @@ impl From<&wasmer_runtime::wasm::Type> for wasmer_value_tag {
     }
 }
 
+impl From<(&std::string::String, &ExportIndex)> for NamedExportDescriptor {
+    fn from((name, export_index): (&String, &ExportIndex)) -> Self {
+        let kind = match *export_index {
+            ExportIndex::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
+            ExportIndex::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
+            ExportIndex::Table(_) => wasmer_import_export_kind::WASM_TABLE,
+            ExportIndex::Func(_) => wasmer_import_export_kind::WASM_FUNCTION,
+        };
+        NamedExportDescriptor {
+            name: name.clone(),
+            kind,
+        }
+    }
+}
+
 // Error reporting
 
 thread_local! {
@@ -1276,4 +1385,9 @@ struct NamedExport {
     name: String,
     export: Export,
     instance: *mut Instance,
+}
+
+struct NamedExportDescriptor {
+    name: String,
+    kind: wasmer_import_export_kind,
 }

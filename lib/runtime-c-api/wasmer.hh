@@ -30,6 +30,19 @@ struct wasmer_instance_t;
 
 struct wasmer_module_t;
 
+struct wasmer_export_descriptor_t {
+
+};
+
+struct wasmer_byte_array {
+  const uint8_t *bytes;
+  uint32_t bytes_len;
+};
+
+struct wasmer_export_descriptors_t {
+
+};
+
 struct wasmer_export_func_t {
 
 };
@@ -48,11 +61,6 @@ struct wasmer_value_t {
 
 struct wasmer_export_t {
 
-};
-
-struct wasmer_byte_array {
-  const uint8_t *bytes;
-  uint32_t bytes_len;
 };
 
 struct wasmer_exports_t {
@@ -113,6 +121,27 @@ extern "C" {
 wasmer_result_t wasmer_compile(wasmer_module_t **module,
                                uint8_t *wasm_bytes,
                                uint32_t wasm_bytes_len);
+
+/// Gets export descriptor kind
+wasmer_import_export_kind wasmer_export_descriptor_kind(wasmer_export_descriptor_t *export_);
+
+/// Gets name for the export descriptor
+wasmer_byte_array wasmer_export_descriptor_name(wasmer_export_descriptor_t *export_descriptor);
+
+/// Gets export descriptors for the given module
+/// The caller owns the object and should call `wasmer_export_descriptors_destroy` to free it.
+void wasmer_export_descriptors(wasmer_module_t *module,
+                               wasmer_export_descriptors_t **export_descriptors);
+
+/// Frees the memory for the given export descriptors
+void wasmer_export_descriptors_destroy(wasmer_export_descriptors_t *export_descriptors);
+
+/// Gets export descriptor by index
+wasmer_export_descriptor_t *wasmer_export_descriptors_get(wasmer_export_descriptors_t *export_descriptors,
+                                                          int idx);
+
+/// Gets the length of the export descriptors
+int wasmer_export_descriptors_len(wasmer_export_descriptors_t *exports);
 
 /// Calls a `func` with the provided parameters.
 /// Results are set using the provided `results` pointer.
