@@ -596,9 +596,10 @@ impl X64FunctionCode {
         Ok(())
     }
 
-    fn emit_pop_into_ax(
+    fn emit_pop_into_reg(
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
+        target: Register,
     ) -> Result<WpType, CodegenError> {
         let val = value_stack.pop()?;
         match val.location {
@@ -606,13 +607,13 @@ impl X64FunctionCode {
                 let reg = Register::from_scratch_reg(x);
                 dynasm!(
                     assembler
-                    ; mov rax, Rq(reg as u8)
+                    ; mov Rq(target as u8), Rq(reg as u8)
                 );
             }
             ValueLocation::Stack => {
                 dynasm!(
                     assembler
-                    ; pop rax
+                    ; pop Rq(target as u8)
                 );
             }
         }
@@ -620,10 +621,18 @@ impl X64FunctionCode {
         Ok(val.ty)
     }
 
-    fn emit_push_from_ax(
+    fn emit_pop_into_ax(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+    ) -> Result<WpType, CodegenError> {
+        Self::emit_pop_into_reg(assembler, value_stack, Register::RAX)
+    }
+
+    fn emit_push_from_reg(
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
         ty: WpType,
+        source: Register,
     ) -> Result<(), CodegenError> {
         let loc = value_stack.push(ty);
         match loc {
@@ -631,18 +640,26 @@ impl X64FunctionCode {
                 let reg = Register::from_scratch_reg(x);
                 dynasm!(
                     assembler
-                    ; mov Rq(reg as u8), rax
+                    ; mov Rq(reg as u8), Rq(source as u8)
                 );
             }
             ValueLocation::Stack => {
                 dynasm!(
                     assembler
-                    ; push rax
+                    ; push Rq(source as u8)
                 );
             }
         }
 
         Ok(())
+    }
+
+    fn emit_push_from_ax(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        ty: WpType,
+    ) -> Result<(), CodegenError> {
+        Self::emit_push_from_reg(assembler, value_stack, ty, Register::RAX)
     }
 
     fn emit_leave_frame(
@@ -1041,24 +1058,108 @@ impl X64FunctionCode {
         Ok(())
     }
 
-    fn emit_memory_load<F: FnOnce(&mut Assembler)>(
+    fn emit_memory_load<F: FnOnce(&mut Assembler, Register)>(
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
         f: F,
         out_ty: WpType,
     ) -> Result<(), CodegenError> {
-        let ty = Self::emit_pop_into_ax(assembler, value_stack)?;
-        if ty != WpType::I32 {
+        let addr_info = value_stack.pop()?;
+        let out_loc = value_stack.push(out_ty);
+
+        if addr_info.ty != WpType::I32 {
             return Err(CodegenError {
                 message: "memory address must be i32",
             });
         }
-        dynasm!(
-            assembler
-            ; add rax, r15
-        );
-        f(assembler);
-        Self::emit_push_from_ax(assembler, value_stack, out_ty)?;
+
+        assert_eq!(out_loc, addr_info.location);
+
+        match addr_info.location {
+            ValueLocation::Register(x) => {
+                let reg = Register::from_scratch_reg(x);
+                dynasm!(
+                    assembler
+                    ; add Rq(reg as u8), r15
+                );
+                f(assembler, reg);
+            }
+            ValueLocation::Stack => {
+                dynasm!(
+                    assembler
+                    ; pop rax
+                    ; add rax, r15
+                );
+                f(assembler, Register::RAX);
+                dynasm!(
+                    assembler
+                    ; push rax
+                )
+            }
+        }
+        Ok(())
+    }
+
+    fn emit_memory_store<F: FnOnce(&mut Assembler, Register, Register)>(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        f: F,
+        value_ty: WpType,
+    ) -> Result<(), CodegenError> {
+        let value_info = value_stack.pop()?;
+        let addr_info = value_stack.pop()?;
+
+        if addr_info.ty != WpType::I32 {
+            return Err(CodegenError {
+                message: "memory address must be i32",
+            });
+        }
+
+        if value_info.ty != value_ty {
+            return Err(CodegenError {
+                message: "value type mismatch",
+            });
+        }
+
+        match value_info.location {
+            ValueLocation::Register(x) => {
+                let value_reg = Register::from_scratch_reg(x);
+                let addr_reg =
+                    Register::from_scratch_reg(addr_info.location.get_register().unwrap()); // must be a register
+                dynasm!(
+                    assembler
+                    ; add Rq(addr_reg as u8), r15
+                );
+                f(assembler, addr_reg, value_reg);
+            }
+            ValueLocation::Stack => {
+                match addr_info.location {
+                    ValueLocation::Register(x) => {
+                        let addr_reg = Register::from_scratch_reg(x);
+                        dynasm!(
+                            assembler
+                            ; add Rq(addr_reg as u8), r15
+                            ; pop rax
+                        );
+                        f(assembler, addr_reg, Register::RAX);
+                    }
+                    ValueLocation::Stack => {
+                        dynasm!(
+                            assembler
+                            ; mov [rsp - 8], rcx // red zone
+                            ; pop rax // value
+                            ; pop rcx // address
+                            ; add rcx, r15
+                        );
+                        f(assembler, Register::RCX, Register::RAX);
+                        dynasm!(
+                            assembler
+                            ; mov rcx, [rsp - 24]
+                        );
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -1802,10 +1903,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_memory_load(
                     assembler,
                     &mut self.value_stack,
-                    |assembler| {
+                    |assembler, reg| {
                         dynasm!(
                             assembler
-                            ; mov eax, [rax + memarg.offset as i32]
+                            ; mov Rd(reg as u8), [Rq(reg as u8) + memarg.offset as i32]
                         );
                     },
                     WpType::I32,
@@ -1815,10 +1916,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_memory_load(
                     assembler,
                     &mut self.value_stack,
-                    |assembler| {
+                    |assembler, reg| {
                         dynasm!(
                             assembler
-                            ; movzx eax, BYTE [rax + memarg.offset as i32]
+                            ; movzx Rd(reg as u8), BYTE [Rq(reg as u8) + memarg.offset as i32]
                         );
                     },
                     WpType::I32,
@@ -1828,10 +1929,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_memory_load(
                     assembler,
                     &mut self.value_stack,
-                    |assembler| {
+                    |assembler, reg| {
                         dynasm!(
                             assembler
-                            ; movsx eax, BYTE [rax + memarg.offset as i32]
+                            ; movsx Rd(reg as u8), BYTE [Rq(reg as u8) + memarg.offset as i32]
                         );
                     },
                     WpType::I32,
@@ -1841,10 +1942,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_memory_load(
                     assembler,
                     &mut self.value_stack,
-                    |assembler| {
+                    |assembler, reg| {
                         dynasm!(
                             assembler
-                            ; movzx eax, WORD [rax + memarg.offset as i32]
+                            ; movzx Rd(reg as u8), WORD [Rq(reg as u8) + memarg.offset as i32]
                         );
                     },
                     WpType::I32,
@@ -1854,10 +1955,49 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_memory_load(
                     assembler,
                     &mut self.value_stack,
-                    |assembler| {
+                    |assembler, reg| {
                         dynasm!(
                             assembler
-                            ; movsx eax, WORD [rax + memarg.offset as i32]
+                            ; movsx Rd(reg as u8), WORD [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I32,
+                )?;
+            }
+            Operator::I32Store { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rd(value_reg as u8)
+                        );
+                    },
+                    WpType::I32,
+                )?;
+            }
+            Operator::I32Store8 { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rb(value_reg as u8)
+                        );
+                    },
+                    WpType::I32,
+                )?;
+            }
+            Operator::I32Store16 { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rw(value_reg as u8)
                         );
                     },
                     WpType::I32,
