@@ -13,7 +13,7 @@ use std::{ffi::c_void, ptr};
 use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Module, Table, Value};
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::Namespace;
-use wasmer_runtime_core::module::ExportIndex;
+use wasmer_runtime_core::module::{ExportIndex, ImportName};
 use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
 use wasmer_runtime_core::units::{Bytes, Pages};
 
@@ -105,6 +105,14 @@ pub struct wasmer_import_t {
     tag: wasmer_import_export_kind,
     value: wasmer_import_export_value,
 }
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_import_descriptor_t;
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wasmer_import_descriptors_t;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -562,6 +570,185 @@ pub extern "C" fn wasmer_module_destroy(module: *mut wasmer_module_t) {
     if !module.is_null() {
         drop(unsafe { Box::from_raw(module as *mut Module) });
     }
+}
+
+/// Gets import descriptors for the given module
+///
+/// The caller owns the object and should call `wasmer_import_descriptors_destroy` to free it.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_import_descriptors(
+    module: *mut wasmer_module_t,
+    import_descriptors: *mut *mut wasmer_import_descriptors_t,
+) {
+    let mut module = unsafe { &*(module as *mut Module) };
+    let total_imports = module.info().imported_functions.len()
+        + module.info().imported_tables.len()
+        + module.info().imported_globals.len()
+        + module.info().imported_memories.len();
+    let mut descriptors: Vec<NamedImportDescriptor> = Vec::with_capacity(total_imports);
+
+    for (
+        index,
+        ImportName {
+            namespace_index,
+            name_index,
+        },
+    ) in &module.info().imported_functions
+    {
+        let namespace = module.info().namespace_table.get(*namespace_index);
+        let name = module.info().name_table.get(*name_index);
+        descriptors.push(NamedImportDescriptor {
+            module: namespace.to_string(),
+            name: name.to_string(),
+            kind: wasmer_import_export_kind::WASM_FUNCTION,
+        });
+    }
+
+    for (
+        index,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            _,
+        ),
+    ) in &module.info().imported_tables
+    {
+        let namespace = module.info().namespace_table.get(*namespace_index);
+        let name = module.info().name_table.get(*name_index);
+        descriptors.push(NamedImportDescriptor {
+            module: namespace.to_string(),
+            name: name.to_string(),
+            kind: wasmer_import_export_kind::WASM_TABLE,
+        });
+    }
+
+    for (
+        index,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            _,
+        ),
+    ) in &module.info().imported_globals
+    {
+        let namespace = module.info().namespace_table.get(*namespace_index);
+        let name = module.info().name_table.get(*name_index);
+        descriptors.push(NamedImportDescriptor {
+            module: namespace.to_string(),
+            name: name.to_string(),
+            kind: wasmer_import_export_kind::WASM_GLOBAL,
+        });
+    }
+
+    for (
+        index,
+        (
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+            _,
+        ),
+    ) in &module.info().imported_memories
+    {
+        let namespace = module.info().namespace_table.get(*namespace_index);
+        let name = module.info().name_table.get(*name_index);
+        descriptors.push(NamedImportDescriptor {
+            module: namespace.to_string(),
+            name: name.to_string(),
+            kind: wasmer_import_export_kind::WASM_MEMORY,
+        });
+    }
+
+    let named_import_descriptors: Box<NamedImportDescriptors> =
+        Box::new(NamedImportDescriptors(descriptors));
+    unsafe {
+        *import_descriptors =
+            Box::into_raw(named_import_descriptors) as *mut wasmer_import_descriptors_t
+    };
+}
+
+pub struct NamedImportDescriptors(Vec<NamedImportDescriptor>);
+
+/// Frees the memory for the given import descriptors
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_import_descriptors_destroy(
+    import_descriptors: *mut wasmer_import_descriptors_t,
+) {
+    if !import_descriptors.is_null() {
+        drop(unsafe { Box::from_raw(import_descriptors as *mut NamedImportDescriptors) });
+    }
+}
+
+/// Gets the length of the import descriptors
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_import_descriptors_len(
+    exports: *mut wasmer_import_descriptors_t,
+) -> c_int {
+    if exports.is_null() {
+        return 0;
+    }
+    (*(exports as *mut NamedImportDescriptors)).0.len() as c_int
+}
+
+/// Gets import descriptor by index
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_import_descriptors_get(
+    import_descriptors: *mut wasmer_import_descriptors_t,
+    idx: c_int,
+) -> *mut wasmer_import_descriptor_t {
+    if import_descriptors.is_null() {
+        return ptr::null_mut();
+    }
+    let mut named_import_descriptors =
+        unsafe { &mut *(import_descriptors as *mut NamedImportDescriptors) };
+    let ptr = &mut (*named_import_descriptors).0[idx as usize] as *mut NamedImportDescriptor
+        as *mut wasmer_import_descriptor_t;
+    ptr
+}
+
+/// Gets name for the import descriptor
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_import_descriptor_name(
+    import_descriptor: *mut wasmer_import_descriptor_t,
+) -> wasmer_byte_array {
+    let named_import_descriptor = &*(import_descriptor as *mut NamedImportDescriptor);
+    wasmer_byte_array {
+        bytes: named_import_descriptor.name.as_ptr(),
+        bytes_len: named_import_descriptor.name.len() as u32,
+    }
+}
+
+/// Gets module name for the import descriptor
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_import_descriptor_module_name(
+    import_descriptor: *mut wasmer_import_descriptor_t,
+) -> wasmer_byte_array {
+    let named_import_descriptor = &*(import_descriptor as *mut NamedImportDescriptor);
+    wasmer_byte_array {
+        bytes: named_import_descriptor.module.as_ptr(),
+        bytes_len: named_import_descriptor.module.len() as u32,
+    }
+}
+
+/// Gets export descriptor kind
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_import_descriptor_kind(
+    export: *mut wasmer_import_descriptor_t,
+) -> wasmer_import_export_kind {
+    let named_import_descriptor = &*(export as *mut NamedImportDescriptor);
+    named_import_descriptor.kind.clone()
 }
 
 /// Creates a new Instance from the given wasm bytes and imports.
@@ -1380,6 +1567,12 @@ impl fmt::Display for CApiError {
 }
 
 impl Error for CApiError {}
+
+struct NamedImportDescriptor {
+    module: String,
+    name: String,
+    kind: wasmer_import_export_kind,
+}
 
 struct NamedExport {
     name: String,
