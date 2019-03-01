@@ -33,7 +33,7 @@ impl Memory {
 
         let protect = protection.to_protect_const();
 
-        let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE | MEM_COMMIT, protect) };
+        let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, protect) };
 
         if ptr.is_null() {
             Err("unable to allocate memory".to_string())
@@ -57,14 +57,7 @@ impl Memory {
 
         let size = round_up_to_page_size(size, page_size::get());
 
-        let ptr = unsafe {
-            VirtualAlloc(
-                ptr::null_mut(),
-                size,
-                MEM_RESERVE | MEM_COMMIT,
-                PAGE_NOACCESS,
-            )
-        };
+        let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, PAGE_NOACCESS) };
 
         if ptr.is_null() {
             Err(MemoryCreationError::VirtualMemoryAllocationFailed(
