@@ -11,6 +11,12 @@ static WAT: &'static str = r#"
         (export "foo" (func $foo))
         (func $foo (type $t0) (param i32) (result i32)
             get_local 0
+            call $bar
+        )
+        (func $bar (type $t0) (param i32) (result i32)
+            get_local 0
+            i32.const 10
+            i32.add
         )
     )
 "#;

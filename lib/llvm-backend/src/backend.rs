@@ -1,5 +1,6 @@
 use crate::intrinsics::Intrinsics;
 use inkwell::{
+    memory_buffer::MemoryBuffer,
     module::Module,
     targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
     OptimizationLevel,
@@ -25,6 +26,7 @@ struct LLVMModule {
     _private: [u8; 0],
 }
 
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 enum MemProtect {
@@ -34,6 +36,7 @@ enum MemProtect {
     READ_EXECUTE,
 }
 
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 enum LLVMResult {
@@ -54,12 +57,13 @@ struct Callbacks {
 }
 
 extern "C" {
-    fn object_load(
+    fn module_load(
         mem_ptr: *const u8,
         mem_size: usize,
-        callbacks: *const Callbacks,
+        callbacks: Callbacks,
         module_out: &mut *mut LLVMModule,
     ) -> LLVMResult;
+    fn module_delete(module: *mut LLVMModule);
     fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
 }
 
@@ -74,11 +78,11 @@ fn get_callbacks() -> Callbacks {
         ptr_out: &mut *mut u8,
         size_out: &mut usize,
     ) -> LLVMResult {
-        println!("size: {}", size);
+        let size = round_up_to_page_size(size);
         let ptr = unsafe {
             mmap(
                 ptr::null_mut(),
-                round_up_to_page_size(size),
+                size,
                 match protect {
                     MemProtect::NONE => PROT_NONE,
                     MemProtect::READ => PROT_READ,
@@ -99,7 +103,6 @@ fn get_callbacks() -> Callbacks {
     }
 
     extern "C" fn protect_memory(ptr: *mut u8, size: usize, protect: MemProtect) -> LLVMResult {
-        println!("protect memory: {:p}:{} -> {:?}", ptr, size, protect);
         let res = unsafe {
             mprotect(
                 ptr as _,
@@ -121,7 +124,6 @@ fn get_callbacks() -> Callbacks {
     }
 
     extern "C" fn dealloc_memory(ptr: *mut u8, size: usize) -> LLVMResult {
-        println!("dealloc_memory");
         let res = unsafe { munmap(ptr as _, round_up_to_page_size(size)) };
 
         if res == 0 {
@@ -148,6 +150,8 @@ unsafe impl Sync for LLVMBackend {}
 
 pub struct LLVMBackend {
     module: *mut LLVMModule,
+    #[allow(dead_code)]
+    memory_buffer: MemoryBuffer,
 }
 
 impl LLVMBackend {
@@ -182,10 +186,10 @@ impl LLVMBackend {
         let mut module: *mut LLVMModule = ptr::null_mut();
 
         let res = unsafe {
-            object_load(
+            module_load(
                 mem_buf_slice.as_ptr(),
                 mem_buf_slice.len(),
-                &callbacks,
+                callbacks,
                 &mut module,
             )
         };
@@ -194,7 +198,10 @@ impl LLVMBackend {
             panic!("failed to load object")
         }
 
-        Self { module }
+        Self {
+            module,
+            memory_buffer,
+        }
     }
 
     pub fn get_func(
@@ -209,17 +216,16 @@ impl LLVMBackend {
             format!("fn{}", index)
         };
 
-        println!("name: {}", name);
-
         let c_str = CString::new(name).ok()?;
-
         let ptr = unsafe { get_func_symbol(self.module, c_str.as_ptr()) };
 
-        unsafe {
-            disass_ptr(ptr as _, 0x20, 4);
-        }
-
         NonNull::new(ptr as _)
+    }
+}
+
+impl Drop for LLVMBackend {
+    fn drop(&mut self) {
+        unsafe { module_delete(self.module) }
     }
 }
 

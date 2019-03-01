@@ -1,7 +1,7 @@
 use inkwell::{
     builder::Builder,
     context::Context,
-    module::Module,
+    module::{Linkage, Module},
     passes::PassManager,
     types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
     values::{BasicValue, FunctionValue, PhiValue, PointerValue},
@@ -10,7 +10,7 @@ use inkwell::{
 use smallvec::SmallVec;
 use wasmer_runtime_core::{
     memory::MemoryType,
-    module::ModuleInfo,
+    module::{ExportIndex, ModuleInfo},
     structures::{Map, SliceMap, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
@@ -80,7 +80,7 @@ pub fn parse_function_bodies(
             module.add_function(
                 &format!("fn{}", func_index.index()),
                 signatures[sig_index],
-                None,
+                Some(Linkage::External),
             )
         })
         .collect();
@@ -106,6 +106,7 @@ pub fn parse_function_bodies(
     }
 
     let pass_manager = PassManager::create_for_module();
+    pass_manager.add_function_inlining_pass();
     pass_manager.add_promote_memory_to_register_pass();
     pass_manager.add_cfg_simplification_pass();
     pass_manager.add_instruction_combining_pass();
@@ -113,12 +114,10 @@ pub fn parse_function_bodies(
     // pass_manager.add_merged_load_store_motion_pass();
     // pass_manager.add_sccp_pass();
     pass_manager.add_gvn_pass();
-    pass_manager.add_new_gvn_pass();
+    // pass_manager.add_new_gvn_pass();
     pass_manager.add_aggressive_dce_pass();
-    pass_manager.add_verifier_pass();
+    // pass_manager.add_verifier_pass();
     pass_manager.run_on_module(&module);
-
-    println!("{}", module.print_to_string().to_string());
 
     Ok((module, intrinsics))
 }
@@ -1791,7 +1790,6 @@ fn parse_function(
                 state.push1(result.try_as_basic_value().left().unwrap());
             }
             op @ _ => {
-                println!("{}", module.print_to_string().to_string());
                 unimplemented!("{:?}", op);
             }
         }
