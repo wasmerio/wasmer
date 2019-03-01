@@ -43,15 +43,7 @@ struct wasmer_export_descriptors_t {
 
 };
 
-struct wasmer_export_t {
-
-};
-
-struct wasmer_func_t {
-
-};
-
-struct wasmer_exports_t {
+struct wasmer_export_func_t {
 
 };
 
@@ -67,6 +59,14 @@ struct wasmer_value_t {
   wasmer_value value;
 };
 
+struct wasmer_export_t {
+
+};
+
+struct wasmer_exports_t {
+
+};
+
 struct wasmer_global_t {
 
 };
@@ -74,6 +74,10 @@ struct wasmer_global_t {
 struct wasmer_global_descriptor_t {
   bool mutable_;
   wasmer_value_tag kind;
+};
+
+struct wasmer_import_func_t {
+
 };
 
 struct wasmer_memory_t {
@@ -85,7 +89,7 @@ struct wasmer_table_t {
 };
 
 union wasmer_import_export_value {
-  const wasmer_func_t *func;
+  const wasmer_import_func_t *func;
   const wasmer_table_t *table;
   const wasmer_memory_t *memory;
   const wasmer_global_t *global;
@@ -139,14 +143,53 @@ wasmer_export_descriptor_t *wasmer_export_descriptors_get(wasmer_export_descript
 /// Gets the length of the export descriptors
 int wasmer_export_descriptors_len(wasmer_export_descriptors_t *exports);
 
+/// Calls a `func` with the provided parameters.
+/// Results are set using the provided `results` pointer.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_export_func_call(wasmer_export_func_t *func,
+                                        const wasmer_value_t *params,
+                                        int params_len,
+                                        wasmer_value_t *results,
+                                        int results_len);
+
+/// Sets the params buffer to the parameter types of the given wasmer_export_func_t
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_export_func_params(wasmer_export_func_t *func,
+                                          wasmer_value_tag *params,
+                                          int params_len);
+
+/// Sets the result parameter to the arity of the params of the wasmer_export_func_t
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_export_func_params_arity(wasmer_export_func_t *func, uint32_t *result);
+
+/// Sets the returns buffer to the parameter types of the given wasmer_export_func_t
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_export_func_returns(wasmer_export_func_t *func,
+                                           wasmer_value_tag *returns,
+                                           int returns_len);
+
+/// Sets the result parameter to the arity of the returns of the wasmer_export_func_t
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_export_func_returns_arity(wasmer_export_func_t *func, uint32_t *result);
+
 /// Gets wasmer_export kind
 wasmer_import_export_kind wasmer_export_kind(wasmer_export_t *export_);
 
 /// Gets name from wasmer_export
 wasmer_byte_array wasmer_export_name(wasmer_export_t *export_);
 
-/// Gets func from wasm_export
-const wasmer_func_t *wasmer_export_to_func(wasmer_export_t *export_);
+/// Gets export func from export
+const wasmer_export_func_t *wasmer_export_to_func(wasmer_export_t *export_);
 
 /// Frees the memory for the given exports
 void wasmer_exports_destroy(wasmer_exports_t *exports);
@@ -156,54 +199,6 @@ wasmer_export_t *wasmer_exports_get(wasmer_exports_t *exports, int idx);
 
 /// Gets the length of the exports
 int wasmer_exports_len(wasmer_exports_t *exports);
-
-/// Calls a `func` with the provided parameters.
-/// Results are set using the provided `results` pointer.
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
-wasmer_result_t wasmer_func_call(wasmer_func_t *func,
-                                 const wasmer_value_t *params,
-                                 int params_len,
-                                 wasmer_value_t *results,
-                                 int results_len);
-
-/// Frees memory for the given Func
-void wasmer_func_destroy(wasmer_func_t *func);
-
-/// Creates new func
-/// The caller owns the object and should call `wasmer_func_destroy` to free it.
-const wasmer_func_t *wasmer_func_new(void (*func)(void *data),
-                                     const wasmer_value_tag *params,
-                                     int params_len,
-                                     const wasmer_value_tag *returns,
-                                     int returns_len);
-
-/// Sets the params buffer to the parameter types of the given wasmer_func_t
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
-wasmer_result_t wasmer_func_params(wasmer_func_t *func, wasmer_value_tag *params, int params_len);
-
-/// Sets the result parameter to the arity of the params of the wasmer_func_t
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
-wasmer_result_t wasmer_func_params_arity(wasmer_func_t *func, uint32_t *result);
-
-/// Sets the returns buffer to the parameter types of the given wasmer_func_t
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
-wasmer_result_t wasmer_func_returns(wasmer_func_t *func,
-                                    wasmer_value_tag *returns,
-                                    int returns_len);
-
-/// Sets the result parameter to the arity of the returns of the wasmer_func_t
-/// Returns `wasmer_result_t::WASMER_OK` upon success.
-/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
-/// and `wasmer_last_error_message` to get an error message.
-wasmer_result_t wasmer_func_returns_arity(wasmer_func_t *func, uint32_t *result);
 
 /// Frees memory for the given Global
 void wasmer_global_destroy(wasmer_global_t *global);
@@ -220,6 +215,45 @@ wasmer_global_t *wasmer_global_new(wasmer_value_t value, bool mutable_);
 
 /// Sets the value stored by the given Global
 void wasmer_global_set(wasmer_global_t *global, wasmer_value_t value);
+
+/// Frees memory for the given Func
+void wasmer_import_func_destroy(wasmer_import_func_t *func);
+
+/// Creates new func
+/// The caller owns the object and should call `wasmer_import_func_destroy` to free it.
+const wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
+                                                   const wasmer_value_tag *params,
+                                                   int params_len,
+                                                   const wasmer_value_tag *returns,
+                                                   int returns_len);
+
+/// Sets the params buffer to the parameter types of the given wasmer_import_func_t
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_import_func_params(wasmer_import_func_t *func,
+                                          wasmer_value_tag *params,
+                                          int params_len);
+
+/// Sets the result parameter to the arity of the params of the wasmer_import_func_t
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_import_func_params_arity(wasmer_import_func_t *func, uint32_t *result);
+
+/// Sets the returns buffer to the parameter types of the given wasmer_import_func_t
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_import_func_returns(wasmer_import_func_t *func,
+                                           wasmer_value_tag *returns,
+                                           int returns_len);
+
+/// Sets the result parameter to the arity of the returns of the wasmer_import_func_t
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_import_func_returns_arity(wasmer_import_func_t *func, uint32_t *result);
 
 /// Calls an instances exported function by `name` with the provided parameters.
 /// Results are set using the provided `results` pointer.
