@@ -454,7 +454,7 @@ impl<'a> DynFunc<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn call(&mut self, params: &[Value]) -> CallResult<Vec<Value>> {
+    pub fn call(&self, params: &[Value]) -> CallResult<Vec<Value>> {
         if !self.signature.check_param_value_types(params) {
             Err(ResolveError::Signature {
                 expected: (*self.signature).clone(),

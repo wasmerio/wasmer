@@ -1,23 +1,16 @@
-use wasmer_runtime::{compile, error, imports, Func};
+use wasmer_runtime::{compile, error, imports, Func, Value};
 
 use wabt::wat2wasm;
 
 static WAT: &'static str = r#"
     (module
-        (type $t0 (func (param i32) (result i32)))
-        (type $t1 (func (result i32)))
-        (memory 1)
-        (global $g0 (mut i32) (i32.const 0))
-        (export "foo" (func $foo))
-        (func $foo (type $t0) (param i32) (result i32)
-            get_local 0
-            call $bar
-        )
-        (func $bar (type $t0) (param i32) (result i32)
-            get_local 0
-            i32.const 10
-            i32.add
-        )
+      (type (;0;) (func (result i32)))
+      (func (;0;) (type 0) (result i32)
+        block (result i32)  ;; label = @1
+          i32.const 1
+        end
+        return)
+      (export "as-return-value" (func 0))
     )
 "#;
 
@@ -32,11 +25,12 @@ fn main() -> Result<(), error::Error> {
 
     let imports = imports! {};
 
+    println!("instantiating");
     let instance = module.instantiate(&imports)?;
 
-    let foo: Func<i32, i32> = instance.func("foo")?;
+    let foo = instance.dyn_func("as-call-value")?;
 
-    let result = foo.call(42);
+    let result = foo.call(&[]);
 
     println!("result: {:?}", result);
 

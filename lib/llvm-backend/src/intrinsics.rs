@@ -639,7 +639,6 @@ impl<'a> CtxType<'a> {
                 let int = builder.build_ptr_to_int(global_ptr, intrinsics.i64_ty, "global_ptr_int");
                 builder.build_int_to_ptr(int, llvm_ptr_ty, "global_ptr_typed")
             };
-            println!("global_ptr: {:?}", global_ptr_typed);
 
             if mutable {
                 GlobalCache::Mut {

@@ -9,12 +9,14 @@ use wasmer_runtime_core::{
     error::CompileError,
     module::ModuleInner,
 };
+use wasmparser::{self, WasmDecoder};
 
 mod backend;
 mod code;
 mod intrinsics;
 mod read_info;
 mod state;
+mod trampolines;
 
 pub struct LLVMCompiler {
     _private: (),
@@ -28,13 +30,15 @@ impl LLVMCompiler {
 
 impl Compiler for LLVMCompiler {
     fn compile(&self, wasm: &[u8], _: Token) -> Result<ModuleInner, CompileError> {
+        validate(wasm)?;
+
         let (info, code_reader) = read_info::read_module(wasm).unwrap();
         let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
-        let backend = backend::LLVMBackend::new(module, intrinsics);
+        let (backend, protected_caller) = backend::LLVMBackend::new(module, intrinsics);
 
         // Create placeholder values here.
-        let (protected_caller, cache_gen) = {
+        let cache_gen = {
             use wasmer_runtime_core::backend::{
                 sys::Memory, CacheGen, ProtectedCaller, UserTrapper,
             };
@@ -44,22 +48,6 @@ impl Compiler for LLVMCompiler {
             use wasmer_runtime_core::types::{FuncIndex, Value};
             use wasmer_runtime_core::vm;
             struct Placeholder;
-            impl ProtectedCaller for Placeholder {
-                fn call(
-                    &self,
-                    _module: &ModuleInner,
-                    _func_index: FuncIndex,
-                    _params: &[Value],
-                    _import_backing: &vm::ImportBacking,
-                    _vmctx: *mut vm::Ctx,
-                    _: Token,
-                ) -> RuntimeResult<Vec<Value>> {
-                    unimplemented!("the llvm-based backend does not yet implement ProtectedCaller")
-                }
-                fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
-                    Box::new(Placeholder)
-                }
-            }
             impl CacheGen for Placeholder {
                 fn generate_cache(
                     &self,
@@ -68,18 +56,13 @@ impl Compiler for LLVMCompiler {
                     unimplemented!()
                 }
             }
-            impl UserTrapper for Placeholder {
-                unsafe fn do_early_trap(&self, msg: String) -> ! {
-                    unimplemented!("do early trap: {}", msg)
-                }
-            }
 
-            (Box::new(Placeholder), Box::new(Placeholder))
+            Box::new(Placeholder)
         };
 
         Ok(ModuleInner {
             func_resolver: Box::new(backend),
-            protected_caller,
+            protected_caller: Box::new(protected_caller),
             cache_gen,
 
             info,
@@ -88,6 +71,20 @@ impl Compiler for LLVMCompiler {
 
     unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         unimplemented!("the llvm backend doesn't support caching yet")
+    }
+}
+
+fn validate(bytes: &[u8]) -> Result<(), CompileError> {
+    let mut parser = wasmparser::ValidatingParser::new(bytes, None);
+    loop {
+        let state = parser.read();
+        match *state {
+            wasmparser::ParserState::EndWasm => break Ok(()),
+            wasmparser::ParserState::Error(err) => Err(CompileError::ValidationError {
+                msg: err.message.to_string(),
+            })?,
+            _ => {}
+        }
     }
 }
 

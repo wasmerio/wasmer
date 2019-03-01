@@ -24,6 +24,7 @@ use wasmparser::{
 use crate::intrinsics::{CtxType, GlobalCache, Intrinsics};
 use crate::read_info::type_to_type;
 use crate::state::{ControlFrame, IfElseState, State};
+use crate::trampolines::generate_trampolines;
 
 fn func_sig_to_llvm(context: &Context, intrinsics: &Intrinsics, sig: &FuncSig) -> FunctionType {
     let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
@@ -102,10 +103,19 @@ pub fn parse_function_bodies(
             LocalFuncIndex::new(local_func_index),
             locals_reader,
             op_reader,
-        )?;
+        )
+        .map_err(|e| BinaryReaderError {
+            message: e.message,
+            offset: local_func_index,
+        })?;
     }
 
+    // module.print_to_stderr();
+
+    generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
+
     let pass_manager = PassManager::create_for_module();
+    pass_manager.add_verifier_pass();
     pass_manager.add_function_inlining_pass();
     pass_manager.add_promote_memory_to_register_pass();
     pass_manager.add_cfg_simplification_pass();
@@ -116,7 +126,6 @@ pub fn parse_function_bodies(
     pass_manager.add_gvn_pass();
     // pass_manager.add_new_gvn_pass();
     pass_manager.add_aggressive_dce_pass();
-    // pass_manager.add_verifier_pass();
     pass_manager.run_on_module(&module);
 
     Ok((module, intrinsics))
@@ -209,8 +218,34 @@ fn parse_function(
         locals.push(alloca);
     }
 
+    let mut unreachable_depth = 0;
+
     for op in op_reader {
-        match op? {
+        let op = op?;
+        if !state.reachable {
+            match op {
+                Operator::Block { ty: _ } | Operator::Loop { ty: _ } | Operator::If { ty: _ } => {
+                    unreachable_depth += 1;
+                    continue;
+                }
+                Operator::Else => {
+                    if unreachable_depth != 0 {
+                        continue;
+                    }
+                }
+                Operator::End => {
+                    if unreachable_depth != 0 {
+                        unreachable_depth -= 1;
+                        continue;
+                    }
+                }
+                _ => {
+                    continue;
+                }
+            }
+        }
+
+        match op {
             /***************************
              * Control Flow instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
@@ -356,7 +391,7 @@ fn parse_function(
                 builder.build_switch(index.into_int_value(), default_frame.br_dest(), &cases[..]);
 
                 state.popn(res_len)?;
-                builder.build_unreachable();
+                state.reachable = false;
             }
             Operator::If { ty } => {
                 let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
@@ -440,8 +475,22 @@ fn parse_function(
                     builder.build_unconditional_branch(frame.code_after());
 
                     for phi in frame.phis().iter().rev() {
-                        let value = state.pop1()?;
-                        phi.add_incoming(&[(&value, &current_block)])
+                        if phi.count_incoming() != 0 {
+                            let value = state.pop1()?;
+                            phi.add_incoming(&[(&value, &current_block)])
+                        } else {
+                            let basic_ty = phi.as_basic_value().get_type();
+                            let placeholder_value = match basic_ty {
+                                BasicTypeEnum::IntType(int_ty) => {
+                                    int_ty.const_int(0, false).as_basic_value_enum()
+                                }
+                                BasicTypeEnum::FloatType(float_ty) => {
+                                    float_ty.const_float(0.0).as_basic_value_enum()
+                                }
+                                _ => unimplemented!(),
+                            };
+                            phi.add_incoming(&[(&placeholder_value, &current_block)]);
+                        }
                     }
                 }
 
@@ -466,13 +515,40 @@ fn parse_function(
 
                 // Push each phi value to the value stack.
                 for phi in frame.phis() {
-                    state.push1(phi.as_basic_value());
+                    if phi.count_incoming() != 0 {
+                        state.push1(phi.as_basic_value());
+                    } else {
+                        let basic_ty = phi.as_basic_value().get_type();
+                        let placeholder_value = match basic_ty {
+                            BasicTypeEnum::IntType(int_ty) => {
+                                int_ty.const_int(0, false).as_basic_value_enum()
+                            }
+                            BasicTypeEnum::FloatType(float_ty) => {
+                                float_ty.const_float(0.0).as_basic_value_enum()
+                            }
+                            _ => unimplemented!(),
+                        };
+                        state.push1(placeholder_value);
+                        phi.as_instruction().erase_from_basic_block();
+                    }
                 }
             }
             Operator::Return => {
                 let frame = state.outermost_frame()?;
+                let current_block = builder.get_insert_block().ok_or(BinaryReaderError {
+                    message: "not currently in a block",
+                    offset: -1isize as usize,
+                })?;
 
                 builder.build_unconditional_branch(frame.br_dest());
+
+                let phis = frame.phis().to_vec();
+
+                for phi in phis.iter() {
+                    let arg = state.pop1()?;
+                    phi.add_incoming(&[(&arg, &current_block)]);
+                }
+
                 state.reachable = false;
             }
 
@@ -508,7 +584,7 @@ fn parse_function(
             Operator::F32Const { value } => {
                 let f = intrinsics
                     .f32_ty
-                    .const_float(f64::from_bits(value.bits() as u64));
+                    .const_float(f32::from_bits(value.bits()) as f64);
                 state.push1(f);
             }
             Operator::F64Const { value } => {
@@ -562,15 +638,20 @@ fn parse_function(
 
             Operator::Select => {
                 let (v1, v2, cond) = state.pop3()?;
-                let cond = cond.into_int_value();
-                let res = builder.build_select(cond, v1, v2, &state.var_name());
+                let cond_value = builder.build_int_compare(
+                    IntPredicate::NE,
+                    cond.into_int_value(),
+                    intrinsics.i32_zero,
+                    &state.var_name(),
+                );
+                let res = builder.build_select(cond_value, v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::Call { function_index } => {
                 let func_index = FuncIndex::new(function_index as usize);
                 let sigindex = info.func_assoc[func_index];
                 let llvm_sig = signatures[sigindex];
-                let func_sig = &info.signatures[sig_index];
+                let func_sig = &info.signatures[sigindex];
 
                 let call_site = match func_index.local_or_import(info) {
                     LocalOrImport::Local(local_func_index) => {
@@ -710,7 +791,6 @@ fn parse_function(
                 let args: Vec<_> = std::iter::once(ctx_ptr)
                     .chain(pushed_args.into_iter())
                     .collect();
-                println!("args: {:?}", args);
 
                 let typed_func_ptr = builder.build_pointer_cast(
                     func_ptr,
@@ -948,22 +1028,24 @@ fn parse_function(
             }
             Operator::I32Eqz => {
                 let input = state.pop1()?.into_int_value();
-                let res = builder.build_int_compare(
+                let cond = builder.build_int_compare(
                     IntPredicate::EQ,
                     input,
                     intrinsics.i32_zero,
                     &state.var_name(),
                 );
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I64Eqz => {
                 let input = state.pop1()?.into_int_value();
-                let res = builder.build_int_compare(
+                let cond = builder.build_int_compare(
                     IntPredicate::EQ,
                     input,
                     intrinsics.i64_zero,
                     &state.var_name(),
                 );
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
 
@@ -1170,61 +1252,71 @@ fn parse_function(
             Operator::I32Eq | Operator::I64Eq => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::EQ, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32Ne | Operator::I64Ne => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::NE, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32LtS | Operator::I64LtS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::SLT, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32LtU | Operator::I64LtU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::ULT, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32LeS | Operator::I64LeS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::SLE, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32LeU | Operator::I64LeU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::ULE, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32GtS | Operator::I64GtS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::SGT, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32GtU | Operator::I64GtU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::UGT, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32GeS | Operator::I64GeS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::SGE, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::I32GeU | Operator::I64GeU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, &state.var_name());
+                let cond = builder.build_int_compare(IntPredicate::UGE, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
 
@@ -1235,43 +1327,49 @@ fn parse_function(
             Operator::F32Eq | Operator::F64Eq => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res =
+                let cond =
                     builder.build_float_compare(FloatPredicate::OEQ, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::F32Ne | Operator::F64Ne => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res =
+                let cond =
                     builder.build_float_compare(FloatPredicate::UNE, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::F32Lt | Operator::F64Lt => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res =
+                let cond =
                     builder.build_float_compare(FloatPredicate::OLT, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::F32Le | Operator::F64Le => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res =
+                let cond =
                     builder.build_float_compare(FloatPredicate::OLE, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::F32Gt | Operator::F64Gt => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res =
+                let cond =
                     builder.build_float_compare(FloatPredicate::OGT, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
             Operator::F32Ge | Operator::F64Ge => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res =
+                let cond =
                     builder.build_float_compare(FloatPredicate::OGE, v1, v2, &state.var_name());
+                let res = builder.build_int_z_extend(cond, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
 
@@ -1816,9 +1914,5 @@ fn resolve_memory_ptr(
     let mem_base_int = builder.build_ptr_to_int(mem_base, intrinsics.i64_ty, &state.var_name());
     let effective_address_int =
         builder.build_int_add(mem_base_int, effective_offset, &state.var_name());
-    Ok(builder.build_int_to_ptr(
-        effective_address_int,
-        intrinsics.i32_ptr_ty,
-        &state.var_name(),
-    ))
+    Ok(builder.build_int_to_ptr(effective_address_int, ptr_ty, &state.var_name()))
 }

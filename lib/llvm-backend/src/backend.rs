@@ -11,14 +11,17 @@ use libc::{
 };
 use std::{
     ffi::CString,
+    mem,
     ptr::{self, NonNull},
 };
 use wasmer_runtime_core::{
-    backend::FuncResolver,
+    backend::{FuncResolver, ProtectedCaller, Token, UserTrapper},
+    error::RuntimeResult,
+    export::Context,
     module::{ModuleInfo, ModuleInner},
     structures::TypedIndex,
-    types::LocalFuncIndex,
-    vm,
+    types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, Value},
+    vm::{self, ImportBacking},
 };
 
 #[repr(C)]
@@ -155,7 +158,7 @@ pub struct LLVMBackend {
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, intrinsics: Intrinsics) -> Self {
+    pub fn new(module: Module, intrinsics: Intrinsics) -> (Self, LLVMProtectedCaller) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
             asm_printer: true,
@@ -198,10 +201,13 @@ impl LLVMBackend {
             panic!("failed to load object")
         }
 
-        Self {
-            module,
-            memory_buffer,
-        }
+        (
+            Self {
+                module,
+                memory_buffer,
+            },
+            LLVMProtectedCaller { module },
+        )
     }
 
     pub fn get_func(
@@ -237,6 +243,137 @@ impl FuncResolver for LLVMBackend {
     ) -> Option<NonNull<vm::Func>> {
         self.get_func(&module.info, local_func_index)
     }
+}
+
+struct Placeholder;
+
+unsafe impl Send for LLVMProtectedCaller {}
+unsafe impl Sync for LLVMProtectedCaller {}
+
+pub struct LLVMProtectedCaller {
+    module: *mut LLVMModule,
+}
+
+impl ProtectedCaller for LLVMProtectedCaller {
+    fn call(
+        &self,
+        module: &ModuleInner,
+        func_index: FuncIndex,
+        params: &[Value],
+        import_backing: &ImportBacking,
+        vmctx: *mut vm::Ctx,
+        _: Token,
+    ) -> RuntimeResult<Vec<Value>> {
+        let (func_ptr, ctx, signature, sig_index) =
+            get_func_from_index(&module, import_backing, func_index);
+
+        let vmctx_ptr = match ctx {
+            Context::External(external_vmctx) => external_vmctx,
+            Context::Internal => vmctx,
+        };
+
+        assert!(
+            signature.returns().len() <= 1,
+            "multi-value returns not yet supported"
+        );
+
+        assert!(
+            signature.check_param_value_types(params),
+            "incorrect signature"
+        );
+
+        let param_vec: Vec<u64> = params
+            .iter()
+            .map(|val| match val {
+                Value::I32(x) => *x as u64,
+                Value::I64(x) => *x as u64,
+                Value::F32(x) => x.to_bits() as u64,
+                Value::F64(x) => x.to_bits(),
+            })
+            .collect();
+
+        let mut return_vec = vec![0; signature.returns().len()];
+
+        let trampoline: unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64) = unsafe {
+            let name = if cfg!(target_os = "macos") {
+                format!("_trmp{}", sig_index.index())
+            } else {
+                format!("trmp{}", sig_index.index())
+            };
+
+            let c_str = CString::new(name).unwrap();
+            let symbol = get_func_symbol(self.module, c_str.as_ptr());
+            assert!(!symbol.is_null());
+
+            mem::transmute(symbol)
+        };
+
+        // Here we go.
+        unsafe {
+            trampoline(
+                vmctx_ptr,
+                func_ptr,
+                param_vec.as_ptr(),
+                return_vec.as_mut_ptr(),
+            );
+        }
+
+        Ok(return_vec
+            .iter()
+            .zip(signature.returns().iter())
+            .map(|(&x, ty)| match ty {
+                Type::I32 => Value::I32(x as i32),
+                Type::I64 => Value::I64(x as i64),
+                Type::F32 => Value::F32(f32::from_bits(x as u32)),
+                Type::F64 => Value::F64(f64::from_bits(x as u64)),
+            })
+            .collect())
+    }
+
+    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+        Box::new(Placeholder)
+    }
+}
+
+impl UserTrapper for Placeholder {
+    unsafe fn do_early_trap(&self, msg: String) -> ! {
+        unimplemented!("do early trap: {}", msg)
+    }
+}
+
+fn get_func_from_index<'a>(
+    module: &'a ModuleInner,
+    import_backing: &ImportBacking,
+    func_index: FuncIndex,
+) -> (*const vm::Func, Context, &'a FuncSig, SigIndex) {
+    let sig_index = *module
+        .info
+        .func_assoc
+        .get(func_index)
+        .expect("broken invariant, incorrect func index");
+
+    let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
+        LocalOrImport::Local(local_func_index) => (
+            module
+                .func_resolver
+                .get(&module, local_func_index)
+                .expect("broken invariant, func resolver not synced with module.exports")
+                .cast()
+                .as_ptr() as *const _,
+            Context::Internal,
+        ),
+        LocalOrImport::Import(imported_func_index) => {
+            let imported_func = import_backing.imported_func(imported_func_index);
+            (
+                imported_func.func as *const _,
+                Context::External(imported_func.vmctx),
+            )
+        }
+    };
+
+    let signature = &module.info.signatures[sig_index];
+
+    (func_ptr, ctx, signature, sig_index)
 }
 
 unsafe fn disass_ptr(ptr: *const u8, size: usize, inst_count: usize) {
