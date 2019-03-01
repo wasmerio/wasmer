@@ -32,6 +32,7 @@ mod env;
 mod errno;
 mod exception;
 mod exec;
+mod exit;
 mod io;
 mod jmp;
 mod linking;
@@ -442,6 +443,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 
             // exec
             "_execvp" => func!(crate::exec::_execvp),
+
+            // exit
+            "__exit" => func!(crate::exit::__exit),
 
             // Env
             "___assert_fail" => func!(crate::env::___assert_fail),
