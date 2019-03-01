@@ -33,9 +33,6 @@ enum CLIOptions {
 
 #[derive(Debug, StructOpt)]
 struct Run {
-    #[structopt(short = "d", long = "debug")]
-    debug: bool,
-
     // Disable the cache
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
