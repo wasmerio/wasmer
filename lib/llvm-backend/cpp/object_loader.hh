@@ -20,7 +20,7 @@ typedef enum {
 typedef result_t (*alloc_memory_t)(size_t size, mem_protect_t protect, uint8_t** ptr_out, size_t* size_out);
 typedef result_t (*protect_memory_t)(uint8_t* ptr, size_t size, mem_protect_t protect);
 typedef result_t (*dealloc_memory_t)(uint8_t* ptr, size_t size);
-typedef uintptr_t (*lookup_vm_symbol_t)(char* name_ptr);
+typedef uintptr_t (*lookup_vm_symbol_t)(const char* name_ptr, size_t length);
 
 typedef struct {
     /* Memory management. */

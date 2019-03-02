@@ -110,7 +110,7 @@ pub fn parse_function_bodies(
         })?;
     }
 
-    // module.print_to_stderr();
+    module.print_to_stderr();
 
     generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
 
@@ -475,22 +475,8 @@ fn parse_function(
                     builder.build_unconditional_branch(frame.code_after());
 
                     for phi in frame.phis().iter().rev() {
-                        if phi.count_incoming() != 0 {
-                            let value = state.pop1()?;
-                            phi.add_incoming(&[(&value, &current_block)])
-                        } else {
-                            let basic_ty = phi.as_basic_value().get_type();
-                            let placeholder_value = match basic_ty {
-                                BasicTypeEnum::IntType(int_ty) => {
-                                    int_ty.const_int(0, false).as_basic_value_enum()
-                                }
-                                BasicTypeEnum::FloatType(float_ty) => {
-                                    float_ty.const_float(0.0).as_basic_value_enum()
-                                }
-                                _ => unimplemented!(),
-                            };
-                            phi.add_incoming(&[(&placeholder_value, &current_block)]);
-                        }
+                        let value = state.pop1()?;
+                        phi.add_incoming(&[(&value, &current_block)]);
                     }
                 }
 
@@ -558,6 +544,7 @@ fn parse_function(
                 // it will emit a `ud2` instruction on x86_64 arches.
                 ctx.build_trap();
                 builder.build_unreachable();
+
                 state.reachable = false;
             }
 
@@ -747,12 +734,13 @@ fn parse_function(
                     )
                 };
 
-                let sigindices_equal = builder.build_int_compare(
-                    IntPredicate::EQ,
-                    expected_dynamic_sigindex,
-                    found_dynamic_sigindex,
-                    "sigindices_equal",
-                );
+                // let sigindices_equal = builder.build_int_compare(
+                //     IntPredicate::EQ,
+                //     expected_dynamic_sigindex,
+                //     found_dynamic_sigindex,
+                //     "sigindices_equal",
+                // );
+                let sigindices_equal = intrinsics.i1_ty.const_int(1, false);
 
                 // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
                 let sigindices_equal = builder
@@ -1227,18 +1215,18 @@ fn parse_function(
                 state.push1(res);
             }
             Operator::F32Copysign => {
-                let input = state.pop1()?;
+                let (mag, sgn) = state.pop2()?;
                 let res = builder
-                    .build_call(intrinsics.copysign_f32, &[input], &state.var_name())
+                    .build_call(intrinsics.copysign_f32, &[mag, sgn], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
                 state.push1(res);
             }
             Operator::F64Copysign => {
-                let input = state.pop1()?;
+                let (msg, sgn) = state.pop2()?;
                 let res = builder
-                    .build_call(intrinsics.copysign_f64, &[input], &state.var_name())
+                    .build_call(intrinsics.copysign_f64, &[msg, sgn], &state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -1549,7 +1537,7 @@ fn parse_function(
                     &mut state,
                     &mut ctx,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    intrinsics.f32_ptr_ty,
                 )?;
                 let result = builder.build_load(effective_address, &state.var_name());
                 state.push1(result);

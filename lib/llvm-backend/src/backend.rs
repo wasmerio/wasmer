@@ -13,6 +13,7 @@ use std::{
     ffi::CString,
     mem,
     ptr::{self, NonNull},
+    slice, str,
 };
 use wasmer_runtime_core::{
     backend::{FuncResolver, ProtectedCaller, Token, UserTrapper},
@@ -22,6 +23,7 @@ use wasmer_runtime_core::{
     structures::TypedIndex,
     types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
+    vmcalls,
 };
 
 #[repr(C)]
@@ -56,7 +58,7 @@ struct Callbacks {
     protect_memory: extern "C" fn(*mut u8, usize, MemProtect) -> LLVMResult,
     dealloc_memory: extern "C" fn(*mut u8, usize) -> LLVMResult,
 
-    lookup_vm_symbol: extern "C" fn(*const c_char) -> *const vm::Func,
+    lookup_vm_symbol: extern "C" fn(*const c_char, usize) -> *const vm::Func,
 }
 
 extern "C" {
@@ -136,8 +138,31 @@ fn get_callbacks() -> Callbacks {
         }
     }
 
-    extern "C" fn lookup_vm_symbol(_name_ptr: *const c_char) -> *const vm::Func {
-        ptr::null()
+    extern "C" fn lookup_vm_symbol(name_ptr: *const c_char, length: usize) -> *const vm::Func {
+        #[cfg(target_os = "macos")]
+        macro_rules! fn_name {
+            ($s:literal) => {
+                concat!("_", $s)
+            };
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        macro_rules! fn_name {
+            ($s:literal) => {
+                $s
+            };
+        }
+
+        let name_slice = unsafe { slice::from_raw_parts(name_ptr as *const u8, length) };
+        let name = str::from_utf8(name_slice).unwrap();
+
+        match name {
+            fn_name!("vm.memory.grow.dynamic.local") => vmcalls::local_dynamic_memory_grow as _,
+            fn_name!("vm.memory.size.dynamic.local") => vmcalls::local_dynamic_memory_size as _,
+            fn_name!("vm.memory.grow.static.local") => vmcalls::local_static_memory_grow as _,
+            fn_name!("vm.memory.size.static.local") => vmcalls::local_static_memory_size as _,
+            _ => ptr::null(),
+        }
     }
 
     Callbacks {
@@ -241,6 +266,7 @@ impl FuncResolver for LLVMBackend {
         module: &ModuleInner,
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
+        unimplemented!();
         self.get_func(&module.info, local_func_index)
     }
 }
@@ -264,6 +290,7 @@ impl ProtectedCaller for LLVMProtectedCaller {
         vmctx: *mut vm::Ctx,
         _: Token,
     ) -> RuntimeResult<Vec<Value>> {
+        unimplemented!();
         let (func_ptr, ctx, signature, sig_index) =
             get_func_from_index(&module, import_backing, func_index);
 

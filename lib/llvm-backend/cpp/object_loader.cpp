@@ -117,6 +117,8 @@ private:
 
 struct SymbolLookup : llvm::JITSymbolResolver {
 public:
+    SymbolLookup(callbacks_t callbacks) : callbacks(callbacks) {}
+
     virtual llvm::Expected<LookupResult> lookup(const LookupSet& symbols) override {
         LookupResult result;
 
@@ -140,10 +142,12 @@ public:
 private:
     llvm::JITEvaluatedSymbol symbol_lookup(llvm::StringRef name) {
         std::cout << "symbol name: " << (std::string)name << std::endl;
-        uint64_t addr = 0;
+        uint64_t addr = callbacks.lookup_vm_symbol(name.data(), name.size());
 
         return llvm::JITEvaluatedSymbol(addr, llvm::JITSymbolFlags::None);
     }
+
+    callbacks_t callbacks;
 };
 
 WasmModule::WasmModule(
@@ -156,7 +160,7 @@ WasmModule::WasmModule(
         llvm::StringRef((const char *)object_start, object_size), "object"
     )));
 
-    SymbolLookup symbol_resolver;
+    SymbolLookup symbol_resolver(callbacks);
     runtime_dyld = std::unique_ptr<llvm::RuntimeDyld>(new llvm::RuntimeDyld(*memory_manager, symbol_resolver));
 
     runtime_dyld->setProcessAllSections(true);
