@@ -110,8 +110,6 @@ pub fn parse_function_bodies(
         })?;
     }
 
-    module.print_to_stderr();
-
     generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
 
     let pass_manager = PassManager::create_for_module();
@@ -160,22 +158,6 @@ fn parse_function(
         .map(|&wasmer_ty| type_to_llvm(intrinsics, wasmer_ty))
         .map(|ty| builder.build_phi(ty, &state.var_name()))
         .collect();
-
-    match phis.as_slice() {
-        // No returns.
-        &[] => {
-            builder.build_return(None);
-        }
-        &[one_value] => {
-            let value = one_value.as_basic_value();
-            builder.build_return(Some(&value));
-        }
-        returns @ _ => {
-            // let struct_ty = llvm_sig.get_return_type().as_struct_type();
-            // let ret_struct = struct_ty.const_zero();
-            unimplemented!("multi-value returns not yet implemented")
-        }
-    }
 
     state.push_block(return_block, phis);
     builder.position_at_end(&entry_block);
@@ -504,6 +486,7 @@ fn parse_function(
                     if phi.count_incoming() != 0 {
                         state.push1(phi.as_basic_value());
                     } else {
+                        println!("replacing");
                         let basic_ty = phi.as_basic_value().get_type();
                         let placeholder_value = match basic_ty {
                             BasicTypeEnum::IntType(int_ty) => {
@@ -1878,6 +1861,22 @@ fn parse_function(
             op @ _ => {
                 unimplemented!("{:?}", op);
             }
+        }
+    }
+
+    let results = state.popn_save(func_sig.returns().len())?;
+
+    match results.as_slice() {
+        [] => {
+            builder.build_return(None);
+        }
+        [one_value] => {
+            builder.build_return(Some(one_value));
+        }
+        returns @ _ => {
+            // let struct_ty = llvm_sig.get_return_type().as_struct_type();
+            // let ret_struct = struct_ty.const_zero();
+            unimplemented!("multi-value returns not yet implemented")
         }
     }
 

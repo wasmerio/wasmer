@@ -4,13 +4,10 @@ use wabt::wat2wasm;
 
 static WAT: &'static str = r#"
     (module
-      (type (;0;) (func (result i32)))
-      (func (;0;) (type 0) (result i32)
-        block (result i32)  ;; label = @1
-          i32.const 1
-        end
-        return)
-      (export "as-return-value" (func 0))
+      (type (;0;) (func (param i32) (result i32)))
+      (func (;0;) (type 0) (param i32) (result i32)
+        unreachable)
+      (export "select_trap_l" (func 0))
     )
 "#;
 
@@ -28,9 +25,9 @@ fn main() -> Result<(), error::Error> {
     println!("instantiating");
     let instance = module.instantiate(&imports)?;
 
-    let foo = instance.dyn_func("as-call-value")?;
+    let foo = instance.dyn_func("select_trap_l")?;
 
-    let result = foo.call(&[]);
+    let result = foo.call(&[Value::I32(0)]);
 
     println!("result: {:?}", result);
 
