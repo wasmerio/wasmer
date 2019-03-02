@@ -90,6 +90,10 @@ pub struct Intrinsics {
     pub f32_zero: FloatValue,
     pub f64_zero: FloatValue,
 
+    pub trap_unreachable: BasicValueEnum,
+    pub trap_call_indirect_sig: BasicValueEnum,
+    pub trap_memory_oob: BasicValueEnum,
+
     // VM intrinsics.
     pub memory_grow_dynamic_local: FunctionValue,
     pub memory_grow_static_local: FunctionValue,
@@ -105,8 +109,7 @@ pub struct Intrinsics {
     pub memory_size_static_import: FunctionValue,
     pub memory_size_shared_import: FunctionValue,
 
-    pub throw_unreachable: FunctionValue,
-    pub throw_incorrect_call_indirect_signature: FunctionValue,
+    pub throw_trap: FunctionValue,
 
     ctx_ty: StructType,
     pub ctx_ptr_ty: PointerType,
@@ -285,6 +288,10 @@ impl Intrinsics {
             f32_zero,
             f64_zero,
 
+            trap_unreachable: i32_zero.as_basic_value_enum(),
+            trap_call_indirect_sig: i32_ty.const_int(1, false).as_basic_value_enum(),
+            trap_memory_oob: i32_ty.const_int(2, false).as_basic_value_enum(),
+
             // VM intrinsics.
             memory_grow_dynamic_local: module.add_function(
                 "vm.memory.grow.dynamic.local",
@@ -347,14 +354,9 @@ impl Intrinsics {
                 ret_i32_take_ctx_i32,
                 None,
             ),
-            throw_unreachable: module.add_function(
-                "vm.exception.throw.unreachable",
-                void_ty.fn_type(&[], false),
-                None,
-            ),
-            throw_incorrect_call_indirect_signature: module.add_function(
-                "vm.exception.throw.incorrect-call_indirect_signature",
-                void_ty.fn_type(&[], false),
+            throw_trap: module.add_function(
+                "vm.exception.trap",
+                void_ty.fn_type(&[i32_ty_basic], false),
                 None,
             ),
             ctx_ty,

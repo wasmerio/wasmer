@@ -71,9 +71,9 @@ extern "C" {
     ) -> LLVMResult;
     fn module_delete(module: *mut LLVMModule);
     fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
-    fn throw_unreachable_exception();
-    fn throw_incorrect_call_indirect_signature();
-    // invoke_trampoline(trampoline_t trampoline, void* ctx, void* func, void* params, void* results)
+
+    fn throw_trap(ty: i32);
+
     fn invoke_trampoline(
         trampoline: unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64),
         vmctx_ptr: *mut vm::Ctx,
@@ -173,10 +173,8 @@ fn get_callbacks() -> Callbacks {
             fn_name!("vm.memory.grow.static.local") => vmcalls::local_static_memory_grow as _,
             fn_name!("vm.memory.size.static.local") => vmcalls::local_static_memory_size as _,
 
-            fn_name!("vm.exception.throw.unreachable") => throw_unreachable_exception as _,
-            fn_name!("vm.exception.throw.incorrect-call_indirect_signature") => {
-                throw_incorrect_call_indirect_signature as _
-            }
+            fn_name!("vm.exception.trap") => throw_trap as _,
+
             _ => ptr::null(),
         }
     }

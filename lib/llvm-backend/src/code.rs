@@ -540,9 +540,11 @@ fn parse_function(
                 // If llvm cannot prove that this is never touched,
                 // it will emit a `ud2` instruction on x86_64 arches.
 
-                builder.build_call(intrinsics.throw_unreachable, &[], "throw");
-
-                ctx.build_trap();
+                builder.build_call(
+                    intrinsics.throw_trap,
+                    &[intrinsics.trap_unreachable],
+                    "throw",
+                );
                 builder.build_unreachable();
 
                 state.reachable = false;
@@ -767,8 +769,8 @@ fn parse_function(
 
                 builder.position_at_end(&sigindices_notequal_block);
                 builder.build_call(
-                    intrinsics.throw_incorrect_call_indirect_signature,
-                    &[],
+                    intrinsics.throw_trap,
+                    &[intrinsics.trap_call_indirect_sig],
                     "throw",
                 );
                 builder.build_unreachable();

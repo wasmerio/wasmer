@@ -40,29 +40,50 @@ typedef struct {
     visit_fde_t visit_fde;
 } callbacks_t;
 
-class WasmException {
+struct WasmException {
 public:
     virtual std::string description() const noexcept = 0;
 };
 
 struct UncatchableException : WasmException {
 public:
-    enum class Type {
-        Unreachable,
-        IncorrectCallIndirectSignature,
-        Unknown,
-    } type;
+    virtual std::string description() const noexcept override {
+        return "Uncatchable exception";
+    }
+};
 
-    UncatchableException(Type type) : type(type) {}
+struct UserException : UncatchableException {
+public:
+    UserException(std::string msg) : msg(msg) {}
+
+    virtual std::string description() const noexcept override {
+        return std::string("user exception: ") + msg;
+    }
+private:
+    std::string msg;
+};
+
+struct WasmTrap : UncatchableException {
+public:
+    enum Type {
+        Unreachable = 0,
+        IncorrectCallIndirectSignature = 1,
+        MemoryOutOfBounds = 2,
+        Unknown,
+    };
+
+    WasmTrap(Type type) : type(type) {}
 
     virtual std::string description() const noexcept override {
         std::ostringstream ss;
         ss
-            << "Uncatchable exception:" << '\n'
+            << "WebAssembly trap:" << '\n'
             << " - type: " << type << '\n';
         
         return ss.str();
     }
+
+    Type type;
 
 private:
     friend std::ostream& operator<<(std::ostream& out, const Type& ty) {
@@ -73,7 +94,11 @@ private:
             case Type::IncorrectCallIndirectSignature:
                 out << "incorrect call_indirect signature";
                 break;
+            case Type::MemoryOutOfBounds:
+                out << "memory access out-of-bounds";
+                break;
             case Type::Unknown:
+            default:
                 out << "unknown";
                 break;
         }
@@ -93,7 +118,7 @@ public:
     uint64_t values[];
 };
 
-class WasmModule {
+struct WasmModule {
 public:
     WasmModule(
         const uint8_t *object_start,
@@ -115,11 +140,8 @@ extern "C" {
         return RESULT_OK;
     }
 
-    void throw_unreachable_exception() {
-        throw UncatchableException(UncatchableException::Type::Unreachable);
-    }
-    void throw_incorrect_call_indirect_signature() {
-        throw UncatchableException(UncatchableException::Type::IncorrectCallIndirectSignature);
+    void throw_trap(WasmTrap::Type ty) {
+        throw WasmTrap(ty);
     }
 
     void module_delete(WasmModule* module) {
