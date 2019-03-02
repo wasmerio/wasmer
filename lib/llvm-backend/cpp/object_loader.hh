@@ -1,6 +1,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <llvm/ExecutionEngine/RuntimeDyld.h>
+#include <iostream>
+#include <sstream>
+#include <exception>
 
 typedef enum {
     PROTECT_NONE,
@@ -24,6 +27,8 @@ typedef uintptr_t (*lookup_vm_symbol_t)(const char* name_ptr, size_t length);
 typedef void (*fde_visitor_t)(uint8_t *fde);
 typedef result_t (*visit_fde_t)(uint8_t *fde, size_t size, fde_visitor_t visitor);
 
+typedef void (*trampoline_t)(void*, void*, void*, void*);
+
 typedef struct {
     /* Memory management. */
     alloc_memory_t alloc_memory;
@@ -34,6 +39,59 @@ typedef struct {
 
     visit_fde_t visit_fde;
 } callbacks_t;
+
+class WasmException {
+public:
+    virtual std::string description() const noexcept = 0;
+};
+
+struct UncatchableException : WasmException {
+public:
+    enum class Type {
+        Unreachable,
+        IncorrectCallIndirectSignature,
+        Unknown,
+    } type;
+
+    UncatchableException(Type type) : type(type) {}
+
+    virtual std::string description() const noexcept override {
+        std::ostringstream ss;
+        ss
+            << "Uncatchable exception:" << '\n'
+            << " - type: " << type << '\n';
+        
+        return ss.str();
+    }
+
+private:
+    friend std::ostream& operator<<(std::ostream& out, const Type& ty) {
+        switch (ty) {
+            case Type::Unreachable:
+                out << "unreachable";
+                break;
+            case Type::IncorrectCallIndirectSignature:
+                out << "incorrect call_indirect signature";
+                break;
+            case Type::Unknown:
+                out << "unknown";
+                break;
+        }
+        return out;
+    }
+};
+
+struct CatchableException : WasmException {
+public:
+    CatchableException(uint32_t type_id, uint32_t value_num) : type_id(type_id), value_num(value_num) {}
+
+    virtual std::string description() const noexcept override {
+        return "catchable exception";
+    }
+
+    uint32_t type_id, value_num;
+    uint64_t values[];
+};
 
 class WasmModule {
 public:
@@ -57,8 +115,25 @@ extern "C" {
         return RESULT_OK;
     }
 
+    void throw_unreachable_exception() {
+        throw UncatchableException(UncatchableException::Type::Unreachable);
+    }
+    void throw_incorrect_call_indirect_signature() {
+        throw UncatchableException(UncatchableException::Type::IncorrectCallIndirectSignature);
+    }
+
     void module_delete(WasmModule* module) {
         delete module;
+    }
+
+    void invoke_trampoline(trampoline_t trampoline, void* ctx, void* func, void* params, void* results) {
+        try {
+            trampoline(ctx, func, params, results);
+        } catch(const WasmException& e) {
+            std::cout << e.description() << std::endl;
+        } catch (...) {
+            std::cout << "unknown exception" << std::endl;
+        }
     }
 
     void* get_func_symbol(WasmModule* module, const char* name) {

@@ -105,6 +105,9 @@ pub struct Intrinsics {
     pub memory_size_static_import: FunctionValue,
     pub memory_size_shared_import: FunctionValue,
 
+    pub throw_unreachable: FunctionValue,
+    pub throw_incorrect_call_indirect_signature: FunctionValue,
+
     ctx_ty: StructType,
     pub ctx_ptr_ty: PointerType,
 }
@@ -344,7 +347,16 @@ impl Intrinsics {
                 ret_i32_take_ctx_i32,
                 None,
             ),
-
+            throw_unreachable: module.add_function(
+                "vm.exception.throw.unreachable",
+                void_ty.fn_type(&[], false),
+                None,
+            ),
+            throw_incorrect_call_indirect_signature: module.add_function(
+                "vm.exception.throw.incorrect-call_indirect_signature",
+                void_ty.fn_type(&[], false),
+                None,
+            ),
             ctx_ty,
             ctx_ptr_ty,
         }

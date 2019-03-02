@@ -539,6 +539,9 @@ fn parse_function(
                 // Emit an unreachable instruction.
                 // If llvm cannot prove that this is never touched,
                 // it will emit a `ud2` instruction on x86_64 arches.
+
+                builder.build_call(intrinsics.throw_unreachable, &[], "throw");
+
                 ctx.build_trap();
                 builder.build_unreachable();
 
@@ -731,13 +734,12 @@ fn parse_function(
                     )
                 };
 
-                // let sigindices_equal = builder.build_int_compare(
-                //     IntPredicate::EQ,
-                //     expected_dynamic_sigindex,
-                //     found_dynamic_sigindex,
-                //     "sigindices_equal",
-                // );
-                let sigindices_equal = intrinsics.i1_ty.const_int(1, false);
+                let sigindices_equal = builder.build_int_compare(
+                    IntPredicate::EQ,
+                    expected_dynamic_sigindex,
+                    found_dynamic_sigindex,
+                    "sigindices_equal",
+                );
 
                 // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
                 let sigindices_equal = builder
@@ -764,7 +766,11 @@ fn parse_function(
                 );
 
                 builder.position_at_end(&sigindices_notequal_block);
-                ctx.build_trap();
+                builder.build_call(
+                    intrinsics.throw_incorrect_call_indirect_signature,
+                    &[],
+                    "throw",
+                );
                 builder.build_unreachable();
                 builder.position_at_end(&continue_block);
 

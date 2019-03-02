@@ -71,6 +71,16 @@ extern "C" {
     ) -> LLVMResult;
     fn module_delete(module: *mut LLVMModule);
     fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
+    fn throw_unreachable_exception();
+    fn throw_incorrect_call_indirect_signature();
+    // invoke_trampoline(trampoline_t trampoline, void* ctx, void* func, void* params, void* results)
+    fn invoke_trampoline(
+        trampoline: unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64),
+        vmctx_ptr: *mut vm::Ctx,
+        func_ptr: *const vm::Func,
+        params: *const u64,
+        results: *mut u64,
+    );
 }
 
 fn get_callbacks() -> Callbacks {
@@ -162,6 +172,11 @@ fn get_callbacks() -> Callbacks {
             fn_name!("vm.memory.size.dynamic.local") => vmcalls::local_dynamic_memory_size as _,
             fn_name!("vm.memory.grow.static.local") => vmcalls::local_static_memory_grow as _,
             fn_name!("vm.memory.size.static.local") => vmcalls::local_static_memory_size as _,
+
+            fn_name!("vm.exception.throw.unreachable") => throw_unreachable_exception as _,
+            fn_name!("vm.exception.throw.incorrect-call_indirect_signature") => {
+                throw_incorrect_call_indirect_signature as _
+            }
             _ => ptr::null(),
         }
     }
@@ -343,7 +358,8 @@ impl ProtectedCaller for LLVMProtectedCaller {
 
         // Here we go.
         unsafe {
-            trampoline(
+            invoke_trampoline(
+                trampoline,
                 vmctx_ptr,
                 func_ptr,
                 param_vec.as_ptr(),
