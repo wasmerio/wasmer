@@ -68,6 +68,12 @@ pub fn parse_function_bodies(
 
     let intrinsics = Intrinsics::declare(&module, &context);
 
+    let personality_func = module.add_function(
+        "__gxx_personality_v0",
+        intrinsics.i32_ty.fn_type(&[], false),
+        Some(Linkage::External),
+    );
+
     let signatures: Map<SigIndex, FunctionType> = info
         .signatures
         .iter()
@@ -78,11 +84,13 @@ pub fn parse_function_bodies(
         .iter()
         .skip(info.imported_functions.len())
         .map(|(func_index, &sig_index)| {
-            module.add_function(
+            let func = module.add_function(
                 &format!("fn{}", func_index.index()),
                 signatures[sig_index],
                 Some(Linkage::External),
-            )
+            );
+            func.set_personality_function(personality_func);
+            func
         })
         .collect();
 
@@ -109,6 +117,8 @@ pub fn parse_function_bodies(
             offset: local_func_index,
         })?;
     }
+
+    module.print_to_stderr();
 
     generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
 
