@@ -179,14 +179,16 @@ fn parse_function(
             }),
     );
 
-    for (index, local) in locals_reader.into_iter().enumerate().skip(locals.len()) {
+    let param_len = locals.len();
+
+    for (index, local) in locals_reader.into_iter().enumerate() {
         let (_, ty) = local?;
 
         let wasmer_ty = type_to_type(ty)?;
 
         let ty = type_to_llvm(intrinsics, wasmer_ty);
 
-        let alloca = builder.build_alloca(ty, &format!("local{}", index));
+        let alloca = builder.build_alloca(ty, &format!("local{}", param_len + index));
 
         let default_value = match wasmer_ty {
             Type::I32 => intrinsics.i32_zero.as_basic_value_enum(),
@@ -346,9 +348,12 @@ fn parse_function(
 
                 let default_frame = state.frame_at_depth(default_depth)?;
 
-                let res_len = default_frame.phis().len();
-
-                let args = state.peekn(res_len)?;
+                let args = if default_frame.is_loop() {
+                    &[]
+                } else {
+                    let res_len = default_frame.phis().len();
+                    state.peekn(res_len)?
+                };
 
                 for (phi, value) in default_frame.phis().iter().zip(args.iter()) {
                     phi.add_incoming(&[(value, &current_block)]);
@@ -372,7 +377,7 @@ fn parse_function(
 
                 builder.build_switch(index.into_int_value(), default_frame.br_dest(), &cases[..]);
 
-                state.popn(res_len)?;
+                state.popn(args.len())?;
                 state.reachable = false;
             }
             Operator::If { ty } => {
@@ -486,7 +491,6 @@ fn parse_function(
                     if phi.count_incoming() != 0 {
                         state.push1(phi.as_basic_value());
                     } else {
-                        println!("replacing");
                         let basic_ty = phi.as_basic_value().get_type();
                         let placeholder_value = match basic_ty {
                             BasicTypeEnum::IntType(int_ty) => {

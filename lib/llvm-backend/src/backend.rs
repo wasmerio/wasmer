@@ -266,7 +266,6 @@ impl FuncResolver for LLVMBackend {
         module: &ModuleInner,
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
-        unimplemented!();
         self.get_func(&module.info, local_func_index)
     }
 }
@@ -290,7 +289,6 @@ impl ProtectedCaller for LLVMProtectedCaller {
         vmctx: *mut vm::Ctx,
         _: Token,
     ) -> RuntimeResult<Vec<Value>> {
-        unimplemented!();
         let (func_ptr, ctx, signature, sig_index) =
             get_func_from_index(&module, import_backing, func_index);
 
