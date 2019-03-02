@@ -59,6 +59,7 @@ struct Callbacks {
     dealloc_memory: extern "C" fn(*mut u8, usize) -> LLVMResult,
 
     lookup_vm_symbol: extern "C" fn(*const c_char, usize) -> *const vm::Func,
+    visit_fde: extern "C" fn(*mut u8, usize, extern "C" fn(*mut u8)),
 }
 
 extern "C" {
@@ -165,11 +166,18 @@ fn get_callbacks() -> Callbacks {
         }
     }
 
+    extern "C" fn visit_fde(fde: *mut u8, size: usize, visitor: extern "C" fn(*mut u8)) {
+        unsafe {
+            crate::platform::visit_fde(fde, size, visitor);
+        }
+    }
+
     Callbacks {
         alloc_memory,
         protect_memory,
         dealloc_memory,
         lookup_vm_symbol,
+        visit_fde,
     }
 }
 

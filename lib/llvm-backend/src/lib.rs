@@ -14,6 +14,7 @@ use wasmparser::{self, WasmDecoder};
 mod backend;
 mod code;
 mod intrinsics;
+mod platform;
 mod read_info;
 mod state;
 mod trampolines;

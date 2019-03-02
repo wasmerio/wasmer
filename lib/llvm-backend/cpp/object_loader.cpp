@@ -2,11 +2,15 @@
 #include <iostream>
 #include <memory>
 
+extern "C" void __register_frame(uint8_t *);
+extern "C" void __deregister_frame(uint8_t *);
+
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager {
 public:
     MemoryManager(callbacks_t callbacks) : callbacks(callbacks) {}
 
     virtual ~MemoryManager() override {
+        deregisterEHFrames();
         // Deallocate all of the allocated memory.
         callbacks.dealloc_memory(code_section.base, code_section.size);
         callbacks.dealloc_memory(read_section.base, read_section.size);
@@ -62,12 +66,17 @@ public:
         return true;
     }
 
-    virtual void registerEHFrames(uint8_t* Addr, uint64_t LoadAddr, size_t Size) override {
-        std::cout << "should register eh frames" << std::endl;
+    virtual void registerEHFrames(uint8_t* addr, uint64_t LoadAddr, size_t size) override {
+        eh_frame_ptr = addr;
+        eh_frame_size = size;
+        eh_frames_registered = true;
+        callbacks.visit_fde(addr, size, __register_frame);
     }
 
     virtual void deregisterEHFrames() override {
-        std::cout << "should deregister eh frames" << std::endl;
+        if (eh_frames_registered) {
+            callbacks.visit_fde(eh_frame_ptr, eh_frame_size, __deregister_frame);
+        }
     }
 
     virtual bool finalizeMemory(std::string *ErrMsg = nullptr) override {
@@ -111,6 +120,9 @@ private:
 
     Section code_section, read_section, readwrite_section;
     uintptr_t code_bump_ptr, read_bump_ptr, readwrite_bump_ptr;
+    uint8_t* eh_frame_ptr;
+    size_t eh_frame_size;
+    bool eh_frames_registered = false;
 
     callbacks_t callbacks;
 };
@@ -154,7 +166,7 @@ WasmModule::WasmModule(
         const uint8_t *object_start,
         size_t object_size,
         callbacks_t callbacks
-) : memory_manager(new MemoryManager(callbacks))
+) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks)))
 {
     object_file = llvm::cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
         llvm::StringRef((const char *)object_start, object_size), "object"

@@ -1,7 +1,6 @@
-
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 mod unix;
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 pub use self::unix::*;
 
 #[cfg(target_family = "windows")]

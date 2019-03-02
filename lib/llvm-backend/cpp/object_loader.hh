@@ -21,6 +21,8 @@ typedef result_t (*alloc_memory_t)(size_t size, mem_protect_t protect, uint8_t**
 typedef result_t (*protect_memory_t)(uint8_t* ptr, size_t size, mem_protect_t protect);
 typedef result_t (*dealloc_memory_t)(uint8_t* ptr, size_t size);
 typedef uintptr_t (*lookup_vm_symbol_t)(const char* name_ptr, size_t length);
+typedef void (*fde_visitor_t)(uint8_t *fde);
+typedef result_t (*visit_fde_t)(uint8_t *fde, size_t size, fde_visitor_t visitor);
 
 typedef struct {
     /* Memory management. */
@@ -29,6 +31,8 @@ typedef struct {
     dealloc_memory_t dealloc_memory;
 
     lookup_vm_symbol_t lookup_vm_symbol;
+
+    visit_fde_t visit_fde;
 } callbacks_t;
 
 class WasmModule {
@@ -41,7 +45,7 @@ public:
 
     void *get_func(llvm::StringRef name) const;
 private:
-    llvm::RuntimeDyld::MemoryManager* memory_manager;
+    std::unique_ptr<llvm::RuntimeDyld::MemoryManager> memory_manager;
     std::unique_ptr<llvm::object::ObjectFile> object_file;
     std::unique_ptr<llvm::RuntimeDyld> runtime_dyld;
 };
