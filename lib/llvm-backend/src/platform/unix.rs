@@ -8,6 +8,7 @@ use nix::sys::signal::{
 ///
 /// This is a pretty direct port of llvm's fde handling code:
 ///     https://llvm.org/doxygen/RTDyldMemoryManager_8cpp_source.html.
+#[allow(clippy::cast_ptr_alignment)]
 #[cfg(target_os = "macos")]
 pub unsafe fn visit_fde(addr: *mut u8, size: usize, visitor: extern "C" fn(*mut u8)) {
     unsafe fn process_fde(entry: *mut u8, visitor: extern "C" fn(*mut u8)) -> *mut u8 {
