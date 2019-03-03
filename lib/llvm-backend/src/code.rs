@@ -172,7 +172,8 @@ fn parse_function(
 
     let mut ctx = intrinsics.ctx(info, builder, &function);
 
-    let mut locals = Vec::with_capacity(locals_reader.get_count() as usize);
+    let mut locals = Vec::with_capacity(locals_reader.get_count() as usize); // TODO fix capacity
+
     locals.extend(
         function
             .get_param_iter()
@@ -189,14 +190,11 @@ fn parse_function(
 
     let param_len = locals.len();
 
+    let mut local_idx = 0;
     for (index, local) in locals_reader.into_iter().enumerate() {
-        let (_, ty) = local?;
-
+        let (count, ty) = local?;
         let wasmer_ty = type_to_type(ty)?;
-
         let ty = type_to_llvm(intrinsics, wasmer_ty);
-
-        let alloca = builder.build_alloca(ty, &format!("local{}", param_len + index));
 
         let default_value = match wasmer_ty {
             Type::I32 => intrinsics.i32_zero.as_basic_value_enum(),
@@ -205,9 +203,14 @@ fn parse_function(
             Type::F64 => intrinsics.f64_zero.as_basic_value_enum(),
         };
 
-        builder.build_store(alloca, default_value);
+        for _ in 0..count {
+            let alloca = builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
 
-        locals.push(alloca);
+            builder.build_store(alloca, default_value);
+
+            locals.push(alloca);
+            local_idx += 1;
+        }
     }
 
     let mut unreachable_depth = 0;
