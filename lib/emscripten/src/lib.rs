@@ -341,7 +341,7 @@ impl EmscriptenGlobals {
             if name == "abortOnCannotGrowMemory" && namespace == "env" {
                 let sig_index = module.info().func_assoc[index.convert_up(module.info())];
                 let expected_sig = &module.info().signatures[sig_index];
-                if **expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
+                if *expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
                     use_old_abort_on_cannot_grow_memory = true;
                 }
                 break;
