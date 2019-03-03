@@ -17,11 +17,14 @@ use std::{
 };
 use wasmer_runtime_core::{
     backend::{FuncResolver, ProtectedCaller, Token, UserTrapper},
-    error::RuntimeResult,
+    error::{RuntimeError, RuntimeResult},
     export::Context,
     module::{ModuleInfo, ModuleInner},
     structures::TypedIndex,
-    types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, Value},
+    types::{
+        FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
+        Value,
+    },
     vm::{self, ImportBacking},
     vmcalls,
 };
@@ -53,6 +56,14 @@ enum LLVMResult {
 }
 
 #[repr(C)]
+enum WasmTrapType {
+    Unreachable = 0,
+    IncorrectCallIndirectSignature = 1,
+    MemoryOutOfBounds = 2,
+    Unknown,
+}
+
+#[repr(C)]
 struct Callbacks {
     alloc_memory: extern "C" fn(usize, MemProtect, &mut *mut u8, &mut usize) -> LLVMResult,
     protect_memory: extern "C" fn(*mut u8, usize, MemProtect) -> LLVMResult,
@@ -80,7 +91,8 @@ extern "C" {
         func_ptr: *const vm::Func,
         params: *const u64,
         results: *mut u64,
-    );
+        trap_out: *mut WasmTrapType,
+    ) -> bool;
 }
 
 fn get_callbacks() -> Callbacks {
@@ -358,27 +370,50 @@ impl ProtectedCaller for LLVMProtectedCaller {
             mem::transmute(symbol)
         };
 
+        let mut trap_out = WasmTrapType::Unknown;
+
         // Here we go.
-        unsafe {
+        let success = unsafe {
             invoke_trampoline(
                 trampoline,
                 vmctx_ptr,
                 func_ptr,
                 param_vec.as_ptr(),
                 return_vec.as_mut_ptr(),
-            );
-        }
+                &mut trap_out,
+            )
+        };
 
-        Ok(return_vec
-            .iter()
-            .zip(signature.returns().iter())
-            .map(|(&x, ty)| match ty {
-                Type::I32 => Value::I32(x as i32),
-                Type::I64 => Value::I64(x as i64),
-                Type::F32 => Value::F32(f32::from_bits(x as u32)),
-                Type::F64 => Value::F64(f64::from_bits(x as u64)),
+        if success {
+            Ok(return_vec
+                .iter()
+                .zip(signature.returns().iter())
+                .map(|(&x, ty)| match ty {
+                    Type::I32 => Value::I32(x as i32),
+                    Type::I64 => Value::I64(x as i64),
+                    Type::F32 => Value::F32(f32::from_bits(x as u32)),
+                    Type::F64 => Value::F64(f64::from_bits(x as u64)),
+                })
+                .collect())
+        } else {
+            Err(match trap_out {
+                WasmTrapType::Unreachable => RuntimeError::User {
+                    msg: "unreachable".into(),
+                },
+                WasmTrapType::IncorrectCallIndirectSignature => {
+                    RuntimeError::IndirectCallSignature {
+                        table: TableIndex::new(0),
+                    }
+                }
+                WasmTrapType::MemoryOutOfBounds => RuntimeError::OutOfBoundsAccess {
+                    memory: MemoryIndex::new(0),
+                    addr: None,
+                },
+                WasmTrapType::Unknown => RuntimeError::Unknown {
+                    msg: "unknown error".into(),
+                },
             })
-            .collect())
+        }
     }
 
     fn get_early_trapper(&self) -> Box<dyn UserTrapper> {

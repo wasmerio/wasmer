@@ -46,7 +46,7 @@ extern "C" {
 pub unsafe fn install_signal_handler() {
     let sa = SigAction::new(
         SigHandler::SigAction(signal_trap_handler),
-        SaFlags::SA_ONSTACK,
+        SaFlags::SA_ONSTACK | SaFlags::SA_SIGINFO,
         SigSet::empty(),
     );
     sigaction(SIGFPE, &sa).unwrap();

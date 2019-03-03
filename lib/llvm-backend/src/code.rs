@@ -118,8 +118,6 @@ pub fn parse_function_bodies(
         })?;
     }
 
-    module.print_to_stderr();
-
     generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
 
     let pass_manager = PassManager::create_for_module();

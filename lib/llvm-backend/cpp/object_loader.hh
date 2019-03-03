@@ -141,6 +141,7 @@ extern "C" {
     }
 
     [[noreturn]] void throw_trap(WasmTrap::Type ty) {
+        std::cout << "throwing trap: " << ty << std::endl;
         throw WasmTrap(ty);
     }
 
@@ -148,13 +149,30 @@ extern "C" {
         delete module;
     }
 
-    void invoke_trampoline(trampoline_t trampoline, void* ctx, void* func, void* params, void* results) {
+    bool invoke_trampoline(
+        trampoline_t trampoline,
+        void* ctx,
+        void* func,
+        void* params,
+        void* results,
+        WasmTrap::Type* trap_out
+    ) throw() {
         try {
             trampoline(ctx, func, params, results);
+            std::cout << "Success" << std::endl;
+            return true;
+        } catch(const WasmTrap& e) {
+            std::cout << e.description() << std::endl;
+            *trap_out = e.type;
+            return false;
         } catch(const WasmException& e) {
             std::cout << e.description() << std::endl;
+            *trap_out = WasmTrap::Type::Unknown;
+            return false;
         } catch (...) {
-            std::cout << "unknown exception" << std::endl;
+            std::cout << "unknown" << std::endl;
+            *trap_out = WasmTrap::Type::Unknown;
+            return false;
         }
     }
 
