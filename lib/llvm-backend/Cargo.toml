@@ -12,6 +12,7 @@ hashbrown = "0.1.8"
 smallvec = "0.6.8"
 goblin = "0.0.20"
 libc = "0.2.49"
+nix = "0.13.0"
 capstone = "0.5.0"
 
 [build-dependencies]

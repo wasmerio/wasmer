@@ -4,9 +4,12 @@ use wabt::wat2wasm;
 
 static WAT: &'static str = r#"
     (module
+      (memory 1)
       (type (;0;) (func (param i32) (result i32)))
       (func (;0;) (type 0) (param i32) (result i32)
-        unreachable)
+        i32.const 0x20000
+        i32.load
+      )
       (export "select_trap_l" (func 0))
     )
 "#;

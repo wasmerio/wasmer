@@ -243,6 +243,10 @@ impl LLVMBackend {
             )
         };
 
+        unsafe {
+            crate::platform::install_signal_handler();
+        }
+
         if res != LLVMResult::OK {
             panic!("failed to load object")
         }

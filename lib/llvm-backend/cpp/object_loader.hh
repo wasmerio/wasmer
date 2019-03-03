@@ -115,7 +115,7 @@ public:
     }
 
     uint32_t type_id, value_num;
-    uint64_t values[];
+    uint64_t values[1];
 };
 
 struct WasmModule {
@@ -140,7 +140,7 @@ extern "C" {
         return RESULT_OK;
     }
 
-    void throw_trap(WasmTrap::Type ty) {
+    [[noreturn]] void throw_trap(WasmTrap::Type ty) {
         throw WasmTrap(ty);
     }
 
