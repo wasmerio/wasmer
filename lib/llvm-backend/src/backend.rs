@@ -462,6 +462,7 @@ fn get_func_from_index<'a>(
     (func_ptr, ctx, signature, sig_index)
 }
 
+#[cfg(feature = "disasm")]
 unsafe fn disass_ptr(ptr: *const u8, size: usize, inst_count: usize) {
     use capstone::arch::BuildsCapstone;
     let mut cs = capstone::Capstone::new() // Call builder-pattern
