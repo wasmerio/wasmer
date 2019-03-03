@@ -111,7 +111,7 @@ fn test_read_module() {
 
     let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
-    let backend = backend::LLVMBackend::new(module, intrinsics);
+    let (backend, _caller) = backend::LLVMBackend::new(module, intrinsics);
 
     let func_ptr = backend.get_func(&info, LocalFuncIndex::new(0)).unwrap();
 
