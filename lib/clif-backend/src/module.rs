@@ -25,7 +25,7 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn new(wasm: &[u8]) -> Self {
+    pub fn new() -> Self {
         Self {
             info: ModuleInfo {
                 memories: Map::new(),
