@@ -76,7 +76,19 @@ impl Compiler for LLVMCompiler {
 }
 
 fn validate(bytes: &[u8]) -> Result<(), CompileError> {
-    let mut parser = wasmparser::ValidatingParser::new(bytes, None);
+    let mut parser = wasmparser::ValidatingParser::new(
+        bytes,
+        Some(wasmparser::ValidatingParserConfig {
+            operator_config: wasmparser::OperatorValidatorConfig {
+                enable_threads: false,
+                enable_reference_types: false,
+                enable_simd: false,
+                enable_bulk_memory: false,
+            },
+            mutable_global_imports: false,
+        }),
+    );
+
     loop {
         let state = parser.read();
         match *state {
