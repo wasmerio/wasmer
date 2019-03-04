@@ -419,7 +419,7 @@ struct TableCache {
 #[derive(Clone, Copy)]
 pub enum GlobalCache {
     Mut { ptr_to_value: PointerValue },
-    Const { value: IntValue },
+    Const { value: BasicValueEnum },
 }
 
 struct ImportedFuncCache {
@@ -675,11 +675,8 @@ impl<'a> CtxType<'a> {
                 .build_load(global_ptr_ptr, "global_ptr")
                 .into_pointer_value();
 
-            let global_ptr_typed = {
-                let int =
-                    cache_builder.build_ptr_to_int(global_ptr, intrinsics.i64_ty, "global_ptr_int");
-                cache_builder.build_int_to_ptr(int, llvm_ptr_ty, "global_ptr_typed")
-            };
+            let global_ptr_typed =
+                cache_builder.build_pointer_cast(global_ptr, llvm_ptr_ty, "global_ptr_typed");
 
             if mutable {
                 GlobalCache::Mut {
@@ -687,9 +684,7 @@ impl<'a> CtxType<'a> {
                 }
             } else {
                 GlobalCache::Const {
-                    value: cache_builder
-                        .build_load(global_ptr_typed, "global_value")
-                        .into_int_value(),
+                    value: cache_builder.build_load(global_ptr_typed, "global_value"),
                 }
             }
         })

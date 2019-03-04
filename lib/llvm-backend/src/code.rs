@@ -3,8 +3,8 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
-    values::{BasicValue, FunctionValue, PhiValue, PointerValue},
+    types::{BasicType, BasicTypeEnum, FunctionType, IntType, PointerType},
+    values::{BasicValue, FunctionValue, IntValue, PhiValue, PointerValue},
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
@@ -613,7 +613,7 @@ fn parse_function(
                 let global_cache = ctx.global_cache(index);
                 match global_cache {
                     GlobalCache::Const { value } => {
-                        state.push1(value.as_basic_value_enum());
+                        state.push1(value);
                     }
                     GlobalCache::Mut { ptr_to_value } => {
                         let value = builder.build_load(ptr_to_value, "global_value");
@@ -882,24 +882,36 @@ fn parse_function(
             Operator::I32DivS | Operator::I64DivS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+
+                trap_if_zero_or_overflow(builder, intrinsics, context, &function, v1, v2);
+
                 let res = builder.build_int_signed_div(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::I32DivU | Operator::I64DivU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+
+                trap_if_zero(builder, intrinsics, context, &function, v2);
+
                 let res = builder.build_int_unsigned_div(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::I32RemS | Operator::I64RemS => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+
+                trap_if_zero(builder, intrinsics, context, &function, v2);
+
                 let res = builder.build_int_signed_rem(v1, v2, &state.var_name());
                 state.push1(res);
             }
             Operator::I32RemU | Operator::I64RemU => {
                 let (v1, v2) = state.pop2()?;
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+
+                trap_if_zero(builder, intrinsics, context, &function, v2);
+
                 let res = builder.build_int_unsigned_rem(v1, v2, &state.var_name());
                 state.push1(res);
             }
@@ -1999,6 +2011,112 @@ fn parse_function(
     }
 
     Ok(())
+}
+
+fn trap_if_zero_or_overflow(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    context: &Context,
+    function: &FunctionValue,
+    left: IntValue,
+    right: IntValue,
+) {
+    let int_type = left.get_type();
+
+    let (min_value, neg_one_value) = if int_type == intrinsics.i32_ty {
+        let min_value = int_type.const_int(i32::min_value() as u64, false);
+        let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
+        (min_value, neg_one_value)
+    } else if int_type == intrinsics.i64_ty {
+        let min_value = int_type.const_int(i64::min_value() as u64, false);
+        let neg_one_value = int_type.const_int(-1i64 as u64, false);
+        (min_value, neg_one_value)
+    } else {
+        unreachable!()
+    };
+
+    let should_trap = builder.build_or(
+        builder.build_int_compare(
+            IntPredicate::EQ,
+            right,
+            int_type.const_int(0, false),
+            "divisor_is_zero",
+        ),
+        builder.build_and(
+            builder.build_int_compare(IntPredicate::EQ, left, min_value, "left_is_min"),
+            builder.build_int_compare(IntPredicate::EQ, right, neg_one_value, "right_is_neg_one"),
+            "div_will_overflow",
+        ),
+        "div_should_trap",
+    );
+
+    let should_trap = builder
+        .build_call(
+            intrinsics.expect_i1,
+            &[
+                should_trap.as_basic_value_enum(),
+                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
+            ],
+            "should_trap_expect",
+        )
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .into_int_value();
+
+    let shouldnt_trap_block = context.append_basic_block(function, "shouldnt_trap_block");
+    let should_trap_block = context.append_basic_block(function, "should_trap_block");
+    builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
+    builder.position_at_end(&should_trap_block);
+    builder.build_call(
+        intrinsics.throw_trap,
+        &[intrinsics.trap_memory_oob],
+        "throw",
+    );
+    builder.build_unreachable();
+    builder.position_at_end(&shouldnt_trap_block);
+}
+
+fn trap_if_zero(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    context: &Context,
+    function: &FunctionValue,
+    value: IntValue,
+) {
+    let int_type = value.get_type();
+    let should_trap = builder.build_int_compare(
+        IntPredicate::EQ,
+        value,
+        int_type.const_int(0, false),
+        "divisor_is_zero",
+    );
+
+    let should_trap = builder
+        .build_call(
+            intrinsics.expect_i1,
+            &[
+                should_trap.as_basic_value_enum(),
+                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
+            ],
+            "should_trap_expect",
+        )
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .into_int_value();
+
+    let shouldnt_trap_block = context.append_basic_block(function, "shouldnt_trap_block");
+    let should_trap_block = context.append_basic_block(function, "should_trap_block");
+    builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
+    builder.position_at_end(&should_trap_block);
+    builder.build_call(
+        intrinsics.throw_trap,
+        &[intrinsics.trap_memory_oob],
+        "throw",
+    );
+    builder.build_unreachable();
+    builder.position_at_end(&shouldnt_trap_block);
 }
 
 fn resolve_memory_ptr(
