@@ -39,6 +39,8 @@ impl Drop for InstanceInner {
 pub struct Instance {
     module: Arc<ModuleInner>,
     inner: Box<InstanceInner>,
+    #[allow(dead_code)]
+    import_object: ImportObject,
 }
 
 impl Instance {
@@ -64,7 +66,11 @@ impl Instance {
             *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module)
         };
 
-        let instance = Instance { module, inner };
+        let instance = Instance {
+            module,
+            inner,
+            import_object: imports.clone_ref(),
+        };
 
         if let Some(start_index) = instance.module.info.start_func {
             instance.call_with_index(start_index, &[])?;

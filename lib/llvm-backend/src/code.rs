@@ -136,6 +136,8 @@ pub fn parse_function_bodies(
     pass_manager.add_aggressive_dce_pass();
     pass_manager.run_on_module(&module);
 
+    // module.print_to_stderr();
+
     Ok((module, intrinsics))
 }
 
@@ -671,15 +673,11 @@ fn parse_function(
 
                         let func_ptr_ty = llvm_sig.ptr_type(AddressSpace::Generic);
 
-                        // Once we can just bitcast between pointer types, remove this.
-                        let func_ptr = {
-                            let ptr_int = builder.build_ptr_to_int(
-                                func_ptr_untyped,
-                                intrinsics.i64_ty,
-                                "func_ptr_int",
-                            );
-                            builder.build_int_to_ptr(ptr_int, func_ptr_ty, "typed_func_ptr")
-                        };
+                        let func_ptr = builder.build_pointer_cast(
+                            func_ptr_untyped,
+                            func_ptr_ty,
+                            "typed_func_ptr",
+                        );
 
                         builder.build_call(func_ptr, &params, &state.var_name())
                     }

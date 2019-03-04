@@ -278,7 +278,7 @@ impl LLVMBackend {
         info: &ModuleInfo,
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
-        let index = local_func_index.index();
+        let index = info.imported_functions.len() + local_func_index.index();
         let name = if cfg!(target_os = "macos") {
             format!("_fn{}", index)
         } else {

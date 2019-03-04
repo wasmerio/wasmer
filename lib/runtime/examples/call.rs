@@ -1,38 +1,55 @@
-use wasmer_runtime::{compile, error, imports, Func, Value};
+use wasmer_runtime::{compile, error, imports, Ctx, Func, Value};
 
 use wabt::wat2wasm;
 
 static WAT: &'static str = r#"
     (module
-      (type (;0;) (func (result i32)))
-      (type (;1;) (func (param i32 i32)))
-      (type (;2;) (func (param i32) (result i32)))
-      (func (;0;) (type 0) (result i32)
-        memory.size
-        i32.const 65536
-        i32.mul)
-      (func (;1;) (type 1) (param i32 i32)
-        call 0
+      (type (;0;) (func))
+      (type (;1;) (func))
+      (type (;2;) (func))
+      (type (;3;) (func (result i32)))
+      (type (;4;) (func (result i32)))
+      (type (;5;) (func (param i32) (result i32)))
+      (type (;6;) (func (param i32)))
+      (import "spectest" "print_i32" (func (;0;) (type 6)))
+      (func (;1;) (type 0))
+      (func (;2;) (type 1))
+      (func (;3;) (type 4) (result i32)
+        i32.const 13)
+      (func (;4;) (type 5) (param i32) (result i32)
         local.get 0
-        i32.sub
-        local.get 1
-        i32.store)
-      (func (;2;) (type 2) (param i32) (result i32)
-        call 0
+        i32.const 1
+        i32.add)
+      (func (;5;) (type 5) (param i32) (result i32)
         local.get 0
-        i32.add
-        i32.load)
-      (func (;3;) (type 2) (param i32) (result i32)
+        i32.const 2
+        i32.sub)
+      (func (;6;) (type 6) (param i32)
         local.get 0
-        memory.grow)
-      (memory (;0;) 1 2)
-      (export "store" (func 1))
-      (export "load" (func 2))
-      (export "memory.grow" (func 3)))
+        call 0)
+      (export "one" (func 3))
+      (export "two" (func 4))
+      (export "three" (func 5))
+      (export "four" (func 6)))
+"#;
+
+static WAT2: &'static str = r#"
+    (module
+        (type $t0 (func (param i32)))
+        (type $t1 (func))
+        (func $print_i32 (export "print_i32") (type $t0) (param $lhs i32))
+        (func $print (export "print") (type $t1))
+        (table $table (export "table") 10 20 anyfunc)
+        (memory $memory (export "memory") 1 2)
+        (global $global_i32 (export "global_i32") i32 (i32.const 666)))
 "#;
 
 fn get_wasm() -> Vec<u8> {
     wat2wasm(WAT).unwrap()
+}
+
+fn foobar(ctx: &mut Ctx) -> i32 {
+    42
 }
 
 fn main() -> Result<(), error::Error> {
@@ -40,14 +57,19 @@ fn main() -> Result<(), error::Error> {
 
     let module = compile(&wasm)?;
 
-    let imports = imports! {};
+    let import_module = compile(&wat2wasm(WAT2).unwrap())?;
+    let import_instance = import_module.instantiate(&imports! {})?;
+
+    let imports = imports! {
+      "spectest" => import_instance,
+    };
 
     println!("instantiating");
     let instance = module.instantiate(&imports)?;
 
-    let foo = instance.dyn_func("store")?;
+    let foo = instance.dyn_func("four")?;
 
-    let result = foo.call(&[Value::I32(0), Value::I32(1)]);
+    let result = foo.call(&[Value::I32(10)]);
 
     println!("result: {:?}", result);
 

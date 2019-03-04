@@ -198,7 +198,6 @@ impl Intrinsics {
                     .as_basic_type_enum(),
                 imported_func_ty
                     .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
                 sigindex_ty
                     .ptr_type(AddressSpace::Generic)
@@ -713,16 +712,13 @@ impl<'a> CtxType<'a> {
                 .build_load(func_array_ptr_ptr, "func_array_ptr")
                 .into_pointer_value();
             let const_index = intrinsics.i32_ty.const_int(index.index() as u64, false);
-            let imported_func_ptr_ptr = unsafe {
+            let imported_func_ptr = unsafe {
                 cache_builder.build_in_bounds_gep(
                     func_array_ptr,
                     &[const_index],
-                    "imported_func_ptr_ptr",
+                    "imported_func_ptr",
                 )
             };
-            let imported_func_ptr = cache_builder
-                .build_load(imported_func_ptr_ptr, "imported_func_ptr")
-                .into_pointer_value();
             let (func_ptr_ptr, ctx_ptr_ptr) = unsafe {
                 (
                     cache_builder.build_struct_gep(imported_func_ptr, 0, "func_ptr_ptr"),
