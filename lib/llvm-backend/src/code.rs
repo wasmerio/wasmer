@@ -2033,8 +2033,12 @@ fn resolve_memory_ptr(
 
             let base_as_int = builder.build_ptr_to_int(base, intrinsics.i64_ty, "base_as_int");
 
-            let base_in_bounds =
-                builder.build_int_compare(IntPredicate::ULT, base_as_int, bounds, "base_in_bounds");
+            let base_in_bounds = builder.build_int_compare(
+                IntPredicate::ULT,
+                effective_offset,
+                bounds,
+                "base_in_bounds",
+            );
 
             let base_in_bounds = builder
                 .build_call(
