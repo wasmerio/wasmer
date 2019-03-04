@@ -77,8 +77,8 @@ pub fn call_protected(
                     msg: "unknown trap".into(),
                 },
             },
-            EXCEPTION_STACK_OVERFLOW => RuntimeError::Unknown {
-                msg: "stack overflow trap".to_string(),
+            EXCEPTION_STACK_OVERFLOW => RuntimeError::Trap {
+                msg: "stack overflow trap".into(),
             },
             EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => RuntimeError::Trap {
                 msg: "illegal arithmetic operation".into(),
