@@ -103,7 +103,7 @@ pub fn call_protected(
         };
 
         Err(RuntimeError::Trap {
-            msg: format!("unknown trap at {} - {}", exception_address, signal),
+            msg: format!("unknown trap at {} - {}", exception_address, signal).into(),
         }
         .into())
     }
