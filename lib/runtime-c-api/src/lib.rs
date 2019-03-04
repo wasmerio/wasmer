@@ -454,12 +454,24 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
             .or_insert_with(|| Namespace::new());
 
         let export = match import.tag {
-            wasmer_import_export_kind::WASM_MEMORY => import.value.memory as *mut Export,
-            wasmer_import_export_kind::WASM_FUNCTION => import.value.func as *mut Export,
-            wasmer_import_export_kind::WASM_GLOBAL => import.value.global as *mut Export,
-            wasmer_import_export_kind::WASM_TABLE => import.value.table as *mut Export,
+            wasmer_import_export_kind::WASM_MEMORY => {
+                let mem = import.value.memory as *mut Memory;
+                Export::Memory((&*mem).clone())
+            }
+            wasmer_import_export_kind::WASM_FUNCTION => {
+                let func_export = import.value.func as *mut Export;
+                (&*func_export).clone()
+            }
+            wasmer_import_export_kind::WASM_GLOBAL => {
+                let global = import.value.global as *mut Global;
+                Export::Global((&*global).clone())
+            }
+            wasmer_import_export_kind::WASM_TABLE => {
+                let table = import.value.table as *mut Table;
+                Export::Table((&*table).clone())
+            }
         };
-        namespace.insert(import_name, unsafe { (&*export).clone() });
+        namespace.insert(import_name, export);
     }
     for (module_name, namespace) in namespaces.into_iter() {
         import_object.register(module_name, namespace);
@@ -806,12 +818,24 @@ pub unsafe extern "C" fn wasmer_instantiate(
             .or_insert_with(|| Namespace::new());
 
         let export = match import.tag {
-            wasmer_import_export_kind::WASM_MEMORY => import.value.memory as *mut Export,
-            wasmer_import_export_kind::WASM_FUNCTION => import.value.func as *mut Export,
-            wasmer_import_export_kind::WASM_GLOBAL => import.value.global as *mut Export,
-            wasmer_import_export_kind::WASM_TABLE => import.value.table as *mut Export,
+            wasmer_import_export_kind::WASM_MEMORY => {
+                let mem = import.value.memory as *mut Memory;
+                Export::Memory((&*mem).clone())
+            }
+            wasmer_import_export_kind::WASM_FUNCTION => {
+                let func_export = import.value.func as *mut Export;
+                (&*func_export).clone()
+            }
+            wasmer_import_export_kind::WASM_GLOBAL => {
+                let global = import.value.global as *mut Global;
+                Export::Global((&*global).clone())
+            }
+            wasmer_import_export_kind::WASM_TABLE => {
+                let table = import.value.table as *mut Table;
+                Export::Table((&*table).clone())
+            }
         };
-        namespace.insert(import_name, unsafe { (&*export).clone() });
+        namespace.insert(import_name, unsafe { export });
     }
     for (module_name, namespace) in namespaces.into_iter() {
         import_object.register(module_name, namespace);
