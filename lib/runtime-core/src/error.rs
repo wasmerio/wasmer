@@ -1,4 +1,3 @@
-use crate::sys::Memory;
 use crate::types::{
     FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
 };
