@@ -111,6 +111,9 @@ pub fn read_module(wasm: &[u8]) -> Result<(ModuleInfo, CodeSectionReader), Binar
                         }
                     }
                 }
+
+                info.namespace_table = namespace_builder.finish();
+                info.name_table = name_builder.finish();
             }
             SectionCode::Function => {
                 let func_decl_reader = section.get_function_section_reader()?;
