@@ -10,6 +10,7 @@ use libc::{
     PROT_WRITE,
 };
 use std::{
+    any::Any,
     ffi::CString,
     mem,
     ptr::{self, NonNull},
@@ -397,20 +398,17 @@ impl ProtectedCaller for LLVMProtectedCaller {
                 .collect())
         } else {
             Err(match trap_out {
-                WasmTrapType::Unreachable => RuntimeError::User {
+                WasmTrapType::Unreachable => RuntimeError::Trap {
                     msg: "unreachable".into(),
                 },
-                WasmTrapType::IncorrectCallIndirectSignature => {
-                    RuntimeError::IndirectCallSignature {
-                        table: TableIndex::new(0),
-                    }
-                }
-                WasmTrapType::MemoryOutOfBounds => RuntimeError::OutOfBoundsAccess {
-                    memory: MemoryIndex::new(0),
-                    addr: None,
+                WasmTrapType::IncorrectCallIndirectSignature => RuntimeError::Trap {
+                    msg: "uncorrect call_indirect signature".into(),
                 },
-                WasmTrapType::Unknown => RuntimeError::Unknown {
-                    msg: "unknown error".into(),
+                WasmTrapType::MemoryOutOfBounds => RuntimeError::Trap {
+                    msg: "memory out-of-bounds access".into(),
+                },
+                WasmTrapType::Unknown => RuntimeError::Trap {
+                    msg: "unknown trap".into(),
                 },
             })
         }
@@ -422,8 +420,8 @@ impl ProtectedCaller for LLVMProtectedCaller {
 }
 
 impl UserTrapper for Placeholder {
-    unsafe fn do_early_trap(&self, msg: String) -> ! {
-        unimplemented!("do early trap: {}", msg)
+    unsafe fn do_early_trap(&self, _data: Box<dyn Any>) -> ! {
+        unimplemented!("do early trap")
     }
 }
 

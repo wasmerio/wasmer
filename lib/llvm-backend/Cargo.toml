@@ -5,7 +5,7 @@ authors = ["Lachlan Sneff <lachlan.sneff@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
 wasmparser = "0.28.0"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "llvm7-0" }
 hashbrown = "0.1.8"
