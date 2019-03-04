@@ -57,35 +57,34 @@ pub fn call_protected(
     }) = handler_data.lookup(instruction_pointer as _)
     {
         Err(match signum as DWORD {
-            EXCEPTION_ACCESS_VIOLATION => RuntimeError::OutOfBoundsAccess {
-                memory: MemoryIndex::new(0),
-                addr: None,
+            EXCEPTION_ACCESS_VIOLATION => RuntimeError::Trap {
+                msg: "memory out-of-bounds access".into(),
             },
             EXCEPTION_ILLEGAL_INSTRUCTION => match trapcode {
-                TrapCode::BadSignature => RuntimeError::IndirectCallSignature {
-                    table: TableIndex::new(0),
+                TrapCode::BadSignature => RuntimeError::Trap {
+                    msg: "incorrect call_indirect signature".into(),
                 },
-                TrapCode::IndirectCallToNull => RuntimeError::IndirectCallToNull {
-                    table: TableIndex::new(0),
+                TrapCode::IndirectCallToNull => RuntimeError::Trap {
+                    msg: "indirect call to null".into(),
                 },
-                TrapCode::HeapOutOfBounds => RuntimeError::OutOfBoundsAccess {
-                    memory: MemoryIndex::new(0),
-                    addr: None,
+                TrapCode::HeapOutOfBounds => RuntimeError::Trap {
+                    msg: "memory out-of-bounds access".into(),
                 },
-                TrapCode::TableOutOfBounds => RuntimeError::TableOutOfBounds {
-                    table: TableIndex::new(0),
+                TrapCode::TableOutOfBounds => RuntimeError::Trap {
+                    msg: "table out-of-bounds access".into(),
                 },
-                _ => RuntimeError::Unknown {
-                    msg: "unknown trap".to_string(),
+                _ => RuntimeError::Trap {
+                    msg: "unknown trap".into(),
                 },
             },
-            EXCEPTION_STACK_OVERFLOW => RuntimeError::Unknown {
-                msg: "unknown trap".to_string(),
+            EXCEPTION_STACK_OVERFLOW => RuntimeError::Trap {
+                msg: "stack overflow trap".into(),
             },
-            EXCEPTION_INT_DIVIDE_BY_ZERO => RuntimeError::IllegalArithmeticOperation,
-            EXCEPTION_INT_OVERFLOW => RuntimeError::IllegalArithmeticOperation,
-            _ => RuntimeError::Unknown {
-                msg: "unknown trap".to_string(),
+            EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => RuntimeError::Trap {
+                msg: "illegal arithmetic operation".into(),
+            },
+            _ => RuntimeError::Trap {
+                msg: "unknown trap".into(),
             },
         }
         .into())
@@ -103,8 +102,8 @@ pub fn call_protected(
             _ => "unkown trapped signal",
         };
 
-        Err(RuntimeError::Unknown {
-            msg: format!("trap at {} - {}", exception_address, signal),
+        Err(RuntimeError::Trap {
+            msg: format!("unknown trap at {} - {}", exception_address, signal).into(),
         }
         .into())
     }
