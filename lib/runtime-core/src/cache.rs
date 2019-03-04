@@ -48,7 +48,7 @@ impl WasmHash {
         let mut state = blake2bp::State::new();
         state.update(wasm);
 
-        let mut hasher = state.finalize();
+        let hasher = state.finalize();
         let generic_array = hasher.as_bytes();
 
         first_part.copy_from_slice(&generic_array[0..32]);
