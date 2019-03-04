@@ -447,9 +447,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
             return wasmer_result_t::WASMER_ERROR;
         };
 
-        let namespace = namespaces
-            .entry(module_name)
-            .or_insert_with(Namespace::new);
+        let namespace = namespaces.entry(module_name).or_insert_with(Namespace::new);
 
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
@@ -502,7 +500,8 @@ pub unsafe extern "C" fn wasmer_export_descriptors(
     let named_export_descriptors: Box<NamedExportDescriptors> = Box::new(NamedExportDescriptors(
         module.info().exports.iter().map(|e| e.into()).collect(),
     ));
-    *export_descriptors = Box::into_raw(named_export_descriptors) as *mut wasmer_export_descriptors_t;
+    *export_descriptors =
+        Box::into_raw(named_export_descriptors) as *mut wasmer_export_descriptors_t;
 }
 
 pub struct NamedExportDescriptors(Vec<NamedExportDescriptor>);
@@ -514,7 +513,9 @@ pub unsafe extern "C" fn wasmer_export_descriptors_destroy(
     export_descriptors: *mut wasmer_export_descriptors_t,
 ) {
     if !export_descriptors.is_null() {
-        drop(Box::from_raw(export_descriptors as *mut NamedExportDescriptors));
+        drop(Box::from_raw(
+            export_descriptors as *mut NamedExportDescriptors,
+        ));
     }
 }
 
@@ -540,10 +541,8 @@ pub unsafe extern "C" fn wasmer_export_descriptors_get(
     if export_descriptors.is_null() {
         return ptr::null_mut();
     }
-    let named_export_descriptors =
-        &mut *(export_descriptors as *mut NamedExportDescriptors);
-    &mut (*named_export_descriptors).0[idx as usize]
-        as *mut NamedExportDescriptor
+    let named_export_descriptors = &mut *(export_descriptors as *mut NamedExportDescriptors);
+    &mut (*named_export_descriptors).0[idx as usize] as *mut NamedExportDescriptor
         as *mut wasmer_export_descriptor_t
 }
 
@@ -687,7 +686,9 @@ pub unsafe extern "C" fn wasmer_import_descriptors_destroy(
     import_descriptors: *mut wasmer_import_descriptors_t,
 ) {
     if !import_descriptors.is_null() {
-        drop(Box::from_raw(import_descriptors as *mut NamedImportDescriptors));
+        drop(Box::from_raw(
+            import_descriptors as *mut NamedImportDescriptors,
+        ));
     }
 }
 
@@ -713,10 +714,8 @@ pub unsafe extern "C" fn wasmer_import_descriptors_get(
     if import_descriptors.is_null() {
         return ptr::null_mut();
     }
-    let named_import_descriptors =
-        &mut *(import_descriptors as *mut NamedImportDescriptors);
-    &mut (*named_import_descriptors).0[idx as usize]
-        as *mut NamedImportDescriptor
+    let named_import_descriptors = &mut *(import_descriptors as *mut NamedImportDescriptors);
+    &mut (*named_import_descriptors).0[idx as usize] as *mut NamedImportDescriptor
         as *mut wasmer_import_descriptor_t
 }
 
@@ -806,9 +805,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
             return wasmer_result_t::WASMER_ERROR;
         };
 
-        let namespace = namespaces
-            .entry(module_name)
-            .or_insert_with(Namespace::new);
+        let namespace = namespaces.entry(module_name).or_insert_with(Namespace::new);
 
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
@@ -982,9 +979,7 @@ pub unsafe extern "C" fn wasmer_exports_get(
         return ptr::null_mut();
     }
     let named_exports = &mut *(exports as *mut NamedExports);
-    &mut (*named_exports).0[idx as usize]
-        as *mut NamedExport
-        as *mut wasmer_export_t
+    &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t
 }
 
 /// Gets wasmer_export kind
