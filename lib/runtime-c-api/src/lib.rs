@@ -17,23 +17,23 @@ use wasmer_runtime_core::module::{ExportIndex, ImportName};
 use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
 use wasmer_runtime_core::units::{Bytes, Pages};
 
-#[allow(non_camel_case_types)]
-pub struct wasmer_module_t();
+#[repr(C)]
+pub struct wasmer_module_t;
+
+#[repr(C)]
+pub struct wasmer_instance_t;
+
+#[repr(C)]
+pub struct wasmer_instance_context_t;
 
 #[allow(non_camel_case_types)]
-pub struct wasmer_instance_t();
-
-#[allow(non_camel_case_types)]
-pub struct wasmer_instance_context_t();
-
-#[allow(non_camel_case_types)]
-#[no_mangle]
 #[repr(C)]
 pub enum wasmer_result_t {
     WASMER_OK = 1,
     WASMER_ERROR = 2,
 }
 
+#[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(Clone)]
 pub enum wasmer_value_tag {
@@ -68,23 +68,23 @@ pub struct wasmer_global_descriptor_t {
 
 #[repr(C)]
 #[derive(Clone)]
-pub struct wasmer_memory_t();
+pub struct wasmer_memory_t;
 
 #[repr(C)]
 #[derive(Clone)]
-pub struct wasmer_table_t();
+pub struct wasmer_table_t;
 
 #[repr(C)]
 #[derive(Clone)]
-pub struct wasmer_import_func_t();
+pub struct wasmer_import_func_t;
 
 #[repr(C)]
 #[derive(Clone)]
-pub struct wasmer_export_func_t();
+pub struct wasmer_export_func_t;
 
 #[repr(C)]
 #[derive(Clone)]
-pub struct wasmer_global_t();
+pub struct wasmer_global_t;
 
 #[repr(C)]
 pub struct wasmer_limits_t {
@@ -130,6 +130,7 @@ pub struct wasmer_export_descriptor_t;
 #[derive(Clone)]
 pub struct wasmer_export_descriptors_t;
 
+#[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(Clone)]
 pub enum wasmer_import_export_kind {
@@ -164,8 +165,7 @@ pub unsafe extern "C" fn wasmer_validate(
     if wasm_bytes.is_null() {
         return false;
     }
-    let bytes: &[u8] =
-        unsafe { ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize) };
+    let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
     wasmer_runtime_core::validate(bytes)
 }
 
@@ -201,7 +201,7 @@ pub unsafe extern "C" fn wasmer_memory_new(
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    unsafe { *memory = Box::into_raw(Box::new(new_memory)) as *mut wasmer_memory_t };
+    *memory = Box::into_raw(Box::new(new_memory)) as *mut wasmer_memory_t;
     wasmer_result_t::WASMER_OK
 }
 
@@ -269,7 +269,7 @@ pub unsafe extern "C" fn wasmer_table_new(
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    unsafe { *table = Box::into_raw(Box::new(new_table)) as *mut wasmer_table_t };
+    *table = Box::into_raw(Box::new(new_table)) as *mut wasmer_table_t;
     wasmer_result_t::WASMER_OK
 }
 
@@ -326,7 +326,7 @@ pub unsafe extern "C" fn wasmer_global_new(
     } else {
         Global::new(value.into())
     };
-    unsafe { Box::into_raw(Box::new(global)) as *mut wasmer_global_t }
+    Box::into_raw(Box::new(global)) as *mut wasmer_global_t
 }
 
 /// Gets the value stored by the given Global
@@ -392,8 +392,7 @@ pub unsafe extern "C" fn wasmer_compile(
     wasm_bytes: *mut uint8_t,
     wasm_bytes_len: uint32_t,
 ) -> wasmer_result_t {
-    let bytes: &[u8] =
-        unsafe { ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize) };
+    let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
     let result = wasmer_runtime::compile(bytes);
     let new_module = match result {
         Ok(instance) => instance,
@@ -402,7 +401,7 @@ pub unsafe extern "C" fn wasmer_compile(
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    unsafe { *module = Box::into_raw(Box::new(new_module)) as *mut wasmer_module_t };
+    *module = Box::into_raw(Box::new(new_module)) as *mut wasmer_module_t;
     wasmer_result_t::WASMER_OK
 }
 
@@ -477,7 +476,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
         import_object.register(module_name, namespace);
     }
 
-    let module = unsafe { &*(module as *mut Module) };
+    let module = &*(module as *mut Module);
     let new_instance = if let Ok(res) = module.instantiate(&import_object) {
         res
     } else {
@@ -486,7 +485,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
         });
         return wasmer_result_t::WASMER_ERROR;
     };
-    unsafe { *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t };
+    *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
 }
 
@@ -499,15 +498,12 @@ pub unsafe extern "C" fn wasmer_export_descriptors(
     module: *mut wasmer_module_t,
     export_descriptors: *mut *mut wasmer_export_descriptors_t,
 ) {
-    let mut module = unsafe { &*(module as *mut Module) };
+    let mut module = &*(module as *mut Module);
 
     let named_export_descriptors: Box<NamedExportDescriptors> = Box::new(NamedExportDescriptors(
         module.info().exports.iter().map(|e| e.into()).collect(),
     ));
-    unsafe {
-        *export_descriptors =
-            Box::into_raw(named_export_descriptors) as *mut wasmer_export_descriptors_t
-    };
+    *export_descriptors = Box::into_raw(named_export_descriptors) as *mut wasmer_export_descriptors_t;
 }
 
 pub struct NamedExportDescriptors(Vec<NamedExportDescriptor>);
@@ -519,7 +515,7 @@ pub unsafe extern "C" fn wasmer_export_descriptors_destroy(
     export_descriptors: *mut wasmer_export_descriptors_t,
 ) {
     if !export_descriptors.is_null() {
-        drop(unsafe { Box::from_raw(export_descriptors as *mut NamedExportDescriptors) });
+        drop(Box::from_raw(export_descriptors as *mut NamedExportDescriptors));
     }
 }
 
@@ -546,7 +542,7 @@ pub unsafe extern "C" fn wasmer_export_descriptors_get(
         return ptr::null_mut();
     }
     let mut named_export_descriptors =
-        unsafe { &mut *(export_descriptors as *mut NamedExportDescriptors) };
+        &mut *(export_descriptors as *mut NamedExportDescriptors);
     let ptr = &mut (*named_export_descriptors).0[idx as usize] as *mut NamedExportDescriptor
         as *mut wasmer_export_descriptor_t;
     ptr
@@ -593,7 +589,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors(
     module: *mut wasmer_module_t,
     import_descriptors: *mut *mut wasmer_import_descriptors_t,
 ) {
-    let mut module = unsafe { &*(module as *mut Module) };
+    let mut module = &*(module as *mut Module);
     let total_imports = module.info().imported_functions.len()
         + module.info().imported_tables.len()
         + module.info().imported_globals.len()
@@ -601,7 +597,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors(
     let mut descriptors: Vec<NamedImportDescriptor> = Vec::with_capacity(total_imports);
 
     for (
-        index,
+        _index,
         ImportName {
             namespace_index,
             name_index,
@@ -618,7 +614,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors(
     }
 
     for (
-        index,
+        _index,
         (
             ImportName {
                 namespace_index,
@@ -638,7 +634,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors(
     }
 
     for (
-        index,
+        _index,
         (
             ImportName {
                 namespace_index,
@@ -658,7 +654,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors(
     }
 
     for (
-        index,
+        _index,
         (
             ImportName {
                 namespace_index,
@@ -679,10 +675,8 @@ pub unsafe extern "C" fn wasmer_import_descriptors(
 
     let named_import_descriptors: Box<NamedImportDescriptors> =
         Box::new(NamedImportDescriptors(descriptors));
-    unsafe {
-        *import_descriptors =
-            Box::into_raw(named_import_descriptors) as *mut wasmer_import_descriptors_t
-    };
+    *import_descriptors =
+        Box::into_raw(named_import_descriptors) as *mut wasmer_import_descriptors_t;
 }
 
 pub struct NamedImportDescriptors(Vec<NamedImportDescriptor>);
@@ -694,7 +688,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors_destroy(
     import_descriptors: *mut wasmer_import_descriptors_t,
 ) {
     if !import_descriptors.is_null() {
-        drop(unsafe { Box::from_raw(import_descriptors as *mut NamedImportDescriptors) });
+        drop(Box::from_raw(import_descriptors as *mut NamedImportDescriptors));
     }
 }
 
@@ -721,7 +715,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors_get(
         return ptr::null_mut();
     }
     let mut named_import_descriptors =
-        unsafe { &mut *(import_descriptors as *mut NamedImportDescriptors) };
+        &mut *(import_descriptors as *mut NamedImportDescriptors);
     let ptr = &mut (*named_import_descriptors).0[idx as usize] as *mut NamedImportDescriptor
         as *mut wasmer_import_descriptor_t;
     ptr
@@ -835,18 +829,17 @@ pub unsafe extern "C" fn wasmer_instantiate(
                 Export::Table((&*table).clone())
             }
         };
-        namespace.insert(import_name, unsafe { export });
+        namespace.insert(import_name, export);
     }
     for (module_name, namespace) in namespaces.into_iter() {
         import_object.register(module_name, namespace);
     }
 
-    let bytes: &[u8] =
-        unsafe { ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize) };
+    let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
     let result = wasmer_runtime::instantiate(bytes, &import_object);
     let new_instance = match result {
         Ok(instance) => instance,
-        Err(error) => {
+        Err(_error) => {
             // TODO the trait bound `wasmer_runtime::error::Error: std::error::Error` is not satisfied
             //update_last_error(error);
             update_last_error(CApiError {
@@ -855,7 +848,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    unsafe { *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t };
+    *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
 }
 
@@ -898,7 +891,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
     let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
     let params: Vec<Value> = params.iter().cloned().map(|x| x.into()).collect();
 
-    let func_name_c = unsafe { CStr::from_ptr(name) };
+    let func_name_c = CStr::from_ptr(name);
     let func_name_r = func_name_c.to_str().unwrap();
 
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
@@ -945,7 +938,7 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     instance: *mut wasmer_instance_t,
     exports: *mut *mut wasmer_exports_t,
 ) {
-    let mut instance_ref = unsafe { &mut *(instance as *mut Instance) };
+    let mut instance_ref = &mut *(instance as *mut Instance);
     let mut exports_vec: Vec<NamedExport> = Vec::with_capacity(instance_ref.exports().count());
     for (name, export) in instance_ref.exports() {
         exports_vec.push(NamedExport {
@@ -955,7 +948,7 @@ pub unsafe extern "C" fn wasmer_instance_exports(
         });
     }
     let named_exports: Box<NamedExports> = Box::new(NamedExports(exports_vec));
-    unsafe { *exports = Box::into_raw(named_exports) as *mut wasmer_exports_t };
+    *exports = Box::into_raw(named_exports) as *mut wasmer_exports_t;
 }
 
 pub struct NamedExports(Vec<NamedExport>);
@@ -965,7 +958,7 @@ pub struct NamedExports(Vec<NamedExport>);
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
     if !exports.is_null() {
-        drop(unsafe { Box::from_raw(exports as *mut NamedExports) });
+        drop(Box::from_raw(exports as *mut NamedExports));
     }
 }
 
@@ -989,7 +982,7 @@ pub unsafe extern "C" fn wasmer_exports_get(
     if exports.is_null() {
         return ptr::null_mut();
     }
-    let mut named_exports = unsafe { &mut *(exports as *mut NamedExports) };
+    let mut named_exports = &mut *(exports as *mut NamedExports);
     let ptr = &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t;
     ptr
 }
@@ -1021,10 +1014,10 @@ pub unsafe extern "C" fn wasmer_export_func_params_arity(
     func: *mut wasmer_export_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut named_export = unsafe { &*(func as *mut NamedExport) };
+    let mut named_export = &*(func as *mut NamedExport);
     let mut export = &named_export.export;
     let result = if let Export::Function { ref signature, .. } = *export {
-        unsafe { *result = signature.params().len() as uint32_t };
+        *result = signature.params().len() as uint32_t;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
@@ -1048,7 +1041,7 @@ pub unsafe extern "C" fn wasmer_export_func_params(
     params: *mut wasmer_value_tag,
     params_len: c_int,
 ) -> wasmer_result_t {
-    let mut named_export = unsafe { &*(func as *mut NamedExport) };
+    let mut named_export = &*(func as *mut NamedExport);
     let mut export = &named_export.export;
     let result = if let Export::Function { ref signature, .. } = *export {
         let params: &mut [wasmer_value_tag] =
@@ -1079,7 +1072,7 @@ pub unsafe extern "C" fn wasmer_export_func_returns(
     returns: *mut wasmer_value_tag,
     returns_len: c_int,
 ) -> wasmer_result_t {
-    let mut named_export = unsafe { &*(func as *mut NamedExport) };
+    let mut named_export = &*(func as *mut NamedExport);
     let mut export = &named_export.export;
     let result = if let Export::Function { ref signature, .. } = *export {
         let returns: &mut [wasmer_value_tag] =
@@ -1109,10 +1102,10 @@ pub unsafe extern "C" fn wasmer_export_func_returns_arity(
     func: *mut wasmer_export_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut named_export = unsafe { &*(func as *mut NamedExport) };
+    let mut named_export = &*(func as *mut NamedExport);
     let mut export = &named_export.export;
     let result = if let Export::Function { ref signature, .. } = *export {
-        unsafe { *result = signature.returns().len() as uint32_t };
+        *result = signature.returns().len() as uint32_t;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
@@ -1135,9 +1128,9 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
     func: *mut wasmer_import_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut export = unsafe { &mut *(func as *mut Export) };
+    let mut export = &mut *(func as *mut Export);
     let result = if let Export::Function { ref signature, .. } = *export {
-        unsafe { *result = signature.params().len() as uint32_t };
+        *result = signature.params().len() as uint32_t;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
@@ -1166,7 +1159,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
     let returns: Vec<Type> = returns.iter().cloned().map(|x| x.into()).collect();
 
     let export = Box::new(Export::Function {
-        func: unsafe { FuncPointer::new(func as _) },
+        func: FuncPointer::new(func as _),
         ctx: Context::Internal,
         signature: Arc::new(FuncSig::new(params, returns)),
     });
@@ -1186,7 +1179,7 @@ pub unsafe extern "C" fn wasmer_import_func_params(
     params: *mut wasmer_value_tag,
     params_len: c_int,
 ) -> wasmer_result_t {
-    let mut export = unsafe { &mut *(func as *mut Export) };
+    let mut export = &mut *(func as *mut Export);
     let result = if let Export::Function { ref signature, .. } = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
@@ -1216,7 +1209,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns(
     returns: *mut wasmer_value_tag,
     returns_len: c_int,
 ) -> wasmer_result_t {
-    let mut export = unsafe { &mut *(func as *mut Export) };
+    let mut export = &mut *(func as *mut Export);
     let result = if let Export::Function { ref signature, .. } = *export {
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
@@ -1245,9 +1238,9 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
     func: *mut wasmer_import_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut export = unsafe { &*(func as *mut Export) };
+    let mut export = &*(func as *mut Export);
     let result = if let Export::Function { ref signature, .. } = *export {
-        unsafe { *result = signature.returns().len() as uint32_t };
+        *result = signature.returns().len() as uint32_t;
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
@@ -1319,7 +1312,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
     let params: Vec<Value> = params.iter().cloned().map(|x| x.into()).collect();
 
-    let named_export = unsafe { &*(func as *mut NamedExport) };
+    let named_export = &*(func as *mut NamedExport);
 
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
 
@@ -1363,7 +1356,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_memory(
     ctx: *mut wasmer_instance_context_t,
-    memory_idx: uint32_t,
+    _memory_idx: uint32_t,
 ) -> *const wasmer_memory_t {
     let mut ctx = unsafe { &mut *(ctx as *mut Ctx) };
     let memory = ctx.memory(0);
@@ -1402,19 +1395,19 @@ impl From<wasmer_value_t> for Value {
         unsafe {
             match v {
                 wasmer_value_t {
-                    tag: WASM_I32,
+                    tag: wasmer_value_tag::WASM_I32,
                     value: wasmer_value { I32 },
                 } => Value::I32(I32),
                 wasmer_value_t {
-                    tag: WASM_I64,
+                    tag: wasmer_value_tag::WASM_I64,
                     value: wasmer_value { I64 },
                 } => Value::I64(I64),
                 wasmer_value_t {
-                    tag: WASM_F32,
+                    tag: wasmer_value_tag::WASM_F32,
                     value: wasmer_value { F32 },
                 } => Value::F32(F32),
                 wasmer_value_t {
-                    tag: WASM_F64,
+                    tag: wasmer_value_tag::WASM_F64,
                     value: wasmer_value { F64 },
                 } => Value::F64(F64),
                 _ => panic!("not implemented"),
@@ -1460,14 +1453,12 @@ impl From<Type> for wasmer_value_tag {
 
 impl From<wasmer_value_tag> for Type {
     fn from(v: wasmer_value_tag) -> Self {
-        unsafe {
-            match v {
-                wasmer_value_tag::WASM_I32 => Type::I32,
-                wasmer_value_tag::WASM_I64 => Type::I64,
-                wasmer_value_tag::WASM_F32 => Type::F32,
-                wasmer_value_tag::WASM_F64 => Type::F64,
-                _ => panic!("not implemented"),
-            }
+        match v {
+            wasmer_value_tag::WASM_I32 => Type::I32,
+            wasmer_value_tag::WASM_I64 => Type::I64,
+            wasmer_value_tag::WASM_F32 => Type::F32,
+            wasmer_value_tag::WASM_F64 => Type::F64,
+            _ => panic!("not implemented"),
         }
     }
 }
