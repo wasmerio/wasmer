@@ -69,6 +69,7 @@ public:
         Unreachable = 0,
         IncorrectCallIndirectSignature = 1,
         MemoryOutOfBounds = 2,
+        CallIndirectOOB = 3,
         Unknown,
     };
 

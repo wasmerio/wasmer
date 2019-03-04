@@ -744,6 +744,54 @@ fn parse_function(
                     )
                 };
 
+                let truncated_table_bounds = builder.build_int_truncate(
+                    table_bound,
+                    intrinsics.i32_ty,
+                    "truncated_table_bounds",
+                );
+
+                // First, check if the index is outside of the table bounds.
+                let index_in_bounds = builder.build_int_compare(
+                    IntPredicate::ULT,
+                    func_index,
+                    truncated_table_bounds,
+                    "index_in_bounds",
+                );
+
+                let index_in_bounds = builder
+                    .build_call(
+                        intrinsics.expect_i1,
+                        &[
+                            index_in_bounds.as_basic_value_enum(),
+                            intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                        ],
+                        "index_in_bounds_expect",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_int_value();
+
+                let in_bounds_continue_block =
+                    context.append_basic_block(&function, "in_bounds_continue_block");
+                let not_in_bounds_block =
+                    context.append_basic_block(&function, "not_in_bounds_block");
+                builder.build_conditional_branch(
+                    index_in_bounds,
+                    &in_bounds_continue_block,
+                    &not_in_bounds_block,
+                );
+                builder.position_at_end(&not_in_bounds_block);
+                builder.build_call(
+                    intrinsics.throw_trap,
+                    &[intrinsics.trap_call_indirect_oob],
+                    "throw",
+                );
+                builder.build_unreachable();
+                builder.position_at_end(&in_bounds_continue_block);
+
+                // Next, check if the signature id is correct.
+
                 let sigindices_equal = builder.build_int_compare(
                     IntPredicate::EQ,
                     expected_dynamic_sigindex,
