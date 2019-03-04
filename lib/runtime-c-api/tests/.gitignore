@@ -12,6 +12,7 @@ _deps
 test-globals
 test-exports
 test-instantiate
+test-imports
 test-import-function
 test-memory
 test-module-imports

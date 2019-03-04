@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 project (WasmerCApiTests)
 
+add_executable(test-imports test-imports.c)
 add_executable(test-exports test-exports.c)
 add_executable(test-globals test-globals.c)
 add_executable(test-instantiate test-instantiate.c)
@@ -21,6 +22,8 @@ if(NOT WASMER_LIB)
     message(FATAL_ERROR "wasmer library not found")
 endif()
 
+target_link_libraries(test-imports
+        general ${WASMER_LIB})
 target_link_libraries(test-exports
         general ${WASMER_LIB})
 target_link_libraries(test-globals
@@ -43,6 +46,7 @@ target_link_libraries(test-tables
         general ${WASMER_LIB})
 
 enable_testing()
+add_test(test-imports test-imports)
 add_test(test-exports test-exports)
 add_test(test-globals test-globals)
 add_test(test-instantiate test-instantiate)
