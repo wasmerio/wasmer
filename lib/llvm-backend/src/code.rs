@@ -118,6 +118,8 @@ pub fn parse_function_bodies(
         })?;
     }
 
+    // module.print_to_stderr();
+
     generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
 
     let pass_manager = PassManager::create_for_module();
@@ -170,8 +172,6 @@ fn parse_function(
     state.push_block(return_block, phis);
     builder.position_at_end(&entry_block);
 
-    let mut ctx = intrinsics.ctx(info, builder, &function);
-
     let mut locals = Vec::with_capacity(locals_reader.get_count() as usize); // TODO fix capacity
 
     locals.extend(
@@ -213,6 +213,13 @@ fn parse_function(
         }
     }
 
+    let start_of_code_block = context.append_basic_block(&function, "start_of_code");
+    let entry_end_inst = builder.build_unconditional_branch(&start_of_code_block);
+    builder.position_at_end(&start_of_code_block);
+
+    let cache_builder = context.create_builder();
+    cache_builder.position_before(&entry_end_inst);
+    let mut ctx = intrinsics.ctx(info, builder, &function, cache_builder);
     let mut unreachable_depth = 0;
 
     for op in op_reader {

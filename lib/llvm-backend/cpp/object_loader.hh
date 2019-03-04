@@ -159,18 +159,14 @@ extern "C" {
     ) throw() {
         try {
             trampoline(ctx, func, params, results);
-            std::cout << "Success" << std::endl;
             return true;
         } catch(const WasmTrap& e) {
-            std::cout << e.description() << std::endl;
             *trap_out = e.type;
             return false;
         } catch(const WasmException& e) {
-            std::cout << e.description() << std::endl;
             *trap_out = WasmTrap::Type::Unknown;
             return false;
         } catch (...) {
-            std::cout << "unknown" << std::endl;
             *trap_out = WasmTrap::Type::Unknown;
             return false;
         }
