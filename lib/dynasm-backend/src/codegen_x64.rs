@@ -383,18 +383,20 @@ impl X64FunctionCode {
     }
 
     /// Emits a unary operator.
-    fn emit_unop_i32<F: FnOnce(&mut Assembler, &ValueStack, Register)>(
+    fn emit_unop<F: FnOnce(&mut Assembler, &ValueStack, Register)>(
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
         f: F,
+        in_ty: WpType,
+        out_ty: WpType,
     ) -> Result<(), CodegenError> {
         let a = value_stack.pop()?;
-        if a.ty != WpType::I32 {
+        if a.ty != in_ty {
             return Err(CodegenError {
                 message: "unop(i32) type mismatch",
             });
         }
-        value_stack.push(WpType::I32);
+        value_stack.push(out_ty);
 
         match a.location {
             ValueLocation::Register(x) => {
@@ -404,12 +406,12 @@ impl X64FunctionCode {
             ValueLocation::Stack => {
                 dynasm!(
                     assembler
-                    ; mov eax, [rsp]
+                    ; mov rax, [rsp]
                 );
                 f(assembler, value_stack, Register::RAX);
                 dynasm!(
                     assembler
-                    ; mov [rsp], eax
+                    ; mov [rsp], rax
                 );
             }
         }
@@ -417,21 +419,39 @@ impl X64FunctionCode {
         Ok(())
     }
 
-    /// Emits a binary operator.
-    ///
-    /// Guarantees that the first Register parameter to callback `f` will never be `Register::RAX`.
-    fn emit_binop_i32<F: FnOnce(&mut Assembler, &ValueStack, Register, Register)>(
+    fn emit_unop_i32<F: FnOnce(&mut Assembler, &ValueStack, Register)>(
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
         f: F,
     ) -> Result<(), CodegenError> {
+        Self::emit_unop(assembler, value_stack, f, WpType::I32, WpType::I32)
+    }
+
+    fn emit_unop_i64<F: FnOnce(&mut Assembler, &ValueStack, Register)>(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        f: F,
+    ) -> Result<(), CodegenError> {
+        Self::emit_unop(assembler, value_stack, f, WpType::I64, WpType::I64)
+    }
+
+    /// Emits a binary operator.
+    ///
+    /// Guarantees that the first Register parameter to callback `f` will never be `Register::RAX`.
+    fn emit_binop<F: FnOnce(&mut Assembler, &ValueStack, Register, Register)>(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        f: F,
+        in_ty: WpType,
+        out_ty: WpType,
+    ) -> Result<(), CodegenError> {
         let (a, b) = value_stack.pop2()?;
-        if a.ty != WpType::I32 || b.ty != WpType::I32 {
+        if a.ty != in_ty || b.ty != in_ty {
             return Err(CodegenError {
                 message: "binop(i32) type mismatch",
             });
         }
-        value_stack.push(WpType::I32);
+        value_stack.push(out_ty);
 
         if a.location.is_register() && b.location.is_register() {
             // output is in a_reg.
@@ -458,19 +478,35 @@ impl X64FunctionCode {
             dynasm!(
                 assembler
                 ; push rcx
-                ; mov ecx, [rsp + 16]
-                ; mov eax, [rsp + 8]
+                ; mov rcx, [rsp + 16]
+                ; mov rax, [rsp + 8]
             );
             f(assembler, value_stack, Register::RCX, Register::RAX);
             dynasm!(
                 assembler
-                ; mov [rsp + 16], ecx
+                ; mov [rsp + 16], rcx
                 ; pop rcx
                 ; add rsp, 8
             );
         }
 
         Ok(())
+    }
+
+    fn emit_binop_i32<F: FnOnce(&mut Assembler, &ValueStack, Register, Register)>(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        f: F,
+    ) -> Result<(), CodegenError> {
+        Self::emit_binop(assembler, value_stack, f, WpType::I32, WpType::I32)
+    }
+
+    fn emit_binop_i64<F: FnOnce(&mut Assembler, &ValueStack, Register, Register)>(
+        assembler: &mut Assembler,
+        value_stack: &mut ValueStack,
+        f: F,
+    ) -> Result<(), CodegenError> {
+        Self::emit_binop(assembler, value_stack, f, WpType::I64, WpType::I64)
     }
 
     fn emit_div_i32(
@@ -563,6 +599,27 @@ impl X64FunctionCode {
             ; jmp >label_end
             ; label_true:
             ; mov Rd(left as u8), 1
+            ; label_end:
+        );
+    }
+
+    fn emit_cmp_i64<F: FnOnce(&mut Assembler)>(
+        assembler: &mut Assembler,
+        left: Register,
+        right: Register,
+        f: F,
+    ) {
+        dynasm!(
+            assembler
+            ; cmp Rq(left as u8), Rq(right as u8)
+        );
+        f(assembler);
+        dynasm!(
+            assembler
+            ; xor Rq(left as u8), Rq(left as u8)
+            ; jmp >label_end
+            ; label_true:
+            ; mov Rq(left as u8), 1
             ; label_end:
         );
     }
@@ -1626,6 +1683,308 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 )?;
             }
+            Operator::I64Const { value } => {
+                let location = self.value_stack.push(WpType::I64);
+                match location {
+                    ValueLocation::Register(x) => {
+                        let reg = Register::from_scratch_reg(x);
+                        dynasm!(
+                            assembler
+                            ; mov Rq(reg as u8), QWORD value
+                        );
+                    }
+                    ValueLocation::Stack => {
+                        dynasm!(
+                            assembler
+                            ; mov rax, QWORD value
+                            ; push rax
+                        );
+                    }
+                }
+            }
+            Operator::I64Add => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; add Rq(left as u8), Rq(right as u8)
+                        )
+                    },
+                )?;
+            }
+            Operator::I64Sub => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; sub Rq(left as u8), Rq(right as u8)
+                        )
+                    },
+                )?;
+            }
+            Operator::I64Mul => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; imul Rq(left as u8), Rq(right as u8)
+                        )
+                    },
+                )?;
+            }
+            Operator::I64DivU => {
+                unimplemented!();
+            }
+            Operator::I64DivS => {
+                unimplemented!();
+            }
+            Operator::I64RemU => {
+                unimplemented!();
+            }
+            Operator::I64RemS => {
+                unimplemented!();
+            }
+            Operator::I64And => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; and Rq(left as u8), Rq(right as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I64Or => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; or Rq(left as u8), Rq(right as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I64Eq => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; cmp Rq(left as u8), Rq(right as u8)
+                            ; lahf
+                            ; shr ax, 14
+                            ; and eax, 1
+                            ; mov Rd(left as u8), eax
+                        );
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64Eqz => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; cmp Rq(reg as u8), 0
+                            ; lahf
+                            ; shr ax, 14
+                            ; and eax, 1
+                        );
+                        if reg != Register::RAX {
+                            dynasm!(
+                                assembler
+                                ; mov Rd(reg as u8), eax
+                            );
+                        }
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            // Comparison operators.
+            // https://en.wikibooks.org/wiki/X86_Assembly/Control_Flow
+            // TODO: Is reading flag register directly faster?
+            Operator::I64LtS => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                            dynasm!(
+                                assembler
+                                ; jl >label_true
+                            );
+                        });
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64LeS => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                            dynasm!(
+                                assembler
+                                ; jle >label_true
+                            );
+                        });
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64GtS => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                            dynasm!(
+                                assembler
+                                ; jg >label_true
+                            );
+                        });
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64GeS => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                            dynasm!(
+                                assembler
+                                ; jge >label_true
+                            );
+                        });
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64LtU => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                            dynasm!(
+                                assembler
+                                ; jb >label_true
+                            );
+                        });
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64LeU => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                            dynasm!(
+                                assembler
+                                ; jbe >label_true
+                            );
+                        });
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64GtU => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                            dynasm!(
+                                assembler
+                                ; ja >label_true
+                            );
+                        });
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64GeU => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                            dynasm!(
+                                assembler
+                                ; jae >label_true
+                            );
+                        });
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::I64ExtendSI32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movsx Rq(reg as u8), Rd(reg as u8)
+                        );
+                    },
+                    WpType::I32,
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64ExtendUI32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        // FIXME: Is it correct to do nothing here?
+                    },
+                    WpType::I32,
+                    WpType::I64,
+                )?;
+            }
+            Operator::I32WrapI64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; mov Rd(reg as u8), Rd(reg as u8) // clear upper 32 bits
+                        );
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
             Operator::Block { ty } => {
                 self.control_stack
                     .as_mut()
@@ -2003,6 +2362,149 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                )?;
+            }
+            Operator::I64Load { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; mov Rq(reg as u8), [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Load8U { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; movzx Rq(reg as u8), BYTE [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Load8S { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; movsx Rq(reg as u8), BYTE [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Load16U { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; movzx Rq(reg as u8), WORD [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Load16S { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; movsx Rq(reg as u8), WORD [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Load32U { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; mov Rd(reg as u8), DWORD [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Load32S { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; movsx Rq(reg as u8), DWORD [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Store { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rq(value_reg as u8)
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Store8 { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rb(value_reg as u8)
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Store16 { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rw(value_reg as u8)
+                        );
+                    },
+                    WpType::I64,
+                )?;
+            }
+            Operator::I64Store32 { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rd(value_reg as u8)
+                        );
+                    },
+                    WpType::I64,
                 )?;
             }
             _ => unimplemented!(),
