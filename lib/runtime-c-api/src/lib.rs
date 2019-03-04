@@ -302,8 +302,7 @@ pub extern "C" fn wasmer_table_grow(
 #[no_mangle]
 pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
     let table = unsafe { &*(table as *mut Table) };
-    let len = table.size();
-    len
+    table.size()
 }
 
 /// Frees memory for the given Table
@@ -355,11 +354,10 @@ pub extern "C" fn wasmer_global_get_descriptor(
 ) -> wasmer_global_descriptor_t {
     let global = unsafe { &*(global as *mut Global) };
     let descriptor = global.descriptor();
-    let desc = wasmer_global_descriptor_t {
+    wasmer_global_descriptor_t {
         mutable: descriptor.mutable,
         kind: descriptor.ty.into(),
-    };
-    desc
+    }
 }
 
 /// Frees memory for the given Global
@@ -451,7 +449,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
 
         let namespace = namespaces
             .entry(module_name)
-            .or_insert_with(|| Namespace::new());
+            .or_insert_with(Namespace::new);
 
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
@@ -544,9 +542,9 @@ pub unsafe extern "C" fn wasmer_export_descriptors_get(
     }
     let named_export_descriptors =
         &mut *(export_descriptors as *mut NamedExportDescriptors);
-    let ptr = &mut (*named_export_descriptors).0[idx as usize] as *mut NamedExportDescriptor
-        as *mut wasmer_export_descriptor_t;
-    ptr
+    &mut (*named_export_descriptors).0[idx as usize]
+        as *mut NamedExportDescriptor
+        as *mut wasmer_export_descriptor_t
 }
 
 /// Gets name for the export descriptor
@@ -717,9 +715,9 @@ pub unsafe extern "C" fn wasmer_import_descriptors_get(
     }
     let named_import_descriptors =
         &mut *(import_descriptors as *mut NamedImportDescriptors);
-    let ptr = &mut (*named_import_descriptors).0[idx as usize] as *mut NamedImportDescriptor
-        as *mut wasmer_import_descriptor_t;
-    ptr
+    &mut (*named_import_descriptors).0[idx as usize]
+        as *mut NamedImportDescriptor
+        as *mut wasmer_import_descriptor_t
 }
 
 /// Gets name for the import descriptor
@@ -810,7 +808,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
 
         let namespace = namespaces
             .entry(module_name)
-            .or_insert_with(|| Namespace::new());
+            .or_insert_with(Namespace::new);
 
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
@@ -900,7 +898,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
 
     match result {
         Ok(results_vec) => {
-            if results_vec.len() > 0 {
+            if !results_vec.is_empty() {
                 let ret = match results_vec[0] {
                     Value::I32(x) => wasmer_value_t {
                         tag: wasmer_value_tag::WASM_I32,
@@ -984,8 +982,9 @@ pub unsafe extern "C" fn wasmer_exports_get(
         return ptr::null_mut();
     }
     let named_exports = &mut *(exports as *mut NamedExports);
-    let ptr = &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t;
-    ptr
+    &mut (*named_exports).0[idx as usize]
+        as *mut NamedExport
+        as *mut wasmer_export_t
 }
 
 /// Gets wasmer_export kind
@@ -1017,7 +1016,7 @@ pub unsafe extern "C" fn wasmer_export_func_params_arity(
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
-    let result = if let Export::Function { ref signature, .. } = *export {
+    if let Export::Function { ref signature, .. } = *export {
         *result = signature.params().len() as uint32_t;
         wasmer_result_t::WASMER_OK
     } else {
@@ -1025,8 +1024,7 @@ pub unsafe extern "C" fn wasmer_export_func_params_arity(
             msg: "func ptr error in wasmer_export_func_params_arity".to_string(),
         });
         wasmer_result_t::WASMER_ERROR
-    };
-    result
+    }
 }
 
 /// Sets the params buffer to the parameter types of the given wasmer_export_func_t
@@ -1044,7 +1042,7 @@ pub unsafe extern "C" fn wasmer_export_func_params(
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
-    let result = if let Export::Function { ref signature, .. } = *export {
+    if let Export::Function { ref signature, .. } = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
         for (i, item) in signature.params().iter().enumerate() {
@@ -1056,8 +1054,7 @@ pub unsafe extern "C" fn wasmer_export_func_params(
             msg: "func ptr error in wasmer_export_func_params".to_string(),
         });
         wasmer_result_t::WASMER_ERROR
-    };
-    result
+    }
 }
 
 /// Sets the returns buffer to the parameter types of the given wasmer_export_func_t
@@ -1075,7 +1072,7 @@ pub unsafe extern "C" fn wasmer_export_func_returns(
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
-    let result = if let Export::Function { ref signature, .. } = *export {
+    if let Export::Function { ref signature, .. } = *export {
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
         for (i, item) in signature.returns().iter().enumerate() {
@@ -1087,8 +1084,7 @@ pub unsafe extern "C" fn wasmer_export_func_returns(
             msg: "func ptr error in wasmer_export_func_returns".to_string(),
         });
         wasmer_result_t::WASMER_ERROR
-    };
-    result
+    }
 }
 
 /// Sets the result parameter to the arity of the returns of the wasmer_export_func_t
@@ -1105,7 +1101,7 @@ pub unsafe extern "C" fn wasmer_export_func_returns_arity(
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.export;
-    let result = if let Export::Function { ref signature, .. } = *export {
+    if let Export::Function { ref signature, .. } = *export {
         *result = signature.returns().len() as uint32_t;
         wasmer_result_t::WASMER_OK
     } else {
@@ -1113,8 +1109,7 @@ pub unsafe extern "C" fn wasmer_export_func_returns_arity(
             msg: "func ptr error in wasmer_export_func_results_arity".to_string(),
         });
         wasmer_result_t::WASMER_ERROR
-    };
-    result
+    }
 }
 
 /// Sets the result parameter to the arity of the params of the wasmer_import_func_t
@@ -1130,7 +1125,7 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
     result: *mut uint32_t,
 ) -> wasmer_result_t {
     let export = &*(func as *const Export);
-    let result = if let Export::Function { ref signature, .. } = *export {
+    if let Export::Function { ref signature, .. } = *export {
         *result = signature.params().len() as uint32_t;
         wasmer_result_t::WASMER_OK
     } else {
@@ -1138,8 +1133,7 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
             msg: "func ptr error in wasmer_import_func_params_arity".to_string(),
         });
         wasmer_result_t::WASMER_ERROR
-    };
-    result
+    }
 }
 
 /// Creates new func
@@ -1181,7 +1175,7 @@ pub unsafe extern "C" fn wasmer_import_func_params(
     params_len: c_int,
 ) -> wasmer_result_t {
     let export = &*(func as *const Export);
-    let result = if let Export::Function { ref signature, .. } = *export {
+    if let Export::Function { ref signature, .. } = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
         for (i, item) in signature.params().iter().enumerate() {
@@ -1193,8 +1187,7 @@ pub unsafe extern "C" fn wasmer_import_func_params(
             msg: "func ptr error in wasmer_import_func_params".to_string(),
         });
         wasmer_result_t::WASMER_ERROR
-    };
-    result
+    }
 }
 
 /// Sets the returns buffer to the parameter types of the given wasmer_import_func_t
@@ -1211,7 +1204,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns(
     returns_len: c_int,
 ) -> wasmer_result_t {
     let export = &*(func as *const Export);
-    let result = if let Export::Function { ref signature, .. } = *export {
+    if let Export::Function { ref signature, .. } = *export {
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
         for (i, item) in signature.returns().iter().enumerate() {
@@ -1223,8 +1216,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns(
             msg: "func ptr error in wasmer_import_func_returns".to_string(),
         });
         wasmer_result_t::WASMER_ERROR
-    };
-    result
+    }
 }
 
 /// Sets the result parameter to the arity of the returns of the wasmer_import_func_t
@@ -1240,7 +1232,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
     result: *mut uint32_t,
 ) -> wasmer_result_t {
     let export = &*(func as *const Export);
-    let result = if let Export::Function { ref signature, .. } = *export {
+    if let Export::Function { ref signature, .. } = *export {
         *result = signature.returns().len() as uint32_t;
         wasmer_result_t::WASMER_OK
     } else {
@@ -1248,8 +1240,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
             msg: "func ptr error in wasmer_import_func_results_arity".to_string(),
         });
         wasmer_result_t::WASMER_ERROR
-    };
-    result
+    }
 }
 
 /// Frees memory for the given Func
@@ -1321,7 +1312,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     let result = instance.call(&named_export.name, &params[..]);
     match result {
         Ok(results_vec) => {
-            if results_vec.len() > 0 {
+            if !results_vec.is_empty() {
                 let ret = match results_vec[0] {
                     Value::I32(x) => wasmer_value_t {
                         tag: wasmer_value_tag::WASM_I32,
