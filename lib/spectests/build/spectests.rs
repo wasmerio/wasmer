@@ -568,7 +568,7 @@ fn {}_assert_malformed() {{
                         let assertion = if expected.len() > 0 && is_nan(&expected[0]) {
                             format!(
                                 "let expected = {expected_result};
-                                if let {return_type_destructure} = result.clone().unwrap().first().unwrap() {{
+                                if let {return_type_destructure} = result.as_ref().unwrap().first().unwrap() {{
                                 assert!((*result as {return_type}).is_nan());
             assert_eq!((*result as {return_type}).is_sign_positive(), (expected as {return_type}).is_sign_positive());
             }} else {{

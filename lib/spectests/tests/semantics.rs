@@ -31,7 +31,7 @@ mod tests {
 
         match result {
             Err(err) => match err {
-                CallError::Runtime(RuntimeError::Unknown { msg }) => {
+                CallError::Runtime(RuntimeError::Trap { msg }) => {
                     assert!(!msg.contains("segmentation violation"));
                     assert!(!msg.contains("bus error"));
                 }

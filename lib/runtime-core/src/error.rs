@@ -1,8 +1,9 @@
 use crate::types::{
     FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
+    Value,
 };
 use core::borrow::Borrow;
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
@@ -120,28 +121,11 @@ impl std::error::Error for LinkError {}
 /// The main way to do this is `Instance.call`.
 ///
 /// Comparing two `RuntimeError`s always evaluates to false.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum RuntimeError {
-    OutOfBoundsAccess {
-        memory: MemoryIndex,
-        addr: Option<u32>,
-    },
-    TableOutOfBounds {
-        table: TableIndex,
-    },
-    IndirectCallSignature {
-        table: TableIndex,
-    },
-    IndirectCallToNull {
-        table: TableIndex,
-    },
-    IllegalArithmeticOperation,
-    User {
-        msg: String,
-    },
-    Unknown {
-        msg: String,
-    },
+    Trap { msg: Box<str> },
+    Exception { data: Box<[Value]> },
+    Panic { data: Box<dyn Any> },
 }
 
 impl PartialEq for RuntimeError {
@@ -153,30 +137,13 @@ impl PartialEq for RuntimeError {
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            RuntimeError::IndirectCallSignature { table } => write!(
-                f,
-                "Indirect call signature error with Table Index \"{:?}\"",
-                table
-            ),
-            RuntimeError::IndirectCallToNull { table } => {
-                write!(f, "Indirect call to null with table index \"{:?}\"", table)
+            RuntimeError::Trap { ref msg } => {
+                write!(f, "WebAssembly trap occured during runtime: {}", msg)
             }
-            RuntimeError::IllegalArithmeticOperation => write!(f, "Illegal arithmetic operation"),
-            RuntimeError::OutOfBoundsAccess { memory, addr } => match addr {
-                Some(addr) => write!(
-                    f,
-                    "Out-of-bounds access with memory index {:?} and address {}",
-                    memory, addr
-                ),
-                None => write!(f, "Out-of-bounds access with memory index {:?}", memory),
-            },
-            RuntimeError::TableOutOfBounds { table } => {
-                write!(f, "Table out of bounds with table index \"{:?}\"", table)
+            RuntimeError::Exception { ref data } => {
+                write!(f, "Uncaught WebAssembly exception: {:?}", data)
             }
-            RuntimeError::Unknown { msg } => {
-                write!(f, "Unknown runtime error with message: \"{}\"", msg)
-            }
-            RuntimeError::User { msg } => write!(f, "User runtime error with message: \"{}\"", msg),
+            RuntimeError::Panic { data: _ } => write!(f, "User-defined \"panic\""),
         }
     }
 }
@@ -239,7 +206,7 @@ impl std::error::Error for ResolveError {}
 /// be the `CallError::Runtime(RuntimeError)` variant.
 ///
 /// Comparing two `CallError`s always evaluates to false.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum CallError {
     Resolve(ResolveError),
     Runtime(RuntimeError),
@@ -298,7 +265,7 @@ impl std::error::Error for CreationError {}
 /// of a webassembly module.
 ///
 /// Comparing two `Error`s always evaluates to false.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Error {
     CompileError(CompileError),
     LinkError(Vec<LinkError>),

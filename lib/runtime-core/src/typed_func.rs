@@ -6,7 +6,7 @@ use crate::{
     types::{FuncSig, Type, WasmExternType},
     vm::Ctx,
 };
-use std::{cell::UnsafeCell, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
+use std::{any::Any, cell::UnsafeCell, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
 
 thread_local! {
     pub static EARLY_TRAPPER: UnsafeCell<Option<Box<dyn UserTrapper>>> = UnsafeCell::new(None);
@@ -40,14 +40,14 @@ pub trait TrapEarly<Rets>
 where
     Rets: WasmTypeList,
 {
-    fn report(self) -> Result<Rets, String>;
+    fn report(self) -> Result<Rets, Box<dyn Any>>;
 }
 
 impl<Rets> TrapEarly<Rets> for Rets
 where
     Rets: WasmTypeList,
 {
-    fn report(self) -> Result<Rets, String> {
+    fn report(self) -> Result<Rets, Box<dyn Any>> {
         Ok(self)
     }
 }
@@ -55,10 +55,10 @@ where
 impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
-    E: fmt::Debug,
+    E: Any,
 {
-    fn report(self) -> Result<Rets, String> {
-        self.map_err(|err| format!("Error: {:?}", err))
+    fn report(self) -> Result<Rets, Box<dyn Any>> {
+        self.map_err(|err| Box::new(err) as Box<dyn Any>)
     }
 }
 
@@ -191,25 +191,17 @@ macro_rules! impl_traits {
                 extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
 
-                    let msg = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                    let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
                         f( ctx $( ,$x )* ).report()
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => err,
-                        Err(err) => {
-                            if let Some(s) = err.downcast_ref::<&str>() {
-                                s.to_string()
-                            } else if let Some(s) = err.downcast_ref::<String>() {
-                                s.clone()
-                            } else {
-                                "a panic occurred, but no additional information is available".to_string()
-                            }
-                        },
+                        Err(err) => err,
                     };
 
                     unsafe {
                         if let Some(early_trapper) = &*EARLY_TRAPPER.with(|ucell| ucell.get()) {
-                            early_trapper.do_early_trap(msg)
+                            early_trapper.do_early_trap(err)
                         } else {
                             eprintln!("panic handling not setup");
                             std::process::exit(1)
