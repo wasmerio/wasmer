@@ -4,13 +4,14 @@ use crate::{
     global::Global,
     import::ImportObject,
     memory::Memory,
-    module::{ImportName, ModuleInner},
+    module::{ImportName, ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
     structures::{BoxedMap, Map, SliceMap, TypedIndex},
     table::Table,
     types::{
         ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex,
-        Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalOrImport, LocalTableIndex, Value,
+        Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalOrImport, LocalTableIndex, SigIndex,
+        Value,
     },
     vm,
 };
@@ -25,6 +26,8 @@ pub struct LocalBacking {
     pub(crate) vm_memories: BoxedMap<LocalMemoryIndex, *mut vm::LocalMemory>,
     pub(crate) vm_tables: BoxedMap<LocalTableIndex, *mut vm::LocalTable>,
     pub(crate) vm_globals: BoxedMap<LocalGlobalIndex, *mut vm::LocalGlobal>,
+
+    pub(crate) dynamic_sigindices: BoxedMap<SigIndex, vm::SigId>,
 }
 
 // impl LocalBacking {
@@ -47,6 +50,8 @@ impl LocalBacking {
         let vm_tables = Self::finalize_tables(module, imports, &mut tables, vmctx);
         let vm_globals = Self::finalize_globals(&mut globals);
 
+        let dynamic_sigindices = Self::generate_sigindices(&module.info);
+
         Self {
             memories,
             tables,
@@ -55,7 +60,21 @@ impl LocalBacking {
             vm_memories,
             vm_tables,
             vm_globals,
+
+            dynamic_sigindices,
         }
+    }
+
+    fn generate_sigindices(info: &ModuleInfo) -> BoxedMap<SigIndex, vm::SigId> {
+        info.signatures
+            .iter()
+            .map(|(_, signature)| {
+                let signature = SigRegistry.lookup_signature_ref(signature);
+                let sig_index = SigRegistry.lookup_sig_index(signature);
+                vm::SigId(sig_index.index() as u32)
+            })
+            .collect::<Map<_, _>>()
+            .into_boxed_map()
     }
 
     fn generate_memories(module: &ModuleInner) -> BoxedMap<LocalMemoryIndex, Memory> {
