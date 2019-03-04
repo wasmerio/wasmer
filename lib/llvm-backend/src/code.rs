@@ -21,7 +21,7 @@ use wasmparser::{
     BinaryReaderError, CodeSectionReader, LocalsReader, MemoryImmediate, Operator, OperatorsReader,
 };
 
-use crate::intrinsics::{CtxType, GlobalCache, Intrinsics};
+use crate::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
 use crate::read_info::type_to_type;
 use crate::state::{ControlFrame, IfElseState, State};
 use crate::trampolines::generate_trampolines;
@@ -1571,6 +1571,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1583,6 +1585,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1595,6 +1599,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1607,6 +1613,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1621,6 +1629,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1633,6 +1643,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1645,6 +1657,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1657,6 +1671,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1669,6 +1685,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1685,6 +1703,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1701,6 +1721,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1717,6 +1739,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1733,6 +1757,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1750,6 +1776,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1766,6 +1794,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1782,6 +1812,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1798,6 +1830,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1814,6 +1848,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1832,6 +1868,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1846,6 +1884,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1860,6 +1900,8 @@ fn parse_function(
                 let effective_address = resolve_memory_ptr(
                     builder,
                     intrinsics,
+                    context,
+                    &function,
                     &mut state,
                     &mut ctx,
                     memarg,
@@ -1964,6 +2006,8 @@ fn parse_function(
 fn resolve_memory_ptr(
     builder: &Builder,
     intrinsics: &Intrinsics,
+    context: &Context,
+    function: &FunctionValue,
     state: &mut State,
     ctx: &mut CtxType,
     memarg: MemoryImmediate,
@@ -1975,8 +2019,62 @@ fn resolve_memory_ptr(
     let var_offset =
         builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
     let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
-    let (mem_base, mem_bound) = ctx.memory(MemoryIndex::new(0));
-    let mem_base_int = builder.build_ptr_to_int(mem_base, intrinsics.i64_ty, &state.var_name());
+    let memory_cache = ctx.memory(MemoryIndex::new(0));
+
+    let mem_base_int = match memory_cache {
+        MemoryCache::Dynamic {
+            ptr_to_base_ptr,
+            ptr_to_bounds,
+        } => {
+            let base = builder
+                .build_load(ptr_to_base_ptr, "base")
+                .into_pointer_value();
+            let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
+
+            let base_as_int = builder.build_ptr_to_int(base, intrinsics.i64_ty, "base_as_int");
+
+            let base_in_bounds =
+                builder.build_int_compare(IntPredicate::ULT, base_as_int, bounds, "base_in_bounds");
+
+            let base_in_bounds = builder
+                .build_call(
+                    intrinsics.expect_i1,
+                    &[
+                        base_in_bounds.as_basic_value_enum(),
+                        intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                    ],
+                    "base_in_bounds_expect",
+                )
+                .try_as_basic_value()
+                .left()
+                .unwrap()
+                .into_int_value();
+
+            let in_bounds_continue_block =
+                context.append_basic_block(function, "in_bounds_continue_block");
+            let not_in_bounds_block = context.append_basic_block(function, "not_in_bounds_block");
+            builder.build_conditional_branch(
+                base_in_bounds,
+                &in_bounds_continue_block,
+                &not_in_bounds_block,
+            );
+            builder.position_at_end(&not_in_bounds_block);
+            builder.build_call(
+                intrinsics.throw_trap,
+                &[intrinsics.trap_memory_oob],
+                "throw",
+            );
+            builder.build_unreachable();
+            builder.position_at_end(&in_bounds_continue_block);
+
+            base_as_int
+        }
+        MemoryCache::Static {
+            base_ptr,
+            bounds: _,
+        } => builder.build_ptr_to_int(base_ptr, intrinsics.i64_ty, "base_as_int"),
+    };
+
     let effective_address_int =
         builder.build_int_add(mem_base_int, effective_offset, &state.var_name());
     Ok(builder.build_int_to_ptr(effective_address_int, ptr_ty, &state.var_name()))

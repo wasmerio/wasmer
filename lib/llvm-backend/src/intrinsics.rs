@@ -398,7 +398,8 @@ impl Intrinsics {
     }
 }
 
-enum MemoryCache {
+#[derive(Clone, Copy)]
+pub enum MemoryCache {
     /// The memory moves around.
     Dynamic {
         ptr_to_base_ptr: PointerValue,
@@ -452,7 +453,7 @@ impl<'a> CtxType<'a> {
         self.ctx_ptr_value.as_basic_value_enum()
     }
 
-    pub fn memory(&mut self, index: MemoryIndex) -> (PointerValue, IntValue) {
+    pub fn memory(&mut self, index: MemoryIndex) -> MemoryCache {
         let (cached_memories, builder, info, ctx_ptr_value, intrinsics, cache_builder) = (
             &mut self.cached_memories,
             self.builder,
@@ -462,7 +463,7 @@ impl<'a> CtxType<'a> {
             &self.cache_builder,
         );
 
-        let memory_cache = cached_memories.entry(index).or_insert_with(|| {
+        *cached_memories.entry(index).or_insert_with(|| {
             let (memory_array_ptr_ptr, index, memory_type) = match index.local_or_import(info) {
                 LocalOrImport::Local(local_mem_index) => (
                     unsafe {
@@ -516,24 +517,7 @@ impl<'a> CtxType<'a> {
                         .into_int_value(),
                 },
             }
-        });
-
-        match memory_cache {
-            MemoryCache::Dynamic {
-                ptr_to_base_ptr,
-                ptr_to_bounds,
-            } => {
-                let base = builder
-                    .build_load(*ptr_to_base_ptr, "base")
-                    .into_pointer_value();
-                let bounds = builder
-                    .build_load(*ptr_to_bounds, "bounds")
-                    .into_int_value();
-
-                (base, bounds)
-            }
-            MemoryCache::Static { base_ptr, bounds } => (*base_ptr, *bounds),
-        }
+        })
     }
 
     pub fn table(&mut self, index: TableIndex) -> (PointerValue, IntValue) {
