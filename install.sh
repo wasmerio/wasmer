@@ -133,7 +133,7 @@ wasmer_link() {
   SOURCE_STR="# Wasmer config\nexport WASMER_DIR=\"\$HOME/.wasmer\"\nexport WASMER_CACHE_DIR=\"\$WASMER_DIR/cache\"\nexport PATH=\"\$HOME/.wasmer/bin:\$PATH\"\n"
 
   # We create the wasmer.sh file
-  echo "$SOURCE_STR" > "$HOME/.wasmer/wasmer.sh"
+  printf "$SOURCE_STR" > "$HOME/.wasmer/wasmer.sh"
 
   if [ -z "${WASMER_PROFILE-}" ] ; then
     printf "${red}Profile not found. Tried:\n* ${WASMER_PROFILE} (as defined in \$PROFILE)\n* ~/.bashrc\n* ~/.bash_profile\n* ~/.zshrc\n* ~/.profile.\n"

@@ -24,6 +24,7 @@ use wasmer_runtime_core::{
 #[macro_use]
 extern crate serde_derive;
 
+extern crate rayon;
 extern crate serde;
 
 use wasmparser::{self, WasmDecoder};

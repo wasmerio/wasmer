@@ -31,7 +31,7 @@ int main()
 
     wasmer_import_export_kind kind = wasmer_export_kind(export);
     assert(kind == WASM_FUNCTION);
-    wasmer_func_t *func = wasmer_export_to_func(export);
+    wasmer_export_func_t *func = wasmer_export_to_func(export);
 
     wasmer_byte_array name_bytes = wasmer_export_name(export);
     assert(name_bytes.bytes_len == 3);
@@ -42,40 +42,40 @@ int main()
     }
 
     uint32_t params_arity;
-    wasmer_func_params_arity(func, &params_arity);
+    wasmer_export_func_params_arity(func, &params_arity);
     assert(params_arity == 2);
 
     wasmer_value_tag *params_sig = malloc(sizeof(wasmer_value_tag) * params_arity);
-    wasmer_func_params(func, params_sig , params_arity);
+    wasmer_export_func_params(func, params_sig , params_arity);
     assert(params_sig[0] == WASM_I32);
     assert(params_sig[1] == WASM_I32);
     free(params_sig);
 
     uint32_t returns_arity;
-    wasmer_func_returns_arity(func, &returns_arity);
+    wasmer_export_func_returns_arity(func, &returns_arity);
     assert(returns_arity == 1);
 
     wasmer_value_tag *returns_sig = malloc(sizeof(wasmer_value_tag) * returns_arity);
-    wasmer_func_returns(func, returns_sig , returns_arity);
+    wasmer_export_func_returns(func, returns_sig , returns_arity);
     assert(returns_sig[0] == WASM_I32);
     free(returns_sig);
 
 
-//    wasmer_value_t param_one;
-//    param_one.tag = WASM_I32;
-//    param_one.value.I32 = 7;
-//    wasmer_value_t param_two;
-//    param_two.tag = WASM_I32;
-//    param_two.value.I32 = 8;
-//    wasmer_value_t params[] = {param_one, param_two};
-//    wasmer_value_t result_one;
-//    wasmer_value_t results[] = {result_one};
-//
-//    wasmer_result_t call_result = wasmer_func_call(func, params, 2, results, 1);
-//    printf("Call result:  %d\n", call_result);
-//    printf("Result: %d\n", results[0].value.I32);
-//    assert(results[0].value.I32 == 15);
-//    assert(call_result == WASMER_OK);
+    wasmer_value_t param_one;
+    param_one.tag = WASM_I32;
+    param_one.value.I32 = 7;
+    wasmer_value_t param_two;
+    param_two.tag = WASM_I32;
+    param_two.value.I32 = 8;
+    wasmer_value_t params[] = {param_one, param_two};
+    wasmer_value_t result_one;
+    wasmer_value_t results[] = {result_one};
+
+    wasmer_result_t call_result = wasmer_export_func_call(func, params, 2, results, 1);
+    printf("Call result:  %d\n", call_result);
+    printf("Result: %d\n", results[0].value.I32);
+    assert(results[0].value.I32 == 15);
+    assert(call_result == WASMER_OK);
 
 
     printf("Destroy instance\n");

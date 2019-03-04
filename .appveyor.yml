@@ -14,30 +14,36 @@ environment:
 
 cache:
   - 'C:\Users\appveyor\.cargo'
+  - target
 
 install:
-  - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
-  - rustup-init.exe -yv --default-host %target%
+  # uncomment these lines if the cache is cleared, or if we must re-install rust for some reason
+  # - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+  # - rustup-init.exe -yv --default-host %target%
   - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+  - rustup default stable-%target%
+  - rustup update
   - rustc -vV
   - cargo -vV
+  # Install InnoSetup
+  - appveyor-retry appveyor DownloadFile https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/2017-08-22-is.exe
+  - 2017-08-22-is.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+  - set PATH="C:\Program Files (x86)\Inno Setup 5";%PATH%
+# uncomment to RDP to appveyor
+#  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 build_script:
-  - cargo build --verbose
+   - cargo build --release --verbose
 
 test_script:
-  - set RUST_BACKTRACE=1
-  - cd ./lib/spectests && cargo test -- --test-threads 1 && cd ../..
+  - cargo test --package wasmer-spectests
 
-before_deploy:
+after_build:
   - cd ./src/installer
   - iscc wasmer.iss
   - copy /y .\WasmerInstaller.exe ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
-  - appveyor PushArtifact WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
-
-artifacts:
-  - path: WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
-    name: WasmerInstaller.exe
+  - appveyor PushArtifact ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
+  - cd ..\..\
 
 deploy:
   description: 'WasmerInstaller'

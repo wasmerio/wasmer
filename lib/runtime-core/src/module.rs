@@ -1,6 +1,6 @@
 use crate::{
     backend::{Backend, FuncResolver, ProtectedCaller},
-    cache::{Artifact, Error as CacheError, WasmHash},
+    cache::{Artifact, Error as CacheError},
     error,
     import::ImportObject,
     structures::{Map, TypedIndex},

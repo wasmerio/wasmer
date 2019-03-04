@@ -2,8 +2,8 @@ use crate::{
     module::{Module, ModuleInfo},
     sys::Memory,
 };
-use sha2::{Digest, Sha256};
-use std::{io, mem, slice};
+use blake2b_simd::blake2bp;
+use std::{fmt, io, mem, slice};
 
 #[derive(Debug)]
 pub enum InvalidFileType {
@@ -33,7 +33,7 @@ impl From<io::Error> for Error {
 ///
 /// [`Cache`]: trait.Cache.html
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct WasmHash([u8; 32]);
+pub struct WasmHash([u8; 32], [u8; 32]);
 
 impl WasmHash {
     /// Hash a wasm module.
@@ -42,19 +42,31 @@ impl WasmHash {
     /// This does no verification that the supplied data
     /// is, in fact, a wasm module.
     pub fn generate(wasm: &[u8]) -> Self {
-        let mut array = [0u8; 32];
-        array.copy_from_slice(Sha256::digest(wasm).as_slice());
-        WasmHash(array)
+        let mut first_part = [0u8; 32];
+        let mut second_part = [0u8; 32];
+
+        let mut state = blake2bp::State::new();
+        state.update(wasm);
+
+        let hasher = state.finalize();
+        let generic_array = hasher.as_bytes();
+
+        first_part.copy_from_slice(&generic_array[0..32]);
+        second_part.copy_from_slice(&generic_array[32..64]);
+        WasmHash(first_part, second_part)
     }
 
     /// Create the hexadecimal representation of the
     /// stored hash.
     pub fn encode(self) -> String {
-        hex::encode(self.0)
+        hex::encode(&self.into_array() as &[u8])
     }
 
-    pub(crate) fn into_array(self) -> [u8; 32] {
-        self.0
+    pub(crate) fn into_array(self) -> [u8; 64] {
+        let mut total = [0u8; 64];
+        total[0..32].copy_from_slice(&self.0);
+        total[32..64].copy_from_slice(&self.1);
+        total
     }
 }
 
@@ -189,8 +201,8 @@ impl Artifact {
 ///
 /// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
 pub trait Cache {
-    type LoadError;
-    type StoreError;
+    type LoadError: fmt::Debug;
+    type StoreError: fmt::Debug;
 
     fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;

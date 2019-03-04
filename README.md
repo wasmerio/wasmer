@@ -142,6 +142,14 @@ You can also run integration tests with:
 make integration-tests
 ```
 
+## Benchmarking
+
+Benchmarks can be run with:
+
+```sh
+cargo bench --all
+```
+
 ## Roadmap
 
 Wasmer is an open project guided by strong principles, aiming to be modular, flexible and fast. It is open to the community to help set its direction.

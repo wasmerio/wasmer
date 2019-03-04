@@ -12,7 +12,7 @@ use crate::{
     module::ModuleInfo,
     sys::Memory,
 };
-use std::ptr::NonNull;
+use std::{any::Any, ptr::NonNull};
 
 pub mod sys {
     pub use crate::sys::*;
@@ -79,7 +79,7 @@ pub trait ProtectedCaller: Send + Sync {
 }
 
 pub trait UserTrapper {
-    unsafe fn do_early_trap(&self, msg: String) -> !;
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
 }
 
 pub trait FuncResolver: Send + Sync {

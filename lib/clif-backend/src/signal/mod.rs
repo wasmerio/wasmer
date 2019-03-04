@@ -2,7 +2,7 @@ use crate::relocation::{TrapData, TrapSink};
 use crate::trampoline::Trampolines;
 use hashbrown::HashSet;
 use libc::c_void;
-use std::{cell::Cell, sync::Arc};
+use std::{any::Any, cell::Cell, sync::Arc};
 use wasmer_runtime_core::{
     backend::{ProtectedCaller, Token, UserTrapper},
     error::RuntimeResult,
@@ -25,14 +25,14 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 thread_local! {
-    pub static TRAP_EARLY_DATA: Cell<Option<String>> = Cell::new(None);
+    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
 }
 
 pub struct Trapper;
 
 impl UserTrapper for Trapper {
-    unsafe fn do_early_trap(&self, msg: String) -> ! {
-        TRAP_EARLY_DATA.with(|cell| cell.set(Some(msg)));
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+        TRAP_EARLY_DATA.with(|cell| cell.set(Some(data)));
         trigger_trap()
     }
 }

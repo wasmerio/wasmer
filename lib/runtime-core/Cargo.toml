@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.1.2"
+version = "0.2.1"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -15,7 +15,7 @@ parking_lot = "0.7.1"
 lazy_static = "1.2.0"
 indexmap = "1.0.2"
 errno = "0.2.4"
-libc = "0.2.48"
+libc = "0.2.49"
 hex = "0.3.2"
 
 # Dependencies for caching.
@@ -29,7 +29,9 @@ version = "1.0"
 version = "0.10"
 [dependencies.serde-bench]
 version = "0.0.7"
-[dependencies.sha2]
+[dependencies.blake2b_simd]
+version = "0.4.1"
+[dependencies.digest]
 version = "0.8.0"
 [dependencies.hashbrown]
 version = "0.1"
@@ -39,7 +41,6 @@ features = ["serde"]
 winapi = { version = "0.3", features = ["memoryapi"] }
 
 [dev-dependencies]
-wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2" }
 field-offset = "0.1.1"
 
 [features]

@@ -1,3 +1,4 @@
+use crate::error::PageError;
 use std::{
     fmt,
     ops::{Add, Sub},
@@ -11,12 +12,16 @@ const WASM_MAX_PAGES: usize = 65_536;
 pub struct Pages(pub u32);
 
 impl Pages {
-    pub fn checked_add(self, rhs: Pages) -> Option<Pages> {
+    pub fn checked_add(self, rhs: Pages) -> Result<Pages, PageError> {
         let added = (self.0 as usize) + (rhs.0 as usize);
         if added <= WASM_MAX_PAGES {
-            Some(Pages(added as u32))
+            Ok(Pages(added as u32))
         } else {
-            None
+            Err(PageError::ExceededMaxPages(
+                self.0 as usize,
+                rhs.0 as usize,
+                added,
+            ))
         }
     }
 

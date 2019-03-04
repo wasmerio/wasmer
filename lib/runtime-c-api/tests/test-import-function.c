@@ -31,7 +31,7 @@ int main()
     wasmer_value_tag returns_sig[] = {};
 
     printf("Creating new func\n");
-    wasmer_func_t *func = wasmer_func_new(print_str, params_sig, 2, returns_sig, 0);
+    wasmer_import_func_t *func = wasmer_import_func_new(print_str, params_sig, 2, returns_sig, 0);
     wasmer_import_t import;
 
     char *module_name = "env";
@@ -84,7 +84,7 @@ int main()
     assert(0 == strcmp(actual_str, "Hello, World!"));
 
     printf("Destroying func\n");
-    wasmer_func_destroy(func);
+    wasmer_import_func_destroy(func);
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);
     return 0;
