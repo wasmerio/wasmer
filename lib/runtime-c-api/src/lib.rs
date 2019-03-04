@@ -166,6 +166,7 @@ pub unsafe extern "C" fn wasmer_validate(
         return false;
     }
     let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+
     wasmer_runtime_core::validate(bytes)
 }
 
@@ -180,7 +181,7 @@ pub unsafe extern "C" fn wasmer_validate(
 /// and `wasmer_last_error_message` to get an error message.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_memory_new(
-    mut memory: *mut *mut wasmer_memory_t,
+    memory: *mut *mut wasmer_memory_t,
     limits: wasmer_limits_t,
 ) -> wasmer_result_t {
     let max = if limits.max.has_some {
@@ -248,7 +249,7 @@ pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t
 /// and `wasmer_last_error_message` to get an error message.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_table_new(
-    mut table: *mut *mut wasmer_table_t,
+    table: *mut *mut wasmer_table_t,
     limits: wasmer_limits_t,
 ) -> wasmer_result_t {
     let max = if limits.max.has_some {
@@ -388,7 +389,7 @@ pub extern "C" fn wasmer_memory_destroy(memory: *mut wasmer_memory_t) {
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_compile(
-    mut module: *mut *mut wasmer_module_t,
+    module: *mut *mut wasmer_module_t,
     wasm_bytes: *mut uint8_t,
     wasm_bytes_len: uint32_t,
 ) -> wasmer_result_t {
@@ -414,8 +415,8 @@ pub unsafe extern "C" fn wasmer_compile(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_module_instantiate(
-    module: *mut wasmer_module_t,
-    mut instance: *mut *mut wasmer_instance_t,
+    module: *const wasmer_module_t,
+    instance: *mut *mut wasmer_instance_t,
     imports: *mut wasmer_import_t,
     imports_len: c_int,
 ) -> wasmer_result_t {
@@ -476,7 +477,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
         import_object.register(module_name, namespace);
     }
 
-    let module = &*(module as *mut Module);
+    let module = &*(module as *const Module);
     let new_instance = if let Ok(res) = module.instantiate(&import_object) {
         res
     } else {
@@ -495,10 +496,10 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_export_descriptors(
-    module: *mut wasmer_module_t,
+    module: *const wasmer_module_t,
     export_descriptors: *mut *mut wasmer_export_descriptors_t,
 ) {
-    let mut module = &*(module as *mut Module);
+    let module = &*(module as *const Module);
 
     let named_export_descriptors: Box<NamedExportDescriptors> = Box::new(NamedExportDescriptors(
         module.info().exports.iter().map(|e| e.into()).collect(),
@@ -541,7 +542,7 @@ pub unsafe extern "C" fn wasmer_export_descriptors_get(
     if export_descriptors.is_null() {
         return ptr::null_mut();
     }
-    let mut named_export_descriptors =
+    let named_export_descriptors =
         &mut *(export_descriptors as *mut NamedExportDescriptors);
     let ptr = &mut (*named_export_descriptors).0[idx as usize] as *mut NamedExportDescriptor
         as *mut wasmer_export_descriptor_t;
@@ -586,10 +587,10 @@ pub extern "C" fn wasmer_module_destroy(module: *mut wasmer_module_t) {
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_descriptors(
-    module: *mut wasmer_module_t,
+    module: *const wasmer_module_t,
     import_descriptors: *mut *mut wasmer_import_descriptors_t,
 ) {
-    let mut module = &*(module as *mut Module);
+    let module = &*(module as *const Module);
     let total_imports = module.info().imported_functions.len()
         + module.info().imported_tables.len()
         + module.info().imported_globals.len()
@@ -714,7 +715,7 @@ pub unsafe extern "C" fn wasmer_import_descriptors_get(
     if import_descriptors.is_null() {
         return ptr::null_mut();
     }
-    let mut named_import_descriptors =
+    let named_import_descriptors =
         &mut *(import_descriptors as *mut NamedImportDescriptors);
     let ptr = &mut (*named_import_descriptors).0[idx as usize] as *mut NamedImportDescriptor
         as *mut wasmer_import_descriptor_t;
@@ -766,7 +767,7 @@ pub unsafe extern "C" fn wasmer_import_descriptor_kind(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instantiate(
-    mut instance: *mut *mut wasmer_instance_t,
+    instance: *mut *mut wasmer_instance_t,
     wasm_bytes: *mut uint8_t,
     wasm_bytes_len: uint32_t,
     imports: *mut wasmer_import_t,
@@ -938,7 +939,7 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     instance: *mut wasmer_instance_t,
     exports: *mut *mut wasmer_exports_t,
 ) {
-    let mut instance_ref = &mut *(instance as *mut Instance);
+    let instance_ref = &mut *(instance as *mut Instance);
     let mut exports_vec: Vec<NamedExport> = Vec::with_capacity(instance_ref.exports().count());
     for (name, export) in instance_ref.exports() {
         exports_vec.push(NamedExport {
@@ -982,7 +983,7 @@ pub unsafe extern "C" fn wasmer_exports_get(
     if exports.is_null() {
         return ptr::null_mut();
     }
-    let mut named_exports = &mut *(exports as *mut NamedExports);
+    let named_exports = &mut *(exports as *mut NamedExports);
     let ptr = &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t;
     ptr
 }
@@ -1011,11 +1012,11 @@ pub unsafe extern "C" fn wasmer_export_kind(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_export_func_params_arity(
-    func: *mut wasmer_export_func_t,
+    func: *const wasmer_export_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut named_export = &*(func as *mut NamedExport);
-    let mut export = &named_export.export;
+    let named_export = &*(func as *const NamedExport);
+    let export = &named_export.export;
     let result = if let Export::Function { ref signature, .. } = *export {
         *result = signature.params().len() as uint32_t;
         wasmer_result_t::WASMER_OK
@@ -1037,12 +1038,12 @@ pub unsafe extern "C" fn wasmer_export_func_params_arity(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_export_func_params(
-    func: *mut wasmer_export_func_t,
+    func: *const wasmer_export_func_t,
     params: *mut wasmer_value_tag,
     params_len: c_int,
 ) -> wasmer_result_t {
-    let mut named_export = &*(func as *mut NamedExport);
-    let mut export = &named_export.export;
+    let named_export = &*(func as *const NamedExport);
+    let export = &named_export.export;
     let result = if let Export::Function { ref signature, .. } = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
@@ -1068,12 +1069,12 @@ pub unsafe extern "C" fn wasmer_export_func_params(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_export_func_returns(
-    func: *mut wasmer_export_func_t,
+    func: *const wasmer_export_func_t,
     returns: *mut wasmer_value_tag,
     returns_len: c_int,
 ) -> wasmer_result_t {
-    let mut named_export = &*(func as *mut NamedExport);
-    let mut export = &named_export.export;
+    let named_export = &*(func as *const NamedExport);
+    let export = &named_export.export;
     let result = if let Export::Function { ref signature, .. } = *export {
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
@@ -1099,11 +1100,11 @@ pub unsafe extern "C" fn wasmer_export_func_returns(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_export_func_returns_arity(
-    func: *mut wasmer_export_func_t,
+    func: *const wasmer_export_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut named_export = &*(func as *mut NamedExport);
-    let mut export = &named_export.export;
+    let named_export = &*(func as *const NamedExport);
+    let export = &named_export.export;
     let result = if let Export::Function { ref signature, .. } = *export {
         *result = signature.returns().len() as uint32_t;
         wasmer_result_t::WASMER_OK
@@ -1125,10 +1126,10 @@ pub unsafe extern "C" fn wasmer_export_func_returns_arity(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_func_params_arity(
-    func: *mut wasmer_import_func_t,
+    func: *const wasmer_import_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut export = &mut *(func as *mut Export);
+    let export = &*(func as *const Export);
     let result = if let Export::Function { ref signature, .. } = *export {
         *result = signature.params().len() as uint32_t;
         wasmer_result_t::WASMER_OK
@@ -1175,11 +1176,11 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_func_params(
-    func: *mut wasmer_import_func_t,
+    func: *const wasmer_import_func_t,
     params: *mut wasmer_value_tag,
     params_len: c_int,
 ) -> wasmer_result_t {
-    let mut export = &mut *(func as *mut Export);
+    let export = &*(func as *const Export);
     let result = if let Export::Function { ref signature, .. } = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
@@ -1205,11 +1206,11 @@ pub unsafe extern "C" fn wasmer_import_func_params(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_func_returns(
-    func: *mut wasmer_import_func_t,
+    func: *const wasmer_import_func_t,
     returns: *mut wasmer_value_tag,
     returns_len: c_int,
 ) -> wasmer_result_t {
-    let mut export = &mut *(func as *mut Export);
+    let export = &*(func as *const Export);
     let result = if let Export::Function { ref signature, .. } = *export {
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
@@ -1235,10 +1236,10 @@ pub unsafe extern "C" fn wasmer_import_func_returns(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_func_returns_arity(
-    func: *mut wasmer_import_func_t,
+    func: *const wasmer_import_func_t,
     result: *mut uint32_t,
 ) -> wasmer_result_t {
-    let mut export = &*(func as *mut Export);
+    let export = &*(func as *const Export);
     let result = if let Export::Function { ref signature, .. } = *export {
         *result = signature.returns().len() as uint32_t;
         wasmer_result_t::WASMER_OK
@@ -1264,7 +1265,7 @@ pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_export_to_func(
-    export: *mut wasmer_export_t,
+    export: *const wasmer_export_t,
 ) -> *const wasmer_export_func_t {
     export as *const wasmer_export_func_t
 }
@@ -1290,7 +1291,7 @@ pub unsafe extern "C" fn wasmer_export_name(export: *mut wasmer_export_t) -> was
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_export_func_call(
-    func: *mut wasmer_export_func_t,
+    func: *const wasmer_export_func_t,
     params: *const wasmer_value_t,
     params_len: c_int,
     results: *mut wasmer_value_t,
@@ -1358,7 +1359,7 @@ pub extern "C" fn wasmer_instance_context_memory(
     ctx: *mut wasmer_instance_context_t,
     _memory_idx: uint32_t,
 ) -> *const wasmer_memory_t {
-    let mut ctx = unsafe { &mut *(ctx as *mut Ctx) };
+    let ctx = unsafe { &*(ctx as *const Ctx) };
     let memory = ctx.memory(0);
     memory as *const Memory as *const wasmer_memory_t
 }
