@@ -1,5 +1,7 @@
 use super::codegen::*;
-use super::stack::{ControlFrame, ControlStack, IfElseState, ValueInfo, ValueLocation, ValueStack};
+use super::stack::{
+    ControlFrame, ControlStack, IfElseState, ScratchRegister, ValueInfo, ValueLocation, ValueStack,
+};
 use byteorder::{ByteOrder, LittleEndian};
 use dynasmrt::{
     x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
@@ -85,9 +87,9 @@ pub enum Register {
 }
 
 impl Register {
-    pub fn from_scratch_reg(id: u8) -> Register {
+    pub fn from_scratch_reg(sr: ScratchRegister) -> Register {
         use self::Register::*;
-        match id {
+        match sr.raw_id() {
             0 => RDI,
             1 => RSI,
             2 => RDX,
@@ -804,7 +806,7 @@ impl X64FunctionCode {
                     let reg = Register::from_scratch_reg(x);
                     dynasm!(
                         assembler
-                        ; mov Rq(x as u8), rax
+                        ; mov Rq(reg as u8), rax
                     );
                 }
                 ValueLocation::Stack => {

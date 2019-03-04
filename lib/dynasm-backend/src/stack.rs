@@ -56,8 +56,17 @@ pub struct ValueInfo {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ValueLocation {
-    Register(u8),
+    Register(ScratchRegister),
     Stack,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct ScratchRegister(u8);
+
+impl ScratchRegister {
+    pub fn raw_id(&self) -> u8 {
+        self.0
+    }
 }
 
 impl ValueLocation {
@@ -69,7 +78,7 @@ impl ValueLocation {
         }
     }
 
-    pub fn get_register(&self) -> Result<u8, CodegenError> {
+    pub fn get_register(&self) -> Result<ScratchRegister, CodegenError> {
         if let ValueLocation::Register(id) = *self {
             Ok(id)
         } else {
@@ -90,11 +99,11 @@ impl ValueStack {
 
     fn next_location(&self, loc: &ValueLocation) -> ValueLocation {
         match *loc {
-            ValueLocation::Register(x) => {
+            ValueLocation::Register(ScratchRegister(x)) => {
                 if x >= self.num_regs - 1 {
                     ValueLocation::Stack
                 } else {
-                    ValueLocation::Register(x + 1)
+                    ValueLocation::Register(ScratchRegister(x + 1))
                 }
             }
             ValueLocation::Stack => ValueLocation::Stack,
@@ -106,7 +115,7 @@ impl ValueStack {
             .values
             .last()
             .map(|x| self.next_location(&x.location))
-            .unwrap_or(ValueLocation::Register(0));
+            .unwrap_or(ValueLocation::Register(ScratchRegister(0)));
         self.values.push(ValueInfo {
             ty: ty,
             location: loc,
