@@ -94,7 +94,6 @@ impl FuncResolverBuilder {
         info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {
         let num_func_bodies = function_bodies.len();
-        let mut compiled_functions: Vec<(Vec<u8>, RelocSink)> = Vec::with_capacity(num_func_bodies);
         let mut local_relocs = Map::with_capacity(num_func_bodies);
         let mut external_relocs = Map::with_capacity(num_func_bodies);
 
