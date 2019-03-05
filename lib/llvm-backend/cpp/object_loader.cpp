@@ -153,7 +153,6 @@ public:
 
 private:
     llvm::JITEvaluatedSymbol symbol_lookup(llvm::StringRef name) {
-        std::cout << "symbol name: " << (std::string)name << std::endl;
         uint64_t addr = callbacks.lookup_vm_symbol(name.data(), name.size());
 
         return llvm::JITEvaluatedSymbol(addr, llvm::JITSymbolFlags::None);

@@ -123,13 +123,13 @@ pub fn parse_function_bodies(
     generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
 
     let pass_manager = PassManager::create_for_module();
-    pass_manager.add_verifier_pass();
+    // pass_manager.add_verifier_pass();
     pass_manager.add_function_inlining_pass();
     pass_manager.add_promote_memory_to_register_pass();
     pass_manager.add_cfg_simplification_pass();
-    pass_manager.add_instruction_combining_pass();
-    // pass_manager.add_aggressive_inst_combiner_pass();
-    // pass_manager.add_merged_load_store_motion_pass();
+    // pass_manager.add_instruction_combining_pass();
+    pass_manager.add_aggressive_inst_combiner_pass();
+    pass_manager.add_merged_load_store_motion_pass();
     // pass_manager.add_sccp_pass();
     pass_manager.add_gvn_pass();
     // pass_manager.add_new_gvn_pass();

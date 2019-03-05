@@ -233,7 +233,7 @@ impl LLVMBackend {
                 &triple,
                 &TargetMachine::get_host_cpu_name().to_string(),
                 &TargetMachine::get_host_cpu_features().to_string(),
-                OptimizationLevel::Default,
+                OptimizationLevel::Aggressive,
                 RelocMode::PIC,
                 CodeModel::Default,
             )
