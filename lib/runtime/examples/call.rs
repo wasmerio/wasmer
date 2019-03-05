@@ -4,76 +4,14 @@ use wabt::wat2wasm;
 
 static WAT: &'static str = r#"
     (module
-      (type (;0;) (func (param i32 i32)))
-      (type (;1;) (func (param i32 i64)))
-      (type (;2;) (func (param i32) (result i32)))
-      (type (;3;) (func (param i32) (result i64)))
-      (type (;4;) (func (param i64) (result i64)))
-      (type (;5;) (func (param f32) (result f32)))
-      (type (;6;) (func (param f64) (result f64)))
-      (func (;0;) (type 0) (param i32 i32)
-        local.get 0
-        local.get 1
-        i32.store8
-        local.get 0
-        i32.const 1
-        i32.add
-        local.get 1
-        i32.const 8
-        i32.shr_u
-        i32.store8)
-      (func (;1;) (type 0) (param i32 i32)
-        local.get 0
-        local.get 1
-        call 0
-        local.get 0
-        i32.const 2
-        i32.add
-        local.get 1
-        i32.const 16
-        i32.shr_u
-        call 0)
-      (func (;2;) (type 1) (param i32 i64)
-        local.get 0
-        local.get 1
-        i32.wrap_i64
-        call 1
-        local.get 0
-        i32.const 4
-        i32.add
-        local.get 1
-        i64.const 32
-        i64.shr_u
-        i32.wrap_i64
-        call 1)
-      (func (;3;) (type 2) (param i32) (result i32)
-        local.get 0
-        i32.load8_u
-        local.get 0
-        i32.const 1
-        i32.add
-        i32.load8_u
-        i32.const 8
-        i32.shl
-        i32.or)
-      (func (;4;) (type 2) (param i32) (result i32)
-        local.get 0
-        call 3
-        local.get 0
-        i32.const 2
-        i32.add
-        call 3
-        i32.const 16
-        i32.shl
-        i32.or)
-      (func (;5;) (type 3) (param i32) (result i64)
-        local.get 0
-        i64.extend_i32_u
-        local.get 0
-        call 4
-        i64.extend_i32_u
-        i64.or)
-      (memory (;0;) 1))
+      (type (;0;) (func (result i32)))
+      (func $dbz (result i32)
+        i32.const 42
+        i32.const 0
+        i32.div_u
+      )
+      (export "dbz" (func $dbz))
+    )
 "#;
 
 // static WAT2: &'static str = r#"
@@ -110,9 +48,9 @@ fn main() -> Result<(), error::Error> {
     println!("instantiating");
     let instance = module.instantiate(&imports! {})?;
 
-    let foo = instance.dyn_func("four")?;
+    let foo = instance.dyn_func("dbz")?;
 
-    let result = foo.call(&[Value::I32(10)]);
+    let result = foo.call(&[]);
 
     println!("result: {:?}", result);
 

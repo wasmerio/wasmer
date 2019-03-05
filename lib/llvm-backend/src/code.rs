@@ -122,6 +122,8 @@ pub fn parse_function_bodies(
 
     generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
 
+    println!("done generating ir");
+
     let pass_manager = PassManager::create_for_module();
     // pass_manager.add_verifier_pass();
     pass_manager.add_function_inlining_pass();
@@ -131,10 +133,12 @@ pub fn parse_function_bodies(
     pass_manager.add_aggressive_inst_combiner_pass();
     pass_manager.add_merged_load_store_motion_pass();
     // pass_manager.add_sccp_pass();
-    pass_manager.add_gvn_pass();
-    // pass_manager.add_new_gvn_pass();
+    // pass_manager.add_gvn_pass();
+    pass_manager.add_new_gvn_pass();
     pass_manager.add_aggressive_dce_pass();
     pass_manager.run_on_module(&module);
+
+    println!("done optimizing ir");
 
     // module.print_to_stderr();
 
@@ -2116,7 +2120,7 @@ fn trap_if_zero_or_overflow(
     builder.position_at_end(&should_trap_block);
     builder.build_call(
         intrinsics.throw_trap,
-        &[intrinsics.trap_memory_oob],
+        &[intrinsics.trap_illegal_arithmetic],
         "throw",
     );
     builder.build_unreachable();
@@ -2158,7 +2162,7 @@ fn trap_if_zero(
     builder.position_at_end(&should_trap_block);
     builder.build_call(
         intrinsics.throw_trap,
-        &[intrinsics.trap_memory_oob],
+        &[intrinsics.trap_illegal_arithmetic],
         "throw",
     );
     builder.build_unreachable();

@@ -70,6 +70,7 @@ public:
         IncorrectCallIndirectSignature = 1,
         MemoryOutOfBounds = 2,
         CallIndirectOOB = 3,
+        IllegalArithmetic = 4,
         Unknown,
     };
 
@@ -97,6 +98,12 @@ private:
                 break;
             case Type::MemoryOutOfBounds:
                 out << "memory access out-of-bounds";
+                break;
+            case Type::CallIndirectOOB:
+                out << "call_indirect out-of-bounds";
+                break;
+            case Type::IllegalArithmetic:
+                out << "illegal arithmetic operation";
                 break;
             case Type::Unknown:
             default:
@@ -142,7 +149,6 @@ extern "C" {
     }
 
     [[noreturn]] void throw_trap(WasmTrap::Type ty) {
-        std::cout << "throwing trap: " << ty << std::endl;
         throw WasmTrap(ty);
     }
 

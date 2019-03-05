@@ -61,6 +61,8 @@ enum WasmTrapType {
     Unreachable = 0,
     IncorrectCallIndirectSignature = 1,
     MemoryOutOfBounds = 2,
+    CallIndirectOOB = 3,
+    IllegalArithmetic = 4,
     Unknown,
 }
 
@@ -406,6 +408,12 @@ impl ProtectedCaller for LLVMProtectedCaller {
                 },
                 WasmTrapType::MemoryOutOfBounds => RuntimeError::Trap {
                     msg: "memory out-of-bounds access".into(),
+                },
+                WasmTrapType::CallIndirectOOB => RuntimeError::Trap {
+                    msg: "call_indirect out-of-bounds".into(),
+                },
+                WasmTrapType::IllegalArithmetic => RuntimeError::Trap {
+                    msg: "illegal arithmetic operation".into(),
                 },
                 WasmTrapType::Unknown => RuntimeError::Trap {
                     msg: "unknown trap".into(),
