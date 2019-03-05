@@ -581,13 +581,23 @@ fn parse_function(
                 state.push1(i);
             }
             Operator::F32Const { value } => {
-                let f = intrinsics
-                    .f32_ty
-                    .const_float(f32::from_bits(value.bits()) as f64);
+                let bits = intrinsics.i32_ty.const_int(value.bits() as u64, false);
+                let space =
+                    builder.build_alloca(intrinsics.f32_ty.as_basic_type_enum(), "const_space");
+                let i32_space =
+                    builder.build_pointer_cast(space, intrinsics.i32_ptr_ty, "i32_space");
+                builder.build_store(i32_space, bits);
+                let f = builder.build_load(space, "f");
                 state.push1(f);
             }
             Operator::F64Const { value } => {
-                let f = intrinsics.f64_ty.const_float(f64::from_bits(value.bits()));
+                let bits = intrinsics.i64_ty.const_int(value.bits(), false);
+                let space =
+                    builder.build_alloca(intrinsics.f64_ty.as_basic_type_enum(), "const_space");
+                let i64_space =
+                    builder.build_pointer_cast(space, intrinsics.i64_ptr_ty, "i32_space");
+                builder.build_store(i64_space, bits);
+                let f = builder.build_load(space, "f");
                 state.push1(f);
             }
 
@@ -682,6 +692,8 @@ fn parse_function(
                         builder.build_call(func_ptr, &params, &state.var_name())
                     }
                 };
+
+                state.popn(func_sig.params().len())?;
 
                 if let Some(basic_value) = call_site.try_as_basic_value().left() {
                     match func_sig.returns().len() {
@@ -1521,11 +1533,45 @@ fn parse_function(
                     builder.build_unsigned_int_to_float(v1, intrinsics.f64_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32ReinterpretF32
-            | Operator::F32ReinterpretI32
-            | Operator::I64ReinterpretF64
-            | Operator::F64ReinterpretI64 => {
-                unimplemented!("waiting on better bitcasting support in inkwell")
+            Operator::I32ReinterpretF32 => {
+                let v = state.pop1()?;
+                let space =
+                    builder.build_alloca(intrinsics.i32_ty.as_basic_type_enum(), &state.var_name());
+                let f32_space =
+                    builder.build_pointer_cast(space, intrinsics.f32_ptr_ty, &state.var_name());
+                builder.build_store(f32_space, v);
+                let int = builder.build_load(space, &state.var_name());
+                state.push1(int);
+            }
+            Operator::I64ReinterpretF64 => {
+                let v = state.pop1()?;
+                let space =
+                    builder.build_alloca(intrinsics.i64_ty.as_basic_type_enum(), &state.var_name());
+                let f64_space =
+                    builder.build_pointer_cast(space, intrinsics.f64_ptr_ty, &state.var_name());
+                builder.build_store(f64_space, v);
+                let int = builder.build_load(space, &state.var_name());
+                state.push1(int);
+            }
+            Operator::F32ReinterpretI32 => {
+                let v = state.pop1()?;
+                let space =
+                    builder.build_alloca(intrinsics.f32_ty.as_basic_type_enum(), &state.var_name());
+                let i32_space =
+                    builder.build_pointer_cast(space, intrinsics.i32_ptr_ty, &state.var_name());
+                builder.build_store(i32_space, v);
+                let f = builder.build_load(space, &state.var_name());
+                state.push1(f);
+            }
+            Operator::F64ReinterpretI64 => {
+                let v = state.pop1()?;
+                let space =
+                    builder.build_alloca(intrinsics.f64_ty.as_basic_type_enum(), &state.var_name());
+                let i64_space =
+                    builder.build_pointer_cast(space, intrinsics.i64_ptr_ty, &state.var_name());
+                builder.build_store(i64_space, v);
+                let f = builder.build_load(space, &state.var_name());
+                state.push1(f);
             }
 
             /***************************
