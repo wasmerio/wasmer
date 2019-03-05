@@ -4,7 +4,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     types::{BasicType, BasicTypeEnum, FunctionType, IntType, PointerType},
-    values::{BasicValue, FunctionValue, IntValue, PhiValue, PointerValue},
+    values::{BasicValue, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue},
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
@@ -1463,37 +1463,145 @@ fn parse_function(
                 let res = builder.build_int_z_extend(v1, intrinsics.i64_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32TruncSF32
-            | Operator::I32TruncSF64
-            | Operator::I32TruncSSatF32
-            | Operator::I32TruncSSatF64 => {
+            Operator::I32TruncSF32 => {
+                let v1 = state.pop1()?.into_float_value();
+                trap_if_not_representatable_as_int(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    -2147483904.0,
+                    2147483648.0,
+                    v1,
+                );
+                let res =
+                    builder.build_float_to_signed_int(v1, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I32TruncSF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                trap_if_not_representatable_as_int(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    -2147483649.0,
+                    2147483648.0,
+                    v1,
+                );
+                let res =
+                    builder.build_float_to_signed_int(v1, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I32TruncSSatF32 | Operator::I32TruncSSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
                 let res =
                     builder.build_float_to_signed_int(v1, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I64TruncSF32
-            | Operator::I64TruncSF64
-            | Operator::I64TruncSSatF32
-            | Operator::I64TruncSSatF64 => {
+            Operator::I64TruncSF32 => {
+                let v1 = state.pop1()?.into_float_value();
+                trap_if_not_representatable_as_int(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    -9223373136366403584.0,
+                    9223372036854775808.0,
+                    v1,
+                );
+                let res =
+                    builder.build_float_to_signed_int(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64TruncSF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                trap_if_not_representatable_as_int(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    -9223372036854777856.0,
+                    9223372036854775808.0,
+                    v1,
+                );
+                let res =
+                    builder.build_float_to_signed_int(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64TruncSSatF32 | Operator::I64TruncSSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
                 let res =
                     builder.build_float_to_signed_int(v1, intrinsics.i64_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I32TruncUF32
-            | Operator::I32TruncUF64
-            | Operator::I32TruncUSatF32
-            | Operator::I32TruncUSatF64 => {
+            Operator::I32TruncUF32 => {
+                let v1 = state.pop1()?.into_float_value();
+                trap_if_not_representatable_as_int(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    -1.0,
+                    4294967296.0,
+                    v1,
+                );
+                let res =
+                    builder.build_float_to_unsigned_int(v1, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I32TruncUF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                trap_if_not_representatable_as_int(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    -1.0,
+                    4294967296.0,
+                    v1,
+                );
+                let res =
+                    builder.build_float_to_unsigned_int(v1, intrinsics.i32_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I32TruncUSatF32 | Operator::I32TruncUSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
                 let res =
                     builder.build_float_to_unsigned_int(v1, intrinsics.i32_ty, &state.var_name());
                 state.push1(res);
             }
-            Operator::I64TruncUF32
-            | Operator::I64TruncUF64
-            | Operator::I64TruncUSatF32
-            | Operator::I64TruncUSatF64 => {
+            Operator::I64TruncUF32 => {
+                let v1 = state.pop1()?.into_float_value();
+                trap_if_not_representatable_as_int(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    -1.0,
+                    18446744073709551616.0,
+                    v1,
+                );
+                let res =
+                    builder.build_float_to_unsigned_int(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64TruncUF64 => {
+                let v1 = state.pop1()?.into_float_value();
+                trap_if_not_representatable_as_int(
+                    builder,
+                    intrinsics,
+                    context,
+                    &function,
+                    -1.0,
+                    18446744073709551616.0,
+                    v1,
+                );
+                let res =
+                    builder.build_float_to_unsigned_int(v1, intrinsics.i64_ty, &state.var_name());
+                state.push1(res);
+            }
+            Operator::I64TruncUSatF32 | Operator::I64TruncUSatF64 => {
                 let v1 = state.pop1()?.into_float_value();
                 let res =
                     builder.build_float_to_unsigned_int(v1, intrinsics.i64_ty, &state.var_name());
@@ -2057,6 +2165,116 @@ fn parse_function(
     }
 
     Ok(())
+}
+
+fn trap_if_not_representatable_as_int(
+    builder: &Builder,
+    intrinsics: &Intrinsics,
+    context: &Context,
+    function: &FunctionValue,
+    lower_bounds: f64,
+    upper_bound: f64,
+    value: FloatValue,
+) {
+    enum FloatSize {
+        Bits32,
+        Bits64,
+    }
+
+    let failure_block = context.append_basic_block(function, "conversion_failure_block");
+    let continue_block = context.append_basic_block(function, "conversion_success_block");
+
+    let float_ty = value.get_type();
+    let (int_ty, float_ptr_ty, float_size) = if float_ty == intrinsics.f32_ty {
+        (intrinsics.i32_ty, intrinsics.f32_ptr_ty, FloatSize::Bits32)
+    } else if float_ty == intrinsics.f64_ty {
+        (intrinsics.i64_ty, intrinsics.f64_ptr_ty, FloatSize::Bits64)
+    } else {
+        unreachable!()
+    };
+
+    let (exponent, invalid_exponent) = {
+        let float_bits = {
+            let space = builder.build_alloca(int_ty, "space");
+            let float_ptr = builder.build_pointer_cast(space, float_ptr_ty, "float_ptr");
+            builder.build_store(float_ptr, value);
+            builder.build_load(space, "float_bits").into_int_value()
+        };
+
+        let (shift_amount, exponent_mask, invalid_exponent) = match float_size {
+            FloatSize::Bits32 => (23, 0b01111111100000000000000000000000, 0b11111111),
+            FloatSize::Bits64 => (
+                52,
+                0b0111111111110000000000000000000000000000000000000000000000000000,
+                0b11111111111,
+            ),
+        };
+
+        let masked = builder.build_and(
+            float_bits,
+            int_ty.const_int(exponent_mask, false),
+            "masked_bits",
+        );
+
+        (
+            builder.build_right_shift(
+                float_bits,
+                int_ty.const_int(shift_amount, false),
+                false,
+                "exponent",
+            ),
+            invalid_exponent,
+        )
+    };
+
+    let is_invalid_float = builder.build_or(
+        builder.build_int_compare(
+            IntPredicate::EQ,
+            exponent,
+            int_ty.const_int(invalid_exponent, false),
+            "is_not_normal",
+        ),
+        builder.build_or(
+            builder.build_float_compare(
+                FloatPredicate::ULT,
+                value,
+                float_ty.const_float(lower_bounds),
+                "less_than_lower_bounds",
+            ),
+            builder.build_float_compare(
+                FloatPredicate::UGT,
+                value,
+                float_ty.const_float(upper_bound),
+                "greater_than_upper_bounds",
+            ),
+            "float_not_in_bounds",
+        ),
+        "is_invalid_float",
+    );
+
+    let is_invalid_float = builder
+        .build_call(
+            intrinsics.expect_i1,
+            &[
+                is_invalid_float.as_basic_value_enum(),
+                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
+            ],
+            "is_invalid_float_expect",
+        )
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .into_int_value();
+
+    builder.build_conditional_branch(is_invalid_float, &failure_block, &continue_block);
+    builder.position_at_end(&failure_block);
+    builder.build_call(
+        intrinsics.throw_trap,
+        &[intrinsics.trap_illegal_arithmetic],
+        "throw",
+    );
+    builder.build_unreachable();
+    builder.position_at_end(&continue_block);
 }
 
 fn trap_if_zero_or_overflow(
