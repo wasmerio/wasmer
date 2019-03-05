@@ -13,6 +13,9 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
+            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
       - run:
           name: Install lint deps
           command: |
@@ -41,6 +44,9 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
+            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
       - run: make test
       - run: make integration-tests
       - save_cache:
@@ -66,6 +72,10 @@ jobs:
             curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            # Installing LLVM outside of brew
+            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
       - run:
           name: Install Rust
           command: |
@@ -110,6 +120,9 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
+            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
       - run:
           name: Execute tests
           command: make test
@@ -153,6 +166,10 @@ jobs:
             curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            # Installing LLVM outside of brew
+            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
       - run:
           name: Install Rust
           command: |
@@ -205,6 +222,9 @@ jobs:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
+            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
       - run: rustup default nightly
       - run: make test
       - save_cache:
