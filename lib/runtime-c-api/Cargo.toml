@@ -17,7 +17,7 @@ libc = "0.2"
 crate-type = ["cdylib"]
 
 [build-dependencies]
-cbindgen = { version = "0.7.1", optional = true }
+cbindgen = { version = "0.8", optional = true }
 
 [features]
 generate-c-api-headers = ["cbindgen"]
