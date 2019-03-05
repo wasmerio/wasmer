@@ -517,64 +517,89 @@ impl X64FunctionCode {
         signed: bool,
         out: Register,
     ) {
-        let dx_used = Register::RDX.is_used(value_stack);
-        if dx_used {
+        let dx_save =
+            Register::RDX.is_used(value_stack) && left != Register::RDX && right != Register::RDX;
+        if dx_save {
             dynasm!(
                 assembler
                 ; push rdx
             );
         }
 
-        if right == Register::RAX {
+        dynasm!(
+            assembler
+            ; push r15
+            ; mov r15d, Rd(right as u8)
+            ; mov eax, Rd(left as u8)
+            ; mov edx, 0
+        );
+        if signed {
             dynasm!(
                 assembler
-                ; push rax
-                ; mov eax, Rd(left as u8)
-                ; mov edx, 0
-                ; mov Rd(left as u8), [rsp]
-            );
-
-            if signed {
-                dynasm!(
-                    assembler
-                    ; idiv Rd(left as u8)
-                );
-            } else {
-                dynasm!(
-                    assembler
-                    ; div Rd(left as u8)
-                );
-            }
-
-            dynasm!(
-                assembler
-                ; mov Rd(left as u8), Rd(out as u8)
-                ; pop rax
+                ; idiv r15d
             );
         } else {
             dynasm!(
                 assembler
-                ; mov eax, Rd(left as u8)
-                ; mov edx, 0
+                ; div r15d
             );
-            if signed {
-                dynasm!(
-                    assembler
-                    ; idiv Rd(right as u8)
-                );
-            } else {
-                dynasm!(
-                    assembler
-                    ; div Rd(right as u8)
-                );
-            }
+        }
+        dynasm!(
+            assembler
+            ; mov Rd(left as u8), Rd(out as u8)
+            ; pop r15
+        );
+
+        if dx_save {
             dynasm!(
                 assembler
-                ; mov Rd(left as u8), Rd(out as u8)
+                ; pop rdx
+            );
+        }
+    }
+
+    fn emit_div_i64(
+        assembler: &mut Assembler,
+        value_stack: &ValueStack,
+        left: Register,
+        right: Register,
+        signed: bool,
+        out: Register,
+    ) {
+        let dx_save =
+            Register::RDX.is_used(value_stack) && left != Register::RDX && right != Register::RDX;
+        if dx_save {
+            dynasm!(
+                assembler
+                ; push rdx
             );
         }
 
-        if dx_used {
+        dynasm!(
+            assembler
+            ; push r15
+            ; mov r15, Rq(right as u8)
+            ; mov rax, Rq(left as u8)
+            ; mov rdx, 0
+        );
+        if signed {
+            dynasm!(
+                assembler
+                ; idiv r15
+            );
+        } else {
+            dynasm!(
+                assembler
+                ; div r15
+            );
+        }
+        dynasm!(
+            assembler
+            ; mov Rq(left as u8), Rq(out as u8)
+            ; pop r15
+        );
+
+        if dx_save {
             dynasm!(
                 assembler
                 ; pop rdx
@@ -627,7 +652,7 @@ impl X64FunctionCode {
     fn emit_peek_into_ax(
         assembler: &mut Assembler,
         value_stack: &ValueStack,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<WpType, CodegenError> {
         let val = match value_stack.values.last() {
             Some(x) => *x,
             None => {
@@ -652,7 +677,7 @@ impl X64FunctionCode {
             }
         }
 
-        Ok(())
+        Ok(val.ty)
     }
 
     fn emit_pop_into_reg(
@@ -1389,6 +1414,33 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     );
                 }
             }
+            Operator::TeeLocal { local_index } => {
+                let local_index = local_index as usize;
+                if local_index >= self.locals.len() {
+                    return Err(CodegenError {
+                        message: "local out of bounds",
+                    });
+                }
+                let local = self.locals[local_index];
+                let ty = Self::emit_peek_into_ax(assembler, &self.value_stack)?;
+                if ty != local.ty {
+                    return Err(CodegenError {
+                        message: "TeeLocal type mismatch",
+                    });
+                }
+
+                if is_dword(get_size_of_type(&ty)?) {
+                    dynasm!(
+                        assembler
+                        ; mov [rbp - (local.stack_offset as i32)], eax
+                    );
+                } else {
+                    dynasm!(
+                        assembler
+                        ; mov [rbp - (local.stack_offset as i32)], rax
+                    );
+                }
+            }
             Operator::I32Const { value } => {
                 let location = self.value_stack.push(WpType::I32);
                 match location {
@@ -1396,7 +1448,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         let reg = Register::from_scratch_reg(x);
                         dynasm!(
                             assembler
-                            ; mov Rq(reg as u8), value
+                            ; mov Rd(reg as u8), value
                         );
                     }
                     ValueLocation::Stack => {
@@ -1547,6 +1599,23 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 )?;
             }
+            Operator::I32Ne => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; cmp Rd(left as u8), Rd(right as u8)
+                            ; lahf
+                            ; shr ax, 14
+                            ; and eax, 1
+                            ; xor eax, 1
+                            ; mov Rd(left as u8), eax
+                        );
+                    },
+                )?;
+            }
             Operator::I32Eqz => {
                 Self::emit_unop_i32(
                     assembler,
@@ -1565,6 +1634,42 @@ impl FunctionCodeGenerator for X64FunctionCode {
                                 ; mov Rd(reg as u8), eax
                             );
                         }
+                    },
+                )?;
+            }
+            Operator::I32Clz => {
+                Self::emit_unop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; lzcnt Rd(reg as u8), Rd(reg as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I32Ctz => {
+                Self::emit_unop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; tzcnt Rd(reg as u8), Rd(reg as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I32Popcnt => {
+                Self::emit_unop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; popcnt Rd(reg as u8), Rd(reg as u8)
+                        );
                     },
                 )?;
             }
@@ -1739,16 +1844,68 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 )?;
             }
             Operator::I64DivU => {
-                unimplemented!();
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_div_i64(
+                            assembler,
+                            value_stack,
+                            left,
+                            right,
+                            false,
+                            Register::RAX,
+                        );
+                    },
+                )?;
             }
             Operator::I64DivS => {
-                unimplemented!();
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_div_i64(
+                            assembler,
+                            value_stack,
+                            left,
+                            right,
+                            true,
+                            Register::RAX,
+                        );
+                    },
+                )?;
             }
             Operator::I64RemU => {
-                unimplemented!();
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_div_i64(
+                            assembler,
+                            value_stack,
+                            left,
+                            right,
+                            false,
+                            Register::RDX,
+                        );
+                    },
+                )?;
             }
             Operator::I64RemS => {
-                unimplemented!();
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_div_i64(
+                            assembler,
+                            value_stack,
+                            left,
+                            right,
+                            true,
+                            Register::RDX,
+                        );
+                    },
+                )?;
             }
             Operator::I64And => {
                 Self::emit_binop_i64(
@@ -1792,6 +1949,25 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     WpType::I32,
                 )?;
             }
+            Operator::I64Ne => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; cmp Rq(left as u8), Rq(right as u8)
+                            ; lahf
+                            ; shr ax, 14
+                            ; and eax, 1
+                            ; xor eax, 1
+                            ; mov Rd(left as u8), eax
+                        );
+                    },
+                    WpType::I64,
+                    WpType::I32,
+                )?;
+            }
             Operator::I64Eqz => {
                 Self::emit_unop(
                     assembler,
@@ -1813,6 +1989,42 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     WpType::I32,
+                )?;
+            }
+            Operator::I64Clz => {
+                Self::emit_unop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; lzcnt Rq(reg as u8), Rq(reg as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I64Ctz => {
+                Self::emit_unop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; tzcnt Rq(reg as u8), Rq(reg as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I64Popcnt => {
+                Self::emit_unop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; popcnt Rq(reg as u8), Rq(reg as u8)
+                        );
+                    },
                 )?;
             }
             // Comparison operators.
