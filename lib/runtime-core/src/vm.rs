@@ -468,6 +468,8 @@ mod vm_ctx_tests {
             vm_memories: Map::new().into_boxed_map(),
             vm_tables: Map::new().into_boxed_map(),
             vm_globals: Map::new().into_boxed_map(),
+
+            dynamic_sigindices: Map::new().into_boxed_map(),
         };
         let mut import_backing = ImportBacking {
             memories: Map::new().into_boxed_map(),
@@ -478,8 +480,6 @@ mod vm_ctx_tests {
             vm_memories: Map::new().into_boxed_map(),
             vm_tables: Map::new().into_boxed_map(),
             vm_globals: Map::new().into_boxed_map(),
-
-            dynamic_sigindices: Map::new().into_boxed_map(),
         };
         let module = generate_module();
         let data = &mut data as *mut _ as *mut c_void;
