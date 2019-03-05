@@ -15,7 +15,6 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            export PATH=$PATH:`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/
       - run:
           name: Install lint deps
           command: |
@@ -23,7 +22,9 @@ jobs:
             rustup component add clippy
       - run:
           name: Execute lints
-          command: make lint
+          command: |
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            make lint
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -46,9 +47,12 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            export PATH=$PATH:`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/
-      - run: make test
-      - run: make integration-tests
+      - run: |
+          export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+          make test
+      - run: |
+          export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+          make integration-tests
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -75,7 +79,6 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
       - run:
           name: Install Rust
           command: |
@@ -87,6 +90,7 @@ jobs:
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
@@ -96,6 +100,7 @@ jobs:
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make integration-tests
       - save_cache:
           paths:
@@ -122,13 +127,15 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            export PATH=$PATH:`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/
       - run:
           name: Execute tests
-          command: make test
+          command: |
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            make test
       - run:
           name: Make release build
           command: |
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make release
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
@@ -169,7 +176,6 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
       - run:
           name: Install Rust
           command: |
@@ -181,6 +187,7 @@ jobs:
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
@@ -190,6 +197,7 @@ jobs:
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make release
             mkdir -p artifacts
             # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
@@ -224,9 +232,10 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            export PATH=$PATH:`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/bin/
       - run: rustup default nightly
-      - run: make test
+      - run: |
+          export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+          make test
       - save_cache:
           paths:
             - /usr/local/cargo/registry

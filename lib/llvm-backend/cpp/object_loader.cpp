@@ -39,23 +39,31 @@ public:
         uintptr_t read_write_data_size,
         uint32_t read_write_data_align
     ) override {
+        auto aligner = [](uintptr_t ptr, size_t align) {
+            if (ptr == 0) {
+                return align;
+            }
+            return (ptr + align - 1) & ~(align - 1);
+        };
+
+
         uint8_t *code_ptr_out = nullptr;
         size_t code_size_out = 0;
-        auto code_result = callbacks.alloc_memory(code_size, PROTECT_READ_WRITE, &code_ptr_out, &code_size_out);
+        auto code_result = callbacks.alloc_memory(aligner(code_size, 4096), PROTECT_READ_WRITE, &code_ptr_out, &code_size_out);
         assert(code_result == RESULT_OK);
         code_section = Section { code_ptr_out, code_size_out };
         code_bump_ptr = (uintptr_t)code_ptr_out;
 
         uint8_t *read_ptr_out = nullptr;
         size_t read_size_out = 0;
-        auto read_result = callbacks.alloc_memory(read_data_size, PROTECT_READ_WRITE, &read_ptr_out, &read_size_out);
+        auto read_result = callbacks.alloc_memory(aligner(read_data_size, 4096), PROTECT_READ_WRITE, &read_ptr_out, &read_size_out);
         assert(read_result == RESULT_OK);
         read_section = Section { read_ptr_out, read_size_out };
         read_bump_ptr = (uintptr_t)read_ptr_out;
 
         uint8_t *readwrite_ptr_out = nullptr;
         size_t readwrite_size_out = 0;
-        auto readwrite_result = callbacks.alloc_memory(read_write_data_size, PROTECT_READ_WRITE, &readwrite_ptr_out, &readwrite_size_out);
+        auto readwrite_result = callbacks.alloc_memory(aligner(read_write_data_size, 4096), PROTECT_READ_WRITE, &readwrite_ptr_out, &readwrite_size_out);
         assert(readwrite_result == RESULT_OK);
         readwrite_section = Section { readwrite_ptr_out, readwrite_size_out };
         readwrite_bump_ptr = (uintptr_t)readwrite_ptr_out;
