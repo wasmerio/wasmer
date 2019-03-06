@@ -15,6 +15,7 @@ use std::{
     mem,
     ptr::{self, NonNull},
     slice, str,
+    sync::Once,
 };
 use wasmer_runtime_core::{
     backend::{FuncResolver, ProtectedCaller, Token, UserTrapper},
@@ -258,9 +259,11 @@ impl LLVMBackend {
             )
         };
 
-        unsafe {
+        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
+
+        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
             crate::platform::install_signal_handler();
-        }
+        });
 
         if res != LLVMResult::OK {
             panic!("failed to load object")
