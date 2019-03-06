@@ -1,7 +1,7 @@
 [package]
 name = "wasmer-runtime-c-api"
 version = "0.2.1"
-description = "Wasmer c-api library"
+description = "Wasmer C API library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -17,9 +17,4 @@ libc = "0.2"
 crate-type = ["cdylib"]
 
 [build-dependencies]
-cbindgen = { version = "0.8", optional = true }
-
-[features]
-generate-c-api-headers = ["cbindgen"]
-
-
+cbindgen = "0.8"
