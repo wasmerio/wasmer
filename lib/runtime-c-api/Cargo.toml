@@ -14,7 +14,7 @@ wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
 libc = "0.2"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [build-dependencies]
 cbindgen = "0.8"
