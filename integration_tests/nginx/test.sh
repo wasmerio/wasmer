@@ -1,7 +1,7 @@
 #! /bin/bash
 
-nohup ./target/release/wasmer run examples/nginx/nginx.wasm -- -p integration_tests/nginx/ -c nginx.conf &
-sleep 3s
+nohup ./target/release/wasmer run examples/nginx/nginx.wasm --disable-cache -- -p integration_tests/nginx/ -c nginx.conf &
+sleep 10s
 
 curl localhost:8080 > ./nginx.out
 
