@@ -22,3 +22,5 @@ wabt = "0.7.2"
 [features]
 default = ["fast-tests"]
 fast-tests = []
+clif = []
+llvm = []
