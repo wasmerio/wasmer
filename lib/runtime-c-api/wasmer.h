@@ -417,7 +417,7 @@ wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance,
  * This can be used to dynamically allocate a buffer with the correct number of
  * bytes needed to store a message.
  * # Example
- * ```
+ * ```c
  * int error_len = wasmer_last_error_length();
  * char *error_str = malloc(error_len);
  * ```
@@ -430,7 +430,7 @@ int wasmer_last_error_length(void);
  * Returns the length of the string in bytes.
  * Returns `-1` if an error occurs.
  * # Example
- * ```
+ * ```c
  * int error_len = wasmer_last_error_length();
  * char *error_str = malloc(error_len);
  * wasmer_last_error_message(error_str, error_len);

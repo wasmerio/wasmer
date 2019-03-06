@@ -1498,7 +1498,8 @@ fn take_last_error() -> Option<Box<Error>> {
 /// bytes needed to store a message.
 ///
 /// # Example
-/// ```
+///
+/// ```c
 /// int error_len = wasmer_last_error_length();
 /// char *error_str = malloc(error_len);
 /// ```
@@ -1517,7 +1518,8 @@ pub extern "C" fn wasmer_last_error_length() -> c_int {
 /// Returns `-1` if an error occurs.
 ///
 /// # Example
-/// ```
+///
+/// ```c
 /// int error_len = wasmer_last_error_length();
 /// char *error_str = malloc(error_len);
 /// wasmer_last_error_message(error_str, error_len);
