@@ -319,7 +319,7 @@ int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports);
 /**
  * Frees memory for the given Func
  */
-void wasmer_import_func_destroy(wasmer_import_func_t *func);
+void wasmer_import_func_destroy(const wasmer_import_func_t *func);
 
 /**
  * Creates new func
@@ -386,7 +386,7 @@ wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance,
  * Gets the memory within the context at the index `memory_idx`.
  * The index is always 0 until multiple memories are supported.
  */
-const wasmer_memory_t *wasmer_instance_context_memory(wasmer_instance_context_t *ctx,
+const wasmer_memory_t *wasmer_instance_context_memory(const wasmer_instance_context_t *ctx,
                                                       uint32_t _memory_idx);
 
 /**
@@ -442,7 +442,7 @@ int wasmer_last_error_message(char *buffer, int length);
 /**
  * Gets the start pointer to the bytes within a Memory
  */
-uint8_t *wasmer_memory_data(wasmer_memory_t *mem);
+uint8_t *wasmer_memory_data(const wasmer_memory_t *mem);
 
 /**
  * Gets the size in bytes of a Memory
@@ -465,7 +465,7 @@ wasmer_result_t wasmer_memory_grow(wasmer_memory_t *memory, uint32_t delta);
 /**
  * Returns the current length in pages of the given memory
  */
-uint32_t wasmer_memory_length(wasmer_memory_t *memory);
+uint32_t wasmer_memory_length(const wasmer_memory_t *memory);
 
 /**
  * Creates a new Memory for the given descriptor and initializes the given

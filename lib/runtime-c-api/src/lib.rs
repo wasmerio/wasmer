@@ -232,8 +232,8 @@ pub extern "C" fn wasmer_memory_grow(
 /// Returns the current length in pages of the given memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_length(memory: *mut wasmer_memory_t) -> uint32_t {
-    let memory = unsafe { &*(memory as *mut Memory) };
+pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> uint32_t {
+    let memory = unsafe { &*(memory as *const Memory) };
     let Pages(len) = memory.size();
     len
 }
@@ -1153,7 +1153,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
         ctx: Context::Internal,
         signature: Arc::new(FuncSig::new(params, returns)),
     });
-    Box::into_raw(export) as *mut wasmer_import_func_t
+    Box::into_raw(export) as *const wasmer_import_func_t
 }
 
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t
@@ -1241,7 +1241,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 /// Frees memory for the given Func
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
+pub extern "C" fn wasmer_import_func_destroy(func: *const wasmer_import_func_t) {
     if !func.is_null() {
         drop(unsafe { Box::from_raw(func as *mut Export) });
     }
@@ -1342,7 +1342,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_memory(
-    ctx: *mut wasmer_instance_context_t,
+    ctx: *const wasmer_instance_context_t,
     _memory_idx: uint32_t,
 ) -> *const wasmer_memory_t {
     let ctx = unsafe { &*(ctx as *const Ctx) };
@@ -1353,8 +1353,8 @@ pub extern "C" fn wasmer_instance_context_memory(
 /// Gets the start pointer to the bytes within a Memory
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_data(mem: *mut wasmer_memory_t) -> *mut uint8_t {
-    let memory = mem as *mut Memory;
+pub extern "C" fn wasmer_memory_data(mem: *const wasmer_memory_t) -> *mut uint8_t {
+    let memory = mem as *const Memory;
     use std::cell::Cell;
     unsafe { ((*memory).view::<u8>()[..]).as_ptr() as *mut Cell<u8> as *mut u8 }
 }

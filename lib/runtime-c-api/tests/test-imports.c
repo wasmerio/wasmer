@@ -2,14 +2,15 @@
 #include "../wasmer.h"
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 
-static print_str_called = false;
+bool static print_str_called = false;
 
 // Host function that will be imported into the Web Assembly Instance
-void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
+void print_str(const wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
 {
     print_str_called = true;
-    wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
+    const wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
     uint32_t mem_len = wasmer_memory_length(memory);
     uint8_t *mem_bytes = wasmer_memory_data(memory);
     printf("%.*s", len, mem_bytes + ptr);
@@ -31,19 +32,19 @@ int main()
     // of our `print_str` host function
     wasmer_value_tag params_sig[] = {WASM_I32, WASM_I32};
     wasmer_value_tag returns_sig[] = {};
-    wasmer_import_func_t *func = wasmer_import_func_new(print_str, params_sig, 2, returns_sig, 0);
+    const wasmer_import_func_t *func = wasmer_import_func_new((void (*)(void *)) print_str, params_sig, 2, returns_sig, 0);
 
     // Create module name for our imports
     // represented in bytes for UTF-8 compatability
-    char *module_name = "env";
+    const char *module_name = "env";
     wasmer_byte_array module_name_bytes;
-    module_name_bytes.bytes = module_name;
+    module_name_bytes.bytes = (const uint8_t *) module_name;
     module_name_bytes.bytes_len = strlen(module_name);
 
     // Define a function import
-    char *import_name = "_print_str";
+    const char *import_name = "_print_str";
     wasmer_byte_array import_name_bytes;
-    import_name_bytes.bytes = import_name;
+    import_name_bytes.bytes = (const uint8_t *) import_name;
     import_name_bytes.bytes_len = strlen(import_name);
     wasmer_import_t func_import;
     func_import.module_name = module_name_bytes;
@@ -52,9 +53,9 @@ int main()
     func_import.value.func = func;
 
     // Define a memory import
-    char *import_memory_name = "memory";
+    const char *import_memory_name = "memory";
     wasmer_byte_array import_memory_name_bytes;
-    import_memory_name_bytes.bytes = import_memory_name;
+    import_memory_name_bytes.bytes = (const uint8_t *) import_memory_name;
     import_memory_name_bytes.bytes_len = strlen(import_memory_name);
     wasmer_import_t memory_import;
     memory_import.module_name = module_name_bytes;
@@ -75,9 +76,9 @@ int main()
     memory_import.value.memory = memory;
 
     // Define a global import
-    char *import_global_name = "__memory_base";
+    const char *import_global_name = "__memory_base";
     wasmer_byte_array import_global_name_bytes;
-    import_global_name_bytes.bytes = import_global_name;
+    import_global_name_bytes.bytes = (const uint8_t *) import_global_name;
     import_global_name_bytes.bytes_len = strlen(import_global_name);
     wasmer_import_t global_import;
     global_import.module_name = module_name_bytes;
@@ -90,9 +91,9 @@ int main()
     global_import.value.global = global;
 
     // Define a table import
-    char *import_table_name = "table";
+    const char *import_table_name = "table";
     wasmer_byte_array import_table_name_bytes;
-    import_table_name_bytes.bytes = import_table_name;
+    import_table_name_bytes.bytes = (const uint8_t *) import_table_name;
     import_table_name_bytes.bytes_len = strlen(import_table_name);
     wasmer_import_t table_import;
     table_import.module_name = module_name_bytes;
