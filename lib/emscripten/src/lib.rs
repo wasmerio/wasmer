@@ -442,10 +442,10 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "___wait" => func!(crate::lock::___wait),
 
             // exec
-            "_execvp" => func!(crate::exec::_execvp),
+            "_execvp" => func!(crate::exec::execvp),
 
             // exit
-            "__exit" => func!(crate::exit::__exit),
+            "__exit" => func!(crate::exit::exit),
 
             // Env
             "___assert_fail" => func!(crate::env::___assert_fail),

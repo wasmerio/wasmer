@@ -1,9 +1,9 @@
-use libc::execvp;
+use libc::execvp as libc_execvp;
 use std::cell::Cell;
 use std::ffi::CString;
 use wasmer_runtime_core::vm::Ctx;
 
-pub fn _execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32 {
+pub fn execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
     let emscripten_memory = ctx.memory(0);
 
@@ -36,5 +36,5 @@ pub fn _execvp(ctx: &mut Ctx, command_name_offset: u32, argv_offset: u32) -> i32
     // construct raw pointers and hand them to `execvp`
     let command_pointer = command_name_string.as_ptr() as *const i8;
     let args_pointer = argv.as_ptr();
-    unsafe { execvp(command_pointer, args_pointer) }
+    unsafe { libc_execvp(command_pointer, args_pointer) }
 }
