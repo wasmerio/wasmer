@@ -37,12 +37,15 @@ precommit: lint test
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all --exclude wasmer-runtime-c-api -- --test-threads=1 $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
 	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
+
+test-emscripten:
+	cargo test -p wasmer-emscripten -- --test-threads=1 $(runargs)
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows

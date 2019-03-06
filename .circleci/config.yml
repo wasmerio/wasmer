@@ -47,10 +47,19 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - run: |
+      - run:
+          name: Tests
+          command: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make test
-      - run: |
+      - run:
+          name: Emscripten Tests
+          command: |
+          export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+          make test-emscripten
+      - run:
+          name: Integration Tests
+          command: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make integration-tests
       - save_cache:
@@ -86,7 +95,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       - run:
-          name: Execute tests
+          name: Tests
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
@@ -96,7 +105,17 @@ jobs:
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
       - run:
-          name: Execute integration tests
+          name: Emscripten Tests
+          command: |
+            export PATH="$HOME/.cargo/bin:$PATH"
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            # We increase the ulimit for fixing cargo unclosed files in mac
+            ulimit -n 8000
+            sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
+            make test-emscripten
+      - run:
+          name: Integration Tests
           command: |
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
@@ -128,12 +147,17 @@ jobs:
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       - run:
-          name: Execute tests
+          name: Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make test
       - run:
-          name: Make release build
+          name: Emscripten Tests
+          command: |
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            make test-emscripten
+      - run:
+          name: Release Build
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make release
@@ -183,7 +207,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       - run:
-          name: Execute tests
+          name: Tests
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
@@ -193,7 +217,17 @@ jobs:
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test
       - run:
-          name: Make release build
+          name: Emscripten Tests
+          command: |
+            export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
+            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            # We increase the ulimit for fixing cargo unclosed files in mac
+            ulimit -n 8000
+            sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
+            make test-emscripten
+      - run:
+          name: Release Build
           command: |
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
