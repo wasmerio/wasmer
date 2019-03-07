@@ -45,7 +45,8 @@ test:
 	cargo test -p wasmer-runtime-c-api -- --nocapture
 
 test-emscripten:
-	cargo test -p wasmer-emscripten -- --test-threads=1 $(runargs)
+	cargo test --manifest-path lib/spectests/Cargo.toml --features clif -- --test-threads=1 $(runargs)
+	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows

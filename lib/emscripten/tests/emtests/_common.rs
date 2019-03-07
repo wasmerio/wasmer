@@ -1,16 +1,35 @@
 macro_rules! assert_emscripten_output {
     ($file:expr, $name:expr, $args:expr, $expected:expr) => {{
 
-        use wasmer_clif_backend::CraneliftCompiler;
         use wasmer_emscripten::{
             EmscriptenGlobals,
             generate_emscripten_env,
             stdio::StdioCapturer
         };
+        use wasmer_runtime_core::backend::Compiler;
+
+        #[cfg(feature = "clif")]
+        fn get_compiler() -> impl Compiler {
+            use wasmer_clif_backend::CraneliftCompiler;
+            CraneliftCompiler::new()
+        }
+
+        #[cfg(feature = "llvm")]
+        fn get_compiler() -> impl Compiler {
+            use wasmer_llvm_backend::LLVMCompiler;
+            LLVMCompiler::new()
+        }
+
+        #[cfg(not(any(feature = "llvm", feature = "clif")))]
+        fn get_compiler() -> impl Compiler {
+            panic!("compiler not specified, activate a compiler via features");
+            use wasmer_clif_backend::CraneliftCompiler;
+            CraneliftCompiler::new()
+        }
 
         let wasm_bytes = include_bytes!($file);
 
-        let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &CraneliftCompiler::new())
+        let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &get_compiler())
             .expect("WASM can't be compiled");
 
 //        let module = compile(&wasm_bytes[..])
