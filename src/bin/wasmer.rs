@@ -22,6 +22,10 @@ enum CLIOptions {
     #[structopt(name = "run")]
     Run(Run),
 
+    /// Compile a WebAssembly file to machine code.
+    #[structopt(name = "compile")]
+    Compile(Compile),
+
     /// Wasmer cache
     #[structopt(name = "cache")]
     Cache(Cache),
@@ -44,6 +48,13 @@ struct Run {
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
+}
+
+#[derive(Debug, StructOpt)]
+struct Compile {
+    /// Input file
+    #[structopt(parse(from_os_str))]
+    path: PathBuf,
 }
 
 #[derive(Debug, StructOpt)]
@@ -77,6 +88,23 @@ fn get_cache_dir() -> PathBuf {
     }
 }
 
+fn load_wasm_binary(wasm_path: &PathBuf) -> Result<Vec<u8>, String> {
+    let wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
+        format!(
+            "Can't read the file {}: {}",
+            wasm_path.as_os_str().to_string_lossy(),
+            err
+        )
+    })?;
+
+    if utils::is_wasm_binary(&wasm_binary) {
+        return Ok(wasm_binary);
+    }
+
+    wabt::wat2wasm(wasm_binary)
+            .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))
+}
+
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
     // force disable caching on windows
@@ -85,20 +113,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     let disable_cache = options.disable_cache;
 
-    let wasm_path = &options.path;
-
-    let mut wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
-        format!(
-            "Can't read the file {}: {}",
-            wasm_path.as_os_str().to_string_lossy(),
-            err
-        )
-    })?;
-
-    if !utils::is_wasm_binary(&wasm_binary) {
-        wasm_binary = wabt::wat2wasm(wasm_binary)
-            .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
-    }
+    let wasm_binary = load_wasm_binary(&options.path)?;
 
     let module = if !disable_cache {
         // If we have cache enabled
@@ -179,10 +194,49 @@ fn run(options: Run) {
     }
 }
 
+fn compile_wasm(options: &Compile) -> Result<(), String> {
+    let wasm_binary = load_wasm_binary(&options.path)?;
+    let module = webassembly::compile(&wasm_binary[..])
+        .map_err(|e| format!("Can't compile module: {:?}", e))?;
+
+    // We generate a hash for the given binary, so we can use it as key
+    // for the Filesystem cache
+    let hash = WasmHash::generate(&wasm_binary);
+
+    let wasmer_cache_dir = get_cache_dir();
+
+    // We create a new cache instance.
+    // It could be possible to use any other kinds of caching, as long as they
+    // implement the Cache trait (with save and load functions)
+    let mut cache = unsafe {
+        FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
+    };
+
+    // We save the module into a cache file
+    cache.store(hash, module.clone())
+        .map_err(|e| format!("Can't store module in cache: {:?}", e))
+}
+
+fn compile(options: Compile) {
+    match compile_wasm(&options) {
+        Ok(()) => {}
+        Err(message) => {
+            eprintln!("{:?}", message);
+            exit(1);
+        }
+    }
+}
+
 fn main() {
     let options = CLIOptions::from_args();
     match options {
         CLIOptions::Run(options) => run(options),
+        #[cfg(not(target_os = "windows"))]
+        CLIOptions::Compile(options) => compile(options),
+        #[cfg(target_os = "windows")]
+        CLIOptions::Compile(_) => {
+            println!("Compiling is disabled for Windows.");
+        },
         #[cfg(not(target_os = "windows"))]
         CLIOptions::SelfUpdate => update::self_update(),
         #[cfg(target_os = "windows")]
