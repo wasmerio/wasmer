@@ -13,6 +13,12 @@ Thanks for the bug report!
 
 A clear and concise description of what the bug is.
 
+Copy and paste the result of executing the following in your shell, so we can know the version of wasmer, Rust (if available) and architecture of your environment.
+
+```bash
+echo "`wasmer -V` | `rustc -V` | `uname -m`"
+```
+
 ### Steps to reproduce
 
 1. Go to '…'
