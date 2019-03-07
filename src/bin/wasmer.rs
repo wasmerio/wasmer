@@ -37,9 +37,13 @@ enum CLIOptions {
 
 #[derive(Debug, StructOpt)]
 struct Run {
-    // Disable the cache
+    /// Disable the cache
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
+
+    /// Load module from the cache
+    #[structopt(long = "from-cache")]
+    from_cache: Option<PathBuf>,
 
     /// Input file
     #[structopt(parse(from_os_str))]
@@ -113,15 +117,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     let disable_cache = options.disable_cache;
 
-    let wasm_binary = load_wasm_binary(&options.path)?;
-
-    let module = if !disable_cache {
+    let module = if disable_cache {
+            let wasm_binary = load_wasm_binary(&options.path)?;
+            webassembly::compile(&wasm_binary[..])
+                .map_err(|e| format!("Can't compile module: {:?}", e))?
+    } else {
         // If we have cache enabled
-
-        // We generate a hash for the given binary, so we can use it as key
-        // for the Filesystem cache
-        let hash = WasmHash::generate(&wasm_binary);
-
         let wasmer_cache_dir = get_cache_dir();
 
         // We create a new cache instance.
@@ -131,27 +132,38 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
         };
 
-        // cache.load will return the Module if it's able to deserialize it properly, and an error if:
-        // * The file is not found
-        // * The file exists, but it's corrupted or can't be converted to a module
-        let module = match cache.load(hash) {
-            Ok(module) => {
-                // We are able to load the module from cache
-                module
+        let module = match &options.from_cache {
+            Some(key) => {
+                cache.load(String::from(key.to_str().unwrap())).map_err(|e| format!("Can't load module from cache: {:?}", e))?
             }
-            Err(_) => {
-                let module = webassembly::compile(&wasm_binary[..])
-                    .map_err(|e| format!("Can't compile module: {:?}", e))?;
+            None => {
+                let wasm_binary = load_wasm_binary(&options.path)?;
 
-                // We save the module into a cache file
-                cache.store(hash, module.clone()).unwrap();
-                module
+                // We generate a hash for the given binary, so we can use it as key
+                // for the Filesystem cache
+                let hash = WasmHash::generate(&wasm_binary);
+
+                // cache.load will return the Module if it's able to deserialize it properly, and an error if:
+                // * The file is not found
+                // * The file exists, but it's corrupted or can't be converted to a module
+                match cache.load(hash.encode()) {
+                    Ok(module) => {
+                        // We are able to load the module from cache
+                        module
+                    }
+                    Err(_) => {
+                        let module = webassembly::compile(&wasm_binary[..])
+                            .map_err(|e| format!("Can't compile module: {:?}", e))?;
+
+                        // We save the module into a cache file
+                        cache.store(hash.encode(), module.clone()).unwrap();
+                        module
+                    }
+                }
             }
         };
+
         module
-    } else {
-        webassembly::compile(&wasm_binary[..])
-            .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
 
     let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
@@ -213,7 +225,7 @@ fn compile_wasm(options: &Compile) -> Result<(), String> {
     };
 
     // We save the module into a cache file
-    cache.store(hash, module.clone())
+    cache.store(hash.encode(), module.clone())
         .map_err(|e| format!("Can't store module in cache: {:?}", e))
 }
 
