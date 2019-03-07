@@ -1241,7 +1241,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 /// Frees memory for the given Func
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_import_func_destroy(func: *const wasmer_import_func_t) {
+pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
     if !func.is_null() {
         drop(unsafe { Box::from_raw(func as *mut Export) });
     }
