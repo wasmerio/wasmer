@@ -24,6 +24,7 @@ install:
   - 7z x llvm.exe -oC:\projects\deps\llvm
   - set "PATH=%PATH%;C:\projects\deps\llvm\bin"
   - set "LLD_LINK=C:\projects\deps\llvm\bin\lld-link.exe"
+  - cd "%APPVEYOR_BUILD_FOLDER%"
 
   # Install Rust
   # uncomment these lines if the cache is cleared, or if we must re-install rust for some reason
