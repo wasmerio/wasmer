@@ -31,6 +31,8 @@ mod emscripten_target;
 mod env;
 mod errno;
 mod exception;
+mod exec;
+mod exit;
 mod io;
 mod jmp;
 mod linking;
@@ -439,6 +441,12 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "___unlock" => func!(crate::lock::___unlock),
             "___wait" => func!(crate::lock::___wait),
 
+            // exec
+            "_execvp" => func!(crate::exec::execvp),
+
+            // exit
+            "__exit" => func!(crate::exit::exit),
+
             // Env
             "___assert_fail" => func!(crate::env::___assert_fail),
             "_getenv" => func!(crate::env::_getenv),
@@ -481,6 +489,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "___syscall39" => func!(crate::syscalls::___syscall39),
             "___syscall38" => func!(crate::syscalls::___syscall38),
             "___syscall40" => func!(crate::syscalls::___syscall40),
+            "___syscall42" => func!(crate::syscalls::___syscall42),
             "___syscall54" => func!(crate::syscalls::___syscall54),
             "___syscall57" => func!(crate::syscalls::___syscall57),
             "___syscall60" => func!(crate::syscalls::___syscall60),
