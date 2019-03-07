@@ -81,10 +81,9 @@ impl Cache for FileSystemCache {
     type LoadError = CacheError;
     type StoreError = CacheError;
 
-    fn load(&self, key: WasmHash) -> Result<Module, CacheError> {
-        let filename = key.encode();
+    fn load(&self, key: String) -> Result<Module, CacheError> {
         let mut new_path_buf = self.path.clone();
-        new_path_buf.push(filename);
+        new_path_buf.push(key);
         let file = File::open(new_path_buf)?;
         let mmap = unsafe { Mmap::map(&file)? };
 
@@ -92,10 +91,9 @@ impl Cache for FileSystemCache {
         unsafe { wasmer_runtime_core::load_cache_with(serialized_cache, super::default_compiler()) }
     }
 
-    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), CacheError> {
-        let filename = key.encode();
+    fn store(&mut self, key: String, module: Module) -> Result<(), CacheError> {
         let mut new_path_buf = self.path.clone();
-        new_path_buf.push(filename);
+        new_path_buf.push(key);
 
         let serialized_cache = module.cache()?;
         let buffer = serialized_cache.serialize()?;

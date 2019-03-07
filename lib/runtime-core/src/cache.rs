@@ -204,6 +204,6 @@ pub trait Cache {
     type LoadError: fmt::Debug;
     type StoreError: fmt::Debug;
 
-    fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
-    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
+    fn load(&self, key: String) -> Result<Module, Self::LoadError>;
+    fn store(&mut self, key: String, module: Module) -> Result<(), Self::StoreError>;
 }
