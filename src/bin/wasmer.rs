@@ -105,8 +105,7 @@ fn load_wasm_binary(wasm_path: &PathBuf) -> Result<Vec<u8>, String> {
         return Ok(wasm_binary);
     }
 
-    wabt::wat2wasm(wasm_binary)
-            .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))
+    wabt::wat2wasm(wasm_binary).map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))
 }
 
 /// Execute a wasm/wat file
@@ -118,9 +117,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let disable_cache = options.disable_cache;
 
     let module = if disable_cache {
-            let wasm_binary = load_wasm_binary(&options.path)?;
-            webassembly::compile(&wasm_binary[..])
-                .map_err(|e| format!("Can't compile module: {:?}", e))?
+        let wasm_binary = load_wasm_binary(&options.path)?;
+        webassembly::compile(&wasm_binary[..])
+            .map_err(|e| format!("Can't compile module: {:?}", e))?
     } else {
         // If we have cache enabled
         let wasmer_cache_dir = get_cache_dir();
@@ -133,9 +132,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         };
 
         let module = match &options.from_cache {
-            Some(key) => {
-                cache.load(String::from(key.to_str().unwrap())).map_err(|e| format!("Can't load module from cache: {:?}", e))?
-            }
+            Some(key) => cache
+                .load(String::from(key.to_str().unwrap()))
+                .map_err(|e| format!("Can't load module from cache: {:?}", e))?,
             None => {
                 let wasm_binary = load_wasm_binary(&options.path)?;
 
@@ -225,7 +224,8 @@ fn compile_wasm(options: &Compile) -> Result<(), String> {
     };
 
     // We save the module into a cache file
-    cache.store(hash.encode(), module.clone())
+    cache
+        .store(hash.encode(), module.clone())
         .map_err(|e| format!("Can't store module in cache: {:?}", e))
 }
 
@@ -248,7 +248,7 @@ fn main() {
         #[cfg(target_os = "windows")]
         CLIOptions::Compile(_) => {
             println!("Compiling is disabled for Windows.");
-        },
+        }
         #[cfg(not(target_os = "windows"))]
         CLIOptions::SelfUpdate => update::self_update(),
         #[cfg(target_os = "windows")]
