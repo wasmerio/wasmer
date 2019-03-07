@@ -112,6 +112,7 @@ pub fn read_module<
                             let sigindex = SigIndex::new(sigindex as usize);
                             info.imported_functions.push(import_name);
                             info.func_assoc.push(sigindex);
+                            mcg.feed_import_function()?;
                         }
                         ImportSectionEntryType::Table(table_ty) => {
                             assert_eq!(table_ty.element_type, WpType::AnyFunc);
@@ -140,6 +141,9 @@ pub fn read_module<
                         }
                     }
                 }
+
+                info.namespace_table = namespace_builder.finish();
+                info.name_table = name_builder.finish();
             }
             SectionCode::Function => {
                 let func_decl_reader = section.get_function_section_reader()?;
@@ -267,9 +271,9 @@ pub fn read_module<
             }
             SectionCode::Code => {
                 let mut code_reader = section.get_code_section_reader()?;
-                if code_reader.get_count() as usize != info.func_assoc.len() {
+                if code_reader.get_count() as usize > info.func_assoc.len() {
                     return Err(BinaryReaderError {
-                        message: "code_reader.get_count() != info.func_assoc.len()",
+                        message: "code_reader.get_count() > info.func_assoc.len()",
                         offset: ::std::usize::MAX,
                     }
                     .into());

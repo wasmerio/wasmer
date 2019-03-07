@@ -6,6 +6,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use dynasmrt::{
     x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
 };
+use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
     backend::{Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
@@ -134,12 +135,21 @@ pub struct NativeTrampolines {
     trap_unreachable: DynamicLabel,
 }
 
+#[repr(transparent)]
+struct CtxPtr(*mut vm::Ctx);
+
+unsafe impl Send for CtxPtr {}
+unsafe impl Sync for CtxPtr {}
+
 pub struct X64ModuleCodeGenerator {
     functions: Vec<X64FunctionCode>,
     signatures: Option<Arc<Map<SigIndex, Arc<FuncSig>>>>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
+    function_labels: Option<HashMap<usize, DynamicLabel>>,
     assembler: Option<Assembler>,
     native_trampolines: Arc<NativeTrampolines>,
+    vmctx: Mutex<Box<CtxPtr>>, // TODO: Fix this
+    func_import_count: usize,
 }
 
 pub struct X64FunctionCode {
@@ -166,6 +176,8 @@ pub struct X64ExecutionContext {
     code: ExecutableBuffer,
     functions: Vec<X64FunctionCode>,
     br_table_data: Vec<Vec<usize>>,
+    vmctx: Mutex<Box<CtxPtr>>,
+    func_import_count: usize,
 }
 
 impl ProtectedCaller for X64ExecutionContext {
@@ -178,7 +190,7 @@ impl ProtectedCaller for X64ExecutionContext {
         _vmctx: *mut vm::Ctx,
         _: Token,
     ) -> RuntimeResult<Vec<Value>> {
-        let index = _func_index.index();
+        let index = _func_index.index() - self.func_import_count;
         let ptr = self.code.ptr(self.functions[index].begin_offset);
         let return_ty = self.functions[index].returns.last().cloned();
 
@@ -236,6 +248,8 @@ impl ProtectedCaller for X64ExecutionContext {
         };
         //println!("MEMORY = {:?}", memory_base);
 
+        self.vmctx.lock().unwrap().0 = _vmctx;
+
         let ret = unsafe { CALL_WASM(param_buf.as_ptr(), param_buf.len(), ptr, memory_base) };
         Ok(if let Some(ty) = return_ty {
             vec![Value::I64(ret)]
@@ -279,8 +293,11 @@ impl X64ModuleCodeGenerator {
             functions: vec![],
             signatures: None,
             function_signatures: None,
+            function_labels: Some(HashMap::new()),
             assembler: Some(assembler),
             native_trampolines: Arc::new(nt),
+            vmctx: Mutex::new(Box::new(CtxPtr(::std::ptr::null_mut()))),
+            func_import_count: 0,
         }
     }
 }
@@ -293,10 +310,14 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
                 x.function_labels.take().unwrap(),
                 x.br_table_data.take().unwrap(),
             ),
-            None => (self.assembler.take().unwrap(), HashMap::new(), vec![]),
+            None => (
+                self.assembler.take().unwrap(),
+                self.function_labels.take().unwrap(),
+                vec![],
+            ),
         };
         let begin_label = *function_labels
-            .entry(self.functions.len())
+            .entry(self.functions.len() + self.func_import_count)
             .or_insert_with(|| assembler.new_dynamic_label());
         let begin_offset = assembler.offset();
         dynasm!(
@@ -347,6 +368,8 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             code: output,
             functions: self.functions,
             br_table_data: br_table_data,
+            vmctx: self.vmctx,
+            func_import_count: self.func_import_count,
         })
     }
 
@@ -363,6 +386,32 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
         assoc: Map<FuncIndex, SigIndex>,
     ) -> Result<(), CodegenError> {
         self.function_signatures = Some(Arc::new(assoc));
+        Ok(())
+    }
+
+    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+        let labels = match self.function_labels.as_mut() {
+            Some(x) => x,
+            None => {
+                return Err(CodegenError {
+                    message: "got function import after code",
+                })
+            }
+        };
+        let id = labels.len();
+
+        let mut vmctx = self.vmctx.lock().unwrap();
+
+        let label = X64FunctionCode::emit_native_call_trampoline(
+            self.assembler.as_mut().unwrap(),
+            invoke_import,
+            &mut vmctx.0 as *mut *mut vm::Ctx,
+            id,
+        );
+        labels.insert(id, label);
+
+        self.func_import_count += 1;
+
         Ok(())
     }
 }
@@ -2785,4 +2834,13 @@ unsafe extern "C" fn do_trap(
     stack_base: *mut u8,
 ) -> u64 {
     panic!("TRAP CODE: {:?}", ctx2);
+}
+
+unsafe extern "C" fn invoke_import(
+    ctx1: *mut *mut vm::Ctx,
+    ctx2: usize,
+    stack_top: *mut u8,
+    stack_base: *mut u8,
+) -> u64 {
+    panic!("INVOKE IMPORT: {}, under context {:?}", ctx2, *ctx1);
 }

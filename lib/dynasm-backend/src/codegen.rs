@@ -18,6 +18,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, PC: ProtectedCaller> {
         &mut self,
         assoc: Map<FuncIndex, SigIndex>,
     ) -> Result<(), CodegenError>;
+    fn feed_import_function(&mut self) -> Result<(), CodegenError>;
 }
 
 pub trait FunctionCodeGenerator {
