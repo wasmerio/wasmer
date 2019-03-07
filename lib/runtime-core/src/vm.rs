@@ -40,6 +40,8 @@ pub struct Ctx {
     /// modules safely.
     pub(crate) dynamic_sigindices: *const SigId,
 
+    pub(crate) local_functions: *const *const Func,
+
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
     module: *const ModuleInner,
@@ -66,6 +68,7 @@ impl Ctx {
             imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
             dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+            local_functions: local_backing.local_functions.as_ptr(),
 
             local_backing,
             import_backing,
@@ -95,6 +98,7 @@ impl Ctx {
             imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
             dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+            local_functions: local_backing.local_functions.as_ptr(),
 
             local_backing,
             import_backing,

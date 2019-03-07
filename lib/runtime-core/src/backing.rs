@@ -10,8 +10,8 @@ use crate::{
     table::Table,
     types::{
         ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex,
-        Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalOrImport, LocalTableIndex, SigIndex,
-        Value,
+        Initializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalOrImport,
+        LocalTableIndex, SigIndex, Value,
     },
     vm,
 };
@@ -28,6 +28,7 @@ pub struct LocalBacking {
     pub(crate) vm_globals: BoxedMap<LocalGlobalIndex, *mut vm::LocalGlobal>,
 
     pub(crate) dynamic_sigindices: BoxedMap<SigIndex, vm::SigId>,
+    pub(crate) local_functions: BoxedMap<LocalFuncIndex, *const vm::Func>,
 }
 
 // impl LocalBacking {
@@ -51,6 +52,7 @@ impl LocalBacking {
         let vm_globals = Self::finalize_globals(&mut globals);
 
         let dynamic_sigindices = Self::generate_sigindices(&module.info);
+        let local_functions = Self::generate_local_functions(module);
 
         Self {
             memories,
@@ -62,7 +64,21 @@ impl LocalBacking {
             vm_globals,
 
             dynamic_sigindices,
+            local_functions,
         }
+    }
+
+    fn generate_local_functions(module: &ModuleInner) -> BoxedMap<LocalFuncIndex, *const vm::Func> {
+        (0..module.info.func_assoc.len() - module.info.imported_functions.len())
+            .map(|index| {
+                module
+                    .func_resolver
+                    .get(module, LocalFuncIndex::new(index))
+                    .unwrap()
+                    .as_ptr() as *const _
+            })
+            .collect::<Map<_, _>>()
+            .into_boxed_map()
     }
 
     fn generate_sigindices(info: &ModuleInfo) -> BoxedMap<SigIndex, vm::SigId> {
