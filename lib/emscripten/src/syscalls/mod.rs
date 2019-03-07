@@ -40,6 +40,7 @@ use libc::{
 use wasmer_runtime_core::vm::Ctx;
 
 use super::env;
+use std::cell::Cell;
 use std::slice;
 // use std::sys::fd::FileDesc;
 
@@ -138,6 +139,33 @@ pub fn ___syscall40(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let pathname: u32 = varargs.get(ctx);
     let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
     unsafe { rmdir(pathname_addr) }
+}
+
+// pipe
+pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall42 (pipe)");
+    // offset to a file descriptor, which contains a read end and write end, 2 integers
+    let fd_offset: u32 = varargs.get(ctx);
+
+    use std::cell::Cell;
+    let emscripten_memory = ctx.memory(0);
+
+    // convert the file descriptor into a vec with two slots
+    let mut fd_vec: Vec<c_int> = emscripten_memory.view()[((fd_offset / 4) as usize)..]
+        .iter()
+        .map(|pipe_end: &Cell<c_int>| pipe_end.get())
+        .take(2)
+        .collect();
+
+    // get it as a mutable pointer
+    let fd_ptr = fd_vec.as_mut_ptr();
+
+    // call pipe and store the pointers in this array
+    #[cfg(target_os = "windows")]
+    let result: c_int = unsafe { libc::pipe(fd_ptr, 2048, 0) };
+    #[cfg(not(target_os = "windows"))]
+    let result: c_int = unsafe { libc::pipe(fd_ptr) };
+    result
 }
 
 pub fn ___syscall60(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
