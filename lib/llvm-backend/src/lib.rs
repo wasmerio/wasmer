@@ -1,3 +1,5 @@
+#![cfg_attr(nightly, feature(unwind_attributes))]
+
 use inkwell::{
     execution_engine::JitFunction,
     targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
