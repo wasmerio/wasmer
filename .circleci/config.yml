@@ -312,23 +312,33 @@ workflows:
       - test:
           filters:
             branches:
-              ignore: master
+              only:
+                - trying
+                - staging
       - test-macos:
           filters:
             branches:
-              ignore: master
+              only:
+                - trying
+                - staging
       - test-and-build:
           filters:
             branches:
-              only: master
+              only:
+                - trying
+                - staging
       - test-and-build-macos:
           filters:
             branches:
-              only: master
+              only:
+                - trying
+                - staging
       - test-rust-nightly:
           filters:
             branches:
-              only: master
+              only:
+                - trying
+                - staging
       - publish-github-release:
           requires:
             - lint
