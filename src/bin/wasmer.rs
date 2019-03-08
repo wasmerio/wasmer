@@ -1,6 +1,7 @@
 extern crate structopt;
 
 use std::env;
+use std::ffi::OsString;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -13,6 +14,7 @@ use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash};
+use wasmer_runtime_core::Module;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -21,10 +23,6 @@ enum CLIOptions {
     /// Run a WebAssembly file. Formats accepted: wasm, wast
     #[structopt(name = "run")]
     Run(Run),
-
-    /// Compile a WebAssembly file to machine code.
-    #[structopt(name = "compile")]
-    Compile(Compile),
 
     /// Wasmer cache
     #[structopt(name = "cache")]
@@ -41,10 +39,6 @@ struct Run {
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
-    /// Load module from the cache
-    #[structopt(long = "from-cache")]
-    from_cache: Option<PathBuf>,
-
     /// Input file
     #[structopt(parse(from_os_str))]
     path: PathBuf,
@@ -55,10 +49,25 @@ struct Run {
 }
 
 #[derive(Debug, StructOpt)]
-struct Compile {
+struct CacheGenerate {
     /// Input file
     #[structopt(parse(from_os_str))]
     path: PathBuf,
+}
+
+#[derive(Debug, StructOpt)]
+struct CacheRun {
+    /// Module name to run
+    #[structopt(parse(from_os_str))]
+    module_name: OsString,
+
+    /// Module key in the cache
+    #[structopt(parse(from_os_str))]
+    module_key: OsString,
+
+    /// Application arguments
+    #[structopt(name = "--", raw(multiple = "true"))]
+    args: Vec<String>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -68,6 +77,12 @@ enum Cache {
 
     #[structopt(name = "dir")]
     Dir,
+
+    #[structopt(name = "generate")]
+    CacheGenerate(CacheGenerate),
+
+    #[structopt(name = "run")]
+    CacheRun(CacheRun),
 }
 
 /// Read the contents of a file
@@ -108,6 +123,35 @@ fn load_wasm_binary(wasm_path: &PathBuf) -> Result<Vec<u8>, String> {
     wabt::wat2wasm(wasm_binary).map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))
 }
 
+fn run_wasm_module(module: &Module, name: String, args: &Vec<String>) -> Result<(), String> {
+    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(module) {
+        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(module);
+        (
+            InstanceABI::Emscripten,
+            wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
+            Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
+        )
+    } else {
+        (
+            InstanceABI::None,
+            wasmer_runtime_core::import::ImportObject::new(),
+            None,
+        )
+    };
+
+    let mut instance = module
+        .instantiate(&import_object)
+        .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
+
+    webassembly::run_instance(
+        &module,
+        &mut instance,
+        &name,
+        args.iter().map(|arg| arg.as_str()).collect(),
+    )
+    .map_err(|e| format!("{:?}", e))
+}
+
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
     // force disable caching on windows
@@ -131,68 +175,33 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
         };
 
-        let module = match &options.from_cache {
-            Some(key) => cache
-                .load(String::from(key.to_str().unwrap()))
-                .map_err(|e| format!("Can't load module from cache: {:?}", e))?,
-            None => {
-                let wasm_binary = load_wasm_binary(&options.path)?;
+        let wasm_binary = load_wasm_binary(&options.path)?;
 
-                // We generate a hash for the given binary, so we can use it as key
-                // for the Filesystem cache
-                let hash = WasmHash::generate(&wasm_binary);
+        // We generate a hash for the given binary, so we can use it as key
+        // for the Filesystem cache
+        let hash = WasmHash::generate(&wasm_binary);
 
-                // cache.load will return the Module if it's able to deserialize it properly, and an error if:
-                // * The file is not found
-                // * The file exists, but it's corrupted or can't be converted to a module
-                match cache.load(hash.encode()) {
-                    Ok(module) => {
-                        // We are able to load the module from cache
-                        module
-                    }
-                    Err(_) => {
-                        let module = webassembly::compile(&wasm_binary[..])
-                            .map_err(|e| format!("Can't compile module: {:?}", e))?;
-
-                        // We save the module into a cache file
-                        cache.store(hash.encode(), module.clone()).unwrap();
-                        module
-                    }
-                }
+        // cache.load will return the Module if it's able to deserialize it properly, and an error if:
+        // * The file is not found
+        // * The file exists, but it's corrupted or can't be converted to a module
+        match cache.load(hash.encode()) {
+            Ok(module) => {
+                // We are able to load the module from cache
+                module
             }
-        };
+            Err(_) => {
+                let module = webassembly::compile(&wasm_binary[..])
+                    .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
-        module
+                // We save the module into a cache file
+                cache.store(hash.encode(), module.clone()).unwrap();
+                module
+            }
+        }
     };
 
-    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
-        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
-        (
-            InstanceABI::Emscripten,
-            wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
-            Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
-        )
-    } else {
-        (
-            InstanceABI::None,
-            wasmer_runtime_core::import::ImportObject::new(),
-            None,
-        )
-    };
-
-    let mut instance = module
-        .instantiate(&import_object)
-        .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
-
-    webassembly::run_instance(
-        &module,
-        &mut instance,
-        options.path.to_str().unwrap(),
-        options.args.iter().map(|arg| arg.as_str()).collect(),
-    )
-    .map_err(|e| format!("{:?}", e))?;
-
-    Ok(())
+    let key = String::from(options.path.to_str().unwrap());
+    run_wasm_module(&module, key, &options.args)
 }
 
 fn run(options: Run) {
@@ -205,7 +214,7 @@ fn run(options: Run) {
     }
 }
 
-fn compile_wasm(options: &Compile) -> Result<(), String> {
+fn generate_wasm_cache(options: &CacheGenerate) -> Result<(), String> {
     let wasm_binary = load_wasm_binary(&options.path)?;
     let module = webassembly::compile(&wasm_binary[..])
         .map_err(|e| format!("Can't compile module: {:?}", e))?;
@@ -229,8 +238,37 @@ fn compile_wasm(options: &Compile) -> Result<(), String> {
         .map_err(|e| format!("Can't store module in cache: {:?}", e))
 }
 
-fn compile(options: Compile) {
-    match compile_wasm(&options) {
+fn cache_generate(options: CacheGenerate) {
+    match generate_wasm_cache(&options) {
+        Ok(()) => {}
+        Err(message) => {
+            eprintln!("{:?}", message);
+            exit(1);
+        }
+    }
+}
+
+fn run_wasm_module_from_cache(options: &CacheRun) -> Result<(), String> {
+    let wasmer_cache_dir = get_cache_dir();
+
+    // We create a new cache instance.
+    // It could be possible to use any other kinds of caching, as long as they
+    // implement the Cache trait (with save and load functions)
+    let cache = unsafe {
+        FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
+    };
+
+    let key = String::from(options.module_key.to_str().unwrap());
+    let module = cache
+        .load(key)
+        .map_err(|e| format!("Can't execute module from cache: {:?}", e))?;
+
+    let name = String::from(options.module_name.to_str().unwrap());
+    run_wasm_module(&module, name, &options.args)
+}
+
+fn cache_run(options: CacheRun) {
+    match run_wasm_module_from_cache(&options) {
         Ok(()) => {}
         Err(message) => {
             eprintln!("{:?}", message);
@@ -243,12 +281,6 @@ fn main() {
     let options = CLIOptions::from_args();
     match options {
         CLIOptions::Run(options) => run(options),
-        #[cfg(not(target_os = "windows"))]
-        CLIOptions::Compile(options) => compile(options),
-        #[cfg(target_os = "windows")]
-        CLIOptions::Compile(_) => {
-            println!("Compiling is disabled for Windows.");
-        }
         #[cfg(not(target_os = "windows"))]
         CLIOptions::SelfUpdate => update::self_update(),
         #[cfg(target_os = "windows")]
@@ -266,6 +298,9 @@ fn main() {
             Cache::Dir => {
                 println!("{}", get_cache_dir().to_string_lossy());
             }
+
+            Cache::CacheGenerate(options) => cache_generate(options),
+            Cache::CacheRun(options) => cache_run(options),
         },
         #[cfg(target_os = "windows")]
         CLIOptions::Cache(_) => {
