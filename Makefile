@@ -12,9 +12,6 @@ spectests:
 emtests:
 	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten
 
-capi:
-	cargo build --manifest-path lib/runtime-c-api/Cargo.toml
-
 # clean:
 #     rm -rf artifacts
 
