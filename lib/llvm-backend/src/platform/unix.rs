@@ -41,6 +41,7 @@ pub unsafe fn visit_fde(addr: *mut u8, size: usize, visitor: extern "C" fn(*mut 
 }
 
 extern "C" {
+    #[cfg_attr(nightly, unwind(allowed))]
     fn throw_trap(ty: i32) -> !;
 }
 
@@ -50,12 +51,13 @@ pub unsafe fn install_signal_handler() {
         SaFlags::SA_ONSTACK | SaFlags::SA_SIGINFO,
         SigSet::empty(),
     );
-    sigaction(SIGFPE, &sa).unwrap();
-    sigaction(SIGILL, &sa).unwrap();
+    // sigaction(SIGFPE, &sa).unwrap();
+    // sigaction(SIGILL, &sa).unwrap();
     sigaction(SIGSEGV, &sa).unwrap();
     sigaction(SIGBUS, &sa).unwrap();
 }
 
+#[cfg_attr(nightly, unwind(allowed))]
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
     siginfo: *mut siginfo_t,

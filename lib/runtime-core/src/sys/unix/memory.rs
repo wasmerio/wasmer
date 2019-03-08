@@ -245,6 +245,7 @@ pub enum Protect {
     Read,
     ReadWrite,
     ReadExec,
+    ReadWriteExec,
 }
 
 impl Protect {
@@ -254,6 +255,7 @@ impl Protect {
             Protect::Read => 1,
             Protect::ReadWrite => 1 | 2,
             Protect::ReadExec => 1 | 4,
+            Protect::ReadWriteExec => 1 | 2 | 4,
         }
     }
 

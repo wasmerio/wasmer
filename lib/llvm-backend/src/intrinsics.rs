@@ -3,7 +3,7 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    types::{BasicType, FloatType, IntType, PointerType, StructType, VoidType},
+    types::{BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VoidType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
         PointerValue,
@@ -16,7 +16,8 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     structures::TypedIndex,
     types::{
-        GlobalIndex, ImportedFuncIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
+        GlobalIndex, ImportedFuncIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
+        TableIndex, Type,
     },
 };
 
@@ -161,6 +162,7 @@ impl Intrinsics {
         let imported_func_ty =
             context.struct_type(&[i8_ptr_ty_basic, ctx_ptr_ty.as_basic_type_enum()], false);
         let sigindex_ty = i32_ty;
+        let local_function_ty = i8_ptr_ty;
 
         let anyfunc_ty = context.struct_type(
             &[
@@ -201,6 +203,9 @@ impl Intrinsics {
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
                 sigindex_ty
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum(),
+                local_function_ty
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(),
             ],
@@ -579,6 +584,36 @@ impl<'a> CtxType<'a> {
                 .build_load(ptr_to_base_ptr, "base_ptr")
                 .into_pointer_value(),
             builder.build_load(ptr_to_bounds, "bounds").into_int_value(),
+        )
+    }
+
+    pub fn local_func(&mut self, index: LocalFuncIndex, fn_ty: FunctionType) -> PointerValue {
+        let local_func_array_ptr_ptr = unsafe {
+            self.builder
+                .build_struct_gep(self.ctx_ptr_value, 8, "local_func_array_ptr_ptr")
+        };
+        let local_func_array_ptr = self
+            .builder
+            .build_load(local_func_array_ptr_ptr, "local_func_array_ptr")
+            .into_pointer_value();
+        let local_func_ptr_ptr = unsafe {
+            self.builder.build_in_bounds_gep(
+                local_func_array_ptr,
+                &[self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(index.index() as u64, false)],
+                "local_func_ptr_ptr",
+            )
+        };
+        let local_func_ptr = self
+            .builder
+            .build_load(local_func_ptr_ptr, "local_func_ptr")
+            .into_pointer_value();
+        self.builder.build_pointer_cast(
+            local_func_ptr,
+            fn_ty.ptr_type(AddressSpace::Generic),
+            "local_func_ptr",
         )
     }
 
