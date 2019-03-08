@@ -445,6 +445,12 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
 
             pos.ins().symbol_value(ir::types::I64, sig_index_global)
 
+            // let dynamic_sigindices_array_ptr = pos.ins().load(
+            //     ptr_type,
+            //     mflags,
+
+            // )
+
             // let expected_sig = pos.ins().iconst(ir::types::I32, sig_index.index() as i64);
 
             // self.env.deduplicated[clif_sig_index]
@@ -480,7 +486,7 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
         let ptr_type = self.pointer_type();
 
         match callee_index.local_or_import(&self.env.module.info) {
-            LocalOrImport::Local(_) => {
+            LocalOrImport::Local(local_function_index) => {
                 // this is an internal function
                 let vmctx = pos
                     .func
@@ -495,13 +501,18 @@ impl<'env, 'module, 'isa> FuncEnvironment for FuncEnv<'env, 'module, 'isa> {
                 let function_ptr = {
                     let mflags = ir::MemFlags::trusted();
 
-                    let function_array_ptr = pos.ins().load(ptr_type, mflags, vmctx, 64);
+                    let function_array_ptr = pos.ins().load(
+                        ptr_type,
+                        mflags,
+                        vmctx,
+                        vm::Ctx::offset_local_functions() as i32,
+                    );
 
                     pos.ins().load(
                         ptr_type,
                         mflags,
                         function_array_ptr,
-                        (callee_index.index() as i32) * 8,
+                        (local_function_index.index() as i32) * 8,
                     )
                 };
 

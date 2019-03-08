@@ -177,6 +177,10 @@ impl Ctx {
     pub fn offset_signatures() -> u8 {
         7 * (mem::size_of::<usize>() as u8)
     }
+
+    pub fn offset_local_functions() -> u8 {
+        8 * (mem::size_of::<usize>() as u8)
+    }
 }
 
 enum InnerFunc {}
@@ -366,6 +370,11 @@ mod vm_offset_tests {
         assert_eq!(
             Ctx::offset_imported_funcs() as usize,
             offset_of!(Ctx => imported_funcs).get_byte_offset(),
+        );
+
+        assert_eq!(
+            Ctx::offset_local_functions() as usize,
+            offset_of!(Ctx => local_functions).get_byte_offset(),
         );
     }
 
