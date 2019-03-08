@@ -31,6 +31,7 @@ Wasmer intends to support different integrations:
 The Wasmer [runtime](./runtime) is designed to support multiple compiler backends, allowing the user
 to tune the codegen properties (compile speed, performance, etc) to best fit their use case.
 
-Currently, we support a Cranelift compiler backend:
+Currently, we support multiple backends for compiling WebAssembly to machine code:
 
-- [clif-backend](./clif-backend/): The integration of Wasmer with Cranelift
+- [clif-backend](./clif-backend/): Cranelift backend
+- [llvm-backend](./clif-backend/): LLVM backend
