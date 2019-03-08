@@ -14,25 +14,25 @@ use std::{ffi::c_void, mem, ptr};
 #[repr(C)]
 pub struct Ctx {
     /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
-    pub(crate) memories: *mut *mut LocalMemory,
+    pub memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
-    pub(crate) tables: *mut *mut LocalTable,
+    pub tables: *mut *mut LocalTable,
 
     /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
-    pub(crate) globals: *mut *mut LocalGlobal,
+    pub globals: *mut *mut LocalGlobal,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
     pub(crate) imported_memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    pub(crate) imported_tables: *mut *mut LocalTable,
+    pub imported_tables: *mut *mut LocalTable,
 
     /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-    pub(crate) imported_globals: *mut *mut LocalGlobal,
+    pub imported_globals: *mut *mut LocalGlobal,
 
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
-    pub(crate) imported_funcs: *mut ImportedFunc,
+    pub imported_funcs: *mut ImportedFunc,
 
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
