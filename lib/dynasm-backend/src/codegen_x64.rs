@@ -6,6 +6,8 @@ use byteorder::{ByteOrder, LittleEndian};
 use dynasmrt::{
     x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
 };
+use std::cell::RefCell;
+use std::ptr::NonNull;
 use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
@@ -17,9 +19,13 @@ use wasmer_runtime_core::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalGlobalIndex, MemoryIndex, SigIndex,
         TableIndex, Type, Value,
     },
-    vm::{self, ImportBacking, LocalGlobal},
+    vm::{self, ImportBacking, LocalGlobal, LocalTable},
 };
 use wasmparser::{Operator, Type as WpType};
+
+thread_local! {
+    static CURRENT_EXECUTION_CONTEXT: RefCell<Vec<*const X64ExecutionContext>> = RefCell::new(Vec::new());
+}
 
 lazy_static! {
     static ref CALL_WASM: unsafe extern "C" fn(params: *const u8, params_len: usize, target: *const u8, memory_base: *mut u8, vmctx: *mut vm::Ctx) -> i64 = {
@@ -207,7 +213,7 @@ pub struct X64ModuleCodeGenerator {
     functions: Vec<X64FunctionCode>,
     signatures: Option<Arc<Map<SigIndex, Arc<FuncSig>>>>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
-    function_labels: Option<HashMap<usize, DynamicLabel>>,
+    function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     assembler: Option<Assembler>,
     native_trampolines: Arc<NativeTrampolines>,
     func_import_count: usize,
@@ -222,7 +228,7 @@ pub struct X64FunctionCode {
     begin_label: DynamicLabel,
     begin_offset: AssemblyOffset,
     assembler: Option<Assembler>,
-    function_labels: Option<HashMap<usize, DynamicLabel>>,
+    function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     br_table_data: Option<Vec<Vec<usize>>>,
     returns: Vec<WpType>,
     locals: Vec<Local>,
@@ -233,11 +239,33 @@ pub struct X64FunctionCode {
     unreachable_depth: usize,
 }
 
+enum FuncPtrInner {}
+#[repr(transparent)]
+struct FuncPtr(*const FuncPtrInner);
+unsafe impl Send for FuncPtr {}
+unsafe impl Sync for FuncPtr {}
+
 pub struct X64ExecutionContext {
     code: ExecutableBuffer,
     functions: Vec<X64FunctionCode>,
+    signatures: Arc<Map<SigIndex, Arc<FuncSig>>>,
+    function_signatures: Arc<Map<FuncIndex, SigIndex>>,
+    function_pointers: Vec<FuncPtr>,
     br_table_data: Vec<Vec<usize>>,
     func_import_count: usize,
+}
+
+impl FuncResolver for X64ExecutionContext {
+    fn get(
+        &self,
+        _module: &ModuleInner,
+        _local_func_index: LocalFuncIndex,
+    ) -> Option<NonNull<vm::Func>> {
+        NonNull::new(
+            self.function_pointers[_local_func_index.index() as usize + self.func_import_count].0
+                as *mut vm::Func,
+        )
+    }
 }
 
 impl ProtectedCaller for X64ExecutionContext {
@@ -308,6 +336,8 @@ impl ProtectedCaller for X64ExecutionContext {
         };
         //println!("MEMORY = {:?}", memory_base);
 
+        CURRENT_EXECUTION_CONTEXT.with(|x| x.borrow_mut().push(self));
+
         let ret = unsafe {
             CALL_WASM(
                 param_buf.as_ptr(),
@@ -317,6 +347,9 @@ impl ProtectedCaller for X64ExecutionContext {
                 _vmctx,
             )
         };
+
+        CURRENT_EXECUTION_CONTEXT.with(|x| x.borrow_mut().pop().unwrap());
+
         Ok(if let Some(ty) = return_ty {
             vec![Value::I64(ret)]
         } else {
@@ -381,10 +414,14 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
                 vec![],
             ),
         };
-        let begin_label = *function_labels
-            .entry(self.functions.len() + self.func_import_count)
-            .or_insert_with(|| assembler.new_dynamic_label());
         let begin_offset = assembler.offset();
+        let begin_label_info = function_labels
+            .entry(self.functions.len() + self.func_import_count)
+            .or_insert_with(|| (assembler.new_dynamic_label(), None));
+
+        begin_label_info.1 = Some(begin_offset);
+        let begin_label = begin_label_info.0;
+
         dynasm!(
             assembler
             ; => begin_label
@@ -429,11 +466,56 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
                 *entry = output.ptr(AssemblyOffset(*entry)) as usize;
             }
         }
+
+        let function_labels = if let Some(x) = self.functions.last() {
+            x.function_labels.as_ref().unwrap()
+        } else {
+            self.function_labels.as_ref().unwrap()
+        };
+        let mut out_labels: Vec<FuncPtr> = vec![];
+
+        for i in 0..function_labels.len() {
+            let (_, offset) = match function_labels.get(&i) {
+                Some(x) => x,
+                None => {
+                    return Err(CodegenError {
+                        message: "label not found",
+                    })
+                }
+            };
+            let offset = match offset {
+                Some(x) => x,
+                None => {
+                    return Err(CodegenError {
+                        message: "offset is none",
+                    })
+                }
+            };
+            out_labels.push(FuncPtr(output.ptr(*offset) as _));
+        }
+
         Ok(X64ExecutionContext {
             code: output,
             functions: self.functions,
             br_table_data: br_table_data,
             func_import_count: self.func_import_count,
+            signatures: match self.signatures {
+                Some(x) => x,
+                None => {
+                    return Err(CodegenError {
+                        message: "no signatures",
+                    })
+                }
+            },
+            function_pointers: out_labels,
+            function_signatures: match self.function_signatures {
+                Some(x) => x,
+                None => {
+                    return Err(CodegenError {
+                        message: "no function signatures",
+                    })
+                }
+            },
         })
     }
 
@@ -464,13 +546,15 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
         };
         let id = labels.len();
 
+        let offset = self.assembler.as_mut().unwrap().offset();
+
         let label = X64FunctionCode::emit_native_call_trampoline(
             self.assembler.as_mut().unwrap(),
             invoke_import,
             0,
             id,
         );
-        labels.insert(id, label);
+        labels.insert(id, (label, Some(offset)));
 
         self.func_import_count += 1;
 
@@ -1092,6 +1176,7 @@ impl X64FunctionCode {
             stack_top: *mut u8,
             stack_base: *mut u8,
             vmctx: *mut vm::Ctx,
+            memory_base: *mut u8,
         ) -> u64,
         ctx1: A,
         ctx2: B,
@@ -1114,6 +1199,7 @@ impl X64FunctionCode {
             ; mov rdx, rsp
             ; mov rcx, rbp
             ; mov r8, r14 // vmctx
+            ; mov r9, r15 // memory_base
             ; mov rax, QWORD (0xfffffffffffffff0u64 as i64)
             ; and rsp, rax
             ; mov rax, QWORD (target as i64)
@@ -2417,12 +2503,13 @@ impl FunctionCodeGenerator for X64FunctionCode {
             }
             Operator::Call { function_index } => {
                 let function_index = function_index as usize;
-                let label = *self
+                let label = self
                     .function_labels
                     .as_mut()
                     .unwrap()
                     .entry(function_index)
-                    .or_insert_with(|| assembler.new_dynamic_label());
+                    .or_insert_with(|| (assembler.new_dynamic_label(), None))
+                    .0;
                 let sig_index = match self.function_signatures.get(FuncIndex::new(function_index)) {
                     Some(x) => *x,
                     None => {
@@ -2447,6 +2534,57 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     label,
+                    &param_types,
+                    &return_types,
+                )?;
+            }
+            Operator::CallIndirect { index, table_index } => {
+                if table_index != 0 {
+                    return Err(CodegenError {
+                        message: "only one table is supported",
+                    });
+                }
+                if module_info.tables.len() != 1 {
+                    return Err(CodegenError {
+                        message: "no tables",
+                    });
+                }
+                let sig_index = SigIndex::new(index as usize);
+                let sig = match self.signatures.get(sig_index) {
+                    Some(x) => x,
+                    None => {
+                        return Err(CodegenError {
+                            message: "signature does not exist",
+                        })
+                    }
+                };
+                let mut param_types: Vec<WpType> =
+                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                let return_types: Vec<WpType> =
+                    sig.returns().iter().cloned().map(type_to_wp_type).collect();
+                param_types.push(WpType::I32); // element index
+
+                dynasm!(
+                    assembler
+                    ; jmp >after_trampoline
+                );
+
+                let trampoline_label = Self::emit_native_call_trampoline(
+                    assembler,
+                    call_indirect,
+                    0usize,
+                    index as usize,
+                );
+
+                dynasm!(
+                    assembler
+                    ; after_trampoline:
+                );
+
+                Self::emit_call_raw(
+                    assembler,
+                    &mut self.value_stack,
+                    trampoline_label,
                     &param_types,
                     &return_types,
                 )?;
@@ -2968,6 +3106,7 @@ unsafe extern "C" fn do_trap(
     stack_top: *mut u8,
     stack_base: *mut u8,
     vmctx: *mut vm::Ctx,
+    memory_base: *mut u8,
 ) -> u64 {
     panic!("TRAP CODE: {:?}", ctx2);
 }
@@ -2978,9 +3117,54 @@ unsafe extern "C" fn invoke_import(
     stack_top: *mut u8,
     stack_base: *mut u8,
     vmctx: *mut vm::Ctx,
+    memory_base: *mut u8,
 ) -> u64 {
     let vmctx: &mut vm::Ctx = &mut *vmctx;
     let import = (*vmctx.imported_funcs.offset(import_id as isize)).func;
 
     CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, vmctx, import)
+}
+
+unsafe extern "C" fn call_indirect(
+    _unused: usize,
+    sig_index: usize,
+    mut stack_top: *mut u8,
+    stack_base: *mut u8,
+    vmctx: *mut vm::Ctx,
+    memory_base: *mut u8,
+) -> u64 {
+    let elem_index = *(stack_top as *mut u32) as usize;
+    stack_top = stack_top.offset(8);
+    assert!(stack_top as usize <= stack_base as usize);
+
+    let table: &LocalTable = &*(*(*vmctx).tables);
+    if elem_index >= table.count as usize {
+        panic!("element index out of bounds");
+    }
+    let func_index = *(table.base as *mut u32).offset(elem_index as isize) as usize;
+    let ctx: &X64ExecutionContext =
+        &*CURRENT_EXECUTION_CONTEXT.with(|x| *x.borrow().last().unwrap());
+
+    println!(
+        "SIG INDEX = {}, FUNC INDEX = {}, ELEM INDEX = {}",
+        sig_index, func_index, elem_index
+    );
+
+    // TODO: Fix table reading. Hardcoding func index = 1 for debugging here.
+    let func_index = 1usize;
+
+    if ctx.signatures[SigIndex::new(sig_index)]
+        != ctx.signatures[ctx.function_signatures[FuncIndex::new(func_index)]]
+    {
+        panic!("signature mismatch");
+    }
+
+    let func = ctx.function_pointers[func_index].0;
+    CALL_WASM(
+        stack_top,
+        stack_base as usize - stack_top as usize,
+        func as _,
+        memory_base,
+        vmctx,
+    ) as u64
 }

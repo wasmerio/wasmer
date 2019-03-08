@@ -39,8 +39,7 @@ impl FuncResolver for Placeholder {
         _module: &ModuleInner,
         _local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
-        panic!();
-        None
+        NonNull::new(0x3f3f3f3f3f3f3f3fusize as *mut vm::Func)
     }
 }
 
