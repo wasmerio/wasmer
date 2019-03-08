@@ -22,7 +22,7 @@ use wasmer_runtime_core::{
 use wasmparser::{Operator, Type as WpType};
 
 lazy_static! {
-    static ref CALL_WASM: unsafe extern "C" fn(params: *const u8, params_len: usize, target: *const u8, memory_base: *mut u8) -> i64 = {
+    static ref CALL_WASM: unsafe extern "C" fn(params: *const u8, params_len: usize, target: *const u8, memory_base: *mut u8, vmctx: *mut vm::Ctx) -> i64 = {
         let mut assembler = Assembler::new().unwrap();
         let offset = assembler.offset();
         dynasm!(
@@ -33,6 +33,7 @@ lazy_static! {
             ; push r14
             ; push r15
             ; mov r15, rcx // memory_base
+            ; mov r14, r8 // vmctx
             ; lea rax, [>after_call]
             ; push rax
             ; push rbp
@@ -57,6 +58,73 @@ lazy_static! {
             ; pop r13
             ; pop r12
             ; pop rbx
+            ; ret
+        );
+        let buf = assembler.finalize().unwrap();
+        let ret = unsafe { ::std::mem::transmute(buf.ptr(offset)) };
+        ::std::mem::forget(buf);
+        ret
+    };
+
+    static ref CONSTRUCT_STACK_AND_CALL_NATIVE: unsafe extern "C" fn (stack_top: *mut u8, stack_base: *mut u8, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
+        let mut assembler = Assembler::new().unwrap();
+        let offset = assembler.offset();
+        dynasm!(
+            assembler
+            ; push r15
+            ; push r14
+            ; push r13
+            ; push r12
+            ; sub rsp, 8 // align to 16 bytes
+
+            ; mov r15, rdi
+            ; mov r14, rsi
+            ; mov r13, rdx
+            ; mov r12, rcx
+
+            ; mov rdi, r13
+            ; cmp r15, r14
+            ; je >stack_ready
+            ; mov rdi, [r15]
+            ; add r15, 8
+
+            ; mov rsi, r13
+            ; cmp r15, r14
+            ; je >stack_ready
+            ; mov rsi, [r15]
+            ; add r15, 8
+
+            ; mov rdx, r13
+            ; cmp r15, r14
+            ; je >stack_ready
+            ; mov rdx, [r15]
+            ; add r15, 8
+
+            ; mov rcx, r13
+            ; cmp r15, r14
+            ; je >stack_ready
+            ; mov rcx, [r15]
+            ; add r15, 8
+
+            ; mov r8, r13
+            ; cmp r15, r14
+            ; je >stack_ready
+            ; mov r8, [r15]
+            ; add r15, 8
+
+            ; mov r9, r13
+            ; cmp r15, r14
+            ; je >stack_ready
+            ; ud2 // FIXME
+
+            ; stack_ready:
+            ; call r12
+
+            ; add rsp, 8
+            ; pop r12
+            ; pop r13
+            ; pop r14
+            ; pop r15
             ; ret
         );
         let buf = assembler.finalize().unwrap();
@@ -102,7 +170,7 @@ impl Register {
             8 => RBX,
             9 => R12,
             10 => R13,
-            11 => R14,
+            // 11 => R14, // R14 is reserved for vmctx.
             // 12 => R15, // R15 is reserved for memory base pointer.
             _ => unreachable!(),
         }
@@ -148,7 +216,6 @@ pub struct X64ModuleCodeGenerator {
     function_labels: Option<HashMap<usize, DynamicLabel>>,
     assembler: Option<Assembler>,
     native_trampolines: Arc<NativeTrampolines>,
-    vmctx: Mutex<Box<CtxPtr>>, // TODO: Fix this
     func_import_count: usize,
 }
 
@@ -176,7 +243,6 @@ pub struct X64ExecutionContext {
     code: ExecutableBuffer,
     functions: Vec<X64FunctionCode>,
     br_table_data: Vec<Vec<usize>>,
-    vmctx: Mutex<Box<CtxPtr>>,
     func_import_count: usize,
 }
 
@@ -248,9 +314,15 @@ impl ProtectedCaller for X64ExecutionContext {
         };
         //println!("MEMORY = {:?}", memory_base);
 
-        self.vmctx.lock().unwrap().0 = _vmctx;
-
-        let ret = unsafe { CALL_WASM(param_buf.as_ptr(), param_buf.len(), ptr, memory_base) };
+        let ret = unsafe {
+            CALL_WASM(
+                param_buf.as_ptr(),
+                param_buf.len(),
+                ptr,
+                memory_base,
+                _vmctx,
+            )
+        };
         Ok(if let Some(ty) = return_ty {
             vec![Value::I64(ret)]
         } else {
@@ -296,7 +368,6 @@ impl X64ModuleCodeGenerator {
             function_labels: Some(HashMap::new()),
             assembler: Some(assembler),
             native_trampolines: Arc::new(nt),
-            vmctx: Mutex::new(Box::new(CtxPtr(::std::ptr::null_mut()))),
             func_import_count: 0,
         }
     }
@@ -368,7 +439,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             code: output,
             functions: self.functions,
             br_table_data: br_table_data,
-            vmctx: self.vmctx,
             func_import_count: self.func_import_count,
         })
     }
@@ -400,12 +470,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
         };
         let id = labels.len();
 
-        let mut vmctx = self.vmctx.lock().unwrap();
-
         let label = X64FunctionCode::emit_native_call_trampoline(
             self.assembler.as_mut().unwrap(),
             invoke_import,
-            &mut vmctx.0 as *mut *mut vm::Ctx,
+            0,
             id,
         );
         labels.insert(id, label);
@@ -1029,6 +1097,7 @@ impl X64FunctionCode {
             ctx2: B,
             stack_top: *mut u8,
             stack_base: *mut u8,
+            vmctx: *mut vm::Ctx,
         ) -> u64,
         ctx1: A,
         ctx2: B,
@@ -1050,18 +1119,13 @@ impl X64FunctionCode {
             ; mov rsi, QWORD (unsafe { ::std::mem::transmute_copy::<B, i64>(&ctx2) })
             ; mov rdx, rsp
             ; mov rcx, rbp
-            ; push rbp
-            ; mov rbp, rsp
+            ; mov r8, r14 // vmctx
             ; mov rax, QWORD (0xfffffffffffffff0u64 as i64)
             ; and rsp, rax
             ; mov rax, QWORD (target as i64)
             ; call rax
             ; mov rsp, rbp
             ; pop rbp
-        );
-
-        dynasm!(
-            assembler
             ; ret
         );
 
@@ -2832,15 +2896,20 @@ unsafe extern "C" fn do_trap(
     ctx2: TrapCode,
     stack_top: *mut u8,
     stack_base: *mut u8,
+    vmctx: *mut vm::Ctx,
 ) -> u64 {
     panic!("TRAP CODE: {:?}", ctx2);
 }
 
 unsafe extern "C" fn invoke_import(
-    ctx1: *mut *mut vm::Ctx,
-    ctx2: usize,
+    _unused: usize,
+    import_id: usize,
     stack_top: *mut u8,
     stack_base: *mut u8,
+    vmctx: *mut vm::Ctx,
 ) -> u64 {
-    panic!("INVOKE IMPORT: {}, under context {:?}", ctx2, *ctx1);
+    let vmctx: &mut vm::Ctx = &mut *vmctx;
+    let import = (*vmctx.imported_funcs.offset(import_id as isize)).func;
+
+    CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, vmctx, import)
 }

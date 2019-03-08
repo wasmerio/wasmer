@@ -283,7 +283,12 @@ pub fn read_module<
                     let mut fcg = mcg.next_function()?;
                     let sig = info
                         .signatures
-                        .get(*info.func_assoc.get(FuncIndex::new(i as usize)).unwrap())
+                        .get(
+                            *info
+                                .func_assoc
+                                .get(FuncIndex::new(i as usize + info.imported_functions.len()))
+                                .unwrap(),
+                        )
                         .unwrap();
                     for ret in sig.returns() {
                         fcg.feed_return(type_to_wp_type(*ret))?;
