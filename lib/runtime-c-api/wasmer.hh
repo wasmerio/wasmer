@@ -256,15 +256,15 @@ wasmer_import_descriptor_t *wasmer_import_descriptors_get(wasmer_import_descript
 int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports);
 
 /// Frees memory for the given Func
-void wasmer_import_func_destroy(const wasmer_import_func_t *func);
+void wasmer_import_func_destroy(wasmer_import_func_t *func);
 
 /// Creates new func
 /// The caller owns the object and should call `wasmer_import_func_destroy` to free it.
-const wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
-                                                   const wasmer_value_tag *params,
-                                                   int params_len,
-                                                   const wasmer_value_tag *returns,
-                                                   int returns_len);
+wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
+                                             const wasmer_value_tag *params,
+                                             int params_len,
+                                             const wasmer_value_tag *returns,
+                                             int returns_len);
 
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t
 /// Returns `wasmer_result_t::WASMER_OK` upon success.

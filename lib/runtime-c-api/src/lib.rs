@@ -1142,7 +1142,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
     params_len: c_int,
     returns: *const wasmer_value_tag,
     returns_len: c_int,
-) -> *const wasmer_import_func_t {
+) -> *mut wasmer_import_func_t {
     let params: &[wasmer_value_tag] = slice::from_raw_parts(params, params_len as usize);
     let params: Vec<Type> = params.iter().cloned().map(|x| x.into()).collect();
     let returns: &[wasmer_value_tag] = slice::from_raw_parts(returns, returns_len as usize);
@@ -1153,7 +1153,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
         ctx: Context::Internal,
         signature: Arc::new(FuncSig::new(params, returns)),
     });
-    Box::into_raw(export) as *const wasmer_import_func_t
+    Box::into_raw(export) as *mut wasmer_import_func_t
 }
 
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t

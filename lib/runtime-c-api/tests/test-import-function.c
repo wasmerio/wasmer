@@ -31,7 +31,7 @@ int main()
     wasmer_value_tag returns_sig[] = {};
 
     printf("Creating new func\n");
-    const wasmer_import_func_t *func = wasmer_import_func_new((void (*)(void *)) print_str, params_sig, 2, returns_sig, 0);
+    wasmer_import_func_t *func = wasmer_import_func_new((void (*)(void *)) print_str, params_sig, 2, returns_sig, 0);
     wasmer_import_t import;
 
     char *module_name = "env";
