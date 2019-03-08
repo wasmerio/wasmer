@@ -310,25 +310,30 @@ workflows:
     jobs:
       - lint
       - test:
-          filters:
-            branches:
-              ignore: master
+          branches:
+            only:
+              - trying
+              - staging
       - test-macos:
-          filters:
-            branches:
-              ignore: master
+          branches:
+            only:
+              - trying
+              - staging
       - test-and-build:
-          filters:
-            branches:
-              only: master
+          branches:
+            only:
+              - trying
+              - staging
       - test-and-build-macos:
-          filters:
-            branches:
-              only: master
+          branches:
+            only:
+              - trying
+              - staging
       - test-rust-nightly:
-          filters:
-            branches:
-              only: master
+          branches:
+            only:
+              - trying
+              - staging
       - publish-github-release:
           requires:
             - lint
