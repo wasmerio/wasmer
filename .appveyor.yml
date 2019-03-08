@@ -2,8 +2,10 @@ version: "{build} ~ {branch}"
 
 os: Visual Studio 2017
 
-# Do not build feature branch with open Pull Requests
-skip_branch_with_pr: true
+branches:
+  only:
+    - staging
+    - trying
 
 environment:
   matrix:
@@ -56,6 +58,9 @@ after_build:
   - copy /y .\WasmerInstaller.exe ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
   - appveyor PushArtifact ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
   - cd ..\..\
+
+matrix:
+  fast_finish: true
 
 deploy:
   description: 'WasmerInstaller'
