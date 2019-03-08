@@ -221,7 +221,7 @@ impl FuncResolverBuilder {
 
     pub fn finalize(
         mut self,
-        signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
+        signatures: &SliceMap<SigIndex, FuncSig>,
         trampolines: Arc<Trampolines>,
         handler_data: HandlerData,
     ) -> CompileResult<(FuncResolver, BackendCache)> {
@@ -288,8 +288,8 @@ impl FuncResolverBuilder {
                         },
                     },
                     RelocationType::Signature(sig_index) => {
-                        let sig_index =
-                            SigRegistry.lookup_sig_index(Arc::clone(&signatures[sig_index]));
+                        let signature = SigRegistry.lookup_signature_ref(&signatures[sig_index]);
+                        let sig_index = SigRegistry.lookup_sig_index(signature);
                         sig_index.index() as _
                     }
                 };

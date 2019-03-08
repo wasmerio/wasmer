@@ -4,7 +4,6 @@ use crate::{
 };
 use cranelift_codegen::{ir, isa};
 use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
-use std::sync::Arc;
 use wasmer_runtime_core::{
     error::{CompileError, CompileResult},
     module::{
@@ -62,10 +61,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     /// Declares a function signature to the environment.
     fn declare_signature(&mut self, sig: &ir::Signature) {
         self.signatures.push(sig.clone());
-        self.module
-            .info
-            .signatures
-            .push(Arc::new(Converter(sig).into()));
+        self.module.info.signatures.push(Converter(sig).into());
     }
 
     /// Return the signature with the given index.

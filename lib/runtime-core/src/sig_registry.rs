@@ -49,4 +49,20 @@ impl SigRegistry {
         let global = (*GLOBAL_SIG_REGISTRY).read();
         Arc::clone(&global.sig_assoc[sig_index])
     }
+
+    pub fn lookup_signature_ref(&self, func_sig: &FuncSig) -> Arc<FuncSig> {
+        let mut global = (*GLOBAL_SIG_REGISTRY).write();
+        let global = &mut *global;
+
+        let func_table = &mut global.func_table;
+        let sig_assoc = &mut global.sig_assoc;
+
+        if func_table.contains_key(func_sig) {
+            Arc::clone(&sig_assoc[func_table[func_sig]])
+        } else {
+            let arc = Arc::new(func_sig.clone());
+            func_table.insert(Arc::clone(&arc), sig_assoc.push(Arc::clone(&arc)));
+            arc
+        }
+    }
 }

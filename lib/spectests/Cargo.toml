@@ -18,6 +18,11 @@ wabt = "0.7.2"
 wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
 wabt = "0.7.2"
 
+[target.'cfg(not(windows))'.dev-dependencies]
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.1.0" }
+
 [features]
 default = ["fast-tests"]
 fast-tests = []
+clif = []
+llvm = []
