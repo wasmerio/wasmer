@@ -1453,15 +1453,27 @@ impl FunctionCodeGenerator for X64FunctionCode {
 
         match op {
             Operator::GetGlobal { global_index } => {
-                let global_index = global_index as usize;
-                if global_index >= module_info.globals.len() {
-                    return Err(CodegenError {
-                        message: "global out of bounds",
-                    });
+                let mut global_index = global_index as usize;
+                if global_index < module_info.imported_globals.len() {
+                    dynasm!(
+                        assembler
+                        ; mov rax, r14 => vm::Ctx.imported_globals
+                    );
+                } else {
+                    global_index -= module_info.imported_globals.len();
+                    if global_index >= module_info.globals.len() {
+                        return Err(CodegenError {
+                            message: "global out of bounds",
+                        });
+                    }
+                    dynasm!(
+                        assembler
+                        ; mov rax, r14 => vm::Ctx.globals
+                    );
                 }
+
                 dynasm!(
                     assembler
-                    ; mov rax, r14 => vm::Ctx.globals
                     ; mov rax, [rax + (global_index as i32) * 8]
                     ; mov rax, rax => LocalGlobal.data
                 );
@@ -1476,13 +1488,29 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 )?;
             }
             Operator::SetGlobal { global_index } => {
-                let global_index = global_index as usize;
-                if global_index >= module_info.globals.len() {
-                    return Err(CodegenError {
-                        message: "global out of bounds",
-                    });
-                }
                 let ty = Self::emit_pop_into_ax(assembler, &mut self.value_stack)?;
+
+                let mut global_index = global_index as usize;
+                if global_index < module_info.imported_globals.len() {
+                    dynasm!(
+                        assembler
+                        ; push rbx
+                        ; mov rbx, r14 => vm::Ctx.imported_globals
+                    );
+                } else {
+                    global_index -= module_info.imported_globals.len();
+                    if global_index >= module_info.globals.len() {
+                        return Err(CodegenError {
+                            message: "global out of bounds",
+                        });
+                    }
+                    dynasm!(
+                        assembler
+                        ; push rbx
+                        ; mov rbx, r14 => vm::Ctx.globals
+                    );
+                }
+
                 if ty
                     != type_to_wp_type(
                         module_info.globals[LocalGlobalIndex::new(global_index)]
@@ -1496,8 +1524,6 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 }
                 dynasm!(
                     assembler
-                    ; push rbx
-                    ; mov rbx, r14 => vm::Ctx.globals
                     ; mov rbx, [rbx + (global_index as i32) * 8]
                     ; mov rbx => LocalGlobal.data, rax
                     ; pop rbx
