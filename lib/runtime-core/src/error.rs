@@ -57,8 +57,8 @@ pub enum LinkError {
     IncorrectImportSignature {
         namespace: String,
         name: String,
-        expected: Arc<FuncSig>,
-        found: Arc<FuncSig>,
+        expected: FuncSig,
+        found: FuncSig,
     },
     ImportNotFound {
         namespace: String,
@@ -156,16 +156,9 @@ impl std::error::Error for RuntimeError {}
 /// Comparing two `ResolveError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum ResolveError {
-    Signature {
-        expected: Arc<FuncSig>,
-        found: Vec<Type>,
-    },
-    ExportNotFound {
-        name: String,
-    },
-    ExportWrongType {
-        name: String,
-    },
+    Signature { expected: FuncSig, found: Vec<Type> },
+    ExportNotFound { name: String },
+    ExportWrongType { name: String },
 }
 
 impl PartialEq for ResolveError {

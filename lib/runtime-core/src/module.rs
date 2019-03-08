@@ -51,7 +51,7 @@ pub struct ModuleInfo {
     pub start_func: Option<FuncIndex>,
 
     pub func_assoc: Map<FuncIndex, SigIndex>,
-    pub signatures: Map<SigIndex, Arc<FuncSig>>,
+    pub signatures: Map<SigIndex, FuncSig>,
     pub backend: Backend,
 
     pub namespace_table: StringTable<NamespaceIndex>,
