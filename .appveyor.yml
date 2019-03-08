@@ -50,7 +50,7 @@ build_script:
 test_script:
   - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 
-after_build:
+before_deploy:
   - cd ./src/installer
   - iscc wasmer.iss
   - copy /y .\WasmerInstaller.exe ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
