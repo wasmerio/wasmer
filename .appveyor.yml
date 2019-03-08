@@ -48,7 +48,7 @@ build_script:
    - cargo build --release --verbose
 
 test_script:
-  - cargo test --package wasmer-spectests
+  - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 
 after_build:
   - cd ./src/installer
