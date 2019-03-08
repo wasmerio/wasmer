@@ -664,14 +664,15 @@ fn parse_function(
 
                 let call_site = match func_index.local_or_import(info) {
                     LocalOrImport::Local(local_func_index) => {
-                        let func_value = functions[local_func_index];
                         let params: Vec<_> = [ctx.basic()]
                             .iter()
                             .chain(state.peekn(func_sig.params().len())?.iter())
                             .map(|v| *v)
                             .collect();
 
-                        builder.build_call(func_value, &params, &state.var_name())
+                        let func_ptr = ctx.local_func(local_func_index, llvm_sig);
+
+                        builder.build_call(func_ptr, &params, &state.var_name())
                     }
                     LocalOrImport::Import(import_func_index) => {
                         let (func_ptr_untyped, ctx_ptr) = ctx.imported_func(import_func_index);
