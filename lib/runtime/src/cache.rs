@@ -30,7 +30,7 @@ pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash};
 ///     // Compute a key for a given WebAssembly binary
 ///     let key = WasmHash::generate(&[]);
 ///     // Store a module into the cache given a key
-///     fs_cache.store(key, module.clone())?;
+///     fs_cache.store(key.encode(), module.clone())?;
 ///     Ok(module)
 /// }
 /// ```
