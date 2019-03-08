@@ -303,7 +303,7 @@ pub fn read_module<
                     fcg.begin_body()?;
                     for op in item.get_operators_reader()? {
                         let op = op?;
-                        fcg.feed_opcode(op)?;
+                        fcg.feed_opcode(op, &info)?;
                     }
                     fcg.finalize()?;
                 }

@@ -14,10 +14,10 @@ use wasmer_runtime_core::{
     module::{ModuleInfo, ModuleInner, StringTable},
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
-        Value,
+        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalGlobalIndex, MemoryIndex, SigIndex,
+        TableIndex, Type, Value,
     },
-    vm::{self, ImportBacking},
+    vm::{self, ImportBacking, LocalGlobal},
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -202,12 +202,6 @@ pub enum TrapCode {
 pub struct NativeTrampolines {
     trap_unreachable: DynamicLabel,
 }
-
-#[repr(transparent)]
-struct CtxPtr(*mut vm::Ctx);
-
-unsafe impl Send for CtxPtr {}
-unsafe impl Sync for CtxPtr {}
 
 pub struct X64ModuleCodeGenerator {
     functions: Vec<X64FunctionCode>,
@@ -1434,7 +1428,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
         ));
         Ok(())
     }
-    fn feed_opcode(&mut self, op: Operator) -> Result<(), CodegenError> {
+    fn feed_opcode(&mut self, op: Operator, module_info: &ModuleInfo) -> Result<(), CodegenError> {
         let was_unreachable;
 
         if self.unreachable_depth > 0 {
@@ -1458,6 +1452,57 @@ impl FunctionCodeGenerator for X64FunctionCode {
         let assembler = self.assembler.as_mut().unwrap();
 
         match op {
+            Operator::GetGlobal { global_index } => {
+                let global_index = global_index as usize;
+                if global_index >= module_info.globals.len() {
+                    return Err(CodegenError {
+                        message: "global out of bounds",
+                    });
+                }
+                dynasm!(
+                    assembler
+                    ; mov rax, r14 => vm::Ctx.globals
+                    ; mov rax, [rax + (global_index as i32) * 8]
+                    ; mov rax, rax => LocalGlobal.data
+                );
+                Self::emit_push_from_ax(
+                    assembler,
+                    &mut self.value_stack,
+                    type_to_wp_type(
+                        module_info.globals[LocalGlobalIndex::new(global_index)]
+                            .desc
+                            .ty,
+                    ),
+                )?;
+            }
+            Operator::SetGlobal { global_index } => {
+                let global_index = global_index as usize;
+                if global_index >= module_info.globals.len() {
+                    return Err(CodegenError {
+                        message: "global out of bounds",
+                    });
+                }
+                let ty = Self::emit_pop_into_ax(assembler, &mut self.value_stack)?;
+                if ty
+                    != type_to_wp_type(
+                        module_info.globals[LocalGlobalIndex::new(global_index)]
+                            .desc
+                            .ty,
+                    )
+                {
+                    return Err(CodegenError {
+                        message: "type mismatch in SetGlobal",
+                    });
+                }
+                dynasm!(
+                    assembler
+                    ; push rbx
+                    ; mov rbx, r14 => vm::Ctx.globals
+                    ; mov rbx, [rbx + (global_index as i32) * 8]
+                    ; mov rbx => LocalGlobal.data, rax
+                    ; pop rbx
+                );
+            }
             Operator::GetLocal { local_index } => {
                 let local_index = local_index as usize;
                 if local_index >= self.locals.len() {
