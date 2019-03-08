@@ -31,7 +31,7 @@ int main()
 
     wasmer_import_export_kind kind = wasmer_export_kind(export);
     assert(kind == WASM_FUNCTION);
-    wasmer_export_func_t *func = wasmer_export_to_func(export);
+    const wasmer_export_func_t *func = wasmer_export_to_func(export);
 
     wasmer_byte_array name_bytes = wasmer_export_name(export);
     assert(name_bytes.bytes_len == 3);

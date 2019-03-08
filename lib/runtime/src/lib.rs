@@ -154,11 +154,15 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
 
 fn default_compiler() -> &'static dyn Compiler {
     use lazy_static::lazy_static;
-    // use wasmer_clif_backend::CraneliftCompiler;
-    use wasmer_llvm_backend::LLVMCompiler;
+
+    #[cfg(feature = "llvm")]
+    use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
+
+    #[cfg(not(feature = "llvm"))]
+    use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     lazy_static! {
-        static ref DEFAULT_COMPILER: LLVMCompiler = { LLVMCompiler::new() };
+        static ref DEFAULT_COMPILER: DefaultCompiler = { DefaultCompiler::new() };
     }
 
     &*DEFAULT_COMPILER as &dyn Compiler

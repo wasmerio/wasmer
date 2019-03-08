@@ -97,13 +97,19 @@ sudo apt install cmake
 Windows support is _highly experimental_. Only simple Wasm programs may be run, and no syscalls are allowed. This means
 nginx and Lua do not work on Windows. See [this issue](https://github.com/wasmerio/wasmer/issues/176) regarding Emscripten syscall polyfills for Windows.
 
-1. Install [Python for Windows](https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
+1. Install [Visual Studio](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=15)
+
+2. Install [Rust for Windows](https://win.rustup.rs)
+
+3. Install [Python for Windows](https://www.python.org/downloads/release/python-2714/). The Windows x86-64 MSI installer is fine.
    Make sure to enable "Add python.exe to Path" during installation.
 
-2. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default
+4. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default
    settings for the installer are fine).
 
-3. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
+5. Install [CMake](https://cmake.org/download/). Ensure CMake is in your PATH.
+
+6. Install [LLVM 7.0](https://prereleases.llvm.org/win-snapshots/LLVM-7.0.0-r336178-win64.exe)
 
 ## Building
 

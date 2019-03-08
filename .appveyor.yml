@@ -17,21 +17,21 @@ cache:
   - target
 
 install:
-  # Install LLVM
-  - mkdir C:\projects\deps
-  - cd C:\projects\deps
-  - appveyor DownloadFile http://prereleases.llvm.org/win-snapshots/LLVM-7.0.0-r336178-win64.exe -FileName llvm.exe
-  - 7z x llvm.exe -oC:\projects\deps\llvm
-  # - set "PATH=%PATH%;C:\projects\deps\llvm\bin"
-  - set "LLD_LINK=C:\projects\deps\llvm\bin\lld-link.exe"
-  - set "LLVM_SYS_70_PREFIX=C:\projects\deps\llvm"
-  - cd "%APPVEYOR_BUILD_FOLDER%"
+  # # Install LLVM
+  # - mkdir C:\projects\deps
+  # - cd C:\projects\deps
+  # - appveyor DownloadFile http://prereleases.llvm.org/win-snapshots/LLVM-7.0.0-r336178-win64.exe -FileName llvm.exe
+  # - 7z x llvm.exe -oC:\projects\deps\llvm
+  # # - set "PATH=%PATH%;C:\projects\deps\llvm\bin"
+  # - set "LLD_LINK=C:\projects\deps\llvm\bin\lld-link.exe"
+  # - set "LLVM_SYS_70_PREFIX=C:\projects\deps\llvm"
+  # - cd "%APPVEYOR_BUILD_FOLDER%"
 
   # Install Rust
   # uncomment these lines if the cache is cleared, or if we must re-install rust for some reason
   # - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
   # - rustup-init.exe -yv --default-host %target%
-  - set PATH=%PATH%;C:\\projects\\deps\\llvm\\bin;%USERPROFILE%\.cargo\bin
+  - set PATH=%PATH%;C:\\Libraries\\llvm-5.0.0\\bin;%USERPROFILE%\.cargo\bin
   - rustup default stable-%target%
   - rustup update
   - rustc -vV
@@ -48,9 +48,9 @@ build_script:
    - cargo build --release --verbose
 
 test_script:
-  - cargo test --package wasmer-spectests
+  - cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 
-after_build:
+before_deploy:
   - cd ./src/installer
   - iscc wasmer.iss
   - copy /y .\WasmerInstaller.exe ..\..\WasmerInstaller-%APPVEYOR_REPO_TAG_NAME%.exe
