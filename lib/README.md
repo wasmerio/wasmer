@@ -34,4 +34,4 @@ to tune the codegen properties (compile speed, performance, etc) to best fit the
 Currently, we support multiple backends for compiling WebAssembly to machine code:
 
 - [clif-backend](./clif-backend/): Cranelift backend
-- [llvm-backend](./clif-backend/): LLVM backend
+- [llvm-backend](./llvm-backend/): LLVM backend
