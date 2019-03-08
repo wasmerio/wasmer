@@ -73,7 +73,7 @@ int main()
     argument_one.tag = WASM_I32;
     argument_one.value.I32 = 7;
 
-    // Value of argumen #2 is `8i32`.
+    // Value of argument #2 is `8i32`.
     wasmer_value_t argument_two;
     argument_two.tag = WASM_I32;
     argument_two.value.I32 = 8;
