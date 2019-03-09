@@ -342,4 +342,25 @@ mod tests {
         }
         assert!(iter_counter == 2);
     }
+
+    #[test]
+    fn test_like_namespace_iteration() {
+        // Create some imports for testing
+        let imports = imports! {
+            "env" => {
+                "x" => Global::new(Value::I32(77)),
+                "y" => Global::new(Value::I32(77)),
+                "z" => Global::new(Value::I32(77)),
+            },
+        };
+        // Get the namespace and iterate over it
+        let namespace = imports.get_namespace("env").unwrap();
+        for (export_name, export) in namespace {
+            assert!(match export {
+                Export::Global(_) => true,
+                _ => false,
+            });
+        }
+        assert!(namespace.into_iter().count() == 3);
+    }
 }
