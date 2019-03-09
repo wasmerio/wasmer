@@ -187,3 +187,69 @@ impl LikeNamespace for Namespace {
         self.map.get(name).map(|is_export| is_export.to_export())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::global::Global;
+    use crate::types::Value;
+    use crate::vm::Ctx;
+
+    #[test]
+    fn test_merge_import() {
+        // Create some imports for testing
+        fn func_a(_ctx: &mut Ctx) -> i32 {
+            0_i32
+        }
+        let imports_a = imports! {
+            "only_in_a" => {
+                "a" => func!(func_a),
+            },
+            "env" => {
+                "a" => func!(func_a),
+                "x" => func!(func_a),
+            },
+        };
+        let imports_b = imports! {
+            "only_in_b" => {
+                "b" => Global::new(Value::I32(77)),
+            },
+            "env" => {
+                "b" => Global::new(Value::I32(77)),
+                "x" => Global::new(Value::I32(77)),
+            },
+        };
+        let merged_imports = ImportObject::merge(imports_a, imports_b);
+        // Make sure everything is there that should be
+        let namespace_a = merged_imports.get_namespace("only_in_a").unwrap();
+        let namespace_b = merged_imports.get_namespace("only_in_b").unwrap();
+        let namespace_env = merged_imports.get_namespace("env").unwrap();
+        let export_a_a = namespace_a.get_export("a").unwrap();
+        let export_b_b = namespace_b.get_export("b").unwrap();
+        let export_env_a = namespace_env.get_export("a").unwrap();
+        let export_env_b = namespace_env.get_export("b").unwrap();
+        let export_env_x = namespace_env.get_export("x").unwrap();
+        // Make sure that the types are what we expected
+        assert!(match export_a_a {
+            Export::Function { .. } => true,
+            _ => false,
+        });
+        assert!(match export_b_b {
+            Export::Global(_) => true,
+            _ => false,
+        });
+        assert!(match export_env_a {
+            Export::Function { .. } => true,
+            _ => false,
+        });
+        assert!(match export_env_b {
+            Export::Global(_) => true,
+            _ => false,
+        });
+        // This should be the funtion from A, not the global from B
+        assert!(match export_env_x {
+            Export::Function { .. } => true,
+            _ => false,
+        });
+    }
+}
