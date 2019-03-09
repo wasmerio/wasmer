@@ -155,6 +155,24 @@ impl ImportObject {
     }
 }
 
+impl IntoIterator for ImportObject {
+    type Item = (String, Box<dyn LikeNamespace>);
+    type IntoIter = hashbrown::hash_map::IntoIter<String, Box<dyn LikeNamespace>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a ImportObject {
+    type Item = (&'a String, &'a Box<dyn LikeNamespace>);
+    type IntoIter = hashbrown::hash_map::Iter<'a, String, Box<dyn LikeNamespace>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.iter()
+    }
+}
+
 pub struct Namespace {
     map: HashMap<String, Box<dyn IsExport>>,
 }
