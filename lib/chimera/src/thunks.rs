@@ -51,12 +51,21 @@ pub struct ThunkTable {
 
 impl ThunkTable {
     /// This creates an empty `ThunkTable`.
-    pub fn new(num_local_functions: usize) -> Self {
+    pub fn new(num_local_functions: usize, filler: impl Fn(LocalFuncIndex) -> u64) -> Self {
         let thunk_size = 64;
         let thunk_table_size = thunk_size * num_local_functions;
         let mem = Memory::with_size_protect(thunk_table_size, Protect::ReadWriteExec).unwrap();
 
-        Self { mem }
+        let table = Self { mem };
+
+        for index in 0..num_local_functions {
+            let func_index = LocalFuncIndex::new(index);
+            let ptr = table.thunk_ptr(func_index) as *mut [u8; 16];
+            let address = filler(func_index);
+            unsafe { ptr.write(assemble_jmp(address)) };
+        }
+
+        table
     }
 
     /// This atomically updates a (possibly live) thunk to jump to a new
@@ -79,7 +88,7 @@ mod tests {
 
     #[test]
     fn valid_thunk_table() {
-        let thunk_table = ThunkTable::new(2);
+        let thunk_table = ThunkTable::new(2, |_| 0);
         unsafe {
             thunk_table.update_thunk(LocalFuncIndex::new(1), 0xcafebabecafebabe);
         }
@@ -102,12 +111,26 @@ mod tests {
             a
         }
 
-        let thunk_table = ThunkTable::new(1);
+        let thunk_table = ThunkTable::new(1, |_| 0);
 
         let f: extern "C" fn(i32) -> i32 = unsafe {
             thunk_table.update_thunk(LocalFuncIndex::new(0), identity as u64);
             mem::transmute(thunk_table.thunk_ptr(LocalFuncIndex::new(0)))
         };
+
+        assert_eq!(f(42), 42);
+    }
+
+    #[test]
+    fn init_callable_thunk_table() {
+        extern "C" fn identity(a: i32) -> i32 {
+            a
+        }
+
+        let thunk_table = ThunkTable::new(1, |_| identity as u64);
+
+        let f: extern "C" fn(i32) -> i32 =
+            unsafe { mem::transmute(thunk_table.thunk_ptr(LocalFuncIndex::new(0))) };
 
         assert_eq!(f(42), 42);
     }
