@@ -423,18 +423,6 @@ impl InstanceInner {
 }
 
 impl LikeNamespace for Instance {
-    fn get_all_exports(&self) -> HashMap<String, Export> {
-        self.module
-            .info
-            .exports
-            .iter()
-            .map(|(name, export_index)| {
-                let export = self.inner.get_export_from_index(&self.module, export_index);
-                (name.to_string(), export)
-            })
-            .collect()
-    }
-
     fn get_export(&self, name: &str) -> Option<Export> {
         let export_index = self.module.info.exports.get(name)?;
 

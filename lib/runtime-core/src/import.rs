@@ -31,7 +31,6 @@ impl<'a> Iterator for ExportIter<'a> {
 }
 
 pub trait LikeNamespace {
-    fn get_all_exports(&self) -> HashMap<String, Export>;
     fn get_export(&self, name: &str) -> Option<Export>;
     fn export_names<'a>(&'a self) -> Box<dyn Iterator<Item = &'a str> + 'a>;
 }
@@ -162,18 +161,18 @@ impl ImportObject {
                 (Some(namespace_a), Some(namespace_b)) => {
                     // Create a combined namespace
                     let mut namespace_ab = Namespace::new();
-                    let mut exports_a = namespace_a.get_all_exports();
-                    let mut exports_b = namespace_b.get_all_exports();
+                    let mut exports_a: HashMap<&str, Export> = namespace_a.into_iter().collect();
+                    let mut exports_b: HashMap<&str, Export> = namespace_b.into_iter().collect();
                     // Import from A will win over B
                     namespace_ab
                         .map
                         .extend(exports_b.drain().map(|(export_name, export)| {
-                            (export_name, Box::new(export) as Box<IsExport>)
+                            (export_name.to_string(), Box::new(export) as Box<IsExport>)
                         }));
                     namespace_ab
                         .map
                         .extend(exports_a.drain().map(|(export_name, export)| {
-                            (export_name, Box::new(export) as Box<IsExport>)
+                            (export_name.to_string(), Box::new(export) as Box<IsExport>)
                         }));
                     merged_imports.map.insert(name, Box::new(namespace_ab));
                 }
@@ -229,13 +228,6 @@ impl Namespace {
 }
 
 impl LikeNamespace for Namespace {
-    fn get_all_exports(&self) -> HashMap<String, Export> {
-        self.map
-            .iter()
-            .map(|(name, is_export)| (name.to_string(), is_export.to_export()))
-            .collect()
-    }
-
     fn get_export(&self, name: &str) -> Option<Export> {
         self.map.get(name).map(|is_export| is_export.to_export())
     }
