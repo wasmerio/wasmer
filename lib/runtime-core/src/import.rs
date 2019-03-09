@@ -309,4 +309,37 @@ mod tests {
             _ => false,
         });
     }
+
+    #[test]
+    fn test_import_object_iteration() {
+        // Create some imports for testing
+        let imports = imports! {
+            "env" => {
+                "x" => Global::new(Value::I32(77)),
+            },
+            "env2" => {
+                "x" => Global::new(Value::I32(77)),
+            },
+        };
+        // Iterate over the namespaces by reference
+        for (namespace_name, namespace) in &imports {
+            let export = namespace.get_export("x").unwrap();
+            assert!(match export {
+                Export::Global(_) => true,
+                _ => false,
+            });
+        }
+        assert!((&imports).into_iter().count() == 2);
+        // Iterate over the namespaces by value
+        let mut iter_counter = 0;
+        for (namespace_name, namespace) in imports {
+            let export = namespace.get_export("x").unwrap();
+            assert!(match export {
+                Export::Global(_) => true,
+                _ => false,
+            });
+            iter_counter += 1;
+        }
+        assert!(iter_counter == 2);
+    }
 }
