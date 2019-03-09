@@ -440,6 +440,10 @@ impl LikeNamespace for Instance {
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
     }
+
+    fn export_names<'a>(&'a self) -> Box<dyn Iterator<Item = &'a str> + 'a> {
+        Box::new(self.module.info.exports.keys().map(|s| s.as_str()))
+    }
 }
 
 /// A representation of an exported WebAssembly function.

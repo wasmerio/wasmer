@@ -5,9 +5,35 @@ use std::{
     rc::Rc,
 };
 
+pub struct ExportIter<'a> {
+    like_namespace: &'a LikeNamespace,
+    export_names: Box<dyn Iterator<Item = &'a str> + 'a>,
+}
+
+impl<'a> ExportIter<'a> {
+    fn new(like_namespace: &'a LikeNamespace) -> ExportIter<'a> {
+        ExportIter {
+            like_namespace,
+            export_names: Box::new(like_namespace.export_names()),
+        }
+    }
+}
+
+impl<'a> Iterator for ExportIter<'a> {
+    type Item = (&'a str, Export);
+
+    fn next(&mut self) -> Option<(&'a str, Export)> {
+        let export_name = self.export_names.next()?;
+        self.like_namespace
+            .get_export(&export_name)
+            .map(|export| (export_name, export))
+    }
+}
+
 pub trait LikeNamespace {
     fn get_all_exports(&self) -> HashMap<String, Export>;
     fn get_export(&self, name: &str) -> Option<Export>;
+    fn export_names<'a>(&'a self) -> Box<dyn Iterator<Item = &'a str> + 'a>;
 }
 
 pub trait IsExport {
@@ -17,6 +43,15 @@ pub trait IsExport {
 impl IsExport for Export {
     fn to_export(&self) -> Export {
         self.clone()
+    }
+}
+
+impl<'a> IntoIterator for &'a LikeNamespace {
+    type Item = (&'a str, Export);
+    type IntoIter = ExportIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ExportIter::new(self)
     }
 }
 
@@ -203,6 +238,10 @@ impl LikeNamespace for Namespace {
 
     fn get_export(&self, name: &str) -> Option<Export> {
         self.map.get(name).map(|is_export| is_export.to_export())
+    }
+
+    fn export_names<'a>(&'a self) -> Box<dyn Iterator<Item = &'a str> + 'a> {
+        Box::new(self.map.keys().map(|s| s.as_str()))
     }
 }
 
