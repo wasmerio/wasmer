@@ -99,44 +99,41 @@ impl ImportObject {
         }
     }
 
-    pub fn merged(mut imports_a: ImportObject, mut imports_b: ImportObject) -> Self {
-        let all_names: HashSet<String> = imports_a
-            .map
-            .keys()
-            .chain(imports_b.map.keys())
-            .cloned()
-            .collect();
-        let mut combined_imports = ImportObject::new();
-        for name in all_names {
+    pub fn merge(mut imports_a: ImportObject, mut imports_b: ImportObject) -> Self {
+        let names_a = imports_a.map.keys();
+        let names_b = imports_b.map.keys();
+        let names_ab: HashSet<String> = names_a.chain(names_b).cloned().collect();
+        let mut merged_imports = ImportObject::new();
+        for name in names_ab {
             match (imports_a.map.remove(&name), imports_b.map.remove(&name)) {
                 (Some(namespace_a), Some(namespace_b)) => {
                     // Create a combined namespace
-                    let mut combined_namespace = Namespace {
-                        map: HashMap::new(),
-                    };
+                    let mut namespace_ab = Namespace::new();
                     let mut exports_a = namespace_a.get_all_exports();
                     let mut exports_b = namespace_b.get_all_exports();
                     // Import from A will win over B
-                    combined_namespace.map.extend(exports_b.drain().map(
-                        |(export_name, export)| (export_name, Box::new(export) as Box<IsExport>),
-                    ));
-                    combined_namespace.map.extend(exports_a.drain().map(
-                        |(export_name, export)| (export_name, Box::new(export) as Box<IsExport>),
-                    ));
-                    combined_imports
+                    namespace_ab
                         .map
-                        .insert(name, Box::new(combined_namespace));
+                        .extend(exports_b.drain().map(|(export_name, export)| {
+                            (export_name, Box::new(export) as Box<IsExport>)
+                        }));
+                    namespace_ab
+                        .map
+                        .extend(exports_a.drain().map(|(export_name, export)| {
+                            (export_name, Box::new(export) as Box<IsExport>)
+                        }));
+                    merged_imports.map.insert(name, Box::new(namespace_ab));
                 }
                 (Some(namespace_a), None) => {
-                    combined_imports.map.insert(name, namespace_a);
+                    merged_imports.map.insert(name, namespace_a);
                 }
                 (None, Some(namespace_b)) => {
-                    combined_imports.map.insert(name, namespace_b);
+                    merged_imports.map.insert(name, namespace_b);
                 }
                 (None, None) => panic!("Unreachable"),
             }
         }
-        combined_imports
+        merged_imports
     }
 }
 

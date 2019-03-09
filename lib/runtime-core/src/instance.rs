@@ -429,10 +429,8 @@ impl LikeNamespace for Instance {
             .exports
             .iter()
             .map(|(name, export_index)| {
-                (
-                    name.to_string(),
-                    self.inner.get_export_from_index(&self.module, export_index),
-                )
+                let export = self.inner.get_export_from_index(&self.module, export_index);
+                (name.to_string(), export)
             })
             .collect()
     }
