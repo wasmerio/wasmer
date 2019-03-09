@@ -99,6 +99,24 @@ impl ImportObject {
         }
     }
 
+    /// Merge two `ImportObject`'s into one, also merging namespaces.
+    ///
+    /// When a namespace is unique to the first or second import object, that namespace is moved
+    /// directly into the merged import object. When a namespace with the same name occurs in both
+    /// import objects, a merge namespace is created. When an export is unique to the first or
+    /// second namespace, that export is moved directly into the merged namespace. When an export
+    /// with the same name occurs in both namespaces, then the export from the first namespace is
+    /// used, and the export from the second namespace is dropped.
+    ///
+    /// # Usage #
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::import::ImportObject;
+    /// fn merge(imports_a: ImportObject, imports_b: ImportObject) {
+    ///     let merged_imports = ImportObject::merge(imports_a, imports_b);
+    ///     // ...
+    /// }
+    /// ```
     pub fn merge(mut imports_a: ImportObject, mut imports_b: ImportObject) -> Self {
         let names_a = imports_a.map.keys();
         let names_b = imports_b.map.keys();
