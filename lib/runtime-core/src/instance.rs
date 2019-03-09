@@ -13,6 +13,7 @@ use crate::{
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vm,
 };
+use hashbrown::HashMap;
 use std::{mem, sync::Arc};
 
 pub(crate) struct InstanceInner {
@@ -422,6 +423,20 @@ impl InstanceInner {
 }
 
 impl LikeNamespace for Instance {
+    fn get_all_exports(&self) -> HashMap<String, Export> {
+        self.module
+            .info
+            .exports
+            .iter()
+            .map(|(name, export_index)| {
+                (
+                    name.to_string(),
+                    self.inner.get_export_from_index(&self.module, export_index),
+                )
+            })
+            .collect()
+    }
+
     fn get_export(&self, name: &str) -> Option<Export> {
         let export_index = self.module.info.exports.get(name)?;
 
