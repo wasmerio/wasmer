@@ -57,10 +57,6 @@ struct CacheGenerate {
 
 #[derive(Debug, StructOpt)]
 struct CacheRun {
-    /// Module name to run
-    #[structopt(parse(from_os_str))]
-    module_name: OsString,
-
     /// Module key in the cache
     #[structopt(parse(from_os_str))]
     module_key: OsString,
@@ -258,13 +254,12 @@ fn run_wasm_module_from_cache(options: &CacheRun) -> Result<(), String> {
         FileSystemCache::new(wasmer_cache_dir).map_err(|e| format!("Cache error: {:?}", e))?
     };
 
-    let key = String::from(options.module_key.to_str().unwrap());
+    let key = options.module_key.to_str().unwrap();
     let module = cache
-        .load(key)
+        .load(String::from(key))
         .map_err(|e| format!("Can't execute module from cache: {:?}", e))?;
 
-    let name = String::from(options.module_name.to_str().unwrap());
-    run_wasm_module(&module, name, &options.args)
+    run_wasm_module(&module, String::from(key), &options.args)
 }
 
 fn cache_run(options: CacheRun) {
