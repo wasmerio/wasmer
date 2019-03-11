@@ -6,3 +6,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
+rayon = "1.0"
+lazy_static = "1"
+parking_lot = "0.7.1"
+wasmparser = "0.29.2"

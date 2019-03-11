@@ -7,6 +7,9 @@ use wasmer_runtime_core::{
     module::ModuleInner,
 };
 
+mod compile;
+mod pool;
+mod state;
 mod thunks;
 
 pub trait TieredCompiler {}
