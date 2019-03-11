@@ -100,5 +100,6 @@ int main()
     wasmer_import_func_destroy(func);
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);
+    free(context_data);
     return 0;
 }
