@@ -41,8 +41,8 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
                 emscripten_memory_pointer!(ctx.memory(0), urandom_file_offset) as *const i8;
             let fd = unsafe { open(raw_pointer_to_urandom_file, flags, mode) };
             debug!(
-                "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
-                pathname, flags, mode, fd, s
+                "=> pathname: {}, flags: {}, mode: {} = fd: {}",
+                pathname, flags, mode, fd
             );
             fd
         }
