@@ -947,6 +947,17 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     *exports = Box::into_raw(named_exports) as *mut wasmer_exports_t;
 }
 
+/// Sets the `data` field of the instance context. This context will be
+/// passed to all imported function for instance.
+#[no_mangle]
+pub extern "C" fn wasmer_instance_context_data_set(
+    instance: *mut wasmer_instance_t,
+    data_ptr: *mut c_void,
+) {
+    let instance_ref = unsafe { &mut *(instance as *mut Instance) };
+    instance_ref.context_mut().data = data_ptr;
+}
+
 pub struct NamedExports(Vec<NamedExport>);
 
 /// Frees the memory for the given exports
@@ -1348,6 +1359,15 @@ pub extern "C" fn wasmer_instance_context_memory(
     let ctx = unsafe { &*(ctx as *const Ctx) };
     let memory = ctx.memory(0);
     memory as *const Memory as *const wasmer_memory_t
+}
+
+/// Gets the `data` field within the context.
+#[no_mangle]
+pub extern "C" fn wasmer_instance_context_data_get(
+    ctx: *const wasmer_instance_context_t,
+) -> *mut c_void {
+    let ctx = unsafe { &*(ctx as *const Ctx) };
+    ctx.data
 }
 
 /// Gets the start pointer to the bytes within a Memory
