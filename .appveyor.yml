@@ -20,14 +20,17 @@ cache:
 
 install:
   # # Install LLVM
-  # - mkdir C:\projects\deps
-  # - cd C:\projects\deps
+  - mkdir C:\projects\deps
+  - cd C:\projects\deps
+  - appveyor DownloadFile https://github.com/bjfish/build-llvm-for-appveyor/releases/download/0.3/llvm-7.0.1-install.zip -FileName llvm-7.0.1-install.zip
   # - appveyor DownloadFile http://prereleases.llvm.org/win-snapshots/LLVM-7.0.0-r336178-win64.exe -FileName llvm.exe
+  - 7z x llvm-7.0.1-install.zip
   # - 7z x llvm.exe -oC:\projects\deps\llvm
   # # - set "PATH=%PATH%;C:\projects\deps\llvm\bin"
   # - set "LLD_LINK=C:\projects\deps\llvm\bin\lld-link.exe"
-  # - set "LLVM_SYS_70_PREFIX=C:\projects\deps\llvm"
-  # - cd "%APPVEYOR_BUILD_FOLDER%"
+  - C:\projects\deps\llvm-7.0.1-install\bin\llvm-config.exe --version
+  - set "LLVM_SYS_70_PREFIX=C:\projects\deps\llvm-7.0.1-install"
+  - cd "%APPVEYOR_BUILD_FOLDER%"
 
   # Install Rust
   # uncomment these lines if the cache is cleared, or if we must re-install rust for some reason
