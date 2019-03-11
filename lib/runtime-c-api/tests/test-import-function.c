@@ -8,6 +8,11 @@ static bool print_str_called = false;
 static int memory_len = 0;
 static int ptr_len = 0;
 static char actual_str[14] = {};
+static int actual_context_data_value = 0;
+
+typedef struct {
+  int value;
+} context_data;
 
 void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
 {
@@ -23,6 +28,8 @@ void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
     print_str_called = true;
     memory_len = mem_len;
     ptr_len = len;
+
+    actual_context_data_value = ((context_data *) wasmer_instance_context_data_get(ctx))->value;
 }
 
 int main()
@@ -65,6 +72,11 @@ int main()
 
     assert(compile_result == WASMER_OK);
 
+    context_data* context_data = malloc(sizeof(context_data));
+    int context_data_value = 42;
+    context_data->value = context_data_value;
+    wasmer_instance_context_data_set(instance, context_data);
+
     wasmer_value_t params[] = {};
     wasmer_value_t results[] = {};
     wasmer_result_t call_result = wasmer_instance_call(instance, "hello_wasm", params, 0, results, 0);
@@ -82,6 +94,7 @@ int main()
     assert(memory_len == 17);
     assert(ptr_len == 13);
     assert(0 == strcmp(actual_str, "Hello, World!"));
+    assert(context_data_value == actual_context_data_value);
 
     printf("Destroying func\n");
     wasmer_import_func_destroy(func);
