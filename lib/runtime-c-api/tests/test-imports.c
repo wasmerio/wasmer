@@ -127,7 +127,7 @@ int main()
 
     // Creates a WebAssembly Instance from wasm bytes and imports
     wasmer_instance_t *instance = NULL;
-    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 3);
+    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 4);
     printf("Compile result:  %d\n", compile_result);
     if (compile_result != WASMER_OK)
     {
