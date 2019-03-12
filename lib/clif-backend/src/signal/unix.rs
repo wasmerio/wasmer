@@ -18,11 +18,7 @@ use nix::sys::signal::{
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
-use wasmer_runtime_core::{
-    error::{RuntimeError, RuntimeResult},
-    structures::TypedIndex,
-    types::{MemoryIndex, TableIndex},
-};
+use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
 
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
