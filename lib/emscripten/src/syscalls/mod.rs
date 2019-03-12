@@ -43,15 +43,6 @@ use super::env;
 use std::cell::Cell;
 use std::slice;
 
-// Another conditional constant for name resolution: Macos et iOS use
-// SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
-// Other platforms do otherwise.
-#[cfg(target_os = "darwin")]
-use libc::SO_NOSIGPIPE;
-
-#[cfg(not(target_os = "darwin"))]
-const SO_NOSIGPIPE: c_int = 0;
-
 /// exit
 pub fn ___syscall1(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) {
     debug!("emscripten::___syscall1 (exit) {}", _which);
