@@ -77,7 +77,7 @@ pub fn ___syscall3(ctx: &mut Ctx, which: i32, mut varargs: VarArgs) -> i32 {
     debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut u8;
     let mut buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
-    let emscripten_data = get_emscripten_data(ctx);
+    let emscripten_data = crate::env::get_emscripten_data(ctx);
     let ret = match &mut emscripten_data.vfs {
         Some(vfs) => vfs.read_file(fd as _, &mut buf_slice).unwrap(),
         None => 0,
@@ -104,7 +104,7 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     let pathname: u32 = varargs.get(ctx);
     let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
     let path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
-    let emscripten_data = get_emscripten_data(ctx);
+    let emscripten_data = crate::env::get_emscripten_data(ctx);
     let fd = if let Some(vfs) = &mut emscripten_data.vfs {
         vfs.open_file(path_str).unwrap_or(-1)
     } else {
@@ -175,7 +175,7 @@ pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     // convert the file descriptor into a vec with two slots
     let mut fd_vec: Vec<c_int> = emscripten_memory.view()[((fd_offset / 4) as usize)..]
         .iter()
-        .map(|pipe_end: &Cell<c_int>| pipe_end.get())
+        .map(|pipe_end: &std::cell::Cell<c_int>| pipe_end.get())
         .take(2)
         .collect();
 
