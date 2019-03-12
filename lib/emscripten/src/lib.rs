@@ -293,10 +293,6 @@ pub struct EmscriptenGlobalsData {
     table_base: u32,
     temp_double_ptr: u32,
     use_old_abort_on_cannot_grow_memory: bool,
-
-    // Global namespace
-    infinity: f64,
-    nan: f64,
 }
 
 pub struct EmscriptenGlobals {
@@ -375,9 +371,6 @@ impl EmscriptenGlobals {
                 table_base,
                 temp_double_ptr,
                 use_old_abort_on_cannot_grow_memory,
-
-                infinity: std::f64::INFINITY,
-                nan: std::f64::NAN,
             }
         };
 
