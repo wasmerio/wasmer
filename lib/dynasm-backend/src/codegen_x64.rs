@@ -3141,25 +3141,24 @@ unsafe extern "C" fn call_indirect(
     if elem_index >= table.count as usize {
         panic!("element index out of bounds");
     }
-    let func_index = *(table.base as *mut u32).offset(elem_index as isize) as usize;
+    let anyfunc = &*(table.base as *mut vm::Anyfunc).offset(elem_index as isize);
     let ctx: &X64ExecutionContext =
         &*CURRENT_EXECUTION_CONTEXT.with(|x| *x.borrow().last().unwrap());
 
-    println!(
-        "SIG INDEX = {}, FUNC INDEX = {}, ELEM INDEX = {}",
-        sig_index, func_index, elem_index
-    );
+    let func_index = anyfunc.func_index.unwrap();
 
-    // TODO: Fix table reading. Hardcoding func index = 1 for debugging here.
-    let func_index = 1usize;
+    /*println!(
+        "SIG INDEX = {}, FUNC INDEX = {:?}, ELEM INDEX = {}",
+        sig_index, func_index, elem_index
+    );*/
 
     if ctx.signatures[SigIndex::new(sig_index)]
-        != ctx.signatures[ctx.function_signatures[FuncIndex::new(func_index)]]
+        != ctx.signatures[ctx.function_signatures[func_index]]
     {
         panic!("signature mismatch");
     }
 
-    let func = ctx.function_pointers[func_index].0;
+    let func = ctx.function_pointers[func_index.index() as usize].0;
     CALL_WASM(
         stack_top,
         stack_base as usize - stack_top as usize,

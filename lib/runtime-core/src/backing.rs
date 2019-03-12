@@ -194,7 +194,7 @@ impl LocalBacking {
                                 }
                             };
 
-                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id };
+                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id, func_index: Some(func_index) };
                         }
                     });
                 }
@@ -232,7 +232,12 @@ impl LocalBacking {
                                 }
                             };
 
-                            elements[init_base + i] = vm::Anyfunc { func, ctx, sig_id };
+                            elements[init_base + i] = vm::Anyfunc {
+                                func,
+                                ctx,
+                                sig_id,
+                                func_index: Some(func_index),
+                            };
                         }
                     });
                 }

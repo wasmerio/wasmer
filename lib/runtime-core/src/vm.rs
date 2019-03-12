@@ -3,7 +3,7 @@ use crate::{
     memory::Memory,
     module::ModuleInner,
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex},
+    types::{FuncIndex, LocalOrImport, MemoryIndex},
 };
 use std::{ffi::c_void, mem, ptr};
 
@@ -283,6 +283,7 @@ pub struct Anyfunc {
     pub func: *const Func,
     pub ctx: *mut Ctx,
     pub sig_id: SigId,
+    pub func_index: Option<FuncIndex>,
 }
 
 impl Anyfunc {
@@ -291,6 +292,7 @@ impl Anyfunc {
             func: ptr::null(),
             ctx: ptr::null_mut(),
             sig_id: SigId(u32::max_value()),
+            func_index: None,
         }
     }
 
