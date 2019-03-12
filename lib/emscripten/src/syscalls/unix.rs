@@ -279,13 +279,11 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
 
             // Debug received address
-            unsafe {
-                let _proper_address = address as *const GuestSockaddrIn;
-                debug!(
+            let _proper_address = address as *const GuestSockaddrIn;
+            debug!(
                     "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
                     (*_proper_address).sin_family, (*_proper_address).sin_port, (*_proper_address).sin_addr.s_addr
                 );
-            }
 
             let status = unsafe { bind(socket, address, address_len) };
             // debug!("=> status: {}", status);
