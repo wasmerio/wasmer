@@ -42,17 +42,12 @@ use wasmer_runtime_core::vm::Ctx;
 use super::env;
 use std::cell::Cell;
 use std::slice;
-// use std::sys::fd::FileDesc;
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
 // Other platforms do otherwise.
-use crate::env::get_emscripten_data;
-use crate::utils::copy_cstr_into_wasm;
-use crate::utils::read_string_from_wasm;
 #[cfg(target_os = "darwin")]
 use libc::SO_NOSIGPIPE;
-use std::ffi::CString;
 
 #[cfg(not(target_os = "darwin"))]
 const SO_NOSIGPIPE: c_int = 0;
@@ -147,7 +142,6 @@ pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     // offset to a file descriptor, which contains a read end and write end, 2 integers
     let fd_offset: u32 = varargs.get(ctx);
 
-    use std::cell::Cell;
     let emscripten_memory = ctx.memory(0);
 
     // convert the file descriptor into a vec with two slots
