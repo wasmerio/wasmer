@@ -137,7 +137,7 @@ mod open_test {
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
-            "Failed to create file system from empty archive"
+            "Failed to create file system from archive"
         );
         let mut vfs = vfs_result.unwrap();
         // open the file, get a file descriptor
@@ -173,7 +173,7 @@ mod open_test {
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
-            "Failed to create file system from empty archive"
+            "Failed to create file system from archive"
         );
         let mut vfs = vfs_result.unwrap();
         // read the file
@@ -224,7 +224,7 @@ mod read_test {
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
-            "Failed to create file system from empty archive"
+            "Failed to create file system from archive"
         );
         let mut vfs = vfs_result.unwrap();
         // read the file
@@ -256,7 +256,7 @@ mod read_test {
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
-            "Failed to create file system from empty archive"
+            "Failed to create file system from archive"
         );
         let mut vfs = vfs_result.unwrap();
         // read the file
