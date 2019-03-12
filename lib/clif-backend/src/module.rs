@@ -50,6 +50,9 @@ impl Module {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
+
+                #[cfg(feature = "vfs")]
+                custom_sections: HashMap::new(),
             },
         }
     }

@@ -56,6 +56,28 @@ pub struct ModuleInfo {
 
     pub namespace_table: StringTable<NamespaceIndex>,
     pub name_table: StringTable<NameIndex>,
+
+    #[cfg(feature = "vfs")]
+    pub custom_sections: HashMap<String, Vec<u8>>,
+}
+
+impl ModuleInfo {
+    #[cfg(feature = "vfs")]
+    pub fn import_custom_sections(&mut self, wasm: &[u8]) -> crate::error::ParseResult<()> {
+        let mut parser = wasmparser::ModuleReader::new(wasm)?;
+        while !parser.eof() {
+            let section = parser.read()?;
+            if let wasmparser::SectionCode::Custom { name, kind: _ } = section.code {
+                let mut reader = section.get_binary_reader();
+                let len = reader.bytes_remaining();
+                let bytes = reader.read_bytes(len)?;
+                let data = bytes.to_vec();
+                let name = String::from_utf8_lossy(name).to_string();
+                self.custom_sections.insert(name, data);
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A compiled WebAssembly module.
