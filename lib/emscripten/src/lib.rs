@@ -366,7 +366,7 @@ impl EmscriptenGlobals {
             minimum: table_min,
             maximum: table_max,
         };
-        let mut table = Table::new(table_type).unwrap();
+        let table = Table::new(table_type).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;
