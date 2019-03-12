@@ -349,17 +349,17 @@ impl EmscriptenGlobals {
         let data = {
             let static_bump = STATIC_BUMP;
 
-            let mut STATIC_TOP = STATIC_BASE + static_bump;
+            let mut static_top = STATIC_BASE + static_bump;
 
             let memory_base = STATIC_BASE;
             let table_base = 0;
 
-            let temp_double_ptr = STATIC_TOP;
-            STATIC_TOP += 16;
+            let temp_double_ptr = static_top;
+            static_top += 16;
 
-            let dynamictop_ptr = static_alloc(&mut STATIC_TOP, 4);
+            let dynamictop_ptr = static_alloc(&mut static_top, 4);
 
-            let stacktop = align_memory(STATIC_TOP);
+            let stacktop = align_memory(static_top);
             let stack_max = stacktop + TOTAL_STACK;
 
             EmscriptenGlobalsData {
