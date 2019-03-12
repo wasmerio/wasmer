@@ -25,8 +25,6 @@ wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-runtime = { path = "lib/runtime" }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
-
-[target.'cfg(not(windows))'.dependencies]
 wasmer-llvm-backend = { path = "lib/llvm-backend" }
 
 [workspace]
