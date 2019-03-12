@@ -91,7 +91,7 @@ pub unsafe fn allocate_cstr_on_stack<'a>(ctx: &'a mut Ctx, s: &str) -> (u32, &'a
 }
 
 pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
-    let total_num = {
+    let _total_num = {
         let mut ptr = cstrs;
         let mut counter = 0;
         while !(*ptr).is_null() {
@@ -102,7 +102,7 @@ pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_
     };
     debug!(
         "emscripten::copy_terminated_array_of_cstrs::total_num: {}",
-        total_num
+        _total_num
     );
     0
 }

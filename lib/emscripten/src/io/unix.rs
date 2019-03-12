@@ -3,7 +3,7 @@ use libc::printf as _printf;
 use wasmer_runtime_core::vm::Ctx;
 
 /// putchar
-pub fn putchar(ctx: &mut Ctx, chr: i32) {
+pub fn putchar(_ctx: &mut Ctx, chr: i32) {
     unsafe { libc::putchar(chr) };
 }
 
