@@ -949,6 +949,7 @@ pub unsafe extern "C" fn wasmer_instance_exports(
 
 /// Sets the `data` field of the instance context. This context will be
 /// passed to all imported function for instance.
+#[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_data_set(
     instance: *mut wasmer_instance_t,
@@ -1362,6 +1363,7 @@ pub extern "C" fn wasmer_instance_context_memory(
 }
 
 /// Gets the `data` field within the context.
+#[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_data_get(
     ctx: *const wasmer_instance_context_t,
