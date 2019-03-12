@@ -1,0 +1,22 @@
+[package]
+name = "wasmer-runtime-abi"
+version = "0.2.1"
+description = "Wasmer runtime core library"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+edition = "2018"
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core", features = ["vfs"] }
+hashbrown = "0.1"
+failure = "0.1"
+tar = "0.4"
+zstd = "0.4"
+wasmparser = "0.23.0"
+
+[dev-dependencies]
+tempdir = "0.3"
+
+[features]
+debug = []
