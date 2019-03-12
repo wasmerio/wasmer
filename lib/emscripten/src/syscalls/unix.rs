@@ -78,6 +78,7 @@ use libc::SO_NOSIGPIPE;
 const SO_NOSIGPIPE: c_int = 0;
 
 /// open
+#[cfg(not(feature = "vfs"))]
 pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", which);
     let pathname: u32 = varargs.get(ctx);

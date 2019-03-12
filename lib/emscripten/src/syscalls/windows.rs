@@ -1,3 +1,4 @@
+use crate::env::get_emscripten_data;
 use crate::utils::copy_cstr_into_wasm;
 use crate::utils::read_string_from_wasm;
 use crate::varargs::VarArgs;
@@ -15,6 +16,7 @@ use wasmer_runtime_core::vm::Ctx;
 type pid_t = c_int;
 
 /// open
+#[cfg(not(feature = "vfs"))]
 pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", which);
     let pathname: u32 = varargs.get(ctx);

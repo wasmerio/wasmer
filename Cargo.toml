@@ -39,7 +39,7 @@ glob = "0.2.11"
 
 [features]
 default = ["fast-tests"]
-
+vfs = ["wasmer-runtime-abi", "wasmer-runtime-core/vfs", "wasmer-emscripten/vfs",  "wasmer-clif-backend/vfs"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []

@@ -10,6 +10,8 @@ build = "build/mod.rs"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
+wasmer-runtime-abi = { path = "../runtime-abi", optional = true }
 lazy_static = "1.2.0"
 libc = "0.2.49"
 byteorder = "1"
@@ -19,7 +21,6 @@ time = "0.1.41"
 rand = "0.6"
 
 [dev-dependencies]
-wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
 wabt = "0.7.2"
 
 [target.'cfg(not(windows))'.dev-dependencies]
@@ -31,3 +32,4 @@ glob = "0.2.11"
 [features]
 clif = []
 llvm = []
+vfs = ["wasmer-runtime-core/vfs", "wasmer-clif-backend/vfs", "wasmer-runtime-abi"]

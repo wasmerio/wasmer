@@ -29,7 +29,7 @@ use libc::{
     // iovec,
     lseek,
     //    open,
-    read,
+    //    read,
     // readv,
     rmdir,
     // writev,
@@ -40,7 +40,6 @@ use libc::{
 use wasmer_runtime_core::vm::Ctx;
 
 use super::env;
-use std::cell::Cell;
 use std::slice;
 // use std::sys::fd::FileDesc;
 
@@ -67,6 +66,7 @@ pub fn ___syscall1(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) {
 }
 
 /// read
+#[cfg(not(feature = "vfs"))]
 pub fn ___syscall3(ctx: &mut Ctx, which: i32, mut varargs: VarArgs) -> i32 {
     // -> ssize_t
     debug!("emscripten::___syscall3 (read) {}", which);
@@ -75,7 +75,27 @@ pub fn ___syscall3(ctx: &mut Ctx, which: i32, mut varargs: VarArgs) -> i32 {
     let count: i32 = varargs.get(ctx);
     debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
-    let ret = unsafe { read(fd, buf_addr, count as _) };
+    let ret = unsafe { libc::read(fd, buf_addr, count as _) };
+    debug!("=> ret: {}", ret);
+    ret as _
+}
+
+/// read
+#[cfg(feature = "vfs")]
+pub fn ___syscall3(ctx: &mut Ctx, which: i32, mut varargs: VarArgs) -> i32 {
+    // -> ssize_t
+    debug!("emscripten::___syscall3 (read - vfs) {}", which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: i32 = varargs.get(ctx);
+    debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut u8;
+    let mut buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
+    let emscripten_data = get_emscripten_data(ctx);
+    let ret = match &mut emscripten_data.vfs {
+        Some(vfs) => vfs.read_file(fd as _, &mut buf_slice).unwrap(),
+        None => 0,
+    };
     debug!("=> ret: {}", ret);
     ret as _
 }
@@ -89,6 +109,23 @@ pub fn ___syscall4(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
     unsafe { write(fd, buf_addr, count as _) as i32 }
+}
+
+/// open
+#[cfg(feature = "vfs")]
+pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall5 (open vfs) {}", which);
+    let pathname: u32 = varargs.get(ctx);
+    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
+    let path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
+    let emscripten_data = get_emscripten_data(ctx);
+    let fd = if let Some(vfs) = &mut emscripten_data.vfs {
+        vfs.open_file(path_str).unwrap_or(-1)
+    } else {
+        -1
+    };
+    debug!("=> fd: {}", fd);
+    return fd as _;
 }
 
 /// close
@@ -307,7 +344,7 @@ pub fn ___syscall145(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> i32 {
                 as *mut c_void;
             let iov_len = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
-            let curr = read(fd, iov_base, iov_len);
+            let curr = libc::read(fd, iov_base, iov_len);
             if curr < 0 {
                 return -1;
             }
