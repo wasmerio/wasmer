@@ -56,8 +56,6 @@ pub use self::utils::{
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
-// TODO: Magic number - how is this calculated?
-const DYNAMICTOP_PTR_DIFF: u32 = 1088;
 // TODO: make this variable
 const STATIC_BUMP: u32 = 215_536;
 
@@ -72,22 +70,6 @@ lazy_static! {
 // Then 'dynamic' memory for sbrk.
 const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
-
-fn stacktop(static_bump: u32) -> u32 {
-    align_memory(dynamictop_ptr(static_bump) + 4)
-}
-
-fn stack_max(static_bump: u32) -> u32 {
-    stacktop(static_bump) + TOTAL_STACK
-}
-
-fn dynamic_base(static_bump: u32) -> u32 {
-    align_memory(stack_max(static_bump))
-}
-
-fn dynamictop_ptr(static_bump: u32) -> u32 {
-    static_bump + DYNAMICTOP_PTR_DIFF
-}
 
 pub struct EmscriptenData<'a> {
     pub malloc: Func<'a, u32, u32>,
