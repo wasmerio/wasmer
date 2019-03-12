@@ -155,6 +155,7 @@ pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
     (*stat_ptr).st_ino = stat.st_ino as _;
 }
 
+#[allow(dead_code)] // it's used in `env/windows/mod.rs`.
 pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
     let v: Vec<u8> = memory.view()[(offset as usize)..]
         .iter()
