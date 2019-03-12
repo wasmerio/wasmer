@@ -1,6 +1,5 @@
 use crate::env::get_emscripten_data;
 use crate::utils::copy_cstr_into_wasm;
-use crate::utils::read_string_from_wasm;
 use crate::varargs::VarArgs;
 use libc::mkdir;
 use libc::open;
