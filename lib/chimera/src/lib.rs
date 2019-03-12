@@ -7,6 +7,7 @@ use wasmer_runtime_core::{
     module::ModuleInner,
 };
 
+mod clif;
 mod compile;
 mod pool;
 mod state;
