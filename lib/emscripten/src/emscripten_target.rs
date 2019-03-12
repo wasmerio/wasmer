@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::env::get_emscripten_data;
 use wasmer_runtime_core::vm::Ctx;
 
