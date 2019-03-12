@@ -28,4 +28,3 @@ wabt = "0.7.4"
 [features]
 debug = ["wasmer-runtime-core/debug"]
 disasm = ["capstone"]
-vfs = ["wasmer-runtime-core/vfs"]

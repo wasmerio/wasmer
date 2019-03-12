@@ -67,14 +67,9 @@ pub fn compile_with(
     compiler: &dyn backend::Compiler,
 ) -> CompileResult<module::Module> {
     let token = backend::Token::generate();
-    compiler.compile(wasm, token).map(|inner| {
-        #[cfg(feature = "vfs")]
-        let inner = {
-            let mut inner = inner;
-            let inner_info: &mut crate::module::ModuleInfo = &mut inner.info;
-            inner_info.import_custom_sections(wasm).unwrap();
-            inner
-        };
+    compiler.compile(wasm, token).map(|mut inner| {
+        let inner_info: &mut crate::module::ModuleInfo = &mut inner.info;
+        inner_info.import_custom_sections(wasm).unwrap();
         module::Module::new(Arc::new(inner))
     })
 }

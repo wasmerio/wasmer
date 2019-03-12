@@ -37,4 +37,3 @@ wasmer-win-exception-handler = { path = "../win-exception-handler", version = "0
 
 [features]
 debug = ["wasmer-runtime-core/debug"]
-vfs = ["wasmer-runtime-core/vfs"]

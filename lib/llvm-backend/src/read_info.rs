@@ -18,7 +18,6 @@ use wasmparser::{
     SectionCode, Type as WpType,
 };
 
-#[cfg(feature = "vfs")]
 use hashbrown::HashMap;
 
 pub fn read_module(wasm: &[u8]) -> Result<(ModuleInfo, CodeSectionReader), BinaryReaderError> {
@@ -46,7 +45,6 @@ pub fn read_module(wasm: &[u8]) -> Result<(ModuleInfo, CodeSectionReader), Binar
         namespace_table: StringTable::new(),
         name_table: StringTable::new(),
 
-        #[cfg(feature = "vfs")]
         custom_sections: HashMap::new(),
     };
 

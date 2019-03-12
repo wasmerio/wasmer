@@ -8,7 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", features = ["vfs"] }
+wasmer-runtime-core = { path = "../runtime-core" }
 hashbrown = "0.1"
 failure = "0.1"
 tar = "0.4"

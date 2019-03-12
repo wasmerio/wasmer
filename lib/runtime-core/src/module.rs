@@ -57,12 +57,10 @@ pub struct ModuleInfo {
     pub namespace_table: StringTable<NamespaceIndex>,
     pub name_table: StringTable<NameIndex>,
 
-    #[cfg(feature = "vfs")]
     pub custom_sections: HashMap<String, Vec<u8>>,
 }
 
 impl ModuleInfo {
-    #[cfg(feature = "vfs")]
     pub fn import_custom_sections(&mut self, wasm: &[u8]) -> crate::error::ParseResult<()> {
         let mut parser = wasmparser::ModuleReader::new(wasm)?;
         while !parser.eof() {
