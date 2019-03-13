@@ -15,6 +15,14 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            # install libsodium
+            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+            tar xf libsodium-1.0.17.tar.gz
+            cd libsodium-1.0.17/
+            ./configure
+            make && make check
+            sudo make install
+            cd ..
       - run:
           name: Install lint deps
           command: |
@@ -24,6 +32,8 @@ jobs:
           name: Execute lints
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make lint
       - save_cache:
           paths:
