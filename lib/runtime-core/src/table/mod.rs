@@ -11,6 +11,7 @@ mod anyfunc;
 
 pub use self::anyfunc::Anyfunc;
 use self::anyfunc::AnyfuncTable;
+use crate::error::GrowError;
 
 pub enum Element<'a> {
     Anyfunc(Anyfunc<'a>),
@@ -50,6 +51,14 @@ impl Table {
     /// # }
     /// ```
     pub fn new(desc: TableDescriptor) -> Result<Self, CreationError> {
+        if let Some(max) = desc.maximum {
+            if max < desc.minimum {
+                return Err(CreationError::InvalidDescriptor(
+                    "Max table size is less than the minimum size".to_string(),
+                ));
+            }
+        }
+
         let mut local = vm::LocalTable {
             base: ptr::null_mut(),
             count: 0,
@@ -100,15 +109,15 @@ impl Table {
     }
 
     /// Grow this table by `delta`.
-    pub fn grow(&self, delta: u32) -> Option<u32> {
+    pub fn grow(&self, delta: u32) -> Result<u32, GrowError> {
         if delta == 0 {
-            return Some(self.size());
+            return Ok(self.size());
         }
 
         match &mut *self.storage.borrow_mut() {
-            (TableStorage::Anyfunc(ref mut anyfunc_table), ref mut local) => {
-                anyfunc_table.grow(delta, local)
-            }
+            (TableStorage::Anyfunc(ref mut anyfunc_table), ref mut local) => anyfunc_table
+                .grow(delta, local)
+                .ok_or(GrowError::TableGrowError),
         }
     }
 
@@ -139,4 +148,22 @@ impl fmt::Debug for Table {
             .field("size", &self.size())
             .finish()
     }
+}
+
+#[cfg(test)]
+mod table_tests {
+
+    use super::{ElementType, Table, TableDescriptor};
+
+    #[test]
+    fn test_initial_table_size() {
+        let table = Table::new(TableDescriptor {
+            element: ElementType::Anyfunc,
+            minimum: 10,
+            maximum: Some(20),
+        })
+        .unwrap();
+        assert_eq!(table.size(), 10);
+    }
+
 }

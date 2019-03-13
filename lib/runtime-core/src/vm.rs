@@ -34,6 +34,14 @@ pub struct Ctx {
     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
     pub imported_funcs: *mut ImportedFunc,
 
+    /// A pointer to an array of signature ids. Conceptually, this maps
+    /// from a static, module-local signature id to a runtime-global
+    /// signature id. This is used to allow call-indirect to other
+    /// modules safely.
+    pub(crate) dynamic_sigindices: *const SigId,
+
+    pub(crate) local_functions: *const *const Func,
+
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
     module: *const ModuleInner,
@@ -58,6 +66,9 @@ impl Ctx {
             imported_tables: import_backing.vm_tables.as_mut_ptr(),
             imported_globals: import_backing.vm_globals.as_mut_ptr(),
             imported_funcs: import_backing.vm_functions.as_mut_ptr(),
+
+            dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+            local_functions: local_backing.local_functions.as_ptr(),
 
             local_backing,
             import_backing,
@@ -85,6 +96,9 @@ impl Ctx {
             imported_tables: import_backing.vm_tables.as_mut_ptr(),
             imported_globals: import_backing.vm_globals.as_mut_ptr(),
             imported_funcs: import_backing.vm_functions.as_mut_ptr(),
+
+            dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+            local_functions: local_backing.local_functions.as_ptr(),
 
             local_backing,
             import_backing,
@@ -116,7 +130,7 @@ impl Ctx {
     pub fn memory(&self, mem_index: u32) -> &Memory {
         let module = unsafe { &*self.module };
         let mem_index = MemoryIndex::new(mem_index as usize);
-        match mem_index.local_or_import(module) {
+        match mem_index.local_or_import(&module.info) {
             LocalOrImport::Local(local_mem_index) => unsafe {
                 let local_backing = &*self.local_backing;
                 &local_backing.memories[local_mem_index]
@@ -163,12 +177,17 @@ impl Ctx {
     pub fn offset_signatures() -> u8 {
         7 * (mem::size_of::<usize>() as u8)
     }
+
+    pub fn offset_local_functions() -> u8 {
+        8 * (mem::size_of::<usize>() as u8)
+    }
 }
 
 enum InnerFunc {}
 /// Used to provide type safety (ish) for passing around function pointers.
 /// The typesystem ensures this cannot be dereferenced since an
 /// empty enum cannot actually exist.
+#[repr(C)]
 pub struct Func(InnerFunc);
 
 /// An imported function, which contains the vmctx that owns this function.
@@ -354,6 +373,11 @@ mod vm_offset_tests {
             Ctx::offset_imported_funcs() as usize,
             offset_of!(Ctx => imported_funcs).get_byte_offset(),
         );
+
+        assert_eq!(
+            Ctx::offset_local_functions() as usize,
+            offset_of!(Ctx => local_functions).get_byte_offset(),
+        );
     }
 
     #[test]
@@ -459,6 +483,9 @@ mod vm_ctx_tests {
             vm_memories: Map::new().into_boxed_map(),
             vm_tables: Map::new().into_boxed_map(),
             vm_globals: Map::new().into_boxed_map(),
+
+            dynamic_sigindices: Map::new().into_boxed_map(),
+            local_functions: Map::new().into_boxed_map(),
         };
         let mut import_backing = ImportBacking {
             memories: Map::new().into_boxed_map(),
@@ -495,7 +522,10 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{Backend, FuncResolver, ProtectedCaller, Token, UserTrapper};
+        use crate::backend::{
+            sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
+        };
+        use crate::cache::{Error as CacheError, WasmHash};
         use crate::error::RuntimeResult;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
@@ -526,10 +556,19 @@ mod vm_ctx_tests {
                 unimplemented!()
             }
         }
+        impl CacheGen for Placeholder {
+            fn generate_cache(
+                &self,
+                module: &ModuleInner,
+            ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+                unimplemented!()
+            }
+        }
 
         ModuleInner {
             func_resolver: Box::new(Placeholder),
             protected_caller: Box::new(Placeholder),
+            cache_gen: Box::new(Placeholder),
             info: ModuleInfo {
                 memories: Map::new(),
                 globals: Map::new(),

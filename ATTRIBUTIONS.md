@@ -2,7 +2,7 @@
 
 Wasmer is a community effort.
 In order to build the best WebAssembly runtime it's our duty to see how other runtimes are approaching the same space
-and get inspired from them on the things that they got right, so wasmer and its community can benefit from a solid
+and get inspired from them on the things that they got right, so Wasmer and its community can benefit from a solid
 foundation.
 
 These are the different project that we used as inspiration:
@@ -10,9 +10,9 @@ These are the different project that we used as inspiration:
 - [Nebulet](https://github.com/nebulet/nebulet): as the base for creating a great Rust WebAssembly runtime
 - [WAVM](https://github.com/wavm/wavm): for their great integration and testing framework
 - [greenwasm](https://github.com/Kimundi/greenwasm): for their [spectests framework](https://github.com/Kimundi/greenwasm/tree/master/greenwasm-spectest)
-- [wasmtime](/wasmtime): on their [mmap implementation](https://github.com/CraneStation/wasmtime/blob/3f24098edc81cd9bf0f877fb7fba018cad0f039e/lib/runtime/src/mmap.rs).
-- [stackoverflow](https://stackoverflow.com/a/45795699/1072990): to create an efficient HashMap with pair keys.
-- [Emscripten](https://github.com/kripken/emscripten): for emtests test sources to ensure compatibility.
+- [wasmtime](https://github.com/CraneStation/wasmtime): for their [mmap implementation](https://github.com/CraneStation/wasmtime/blob/3f24098edc81cd9bf0f877fb7fba018cad0f039e/lib/runtime/src/mmap.rs)
+- [stackoverflow](https://stackoverflow.com/a/45795699/1072990): to create an efficient HashMap with pair keys
+- [Emscripten](https://github.com/kripken/emscripten): for emtests test sources to ensure compatibility
 
 We would love to hear from you if you think we can take inspiration from other projects that we haven't covered here.
 😊
@@ -21,10 +21,10 @@ We would love to hear from you if you think we can take inspiration from other p
 
 ### Nebulet
 
-```
+```text
 MIT License
 
-Copyright (c) 2018 
+Copyright (c) 2018
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -47,7 +47,7 @@ SOFTWARE.
 
 ### WAVM
 
-```
+```text
 Copyright (c) 2018, Andrew Scheidecker
 All rights reserved.
 
@@ -69,7 +69,7 @@ The contents of [Test/spec](Test/spec) is covered by the license in [Test/spec/L
 
 ### Greenwasm
 
-```
+```text
                               Apache License
                         Version 2.0, January 2004
                      http://www.apache.org/licenses/
@@ -275,7 +275,7 @@ limitations under the License.
 
 ### Wasmtime
 
-```
+```text
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -497,7 +497,7 @@ Software.
 ```
 
 ### Emscripten
-```
+```text
 Emscripten is available under 2 licenses, the MIT license and the
 University of Illinois/NCSA Open Source License.
 
@@ -557,7 +557,7 @@ the following conditions:
     Neither the names of Mozilla,
     nor the names of its contributors may be used to endorse
     or promote products derived from this Software without specific prior
-    written permission. 
+    written permission.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF

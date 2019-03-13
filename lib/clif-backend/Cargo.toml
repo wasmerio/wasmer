@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-clif-backend"
-version = "0.1.2"
+version = "0.2.0"
 description = "Wasmer runtime Cranelift compiler backend"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -8,7 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.1.2" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.2.0" }
 cranelift-native = "0.26.0"
 cranelift-codegen = "0.26.0"
 cranelift-entity = "0.26.0"
@@ -18,25 +18,22 @@ target-lexicon = "0.2.0"
 wasmparser = "0.23.0"
 byteorder = "1"
 nix = "0.13.0"
-libc = "0.2.48"
+libc = "0.2.49"
+rayon = "1.0"
 
 # Dependencies for caching.
 [dependencies.serde]
 version = "1.0"
-optional = true
 [dependencies.serde_derive]
 version = "1.0"
-optional = true
 [dependencies.serde_bytes]
 version = "0.10"
-optional = true
-# [dependencies.bincode]
-# version = "1.0.1"
-# optional = true
 [dependencies.serde-bench]
 version = "0.0.7"
-optional = true
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["errhandlingapi", "minwindef", "minwinbase", "winnt"] }
+wasmer-win-exception-handler = { path = "../win-exception-handler", version = "0.2.0" }
 
 [features]
-cache = ["serde", "serde_derive", "serde_bytes", "serde-bench", "wasmer-runtime-core/cache"]
 debug = ["wasmer-runtime-core/debug"]

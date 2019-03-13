@@ -1,5 +1,9 @@
 use crate::export::Export;
 use hashbrown::{hash_map::Entry, HashMap};
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+};
 
 pub trait LikeNamespace {
     fn get_export(&self, name: &str) -> Option<Export>;
@@ -32,19 +36,19 @@ impl IsExport for Export {
 ///     },
 /// };
 ///
-/// fn foo(n: i32, _: &mut Ctx) -> i32 {
+/// fn foo(_: &mut Ctx, n: i32) -> i32 {
 ///     n
 /// }
 /// ```
 pub struct ImportObject {
-    map: HashMap<String, Box<dyn LikeNamespace>>,
+    map: Rc<RefCell<HashMap<String, Box<dyn LikeNamespace>>>>,
 }
 
 impl ImportObject {
     /// Create a new `ImportObject`.  
     pub fn new() -> Self {
         Self {
-            map: HashMap::new(),
+            map: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 
@@ -67,7 +71,9 @@ impl ImportObject {
         S: Into<String>,
         N: LikeNamespace + 'static,
     {
-        match self.map.entry(name.into()) {
+        let mut map = self.map.borrow_mut();
+
+        match map.entry(name.into()) {
             Entry::Vacant(empty) => {
                 empty.insert(Box::new(namespace));
                 None
@@ -76,8 +82,20 @@ impl ImportObject {
         }
     }
 
-    pub fn get_namespace(&self, namespace: &str) -> Option<&(dyn LikeNamespace + 'static)> {
-        self.map.get(namespace).map(|namespace| &**namespace)
+    pub fn get_namespace(&self, namespace: &str) -> Option<Ref<dyn LikeNamespace + 'static>> {
+        let map_ref = self.map.borrow();
+
+        if map_ref.contains_key(namespace) {
+            Some(Ref::map(map_ref, |map| &*map[namespace]))
+        } else {
+            None
+        }
+    }
+
+    pub fn clone_ref(&self) -> Self {
+        Self {
+            map: Rc::clone(&self.map),
+        }
     }
 }
 

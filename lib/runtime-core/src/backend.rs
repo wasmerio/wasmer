@@ -6,24 +6,24 @@ use crate::{
     types::{FuncIndex, LocalFuncIndex, Value},
     vm,
 };
-#[cfg(feature = "cache")]
+
 use crate::{
-    cache::{Cache, Error as CacheError},
+    cache::{Artifact, Error as CacheError},
     module::ModuleInfo,
     sys::Memory,
 };
-use std::ptr::NonNull;
+use std::{any::Any, ptr::NonNull};
 
 pub mod sys {
     pub use crate::sys::*;
 }
 pub use crate::sig_registry::SigRegistry;
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Backend {
     Cranelift,
     Dynasm,
+    LLVM,
 }
 
 /// This type cannot be constructed from
@@ -44,15 +44,7 @@ pub trait Compiler {
     /// be called from inside the runtime.
     fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner>;
 
-    #[cfg(feature = "cache")]
-    unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError>;
-
-    #[cfg(feature = "cache")]
-    fn compile_to_backend_cache_data(
-        &self,
-        wasm: &[u8],
-        _: Token,
-    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)>;
+    unsafe fn from_cache(&self, cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
 
 /// The functionality exposed by this trait is expected to be used
@@ -88,7 +80,7 @@ pub trait ProtectedCaller: Send + Sync {
 }
 
 pub trait UserTrapper {
-    unsafe fn do_early_trap(&self, msg: String) -> !;
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
 }
 
 pub trait FuncResolver: Send + Sync {
@@ -99,4 +91,11 @@ pub trait FuncResolver: Send + Sync {
         module: &ModuleInner,
         local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>>;
+}
+
+pub trait CacheGen: Send + Sync {
+    fn generate_cache(
+        &self,
+        module: &ModuleInner,
+    ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError>;
 }

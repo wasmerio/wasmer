@@ -8,8 +8,7 @@ use std::{
 };
 
 /// Dense item map
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Map<K, V>
 where
     K: TypedIndex,
@@ -56,6 +55,10 @@ where
 
     pub fn into_boxed_map(self) -> BoxedMap<K, V> {
         BoxedMap::new(self.elems.into_boxed_slice())
+    }
+
+    pub fn into_vec(self) -> Vec<V> {
+        self.elems
     }
 }
 

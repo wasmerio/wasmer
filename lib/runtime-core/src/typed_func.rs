@@ -6,7 +6,7 @@ use crate::{
     types::{FuncSig, Type, WasmExternType},
     vm::Ctx,
 };
-use std::{cell::UnsafeCell, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
+use std::{any::Any, cell::UnsafeCell, marker::PhantomData, mem, panic, ptr, sync::Arc};
 
 thread_local! {
     pub static EARLY_TRAPPER: UnsafeCell<Option<Box<dyn UserTrapper>>> = UnsafeCell::new(None);
@@ -40,14 +40,14 @@ pub trait TrapEarly<Rets>
 where
     Rets: WasmTypeList,
 {
-    fn report(self) -> Result<Rets, String>;
+    fn report(self) -> Result<Rets, Box<dyn Any>>;
 }
 
 impl<Rets> TrapEarly<Rets> for Rets
 where
     Rets: WasmTypeList,
 {
-    fn report(self) -> Result<Rets, String> {
+    fn report(self) -> Result<Rets, Box<dyn Any>> {
         Ok(self)
     }
 }
@@ -55,10 +55,10 @@ where
 impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
-    E: fmt::Debug,
+    E: Any,
 {
-    fn report(self) -> Result<Rets, String> {
-        self.map_err(|err| format!("Error: {:?}", err))
+    fn report(self) -> Result<Rets, Box<dyn Any>> {
+        self.map_err(|err| Box::new(err) as Box<dyn Any>)
     }
 }
 
@@ -138,9 +138,9 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
     }
     #[allow(non_snake_case)]
     unsafe fn call<Rets: WasmTypeList>(self, f: *const (), ctx: *mut Ctx) -> Rets {
-        let f: extern "C" fn(A, *mut Ctx) -> Rets = mem::transmute(f);
+        let f: extern "C" fn(*mut Ctx, A) -> Rets = mem::transmute(f);
         let (a,) = self;
-        f(a, ctx)
+        f(ctx, a)
     }
 }
 
@@ -154,8 +154,8 @@ where
 }
 
 macro_rules! impl_traits {
-    ( $struct_name:ident, $( $x:ident ),* ) => {
-        #[repr(C)]
+    ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
+        #[repr($repr)]
         pub struct $struct_name <$( $x ),*> ( $( $x ),* );
 
         impl< $( $x: WasmExternType, )* > WasmTypeList for ( $( $x ),* ) {
@@ -175,41 +175,33 @@ macro_rules! impl_traits {
             }
             #[allow(non_snake_case)]
             unsafe fn call<Rets: WasmTypeList>(self, f: *const (), ctx: *mut Ctx) -> Rets {
-                let f: extern fn( $( $x, )* *mut Ctx) -> Rets::CStruct = mem::transmute(f);
+                let f: extern fn(*mut Ctx $( ,$x )*) -> Rets::CStruct = mem::transmute(f);
                 #[allow(unused_parens)]
                 let ( $( $x ),* ) = self;
-                let c_struct = f( $( $x, )* ctx);
+                let c_struct = f(ctx $( ,$x )*);
                 Rets::from_c_struct(c_struct)
             }
         }
 
-        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
+        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
             fn to_raw(&self) -> *const () {
                 assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
 
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* &mut Ctx) -> Trap>( $( $x: $x, )* ctx: &mut Ctx) -> Rets::CStruct {
+                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
 
-                    let msg = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        f( $( $x, )* ctx).report()
+                    let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                        f( ctx $( ,$x )* ).report()
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => err,
-                        Err(err) => {
-                            if let Some(s) = err.downcast_ref::<&str>() {
-                                s.to_string()
-                            } else if let Some(s) = err.downcast_ref::<String>() {
-                                s.clone()
-                            } else {
-                                "a panic occurred, but no additional information is available".to_string()
-                            }
-                        },
+                        Err(err) => err,
                     };
 
                     unsafe {
                         if let Some(early_trapper) = &*EARLY_TRAPPER.with(|ucell| ucell.get()) {
-                            early_trapper.do_early_trap(msg)
+                            early_trapper.do_early_trap(err)
                         } else {
                             eprintln!("panic handling not setup");
                             std::process::exit(1)
@@ -234,18 +226,19 @@ macro_rules! impl_traits {
     };
 }
 
-impl_traits!(S0,);
-impl_traits!(S1, A);
-impl_traits!(S2, A, B);
-impl_traits!(S3, A, B, C);
-impl_traits!(S4, A, B, C, D);
-impl_traits!(S5, A, B, C, D, E);
-impl_traits!(S6, A, B, C, D, E, F);
-impl_traits!(S7, A, B, C, D, E, F, G);
-impl_traits!(S8, A, B, C, D, E, F, G, H);
-impl_traits!(S9, A, B, C, D, E, F, G, H, I);
-impl_traits!(S10, A, B, C, D, E, F, G, H, I, J);
-impl_traits!(S11, A, B, C, D, E, F, G, H, I, J, K);
+impl_traits!([C] S0,);
+impl_traits!([transparent] S1, A);
+impl_traits!([C] S2, A, B);
+impl_traits!([C] S3, A, B, C);
+impl_traits!([C] S4, A, B, C, D);
+impl_traits!([C] S5, A, B, C, D, E);
+impl_traits!([C] S6, A, B, C, D, E, F);
+impl_traits!([C] S7, A, B, C, D, E, F, G);
+impl_traits!([C] S8, A, B, C, D, E, F, G, H);
+impl_traits!([C] S9, A, B, C, D, E, F, G, H, I);
+impl_traits!([C] S10, A, B, C, D, E, F, G, H, I, J);
+impl_traits!([C] S11, A, B, C, D, E, F, G, H, I, J, K);
+impl_traits!([C] S12, A, B, C, D, E, F, G, H, I, J, K, L);
 
 impl<'a, Args, Rets, Safety> IsExport for Func<'a, Args, Rets, Safety>
 where
@@ -271,7 +264,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_call() {
-        fn foo(a: i32, b: i32, _ctx: &mut Ctx) -> (i32, i32) {
+        fn foo(_ctx: &mut Ctx, a: i32, b: i32) -> (i32, i32) {
             (a, b)
         }
 
@@ -282,7 +275,7 @@ mod tests {
     fn test_imports() {
         use crate::{func, imports};
 
-        fn foo(a: i32, _ctx: &mut Ctx) -> i32 {
+        fn foo(_ctx: &mut Ctx, a: i32) -> i32 {
             a
         }
 

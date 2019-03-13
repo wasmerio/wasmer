@@ -2,7 +2,7 @@ use crate::relocation::{TrapData, TrapSink};
 use crate::trampoline::Trampolines;
 use hashbrown::HashSet;
 use libc::c_void;
-use std::{cell::Cell, sync::Arc};
+use std::{any::Any, cell::Cell, sync::Arc};
 use wasmer_runtime_core::{
     backend::{ProtectedCaller, Token, UserTrapper},
     error::RuntimeResult,
@@ -25,14 +25,14 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 thread_local! {
-    pub static TRAP_EARLY_DATA: Cell<Option<String>> = Cell::new(None);
+    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
 }
 
 pub struct Trapper;
 
 impl UserTrapper for Trapper {
-    unsafe fn do_early_trap(&self, msg: String) -> ! {
-        TRAP_EARLY_DATA.with(|cell| cell.set(Some(msg)));
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+        TRAP_EARLY_DATA.with(|cell| cell.set(Some(data)));
         trigger_trap()
     }
 }
@@ -40,11 +40,15 @@ impl UserTrapper for Trapper {
 pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
     handler_data: HandlerData,
-    trampolines: Trampolines,
+    trampolines: Arc<Trampolines>,
 }
 
 impl Caller {
-    pub fn new(module: &ModuleInfo, handler_data: HandlerData, trampolines: Trampolines) -> Self {
+    pub fn new(
+        module: &ModuleInfo,
+        handler_data: HandlerData,
+        trampolines: Arc<Trampolines>,
+    ) -> Self {
         let mut func_export_set = HashSet::new();
         for export_index in module.exports.values() {
             if let ExportIndex::Func(func_index) = export_index {
@@ -110,6 +114,7 @@ impl ProtectedCaller for Caller {
             .lookup(sig_index)
             .expect("that trampoline doesn't exist");
 
+        #[cfg(not(target_os = "windows"))]
         call_protected(&self.handler_data, || unsafe {
             // Leap of faith.
             trampoline(
@@ -119,6 +124,17 @@ impl ProtectedCaller for Caller {
                 return_vec.as_mut_ptr(),
             );
         })?;
+
+        // the trampoline is called from C on windows
+        #[cfg(target_os = "windows")]
+        call_protected(
+            &self.handler_data,
+            trampoline,
+            vmctx_ptr,
+            func_ptr,
+            param_vec.as_ptr(),
+            return_vec.as_mut_ptr(),
+        )?;
 
         Ok(return_vec
             .iter()
@@ -137,18 +153,18 @@ impl ProtectedCaller for Caller {
     }
 }
 
-fn get_func_from_index(
-    module: &ModuleInner,
+fn get_func_from_index<'a>(
+    module: &'a ModuleInner,
     import_backing: &ImportBacking,
     func_index: FuncIndex,
-) -> (*const vm::Func, Context, Arc<FuncSig>, SigIndex) {
+) -> (*const vm::Func, Context, &'a FuncSig, SigIndex) {
     let sig_index = *module
         .info
         .func_assoc
         .get(func_index)
         .expect("broken invariant, incorrect func index");
 
-    let (func_ptr, ctx) = match func_index.local_or_import(module) {
+    let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
         LocalOrImport::Local(local_func_index) => (
             module
                 .func_resolver
@@ -167,7 +183,7 @@ fn get_func_from_index(
         }
     };
 
-    let signature = Arc::clone(&module.info.signatures[sig_index]);
+    let signature = &module.info.signatures[sig_index];
 
     (func_ptr, ctx, signature, sig_index)
 }
@@ -175,15 +191,16 @@ fn get_func_from_index(
 unsafe impl Send for HandlerData {}
 unsafe impl Sync for HandlerData {}
 
+#[derive(Clone)]
 pub struct HandlerData {
-    pub trap_data: TrapSink,
+    pub trap_data: Arc<TrapSink>,
     exec_buffer_ptr: *const c_void,
     exec_buffer_size: usize,
 }
 
 impl HandlerData {
     pub fn new(
-        trap_data: TrapSink,
+        trap_data: Arc<TrapSink>,
         exec_buffer_ptr: *const c_void,
         exec_buffer_size: usize,
     ) -> Self {

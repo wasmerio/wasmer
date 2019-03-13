@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "0.1.4"
+version = "0.2.1"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -26,8 +26,11 @@ wasmer-runtime = { path = "lib/runtime" }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 
+[target.'cfg(not(windows))'.dependencies]
+wasmer-llvm-backend = { path = "lib/llvm-backend" }
+
 [workspace]
-members = ["lib/clif-backend", "lib/dynasm-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests"]
+members = ["lib/clif-backend", "lib/dynasm-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend"]
 
 [build-dependencies]
 wabt = "0.7.2"
@@ -36,6 +39,6 @@ glob = "0.2.11"
 [features]
 default = ["fast-tests"]
 
-debug = []
+debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []

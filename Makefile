@@ -16,7 +16,7 @@ emtests:
 #     rm -rf artifacts
 
 build:
-	cargo build
+	cargo build --features debug
 
 install:
 	cargo install --path .
@@ -34,14 +34,24 @@ precommit: lint test
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all -- --test-threads=1 $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
-	# cargo test -p wasmer-spectests -- --test-threads=1 $(runargs)
+	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
+	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
+	cargo build -p wasmer-runtime-c-api
+	cargo test -p wasmer-runtime-c-api -- --nocapture
+
+test-emscripten:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
+
+debug-release:
+	cargo build --release --features debug
 
 debug-release:
 	cargo build --release --features "debug"

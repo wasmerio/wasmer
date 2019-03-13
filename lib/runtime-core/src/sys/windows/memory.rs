@@ -1,3 +1,5 @@
+use crate::error::MemoryCreationError;
+use crate::error::MemoryProtectionError;
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{ptr, slice};
@@ -44,7 +46,7 @@ impl Memory {
         }
     }
 
-    pub fn with_size(size: usize) -> Result<Self, String> {
+    pub fn with_size(size: usize) -> Result<Self, MemoryCreationError> {
         if size == 0 {
             return Ok(Self {
                 ptr: ptr::null_mut(),
@@ -58,7 +60,10 @@ impl Memory {
         let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, MEM_RESERVE, PAGE_NOACCESS) };
 
         if ptr.is_null() {
-            Err("unable to allocate memory".to_string())
+            Err(MemoryCreationError::VirtualMemoryAllocationFailed(
+                size,
+                "unable to allocate memory".to_string(),
+            ))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
@@ -72,7 +77,7 @@ impl Memory {
         &mut self,
         range: impl RangeBounds<usize>,
         protect: Protect,
-    ) -> Result<(), String> {
+    ) -> Result<(), MemoryProtectionError> {
         let protect_const = protect.to_protect_const();
 
         let range_start = match range.start_bound() {
@@ -98,7 +103,11 @@ impl Memory {
         let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect_const);
 
         if ptr.is_null() {
-            Err("unable to protect memory".to_string())
+            Err(MemoryProtectionError::ProtectionFailed(
+                start as usize,
+                size,
+                "unable to protect memory".to_string(),
+            ))
         } else {
             self.protection = protect;
             Ok(())
@@ -150,13 +159,34 @@ impl Drop for Memory {
     fn drop(&mut self) {
         if !self.ptr.is_null() {
             let success = unsafe { VirtualFree(self.ptr as _, self.size, MEM_DECOMMIT) };
-            assert_eq!(success, 0, "failed to unmap memory: {}", errno::errno());
+            // If the function succeeds, the return value is nonzero.
+            assert_eq!(success, 1, "failed to unmap memory: {}", errno::errno());
         }
     }
 }
 
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+impl Clone for Memory {
+    fn clone(&self) -> Self {
+        let temp_protection = if self.protection.is_writable() {
+            self.protection
+        } else {
+            Protect::ReadWrite
+        };
+
+        let mut new = Memory::with_size_protect(self.size, temp_protection).unwrap();
+        unsafe {
+            new.as_slice_mut().copy_from_slice(self.as_slice());
+
+            if temp_protection != self.protection {
+                new.protect(.., self.protection).unwrap();
+            }
+        }
+
+        new
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Protect {
     None,

@@ -1,3 +1,4 @@
+use crate::error::PageError;
 use std::{
     fmt,
     ops::{Add, Sub},
@@ -7,17 +8,20 @@ const WASM_PAGE_SIZE: usize = 65_536;
 const WASM_MAX_PAGES: usize = 65_536;
 
 /// Units of WebAssembly pages (as specified to be 65,536 bytes).
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Pages(pub u32);
 
 impl Pages {
-    pub fn checked_add(self, rhs: Pages) -> Option<Pages> {
+    pub fn checked_add(self, rhs: Pages) -> Result<Pages, PageError> {
         let added = (self.0 as usize) + (rhs.0 as usize);
         if added <= WASM_MAX_PAGES {
-            Some(Pages(added as u32))
+            Ok(Pages(added as u32))
         } else {
-            None
+            Err(PageError::ExceededMaxPages(
+                self.0 as usize,
+                rhs.0 as usize,
+                added,
+            ))
         }
     }
 
@@ -33,8 +37,7 @@ impl fmt::Debug for Pages {
 }
 
 /// Units of WebAssembly memory in terms of 8-bit bytes.
-#[cfg_attr(feature = "cache", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Bytes(pub usize);
 
 impl fmt::Debug for Bytes {

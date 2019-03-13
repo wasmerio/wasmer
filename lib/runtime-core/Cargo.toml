@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.1.2"
+version = "0.2.1"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -8,7 +8,6 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-hashbrown = "0.1"
 nix = "0.12.0"
 page_size = "0.4.1"
 wasmparser = "0.23.0"
@@ -16,36 +15,34 @@ parking_lot = "0.7.1"
 lazy_static = "1.2.0"
 indexmap = "1.0.2"
 errno = "0.2.4"
-libc = "0.2.48"
+libc = "0.2.49"
+hex = "0.3.2"
 
 # Dependencies for caching.
 [dependencies.serde]
 version = "1.0"
-optional = true
+# This feature is required for serde to support serializing/deserializing reference counted pointers (e.g. Rc and Arc).
+features = ["rc"]
 [dependencies.serde_derive]
 version = "1.0"
-optional = true
 [dependencies.serde_bytes]
 version = "0.10"
-optional = true
 [dependencies.serde-bench]
 version = "0.0.7"
-optional = true
-[dependencies.memmap]
-version = "0.7.0"
-optional = true
-[dependencies.sha2]
+[dependencies.blake2b_simd]
+version = "0.4.1"
+[dependencies.digest]
 version = "0.8.0"
-optional = true
+[dependencies.hashbrown]
+version = "0.1"
+features = ["serde"]
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["memoryapi"] }
 
 [dev-dependencies]
-wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2" }
 field-offset = "0.1.1"
 
 [features]
 debug = []
-cache = ["serde/rc", "serde_derive", "serde_bytes", "hashbrown/serde", "serde-bench", "memmap", "sha2"]
 

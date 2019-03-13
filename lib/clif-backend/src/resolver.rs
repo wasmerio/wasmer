@@ -1,8 +1,4 @@
-#[cfg(feature = "cache")]
-use crate::{
-    cache::{BackendCache, TrampolineCache},
-    trampoline::Trampolines,
-};
+use crate::{cache::BackendCache, trampoline::Trampolines};
 use crate::{
     libcalls,
     relocation::{
@@ -11,6 +7,7 @@ use crate::{
     },
     signal::HandlerData,
 };
+use rayon::prelude::*;
 
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{ir, isa, Context};
@@ -19,7 +16,7 @@ use std::{
     ptr::{write_unaligned, NonNull},
     sync::Arc,
 };
-#[cfg(feature = "cache")]
+
 use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
@@ -42,21 +39,32 @@ extern "C" {
     pub fn __chkstk();
 }
 
+fn lookup_func(
+    map: &SliceMap<LocalFuncIndex, usize>,
+    memory: &Memory,
+    local_func_index: LocalFuncIndex,
+) -> Option<NonNull<vm::Func>> {
+    let offset = *map.get(local_func_index)?;
+    let ptr = unsafe { memory.as_ptr().add(offset) };
+
+    NonNull::new(ptr).map(|nonnull| nonnull.cast())
+}
+
 #[allow(dead_code)]
 pub struct FuncResolverBuilder {
-    resolver: FuncResolver,
+    map: Map<LocalFuncIndex, usize>,
+    memory: Memory,
     local_relocs: Map<LocalFuncIndex, Box<[LocalRelocation]>>,
     external_relocs: Map<LocalFuncIndex, Box<[ExternalRelocation]>>,
     import_len: usize,
 }
 
 impl FuncResolverBuilder {
-    #[cfg(feature = "cache")]
     pub fn new_from_backend_cache(
         backend_cache: BackendCache,
         mut code: Memory,
         info: &ModuleInfo,
-    ) -> Result<(Self, Trampolines, HandlerData), CacheError> {
+    ) -> Result<(Self, Arc<Trampolines>, HandlerData), CacheError> {
         unsafe {
             code.protect(.., Protect::ReadWrite)
                 .map_err(|e| CacheError::Unknown(e.to_string()))?;
@@ -67,35 +75,17 @@ impl FuncResolverBuilder {
 
         Ok((
             Self {
-                resolver: FuncResolver {
-                    map: backend_cache.offsets,
-                    memory: code,
-                },
+                map: backend_cache.offsets,
+                memory: code,
                 local_relocs: Map::new(),
                 external_relocs: backend_cache.external_relocs,
                 import_len: info.imported_functions.len(),
             },
-            Trampolines::from_trampoline_cache(backend_cache.trampolines),
+            Arc::new(Trampolines::from_trampoline_cache(
+                backend_cache.trampolines,
+            )),
             handler_data,
         ))
-    }
-
-    #[cfg(feature = "cache")]
-    pub fn to_backend_cache(
-        mut self,
-        trampolines: TrampolineCache,
-        handler_data: HandlerData,
-    ) -> (BackendCache, Memory) {
-        self.relocate_locals();
-        (
-            BackendCache {
-                external_relocs: self.external_relocs,
-                offsets: self.resolver.map,
-                trap_sink: handler_data.trap_data,
-                trampolines,
-            },
-            self.resolver.memory,
-        )
     }
 
     pub fn new(
@@ -103,25 +93,44 @@ impl FuncResolverBuilder {
         function_bodies: Map<LocalFuncIndex, ir::Function>,
         info: &ModuleInfo,
     ) -> CompileResult<(Self, HandlerData)> {
-        let mut compiled_functions: Vec<Vec<u8>> = Vec::with_capacity(function_bodies.len());
-        let mut local_relocs = Map::with_capacity(function_bodies.len());
-        let mut external_relocs = Map::new();
+        let num_func_bodies = function_bodies.len();
+        let mut local_relocs = Map::with_capacity(num_func_bodies);
+        let mut external_relocs = Map::with_capacity(num_func_bodies);
 
         let mut trap_sink = TrapSink::new();
-        let mut local_trap_sink = LocalTrapSink::new();
 
-        let mut ctx = Context::new();
+        let compiled_functions: Result<Vec<(Vec<u8>, (RelocSink, LocalTrapSink))>, CompileError> =
+            function_bodies
+                .into_vec()
+                .par_iter()
+                .map_init(
+                    || Context::new(),
+                    |ctx, func| {
+                        let mut code_buf = Vec::new();
+                        ctx.func = func.to_owned();
+                        let mut reloc_sink = RelocSink::new();
+                        let mut local_trap_sink = LocalTrapSink::new();
+
+                        ctx.compile_and_emit(
+                            isa,
+                            &mut code_buf,
+                            &mut reloc_sink,
+                            &mut local_trap_sink,
+                        )
+                        .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
+                        ctx.clear();
+                        Ok((code_buf, (reloc_sink, local_trap_sink)))
+                    },
+                )
+                .collect();
+
+        let compiled_functions = compiled_functions?;
         let mut total_size = 0;
-
-        for (_, func) in function_bodies {
-            ctx.func = func;
-            let mut code_buf = Vec::new();
-            let mut reloc_sink = RelocSink::new();
-
-            ctx.compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut local_trap_sink)
-                .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
-            ctx.clear();
-
+        // We separate into two iterators, one iterable and one into iterable
+        let (code_bufs, sinks): (Vec<Vec<u8>>, Vec<(RelocSink, LocalTrapSink)>) =
+            compiled_functions.into_iter().unzip();
+        for (code_buf, (reloc_sink, mut local_trap_sink)) in code_bufs.iter().zip(sinks.into_iter())
+        {
             // Clear the local trap sink and consolidate all trap info
             // into a single location.
             trap_sink.drain_local(total_size, &mut local_trap_sink);
@@ -129,7 +138,6 @@ impl FuncResolverBuilder {
             // Round up each function's size to pointer alignment.
             total_size += round_up(code_buf.len(), mem::size_of::<usize>());
 
-            compiled_functions.push(code_buf);
             local_relocs.push(reloc_sink.local_relocs.into_boxed_slice());
             external_relocs.push(reloc_sink.external_relocs.into_boxed_slice());
         }
@@ -156,10 +164,10 @@ impl FuncResolverBuilder {
             *i = 0xCC;
         }
 
-        let mut map = Map::with_capacity(compiled_functions.len());
+        let mut map = Map::with_capacity(num_func_bodies);
 
         let mut previous_end = 0;
-        for compiled in compiled_functions.iter() {
+        for compiled in code_bufs.iter() {
             let new_end = previous_end + round_up(compiled.len(), mem::size_of::<usize>());
             unsafe {
                 memory.as_slice_mut()[previous_end..previous_end + compiled.len()]
@@ -169,10 +177,12 @@ impl FuncResolverBuilder {
             previous_end = new_end;
         }
 
-        let handler_data = HandlerData::new(trap_sink, memory.as_ptr() as _, memory.size());
+        let handler_data =
+            HandlerData::new(Arc::new(trap_sink), memory.as_ptr() as _, memory.size());
 
         let mut func_resolver_builder = Self {
-            resolver: FuncResolver { map, memory },
+            map,
+            memory,
             local_relocs,
             external_relocs,
             import_len: info.imported_functions.len(),
@@ -187,12 +197,15 @@ impl FuncResolverBuilder {
         for (index, relocs) in self.local_relocs.iter() {
             for ref reloc in relocs.iter() {
                 let local_func_index = LocalFuncIndex::new(reloc.target.index() - self.import_len);
-                let target_func_address =
-                    self.resolver.lookup(local_func_index).unwrap().as_ptr() as usize;
+                let target_func_address = lookup_func(&self.map, &self.memory, local_func_index)
+                    .unwrap()
+                    .as_ptr() as usize;
 
                 // We need the address of the current function
                 // because these calls are relative.
-                let func_addr = self.resolver.lookup(index).unwrap().as_ptr() as usize;
+                let func_addr = lookup_func(&self.map, &self.memory, index)
+                    .unwrap()
+                    .as_ptr() as usize;
 
                 unsafe {
                     let reloc_address = func_addr + reloc.offset as usize;
@@ -208,8 +221,10 @@ impl FuncResolverBuilder {
 
     pub fn finalize(
         mut self,
-        signatures: &SliceMap<SigIndex, Arc<FuncSig>>,
-    ) -> CompileResult<FuncResolver> {
+        signatures: &SliceMap<SigIndex, FuncSig>,
+        trampolines: Arc<Trampolines>,
+        handler_data: HandlerData,
+    ) -> CompileResult<(FuncResolver, BackendCache)> {
         for (index, relocs) in self.external_relocs.iter() {
             for ref reloc in relocs.iter() {
                 let target_func_address: isize = match reloc.target {
@@ -223,9 +238,9 @@ impl FuncResolverBuilder {
                         LibCall::TruncF64 => libcalls::truncf64 as isize,
                         LibCall::NearestF64 => libcalls::nearbyintf64 as isize,
                         #[cfg(all(target_pointer_width = "64", target_os = "windows"))]
-                        Probestack => __chkstk as isize,
+                        LibCall::Probestack => __chkstk as isize,
                         #[cfg(not(target_os = "windows"))]
-                        Probestack => __rust_probestack as isize,
+                        LibCall::Probestack => __rust_probestack as isize,
                     },
                     RelocationType::Intrinsic(ref name) => match name.as_str() {
                         "i32print" => i32_print as isize,
@@ -273,15 +288,17 @@ impl FuncResolverBuilder {
                         },
                     },
                     RelocationType::Signature(sig_index) => {
-                        let sig_index =
-                            SigRegistry.lookup_sig_index(Arc::clone(&signatures[sig_index]));
+                        let signature = SigRegistry.lookup_signature_ref(&signatures[sig_index]);
+                        let sig_index = SigRegistry.lookup_sig_index(signature);
                         sig_index.index() as _
                     }
                 };
 
                 // We need the address of the current function
                 // because some of these calls are relative.
-                let func_addr = self.resolver.lookup(index).unwrap().as_ptr();
+                let func_addr = lookup_func(&self.map, &self.memory, index)
+                    .unwrap()
+                    .as_ptr() as usize;
 
                 // Determine relocation type and apply relocation.
                 match reloc.reloc {
@@ -289,9 +306,9 @@ impl FuncResolverBuilder {
                         let ptr_to_write = (target_func_address as u64)
                             .checked_add(reloc.addend as u64)
                             .unwrap();
-                        let empty_space_offset = self.resolver.map[index] + reloc.offset as usize;
+                        let empty_space_offset = self.map[index] + reloc.offset as usize;
                         let ptr_slice = unsafe {
-                            &mut self.resolver.memory.as_slice_mut()
+                            &mut self.memory.as_slice_mut()
                                 [empty_space_offset..empty_space_offset + 8]
                         };
                         LittleEndian::write_u64(ptr_slice, ptr_to_write);
@@ -309,29 +326,35 @@ impl FuncResolverBuilder {
         }
 
         unsafe {
-            self.resolver
-                .memory
+            self.memory
                 .protect(.., Protect::ReadExec)
                 .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
         }
 
-        Ok(self.resolver)
+        let backend_cache = BackendCache {
+            external_relocs: self.external_relocs.clone(),
+            offsets: self.map.clone(),
+            trap_sink: handler_data.trap_data,
+            trampolines: trampolines.to_trampoline_cache(),
+        };
+
+        Ok((
+            FuncResolver {
+                map: self.map,
+                memory: Arc::new(self.memory),
+            },
+            backend_cache,
+        ))
     }
 }
+
+unsafe impl Sync for FuncResolver {}
+unsafe impl Send for FuncResolver {}
 
 /// Resolves a function index to a function address.
 pub struct FuncResolver {
     map: Map<LocalFuncIndex, usize>,
-    memory: Memory,
-}
-
-impl FuncResolver {
-    fn lookup(&self, local_func_index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
-        let offset = *self.map.get(local_func_index)?;
-        let ptr = unsafe { self.memory.as_ptr().add(offset) };
-
-        NonNull::new(ptr).map(|nonnull| nonnull.cast())
-    }
+    pub(crate) memory: Arc<Memory>,
 }
 
 // Implements FuncResolver trait.
@@ -341,7 +364,7 @@ impl backend::FuncResolver for FuncResolver {
         _module: &wasmer_runtime_core::module::ModuleInner,
         index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
-        self.lookup(index)
+        lookup_func(&self.map, &self.memory, index)
     }
 }
 
@@ -350,21 +373,21 @@ fn round_up(n: usize, multiple: usize) -> usize {
     (n + multiple - 1) & !(multiple - 1)
 }
 
-extern "C" fn i32_print(n: i32) {
+extern "C" fn i32_print(_ctx: &mut vm::Ctx, n: i32) {
     print!(" i32: {},", n);
 }
-extern "C" fn i64_print(n: i64) {
+extern "C" fn i64_print(_ctx: &mut vm::Ctx, n: i64) {
     print!(" i64: {},", n);
 }
-extern "C" fn f32_print(n: f32) {
+extern "C" fn f32_print(_ctx: &mut vm::Ctx, n: f32) {
     print!(" f32: {},", n);
 }
-extern "C" fn f64_print(n: f64) {
+extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
     print!(" f64: {},", n);
 }
-extern "C" fn start_debug(func_index: u32) {
+extern "C" fn start_debug(_ctx: &mut vm::Ctx, func_index: u32) {
     print!("func ({}), args: [", func_index);
 }
-extern "C" fn end_debug() {
+extern "C" fn end_debug(_ctx: &mut vm::Ctx) {
     println!(" ]");
 }

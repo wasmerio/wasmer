@@ -53,10 +53,7 @@ impl AnyfuncTable {
         desc: TableDescriptor,
         local: &mut vm::LocalTable,
     ) -> Result<Box<Self>, CreationError> {
-        let initial_table_backing_len = match desc.maximum {
-            Some(max) => max,
-            None => desc.minimum,
-        } as usize;
+        let initial_table_backing_len = desc.minimum as usize;
 
         let mut storage = Box::new(AnyfuncTable {
             backing: vec![vm::Anyfunc::null(); initial_table_backing_len],

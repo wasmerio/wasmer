@@ -4,7 +4,6 @@ use crate::{
 };
 use cranelift_codegen::{ir, isa};
 use cranelift_wasm::{self, translate_module, FuncTranslator, ModuleEnvironment};
-use std::sync::Arc;
 use wasmer_runtime_core::{
     error::{CompileError, CompileResult},
     module::{
@@ -62,10 +61,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
     /// Declares a function signature to the environment.
     fn declare_signature(&mut self, sig: &ir::Signature) {
         self.signatures.push(sig.clone());
-        self.module
-            .info
-            .signatures
-            .push(Arc::new(Converter(sig).into()));
+        self.module.info.signatures.push(Converter(sig).into());
     }
 
     /// Return the signature with the given index.
@@ -139,7 +135,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                 // assert!(!desc.mutable);
                 let global_index: GlobalIndex = Converter(global_index).into();
                 let imported_global_index = global_index
-                    .local_or_import(self.module)
+                    .local_or_import(&self.module.info)
                     .import()
                     .expect("invalid global initializer when declaring an imported global");
                 Initializer::GetGlobal(imported_global_index)
@@ -249,7 +245,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         let base = match base {
             Some(global_index) => {
                 let global_index: GlobalIndex = Converter(global_index).into();
-                Initializer::GetGlobal(match global_index.local_or_import(self.module) {
+                Initializer::GetGlobal(match global_index.local_or_import(&self.module.info) {
                     LocalOrImport::Import(imported_global_index) => imported_global_index,
                     LocalOrImport::Local(_) => {
                         panic!("invalid global initializer when declaring an imported global")
@@ -319,7 +315,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
         let base = match base {
             Some(global_index) => {
                 let global_index: GlobalIndex = Converter(global_index).into();
-                Initializer::GetGlobal(match global_index.local_or_import(self.module) {
+                Initializer::GetGlobal(match global_index.local_or_import(&self.module.info) {
                     LocalOrImport::Import(imported_global_index) => imported_global_index,
                     LocalOrImport::Local(_) => {
                         panic!("invalid global initializer when declaring an imported global")
@@ -389,7 +385,7 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
             let name = ir::ExternalName::user(0, func_index.index() as u32);
 
             let sig = func_env.generate_signature(
-                self.get_func_type(Converter(func_index.convert_up(self.module)).into()),
+                self.get_func_type(Converter(func_index.convert_up(&self.module.info)).into()),
             );
 
             let mut func = ir::Function::with_name_signature(name, sig);
@@ -419,8 +415,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::I32),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::I32),
                         ],
                         returns: vec![],
                     });
@@ -457,8 +453,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::I32),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::I32),
                         ],
                         returns: vec![],
                     });
@@ -476,8 +472,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::I64),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::I64),
                         ],
                         returns: vec![],
                     });
@@ -495,8 +491,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::F32),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::F32),
                         ],
                         returns: vec![],
                     });
@@ -514,8 +510,8 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     let signature = pos.func.import_signature(ir::Signature {
                         call_conv: self.target_config().default_call_conv,
                         params: vec![
-                            ir::AbiParam::new(ir::types::F64),
                             ir::AbiParam::special(ir::types::I64, ir::ArgumentPurpose::VMContext),
+                            ir::AbiParam::new(ir::types::F64),
                         ],
                         returns: vec![],
                     });
@@ -536,14 +532,14 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
 
                 let func_index = pos.ins().iconst(ir::types::I32, func_index.index() as i64);
 
-                pos.ins().call(start_debug, &[func_index, vmctx]);
+                pos.ins().call(start_debug, &[vmctx, func_index]);
 
                 for param in new_ebb_params.iter().cloned() {
                     match pos.func.dfg.value_type(param) {
-                        ir::types::I32 => pos.ins().call(i32_print, &[param, vmctx]),
-                        ir::types::I64 => pos.ins().call(i64_print, &[param, vmctx]),
-                        ir::types::F32 => pos.ins().call(f32_print, &[param, vmctx]),
-                        ir::types::F64 => pos.ins().call(f64_print, &[param, vmctx]),
+                        ir::types::I32 => pos.ins().call(i32_print, &[vmctx, param]),
+                        ir::types::I64 => pos.ins().call(i64_print, &[vmctx, param]),
+                        ir::types::F32 => pos.ins().call(f32_print, &[vmctx, param]),
+                        ir::types::F64 => pos.ins().call(f64_print, &[vmctx, param]),
                         _ => unimplemented!(),
                     };
                 }

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-spectests"
-version = "0.1.2"
+version = "0.2.0"
 description = "Wasmer spectests library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -9,15 +9,20 @@ edition = "2018"
 build = "build/mod.rs"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.2.0" }
 
 [build-dependencies]
 wabt = "0.7.2"
 
 [dev-dependencies]
-wasmer-clif-backend = { path = "../clif-backend", version = "0.1.2" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
 wabt = "0.7.2"
 
+[target.'cfg(not(windows))'.dev-dependencies]
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.1.0" }
+
 [features]
-default = ["fast-tests", "wasmer-runtime-core/cache", "wasmer-clif-backend/cache"]
+default = ["fast-tests"]
 fast-tests = []
+clif = []
+llvm = []

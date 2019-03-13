@@ -1,4 +1,3 @@
-#[cfg(feature = "cache")]
 mod cache;
 mod func_env;
 mod libcalls;
@@ -14,21 +13,18 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
-#[cfg(feature = "cache")]
-use wasmer_runtime_core::{
-    backend::sys::Memory,
-    cache::{Cache, Error as CacheError},
-    module::ModuleInfo,
-};
+
+use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 use wasmer_runtime_core::{
     backend::{Compiler, Token},
     error::{CompileError, CompileResult},
     module::ModuleInner,
 };
-#[cfg(feature = "cache")]
+
 #[macro_use]
 extern crate serde_derive;
-#[cfg(feature = "cache")]
+
+extern crate rayon;
 extern crate serde;
 
 use wasmparser::{self, WasmDecoder};
@@ -48,7 +44,7 @@ impl Compiler for CraneliftCompiler {
 
         let isa = get_isa();
 
-        let mut module = module::Module::empty();
+        let mut module = module::Module::new();
         let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
 
         let func_bodies = module_env.translate(wasm)?;
@@ -57,41 +53,41 @@ impl Compiler for CraneliftCompiler {
     }
 
     /// Create a wasmer Module from an already-compiled cache.
-    #[cfg(feature = "cache")]
-    unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError> {
+
+    unsafe fn from_cache(&self, cache: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         module::Module::from_cache(cache)
     }
 
-    #[cfg(feature = "cache")]
-    fn compile_to_backend_cache_data(
-        &self,
-        wasm: &[u8],
-        _: Token,
-    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)> {
-        validate(wasm)?;
+    //
+    // fn compile_to_backend_cache_data(
+    //     &self,
+    //     wasm: &[u8],
+    //     _: Token,
+    // ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)> {
+    //     validate(wasm)?;
 
-        let isa = get_isa();
+    //     let isa = get_isa();
 
-        let mut module = module::Module::empty();
-        let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
+    //     let mut module = module::Module::new(wasm);
+    //     let module_env = module_env::ModuleEnv::new(&mut module, &*isa);
 
-        let func_bodies = module_env.translate(wasm)?;
+    //     let func_bodies = module_env.translate(wasm)?;
 
-        let (info, backend_cache, compiled_code) = module
-            .compile_to_backend_cache(&*isa, func_bodies)
-            .map_err(|e| CompileError::InternalError {
-                msg: format!("{:?}", e),
-            })?;
+    //     let (info, backend_cache, compiled_code) = module
+    //         .compile_to_backend_cache(&*isa, func_bodies)
+    //         .map_err(|e| CompileError::InternalError {
+    //             msg: format!("{:?}", e),
+    //         })?;
 
-        let buffer =
-            backend_cache
-                .into_backend_data()
-                .map_err(|e| CompileError::InternalError {
-                    msg: format!("{:?}", e),
-                })?;
+    //     let buffer =
+    //         backend_cache
+    //             .into_backend_data()
+    //             .map_err(|e| CompileError::InternalError {
+    //                 msg: format!("{:?}", e),
+    //             })?;
 
-        Ok((Box::new(info), buffer, compiled_code))
-    }
+    //     Ok((Box::new(info), buffer, compiled_code))
+    // }
 }
 
 fn get_isa() -> Box<isa::TargetIsa> {

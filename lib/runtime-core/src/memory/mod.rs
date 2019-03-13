@@ -1,5 +1,5 @@
 use crate::{
-    error::CreationError,
+    error::{CreationError, GrowError},
     export::Export,
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
@@ -63,6 +63,15 @@ impl Memory {
     /// # }
     /// ```
     pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+        if let Some(max) = desc.maximum {
+            if max < desc.minimum {
+                return Err(CreationError::InvalidDescriptor(
+                    "Max number of memory pages is less than the minimum number of pages"
+                        .to_string(),
+                ));
+            }
+        }
+
         let variant = if !desc.shared {
             MemoryVariant::Unshared(UnsharedMemory::new(desc)?)
         } else {
@@ -80,8 +89,8 @@ impl Memory {
         self.desc
     }
 
-    /// Grow this memory by the specfied number of pages.
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+    /// Grow this memory by the specified number of pages.
+    pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         match &self.variant {
             MemoryVariant::Unshared(unshared_mem) => unshared_mem.grow(delta),
             MemoryVariant::Shared(shared_mem) => shared_mem.grow(delta),
@@ -235,7 +244,7 @@ impl UnsharedMemory {
         })
     }
 
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+    pub fn grow(&self, delta: Pages) -> Result<Pages, GrowError> {
         let mut storage = self.internal.storage.borrow_mut();
 
         let mut local = self.internal.local.get();
@@ -283,7 +292,7 @@ impl SharedMemory {
         Ok(Self { desc })
     }
 
-    pub fn grow(&self, _delta: Pages) -> Option<Pages> {
+    pub fn grow(&self, _delta: Pages) -> Result<Pages, GrowError> {
         unimplemented!()
     }
 
@@ -296,4 +305,22 @@ impl Clone for SharedMemory {
     fn clone(&self) -> Self {
         unimplemented!()
     }
+}
+
+#[cfg(test)]
+mod memory_tests {
+
+    use super::{Memory, MemoryDescriptor, Pages};
+
+    #[test]
+    fn test_initial_memory_size() {
+        let unshared_memory = Memory::new(MemoryDescriptor {
+            minimum: Pages(10),
+            maximum: Some(Pages(20)),
+            shared: false,
+        })
+        .unwrap();
+        assert_eq!(unshared_memory.size(), Pages(10));
+    }
+
 }

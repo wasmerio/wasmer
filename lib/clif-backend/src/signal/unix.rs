@@ -18,11 +18,7 @@ use nix::sys::signal::{
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
-use wasmer_runtime_core::{
-    error::{RuntimeError, RuntimeResult},
-    structures::TypedIndex,
-    types::{MemoryIndex, TableIndex},
-};
+use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
 
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
@@ -79,8 +75,8 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
         if signum != 0 {
             *jmp_buf = prev_jmp_buf;
 
-            if let Some(msg) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(RuntimeError::User { msg })
+            if let Some(data) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
+                Err(RuntimeError::Panic { data })
             } else {
                 let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
@@ -91,28 +87,28 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                 {
                     Err(match Signal::from_c_int(signum) {
                         Ok(SIGILL) => match trapcode {
-                            TrapCode::BadSignature => RuntimeError::IndirectCallSignature {
-                                table: TableIndex::new(0),
+                            TrapCode::BadSignature => RuntimeError::Trap {
+                                msg: "incorrect call_indirect signature".into(),
                             },
-                            TrapCode::IndirectCallToNull => RuntimeError::IndirectCallToNull {
-                                table: TableIndex::new(0),
+                            TrapCode::IndirectCallToNull => RuntimeError::Trap {
+                                msg: "indirect call to null".into(),
                             },
-                            TrapCode::HeapOutOfBounds => RuntimeError::OutOfBoundsAccess {
-                                memory: MemoryIndex::new(0),
-                                addr: None,
+                            TrapCode::HeapOutOfBounds => RuntimeError::Trap {
+                                msg: "memory out-of-bounds access".into(),
                             },
-                            TrapCode::TableOutOfBounds => RuntimeError::TableOutOfBounds {
-                                table: TableIndex::new(0),
+                            TrapCode::TableOutOfBounds => RuntimeError::Trap {
+                                msg: "table out-of-bounds access".into(),
                             },
-                            _ => RuntimeError::Unknown {
-                                msg: "unknown trap".to_string(),
+                            _ => RuntimeError::Trap {
+                                msg: "unknown trap".into(),
                             },
                         },
-                        Ok(SIGSEGV) | Ok(SIGBUS) => RuntimeError::OutOfBoundsAccess {
-                            memory: MemoryIndex::new(0),
-                            addr: None,
+                        Ok(SIGSEGV) | Ok(SIGBUS) => RuntimeError::Trap {
+                            msg: "memory out-of-bounds access".into(),
                         },
-                        Ok(SIGFPE) => RuntimeError::IllegalArithmeticOperation,
+                        Ok(SIGFPE) => RuntimeError::Trap {
+                            msg: "illegal arithmetic operation".into(),
+                        },
                         _ => unimplemented!(),
                     }
                     .into())
@@ -126,8 +122,8 @@ pub fn call_protected<T>(handler_data: &HandlerData, f: impl FnOnce() -> T) -> R
                         _ => "unkown trapped signal",
                     };
                     // When the trap-handler is fully implemented, this will return more information.
-                    Err(RuntimeError::Unknown {
-                        msg: format!("trap at {:p} - {}", faulting_addr, signal),
+                    Err(RuntimeError::Trap {
+                        msg: format!("unknown trap at {:p} - {}", faulting_addr, signal).into(),
                     }
                     .into())
                 }

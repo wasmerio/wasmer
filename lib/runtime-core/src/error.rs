@@ -1,8 +1,10 @@
 use crate::types::{
-    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
+    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type, Value,
 };
 use std::sync::Arc;
 use wasmparser::BinaryReaderError;
+use core::borrow::Borrow;
+use std::any::Any;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
@@ -36,6 +38,19 @@ impl PartialEq for CompileError {
     }
 }
 
+impl std::fmt::Display for CompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CompileError::InternalError { msg } => {
+                write!(f, "Internal compiler error: \"{}\"", msg)
+            }
+            CompileError::ValidationError { msg } => write!(f, "Validation error \"{}\"", msg),
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
+
 /// This is returned when the runtime is unable to
 /// correctly link the module with the provided imports.
 ///
@@ -51,8 +66,8 @@ pub enum LinkError {
     IncorrectImportSignature {
         namespace: String,
         name: String,
-        expected: Arc<FuncSig>,
-        found: Arc<FuncSig>,
+        expected: FuncSig,
+        found: FuncSig,
     },
     ImportNotFound {
         namespace: String,
@@ -84,34 +99,42 @@ impl PartialEq for LinkError {
     }
 }
 
+impl std::fmt::Display for LinkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LinkError::ImportNotFound {namespace, name} => write!(f, "Import not found, namespace: {}, name: {}", namespace, name),
+            LinkError::IncorrectGlobalDescriptor {namespace, name,expected,found} => {
+                write!(f, "Incorrect global descriptor, namespace: {}, name: {}, expected global descriptor: {:?}, found global descriptor: {:?}", namespace, name, expected, found)
+            },
+            LinkError::IncorrectImportSignature{namespace, name,expected,found} => {
+                write!(f, "Incorrect import signature, namespace: {}, name: {}, expected signature: {}, found signature: {}", namespace, name, expected, found)
+            }
+            LinkError::IncorrectImportType{namespace, name,expected,found} => {
+                write!(f, "Incorrect import type, namespace: {}, name: {}, expected type: {}, found type: {}", namespace, name, expected, found)
+            }
+            LinkError::IncorrectMemoryDescriptor{namespace, name,expected,found} => {
+                write!(f, "Incorrect memory descriptor, namespace: {}, name: {}, expected memory descriptor: {:?}, found memory descriptor: {:?}", namespace, name, expected, found)
+            },
+            LinkError::IncorrectTableDescriptor{namespace, name,expected,found} => {
+                write!(f, "Incorrect table descriptor, namespace: {}, name: {}, expected table descriptor: {:?}, found table descriptor: {:?}", namespace, name, expected, found)
+            },
+        }
+    }
+}
+
+impl std::error::Error for LinkError {}
+
 /// This is the error type returned when calling
 /// a webassembly function.
 ///
 /// The main way to do this is `Instance.call`.
 ///
 /// Comparing two `RuntimeError`s always evaluates to false.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum RuntimeError {
-    OutOfBoundsAccess {
-        memory: MemoryIndex,
-        addr: Option<u32>,
-    },
-    TableOutOfBounds {
-        table: TableIndex,
-    },
-    IndirectCallSignature {
-        table: TableIndex,
-    },
-    IndirectCallToNull {
-        table: TableIndex,
-    },
-    IllegalArithmeticOperation,
-    User {
-        msg: String,
-    },
-    Unknown {
-        msg: String,
-    },
+    Trap { msg: Box<str> },
+    Exception { data: Box<[Value]> },
+    Panic { data: Box<dyn Any> },
 }
 
 impl PartialEq for RuntimeError {
@@ -120,22 +143,31 @@ impl PartialEq for RuntimeError {
     }
 }
 
+impl std::fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            RuntimeError::Trap { ref msg } => {
+                write!(f, "WebAssembly trap occured during runtime: {}", msg)
+            }
+            RuntimeError::Exception { ref data } => {
+                write!(f, "Uncaught WebAssembly exception: {:?}", data)
+            }
+            RuntimeError::Panic { data: _ } => write!(f, "User-defined \"panic\""),
+        }
+    }
+}
+
+impl std::error::Error for RuntimeError {}
+
 /// This error type is produced by resolving a wasm function
 /// given its name.
 ///
 /// Comparing two `ResolveError`s always evaluates to false.
 #[derive(Debug, Clone)]
 pub enum ResolveError {
-    Signature {
-        expected: Arc<FuncSig>,
-        found: Vec<Type>,
-    },
-    ExportNotFound {
-        name: String,
-    },
-    ExportWrongType {
-        name: String,
-    },
+    Signature { expected: FuncSig, found: Vec<Type> },
+    ExportNotFound { name: String },
+    ExportWrongType { name: String },
 }
 
 impl PartialEq for ResolveError {
@@ -144,6 +176,31 @@ impl PartialEq for ResolveError {
     }
 }
 
+impl std::fmt::Display for ResolveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ResolveError::ExportNotFound { name } => write!(f, "Export not found: {}", name),
+            ResolveError::ExportWrongType { name } => write!(f, "Export wrong type: {}", name),
+            ResolveError::Signature { expected, found } => {
+                let found = found
+                    .as_slice()
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let expected: &FuncSig = expected.borrow();
+                write!(
+                    f,
+                    "Parameters of type [{}] did not match signature {}",
+                    found, expected
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ResolveError {}
+
 /// This error type is produced by calling a wasm function
 /// exported from a module.
 ///
@@ -151,7 +208,7 @@ impl PartialEq for ResolveError {
 /// be the `CallError::Runtime(RuntimeError)` variant.
 ///
 /// Comparing two `CallError`s always evaluates to false.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum CallError {
     Resolve(ResolveError),
     Runtime(RuntimeError),
@@ -163,12 +220,24 @@ impl PartialEq for CallError {
     }
 }
 
+impl std::fmt::Display for CallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CallError::Resolve(resolve_error) => write!(f, "Call error: {}", resolve_error),
+            CallError::Runtime(runtime_error) => write!(f, "Call error: {}", runtime_error),
+        }
+    }
+}
+
+impl std::error::Error for CallError {}
+
 /// This error type is produced when creating something,
 /// like a `Memory` or a `Table`.
 #[derive(Debug, Clone)]
 pub enum CreationError {
     UnableToCreateMemory,
     UnableToCreateTable,
+    InvalidDescriptor(String),
 }
 
 impl PartialEq for CreationError {
@@ -177,12 +246,28 @@ impl PartialEq for CreationError {
     }
 }
 
+impl std::fmt::Display for CreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CreationError::UnableToCreateMemory => write!(f, "Unable to Create Memory"),
+            CreationError::UnableToCreateTable => write!(f, "Unable to Create Table"),
+            CreationError::InvalidDescriptor(msg) => write!(
+                f,
+                "Unable to create because the supplied descriptor is invalid: \"{}\"",
+                msg
+            ),
+        }
+    }
+}
+
+impl std::error::Error for CreationError {}
+
 /// The amalgamation of all errors that can occur
 /// during the compilation, instantiation, or execution
 /// of a webassembly module.
 ///
 /// Comparing two `Error`s always evaluates to false.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Error {
     CompileError(CompileError),
     LinkError(Vec<LinkError>),
@@ -243,5 +328,132 @@ impl From<RuntimeError> for CallError {
 impl From<ResolveError> for CallError {
     fn from(resolve_err: ResolveError) -> Self {
         CallError::Resolve(resolve_err)
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Error::CompileError(err) => write!(f, "compile error: {}", err),
+            Error::LinkError(errs) => {
+                if errs.len() == 1 {
+                    write!(f, "link error: {}", errs[0])
+                } else {
+                    write!(f, "{} link errors:", errs.len())?;
+                    for (i, err) in errs.iter().enumerate() {
+                        write!(f, " ({} of {}) {}", i + 1, errs.len(), err)?;
+                    }
+                    Ok(())
+                }
+            }
+            Error::RuntimeError(err) => write!(f, "runtime error: {}", err),
+            Error::ResolveError(err) => write!(f, "resolve error: {}", err),
+            Error::CallError(err) => write!(f, "call error: {}", err),
+            Error::CreationError(err) => write!(f, "creation error: {}", err),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+#[derive(Debug)]
+pub enum GrowError {
+    MemoryGrowError,
+    TableGrowError,
+    ExceededMaxPages(PageError),
+    ExceededMaxPagesForMemory(usize, usize),
+    CouldNotProtectMemory(MemoryProtectionError),
+    CouldNotCreateMemory(MemoryCreationError),
+}
+
+impl std::fmt::Display for GrowError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            GrowError::MemoryGrowError => write!(f, "Unable to grow memory"),
+            GrowError::TableGrowError => write!(f, "Unable to grow table"),
+            GrowError::ExceededMaxPages(e) => write!(f, "Grow Error: {}", e),
+            GrowError::ExceededMaxPagesForMemory(left, added) => write!(f, "Failed to add pages because would exceed maximum number of pages for the memory. Left: {}, Added: {}", left, added),
+            GrowError::CouldNotCreateMemory(e) => write!(f, "Grow Error: {}", e),
+            GrowError::CouldNotProtectMemory(e) => write!(f, "Grow Error: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for GrowError {}
+
+#[derive(Debug)]
+pub enum PageError {
+    // left, right, added
+    ExceededMaxPages(usize, usize, usize),
+}
+
+impl std::fmt::Display for PageError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            PageError::ExceededMaxPages(left, right, added) => write!(f, "Failed to add pages because would exceed maximum number of pages. Left: {}, Right: {}, Pages added: {}", left, right, added),
+        }
+    }
+}
+impl std::error::Error for PageError {}
+
+impl Into<GrowError> for PageError {
+    fn into(self) -> GrowError {
+        GrowError::ExceededMaxPages(self)
+    }
+}
+
+#[derive(Debug)]
+pub enum MemoryCreationError {
+    VirtualMemoryAllocationFailed(usize, String),
+    CouldNotCreateMemoryFromFile(std::io::Error),
+}
+
+impl std::fmt::Display for MemoryCreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            MemoryCreationError::VirtualMemoryAllocationFailed(size, msg) => write!(
+                f,
+                "Allocation virtual memory with size {} failed. \nErrno message: {}",
+                size, msg
+            ),
+            MemoryCreationError::CouldNotCreateMemoryFromFile(e) => write!(f, "IO Error: {}", e),
+        }
+    }
+}
+impl std::error::Error for MemoryCreationError {}
+
+impl Into<GrowError> for MemoryCreationError {
+    fn into(self) -> GrowError {
+        GrowError::CouldNotCreateMemory(self)
+    }
+}
+
+impl From<std::io::Error> for MemoryCreationError {
+    fn from(io_error: std::io::Error) -> Self {
+        MemoryCreationError::CouldNotCreateMemoryFromFile(io_error)
+    }
+}
+
+#[derive(Debug)]
+pub enum MemoryProtectionError {
+    ProtectionFailed(usize, usize, String),
+}
+
+impl std::fmt::Display for MemoryProtectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            MemoryProtectionError::ProtectionFailed(start, size, msg) => write!(
+                f,
+                "Allocation virtual memory starting at {} with size {} failed. \nErrno message: {}",
+                start, size, msg
+            ),
+        }
+    }
+}
+impl std::error::Error for MemoryProtectionError {}
+
+impl Into<GrowError> for MemoryProtectionError {
+    fn into(self) -> GrowError {
+        GrowError::CouldNotProtectMemory(self)
     }
 }
