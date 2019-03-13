@@ -239,7 +239,7 @@ pub fn run_emscripten_instance(
     let _ = module;
     #[cfg(feature = "vfs")]
     {
-        data.vfs = match module.info().custom_sections.get("wasmer_fs") {
+        data.vfs = match module.info().custom_sections.get("wasmer:fs") {
             Some(bytes) => match Vfs::from_tar_zstd_bytes(&bytes[..]) {
                 Ok(vfs_backing) => Some(vfs_backing),
                 Err(_) => None,
