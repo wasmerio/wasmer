@@ -12,5 +12,12 @@ The only current supported operation is the `read` syscall.
 
 The virtual filesystem is not enabled by default. Build with `--features vfs` to use it. 
 
+[Zbox][3] is a virtual filesystem that depends on [libsodium][4]. See [installation instructions][5] for libsodium here. One can
+statically link libsodium with the [instructions][6] on Zbox's readme. 
+
 [1]: https://facebook.github.io/zstd/
 [2]: https://www.gnu.org/software/tar/
+[3]: https://zbox.io/
+[4]: https://download.libsodium.org/doc/
+[5]: https://download.libsodium.org/doc/installation
+[6]: https://github.com/zboxfs/zbox#static-linking-with-libsodium

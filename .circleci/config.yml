@@ -47,6 +47,14 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            # install libsodium
+            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+            tar xf libsodium-1.0.17.tar.gz
+            cd libsodium-1.0.17/
+            ./configure
+            make && make check
+            sudo make install
+            cd ..
       - run:
           name: Tests
           command: |
@@ -56,6 +64,8 @@ jobs:
           name: Emscripten Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make test-emscripten
       - run:
           name: Integration Tests
@@ -88,6 +98,13 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            # install libsodium
+            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+            tar xf libsodium-1.0.17.tar.gz
+            cd libsodium-1.0.17/
+            ./configure
+            make && make check
+            sudo make install
       - run:
           name: Install Rust
           command: |
@@ -113,6 +130,8 @@ jobs:
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make test-emscripten
       - run:
           name: Integration Tests
@@ -146,6 +165,13 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+            # install libsodium
+            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+            tar xf libsodium-1.0.17.tar.gz
+            cd libsodium-1.0.17/
+            ./configure
+            make && make check
+            sudo make install
       - run:
           name: Tests
           command: |
@@ -155,6 +181,8 @@ jobs:
           name: Emscripten Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make test-emscripten
       - run:
           name: Release Build
@@ -200,6 +228,13 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            # install libsodium
+            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+            tar xf libsodium-1.0.17.tar.gz
+            cd libsodium-1.0.17/
+            ./configure
+            make && make check
+            sudo make install
       - run:
           name: Install Rust
           command: |
@@ -225,6 +260,8 @@ jobs:
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make test-emscripten
       - run:
           name: Release Build

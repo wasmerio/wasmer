@@ -29,7 +29,6 @@ use libc::{
     // iovec,
     lseek,
     //    open,
-    //    read,
     // readv,
     rmdir,
     // writev,
@@ -68,7 +67,7 @@ pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 
 /// read
 #[cfg(feature = "vfs")]
-pub fn ___syscall3(ctx: &mut Ctx, which: i32, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> ssize_t
     debug!("emscripten::___syscall3 (read - vfs) {}", which);
     let fd: i32 = varargs.get(ctx);
@@ -99,7 +98,7 @@ pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
 
 /// open
 #[cfg(feature = "vfs")]
-pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open vfs) {}", which);
     let pathname: u32 = varargs.get(ctx);
     let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;

@@ -54,10 +54,8 @@ pub use self::utils::{
     get_emscripten_table_size, is_emscripten_module,
 };
 
-use std::fs::File;
-use std::io::Write;
 #[cfg(feature = "vfs")]
-use wasmer_runtime_abi::vfs::vfs::VfsBacking;
+use wasmer_runtime_abi::vfs::vfs::Vfs;
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
@@ -124,7 +122,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
 
     #[cfg(feature = "vfs")]
-    pub vfs: Option<VfsBacking>,
+    pub vfs: Option<Vfs>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -237,10 +235,12 @@ pub fn run_emscripten_instance(
 
     // Construct a new virtual filesystem and inject it into the emscripten data
     // This is behind a feature flag for now, but will be default in the future
+    #[cfg(not(feature = "vfs"))]
+    let _ = module;
     #[cfg(feature = "vfs")]
     {
         data.vfs = match module.info().custom_sections.get("wasmer_fs") {
-            Some(bytes) => match VfsBacking::from_tar_zstd_bytes(&bytes[..]) {
+            Some(bytes) => match Vfs::from_tar_zstd_bytes(&bytes[..]) {
                 Ok(vfs_backing) => Some(vfs_backing),
                 Err(_) => None,
             },

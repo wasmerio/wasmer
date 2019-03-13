@@ -24,7 +24,6 @@ use libc::{
     listen,
     mkdir,
     msghdr,
-    open,
     pid_t,
     pread,
     pwrite,
@@ -86,7 +85,7 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let mode: u32 = varargs.get(ctx);
     let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
     let _path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
-    let fd = unsafe { open(pathname_addr, flags, mode) };
+    let fd = unsafe { libc::open(pathname_addr, flags, mode) };
     debug!(
         "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
         pathname, flags, mode, fd, _path_str

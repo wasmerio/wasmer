@@ -1,125 +1,103 @@
-use hashbrown::HashMap;
+use zbox::{init_env, RepoOpener, Repo, OpenOptions};
 use std::io::Read;
-use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicIsize, Ordering};
-use std::sync::Arc;
+use std::collections::BTreeMap;
+use std::io;
 
-/// Simply an alias. May become a more complicated type in the future.
 pub type Fd = isize;
 
-/// Index into the file data vec.
-pub type DataIndex = usize;
-
-/// A simple key representing a path or a file descriptor. This filesystem treats paths and file
-/// descriptor as first class citizens. A key has access to an index in the filesystem data.
-#[derive(Hash, Eq, PartialEq, Debug)]
-pub enum DataKey {
-    Path(PathBuf),
-    Fd(Fd),
+pub struct Vfs {
+    pub repo: Repo,
+    pub fd_map: BTreeMap<Fd, zbox::File>, // best because we look for lowest fd
 }
 
-pub struct VfsBacking {
-    /// The file data
-    blocks: Vec<Vec<u8>>,
-    /// Map of file descriptors or paths to indexes in the file data
-    data: HashMap<DataKey, DataIndex>,
-    /// Counter for file descriptors
-    fd_count: Arc<AtomicIsize>,
-}
-
-impl VfsBacking {
-    /// like read(2), will read the data for the file descriptor
-    pub fn read_file<Writer: Write>(
-        &mut self,
-        fd: Fd,
-        mut buf: Writer,
-    ) -> Result<usize, failure::Error> {
-        let key = DataKey::Fd(fd);
-        let data_index = *self
-            .data
-            .get(&key)
-            .ok_or(VfsBackingError::FileDescriptorNotExist)?;
-        let data = self
-            .blocks
-            .get(data_index)
-            .ok_or(VfsBackingError::DataDoesNotExist)?;
-        buf.write(&data[..])
-            .map_err(|_| VfsBackingError::CopyError.into())
-            .map(|s| s as _)
-    }
-
-    /// like open(2), creates a file descriptor for the path if it exists
-    pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<Fd, failure::Error> {
-        let path = path.as_ref().to_path_buf();
-        let key = DataKey::Path(path);
-        let data_index = *self
-            .data
-            .get(&key)
-            .ok_or(VfsBackingError::PathDoesNotExist)?;
-        // create an insert a file descriptor key
-        let fd = self.fd_count.fetch_add(1, Ordering::SeqCst);
-        let fd_key = DataKey::Fd(fd);
-        let _ = self.data.insert(fd_key, data_index);
-        Ok(fd)
-    }
-
+impl Vfs {
     /// Like `VfsBacking::from_tar_bytes` except it also decompresses from the zstd format.
     pub fn from_tar_zstd_bytes<Reader: Read>(tar_bytes: Reader) -> Result<Self, failure::Error> {
         let result = zstd::decode_all(tar_bytes);
         let decompressed_data = result.unwrap();
-        VfsBacking::from_tar_bytes(&decompressed_data[..])
+        Vfs::from_tar_bytes(&decompressed_data[..])
     }
 
     /// Create a vfs from raw bytes in tar format
     pub fn from_tar_bytes<Reader: Read>(tar_bytes: Reader) -> Result<Self, failure::Error> {
         let mut ar = tar::Archive::new(tar_bytes);
-        let mut data = HashMap::new();
-        let mut blocks = vec![];
+        init_env();
+        let mut repo = RepoOpener::new().create(true).open("mem://wasmer_fs", "").unwrap();
         for entry in ar.entries()? {
             let mut entry = entry?;
-            // make a key from a path and insert the index of the
-            let path = entry.path().unwrap().to_path_buf();
-            let key = DataKey::Path(path);
-            let index = blocks.len();
-            data.insert(key, index);
-            // read the entry into a buffer and then push it into the file store
-            let mut file_data: Vec<u8> = vec![];
-            entry.read_to_end(&mut file_data).unwrap();
-            blocks.push(file_data);
+            let path = convert_to_absolute_path(entry.path().unwrap());
+            let mut file = OpenOptions::new()
+                .create(true)
+                .open(&mut repo, path)?;
+            io::copy(&mut entry, &mut file)?;
+            file.finish().unwrap();
         }
-        let vfs = VfsBacking {
-            blocks,
-            data,
-            fd_count: Arc::new(AtomicIsize::new(0)),
+        let vfs = Vfs {
+            repo,
+            fd_map: BTreeMap::new(),
         };
         Ok(vfs)
+    }
+
+    /// like read(2), will read the data for the file descriptor
+    pub fn read_file(
+        &mut self,
+        fd: Fd,
+        buf: &mut [u8],
+    ) -> Result<usize,  failure::Error> {
+        self.fd_map
+            .get_mut(&fd)
+            .ok_or(VfsError::FileDescriptorNotExist)?
+            .read(buf)
+            .map_err(|e| e.into())
+    }
+
+    /// like open(2), creates a file descriptor for the path if it exists
+    pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<Fd, failure::Error> {
+        let mut repo =  &mut self.repo;
+        let path = convert_to_absolute_path(path);
+        let file = OpenOptions::new().open(&mut repo, path)?;
+        let fd = if self.fd_map.len() == 0 {
+            0
+        }
+        else {
+            let fd = *match self.fd_map.keys().max() {
+                Some(fd) => fd,
+                None => return Err(VfsError::CouldNotGetNextLowestFileDescriptor.into())
+            };
+            fd + 1
+        };
+        self.fd_map.insert(fd, file);
+        Ok(fd)
     }
 }
 
 #[derive(Debug, Fail)]
-pub enum VfsBackingError {
-    #[fail(display = "Data does not exist.")]
-    DataDoesNotExist,
-    #[fail(display = "Path does not exist.")]
-    PathDoesNotExist,
+pub enum VfsError {
     #[fail(display = "File descriptor does not exist.")]
     FileDescriptorNotExist,
-    #[fail(display = "Error while copying to buffer")]
-    CopyError,
+    #[fail(display = "Error when trying to read maximum file descriptor.")]
+    CouldNotGetNextLowestFileDescriptor,
 }
 
-#[derive(Debug, Fail)]
-pub enum VfsError {
-    #[fail(display = "File does not exist.")]
-    FileDoesNotExist,
+
+fn convert_to_absolute_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    let path = path.as_ref();
+    if path.is_relative() {
+        std::path::PathBuf::from("/").join(path)
+    }
+    else {
+        path.to_path_buf()
+    }
 }
+
 
 #[cfg(test)]
 mod open_test {
-    use crate::vfs::vfs::VfsBacking;
     use std::fs::File;
     use std::io::Write;
+    use crate::vfs::vfs::Vfs;
 
     #[test]
     fn open_files() {
@@ -133,7 +111,7 @@ mod open_test {
         ar.append_path_with_name(file_path, "foo.txt").unwrap();
         let archive = ar.into_inner().unwrap();
         // SETUP: create virtual filesystem with tar data
-        let vfs_result = VfsBacking::from_tar_bytes(&archive[..]);
+        let vfs_result = Vfs::from_tar_bytes(&archive[..]);
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
@@ -169,7 +147,7 @@ mod open_test {
         ar.append_path_with_name(file_path, "foo.txt").unwrap();
         let archive = ar.into_inner().unwrap();
         // SETUP: create virtual filesystem with tar data
-        let vfs_result = VfsBacking::from_tar_bytes(&archive[..]);
+        let vfs_result = Vfs::from_tar_bytes(&archive[..]);
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
@@ -190,17 +168,17 @@ mod open_test {
 
 #[cfg(test)]
 mod read_test {
-    use crate::vfs::vfs::VfsBacking;
     use std::fs::File;
     use std::io::Write;
     use tempdir;
+    use crate::vfs::vfs::Vfs;
 
     #[test]
     fn empty_archive() {
         // SETUP: create temp dir and files
         let empty_archive = vec![];
         // SETUP: create virtual filesystem with tar data
-        let vfs_result = VfsBacking::from_tar_bytes(&empty_archive[..]);
+        let vfs_result = Vfs::from_tar_bytes(&empty_archive[..]);
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
@@ -220,7 +198,7 @@ mod read_test {
         ar.append_path_with_name(foo_file_path, "foo.txt").unwrap();
         let archive = ar.into_inner().unwrap();
         // SETUP: create virtual filesystem with tar data
-        let vfs_result = VfsBacking::from_tar_bytes(&archive[..]);
+        let vfs_result = Vfs::from_tar_bytes(&archive[..]);
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
@@ -229,7 +207,7 @@ mod read_test {
         let mut vfs = vfs_result.unwrap();
         // read the file
         let fd = vfs.open_file("foo.txt").unwrap();
-        let mut actual_data: Vec<u8> = Vec::new();
+        let mut actual_data: [u8; 12] = [0; 12];
         let read_result = vfs.read_file(fd, &mut actual_data);
         assert!(read_result.is_ok(), "Failed to read file from vfs");
         let expected_data = "foo foo foo\n".as_bytes();
@@ -252,7 +230,7 @@ mod read_test {
         ar.append_path_with_name(bar_file_path, "bar.txt").unwrap();
         let archive = ar.into_inner().unwrap();
         // SETUP: create virtual filesystem with tar data
-        let vfs_result = VfsBacking::from_tar_bytes(&archive[..]);
+        let vfs_result = Vfs::from_tar_bytes(&archive[..]);
         // ASSERT:
         assert!(
             vfs_result.is_ok(),
@@ -262,20 +240,20 @@ mod read_test {
         // read the file
         let foo_fd = vfs.open_file("foo.txt").unwrap();
         let bar_fd = vfs.open_file("bar.txt").unwrap();
-        let mut foo_actual_data: Vec<u8> = Vec::new();
+        let mut foo_actual_data: [u8; 12] = [0; 12];
         let foo_read_result = vfs.read_file(foo_fd, &mut foo_actual_data);
-        let mut bar_actual_data: Vec<u8> = Vec::new();
+        let mut bar_actual_data: [u8; 8] = [0; 8];
         let bar_read_result = vfs.read_file(bar_fd, &mut bar_actual_data);
         assert!(foo_read_result.is_ok(), "Failed to read foo.txt from vfs");
         assert!(bar_read_result.is_ok(), "Failed to read bar.txt from vfs");
-        let foo_expected_data = Vec::from("foo foo foo\n");
-        let bar_expected_data = Vec::from("bar bar\n");
+        let foo_expected_data: &[u8; 12] = b"foo foo foo\n";
+        let bar_expected_data: &[u8; 8] = b"bar bar\n";
         assert_eq!(
-            foo_actual_data, foo_expected_data,
+            &foo_actual_data, foo_expected_data,
             "Contents of `foo.txt` is not correct"
         );
         assert_eq!(
-            bar_actual_data, bar_expected_data,
+            &bar_actual_data, bar_expected_data,
             "Contents of `bar.txt` is not correct"
         );
     }
