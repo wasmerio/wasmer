@@ -1,8 +1,8 @@
-use zbox::{init_env, RepoOpener, Repo, OpenOptions};
-use std::io::Read;
-use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::io;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use zbox::{init_env, OpenOptions, Repo, RepoOpener};
 
 pub type Fd = isize;
 
@@ -23,13 +23,14 @@ impl Vfs {
     pub fn from_tar_bytes<Reader: Read>(tar_bytes: Reader) -> Result<Self, failure::Error> {
         let mut ar = tar::Archive::new(tar_bytes);
         init_env();
-        let mut repo = RepoOpener::new().create(true).open("mem://wasmer_fs", "").unwrap();
+        let mut repo = RepoOpener::new()
+            .create(true)
+            .open("mem://wasmer_fs", "")
+            .unwrap();
         for entry in ar.entries()? {
             let mut entry = entry?;
             let path = convert_to_absolute_path(entry.path().unwrap());
-            let mut file = OpenOptions::new()
-                .create(true)
-                .open(&mut repo, path)?;
+            let mut file = OpenOptions::new().create(true).open(&mut repo, path)?;
             io::copy(&mut entry, &mut file)?;
             file.finish().unwrap();
         }
@@ -41,11 +42,7 @@ impl Vfs {
     }
 
     /// like read(2), will read the data for the file descriptor
-    pub fn read_file(
-        &mut self,
-        fd: Fd,
-        buf: &mut [u8],
-    ) -> Result<usize,  failure::Error> {
+    pub fn read_file(&mut self, fd: Fd, buf: &mut [u8]) -> Result<usize, failure::Error> {
         self.fd_map
             .get_mut(&fd)
             .ok_or(VfsError::FileDescriptorNotExist)?
@@ -55,16 +52,15 @@ impl Vfs {
 
     /// like open(2), creates a file descriptor for the path if it exists
     pub fn open_file<P: AsRef<Path>>(&mut self, path: P) -> Result<Fd, failure::Error> {
-        let mut repo =  &mut self.repo;
+        let mut repo = &mut self.repo;
         let path = convert_to_absolute_path(path);
         let file = OpenOptions::new().open(&mut repo, path)?;
         let fd = if self.fd_map.len() == 0 {
             0
-        }
-        else {
+        } else {
             let fd = *match self.fd_map.keys().max() {
                 Some(fd) => fd,
-                None => return Err(VfsError::CouldNotGetNextLowestFileDescriptor.into())
+                None => return Err(VfsError::CouldNotGetNextLowestFileDescriptor.into()),
             };
             fd + 1
         };
@@ -81,23 +77,20 @@ pub enum VfsError {
     CouldNotGetNextLowestFileDescriptor,
 }
 
-
 fn convert_to_absolute_path<P: AsRef<Path>>(path: P) -> PathBuf {
     let path = path.as_ref();
     if path.is_relative() {
         std::path::PathBuf::from("/").join(path)
-    }
-    else {
+    } else {
         path.to_path_buf()
     }
 }
 
-
 #[cfg(test)]
 mod open_test {
+    use crate::vfs::vfs::Vfs;
     use std::fs::File;
     use std::io::Write;
-    use crate::vfs::vfs::Vfs;
 
     #[test]
     fn open_files() {
@@ -168,10 +161,10 @@ mod open_test {
 
 #[cfg(test)]
 mod read_test {
+    use crate::vfs::vfs::Vfs;
     use std::fs::File;
     use std::io::Write;
     use tempdir;
-    use crate::vfs::vfs::Vfs;
 
     #[test]
     fn empty_archive() {
