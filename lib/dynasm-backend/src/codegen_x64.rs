@@ -50,8 +50,8 @@ lazy_static! {
             ; _loop:
             ; cmp rsi, 0
             ; je >_loop_end
-            ; mov eax, [rdi]
-            ; mov [r8], eax
+            ; mov rax, [rdi]
+            ; mov [r8], rax
             ; add r8, 8
             ; add rdi, 8
             ; sub rsi, 8
@@ -351,7 +351,13 @@ impl ProtectedCaller for X64ExecutionContext {
         CURRENT_EXECUTION_CONTEXT.with(|x| x.borrow_mut().pop().unwrap());
 
         Ok(if let Some(ty) = return_ty {
-            vec![Value::I64(ret)]
+            vec![match ty {
+                WpType::I32 => Value::I32(ret as i32),
+                WpType::I64 => Value::I64(ret),
+                WpType::F32 => Value::F32(f32::from_bits(ret as i32 as u32)),
+                WpType::F64 => Value::F64(f64::from_bits(ret as u64)),
+                _ => unreachable!(),
+            }]
         } else {
             vec![]
         })
@@ -702,6 +708,33 @@ impl X64FunctionCode {
         f: F,
     ) -> Result<(), CodegenError> {
         Self::emit_binop(assembler, value_stack, f, WpType::I64, WpType::I64)
+    }
+
+    fn emit_shift<F: FnOnce(&mut Assembler, Register)>(
+        assembler: &mut Assembler,
+        value_stack: &ValueStack,
+        left: Register,
+        right: Register,
+        f: F,
+    ) {
+        let rcx_used = Register::RCX.is_used(value_stack);
+        if(rcx_used) {
+            dynasm!(
+                assembler
+                ; push rcx
+            );
+        }
+        dynasm!(
+            assembler
+            ; mov rcx, Rq(right as u8)
+        );
+        f(assembler, left);
+        if(rcx_used) {
+            dynasm!(
+                assembler
+                ; pop rcx
+            );
+        }
     }
 
     fn emit_div_i32(
@@ -1523,7 +1556,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Operator::Block { .. } | Operator::Loop { .. } | Operator::If { .. } => {
                     self.unreachable_depth += 1;
                 }
-                Operator::End => {
+                Operator::End | Operator::Else => {
                     self.unreachable_depth -= 1;
                 }
                 _ => {}
@@ -1943,6 +1976,76 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 )?;
             }
+            Operator::I32Shl => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; shl Rd(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
+            Operator::I32ShrU => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; shr Rd(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
+            Operator::I32ShrS => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; sar Rd(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
+            Operator::I32Rotl => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; rol Rd(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
+            Operator::I32Rotr => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; ror Rd(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
             // Comparison operators.
             // https://en.wikibooks.org/wiki/X86_Assembly/Control_Flow
             // TODO: Is reading flag register directly faster?
@@ -2297,6 +2400,76 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 )?;
             }
+            Operator::I64Shl => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; shl Rq(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
+            Operator::I64ShrU => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; shr Rq(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
+            Operator::I64ShrS => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; sar Rq(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
+            Operator::I64Rotl => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; rol Rq(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
+            Operator::I64Rotr => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        Self::emit_shift(assembler, value_stack, left, right, |assembler, left| {
+                            dynasm!(
+                                assembler
+                                ; ror Rq(left as u8), cl
+                            )
+                        });
+                    }
+                )?;
+            }
             // Comparison operators.
             // https://en.wikibooks.org/wiki/X86_Assembly/Control_Flow
             // TODO: Is reading flag register directly faster?
@@ -2484,6 +2657,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     });
             }
             Operator::Unreachable => {
+                /*
                 Self::emit_call_raw(
                     assembler,
                     &mut self.value_stack,
@@ -2491,6 +2665,11 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     &[],
                     &[],
                 )?;
+                */
+                dynasm!(
+                    assembler
+                    ; ud2
+                );
                 self.unreachable_depth = 1;
             }
             Operator::Drop => {
@@ -2595,6 +2774,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
 
                     if !was_unreachable {
                         Self::emit_leave_frame(assembler, &frame, &mut self.value_stack, false)?;
+                    } else {
+                        self.value_stack.reset_depth(0);
                     }
 
                     dynasm!(
@@ -3041,7 +3222,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     WpType::I64,
                 )?;
             }
-            _ => unimplemented!(),
+            Operator::Nop => {}
+            _ => {
+                panic!("{:?}", op);
+            },
         }
         Ok(())
     }
@@ -3121,6 +3305,8 @@ unsafe extern "C" fn invoke_import(
 ) -> u64 {
     let vmctx: &mut vm::Ctx = &mut *vmctx;
     let import = (*vmctx.imported_funcs.offset(import_id as isize)).func;
+
+    return 0; // TODO: Fix this.
 
     CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, vmctx, import)
 }
