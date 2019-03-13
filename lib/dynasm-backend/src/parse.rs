@@ -87,7 +87,7 @@ pub fn read_module<
 
                 for ty in type_reader {
                     let ty = ty?;
-                    info.signatures.push(Arc::new(func_type_to_func_sig(ty)?));
+                    info.signatures.push(func_type_to_func_sig(ty)?);
                 }
 
                 mcg.feed_signatures(info.signatures.clone())?;

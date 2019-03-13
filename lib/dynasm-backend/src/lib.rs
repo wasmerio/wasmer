@@ -20,8 +20,8 @@ use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;
 use std::ptr::NonNull;
 use wasmer_runtime_core::{
-    backend::{sys::Memory, Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
-    cache::{Cache, Error as CacheError},
+    backend::{sys::Memory, Backend, CacheGen, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
+    cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult, RuntimeResult},
     module::{ModuleInfo, ModuleInner, StringTable},
     structures::{Map, TypedIndex},
@@ -33,6 +33,14 @@ use wasmer_runtime_core::{
 };
 
 struct Placeholder;
+impl CacheGen for Placeholder {
+    fn generate_cache(
+        &self,
+        module: &ModuleInner,
+    ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+        unimplemented!()
+    }
+}
 
 impl FuncResolver for Placeholder {
     fn get(
@@ -45,6 +53,11 @@ impl FuncResolver for Placeholder {
 }
 
 pub struct SinglePassCompiler {}
+impl SinglePassCompiler {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 impl Compiler for SinglePassCompiler {
     fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner> {
@@ -52,22 +65,15 @@ impl Compiler for SinglePassCompiler {
         let info = parse::read_module(wasm, Backend::Dynasm, &mut mcg)?;
         let ec = mcg.finalize()?;
         Ok(ModuleInner {
+            cache_gen: Box::new(Placeholder),
             func_resolver: Box::new(Placeholder),
             protected_caller: Box::new(ec),
             info: info,
         })
     }
 
-    unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError> {
-        unimplemented!()
-    }
-
-    fn compile_to_backend_cache_data(
-        &self,
-        wasm: &[u8],
-        _: Token,
-    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)> {
-        unimplemented!()
+    unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
+        unimplemented!("the dynasm backend doesn't support caching yet")
     }
 }
 

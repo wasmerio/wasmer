@@ -13,7 +13,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, PC: ProtectedCaller> {
     fn finalize(self) -> Result<PC, CodegenError>;
     fn feed_signatures(
         &mut self,
-        signatures: Map<SigIndex, Arc<FuncSig>>,
+        signatures: Map<SigIndex, FuncSig>,
     ) -> Result<(), CodegenError>;
     fn feed_function_signatures(
         &mut self,

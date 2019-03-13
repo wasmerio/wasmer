@@ -9,7 +9,7 @@ use dynasmrt::{
 use std::cell::RefCell;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use std::{collections::HashMap, sync::Arc};
+use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
     backend::{Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
     error::{CompileError, CompileResult, RuntimeError, RuntimeResult},
@@ -211,7 +211,7 @@ pub struct NativeTrampolines {
 
 pub struct X64ModuleCodeGenerator {
     functions: Vec<X64FunctionCode>,
-    signatures: Option<Arc<Map<SigIndex, Arc<FuncSig>>>>,
+    signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     assembler: Option<Assembler>,
@@ -220,7 +220,7 @@ pub struct X64ModuleCodeGenerator {
 }
 
 pub struct X64FunctionCode {
-    signatures: Arc<Map<SigIndex, Arc<FuncSig>>>,
+    signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
     native_trampolines: Arc<NativeTrampolines>,
 
@@ -248,7 +248,7 @@ unsafe impl Sync for FuncPtr {}
 pub struct X64ExecutionContext {
     code: ExecutableBuffer,
     functions: Vec<X64FunctionCode>,
-    signatures: Arc<Map<SigIndex, Arc<FuncSig>>>,
+    signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
     function_pointers: Vec<FuncPtr>,
     br_table_data: Vec<Vec<usize>>,
@@ -283,7 +283,7 @@ impl ProtectedCaller for X64ExecutionContext {
         let return_ty = self.functions[index].returns.last().cloned();
 
         if self.functions[index].num_params != _params.len() {
-            return Err(RuntimeError::User {
+            return Err(RuntimeError::Trap {
                 msg: "param count mismatch".into(),
             });
         }
@@ -306,7 +306,7 @@ impl ProtectedCaller for X64ExecutionContext {
                     Value::I32(x) => LittleEndian::write_u32(buf, x as u32),
                     Value::F32(x) => LittleEndian::write_u32(buf, f32::to_bits(x)),
                     _ => {
-                        return Err(RuntimeError::User {
+                        return Err(RuntimeError::Trap {
                             msg: "signature mismatch".into(),
                         })
                     }
@@ -316,7 +316,7 @@ impl ProtectedCaller for X64ExecutionContext {
                     Value::I64(x) => LittleEndian::write_u64(buf, x as u64),
                     Value::F64(x) => LittleEndian::write_u64(buf, f64::to_bits(x)),
                     _ => {
-                        return Err(RuntimeError::User {
+                        return Err(RuntimeError::Trap {
                             msg: "signature mismatch".into(),
                         })
                     }
@@ -326,7 +326,7 @@ impl ProtectedCaller for X64ExecutionContext {
 
         let memory_base: *mut u8 = if _module.info.memories.len() > 0 {
             if _module.info.memories.len() != 1 {
-                return Err(RuntimeError::User {
+                return Err(RuntimeError::Trap {
                     msg: "only one linear memory is supported".into(),
                 });
             }
@@ -361,8 +361,8 @@ impl ProtectedCaller for X64ExecutionContext {
         pub struct Trapper;
 
         impl UserTrapper for Trapper {
-            unsafe fn do_early_trap(&self, msg: String) -> ! {
-                panic!("{}", msg);
+            unsafe fn do_early_trap(&self, data: Box<Any>) -> ! {
+                panic!("do_early_trap");
             }
         }
 
@@ -521,7 +521,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
 
     fn feed_signatures(
         &mut self,
-        signatures: Map<SigIndex, Arc<FuncSig>>,
+        signatures: Map<SigIndex, FuncSig>,
     ) -> Result<(), CodegenError> {
         self.signatures = Some(Arc::new(signatures));
         Ok(())
