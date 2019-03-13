@@ -20,7 +20,8 @@ use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;
 use std::ptr::NonNull;
 use wasmer_runtime_core::{
-    backend::{Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
+    backend::{sys::Memory, Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
+    cache::{Cache, Error as CacheError},
     error::{CompileError, CompileResult, RuntimeResult},
     module::{ModuleInfo, ModuleInner, StringTable},
     structures::{Map, TypedIndex},
@@ -55,6 +56,18 @@ impl Compiler for SinglePassCompiler {
             protected_caller: Box::new(ec),
             info: info,
         })
+    }
+
+    unsafe fn from_cache(&self, cache: Cache, _: Token) -> Result<ModuleInner, CacheError> {
+        unimplemented!()
+    }
+
+    fn compile_to_backend_cache_data(
+        &self,
+        wasm: &[u8],
+        _: Token,
+    ) -> CompileResult<(Box<ModuleInfo>, Vec<u8>, Memory)> {
+        unimplemented!()
     }
 }
 
