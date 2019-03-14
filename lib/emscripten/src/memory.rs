@@ -17,15 +17,15 @@ pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u
 }
 
 /// emscripten: _emscripten_get_heap_size
-pub fn _emscripten_get_heap_size(ctx: &mut Ctx) -> u32 {
+pub fn _emscripten_get_heap_size(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_emscripten_get_heap_size",);
     // TODO: Fix implementation
     16_777_216
 }
 
 /// emscripten: _emscripten_resize_heap
-pub fn _emscripten_resize_heap(ctx: &mut Ctx, requested_size: u32) -> u32 {
-    debug!("emscripten::_emscripten_resize_heap {}", requested_size);
+pub fn _emscripten_resize_heap(_ctx: &mut Ctx, _requested_size: u32) -> u32 {
+    debug!("emscripten::_emscripten_resize_heap {}", _requested_size);
     // TODO: Fix implementation
     0
 }
@@ -47,8 +47,11 @@ pub fn enlarge_memory(_ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: abortOnCannotGrowMemory
-pub fn abort_on_cannot_grow_memory(ctx: &mut Ctx, requested_size: u32) -> u32 {
-    debug!("emscripten::abort_on_cannot_grow_memory {}", requested_size);
+pub fn abort_on_cannot_grow_memory(ctx: &mut Ctx, _requested_size: u32) -> u32 {
+    debug!(
+        "emscripten::abort_on_cannot_grow_memory {}",
+        _requested_size
+    );
     abort_with_message(ctx, "Cannot enlarge memory arrays!");
     0
 }

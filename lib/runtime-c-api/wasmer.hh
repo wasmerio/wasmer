@@ -90,11 +90,11 @@ struct wasmer_instance_t {
 
 };
 
-struct wasmer_memory_t {
+struct wasmer_instance_context_t {
 
 };
 
-struct wasmer_instance_context_t {
+struct wasmer_memory_t {
 
 };
 
@@ -306,6 +306,13 @@ wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                      int params_len,
                                      wasmer_value_t *results,
                                      int results_len);
+
+/// Gets the `data` field within the context.
+void *wasmer_instance_context_data_get(const wasmer_instance_context_t *ctx);
+
+/// Sets the `data` field of the instance context. This context will be
+/// passed to all imported function for instance.
+void wasmer_instance_context_data_set(wasmer_instance_t *instance, void *data_ptr);
 
 /// Gets the memory within the context at the index `memory_idx`.
 /// The index is always 0 until multiple memories are supported.

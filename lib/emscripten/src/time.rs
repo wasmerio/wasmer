@@ -75,8 +75,10 @@ pub fn _clock_gettime(ctx: &mut Ctx, clk_id: clockid_t, tp: c_int) -> c_int {
         tv_nsec: i32,
     }
 
+    #[allow(unreachable_patterns)]
     let timespec = match clk_id {
         CLOCK_REALTIME => time::get_time(),
+
         CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
             let precise_ns = time::precise_time_ns();
             time::Timespec::new(
@@ -296,14 +298,14 @@ pub fn _time(ctx: &mut Ctx, time_p: u32) -> i32 {
 /// emscripten: _strftime
 pub fn _strftime(
     _ctx: &mut Ctx,
-    s_ptr: c_int,
-    maxsize: u32,
-    format_ptr: c_int,
-    tm_ptr: c_int,
+    _s_ptr: c_int,
+    _maxsize: u32,
+    _format_ptr: c_int,
+    _tm_ptr: c_int,
 ) -> i32 {
     debug!(
         "emscripten::_strftime {} {} {} {}",
-        s_ptr, maxsize, format_ptr, tm_ptr
+        _s_ptr, _maxsize, _format_ptr, _tm_ptr
     );
     0
 }
