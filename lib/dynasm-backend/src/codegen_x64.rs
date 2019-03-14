@@ -759,16 +759,17 @@ impl X64FunctionCode {
             ; push r15
             ; mov r15d, Rd(right as u8)
             ; mov eax, Rd(left as u8)
-            ; mov edx, 0
         );
         if signed {
             dynasm!(
                 assembler
+                ; cdq
                 ; idiv r15d
             );
         } else {
             dynasm!(
                 assembler
+                ; xor edx, edx
                 ; div r15d
             );
         }
@@ -808,16 +809,17 @@ impl X64FunctionCode {
             ; push r15
             ; mov r15, Rq(right as u8)
             ; mov rax, Rq(left as u8)
-            ; mov rdx, 0
         );
         if signed {
             dynasm!(
                 assembler
+                ; cqo
                 ; idiv r15
             );
         } else {
             dynasm!(
                 assembler
+                ; xor rdx, rdx
                 ; div r15
             );
         }
