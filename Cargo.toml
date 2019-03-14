@@ -25,7 +25,8 @@ wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-runtime = { path = "lib/runtime" }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
-wasmer-llvm-backend = { path = "lib/llvm-backend" }
+wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
+
 
 [workspace]
 members = ["lib/clif-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend"]
@@ -35,8 +36,8 @@ wabt = "0.7.2"
 glob = "0.2.11"
 
 [features]
-default = ["fast-tests"]
-
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
+default = ["fast-tests"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
+llvm = ["wasmer-llvm-backend"]

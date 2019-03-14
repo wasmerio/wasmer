@@ -27,9 +27,11 @@ wabt = "0.7.4"
 
 [dependencies.wasmer-llvm-backend]
 path = "../llvm-backend"
+optional = true
 
 [features]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
+llvm = ["wasmer-llvm-backend"]
 
 [[bench]]
 name = "nginx"

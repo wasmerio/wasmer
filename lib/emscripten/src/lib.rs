@@ -56,8 +56,6 @@ pub use self::utils::{
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
-// TODO: Magic number - how is this calculated?
-const DYNAMICTOP_PTR_DIFF: u32 = 1088;
 // TODO: make this variable
 const STATIC_BUMP: u32 = 215_536;
 
@@ -72,22 +70,6 @@ lazy_static! {
 // Then 'dynamic' memory for sbrk.
 const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
-
-fn stacktop(static_bump: u32) -> u32 {
-    align_memory(dynamictop_ptr(static_bump) + 4)
-}
-
-fn stack_max(static_bump: u32) -> u32 {
-    stacktop(static_bump) + TOTAL_STACK
-}
-
-fn dynamic_base(static_bump: u32) -> u32 {
-    align_memory(stack_max(static_bump))
-}
-
-fn dynamictop_ptr(static_bump: u32) -> u32 {
-    static_bump + DYNAMICTOP_PTR_DIFF
-}
 
 pub struct EmscriptenData<'a> {
     pub malloc: Func<'a, u32, u32>,
@@ -311,10 +293,6 @@ pub struct EmscriptenGlobalsData {
     table_base: u32,
     temp_double_ptr: u32,
     use_old_abort_on_cannot_grow_memory: bool,
-
-    // Global namespace
-    infinity: f64,
-    nan: f64,
 }
 
 pub struct EmscriptenGlobals {
@@ -366,22 +344,22 @@ impl EmscriptenGlobals {
             minimum: table_min,
             maximum: table_max,
         };
-        let mut table = Table::new(table_type).unwrap();
+        let table = Table::new(table_type).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;
 
-            let mut STATIC_TOP = STATIC_BASE + static_bump;
+            let mut static_top = STATIC_BASE + static_bump;
 
             let memory_base = STATIC_BASE;
             let table_base = 0;
 
-            let temp_double_ptr = STATIC_TOP;
-            STATIC_TOP += 16;
+            let temp_double_ptr = static_top;
+            static_top += 16;
 
-            let dynamictop_ptr = static_alloc(&mut STATIC_TOP, 4);
+            let dynamictop_ptr = static_alloc(&mut static_top, 4);
 
-            let stacktop = align_memory(STATIC_TOP);
+            let stacktop = align_memory(static_top);
             let stack_max = stacktop + TOTAL_STACK;
 
             EmscriptenGlobalsData {
@@ -393,9 +371,6 @@ impl EmscriptenGlobals {
                 table_base,
                 temp_double_ptr,
                 use_old_abort_on_cannot_grow_memory,
-
-                infinity: std::f64::INFINITY,
-                nan: std::f64::NAN,
             }
         };
 

@@ -98,7 +98,7 @@ pub fn _sem_wait(_ctx: &mut Ctx, _one: i32) -> i32 {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getgrent(ctx: &mut Ctx) -> c_int {
+pub fn _getgrent(_ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_getgrent");
     -1
 }

@@ -91,7 +91,7 @@ pub unsafe fn allocate_cstr_on_stack<'a>(ctx: &'a mut Ctx, s: &str) -> (u32, &'a
 }
 
 pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
-    let total_num = {
+    let _total_num = {
         let mut ptr = cstrs;
         let mut counter = 0;
         while !(*ptr).is_null() {
@@ -102,7 +102,7 @@ pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_
     };
     debug!(
         "emscripten::copy_terminated_array_of_cstrs::total_num: {}",
-        total_num
+        _total_num
     );
     0
 }
@@ -155,6 +155,7 @@ pub unsafe fn copy_stat_into_wasm(ctx: &mut Ctx, buf: u32, stat: &stat) {
     (*stat_ptr).st_ino = stat.st_ino as _;
 }
 
+#[allow(dead_code)] // it's used in `env/windows/mod.rs`.
 pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
     let v: Vec<u8> = memory.view()[(offset as usize)..]
         .iter()
