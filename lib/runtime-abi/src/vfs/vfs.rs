@@ -1,3 +1,4 @@
+use crate::vfs::vfs_header::{header_from_bytes, ArchiveType, CompressionType};
 use std::collections::BTreeMap;
 use std::io;
 use std::io::Read;
@@ -17,6 +18,14 @@ impl Vfs {
         let result = zstd::decode_all(tar_bytes);
         let decompressed_data = result.unwrap();
         Vfs::from_tar_bytes(&decompressed_data[..])
+    }
+
+    pub fn from_compressed_bytes(compressed_data_slice: &[u8]) -> Result<Self, failure::Error> {
+        let data_bytes = &compressed_data_slice[4..];
+        match header_from_bytes(compressed_data_slice)? {
+            (_, CompressionType::ZSTD, ArchiveType::TAR) => Vfs::from_tar_zstd_bytes(data_bytes),
+            (_, CompressionType::NONE, ArchiveType::TAR) => Vfs::from_tar_bytes(data_bytes),
+        }
     }
 
     /// Create a vfs from raw bytes in tar format
