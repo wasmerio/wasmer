@@ -1,3 +1,13 @@
+install_sodium: &install_sodium
+  command: |
+    curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+    tar xf libsodium-1.0.17.tar.gz
+    cd libsodium-1.0.17/
+    ./configure
+    make && make check
+    sudo make install
+    cd ..
+
 version: 2
 jobs:
   # Job used for testing
@@ -15,14 +25,9 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            # install libsodium
-            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-            tar xf libsodium-1.0.17.tar.gz
-            cd libsodium-1.0.17/
-            ./configure
-            make && make check
-            sudo make install
-            cd ..
+      - run:
+          name: Install sodium
+          <<: *install_sodium
       - run:
           name: Install lint deps
           command: |
@@ -42,7 +47,6 @@ jobs:
             - target/debug/build
             - target/debug/deps
           key: v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-
   test:
     docker:
       - image: circleci/rust:latest
@@ -57,14 +61,9 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            # install libsodium
-            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-            tar xf libsodium-1.0.17.tar.gz
-            cd libsodium-1.0.17/
-            ./configure
-            make && make check
-            sudo make install
-            cd ..
+      - run:
+          name: Install sodium
+          <<: *install_sodium
       - run:
           name: Tests
           command: |
@@ -108,13 +107,9 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            # install libsodium
-            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-            tar xf libsodium-1.0.17.tar.gz
-            cd libsodium-1.0.17/
-            ./configure
-            make && make check
-            sudo make install
+      - run:
+          name: Install sodium
+          <<: *install_sodium
       - run:
           name: Install Rust
           command: |
@@ -124,12 +119,15 @@ jobs:
       - run:
           name: Tests
           command: |
+
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make test
       - run:
           name: Emscripten Tests
@@ -149,6 +147,8 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make integration-tests
       - save_cache:
           paths:
@@ -175,17 +175,15 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            # install libsodium
-            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-            tar xf libsodium-1.0.17.tar.gz
-            cd libsodium-1.0.17/
-            ./configure
-            make && make check
-            sudo make install
+      - run:
+          name: Install sodium
+          <<: *install_sodium
       - run:
           name: Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make test
       - run:
           name: Emscripten Tests
@@ -198,6 +196,8 @@ jobs:
           name: Release Build
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make release
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
@@ -238,13 +238,9 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            # install libsodium
-            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-            tar xf libsodium-1.0.17.tar.gz
-            cd libsodium-1.0.17/
-            ./configure
-            make && make check
-            sudo make install
+      - run:
+          name: Install sodium
+          <<: *install_sodium
       - run:
           name: Install Rust
           command: |
@@ -260,6 +256,8 @@ jobs:
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make test
       - run:
           name: Emscripten Tests
@@ -279,6 +277,8 @@ jobs:
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
+            export SODIUM_LIB_DIR=/usr/local/lib
+            export SODIUM_STATIC=true
             make release
             mkdir -p artifacts
             # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
@@ -313,9 +313,14 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      - run:
+          name: Install sodium
+          <<: *install_sodium
       - run: rustup default nightly
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+          export SODIUM_LIB_DIR=/usr/local/lib
+          export SODIUM_STATIC=true
           make test
       - save_cache:
           paths:
