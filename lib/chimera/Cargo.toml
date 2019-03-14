@@ -11,7 +11,8 @@ lazy_static = "1"
 parking_lot = "0.7.1"
 wasmparser = "0.29.2"
 hashbrown = "0.1.8"
-target-lexicon = "0.3.0"
+# cranelift-codegen is using target-lexicon 0.2.0.
+target-lexicon = "0.2.0"
 
 # For cranelift
 cranelift-native = "0.29.0"

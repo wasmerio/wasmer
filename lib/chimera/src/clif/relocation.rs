@@ -212,21 +212,6 @@ impl binemit::RelocSink for RelocSink {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum TrapCode {
-    StackOverflow,
-    HeapOutOfBounds,
-    TableOutOfBounds,
-    OutOfBounds,
-    IndirectCallToNull,
-    BadSignature,
-    IntegerOverflow,
-    IntegerDivisionByZero,
-    BadConversionToInteger,
-    Interrupt,
-    User(u16),
-}
-
 /// Implementation of a relocation sink that just saves all the information for later
 impl RelocSink {
     pub fn new() -> Self {
@@ -239,7 +224,7 @@ impl RelocSink {
 
 #[derive(Debug, Clone, Copy)]
 pub struct TrapData {
-    pub trapcode: TrapCode,
+    pub trapcode: ir::TrapCode,
     pub srcloc: u32,
 }
 
@@ -285,20 +270,6 @@ impl LocalTrapSink {
 
 impl binemit::TrapSink for LocalTrapSink {
     fn trap(&mut self, offset: u32, srcloc: SourceLoc, trapcode: ir::TrapCode) {
-        let trapcode = match trapcode {
-            ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
-            ir::TrapCode::HeapOutOfBounds => TrapCode::HeapOutOfBounds,
-            ir::TrapCode::TableOutOfBounds => TrapCode::TableOutOfBounds,
-            ir::TrapCode::OutOfBounds => TrapCode::OutOfBounds,
-            ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
-            ir::TrapCode::BadSignature => TrapCode::BadSignature,
-            ir::TrapCode::IntegerOverflow => TrapCode::IntegerOverflow,
-            ir::TrapCode::IntegerDivisionByZero => TrapCode::IntegerDivisionByZero,
-            ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
-            ir::TrapCode::Interrupt => TrapCode::Interrupt,
-            ir::TrapCode::User(x) => TrapCode::User(x),
-        };
-
         self.trap_datas.push((
             offset as usize,
             TrapData {

@@ -53,27 +53,27 @@ impl Module {
         }
     }
 
-    pub fn compile(
-        self,
-        isa: &isa::TargetIsa,
-        functions: Map<LocalFuncIndex, ir::Function>,
-    ) -> CompileResult<(ModuleInner)> {
-        let func_resolver_builder = FuncResolverBuilder::new(isa, functions, &self.info)?;
+    // pub fn compile(
+    //     self,
+    //     isa: &isa::TargetIsa,
+    //     functions: Map<LocalFuncIndex, ir::Function>,
+    // ) -> CompileResult<(ModuleInner)> {
+    //     let func_resolver_builder = FuncResolverBuilder::new(isa, functions, &self.info)?;
 
-        let trampolines = Arc::new(Trampolines::new(isa, &self.info));
+    //     let trampolines = Arc::new(Trampolines::new(isa, &self.info));
 
-        let func_resolver =
-            func_resolver_builder.finalize(&self.info.signatures, Arc::clone(&trampolines))?;
+    //     let func_resolver =
+    //         func_resolver_builder.finalize(&self.info.signatures, Arc::clone(&trampolines))?;
 
-        // let protected_caller = Caller::new(&self.info, handler_data, trampolines);
+    //     // let protected_caller = Caller::new(&self.info, handler_data, trampolines);
 
-        Ok(ModuleInner {
-            func_resolver: Box::new(func_resolver),
-            // protected_caller: Box::new(protected_caller),
-            // cache_gen,
-            info: self.info,
-        })
-    }
+    //     Ok(ModuleInner {
+    //         func_resolver: Box::new(func_resolver),
+    //         // protected_caller: Box::new(protected_caller),
+    //         // cache_gen,
+    //         info: self.info,
+    //     })
+    // }
 }
 
 pub struct Converter<T>(pub T);

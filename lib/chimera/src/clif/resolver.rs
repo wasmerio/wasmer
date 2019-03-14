@@ -272,13 +272,16 @@ impl FuncResolverBuilder {
                             .checked_add(reloc.addend as u64)
                             .unwrap();
                         let empty_space_offset = self.map[index] + reloc.offset as usize;
-                        let ptr_ptr = unsafe {
-                            self.memory
+                        unsafe {
+                            let ptr_ptr = self
+                                .memory
                                 .as_slice_mut()
                                 .as_mut_ptr()
-                                .add(empty_space_offset) as *mut u64
-                        };
-                        ptr_ptr.write_unaligned(ptr_to_write);
+                                .add(empty_space_offset)
+                                as *mut u64;
+
+                            ptr_ptr.write_unaligned(ptr_to_write);
+                        }
                     }
                     Reloc::X86PCRel4 | Reloc::X86CallPCRel4 => unsafe {
                         let reloc_address = (func_addr as usize) + reloc.offset as usize;

@@ -51,7 +51,7 @@ use wasmparser::{self, WasmDecoder};
 //     }
 // }
 
-fn get_isa() -> Box<isa::TargetIsa> {
+fn get_isa() -> Box<dyn isa::TargetIsa> {
     let flags = {
         let mut builder = settings::builder();
         builder.set("opt_level", "best").unwrap();
