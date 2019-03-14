@@ -6,7 +6,7 @@ use crate::{
     types::{FuncSig, Type, WasmExternType},
     vm::Ctx,
 };
-use std::{any::Any, cell::UnsafeCell, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc};
+use std::{any::Any, cell::UnsafeCell, marker::PhantomData, mem, panic, ptr, sync::Arc};
 
 thread_local! {
     pub static EARLY_TRAPPER: UnsafeCell<Option<Box<dyn UserTrapper>>> = UnsafeCell::new(None);

@@ -1,9 +1,6 @@
-use crate::types::{
-    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
-    Value,
-};
+use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value};
 use core::borrow::Borrow;
-use std::{any::Any, sync::Arc};
+use std::any::Any;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;

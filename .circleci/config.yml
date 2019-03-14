@@ -325,14 +325,12 @@ workflows:
           filters:
             branches:
               only:
-                - trying
-                - staging
+                - master
       - test-and-build-macos:
           filters:
             branches:
               only:
-                - trying
-                - staging
+                - master
       - test-rust-nightly:
           filters:
             branches:
