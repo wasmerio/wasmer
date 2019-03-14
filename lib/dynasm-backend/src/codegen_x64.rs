@@ -3475,6 +3475,206 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::F64ReinterpretI64 => {
                 Self::emit_reinterpret(&mut self.value_stack, WpType::I64, WpType::F64)?;
             }
+            Operator::F32ConvertSI32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; cvtsi2ss xmm1, Rd(reg as u8)
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::I32,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32ConvertUI32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; mov Rd(reg as u8), Rd(reg as u8) // clear upper 32 bits
+                            ; cvtsi2ss xmm1, Rq(reg as u8)
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::I32,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32ConvertSI64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; cvtsi2ss xmm1, Rq(reg as u8)
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::I64,
+                    WpType::F32,
+                )?;
+            }
+            /*
+               0:   48 85 ff                test   %rdi,%rdi
+   3:   78 0b                   js     10 <ulong2double+0x10>
+   5:   c4 e1 fb 2a c7          vcvtsi2sd %rdi,%xmm0,%xmm0
+   a:   c3                      retq   
+   b:   0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
+  10:   48 89 f8                mov    %rdi,%rax
+  13:   83 e7 01                and    $0x1,%edi
+  16:   48 d1 e8                shr    %rax
+  19:   48 09 f8                or     %rdi,%rax
+  1c:   c4 e1 fb 2a c0          vcvtsi2sd %rax,%xmm0,%xmm0
+  21:   c5 fb 58 c0             vaddsd %xmm0,%xmm0,%xmm0
+  25:   c3                      retq   
+            */
+            Operator::F32ConvertUI64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; test Rq(reg as u8), Rq(reg as u8)
+                            ; js >do_convert
+                            // fast path: positive as signed
+                            ; cvtsi2ss xmm1, Rq(reg as u8)
+                            ; movd Rd(reg as u8), xmm1
+                            ; jmp >end_convert
+                            ; do_convert:
+                            // use r15 as temporary register
+                            ; movq xmm5, r15
+                            ; mov r15, Rq(reg as u8)
+                            ; and r15, 1
+                            ; shr Rq(reg as u8), 1
+                            ; or Rq(reg as u8), r15
+                            ; cvtsi2ss xmm1, Rq(reg as u8)
+                            ; addsd xmm1, xmm1
+                            ; movq r15, xmm5
+                            ; movd Rd(reg as u8), xmm1
+                            ; end_convert:
+                        );
+                    },
+                    WpType::I64,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F64ConvertSI32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; cvtsi2sd xmm1, Rd(reg as u8)
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::I32,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64ConvertUI32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; mov Rd(reg as u8), Rd(reg as u8) // clear upper 32 bits
+                            ; cvtsi2sd xmm1, Rq(reg as u8)
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::I32,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64ConvertSI64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; cvtsi2sd xmm1, Rq(reg as u8)
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::I64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64ConvertUI64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; test Rq(reg as u8), Rq(reg as u8)
+                            ; js >do_convert
+                            // fast path: positive as signed
+                            ; cvtsi2sd xmm1, Rq(reg as u8)
+                            ; movq Rq(reg as u8), xmm1
+                            ; jmp >end_convert
+                            ; do_convert:
+                            // use r15 as temporary register
+                            ; movq xmm5, r15
+                            ; mov r15, Rq(reg as u8)
+                            ; and r15, 1
+                            ; shr Rq(reg as u8), 1
+                            ; or Rq(reg as u8), r15
+                            ; cvtsi2sd xmm1, Rq(reg as u8)
+                            ; addsd xmm1, xmm1
+                            ; movq r15, xmm5
+                            ; movq Rq(reg as u8), xmm1
+                            ; end_convert:
+                        );
+                    },
+                    WpType::I64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64PromoteF32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; cvtss2sd xmm1, xmm1
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F32DemoteF64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; cvtsd2ss xmm1, xmm1
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F32,
+                )?;
+            }
             Operator::F32Add => {
                 Self::emit_binop(
                     assembler,
@@ -3685,6 +3885,29 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     WpType::I32,
                 )?;
             }
+            Operator::F32Copysign => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; mov eax, 0x7fffffffu32 as i32
+                            ; movd xmm3, eax
+                            ; pand xmm1, xmm3
+                            ; mov eax, 0x80000000u32 as i32
+                            ; movd xmm3, eax
+                            ; pand xmm2, xmm3
+                            ; por xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32,
+                )?;
+            }
             Operator::F32Sqrt => {
                 Self::emit_unop(
                     assembler,
@@ -3727,6 +3950,287 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::F32,
                     WpType::F32
+                )?;
+            }
+            Operator::F64Add => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; addsd xmm1, xmm2
+                            ; movq Rq(left as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64Sub => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; subsd xmm1, xmm2
+                            ; movq Rq(left as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64Mul => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; mulsd xmm1, xmm2
+                            ; movq Rq(left as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64Div => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; divsd xmm1, xmm2
+                            ; movq Rq(left as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64Max => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; maxsd xmm1, xmm2
+                            ; movq Rq(left as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64Min => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; minsd xmm1, xmm2
+                            ; movq Rq(left as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64Eq => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; cmpeqsd xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F64Ne => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; cmpneqsd xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F64Gt => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; vcmpgtsd xmm1, xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F64Ge => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; vcmpgesd xmm1, xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F64Lt => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; cmpltsd xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F64Le => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; cmplesd xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F64Copysign => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(left as u8)
+                            ; movq xmm2, Rq(right as u8)
+                            ; mov rax, QWORD 0x7fffffffffffffffu64 as i64
+                            ; movq xmm3, rax
+                            ; pand xmm1, xmm3
+                            ; mov rax, QWORD 0x8000000000000000u64 as i64
+                            ; movq xmm3, rax
+                            ; pand xmm2, xmm3
+                            ; por xmm1, xmm2
+                            ; movq Rq(left as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64Sqrt => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; sqrtsd xmm1, xmm1
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64
+                )?;
+            }
+            Operator::F64Abs => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; mov rax, QWORD 0x7fffffffffffffff
+                            ; movq xmm2, rax
+                            ; por xmm1, xmm2
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64
+                )?;
+            }
+            Operator::F64Neg => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; btc Rq(reg as u8), 63
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64
                 )?;
             }
             Operator::Nop => {}
