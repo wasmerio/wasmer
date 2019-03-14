@@ -17,8 +17,10 @@ use wasmer_runtime_core::{
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalGlobalIndex, MemoryIndex, SigIndex,
-        TableIndex, Type, Value,
+        TableIndex, Type, Value, LocalMemoryIndex, ImportedMemoryIndex, LocalOrImport,
     },
+    memory::MemoryType,
+    units::Pages,
     vm::{self, ImportBacking, LocalGlobal, LocalTable},
 };
 use wasmparser::{Operator, Type as WpType};
@@ -207,6 +209,18 @@ pub enum TrapCode {
 
 pub struct NativeTrampolines {
     trap_unreachable: DynamicLabel,
+    memory_size_dynamic_local: DynamicLabel,
+    memory_size_static_local: DynamicLabel,
+    memory_size_shared_local: DynamicLabel,
+    memory_size_dynamic_import: DynamicLabel,
+    memory_size_static_import: DynamicLabel,
+    memory_size_shared_import: DynamicLabel,
+    memory_grow_dynamic_local: DynamicLabel,
+    memory_grow_static_local: DynamicLabel,
+    memory_grow_shared_local: DynamicLabel,
+    memory_grow_dynamic_import: DynamicLabel,
+    memory_grow_static_import: DynamicLabel,
+    memory_grow_shared_import: DynamicLabel,
 }
 
 pub struct X64ModuleCodeGenerator {
@@ -325,12 +339,19 @@ impl ProtectedCaller for X64ExecutionContext {
         }
 
         let memory_base: *mut u8 = if _module.info.memories.len() > 0 {
-            if _module.info.memories.len() != 1 {
+            if _module.info.memories.len() != 1 || _module.info.imported_memories.len() != 0 {
                 return Err(RuntimeError::Trap {
                     msg: "only one linear memory is supported".into(),
                 });
             }
             unsafe { (**(*_vmctx).memories).base }
+        } else if _module.info.imported_memories.len() > 0 {
+            if _module.info.memories.len() != 0 || _module.info.imported_memories.len() != 1 {
+                return Err(RuntimeError::Trap {
+                    msg: "only one linear memory is supported".into(),
+                });
+            }
+            unsafe { (**(*_vmctx).imported_memories).base }
         } else {
             ::std::ptr::null_mut()
         };
@@ -391,6 +412,78 @@ impl X64ModuleCodeGenerator {
                 do_trap,
                 0usize,
                 TrapCode::Unreachable,
+            ),
+            memory_size_dynamic_local: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_size,
+                MemoryKind::DynamicLocal,
+                0usize,
+            ),
+            memory_size_static_local: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_size,
+                MemoryKind::StaticLocal,
+                0usize,
+            ),
+            memory_size_shared_local: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_size,
+                MemoryKind::SharedLocal,
+                0usize,
+            ),
+            memory_size_dynamic_import: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_size,
+                MemoryKind::DynamicImport,
+                0usize,
+            ),
+            memory_size_static_import: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_size,
+                MemoryKind::StaticImport,
+                0usize,
+            ),
+            memory_size_shared_import: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_size,
+                MemoryKind::SharedImport,
+                0usize,
+            ),
+            memory_grow_dynamic_local: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_grow,
+                MemoryKind::DynamicLocal,
+                0usize,
+            ),
+            memory_grow_static_local: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_grow,
+                MemoryKind::StaticLocal,
+                0usize,
+            ),
+            memory_grow_shared_local: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_grow,
+                MemoryKind::SharedLocal,
+                0usize,
+            ),
+            memory_grow_dynamic_import: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_grow,
+                MemoryKind::DynamicImport,
+                0usize,
+            ),
+            memory_grow_static_import: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_grow,
+                MemoryKind::StaticImport,
+                0usize,
+            ),
+            memory_grow_shared_import: X64FunctionCode::emit_native_call_trampoline(
+                &mut assembler,
+                _memory_grow,
+                MemoryKind::SharedImport,
+                0usize,
             ),
         };
 
@@ -1294,11 +1387,11 @@ impl X64FunctionCode {
 
         let mut offset: usize = 0;
         let mut caller_stack_offset: usize = 0;
-        for ty in params {
+        for ty in params.iter().rev() {
             let val = value_stack.pop()?;
             if val.ty != *ty {
                 return Err(CodegenError {
-                    message: "value type mismatch",
+                    message: "value type mismatch in call",
                 });
             }
 
@@ -1429,7 +1522,7 @@ impl X64FunctionCode {
 
         if value_info.ty != value_ty {
             return Err(CodegenError {
-                message: "value type mismatch",
+                message: "value type mismatch in memory store",
             });
         }
 
@@ -2725,11 +2818,25 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         message: "only one table is supported",
                     });
                 }
-                if module_info.tables.len() != 1 {
+                let local_or_import = if module_info.tables.len() > 0 {
+                    if module_info.tables.len() != 1 || module_info.imported_tables.len() != 0 {
+                        return Err(CodegenError {
+                            message: "only one table is supported",
+                        });
+                    }
+                    CallIndirectLocalOrImport::Local
+                } else if module_info.imported_tables.len() > 0 {
+                    if module_info.tables.len() != 0 || module_info.imported_tables.len() != 1 {
+                        return Err(CodegenError {
+                            message: "only one table is supported",
+                        });
+                    }
+                    CallIndirectLocalOrImport::Import
+                } else {
                     return Err(CodegenError {
                         message: "no tables",
                     });
-                }
+                };
                 let sig_index = SigIndex::new(index as usize);
                 let sig = match self.signatures.get(sig_index) {
                     Some(x) => x,
@@ -2753,8 +2860,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let trampoline_label = Self::emit_native_call_trampoline(
                     assembler,
                     call_indirect,
-                    0usize,
                     index as usize,
+                    local_or_import,
                 );
 
                 dynasm!(
@@ -3225,6 +3332,62 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 )?;
             }
             Operator::Nop => {}
+            Operator::MemorySize { reserved } => {
+                let memory_index = MemoryIndex::new(reserved as usize);
+                let label = match memory_index.local_or_import(module_info) {
+                    LocalOrImport::Local(local_mem_index) => {
+                        let mem_desc = &module_info.memories[local_mem_index];
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_local,
+                            MemoryType::Static => self.native_trampolines.memory_size_static_local,
+                            MemoryType::SharedStatic => self.native_trampolines.memory_size_shared_local,
+                        }
+                    }
+                    LocalOrImport::Import(import_mem_index) => {
+                        let mem_desc = &module_info.imported_memories[import_mem_index].1;
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_import,
+                            MemoryType::Static => self.native_trampolines.memory_size_static_import,
+                            MemoryType::SharedStatic => self.native_trampolines.memory_size_shared_import,
+                        }
+                    }
+                };
+                Self::emit_call_raw(
+                    assembler,
+                    &mut self.value_stack,
+                    label,
+                    &[],
+                    &[WpType::I32]
+                )?;
+            }
+            Operator::MemoryGrow { reserved } => {
+                let memory_index = MemoryIndex::new(reserved as usize);
+                let label = match memory_index.local_or_import(module_info) {
+                    LocalOrImport::Local(local_mem_index) => {
+                        let mem_desc = &module_info.memories[local_mem_index];
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_local,
+                            MemoryType::Static => self.native_trampolines.memory_grow_static_local,
+                            MemoryType::SharedStatic => self.native_trampolines.memory_grow_shared_local,
+                        }
+                    }
+                    LocalOrImport::Import(import_mem_index) => {
+                        let mem_desc = &module_info.imported_memories[import_mem_index].1;
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_import,
+                            MemoryType::Static => self.native_trampolines.memory_grow_static_import,
+                            MemoryType::SharedStatic => self.native_trampolines.memory_grow_shared_import,
+                        }
+                    }
+                };
+                Self::emit_call_raw(
+                    assembler,
+                    &mut self.value_stack,
+                    label,
+                    &[WpType::I32],
+                    &[WpType::I32]
+                )?;
+            }
             _ => {
                 panic!("{:?}", op);
             },
@@ -3313,9 +3476,16 @@ unsafe extern "C" fn invoke_import(
     CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, vmctx, import)
 }
 
+#[repr(u64)]
+#[derive(Copy, Clone, Debug)]
+enum CallIndirectLocalOrImport {
+    Local,
+    Import
+}
+
 unsafe extern "C" fn call_indirect(
-    _unused: usize,
     sig_index: usize,
+    local_or_import: CallIndirectLocalOrImport,
     mut stack_top: *mut u8,
     stack_base: *mut u8,
     vmctx: *mut vm::Ctx,
@@ -3325,7 +3495,10 @@ unsafe extern "C" fn call_indirect(
     stack_top = stack_top.offset(8);
     assert!(stack_top as usize <= stack_base as usize);
 
-    let table: &LocalTable = &*(*(*vmctx).tables);
+    let table: &LocalTable = match local_or_import {
+        CallIndirectLocalOrImport::Local => &*(*(*vmctx).tables),
+        CallIndirectLocalOrImport::Import => &*(*(*vmctx).imported_tables),
+    } ;
     if elem_index >= table.count as usize {
         panic!("element index out of bounds");
     }
@@ -3354,4 +3527,57 @@ unsafe extern "C" fn call_indirect(
         memory_base,
         vmctx,
     ) as u64
+}
+
+#[repr(u64)]
+#[derive(Copy, Clone, Debug)]
+enum MemoryKind {
+    DynamicLocal,
+    StaticLocal,
+    SharedLocal,
+    DynamicImport,
+    StaticImport,
+    SharedImport,
+}
+
+unsafe extern "C" fn _memory_size(
+    op: MemoryKind,
+    index: usize,
+    mut stack_top: *mut u8,
+    stack_base: *mut u8,
+    vmctx: *mut vm::Ctx,
+    memory_base: *mut u8,
+) -> u64 {
+    use wasmer_runtime_core::vmcalls;
+    let ret = match op {
+        MemoryKind::DynamicLocal => vmcalls::local_dynamic_memory_size(&*vmctx, LocalMemoryIndex::new(index)),
+        MemoryKind::StaticLocal => vmcalls::local_static_memory_size(&*vmctx, LocalMemoryIndex::new(index)),
+        MemoryKind::SharedLocal => unreachable!(),
+        MemoryKind::DynamicImport => vmcalls::imported_dynamic_memory_size(&*vmctx, ImportedMemoryIndex::new(index)),
+        MemoryKind::StaticImport => vmcalls::imported_static_memory_size(&*vmctx, ImportedMemoryIndex::new(index)),
+        MemoryKind::SharedImport => unreachable!(),
+    };
+    ret.0 as u32 as u64
+}
+
+unsafe extern "C" fn _memory_grow(
+    op: MemoryKind,
+    index: usize,
+    mut stack_top: *mut u8,
+    stack_base: *mut u8,
+    vmctx: *mut vm::Ctx,
+    memory_base: *mut u8,
+) -> u64 {
+    use wasmer_runtime_core::vmcalls;
+    assert_eq!(stack_base as usize - stack_top as usize, 8);
+    let pages = Pages(*(stack_top as *mut u32));
+    let ret = match op {
+        MemoryKind::DynamicLocal => vmcalls::local_dynamic_memory_grow(&mut *vmctx, LocalMemoryIndex::new(index), pages),
+        MemoryKind::StaticLocal => vmcalls::local_static_memory_grow(&mut *vmctx, LocalMemoryIndex::new(index), pages),
+        MemoryKind::SharedLocal => unreachable!(),
+        MemoryKind::DynamicImport => vmcalls::imported_dynamic_memory_grow(&mut *vmctx, ImportedMemoryIndex::new(index), pages),
+        MemoryKind::StaticImport => vmcalls::imported_static_memory_grow(&mut *vmctx, ImportedMemoryIndex::new(index), pages),
+        MemoryKind::SharedImport => unreachable!(),
+    };
+    ret as u32 as u64
 }

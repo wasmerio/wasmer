@@ -23,7 +23,7 @@ pub struct Ctx {
     pub globals: *mut *mut LocalGlobal,
 
     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-    pub(crate) imported_memories: *mut *mut LocalMemory,
+    pub imported_memories: *mut *mut LocalMemory,
 
     /// A pointer to an array of imported tables, indexed by `TableIndex`.
     pub imported_tables: *mut *mut LocalTable,
