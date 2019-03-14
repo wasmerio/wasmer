@@ -21,7 +21,7 @@ pub enum RegisterName {
     Invalid,
 }*/
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum IfElseState {
     None,
     If(DynamicLabel),
