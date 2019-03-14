@@ -676,6 +676,17 @@ impl X64FunctionCode {
         Ok(())
     }
 
+    fn emit_reinterpret(value_stack: &mut ValueStack, in_ty: WpType, out_ty: WpType) -> Result<(), CodegenError> {
+        let val = value_stack.pop()?;
+        if val.ty != in_ty {
+            return Err(CodegenError {
+                message: "reinterpret type mismatch"
+            });
+        }
+        value_stack.push(out_ty);
+        Ok(())
+    }
+
     /// Emits a unary operator.
     fn emit_unop<F: FnOnce(&mut Assembler, &ValueStack, Register)>(
         assembler: &mut Assembler,
@@ -1117,7 +1128,7 @@ impl X64FunctionCode {
             Some(x) => x,
             None => {
                 return Err(CodegenError {
-                    message: "no frame",
+                    message: "no frame (else)",
                 })
             }
         };
@@ -1163,7 +1174,7 @@ impl X64FunctionCode {
             Some(x) => x,
             None => {
                 return Err(CodegenError {
-                    message: "no frame",
+                    message: "no frame (block end)",
                 })
             }
         };
@@ -1651,8 +1662,16 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Operator::Block { .. } | Operator::Loop { .. } | Operator::If { .. } => {
                     self.unreachable_depth += 1;
                 }
-                Operator::End | Operator::Else => {
+                Operator::End => {
                     self.unreachable_depth -= 1;
+                }
+                Operator::Else => {
+                    // We are in a reachable true branch
+                    if self.unreachable_depth == 1 {
+                        if let Some(IfElseState::If(_)) = self.control_stack.as_ref().unwrap().frames.last().map(|x| x.if_else) {
+                            self.unreachable_depth -= 1;
+                        }
+                    }
                 }
                 _ => {}
             }
@@ -1977,6 +1996,18 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         dynasm!(
                             assembler
                             ; or Rd(left as u8), Rd(right as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I32Xor => {
+                Self::emit_binop_i32(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; xor Rd(left as u8), Rd(right as u8)
                         );
                     },
                 )?;
@@ -2395,6 +2426,18 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         dynasm!(
                             assembler
                             ; or Rq(left as u8), Rq(right as u8)
+                        );
+                    },
+                )?;
+            }
+            Operator::I64Xor => {
+                Self::emit_binop_i64(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; xor Rq(left as u8), Rq(right as u8)
                         );
                     },
                 )?;
@@ -3329,6 +3372,361 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                )?;
+            }
+            Operator::F32Const { value } => {
+                let location = self.value_stack.push(WpType::F32);
+                match location {
+                    ValueLocation::Register(x) => {
+                        let reg = Register::from_scratch_reg(x);
+                        dynasm!(
+                            assembler
+                            ; mov Rd(reg as u8), value.bits() as i32
+                        );
+                    }
+                    ValueLocation::Stack => {
+                        dynasm!(
+                            assembler
+                            ; push value.bits() as i32
+                        );
+                    }
+                }
+            }
+            Operator::F64Const { value } => {
+                let location = self.value_stack.push(WpType::F64);
+                match location {
+                    ValueLocation::Register(x) => {
+                        let reg = Register::from_scratch_reg(x);
+                        dynasm!(
+                            assembler
+                            ; mov Rq(reg as u8), QWORD value.bits() as i64
+                        );
+                    }
+                    ValueLocation::Stack => {
+                        dynasm!(
+                            assembler
+                            ; mov rax, QWORD value.bits() as i64
+                            ; push rax
+                        );
+                    }
+                }
+            }
+            Operator::F32Load { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; mov Rd(reg as u8), [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32Store { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rd(value_reg as u8)
+                        );
+                    },
+                    WpType::F32,
+                )?;
+            }
+            Operator::F64Load { memarg } => {
+                Self::emit_memory_load(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, reg| {
+                        dynasm!(
+                            assembler
+                            ; mov Rq(reg as u8), [Rq(reg as u8) + memarg.offset as i32]
+                        );
+                    },
+                    WpType::F64,
+                )?;
+            }
+            Operator::F64Store { memarg } => {
+                Self::emit_memory_store(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, addr_reg, value_reg| {
+                        dynasm!(
+                            assembler
+                            ; mov [Rq(addr_reg as u8) + memarg.offset as i32], Rq(value_reg as u8)
+                        );
+                    },
+                    WpType::F64,
+                )?;
+            }
+            Operator::I32ReinterpretF32 => {
+                Self::emit_reinterpret(&mut self.value_stack, WpType::F32, WpType::I32)?;
+            }
+            Operator::F32ReinterpretI32 => {
+                Self::emit_reinterpret(&mut self.value_stack, WpType::I32, WpType::F32)?;
+            }
+            Operator::I64ReinterpretF64 => {
+                Self::emit_reinterpret(&mut self.value_stack, WpType::F64, WpType::I64)?;
+            }
+            Operator::F64ReinterpretI64 => {
+                Self::emit_reinterpret(&mut self.value_stack, WpType::I64, WpType::F64)?;
+            }
+            Operator::F32Add => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; addss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32Sub => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; subss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32Mul => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; mulss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32Div => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; divss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32Max => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; maxss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32Min => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; minss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32,
+                )?;
+            }
+            Operator::F32Eq => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; cmpeqss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F32Ne => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; cmpneqss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F32Gt => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; vcmpgtss xmm1, xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F32Ge => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; vcmpgess xmm1, xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F32Lt => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; cmpltss xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F32Le => {
+                Self::emit_binop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, left, right| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(left as u8)
+                            ; movd xmm2, Rd(right as u8)
+                            ; cmpless xmm1, xmm2
+                            ; movd Rd(left as u8), xmm1
+                            ; and Rd(left as u8), 1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I32,
+                )?;
+            }
+            Operator::F32Sqrt => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; sqrtss xmm1, xmm1
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32
+                )?;
+            }
+            Operator::F32Abs => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; and Rd(reg as u8), 0x7fffffffu32 as i32
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32
+                )?;
+            }
+            Operator::F32Neg => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; btc Rd(reg as u8), 31
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32
                 )?;
             }
             Operator::Nop => {}
