@@ -3952,6 +3952,102 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     WpType::F32
                 )?;
             }
+            Operator::F32Nearest => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; roundss xmm1, xmm1, 0
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32
+                )?;
+            }
+            Operator::F32Floor => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; roundss xmm1, xmm1, 1
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32
+                )?;
+            }
+            Operator::F32Ceil => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; roundss xmm1, xmm1, 2
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32
+                )?;
+            }
+            Operator::F32Trunc => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; roundss xmm1, xmm1, 3
+                            ; movd Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::F32
+                )?;
+            }
+            Operator::I32TruncUF32 | Operator::I32TruncSF32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; roundss xmm1, xmm1, 3
+                            ; cvtss2si Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I32
+                )?;
+            }
+            Operator::I64TruncUF32 | Operator::I64TruncSF32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; roundss xmm1, xmm1, 3
+                            ; cvtss2si Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I64
+                )?;
+            }
             Operator::F64Add => {
                 Self::emit_binop(
                     assembler,
@@ -4231,6 +4327,102 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::F64,
                     WpType::F64
+                )?;
+            }
+            Operator::F64Nearest => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; roundsd xmm1, xmm1, 0
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64
+                )?;
+            }
+            Operator::F64Floor => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; roundsd xmm1, xmm1, 1
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64
+                )?;
+            }
+            Operator::F64Ceil => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; roundsd xmm1, xmm1, 2
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64
+                )?;
+            }
+            Operator::F64Trunc => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; roundsd xmm1, xmm1, 3
+                            ; movq Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::F64
+                )?;
+            }
+            Operator::I32TruncUF64 | Operator::I32TruncSF64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; roundsd xmm1, xmm1, 3
+                            ; cvtsd2si Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I32
+                )?;
+            }
+            Operator::I64TruncUF64 | Operator::I64TruncSF64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; roundsd xmm1, xmm1, 3
+                            ; cvtsd2si Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I64
                 )?;
             }
             Operator::Nop => {}
