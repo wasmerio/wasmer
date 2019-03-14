@@ -21,6 +21,7 @@ rand = "0.6"
 [dev-dependencies]
 wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
 wabt = "0.7.2"
+wasmer-dynasm-backend = { path = "../dynasm-backend", version = "0.1.0" }
 
 [target.'cfg(not(windows))'.dev-dependencies]
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.1.0" }
@@ -31,3 +32,4 @@ glob = "0.2.11"
 [features]
 clif = []
 llvm = []
+dynasm = []
