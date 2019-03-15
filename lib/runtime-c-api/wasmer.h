@@ -489,7 +489,7 @@ uint32_t wasmer_memory_length(const wasmer_memory_t *memory);
 wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
 
 /**
- * Deserialize the given Module.
+ * Deserialize the given bytes into a Module.
  * Returns `wasmer_result_t::WASMER_OK` upon success.
  * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
  * and `wasmer_last_error_message` to get an error message.

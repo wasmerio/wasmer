@@ -620,7 +620,7 @@ pub unsafe extern "C" fn wasmer_module_serialize(
     }
 }
 
-/// Deserialize the given Module.
+/// Deserialize the given bytes into a Module.
 ///
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
 ///
