@@ -10,6 +10,7 @@ add_executable(test-memory test-memory.c)
 add_executable(test-module test-module.c)
 add_executable(test-module-exports test-module-exports.c)
 add_executable(test-module-imports test-module-imports.c)
+add_executable(test-module-serialize test-module-serialize.c)
 add_executable(test-tables test-tables.c)
 add_executable(test-validate test-validate.c)
 
@@ -69,6 +70,10 @@ add_test(test-module-exports test-module-exports)
 target_link_libraries(test-module-imports general ${WASMER_LIB})
 target_compile_options(test-module-imports PRIVATE ${COMPILER_OPTIONS})
 add_test(test-module-imports test-module-imports)
+
+target_link_libraries(test-module-serialize general ${WASMER_LIB})
+target_compile_options(test-module-serialize PRIVATE ${COMPILER_OPTIONS})
+add_test(test-module-serialize test-module-serialize)
 
 target_link_libraries(test-tables general ${WASMER_LIB})
 target_compile_options(test-tables PRIVATE ${COMPILER_OPTIONS})

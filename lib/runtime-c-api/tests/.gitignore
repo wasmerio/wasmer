@@ -19,5 +19,6 @@ test-memory
 test-module
 test-module-exports
 test-module-imports
+test-module-serialize
 test-tables
 test-validate
