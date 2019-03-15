@@ -489,6 +489,16 @@ uint32_t wasmer_memory_length(const wasmer_memory_t *memory);
 wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
 
 /**
+ * Deserialize the given Module.
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_module_deserialize(wasmer_module_t **module,
+                                          const uint8_t *serialized_module_bytes,
+                                          uint32_t serialized_module_bytes_len);
+
+/**
  * Frees memory for the given Module
  */
 void wasmer_module_destroy(wasmer_module_t *module);
@@ -503,6 +513,18 @@ wasmer_result_t wasmer_module_instantiate(const wasmer_module_t *module,
                                           wasmer_instance_t **instance,
                                           wasmer_import_t *imports,
                                           int imports_len);
+
+/**
+ * Serialize the given Module.
+ * It's up to the caller to free the memory of the
+ * `serialized_module` byte array (both the `bytes` field and the
+ * structure).
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_module_serialize(wasmer_byte_array **serialized_module,
+                                        const wasmer_module_t *module);
 
 /**
  * Frees memory for the given Table
