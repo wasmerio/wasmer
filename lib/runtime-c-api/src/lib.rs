@@ -165,7 +165,7 @@ pub unsafe extern "C" fn wasmer_validate(
     if wasm_bytes.is_null() {
         return false;
     }
-    let bytes: &[u8] = ::std::slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
 
     wasmer_runtime_core::validate(bytes)
 }
@@ -391,7 +391,7 @@ pub unsafe extern "C" fn wasmer_compile(
     wasm_bytes: *mut uint8_t,
     wasm_bytes_len: uint32_t,
 ) -> wasmer_result_t {
-    let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
     let result = wasmer_runtime::compile(bytes);
     let new_module = match result {
         Ok(instance) => instance,
@@ -831,7 +831,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
         import_object.register(module_name, namespace);
     }
 
-    let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
     let result = wasmer_runtime::instantiate(bytes, &import_object);
     let new_instance = match result {
         Ok(instance) => instance,
