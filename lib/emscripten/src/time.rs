@@ -10,6 +10,7 @@ use libc::{clockid_t, time as libc_time};
 use libc::time_t;
 
 #[cfg(target_os = "windows")]
+#[allow(non_camel_case_types)]
 type clockid_t = c_int;
 
 #[cfg(target_os = "windows")]

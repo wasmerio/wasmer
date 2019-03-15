@@ -10,8 +10,8 @@ typedef void(*trampoline_t)(struct wasmer_instance_context_t*,  const struct fun
 
 struct call_protected_result_t {
     uint64_t code;
-    uint64_t exceptionAddress;
-    uint64_t instructionPointer;
+    uint64_t exception_address;
+    uint64_t instruction_pointer;
 };
 
 uint8_t callProtected(
