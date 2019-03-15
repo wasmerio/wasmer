@@ -7,12 +7,17 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::CStr;
 use std::fmt;
+use std::mem;
 use std::slice;
 use std::sync::Arc;
 use std::{ffi::c_void, ptr};
-use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Module, Table, Value};
+use wasmer_runtime::{
+    default_compiler, Ctx, Global, ImportObject, Instance, Memory, Module, Table, Value,
+};
+use wasmer_runtime_core::cache::Artifact;
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::Namespace;
+use wasmer_runtime_core::load_cache_with;
 use wasmer_runtime_core::module::{ExportIndex, ImportName};
 use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
 use wasmer_runtime_core::units::{Bytes, Pages};
@@ -567,6 +572,99 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
 ) -> wasmer_import_export_kind {
     let named_export_descriptor = &*(export as *mut NamedExportDescriptor);
     named_export_descriptor.kind.clone()
+}
+
+/// Serialize the given Module.
+///
+/// It's up to the caller to free the memory of the
+/// `serialized_module` byte array (both the `bytes` field and the
+/// structure).
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_serialize(
+    serialized_module: *mut *mut wasmer_byte_array,
+    module: *const wasmer_module_t,
+) -> wasmer_result_t {
+    let module = &*(module as *const Module);
+
+    match module.cache() {
+        Ok(artifact) => match artifact.serialize() {
+            Ok(serialized_artifact) => {
+                *serialized_module = Box::into_raw(Box::new(wasmer_byte_array {
+                    bytes: serialized_artifact.as_ptr(),
+                    bytes_len: serialized_artifact.len() as u32,
+                })) as *mut wasmer_byte_array;
+
+                mem::forget(serialized_artifact);
+
+                wasmer_result_t::WASMER_OK
+            }
+            Err(_) => {
+                update_last_error(CApiError {
+                    msg: "Failed to serialize the module artifact".to_string(),
+                });
+                wasmer_result_t::WASMER_ERROR
+            }
+        },
+        Err(_) => {
+            update_last_error(CApiError {
+                msg: "Failed to serialize the module".to_string(),
+            });
+            wasmer_result_t::WASMER_ERROR
+        }
+    }
+}
+
+/// Deserialize the given Module.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_deserialize(
+    module: *mut *mut wasmer_module_t,
+    serialized_module_bytes: *const uint8_t,
+    serialized_module_bytes_len: uint32_t,
+) -> wasmer_result_t {
+    if serialized_module_bytes.is_null() {
+        update_last_error(CApiError {
+            msg: "`serialized_module_bytes` pointer is null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    let serialized_module: &[u8] = slice::from_raw_parts(
+        serialized_module_bytes,
+        serialized_module_bytes_len as usize,
+    );
+
+    match Artifact::deserialize(serialized_module) {
+        Ok(artifact) => match load_cache_with(artifact, default_compiler()) {
+            Ok(deserialized_module) => {
+                *module = Box::into_raw(Box::new(deserialized_module)) as _;
+                wasmer_result_t::WASMER_OK
+            }
+            Err(_) => {
+                update_last_error(CApiError {
+                    msg: "Failed to compile the serialized module".to_string(),
+                });
+                wasmer_result_t::WASMER_ERROR
+            }
+        },
+        Err(_) => {
+            update_last_error(CApiError {
+                msg: "Failed to deserialize the module".to_string(),
+            });
+            wasmer_result_t::WASMER_ERROR
+        }
+    }
 }
 
 /// Frees memory for the given Module
