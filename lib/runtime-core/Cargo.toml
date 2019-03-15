@@ -7,6 +7,9 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
+[lib]
+crate-type = ["dylib"]
+
 [dependencies]
 nix = "0.12.0"
 page_size = "0.4.1"
@@ -17,6 +20,8 @@ indexmap = "1.0.2"
 errno = "0.2.4"
 libc = "0.2.49"
 hex = "0.3.2"
+human-panic = "1.0"
+ctor = "0.1.7"
 
 # Dependencies for caching.
 [dependencies.serde]
