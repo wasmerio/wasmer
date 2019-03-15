@@ -159,13 +159,13 @@ pub struct wasmer_byte_array {
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_validate(
-    wasm_bytes: *mut uint8_t,
+    wasm_bytes: *const uint8_t,
     wasm_bytes_len: uint32_t,
 ) -> bool {
     if wasm_bytes.is_null() {
         return false;
     }
-    let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = ::std::slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
 
     wasmer_runtime_core::validate(bytes)
 }
