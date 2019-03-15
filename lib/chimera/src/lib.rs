@@ -7,11 +7,13 @@ use wasmer_runtime_core::{
     module::ModuleInner,
 };
 
-mod clif;
-mod compile;
-mod pool;
-mod state;
-mod thunks;
+pub mod clif;
+pub mod compile;
+pub mod llvm;
+pub mod pool;
+pub mod state;
+pub mod thunks;
+pub mod utils;
 
 pub trait TieredCompiler {}
 
