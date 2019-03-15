@@ -4,13 +4,9 @@ use crate::trampoline::Trampoline;
 use std::cell::Cell;
 use std::ffi::c_void;
 use std::ptr;
+use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::vm::Func;
-use wasmer_runtime_core::{
-    error::{RuntimeError, RuntimeResult},
-    structures::TypedIndex,
-    types::{MemoryIndex, TableIndex},
-};
 use wasmer_win_exception_handler::CallProtectedData;
 pub use wasmer_win_exception_handler::_call_protected;
 use winapi::shared::minwindef::DWORD;
@@ -47,8 +43,8 @@ pub fn call_protected(
 
     let CallProtectedData {
         code: signum,
-        exceptionAddress: exception_address,
-        instructionPointer: instruction_pointer,
+        exception_address,
+        instruction_pointer,
     } = result.unwrap_err();
 
     if let Some(TrapData {
