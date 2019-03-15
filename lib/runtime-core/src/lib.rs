@@ -106,7 +106,7 @@ fn init() {
     human_panic::setup_panic!(human_panic::Metadata {
         name: "The Wasmer Runtime".into(),
         version: env!("CARGO_PKG_VERSION").into(),
-        authors: "Wasmer Engineering <engineering@wasmer.io".into(),
+        authors: "Wasmer Engineering <engineering@wasmer.io>".into(),
         homepage: "https://github.com/wasmerio/wasmer".into(),
     });
 }
