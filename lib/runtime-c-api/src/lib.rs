@@ -170,7 +170,7 @@ pub unsafe extern "C" fn wasmer_validate(
     if wasm_bytes.is_null() {
         return false;
     }
-    let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
 
     wasmer_runtime_core::validate(bytes)
 }
