@@ -1,10 +1,9 @@
 use libc::{abort, c_char, c_int, exit, EAGAIN};
 
 #[cfg(not(target_os = "windows"))]
-use libc::pid_t;
-
+type PidT = libc::pid_t;
 #[cfg(target_os = "windows")]
-type pid_t = c_int;
+type PidT = c_int;
 
 use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
@@ -22,7 +21,7 @@ pub fn _abort(_ctx: &mut Ctx) {
     }
 }
 
-pub fn _fork(_ctx: &mut Ctx) -> pid_t {
+pub fn _fork(_ctx: &mut Ctx) -> PidT {
     debug!("emscripten::_fork");
     // unsafe {
     //     fork()
