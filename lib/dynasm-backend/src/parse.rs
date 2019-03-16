@@ -1,7 +1,7 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
 use std::sync::Arc;
 use wasmer_runtime_core::{
-    backend::{Backend, ProtectedCaller},
+    backend::{Backend, ProtectedCaller, FuncResolver},
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -39,9 +39,10 @@ impl From<CodegenError> for LoadError {
 }
 
 pub fn read_module<
-    MCG: ModuleCodeGenerator<FCG, PC>,
+    MCG: ModuleCodeGenerator<FCG, PC, FR>,
     FCG: FunctionCodeGenerator,
     PC: ProtectedCaller,
+    FR: FuncResolver,
 >(
     wasm: &[u8],
     backend: Backend,

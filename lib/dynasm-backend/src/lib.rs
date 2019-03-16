@@ -63,10 +63,10 @@ impl Compiler for SinglePassCompiler {
     fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner> {
         let mut mcg = codegen_x64::X64ModuleCodeGenerator::new();
         let info = parse::read_module(wasm, Backend::Dynasm, &mut mcg)?;
-        let ec = mcg.finalize()?;
+        let (ec, resolver) = mcg.finalize(&info)?;
         Ok(ModuleInner {
             cache_gen: Box::new(Placeholder),
-            func_resolver: Box::new(Placeholder),
+            func_resolver: Box::new(resolver),
             protected_caller: Box::new(ec),
             info: info,
         })

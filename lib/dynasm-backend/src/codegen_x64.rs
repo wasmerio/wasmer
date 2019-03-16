@@ -21,7 +21,7 @@ use wasmer_runtime_core::{
     },
     memory::MemoryType,
     units::Pages,
-    vm::{self, ImportBacking, LocalGlobal, LocalTable},
+    vm::{self, ImportBacking, LocalGlobal, LocalTable, LocalMemory},
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -90,39 +90,33 @@ lazy_static! {
             ; mov r13, rdx
             ; mov r12, rcx
 
-            ; mov rdi, r13
-            ; cmp r15, r14
-            ; je >stack_ready
-            ; mov rdi, [r15]
-            ; add r15, 8
+            ; mov rdi, r13 // ctx
 
-            ; mov rsi, r13
-            ; cmp r15, r14
-            ; je >stack_ready
-            ; mov rsi, [r15]
-            ; add r15, 8
+            ; sub r14, 8
+            ; cmp r14, r15
+            ; jb >stack_ready
+            ; mov rsi, [r14]
 
-            ; mov rdx, r13
-            ; cmp r15, r14
-            ; je >stack_ready
-            ; mov rdx, [r15]
-            ; add r15, 8
+            ; sub r14, 8
+            ; cmp r14, r15
+            ; jb >stack_ready
+            ; mov rdx, [r14]
 
-            ; mov rcx, r13
-            ; cmp r15, r14
-            ; je >stack_ready
-            ; mov rcx, [r15]
-            ; add r15, 8
+            ; sub r14, 8
+            ; cmp r14, r15
+            ; jb >stack_ready
+            ; mov rcx, [r14]
 
-            ; mov r8, r13
-            ; cmp r15, r14
-            ; je >stack_ready
-            ; mov r8, [r15]
-            ; add r15, 8
+            ; sub r14, 8
+            ; cmp r14, r15
+            ; jb >stack_ready
+            ; mov r8, [r14]
 
-            ; mov r9, r13
-            ; cmp r15, r14
-            ; je >stack_ready
+            ; sub r14, 8
+            ; cmp r14, r15
+            ; jb >stack_ready
+            ; mov r9, [r14]
+
             ; ud2 // FIXME
 
             ; stack_ready:
@@ -255,6 +249,7 @@ pub struct X64FunctionCode {
 
 enum FuncPtrInner {}
 #[repr(transparent)]
+#[derive(Copy, Clone, Debug)]
 struct FuncPtr(*const FuncPtrInner);
 unsafe impl Send for FuncPtr {}
 unsafe impl Sync for FuncPtr {}
@@ -269,15 +264,44 @@ pub struct X64ExecutionContext {
     func_import_count: usize,
 }
 
-impl FuncResolver for X64ExecutionContext {
+pub struct X64RuntimeResolver {
+    code: ExecutableBuffer,
+    local_pointers: Vec<FuncPtr>,
+}
+
+impl X64ExecutionContext {
+    fn get_runtime_resolver(&self, module_info: &ModuleInfo) -> Result<X64RuntimeResolver, CodegenError> {
+        let mut assembler = Assembler::new().unwrap();
+        let mut offsets: Vec<AssemblyOffset> = vec! [];
+
+        for i in self.func_import_count..self.function_pointers.len() {
+            offsets.push(assembler.offset());
+            X64FunctionCode::emit_managed_call_trampoline(
+                &mut assembler,
+                module_info,
+                self.function_pointers[i],
+                self.signatures[self.function_signatures[FuncIndex::new(i)]].params().len(),
+            )?;
+        }
+
+        let code = assembler.finalize().unwrap();
+        let local_pointers: Vec<FuncPtr> = offsets.iter().map(|x| FuncPtr(code.ptr(*x) as _)).collect();
+
+        Ok(X64RuntimeResolver {
+            code: code,
+            local_pointers: local_pointers,
+        })
+    }
+}
+
+impl FuncResolver for X64RuntimeResolver {
     fn get(
         &self,
         _module: &ModuleInner,
         _local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
         NonNull::new(
-            self.function_pointers[_local_func_index.index() as usize + self.func_import_count].0
-                as *mut vm::Func,
+            self.local_pointers[_local_func_index.index() as usize].0 as *mut vm::Func,
         )
     }
 }
@@ -499,7 +523,7 @@ impl X64ModuleCodeGenerator {
     }
 }
 
-impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCodeGenerator {
+impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolver> for X64ModuleCodeGenerator {
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
         let (mut assembler, mut function_labels, br_table_data) = match self.functions.last_mut() {
             Some(x) => (
@@ -549,7 +573,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
         Ok(self.functions.last_mut().unwrap())
     }
 
-    fn finalize(mut self) -> Result<X64ExecutionContext, CodegenError> {
+    fn finalize(mut self, module_info: &ModuleInfo) -> Result<(X64ExecutionContext, X64RuntimeResolver), CodegenError> {
         let (mut assembler, mut br_table_data) = match self.functions.last_mut() {
             Some(x) => (x.assembler.take().unwrap(), x.br_table_data.take().unwrap()),
             None => {
@@ -593,7 +617,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
             out_labels.push(FuncPtr(output.ptr(*offset) as _));
         }
 
-        Ok(X64ExecutionContext {
+        let ctx = X64ExecutionContext {
             code: output,
             functions: self.functions,
             br_table_data: br_table_data,
@@ -615,7 +639,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCode
                     })
                 }
             },
-        })
+        };
+        let resolver = ctx.get_runtime_resolver(module_info)?;
+
+        Ok((ctx, resolver))
     }
 
     fn feed_signatures(
@@ -1299,6 +1326,100 @@ impl X64FunctionCode {
 
         dynasm!(
             assembler
+            ; mov rsp, rbp
+            ; pop rbp
+            ; ret
+        );
+
+        Ok(())
+    }
+
+    fn emit_managed_call_trampoline(assembler: &mut Assembler, info: &ModuleInfo, target: FuncPtr, num_params: usize) -> Result<(), CodegenError> {
+        dynasm!(
+            assembler
+            ; push rbp
+            ; mov rbp, rsp
+        );
+
+        for i in 0..num_params {
+            match i {
+                i if i < 5 => {
+                    let reg = match i {
+                        0 => Register::RSI,
+                        1 => Register::RDX,
+                        2 => Register::RCX,
+                        3 => Register::R8,
+                        4 => Register::R9,
+                        _ => unreachable!(),
+                    };
+                    dynasm!(
+                        assembler
+                        ; push Rq(reg as u8)
+                    );
+                }
+                i => {
+                    let offset = (i - 5) * 8;
+                    dynasm!(
+                        assembler
+                        ; mov rax, [rbp + (16 + offset) as i32]
+                        ; push rax
+                    );
+                }
+            }
+        }
+
+
+        dynasm!(
+            assembler
+            ; mov r8, rdi // vmctx
+            ; mov rdx, QWORD (target.0 as usize as i64)
+            ; mov rsi, QWORD (num_params * 8) as i64
+            ; mov rdi, rsp
+        );
+
+        let has_memory = if info.memories.len() > 0 {
+            if info.memories.len() != 1 || info.imported_memories.len() != 0 {
+                return Err(CodegenError {
+                    message: "only one linear memory is supported",
+                });
+            }
+            dynasm!(
+                assembler
+                ; mov rcx, r8 => vm::Ctx.memories
+            );
+            true
+        } else if info.imported_memories.len() > 0 {
+            if info.memories.len() != 0 || info.imported_memories.len() != 1 {
+                return Err(CodegenError{
+                    message: "only one linear memory is supported",
+                });
+            }
+            dynasm!(
+                assembler
+                ; mov rcx, r8 => vm::Ctx.imported_memories
+            );
+            true
+        } else {
+            false
+        };
+
+        if has_memory {
+            dynasm!(
+                assembler
+                ; mov rcx, [rcx]
+                ; mov rcx, rcx => LocalMemory.base
+            );
+        } else {
+            dynasm!(
+                assembler
+                ; mov rcx, 0
+            );
+        }
+
+        dynasm!(
+            assembler
+            ; mov rax, QWORD (*CALL_WASM as usize as i64)
+            ; call rax
             ; mov rsp, rbp
             ; pop rbp
             ; ret
@@ -4565,7 +4686,17 @@ unsafe extern "C" fn invoke_import(
     let vmctx: &mut vm::Ctx = &mut *vmctx;
     let import = (*vmctx.imported_funcs.offset(import_id as isize)).func;
 
-    return 0; // TODO: Fix this.
+    let n_args = (stack_base as usize - stack_top as usize) / 8;
+
+    /*println!("Calling import: {:?} with vmctx = {:?}, n_args = {}",
+        import,
+        vmctx as *mut _,
+        n_args,
+    );
+
+    for i in 0..n_args {
+        println!("Arg: {:?}", * ((stack_top as usize + i * 8) as *const *const ()));
+    }*/
 
     CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, vmctx, import)
 }
