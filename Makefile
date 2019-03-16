@@ -48,7 +48,7 @@ test-emscripten:
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
-	cargo build --release
+	cargo +nightly build --release
 
 debug-release:
 	cargo build --release --features debug
