@@ -3746,19 +3746,17 @@ impl FunctionCodeGenerator for X64FunctionCode {
                             assembler
                             ; test Rq(reg as u8), Rq(reg as u8)
                             ; js >do_convert
-                            // fast path: positive as signed
                             ; cvtsi2ss xmm1, Rq(reg as u8)
                             ; movd Rd(reg as u8), xmm1
                             ; jmp >end_convert
                             ; do_convert:
-                            // use r15 as temporary register
                             ; movq xmm5, r15
                             ; mov r15, Rq(reg as u8)
                             ; and r15, 1
                             ; shr Rq(reg as u8), 1
                             ; or Rq(reg as u8), r15
                             ; cvtsi2ss xmm1, Rq(reg as u8)
-                            ; addsd xmm1, xmm1
+                            ; addss xmm1, xmm1
                             ; movq r15, xmm5
                             ; movd Rd(reg as u8), xmm1
                             ; end_convert:
@@ -3823,12 +3821,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                             assembler
                             ; test Rq(reg as u8), Rq(reg as u8)
                             ; js >do_convert
-                            // fast path: positive as signed
                             ; cvtsi2sd xmm1, Rq(reg as u8)
                             ; movq Rq(reg as u8), xmm1
                             ; jmp >end_convert
                             ; do_convert:
-                            // use r15 as temporary register
                             ; movq xmm5, r15
                             ; mov r15, Rq(reg as u8)
                             ; and r15, 1
@@ -4232,8 +4228,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
-                            ; roundss xmm1, xmm1, 3
-                            ; cvtss2si Rd(reg as u8), xmm1
+                            ; cvttss2si Rq(reg as u8), xmm1
+                            ; mov Rd(reg as u8), Rd(reg as u8)
                         );
                     },
                     WpType::F32,
@@ -4254,8 +4250,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
-                            ; roundss xmm1, xmm1, 3
-                            ; cvtss2si Rd(reg as u8), xmm1
+                            ; cvttss2si Rd(reg as u8), xmm1
                         );
                     },
                     WpType::F32,
@@ -4273,11 +4268,33 @@ impl FunctionCodeGenerator for X64FunctionCode {
                             -1.0,
                             18446744073709551616.0,
                         );
+                        /*
+                            LCPI0_0:
+                                .long   1593835520              ## float 9.22337203E+18
+
+                            movss   LCPI0_0(%rip), %xmm1    ## xmm1 = mem[0],zero,zero,zero
+                            movaps  %xmm0, %xmm2
+                            subss   %xmm1, %xmm2
+                            cvttss2si       %xmm2, %rax
+                            movabsq $-9223372036854775808, %rcx ## imm = 0x8000000000000000
+                            xorq    %rax, %rcx
+                            cvttss2si       %xmm0, %rax
+                            ucomiss %xmm1, %xmm0
+                            cmovaeq %rcx, %rax
+                        */
                         dynasm!(
                             assembler
-                            ; movd xmm1, Rd(reg as u8)
-                            ; roundss xmm1, xmm1, 3
-                            ; cvtss2si Rq(reg as u8), xmm1
+                            ; mov r13d, 1593835520u32 as i32 //float 9.22337203E+18
+                            ; movd xmm1, r13d
+                            ; movd xmm2, Rd(reg as u8)
+                            ; movd xmm3, Rd(reg as u8)
+                            ; subss xmm2, xmm1
+                            ; cvttss2si Rq(reg as u8), xmm2
+                            ; mov r13, QWORD 0x8000000000000000u64 as i64
+                            ; xor r13, Rq(reg as u8)
+                            ; cvttss2si Rq(reg as u8), xmm3
+                            ; ucomiss xmm3, xmm1
+                            ; cmovae Rq(reg as u8), r13
                         );
                     },
                     WpType::F32,
@@ -4298,8 +4315,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
-                            ; roundss xmm1, xmm1, 3
-                            ; cvtss2si Rq(reg as u8), xmm1
+                            ; cvttss2si Rq(reg as u8), xmm1
                         );
                     },
                     WpType::F32,
@@ -4565,7 +4581,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                             ; movq xmm1, Rq(reg as u8)
                             ; mov rax, QWORD 0x7fffffffffffffff
                             ; movq xmm2, rax
-                            ; por xmm1, xmm2
+                            ; pand xmm1, xmm2
                             ; movq Rq(reg as u8), xmm1
                         );
                     },
@@ -4666,8 +4682,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
-                            ; roundsd xmm1, xmm1, 3
-                            ; cvtsd2si Rd(reg as u8), xmm1
+                            ; cvttsd2si Rq(reg as u8), xmm1
+                            ; mov Rd(reg as u8), Rd(reg as u8)
                         );
                     },
                     WpType::F64,
@@ -4689,8 +4705,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
-                            ; roundsd xmm1, xmm1, 3
-                            ; cvtsd2si Rd(reg as u8), xmm1
+                            ; cvttsd2si Rd(reg as u8), xmm1
                         );
                     },
                     WpType::F64,
@@ -4709,11 +4724,34 @@ impl FunctionCodeGenerator for X64FunctionCode {
                             18446744073709551616.0,
                         );
 
+                        /*
+                                LCPI0_0:
+                                    .quad   4890909195324358656     ## double 9.2233720368547758E+18
+
+                                movsd   LCPI0_0(%rip), %xmm1    ## xmm1 = mem[0],zero
+                                movapd  %xmm0, %xmm2
+                                subsd   %xmm1, %xmm2
+                                cvttsd2si       %xmm2, %rax
+                                movabsq $-9223372036854775808, %rcx ## imm = 0x8000000000000000
+                                xorq    %rax, %rcx
+                                cvttsd2si       %xmm0, %rax
+                                ucomisd %xmm1, %xmm0
+                                cmovaeq %rcx, %rax
+                        */
+
                         dynasm!(
                             assembler
-                            ; movq xmm1, Rq(reg as u8)
-                            ; roundsd xmm1, xmm1, 3
-                            ; cvtsd2si Rq(reg as u8), xmm1
+                            ; mov r13, QWORD 4890909195324358656u64 as i64 //double 9.2233720368547758E+18
+                            ; movq xmm1, r13
+                            ; movq xmm2, Rq(reg as u8)
+                            ; movq xmm3, Rq(reg as u8)
+                            ; subsd xmm2, xmm1
+                            ; cvttsd2si Rq(reg as u8), xmm2
+                            ; mov r13, QWORD 0x8000000000000000u64 as i64
+                            ; xor r13, Rq(reg as u8)
+                            ; cvttsd2si Rq(reg as u8), xmm3
+                            ; ucomisd xmm3, xmm1
+                            ; cmovae Rq(reg as u8), r13
                         );
                     },
                     WpType::F64,
@@ -4735,8 +4773,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
-                            ; roundsd xmm1, xmm1, 3
-                            ; cvtsd2si Rq(reg as u8), xmm1
+                            ; cvttsd2si Rq(reg as u8), xmm1
                         );
                     },
                     WpType::F64,
