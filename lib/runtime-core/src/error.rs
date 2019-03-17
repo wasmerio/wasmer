@@ -1,10 +1,11 @@
 use crate::types::{
-    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type, Value,
+    FuncSig, GlobalDescriptor, MemoryDescriptor, MemoryIndex, TableDescriptor, TableIndex, Type,
+    Value,
 };
-use std::sync::Arc;
-use wasmparser::BinaryReaderError;
 use core::borrow::Borrow;
 use std::any::Any;
+use std::sync::Arc;
+use wasmparser::BinaryReaderError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
