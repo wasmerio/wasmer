@@ -18,6 +18,7 @@ use wasmparser::{
     BinaryReaderError, CodeSectionReader, Data, DataKind, Element, ElementKind, Export,
     ExternalKind, FuncType, Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator,
     SectionCode, Type as WpType,
+    WasmDecoder,
 };
 
 #[derive(Debug)]
@@ -38,6 +39,30 @@ impl From<CodegenError> for LoadError {
     }
 }
 
+fn validate(bytes: &[u8]) -> Result<(), LoadError> {
+    let mut parser = wasmparser::ValidatingParser::new(
+        bytes,
+        Some(wasmparser::ValidatingParserConfig {
+            operator_config: wasmparser::OperatorValidatorConfig {
+                enable_threads: false,
+                enable_reference_types: false,
+                enable_simd: false,
+                enable_bulk_memory: false,
+            },
+            mutable_global_imports: false,
+        }),
+    );
+
+    loop {
+        let state = parser.read();
+        match *state {
+            wasmparser::ParserState::EndWasm => break Ok(()),
+            wasmparser::ParserState::Error(err) => Err(LoadError::Parse(err))?,
+            _ => {}
+        }
+    }
+}
+
 pub fn read_module<
     MCG: ModuleCodeGenerator<FCG, PC, FR>,
     FCG: FunctionCodeGenerator,
@@ -48,6 +73,7 @@ pub fn read_module<
     backend: Backend,
     mcg: &mut MCG,
 ) -> Result<ModuleInfo, LoadError> {
+    validate(wasm)?;
     let mut info = ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),
@@ -279,6 +305,7 @@ pub fn read_module<
                     }
                     .into());
                 }
+                mcg.check_precondition(&info)?;
                 for i in 0..code_reader.get_count() {
                     let item = code_reader.read()?;
                     let mut fcg = mcg.next_function()?;

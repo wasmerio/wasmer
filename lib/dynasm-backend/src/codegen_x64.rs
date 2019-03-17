@@ -24,6 +24,7 @@ use wasmer_runtime_core::{
     vm::{self, ImportBacking, LocalGlobal, LocalTable, LocalMemory},
 };
 use wasmparser::{Operator, Type as WpType};
+use crate::protect_unix;
 
 thread_local! {
     static CURRENT_EXECUTION_CONTEXT: RefCell<Vec<*const X64ExecutionContext>> = RefCell::new(Vec::new());
@@ -384,16 +385,20 @@ impl ProtectedCaller for X64ExecutionContext {
         CURRENT_EXECUTION_CONTEXT.with(|x| x.borrow_mut().push(self));
 
         let ret = unsafe {
-            CALL_WASM(
-                param_buf.as_ptr(),
-                param_buf.len(),
-                ptr,
-                memory_base,
-                _vmctx,
-            )
+            protect_unix::call_protected(|| {
+                CALL_WASM(
+                    param_buf.as_ptr(),
+                    param_buf.len(),
+                    ptr,
+                    memory_base,
+                    _vmctx,
+                )
+            })
         };
 
         CURRENT_EXECUTION_CONTEXT.with(|x| x.borrow_mut().pop().unwrap());
+
+        let ret = ret?;
 
         Ok(if let Some(ty) = return_ty {
             vec![match ty {
@@ -524,6 +529,19 @@ impl X64ModuleCodeGenerator {
 }
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolver> for X64ModuleCodeGenerator {
+    fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        for mem in module_info.memories.iter().map(|(_, v)| v).chain(module_info.imported_memories.iter().map(|(_, v)| &v.1)) {
+            match mem.memory_type() {
+                MemoryType::Dynamic => return Err(CodegenError {
+                    message: "dynamic memory isn't supported yet"
+                }),
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
         let (mut assembler, mut function_labels, br_table_data) = match self.functions.last_mut() {
             Some(x) => (
@@ -1426,6 +1444,98 @@ impl X64FunctionCode {
         );
 
         Ok(())
+    }
+
+    fn emit_f32_int_conv_check(
+        assembler: &mut Assembler,
+        reg: Register,
+        lower_bound: f32,
+        upper_bound: f32,
+    ) {
+        let lower_bound = f32::to_bits(lower_bound);
+        let upper_bound = f32::to_bits(upper_bound);
+
+        dynasm!(
+            assembler
+            ; movq xmm5, r15
+
+            // underflow
+            ; movd xmm1, Rd(reg as u8)
+            ; mov r15d, lower_bound as i32
+            ; movd xmm2, r15d
+            ; vcmpltss xmm0, xmm1, xmm2
+            ; movd r15d, xmm0
+            ; cmp r15d, 1
+            ; je >trap
+
+            // overflow
+            ; mov r15d, upper_bound as i32
+            ; movd xmm2, r15d
+            ; vcmpgtss xmm0, xmm1, xmm2
+            ; movd r15d, xmm0
+            ; cmp r15d, 1
+            ; je >trap
+
+            // NaN
+            ; vcmpeqss xmm0, xmm1, xmm1
+            ; movd r15d, xmm0
+            ; cmp r15d, 0
+            ; je >trap
+
+            ; movq r15, xmm5
+            ; jmp >ok
+
+            ; trap:
+            ; ud2
+
+            ; ok:
+        );
+    }
+
+    fn emit_f64_int_conv_check(
+        assembler: &mut Assembler,
+        reg: Register,
+        lower_bound: f64,
+        upper_bound: f64,
+    ) {
+        let lower_bound = f64::to_bits(lower_bound);
+        let upper_bound = f64::to_bits(upper_bound);
+
+        dynasm!(
+            assembler
+            ; movq xmm5, r15
+
+            // underflow
+            ; movq xmm1, Rq(reg as u8)
+            ; mov r15, QWORD lower_bound as i64
+            ; movq xmm2, r15
+            ; vcmpltsd xmm0, xmm1, xmm2
+            ; movd r15d, xmm0
+            ; cmp r15d, 1
+            ; je >trap
+
+            // overflow
+            ; mov r15, QWORD upper_bound as i64
+            ; movq xmm2, r15
+            ; vcmpgtsd xmm0, xmm1, xmm2
+            ; movd r15d, xmm0
+            ; cmp r15d, 1
+            ; je >trap
+
+            // NaN
+            ; vcmpeqsd xmm0, xmm1, xmm1
+            ; movd r15d, xmm0
+            ; cmp r15d, 0
+            ; je >trap
+
+            ; movq r15, xmm5
+            ; jmp >ok
+
+            ; trap:
+            ; ud2
+
+            ; ok:
+        );
     }
 
     fn emit_native_call_trampoline<A: Copy + Sized, B: Copy + Sized>(
@@ -4137,11 +4247,17 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     WpType::F32
                 )?;
             }
-            Operator::I32TruncUF32 | Operator::I32TruncSF32 => {
+            Operator::I32TruncUF32 => {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
                     |assembler, value_stack, reg| {
+                        Self::emit_f32_int_conv_check(
+                            assembler,
+                            reg,
+                            -1.0,
+                            4294967296.0,
+                        );
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
@@ -4153,11 +4269,61 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     WpType::I32
                 )?;
             }
-            Operator::I64TruncUF32 | Operator::I64TruncSF32 => {
+            Operator::I32TruncSF32 => {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
                     |assembler, value_stack, reg| {
+                        Self::emit_f32_int_conv_check(
+                            assembler,
+                            reg,
+                            -2147483904.0,
+                            2147483648.0
+                        );
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; roundss xmm1, xmm1, 3
+                            ; cvtss2si Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I32
+                )?;
+            }
+            Operator::I64TruncUF32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        Self::emit_f32_int_conv_check(
+                            assembler,
+                            reg,
+                            -1.0,
+                            18446744073709551616.0,
+                        );
+                        dynasm!(
+                            assembler
+                            ; movd xmm1, Rd(reg as u8)
+                            ; roundss xmm1, xmm1, 3
+                            ; cvtss2si Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F32,
+                    WpType::I64
+                )?;
+            }
+            Operator::I64TruncSF32 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        Self::emit_f32_int_conv_check(
+                            assembler,
+                            reg,
+                            -9223373136366403584.0,
+                            9223372036854775808.0,
+                        );
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
@@ -4514,11 +4680,18 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     WpType::F64
                 )?;
             }
-            Operator::I32TruncUF64 | Operator::I32TruncSF64 => {
+            Operator::I32TruncUF64 => {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
                     |assembler, value_stack, reg| {
+                        Self::emit_f64_int_conv_check(
+                            assembler,
+                            reg,
+                            -1.0,
+                            4294967296.0,
+                        );
+
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -4530,11 +4703,64 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     WpType::I32
                 )?;
             }
-            Operator::I64TruncUF64 | Operator::I64TruncSF64 => {
+            Operator::I32TruncSF64 => {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
                     |assembler, value_stack, reg| {
+                        Self::emit_f64_int_conv_check(
+                            assembler,
+                            reg,
+                            -2147483649.0,
+                            2147483648.0,
+                        );
+
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; roundsd xmm1, xmm1, 3
+                            ; cvtsd2si Rd(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I32
+                )?;
+            }
+            Operator::I64TruncUF64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        Self::emit_f64_int_conv_check(
+                            assembler,
+                            reg,
+                            -1.0,
+                            18446744073709551616.0,
+                        );
+
+                        dynasm!(
+                            assembler
+                            ; movq xmm1, Rq(reg as u8)
+                            ; roundsd xmm1, xmm1, 3
+                            ; cvtsd2si Rq(reg as u8), xmm1
+                        );
+                    },
+                    WpType::F64,
+                    WpType::I64
+                )?;
+            }
+            Operator::I64TruncSF64 => {
+                Self::emit_unop(
+                    assembler,
+                    &mut self.value_stack,
+                    |assembler, value_stack, reg| {
+                        Self::emit_f64_int_conv_check(
+                            assembler,
+                            reg,
+                            -9223372036854777856.0,
+                            9223372036854775808.0,
+                        );
+
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -4553,7 +4779,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &module_info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_local,
+                            //MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_local,
+                            MemoryType::Dynamic => unimplemented!(),
                             MemoryType::Static => self.native_trampolines.memory_size_static_local,
                             MemoryType::SharedStatic => self.native_trampolines.memory_size_shared_local,
                         }
@@ -4561,7 +4788,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Import(import_mem_index) => {
                         let mem_desc = &module_info.imported_memories[import_mem_index].1;
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_import,
+                            //MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_import,
+                            MemoryType::Dynamic => unimplemented!(),
                             MemoryType::Static => self.native_trampolines.memory_size_static_import,
                             MemoryType::SharedStatic => self.native_trampolines.memory_size_shared_import,
                         }
@@ -4581,7 +4809,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &module_info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_local,
+                            //MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_local,
+                            MemoryType::Dynamic => unimplemented!(),
                             MemoryType::Static => self.native_trampolines.memory_grow_static_local,
                             MemoryType::SharedStatic => self.native_trampolines.memory_grow_shared_local,
                         }
@@ -4589,7 +4818,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Import(import_mem_index) => {
                         let mem_desc = &module_info.imported_memories[import_mem_index].1;
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_import,
+                            //MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_import,
+                            MemoryType::Dynamic => unimplemented!(),
                             MemoryType::Static => self.native_trampolines.memory_grow_static_import,
                             MemoryType::SharedStatic => self.native_trampolines.memory_grow_shared_import,
                         }
@@ -4725,13 +4955,20 @@ unsafe extern "C" fn call_indirect(
         CallIndirectLocalOrImport::Import => &*(*(*vmctx).imported_tables),
     } ;
     if elem_index >= table.count as usize {
-        panic!("element index out of bounds");
+        eprintln!("element index out of bounds");
+        unsafe { protect_unix::trigger_trap(); }
     }
     let anyfunc = &*(table.base as *mut vm::Anyfunc).offset(elem_index as isize);
     let ctx: &X64ExecutionContext =
         &*CURRENT_EXECUTION_CONTEXT.with(|x| *x.borrow().last().unwrap());
 
-    let func_index = anyfunc.func_index.unwrap();
+    let func_index = match anyfunc.func_index {
+        Some(x) => x,
+        None => {
+            eprintln!("empty table entry");
+            unsafe { protect_unix::trigger_trap(); }
+        }
+    };
 
     /*println!(
         "SIG INDEX = {}, FUNC INDEX = {:?}, ELEM INDEX = {}",
@@ -4741,7 +4978,8 @@ unsafe extern "C" fn call_indirect(
     if ctx.signatures[SigIndex::new(sig_index)]
         != ctx.signatures[ctx.function_signatures[func_index]]
     {
-        panic!("signature mismatch");
+        eprintln!("signature mismatch");
+        unsafe { protect_unix::trigger_trap(); }
     }
 
     let func = ctx.function_pointers[func_index.index() as usize].0;

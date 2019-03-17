@@ -9,6 +9,7 @@ use wasmer_runtime_core::{
 use wasmparser::{Operator, Type as WpType};
 
 pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, PC: ProtectedCaller, FR: FuncResolver> {
+    fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError>;
     fn next_function(&mut self) -> Result<&mut FCG, CodegenError>;
     fn finalize(self, module_info: &ModuleInfo) -> Result<(PC, FR), CodegenError>;
     fn feed_signatures(

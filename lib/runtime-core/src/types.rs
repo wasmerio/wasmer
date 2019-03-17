@@ -251,8 +251,8 @@ impl MemoryDescriptor {
     pub fn memory_type(self) -> MemoryType {
         match (self.maximum.is_some(), self.shared) {
             (true, true) => MemoryType::SharedStatic,
-            (true, false) => MemoryType::Static,
-            (false, false) => MemoryType::Dynamic,
+            (true, false) | (false, false) => MemoryType::Static,
+            //(false, false) => MemoryType::Dynamic,
             (false, true) => panic!("shared memory without a max is not allowed"),
         }
     }

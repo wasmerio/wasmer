@@ -1,5 +1,11 @@
 #![feature(proc_macro_hygiene)]
 
+#[cfg(not(any(
+    all(target_os = "macos", target_arch = "x86_64"),
+    all(target_os = "linux", target_arch = "x86_64"),
+)))]
+compile_error!("This crate doesn't yet support compiling on operating systems other than linux and macos and architectures other than x86_64");
+
 #[macro_use]
 extern crate dynasmrt;
 
@@ -15,6 +21,7 @@ mod codegen;
 mod codegen_x64;
 mod parse;
 mod stack;
+mod protect_unix;
 
 use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;
