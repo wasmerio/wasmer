@@ -270,6 +270,9 @@ jobs:
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make test
+          make test-nightly
+          make test-emscripten
+          make test-emscripten-nightly
       - save_cache:
           paths:
             - /usr/local/cargo/registry
