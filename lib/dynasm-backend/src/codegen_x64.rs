@@ -4284,17 +4284,19 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         */
                         dynasm!(
                             assembler
-                            ; mov r13d, 1593835520u32 as i32 //float 9.22337203E+18
-                            ; movd xmm1, r13d
+                            ; movq xmm5, r15
+                            ; mov r15d, 1593835520u32 as i32 //float 9.22337203E+18
+                            ; movd xmm1, r15d
                             ; movd xmm2, Rd(reg as u8)
                             ; movd xmm3, Rd(reg as u8)
                             ; subss xmm2, xmm1
                             ; cvttss2si Rq(reg as u8), xmm2
-                            ; mov r13, QWORD 0x8000000000000000u64 as i64
-                            ; xor r13, Rq(reg as u8)
+                            ; mov r15, QWORD 0x8000000000000000u64 as i64
+                            ; xor r15, Rq(reg as u8)
                             ; cvttss2si Rq(reg as u8), xmm3
                             ; ucomiss xmm3, xmm1
-                            ; cmovae Rq(reg as u8), r13
+                            ; cmovae Rq(reg as u8), r15
+                            ; movq r15, xmm5
                         );
                     },
                     WpType::F32,
@@ -4741,17 +4743,19 @@ impl FunctionCodeGenerator for X64FunctionCode {
 
                         dynasm!(
                             assembler
-                            ; mov r13, QWORD 4890909195324358656u64 as i64 //double 9.2233720368547758E+18
-                            ; movq xmm1, r13
+                            ; movq xmm5, r15
+                            ; mov r15, QWORD 4890909195324358656u64 as i64 //double 9.2233720368547758E+18
+                            ; movq xmm1, r15
                             ; movq xmm2, Rq(reg as u8)
                             ; movq xmm3, Rq(reg as u8)
                             ; subsd xmm2, xmm1
                             ; cvttsd2si Rq(reg as u8), xmm2
-                            ; mov r13, QWORD 0x8000000000000000u64 as i64
-                            ; xor r13, Rq(reg as u8)
+                            ; mov r15, QWORD 0x8000000000000000u64 as i64
+                            ; xor r15, Rq(reg as u8)
                             ; cvttsd2si Rq(reg as u8), xmm3
                             ; ucomisd xmm3, xmm1
-                            ; cmovae Rq(reg as u8), r13
+                            ; cmovae Rq(reg as u8), r15
+                            ; movq r15, xmm5
                         );
                     },
                     WpType::F64,
