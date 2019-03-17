@@ -40,7 +40,6 @@ impl CacheGen for Placeholder {
         &self,
         _module: &ModuleInner,
     ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
-        // unimplemented!()
         Err(CacheError::Unknown(
             "the dynasm backend doesn't support caching yet".to_string(),
         ))
@@ -81,7 +80,6 @@ impl Compiler for SinglePassCompiler {
         Err(CacheError::Unknown(
             "the dynasm backend doesn't support caching yet".to_string(),
         ))
-        // unimplemented!("the dynasm backend doesn't support caching yet")
     }
 }
 

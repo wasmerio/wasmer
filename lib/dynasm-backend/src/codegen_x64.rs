@@ -3752,19 +3752,19 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 )?;
             }
             /*
-                         0:   48 85 ff                test   %rdi,%rdi
-             3:   78 0b                   js     10 <ulong2double+0x10>
-             5:   c4 e1 fb 2a c7          vcvtsi2sd %rdi,%xmm0,%xmm0
-             a:   c3                      retq
-             b:   0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
-            10:   48 89 f8                mov    %rdi,%rax
-            13:   83 e7 01                and    $0x1,%edi
-            16:   48 d1 e8                shr    %rax
-            19:   48 09 f8                or     %rdi,%rax
-            1c:   c4 e1 fb 2a c0          vcvtsi2sd %rax,%xmm0,%xmm0
-            21:   c5 fb 58 c0             vaddsd %xmm0,%xmm0,%xmm0
-            25:   c3                      retq
-                      */
+                0:   48 85 ff                test   %rdi,%rdi
+                3:   78 0b                   js     10 <ulong2double+0x10>
+                5:   c4 e1 fb 2a c7          vcvtsi2sd %rdi,%xmm0,%xmm0
+                a:   c3                      retq
+                b:   0f 1f 44 00 00          nopl   0x0(%rax,%rax,1)
+                10:   48 89 f8                mov    %rdi,%rax
+                13:   83 e7 01                and    $0x1,%edi
+                16:   48 d1 e8                shr    %rax
+                19:   48 09 f8                or     %rdi,%rax
+                1c:   c4 e1 fb 2a c0          vcvtsi2sd %rax,%xmm0,%xmm0
+                21:   c5 fb 58 c0             vaddsd %xmm0,%xmm0,%xmm0
+                25:   c3                      retq
+            */
             Operator::F32ConvertUI64 => {
                 Self::emit_unop(
                     assembler,
@@ -4725,18 +4725,18 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         Self::emit_f64_int_conv_check(assembler, reg, -1.0, 18446744073709551616.0);
 
                         /*
-                                LCPI0_0:
-                                    .quad   4890909195324358656     ## double 9.2233720368547758E+18
+                            LCPI0_0:
+                                .quad   4890909195324358656     ## double 9.2233720368547758E+18
 
-                                movsd   LCPI0_0(%rip), %xmm1    ## xmm1 = mem[0],zero
-                                movapd  %xmm0, %xmm2
-                                subsd   %xmm1, %xmm2
-                                cvttsd2si       %xmm2, %rax
-                                movabsq $-9223372036854775808, %rcx ## imm = 0x8000000000000000
-                                xorq    %rax, %rcx
-                                cvttsd2si       %xmm0, %rax
-                                ucomisd %xmm1, %xmm0
-                                cmovaeq %rcx, %rax
+                            movsd   LCPI0_0(%rip), %xmm1    ## xmm1 = mem[0],zero
+                            movapd  %xmm0, %xmm2
+                            subsd   %xmm1, %xmm2
+                            cvttsd2si       %xmm2, %rax
+                            movabsq $-9223372036854775808, %rcx ## imm = 0x8000000000000000
+                            xorq    %rax, %rcx
+                            cvttsd2si       %xmm0, %rax
+                            ucomisd %xmm1, %xmm0
+                            cmovaeq %rcx, %rax
                         */
 
                         dynasm!(
@@ -4908,18 +4908,6 @@ unsafe extern "C" fn invoke_import(
     let vmctx: &mut vm::Ctx = &mut *vmctx;
     let import = (*vmctx.imported_funcs.offset(import_id as isize)).func;
 
-    /*let n_args = (stack_base as usize - stack_top as usize) / 8;
-
-    println!("Calling import: {:?} with vmctx = {:?}, n_args = {}",
-        import,
-        vmctx as *mut _,
-        n_args,
-    );
-
-    for i in 0..n_args {
-        println!("Arg: {:?}", * ((stack_top as usize + i * 8) as *const *const ()));
-    }*/
-
     CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, vmctx, import)
 }
 
@@ -4961,11 +4949,6 @@ unsafe extern "C" fn call_indirect(
             protect_unix::trigger_trap();
         }
     };
-
-    /*println!(
-        "SIG INDEX = {}, FUNC INDEX = {:?}, ELEM INDEX = {}",
-        sig_index, func_index, elem_index
-    );*/
 
     if ctx.signatures[SigIndex::new(sig_index)]
         != ctx.signatures[ctx.function_signatures[func_index]]
