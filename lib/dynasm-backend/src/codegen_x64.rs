@@ -531,7 +531,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
                 MemoryType::Dynamic => {
                     return Err(CodegenError {
                         message: "dynamic memory isn't supported yet",
-                    })
+                    });
                 }
                 _ => {}
             }
@@ -596,7 +596,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             None => {
                 return Err(CodegenError {
                     message: "no function",
-                })
+                });
             }
         };
         let output = assembler.finalize().unwrap();
@@ -620,7 +620,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
                 None => {
                     return Err(CodegenError {
                         message: "label not found",
-                    })
+                    });
                 }
             };
             let offset = match offset {
@@ -628,7 +628,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
                 None => {
                     return Err(CodegenError {
                         message: "offset is none",
-                    })
+                    });
                 }
             };
             out_labels.push(FuncPtr(output.ptr(*offset) as _));
@@ -644,7 +644,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
                 None => {
                     return Err(CodegenError {
                         message: "no signatures",
-                    })
+                    });
                 }
             },
             function_pointers: out_labels,
@@ -653,7 +653,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
                 None => {
                     return Err(CodegenError {
                         message: "no function signatures",
-                    })
+                    });
                 }
             },
         };
@@ -681,7 +681,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             None => {
                 return Err(CodegenError {
                     message: "got function import after code",
-                })
+                });
             }
         };
         let id = labels.len();
@@ -1036,7 +1036,7 @@ impl X64FunctionCode {
             None => {
                 return Err(CodegenError {
                     message: "no value",
-                })
+                });
             }
         };
         match val.location {
@@ -1136,7 +1136,7 @@ impl X64FunctionCode {
             _ => {
                 return Err(CodegenError {
                     message: "more than one block returns are not yet supported",
-                })
+                });
             }
         };
 
@@ -1173,7 +1173,7 @@ impl X64FunctionCode {
             None => {
                 return Err(CodegenError {
                     message: "no frame (else)",
-                })
+                });
             }
         };
 
@@ -1201,7 +1201,7 @@ impl X64FunctionCode {
             _ => {
                 return Err(CodegenError {
                     message: "unexpected if else state",
-                })
+                });
             }
         }
 
@@ -1219,7 +1219,7 @@ impl X64FunctionCode {
             None => {
                 return Err(CodegenError {
                     message: "no frame (block end)",
-                })
+                });
             }
         };
 
@@ -1337,7 +1337,7 @@ impl X64FunctionCode {
             _ => {
                 return Err(CodegenError {
                     message: "multiple return values is not yet supported",
-                })
+                });
             }
         }
 
@@ -1701,7 +1701,7 @@ impl X64FunctionCode {
             _ => {
                 return Err(CodegenError {
                     message: "more than 1 function returns are not supported",
-                })
+                });
             }
         }
 
@@ -3062,7 +3062,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     None => {
                         return Err(CodegenError {
                             message: "signature not found",
-                        })
+                        });
                     }
                 };
                 let sig = match self.signatures.get(sig_index) {
@@ -3070,7 +3070,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     None => {
                         return Err(CodegenError {
                             message: "signature does not exist",
-                        })
+                        });
                     }
                 };
                 let param_types: Vec<WpType> =
@@ -3116,7 +3116,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     None => {
                         return Err(CodegenError {
                             message: "signature does not exist",
-                        })
+                        });
                     }
                 };
                 let mut param_types: Vec<WpType> =
