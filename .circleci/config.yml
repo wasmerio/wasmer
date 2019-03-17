@@ -363,7 +363,6 @@ workflows:
               only: master
       - trigger-benchmark-build:
           requires:
-            - test
             - test-and-build
             - lint
           filters:
