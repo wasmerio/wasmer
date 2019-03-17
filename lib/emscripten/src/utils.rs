@@ -90,6 +90,7 @@ pub unsafe fn allocate_cstr_on_stack<'a>(ctx: &'a mut Ctx, s: &str) -> (u32, &'a
     (offset, slice)
 }
 
+#[cfg(not(target_os = "windows"))]
 pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
     let _total_num = {
         let mut ptr = cstrs;
