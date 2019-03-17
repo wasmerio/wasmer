@@ -342,7 +342,7 @@ impl ProtectedCaller for X64ExecutionContext {
                     _ => {
                         return Err(RuntimeError::Trap {
                             msg: "signature mismatch".into(),
-                        })
+                        });
                     }
                 }
             } else {
@@ -352,7 +352,7 @@ impl ProtectedCaller for X64ExecutionContext {
                     _ => {
                         return Err(RuntimeError::Trap {
                             msg: "signature mismatch".into(),
-                        })
+                        });
                     }
                 }
             }
