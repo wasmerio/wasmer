@@ -6,7 +6,6 @@
 )))]
 compile_error!("This crate doesn't yet support compiling on operating systems other than linux and macos and architectures other than x86_64");
 
-#[macro_use]
 extern crate dynasmrt;
 
 #[macro_use]
@@ -27,23 +26,21 @@ use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;
 use std::ptr::NonNull;
 use wasmer_runtime_core::{
-    backend::{sys::Memory, Backend, CacheGen, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
+    backend::{sys::Memory, Backend, CacheGen, Compiler, FuncResolver, Token},
     cache::{Artifact, Error as CacheError},
-    error::{CompileError, CompileResult, RuntimeResult},
-    module::{ModuleInfo, ModuleInner, StringTable},
-    structures::{Map, TypedIndex},
+    error::{CompileError, CompileResult},
+    module::{ModuleInfo, ModuleInner},
     types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, MemoryIndex, SigIndex, TableIndex, Type,
-        Value,
+        LocalFuncIndex,
     },
-    vm::{self, ImportBacking},
+    vm,
 };
 
 struct Placeholder;
 impl CacheGen for Placeholder {
     fn generate_cache(
         &self,
-        module: &ModuleInner,
+        _module: &ModuleInner,
     ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
         // unimplemented!()
         Err(CacheError::Unknown("the dynasm backend doesn't support caching yet".to_string()))

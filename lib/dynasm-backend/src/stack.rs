@@ -144,15 +144,6 @@ impl ValueStack {
         }
     }
 
-    pub fn peek(&self) -> Result<ValueInfo, CodegenError> {
-        match self.values.last().cloned() {
-            Some(x) => Ok(x),
-            None => Err(CodegenError {
-                message: "no value on top of stack",
-            }),
-        }
-    }
-
     pub fn reset_depth(&mut self, target_depth: usize) {
         self.values.truncate(target_depth);
     }

@@ -1,9 +1,7 @@
-use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{ProtectedCaller, FuncResolver},
     structures::Map,
     types::{FuncIndex, FuncSig, SigIndex},
-    units::Pages,
     module::ModuleInfo,
 };
 use wasmparser::{Operator, Type as WpType};

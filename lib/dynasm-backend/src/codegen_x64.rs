@@ -8,16 +8,15 @@ use dynasmrt::{
 };
 use std::cell::RefCell;
 use std::ptr::NonNull;
-use std::sync::Mutex;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{Backend, Compiler, FuncResolver, ProtectedCaller, Token, UserTrapper},
-    error::{CompileError, CompileResult, RuntimeError, RuntimeResult},
-    module::{ModuleInfo, ModuleInner, StringTable},
+    backend::{FuncResolver, ProtectedCaller, Token, UserTrapper},
+    error::{RuntimeError, RuntimeResult},
+    module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalGlobalIndex, MemoryIndex, SigIndex,
-        TableIndex, Type, Value, LocalMemoryIndex, ImportedMemoryIndex, LocalOrImport,
+        FuncIndex, FuncSig, LocalFuncIndex, LocalGlobalIndex, MemoryIndex, SigIndex,
+        Type, Value, LocalMemoryIndex, ImportedMemoryIndex, LocalOrImport,
     },
     memory::MemoryType,
     units::Pages,
@@ -139,6 +138,7 @@ lazy_static! {
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
 pub enum Register {
     RAX,
     RCX,
@@ -180,7 +180,6 @@ impl Register {
     }
 
     pub fn is_used(&self, stack: &ValueStack) -> bool {
-        use self::Register::*;
         for val in &stack.values {
             match val.location {
                 ValueLocation::Register(x) => {
@@ -196,14 +195,8 @@ impl Register {
     }
 }
 
-#[repr(u64)]
-#[derive(Copy, Clone, Debug)]
-pub enum TrapCode {
-    Unreachable,
-}
-
+#[allow(dead_code)]
 pub struct NativeTrampolines {
-    trap_unreachable: DynamicLabel,
     memory_size_dynamic_local: DynamicLabel,
     memory_size_static_local: DynamicLabel,
     memory_size_shared_local: DynamicLabel,
@@ -233,8 +226,6 @@ pub struct X64FunctionCode {
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
     native_trampolines: Arc<NativeTrampolines>,
 
-    id: usize,
-    begin_label: DynamicLabel,
     begin_offset: AssemblyOffset,
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
@@ -261,12 +252,12 @@ pub struct X64ExecutionContext {
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
     function_pointers: Vec<FuncPtr>,
-    br_table_data: Vec<Vec<usize>>,
+    _br_table_data: Vec<Vec<usize>>,
     func_import_count: usize,
 }
 
 pub struct X64RuntimeResolver {
-    code: ExecutableBuffer,
+    _code: ExecutableBuffer,
     local_pointers: Vec<FuncPtr>,
 }
 
@@ -289,7 +280,7 @@ impl X64ExecutionContext {
         let local_pointers: Vec<FuncPtr> = offsets.iter().map(|x| FuncPtr(code.ptr(*x) as _)).collect();
 
         Ok(X64RuntimeResolver {
-            code: code,
+            _code: code,
             local_pointers: local_pointers,
         })
     }
@@ -417,7 +408,7 @@ impl ProtectedCaller for X64ExecutionContext {
         pub struct Trapper;
 
         impl UserTrapper for Trapper {
-            unsafe fn do_early_trap(&self, data: Box<Any>) -> ! {
+            unsafe fn do_early_trap(&self, _data: Box<Any>) -> ! {
                 panic!("do_early_trap");
             }
         }
@@ -436,12 +427,6 @@ impl X64ModuleCodeGenerator {
     pub fn new() -> X64ModuleCodeGenerator {
         let mut assembler = Assembler::new().unwrap();
         let nt = NativeTrampolines {
-            trap_unreachable: X64FunctionCode::emit_native_call_trampoline(
-                &mut assembler,
-                do_trap,
-                0usize,
-                TrapCode::Unreachable,
-            ),
             memory_size_dynamic_local: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_size,
@@ -573,8 +558,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             function_signatures: self.function_signatures.as_ref().unwrap().clone(),
             native_trampolines: self.native_trampolines.clone(),
 
-            id: self.functions.len(),
-            begin_label: begin_label,
             begin_offset: begin_offset,
             assembler: Some(assembler),
             function_labels: Some(function_labels),
@@ -592,7 +575,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
     }
 
     fn finalize(mut self, module_info: &ModuleInfo) -> Result<(X64ExecutionContext, X64RuntimeResolver), CodegenError> {
-        let (mut assembler, mut br_table_data) = match self.functions.last_mut() {
+        let (assembler, mut br_table_data) = match self.functions.last_mut() {
             Some(x) => (x.assembler.take().unwrap(), x.br_table_data.take().unwrap()),
             None => {
                 return Err(CodegenError {
@@ -638,7 +621,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
         let ctx = X64ExecutionContext {
             code: output,
             functions: self.functions,
-            br_table_data: br_table_data,
+            _br_table_data: br_table_data,
             func_import_count: self.func_import_count,
             signatures: match self.signatures {
                 Some(x) => x,
@@ -711,7 +694,6 @@ impl X64FunctionCode {
         match info.location {
             ValueLocation::Register(_) => {}
             ValueLocation::Stack => {
-                let size = get_size_of_type(&info.ty)?;
                 dynasm!(
                     assembler
                     ; add rsp, 8
@@ -867,7 +849,7 @@ impl X64FunctionCode {
         f: F,
     ) {
         let rcx_used = Register::RCX.is_used(value_stack);
-        if(rcx_used) {
+        if rcx_used {
             dynasm!(
                 assembler
                 ; push rcx
@@ -878,7 +860,7 @@ impl X64FunctionCode {
             ; mov rcx, Rq(right as u8)
         );
         f(assembler, left);
-        if(rcx_used) {
+        if rcx_used {
             dynasm!(
                 assembler
                 ; pop rcx
@@ -1147,7 +1129,7 @@ impl X64FunctionCode {
             });
         }
 
-        if let Some(ty) = ret_ty {
+        if let Some(_) = ret_ty {
             if value_stack.values.iter().last().map(|x| x.ty) != ret_ty {
                 return Err(CodegenError {
                     message: "value type != return type",
@@ -1390,7 +1372,7 @@ impl X64FunctionCode {
         dynasm!(
             assembler
             ; mov r8, rdi // vmctx
-            ; mov rdx, QWORD (target.0 as usize as i64)
+            ; mov rdx, QWORD target.0 as usize as i64
             ; mov rsi, QWORD (num_params * 8) as i64
             ; mov rdi, rsp
         );
@@ -1436,7 +1418,7 @@ impl X64FunctionCode {
 
         dynasm!(
             assembler
-            ; mov rax, QWORD (*CALL_WASM as usize as i64)
+            ; mov rax, QWORD *CALL_WASM as usize as i64
             ; call rax
             ; mov rsp, rbp
             ; pop rbp
@@ -1564,15 +1546,15 @@ impl X64FunctionCode {
 
         dynasm!(
             assembler
-            ; mov rdi, QWORD (unsafe { ::std::mem::transmute_copy::<A, i64>(&ctx1) })
-            ; mov rsi, QWORD (unsafe { ::std::mem::transmute_copy::<B, i64>(&ctx2) })
+            ; mov rdi, QWORD unsafe { ::std::mem::transmute_copy::<A, i64>(&ctx1) }
+            ; mov rsi, QWORD unsafe { ::std::mem::transmute_copy::<B, i64>(&ctx2) }
             ; mov rdx, rsp
             ; mov rcx, rbp
             ; mov r8, r14 // vmctx
             ; mov r9, r15 // memory_base
-            ; mov rax, QWORD (0xfffffffffffffff0u64 as i64)
+            ; mov rax, QWORD 0xfffffffffffffff0u64 as i64
             ; and rsp, rax
-            ; mov rax, QWORD (target as i64)
+            ; mov rax, QWORD target as i64
             ; call rax
             ; mov rsp, rbp
             ; pop rbp
@@ -1823,8 +1805,6 @@ impl FunctionCodeGenerator for X64FunctionCode {
     /// - Params in reversed order, caller initialized
     /// - Locals in reversed order, callee initialized
     fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError> {
-        let assembler = self.assembler.as_mut().unwrap();
-
         self.current_stack_offset += 8;
         self.locals.push(Local {
             ty: ty,
@@ -2111,7 +2091,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; add Rd(left as u8), Rd(right as u8)
@@ -2123,7 +2103,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; sub Rd(left as u8), Rd(right as u8)
@@ -2135,7 +2115,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; imul Rd(left as u8), Rd(right as u8)
@@ -2211,7 +2191,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; and Rd(left as u8), Rd(right as u8)
@@ -2223,7 +2203,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; or Rd(left as u8), Rd(right as u8)
@@ -2235,7 +2215,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; xor Rd(left as u8), Rd(right as u8)
@@ -2247,7 +2227,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; cmp Rd(left as u8), Rd(right as u8)
@@ -2263,7 +2243,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; cmp Rd(left as u8), Rd(right as u8)
@@ -2280,7 +2260,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; cmp Rd(reg as u8), 0
@@ -2301,7 +2281,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; lzcnt Rd(reg as u8), Rd(reg as u8)
@@ -2313,7 +2293,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; tzcnt Rd(reg as u8), Rd(reg as u8)
@@ -2325,7 +2305,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; popcnt Rd(reg as u8), Rd(reg as u8)
@@ -2410,7 +2390,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i32(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2424,7 +2404,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i32(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2438,7 +2418,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i32(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2452,7 +2432,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i32(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2466,7 +2446,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i32(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2480,7 +2460,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i32(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2494,7 +2474,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i32(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2508,7 +2488,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i32(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i32(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2541,7 +2521,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; add Rq(left as u8), Rq(right as u8)
@@ -2553,7 +2533,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; sub Rq(left as u8), Rq(right as u8)
@@ -2565,7 +2545,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; imul Rq(left as u8), Rq(right as u8)
@@ -2641,7 +2621,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; and Rq(left as u8), Rq(right as u8)
@@ -2653,7 +2633,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; or Rq(left as u8), Rq(right as u8)
@@ -2665,7 +2645,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; xor Rq(left as u8), Rq(right as u8)
@@ -2677,7 +2657,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; cmp Rq(left as u8), Rq(right as u8)
@@ -2695,7 +2675,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; cmp Rq(left as u8), Rq(right as u8)
@@ -2714,7 +2694,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; cmp Rq(reg as u8), 0
@@ -2737,7 +2717,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; lzcnt Rq(reg as u8), Rq(reg as u8)
@@ -2749,7 +2729,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; tzcnt Rq(reg as u8), Rq(reg as u8)
@@ -2761,7 +2741,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop_i64(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; popcnt Rq(reg as u8), Rq(reg as u8)
@@ -2846,7 +2826,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i64(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2862,7 +2842,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i64(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2878,7 +2858,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i64(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2894,7 +2874,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i64(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2910,7 +2890,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i64(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2926,7 +2906,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i64(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2942,7 +2922,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i64(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2958,7 +2938,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         Self::emit_cmp_i64(assembler, left, right, |assembler| {
                             dynasm!(
                                 assembler
@@ -2974,7 +2954,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movsx Rq(reg as u8), Rd(reg as u8)
@@ -2988,7 +2968,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |_assembler, _value_stack, _reg| {
                         // FIXME: Is it correct to do nothing here?
                     },
                     WpType::I32,
@@ -2999,7 +2979,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; mov Rd(reg as u8), Rd(reg as u8) // clear upper 32 bits
@@ -3026,15 +3006,6 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     });
             }
             Operator::Unreachable => {
-                /*
-                Self::emit_call_raw(
-                    assembler,
-                    &mut self.value_stack,
-                    self.native_trampolines.trap_unreachable,
-                    &[],
-                    &[],
-                )?;
-                */
                 dynasm!(
                     assembler
                     ; ud2
@@ -3710,7 +3681,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; cvtsi2ss xmm1, Rd(reg as u8)
@@ -3725,7 +3696,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; mov Rd(reg as u8), Rd(reg as u8) // clear upper 32 bits
@@ -3741,7 +3712,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; cvtsi2ss xmm1, Rq(reg as u8)
@@ -3770,7 +3741,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; test Rq(reg as u8), Rq(reg as u8)
@@ -3801,7 +3772,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; cvtsi2sd xmm1, Rd(reg as u8)
@@ -3816,7 +3787,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; mov Rd(reg as u8), Rd(reg as u8) // clear upper 32 bits
@@ -3832,7 +3803,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; cvtsi2sd xmm1, Rq(reg as u8)
@@ -3847,7 +3818,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; test Rq(reg as u8), Rq(reg as u8)
@@ -3878,7 +3849,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
@@ -3894,7 +3865,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -3910,7 +3881,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -3927,7 +3898,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -3944,7 +3915,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -3961,7 +3932,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -3978,7 +3949,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -3995,7 +3966,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -4012,7 +3983,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -4030,7 +4001,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -4048,7 +4019,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -4066,7 +4037,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -4084,7 +4055,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -4102,7 +4073,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -4120,7 +4091,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(left as u8)
@@ -4143,7 +4114,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
@@ -4159,7 +4130,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; and Rd(reg as u8), 0x7fffffffu32 as i32
@@ -4173,7 +4144,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; btc Rd(reg as u8), 31
@@ -4187,7 +4158,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
@@ -4203,7 +4174,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
@@ -4219,7 +4190,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
@@ -4235,7 +4206,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movd xmm1, Rd(reg as u8)
@@ -4251,7 +4222,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         Self::emit_f32_int_conv_check(
                             assembler,
                             reg,
@@ -4273,7 +4244,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         Self::emit_f32_int_conv_check(
                             assembler,
                             reg,
@@ -4295,7 +4266,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         Self::emit_f32_int_conv_check(
                             assembler,
                             reg,
@@ -4317,7 +4288,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         Self::emit_f32_int_conv_check(
                             assembler,
                             reg,
@@ -4339,7 +4310,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4356,7 +4327,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4373,7 +4344,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4390,7 +4361,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4407,7 +4378,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4424,7 +4395,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4441,7 +4412,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4459,7 +4430,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4477,7 +4448,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4495,7 +4466,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4513,7 +4484,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4531,7 +4502,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4549,7 +4520,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_binop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, left, right| {
+                    |assembler, _value_stack, left, right| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(left as u8)
@@ -4572,7 +4543,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -4588,7 +4559,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -4606,7 +4577,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; btc Rq(reg as u8), 63
@@ -4620,7 +4591,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -4636,7 +4607,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -4652,7 +4623,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -4668,7 +4639,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         dynasm!(
                             assembler
                             ; movq xmm1, Rq(reg as u8)
@@ -4684,7 +4655,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         Self::emit_f64_int_conv_check(
                             assembler,
                             reg,
@@ -4707,7 +4678,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         Self::emit_f64_int_conv_check(
                             assembler,
                             reg,
@@ -4730,7 +4701,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         Self::emit_f64_int_conv_check(
                             assembler,
                             reg,
@@ -4753,7 +4724,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 Self::emit_unop(
                     assembler,
                     &mut self.value_stack,
-                    |assembler, value_stack, reg| {
+                    |assembler, _value_stack, reg| {
                         Self::emit_f64_int_conv_check(
                             assembler,
                             reg,
@@ -4876,15 +4847,6 @@ fn is_dword(n: usize) -> bool {
     n == 4
 }
 
-fn value_to_i64(v: &Value) -> i64 {
-    match *v {
-        Value::F32(x) => x.to_bits() as u64 as i64,
-        Value::F64(x) => x.to_bits() as u64 as i64,
-        Value::I32(x) => x as u64 as i64,
-        Value::I64(x) => x as u64 as i64,
-    }
-}
-
 fn type_to_wp_type(ty: Type) -> WpType {
     match ty {
         Type::I32 => WpType::I32,
@@ -4894,31 +4856,20 @@ fn type_to_wp_type(ty: Type) -> WpType {
     }
 }
 
-unsafe extern "C" fn do_trap(
-    ctx1: usize,
-    ctx2: TrapCode,
-    stack_top: *mut u8,
-    stack_base: *mut u8,
-    vmctx: *mut vm::Ctx,
-    memory_base: *mut u8,
-) -> u64 {
-    panic!("TRAP CODE: {:?}", ctx2);
-}
-
 unsafe extern "C" fn invoke_import(
     _unused: usize,
     import_id: usize,
     stack_top: *mut u8,
     stack_base: *mut u8,
     vmctx: *mut vm::Ctx,
-    memory_base: *mut u8,
+    _memory_base: *mut u8,
 ) -> u64 {
     let vmctx: &mut vm::Ctx = &mut *vmctx;
     let import = (*vmctx.imported_funcs.offset(import_id as isize)).func;
 
-    let n_args = (stack_base as usize - stack_top as usize) / 8;
+    /*let n_args = (stack_base as usize - stack_top as usize) / 8;
 
-    /*println!("Calling import: {:?} with vmctx = {:?}, n_args = {}",
+    println!("Calling import: {:?} with vmctx = {:?}, n_args = {}",
         import,
         vmctx as *mut _,
         n_args,
@@ -4956,7 +4907,7 @@ unsafe extern "C" fn call_indirect(
     } ;
     if elem_index >= table.count as usize {
         eprintln!("element index out of bounds");
-        unsafe { protect_unix::trigger_trap(); }
+        protect_unix::trigger_trap();
     }
     let anyfunc = &*(table.base as *mut vm::Anyfunc).offset(elem_index as isize);
     let ctx: &X64ExecutionContext =
@@ -4966,7 +4917,7 @@ unsafe extern "C" fn call_indirect(
         Some(x) => x,
         None => {
             eprintln!("empty table entry");
-            unsafe { protect_unix::trigger_trap(); }
+            protect_unix::trigger_trap();
         }
     };
 
@@ -4979,7 +4930,7 @@ unsafe extern "C" fn call_indirect(
         != ctx.signatures[ctx.function_signatures[func_index]]
     {
         eprintln!("signature mismatch");
-        unsafe { protect_unix::trigger_trap(); }
+        protect_unix::trigger_trap();
     }
 
     let func = ctx.function_pointers[func_index.index() as usize].0;
@@ -5006,10 +4957,10 @@ enum MemoryKind {
 unsafe extern "C" fn _memory_size(
     op: MemoryKind,
     index: usize,
-    mut stack_top: *mut u8,
-    stack_base: *mut u8,
+    _stack_top: *mut u8,
+    _stack_base: *mut u8,
     vmctx: *mut vm::Ctx,
-    memory_base: *mut u8,
+    _memory_base: *mut u8,
 ) -> u64 {
     use wasmer_runtime_core::vmcalls;
     let ret = match op {
@@ -5026,10 +4977,10 @@ unsafe extern "C" fn _memory_size(
 unsafe extern "C" fn _memory_grow(
     op: MemoryKind,
     index: usize,
-    mut stack_top: *mut u8,
+    stack_top: *mut u8,
     stack_base: *mut u8,
     vmctx: *mut vm::Ctx,
-    memory_base: *mut u8,
+    _memory_base: *mut u8,
 ) -> u64 {
     use wasmer_runtime_core::vmcalls;
     assert_eq!(stack_base as usize - stack_top as usize, 8);

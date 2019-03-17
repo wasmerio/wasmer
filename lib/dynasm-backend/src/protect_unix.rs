@@ -73,7 +73,7 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> RuntimeResult<T> {
         if signum != 0 {
             *jmp_buf = prev_jmp_buf;
 
-            let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
+            let (faulting_addr, _inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
             let signal = match Signal::from_c_int(signum) {
                 Ok(SIGFPE) => "floating-point exception",

@@ -1,5 +1,4 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
-use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::{Backend, ProtectedCaller, FuncResolver},
     module::{
@@ -15,7 +14,7 @@ use wasmer_runtime_core::{
     units::Pages,
 };
 use wasmparser::{
-    BinaryReaderError, CodeSectionReader, Data, DataKind, Element, ElementKind, Export,
+    BinaryReaderError, Data, DataKind, Element, ElementKind, Export,
     ExternalKind, FuncType, Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator,
     SectionCode, Type as WpType,
     WasmDecoder,
@@ -308,7 +307,7 @@ pub fn read_module<
                 mcg.check_precondition(&info)?;
                 for i in 0..code_reader.get_count() {
                     let item = code_reader.read()?;
-                    let mut fcg = mcg.next_function()?;
+                    let fcg = mcg.next_function()?;
                     let sig = info
                         .signatures
                         .get(
