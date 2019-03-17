@@ -19,8 +19,8 @@ extern crate byteorder;
 mod codegen;
 mod codegen_x64;
 mod parse;
-mod stack;
 mod protect_unix;
+mod stack;
 
 use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;
@@ -30,9 +30,7 @@ use wasmer_runtime_core::{
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
-    types::{
-        LocalFuncIndex,
-    },
+    types::LocalFuncIndex,
     vm,
 };
 
@@ -43,7 +41,9 @@ impl CacheGen for Placeholder {
         _module: &ModuleInner,
     ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
         // unimplemented!()
-        Err(CacheError::Unknown("the dynasm backend doesn't support caching yet".to_string()))
+        Err(CacheError::Unknown(
+            "the dynasm backend doesn't support caching yet".to_string(),
+        ))
     }
 }
 
@@ -78,7 +78,9 @@ impl Compiler for SinglePassCompiler {
     }
 
     unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        Err(CacheError::Unknown("the dynasm backend doesn't support caching yet".to_string()))
+        Err(CacheError::Unknown(
+            "the dynasm backend doesn't support caching yet".to_string(),
+        ))
         // unimplemented!("the dynasm backend doesn't support caching yet")
     }
 }

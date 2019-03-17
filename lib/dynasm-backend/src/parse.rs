@@ -1,6 +1,6 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
 use wasmer_runtime_core::{
-    backend::{Backend, ProtectedCaller, FuncResolver},
+    backend::{Backend, FuncResolver, ProtectedCaller},
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -14,9 +14,8 @@ use wasmer_runtime_core::{
     units::Pages,
 };
 use wasmparser::{
-    BinaryReaderError, Data, DataKind, Element, ElementKind, Export,
-    ExternalKind, FuncType, Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator,
-    SectionCode, Type as WpType,
+    BinaryReaderError, Data, DataKind, Element, ElementKind, Export, ExternalKind, FuncType,
+    Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator, SectionCode, Type as WpType,
     WasmDecoder,
 };
 

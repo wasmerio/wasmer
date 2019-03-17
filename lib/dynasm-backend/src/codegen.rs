@@ -1,8 +1,8 @@
 use wasmer_runtime_core::{
-    backend::{ProtectedCaller, FuncResolver},
+    backend::{FuncResolver, ProtectedCaller},
+    module::ModuleInfo,
     structures::Map,
     types::{FuncIndex, FuncSig, SigIndex},
-    module::ModuleInfo,
 };
 use wasmparser::{Operator, Type as WpType};
 
@@ -10,10 +10,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, PC: ProtectedCaller, F
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError>;
     fn next_function(&mut self) -> Result<&mut FCG, CodegenError>;
     fn finalize(self, module_info: &ModuleInfo) -> Result<(PC, FR), CodegenError>;
-    fn feed_signatures(
-        &mut self,
-        signatures: Map<SigIndex, FuncSig>,
-    ) -> Result<(), CodegenError>;
+    fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError>;
     fn feed_function_signatures(
         &mut self,
         assoc: Map<FuncIndex, SigIndex>,
