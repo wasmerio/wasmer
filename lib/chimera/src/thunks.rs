@@ -1,3 +1,4 @@
+use crate::pool::{AllocId, AllocMetadata, PagePool};
 use std::arch::x86_64::cmpxchg16b;
 use std::sync::atomic::Ordering;
 use wasmer_runtime_core::{
@@ -6,7 +7,6 @@ use wasmer_runtime_core::{
     structures::TypedIndex,
     types::LocalFuncIndex,
 };
-use crate::pool::{PagePool, AllocId, AllocMetadata};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const CACHE_LINE_SIZE: usize = 64;

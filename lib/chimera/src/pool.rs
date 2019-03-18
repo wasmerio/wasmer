@@ -1,25 +1,26 @@
 //! This module reserves virtual address space and hands out pages from it.
 
+use parking_lot::Mutex;
 use std::{
-    marker::PhantomData,
     any::TypeId,
+    marker::PhantomData,
     mem::{align_of, size_of, transmute},
 };
 use wasmer_runtime_core::backend::sys::{Memory, Protect};
-use parking_lot::Mutex;
 
 #[cfg(target_arch = "x86_64")]
 const POOL_SIZE: usize = 1 << 31; // 2 GB
 #[cfg(target_arch = "aarch64")]
 const POOL_SIZE: usize = 1 << 27; // 128 MB
 
+#[derive(Derive, Copy, Clone, PartialEq, Eq)]
 pub struct AllocMetadata {
-    size: usize,
-    executable: bool,
+    pub size: usize,
+    pub executable: bool,
 }
 
 pub unsafe trait ItemAlloc {
-    type Output;
+    type Output: 'static;
 
     fn metadata(&self) -> AllocMetadata {
         AllocMetadata {
@@ -31,7 +32,7 @@ pub unsafe trait ItemAlloc {
     unsafe fn in_place(self, output: *mut Self::Output);
 }
 
-pub struct AllocId<T>(u32, PhantomData<T>);
+pub struct AllocId<T: 'static>(u32, PhantomData<T>);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum AllocErr {
@@ -73,7 +74,7 @@ impl PagePool {
         let total_size = round_up_to_page_size(size, 4096);
 
         let mut inner = self.inner.lock();
-        
+
         let current_bump_offset = inner.bump_page;
         inner.bump_page += total_size / 4096;
 
@@ -83,8 +84,12 @@ impl PagePool {
             return Err(AllocErr::OutOfSpace);
         }
 
+        let vec_offset = inner.offset_map.len();
+        inner.offset_map.push((offset, TypeId::of::<A::Output>()));
+
         unsafe {
-            inner.memory
+            inner
+                .memory
                 .protect(
                     offset..size,
                     match executable {
@@ -98,15 +103,23 @@ impl PagePool {
             item_alloc.in_place(ptr as *mut A::Output);
         }
 
-        Ok(AllocId(offset as u32, PhantomData))
+        Ok(AllocId(vec_offset as u32, PhantomData))
     }
 
-    pub unsafe fn get<T>(&self, index: &AllocId<T>) -> &T {
-        &*(self.memory_start.add(index.0 as usize) as *const T)
+    pub fn get<T>(&self, index: &AllocId<T>) -> &T {
+        let inner = self.inner.lock();
+        let (offset, type_id) = inner.offset_map[index.0 as usize];
+        assert_eq!(type_id, TypeId::of::<T>(), "types must match");
+
+        unsafe { &*(self.memory_start.add(offset) as *const T) }
     }
 
-    pub unsafe fn get_mut<T>(&self, index: &mut AllocId<T>) -> &mut T {
-        &mut *(self.memory_start.add(index.0 as usize) as *mut T)
+    pub fn get_mut<T>(&self, index: &mut AllocId<T>) -> &mut T {
+        let inner = self.inner.lock();
+        let (offset, type_id) = inner.offset_map[index.0 as usize];
+        assert_eq!(type_id, TypeId::of::<T>(), "types must match");
+
+        unsafe { &mut *(self.memory_start.add(offset) as *mut T) }
     }
 }
 
@@ -144,7 +157,7 @@ mod tests {
         let pool = PagePool::new();
         let foobar_id = pool.alloc(FoobarAlloc).unwrap();
 
-        let foobar = unsafe { pool.get(&foobar_id) };
+        let foobar = pool.get(&foobar_id);
 
         assert_eq!(foobar.a, 42);
         assert_eq!(foobar.b, 52);
@@ -171,7 +184,7 @@ mod tests {
                     executable: true,
                 }
             }
-            
+
             unsafe fn in_place(self, output: *mut Callable) {
                 fn assemble_jmp(address: u64) -> [u8; 16] {
                     let mut buf = [0; 16];
@@ -189,8 +202,8 @@ mod tests {
 
         let pool = PagePool::new();
         let callable_id = pool.alloc(CallableAlloc).unwrap();
+        let callable_ref = pool.get(&callable_id);
         let result = unsafe {
-            let callable_ref = pool.get(&callable_id);
             let func_ptr: unsafe fn() -> usize = transmute(callable_ref.buf.as_ptr());
             func_ptr()
         };
