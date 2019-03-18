@@ -6,6 +6,10 @@ use wasmer_runtime_core::{
     structures::TypedIndex,
     types::LocalFuncIndex,
 };
+use crate::pool::{PagePool, AllocId, AllocMetadata};
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+const CACHE_LINE_SIZE: usize = 64;
 
 /// This assembles a relative jmp instruction with a relative
 /// offset that is in-respect to the beginning of the returned buffer.
@@ -52,8 +56,7 @@ pub struct ThunkTable {
 impl ThunkTable {
     /// This creates an empty `ThunkTable`.
     pub fn new(num_local_functions: usize, filler: impl Fn(LocalFuncIndex) -> u64) -> Self {
-        let thunk_size = 64;
-        let thunk_table_size = thunk_size * num_local_functions;
+        let thunk_table_size = CACHE_LINE_SIZE * num_local_functions;
         let mem = Memory::with_size_protect(thunk_table_size, Protect::ReadWriteExec).unwrap();
 
         let table = Self { mem };

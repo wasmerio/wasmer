@@ -8,6 +8,7 @@ use wasmer_runtime_core::{
 };
 
 mod clif;
+mod code;
 mod compile;
 mod pool;
 mod state;
