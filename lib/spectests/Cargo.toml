@@ -16,7 +16,7 @@ wabt = "0.7.2"
 
 [dev-dependencies]
 wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
-wasmer-dynasm-backend = { path = "../dynasm-backend", version = "0.1.0" }
+wasmer-dynasm-backend = { path = "../dynasm-backend", version = "0.1.0", optional = true }
 wabt = "0.7.2"
 
 [target.'cfg(not(windows))'.dependencies]
@@ -27,4 +27,4 @@ default = ["fast-tests"]
 fast-tests = []
 clif = []
 llvm = ["wasmer-llvm-backend"]
-dynasm = []
+dynasm = ["wasmer-dynasm-backend"]
