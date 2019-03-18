@@ -1,3 +1,4 @@
+use crate::utils::regs::Reg;
 use nom::{
     count, do_parse, le_i32, le_u16, le_u32, le_u64, le_u8, map, named, tuple, value, verify,
 };
@@ -19,13 +20,13 @@ pub struct StackSizeRecord {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum LocationValue {
     /// Value is in a register,
-    Register { reg: u16 },
+    Register { reg: Reg },
 
     /// Frame index value.
-    Direct { reg: u16, offset: i32 },
+    Direct { reg: Reg, offset: i32 },
 
     /// Spilled value.
-    Indirect { reg: u16, offset: i32 },
+    Indirect { reg: Reg, offset: i32 },
 
     /// Small constant.
     Constant { value: u32 },
@@ -42,7 +43,7 @@ pub struct Location {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct LiveOut {
-    pub dwarf_regnum: u16,
+    pub reg: Reg,
     pub size_in_bytes: u8,
 }
 
@@ -99,7 +100,7 @@ named!(parse_location_value<&[u8], LocationValue>, do_parse!(
         _ => false,
     }) >>
         le_u8 >>
-    reg: le_u16 >>
+    reg: map!(le_u16, Reg::from) >>
         le_u16 >>
     offset_or_const: le_i32 >>
     (match loc {
@@ -128,12 +129,12 @@ named!(parse_location<&[u8], Location>, do_parse!(
 ));
 
 named!(parse_live_out<&[u8], LiveOut>, do_parse!(
-    dwarf_regnum: le_u16 >>
+    reg: map!(le_u16, Reg::from) >>
         le_u8 >>
     size_in_bytes: le_u8 >>
 
     (LiveOut {
-        dwarf_regnum,
+        reg,
         size_in_bytes,
     })
 ));

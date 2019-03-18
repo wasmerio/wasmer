@@ -13,7 +13,7 @@ const POOL_SIZE: usize = 1 << 31; // 2 GB
 #[cfg(target_arch = "aarch64")]
 const POOL_SIZE: usize = 1 << 27; // 128 MB
 
-#[derive(Derive, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct AllocMetadata {
     pub size: usize,
     pub executable: bool,

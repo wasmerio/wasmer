@@ -12,6 +12,10 @@ parking_lot = "0.7.1"
 wasmparser = "0.29.2"
 hashbrown = "0.1.8"
 nom = "4.2.2"
+inkwell = { git = "https://github.com/wasmerio/inkwell", branch = "llvm7-0" }
+nix = "0.13.0"
+libc = "0.2.50"
+smallvec = "0.6.9"
 
 # For cranelift
 cranelift-native = "0.29.0"
@@ -20,3 +24,10 @@ cranelift-entity = "0.29.0"
 cranelift-wasm = "0.29.0"
 # cranelift-codegen is using target-lexicon 0.2.0.
 target-lexicon = "0.2.0"
+
+[build-dependencies]
+cc = "1.0"
+lazy_static = "1.2.0"
+regex = "1.1.0"
+semver = "0.9"
+rustc_version = "0.2.3"
