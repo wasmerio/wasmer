@@ -1,9 +1,12 @@
-use hashbrown::HashMap;
+use hashbrown::hash_map::{Entry, HashMap};
 use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    types::{BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VoidType},
+    types::{
+        AnyType, AnyTypeEnum, BasicType, FloatType, FunctionType, IntType, PointerType, StructType,
+        VoidType,
+    },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
         PointerValue,
@@ -27,6 +30,76 @@ fn type_to_llvm_ptr(intrinsics: &Intrinsics, ty: Type) -> PointerType {
         Type::I64 => intrinsics.i64_ptr_ty,
         Type::F32 => intrinsics.f32_ptr_ty,
         Type::F64 => intrinsics.f64_ptr_ty,
+    }
+}
+
+pub struct LazyIntrinsic {
+    void_ty: AnyTypeEnum,
+    i1_ty: AnyTypeEnum,
+    i8_ty: AnyTypeEnum,
+    i16_ty: AnyTypeEnum,
+    i32_ty: AnyTypeEnum,
+    i64_ty: AnyTypeEnum,
+    f32_ty: AnyTypeEnum,
+    f64_ty: AnyTypeEnum,
+    name: String,
+    type_map: HashMap<FunctionType, FunctionValue>,
+}
+
+impl LazyIntrinsic {
+    pub fn new(
+        void_ty: VoidType,
+        i1_ty: IntType,
+        i8_ty: IntType,
+        i16_ty: IntType,
+        i32_ty: IntType,
+        i64_ty: IntType,
+        f32_ty: FloatType,
+        f64_ty: FloatType,
+        name: impl Into<String>,
+    ) -> Self {
+        LazyIntrinsic {
+            void_ty: void_ty.as_any_type_enum(),
+            i1_ty: i1_ty.as_any_type_enum(),
+            i8_ty: i8_ty.as_any_type_enum(),
+            i16_ty: i16_ty.as_any_type_enum(),
+            i32_ty: i32_ty.as_any_type_enum(),
+            i64_ty: i64_ty.as_any_type_enum(),
+            f32_ty: f32_ty.as_any_type_enum(),
+            f64_ty: f64_ty.as_any_type_enum(),
+            name: name.into(),
+            type_map: HashMap::new(),
+        }
+    }
+
+    pub fn load(&mut self, module: &Module, ty: FunctionType) -> FunctionValue {
+        let name = &*self.name;
+        let type_map = &mut self.type_map;
+        let (void_ty, i1_ty, i8_ty, i16_ty, i32_ty, i64_ty, f32_ty, f64_ty) = (
+            self.void_ty,
+            self.i1_ty,
+            self.i8_ty,
+            self.i16_ty,
+            self.i32_ty,
+            self.i64_ty,
+            self.f32_ty,
+            self.f64_ty,
+        );
+        *type_map.entry(ty).or_insert_with(|| {
+            let ret_ty_name = match ty.get_return_type().as_any_type_enum() {
+                void_ty => "void",
+                i1_ty => "i1",
+                i8_ty => "i8",
+                i16_ty => "i16",
+                i32_ty => "i32",
+                i64_ty => "i64",
+                f32_ty => "f32",
+                f64_ty => "f64",
+                _ => unimplemented!(),
+            };
+
+            module.add_function(&format!("llvm.{}.{}", name, ret_ty_name), ty, None)
+        })
     }
 }
 
@@ -69,6 +142,8 @@ pub struct Intrinsics {
 
     pub expect_i1: FunctionValue,
     pub trap: FunctionValue,
+
+    pub patchpoint: LazyIntrinsic,
 
     pub void_ty: VoidType,
     pub i1_ty: IntType,
@@ -272,6 +347,18 @@ impl Intrinsics {
 
             expect_i1: module.add_function("llvm.expect.i1", ret_i1_take_i1_i1, None),
             trap: module.add_function("llvm.trap", void_ty.fn_type(&[], false), None),
+
+            patchpoint: LazyIntrinsic::new(
+                void_ty,
+                i1_ty,
+                i8_ty,
+                i16_ty,
+                i32_ty,
+                i64_ty,
+                f32_ty,
+                f64_ty,
+                "experimental.patchpoint",
+            ),
 
             void_ty,
             i1_ty,
