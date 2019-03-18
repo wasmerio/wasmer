@@ -62,8 +62,7 @@ int main()
     assert(call_result == WASMER_OK);
 
     printf("Destroy the serialized module\n");
-    free((uint8_t *) serialized_module->bytes);
-    free(serialized_module);
+    wasmer_module_serialization_destroy(serialized_module);
 
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);

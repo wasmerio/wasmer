@@ -515,10 +515,13 @@ wasmer_result_t wasmer_module_instantiate(const wasmer_module_t *module,
                                           int imports_len);
 
 /**
+ * Frees memory for the given serialized Module.
+ */
+void wasmer_module_serialization_destroy(wasmer_byte_array *serialized_module);
+
+/**
  * Serialize the given Module.
- * It's up to the caller to free the memory of the
- * `serialized_module` byte array (both the `bytes` field and the
- * structure).
+ * The caller owns the object and should call `wasmer_memory_serialization_destroy` to free it.
  * Returns `wasmer_result_t::WASMER_OK` upon success.
  * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
  * and `wasmer_last_error_message` to get an error message.

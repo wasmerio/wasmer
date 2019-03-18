@@ -576,9 +576,7 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
 
 /// Serialize the given Module.
 ///
-/// It's up to the caller to free the memory of the
-/// `serialized_module` byte array (both the `bytes` field and the
-/// structure).
+/// The caller owns the object and should call `wasmer_memory_serialization_destroy` to free it.
 ///
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
 ///
@@ -617,6 +615,15 @@ pub unsafe extern "C" fn wasmer_module_serialize(
             });
             wasmer_result_t::WASMER_ERROR
         }
+    }
+}
+
+/// Frees memory for the given serialized Module.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_module_serialization_destroy(serialized_module: *mut wasmer_byte_array) {
+    if !serialized_module.is_null() {
+        unsafe { Box::from_raw(serialized_module as *mut wasmer_byte_array) };
     }
 }
 
