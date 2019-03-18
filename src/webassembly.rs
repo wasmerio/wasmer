@@ -91,7 +91,7 @@ pub fn run_instance(
             .into_iter()
             .map(|x| Value::I32(x.parse().unwrap()))
             .collect();
-        println!("{:?}", instance.call("main", &args)?);
+        instance.call("main", &args)?;
     };
 
     Ok(())
