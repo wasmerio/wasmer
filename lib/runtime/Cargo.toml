@@ -33,10 +33,11 @@ optional = true
 
 [features]
 default = ["default-compiler"]
-default-compiler = ["wasmer-clif-backend", "wasmer-dynasm-backend"]
+default-compiler = ["wasmer-clif-backend"]
 cache = ["default-compiler"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 llvm = ["wasmer-llvm-backend"]
+dynasm = ["wasmer-dynasm-backend"]
 
 [[bench]]
 name = "nginx"
