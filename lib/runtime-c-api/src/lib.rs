@@ -315,7 +315,7 @@ pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
 #[no_mangle]
 pub extern "C" fn wasmer_table_destroy(table: *mut wasmer_table_t) {
     if !table.is_null() {
-        drop(unsafe { Box::from_raw(table as *mut Table) });
+        unsafe { Box::from_raw(table as *mut Table) };
     }
 }
 
@@ -370,7 +370,7 @@ pub extern "C" fn wasmer_global_get_descriptor(
 #[no_mangle]
 pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
     if !global.is_null() {
-        drop(unsafe { Box::from_raw(global as *mut Global) });
+        unsafe { Box::from_raw(global as *mut Global) };
     }
 }
 
@@ -379,7 +379,7 @@ pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
 #[no_mangle]
 pub extern "C" fn wasmer_memory_destroy(memory: *mut wasmer_memory_t) {
     if !memory.is_null() {
-        drop(unsafe { Box::from_raw(memory as *mut Memory) });
+        unsafe { Box::from_raw(memory as *mut Memory) };
     }
 }
 
@@ -514,13 +514,11 @@ pub struct NamedExportDescriptors(Vec<NamedExportDescriptor>);
 /// Frees the memory for the given export descriptors
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_export_descriptors_destroy(
+pub extern "C" fn wasmer_export_descriptors_destroy(
     export_descriptors: *mut wasmer_export_descriptors_t,
 ) {
     if !export_descriptors.is_null() {
-        drop(Box::from_raw(
-            export_descriptors as *mut NamedExportDescriptors,
-        ));
+        unsafe { Box::from_raw(export_descriptors as *mut NamedExportDescriptors) };
     }
 }
 
@@ -679,7 +677,7 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
 #[no_mangle]
 pub extern "C" fn wasmer_module_destroy(module: *mut wasmer_module_t) {
     if !module.is_null() {
-        drop(unsafe { Box::from_raw(module as *mut Module) });
+        unsafe { Box::from_raw(module as *mut Module) };
     }
 }
 
@@ -787,13 +785,11 @@ pub struct NamedImportDescriptors(Vec<NamedImportDescriptor>);
 /// Frees the memory for the given import descriptors
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_import_descriptors_destroy(
+pub extern "C" fn wasmer_import_descriptors_destroy(
     import_descriptors: *mut wasmer_import_descriptors_t,
 ) {
     if !import_descriptors.is_null() {
-        drop(Box::from_raw(
-            import_descriptors as *mut NamedImportDescriptors,
-        ));
+        unsafe { Box::from_raw(import_descriptors as *mut NamedImportDescriptors) };
     }
 }
 
@@ -1069,9 +1065,9 @@ pub struct NamedExports(Vec<NamedExport>);
 /// Frees the memory for the given exports
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
+pub extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
     if !exports.is_null() {
-        drop(Box::from_raw(exports as *mut NamedExports));
+        unsafe { Box::from_raw(exports as *mut NamedExports) };
     }
 }
 
@@ -1360,7 +1356,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 #[no_mangle]
 pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
     if !func.is_null() {
-        drop(unsafe { Box::from_raw(func as *mut Export) });
+        unsafe { Box::from_raw(func as *mut Export) };
     }
 }
 
@@ -1500,7 +1496,7 @@ pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> uint32
 #[no_mangle]
 pub extern "C" fn wasmer_instance_destroy(instance: *mut wasmer_instance_t) {
     if !instance.is_null() {
-        drop(unsafe { Box::from_raw(instance as *mut Instance) });
+        unsafe { Box::from_raw(instance as *mut Instance) };
     }
 }
 
