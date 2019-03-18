@@ -67,16 +67,16 @@ uint8_t callProtected(trampoline_t trampoline,
         savedStackPointer = get_callee_frame_address();
         trampoline(ctx, func, param_vec, return_vec);
         out_result->code = 0;
-        out_result->exceptionAddress = 0;
-        out_result->instructionPointer = 0;
+        out_result->exception_address = 0;
+        out_result->instruction_pointer = 0;
 
         removeExceptionHandler();
         return TRUE;
     }
 
     out_result->code = (uint64_t)signum;
-    out_result->exceptionAddress = (uint64_t)caughtExceptionAddress;
-    out_result->instructionPointer = caughtInstructionPointer;
+    out_result->exception_address = (uint64_t)caughtExceptionAddress;
+    out_result->instruction_pointer = caughtInstructionPointer;
 
     caughtExceptionAddress = 0;
     caughtInstructionPointer = 0;
