@@ -195,8 +195,10 @@ fn main() {
             Cache::Clean => {
                 use std::fs;
                 let cache_dir = get_cache_dir();
-                fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
-                fs::create_dir(cache_dir.clone()).expect("Can't create cache dir");
+                if cache_dir.exists() {
+                    fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
+                }
+                fs::create_dir_all(cache_dir.clone()).expect("Can't create cache dir");
             }
             Cache::Dir => {
                 println!("{}", get_cache_dir().to_string_lossy());
