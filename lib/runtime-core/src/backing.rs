@@ -234,7 +234,6 @@ impl LocalBacking {
                                 func,
                                 ctx,
                                 sig_id,
-                                func_index: Some(func_index),
                             };
                         }
                     });
@@ -278,7 +277,6 @@ impl LocalBacking {
                                 func,
                                 ctx,
                                 sig_id,
-                                func_index: Some(func_index),
                             };
                         }
                     });

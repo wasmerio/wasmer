@@ -83,7 +83,9 @@ lazy_static! {
             ; push r14
             ; push r13
             ; push r12
-            ; sub rsp, 8 // align to 16 bytes
+            ; push r11
+            ; push rbp
+            ; mov rbp, rsp
 
             ; mov r15, rdi
             ; mov r14, rsi
@@ -95,34 +97,56 @@ lazy_static! {
             ; sub r14, 8
             ; cmp r14, r15
             ; jb >stack_ready
+
             ; mov rsi, [r14]
-
             ; sub r14, 8
             ; cmp r14, r15
             ; jb >stack_ready
+
             ; mov rdx, [r14]
-
             ; sub r14, 8
             ; cmp r14, r15
             ; jb >stack_ready
+
             ; mov rcx, [r14]
-
             ; sub r14, 8
             ; cmp r14, r15
             ; jb >stack_ready
+
             ; mov r8, [r14]
-
             ; sub r14, 8
             ; cmp r14, r15
             ; jb >stack_ready
-            ; mov r9, [r14]
 
-            ; ud2 // FIXME
+            ; mov r9, [r14]
+            ; sub r14, 8
+            ; cmp r14, r15
+            ; jb >stack_ready
+
+            ; mov rax, r14
+            ; sub rax, r15
+            ; sub rsp, rax
+            ; sub rsp, 8
+            ; mov rax, QWORD 0xfffffffffffffff0u64 as i64
+            ; and rsp, rax
+            ; mov rax, rsp
+            ; loop_begin:
+            ; mov r11, [r14]
+            ; mov [rax], r11
+            ; sub r14, 8
+            ; add rax, 8
+            ; cmp r14, r15
+            ; jb >stack_ready
+            ; jmp <loop_begin
 
             ; stack_ready:
+            ; mov rax, QWORD 0xfffffffffffffff0u64 as i64
+            ; and rsp, rax
             ; call r12
 
-            ; add rsp, 8
+            ; mov rsp, rbp
+            ; pop rbp
+            ; pop r11
             ; pop r12
             ; pop r13
             ; pop r14
@@ -4939,32 +4963,19 @@ unsafe extern "C" fn call_indirect(
         protect_unix::trigger_trap();
     }
     let anyfunc = &*(table.base as *mut vm::Anyfunc).offset(elem_index as isize);
-    let ctx: &X64ExecutionContext =
-        &*CURRENT_EXECUTION_CONTEXT.with(|x| *x.borrow().last().unwrap());
+    let dynamic_sigindex = *(*vmctx).dynamic_sigindices.offset(sig_index as isize);
 
-    let func_index = match anyfunc.func_index {
-        Some(x) => x,
-        None => {
-            eprintln!("empty table entry");
-            protect_unix::trigger_trap();
-        }
-    };
+    if anyfunc.func.is_null() {
+        eprintln!("null anyfunc");
+        protect_unix::trigger_trap();
+    }
 
-    if ctx.signatures[SigIndex::new(sig_index)]
-        != ctx.signatures[ctx.function_signatures[func_index]]
-    {
+    if anyfunc.sig_id.0 != dynamic_sigindex.0 {
         eprintln!("signature mismatch");
         protect_unix::trigger_trap();
     }
 
-    let func = ctx.function_pointers[func_index.index() as usize].0;
-    CALL_WASM(
-        stack_top,
-        stack_base as usize - stack_top as usize,
-        func as _,
-        memory_base,
-        vmctx,
-    ) as u64
+    CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, anyfunc.ctx, anyfunc.func)
 }
 
 #[repr(u64)]

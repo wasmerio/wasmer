@@ -107,7 +107,6 @@ impl AnyfuncTable {
                         func: ptr,
                         ctx: ptr::null_mut(),
                         sig_id,
-                        func_index: None,
                     }
                 }
                 AnyfuncInner::Managed(ref func) => {
@@ -118,7 +117,6 @@ impl AnyfuncTable {
                         func: func.raw(),
                         ctx: func.instance_inner.vmctx,
                         sig_id,
-                        func_index: Some(func.func_index),
                     }
                 }
             };

@@ -46,16 +46,6 @@ impl CacheGen for Placeholder {
     }
 }
 
-impl FuncResolver for Placeholder {
-    fn get(
-        &self,
-        _module: &ModuleInner,
-        _local_func_index: LocalFuncIndex,
-    ) -> Option<NonNull<vm::Func>> {
-        NonNull::new(0x3f3f3f3f3f3f3f3fusize as *mut vm::Func)
-    }
-}
-
 pub struct SinglePassCompiler {}
 impl SinglePassCompiler {
     pub fn new() -> Self {

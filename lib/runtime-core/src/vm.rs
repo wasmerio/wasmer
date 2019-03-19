@@ -38,7 +38,7 @@ pub struct Ctx {
     /// from a static, module-local signature id to a runtime-global
     /// signature id. This is used to allow call-indirect to other
     /// modules safely.
-    pub(crate) dynamic_sigindices: *const SigId,
+    pub dynamic_sigindices: *const SigId,
 
     pub(crate) local_functions: *const *const Func,
 
@@ -302,7 +302,6 @@ pub struct Anyfunc {
     pub func: *const Func,
     pub ctx: *mut Ctx,
     pub sig_id: SigId,
-    pub func_index: Option<FuncIndex>,
 }
 
 impl Anyfunc {
@@ -311,7 +310,6 @@ impl Anyfunc {
             func: ptr::null(),
             ctx: ptr::null_mut(),
             sig_id: SigId(u32::max_value()),
-            func_index: None,
         }
     }
 
