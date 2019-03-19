@@ -46,7 +46,11 @@ impl FileSystemCache {
     /// This method is unsafe because there's no way to ensure the artifacts
     /// stored in this cache haven't been corrupted or tampered with.
     pub unsafe fn new<P: Into<PathBuf>>(path: P) -> io::Result<Self> {
-        let path: PathBuf = path.into();
+        let path: PathBuf = {
+            let mut path = path.into();
+            path.push(WASMER_VERSION_HASH);
+            path
+        };
 
         if path.exists() {
             let metadata = path.metadata()?;
@@ -85,7 +89,6 @@ impl Cache for FileSystemCache {
     fn load(&self, key: WasmHash) -> Result<Module, CacheError> {
         let filename = key.encode();
         let mut new_path_buf = self.path.clone();
-        new_path_buf.push(WASMER_VERSION_HASH);
         new_path_buf.push(filename);
         let file = File::open(new_path_buf)?;
         let mmap = unsafe { Mmap::map(&file)? };
@@ -97,7 +100,6 @@ impl Cache for FileSystemCache {
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), CacheError> {
         let filename = key.encode();
         let mut new_path_buf = self.path.clone();
-        new_path_buf.push(WASMER_VERSION_HASH);
         new_path_buf.push(filename);
 
         let serialized_cache = module.cache()?;

@@ -71,8 +71,8 @@ fn get_cache_dir() -> PathBuf {
         Err(_) => {
             // We use a temporal directory for saving cache files
             let mut temp_dir = env::temp_dir();
-            temp_dir.push(WASMER_VERSION_HASH);
             temp_dir.push("wasmer");
+            temp_dir.push(WASMER_VERSION_HASH);
             temp_dir
         }
     }
