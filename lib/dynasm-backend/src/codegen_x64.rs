@@ -1,3 +1,5 @@
+#![allow(clippy::forget_copy)] // Used by dynasm.
+
 use super::codegen::*;
 use super::stack::{
     ControlFrame, ControlStack, IfElseState, ScratchRegister, ValueInfo, ValueLocation, ValueStack,
@@ -5139,6 +5141,7 @@ enum CallIndirectLocalOrImport {
     Import,
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 unsafe extern "C" fn call_indirect(
     sig_index: usize,
     local_or_import: CallIndirectLocalOrImport,
@@ -5214,6 +5217,7 @@ unsafe extern "C" fn _memory_size(
     ret.0 as u32 as u64
 }
 
+#[allow(clippy::cast_ptr_alignment)]
 unsafe extern "C" fn _memory_grow(
     op: MemoryKind,
     index: usize,
