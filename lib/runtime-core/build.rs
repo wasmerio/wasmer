@@ -1,5 +1,5 @@
 use blake2b_simd::blake2bp;
-use std::{fs, io::Write, path::PathBuf};
+use std::{env, fs, io::Write, path::PathBuf};
 
 const WASMER_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -10,7 +10,7 @@ fn main() {
     let hasher = state.finalize();
     let hash_string = hasher.to_hex().as_str().to_owned();
 
-    let crate_dir = env!("CARGO_MANIFEST_DIR");
+    let crate_dir = env::var("OUT_DIR").unwrap();
     let wasmer_version_hash_file = {
         let mut path = PathBuf::from(&crate_dir);
         path.push("wasmer_version_hash.txt");
