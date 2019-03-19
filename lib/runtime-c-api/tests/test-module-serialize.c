@@ -19,23 +19,25 @@ int main()
     printf("Compile result: %d\n", compile_result);
     assert(compile_result == WASMER_OK);
 
-    wasmer_byte_array *serialized_module = NULL;
+    wasmer_serialized_module_t *serialized_module = NULL;
     wasmer_result_t serialize_result = wasmer_module_serialize(&serialized_module, module_one);
     printf("Serialize result: %d\n", serialize_result);
-    printf("Serialized module pointer: %p\n", serialized_module->bytes);
-    printf("Serialized module length: %d\n", serialized_module->bytes_len);
     assert(serialize_result == WASMER_OK);
-    assert(serialized_module->bytes != NULL);
-    assert(serialized_module->bytes_len > 8);
-    assert(serialized_module->bytes[0] == 'W');
-    assert(serialized_module->bytes[1] == 'A');
-    assert(serialized_module->bytes[2] == 'S');
-    assert(serialized_module->bytes[3] == 'M');
-    assert(serialized_module->bytes[4] == 'E');
-    assert(serialized_module->bytes[5] == 'R');
+
+    wasmer_byte_array serialized_module_bytes = wasmer_serialized_module_bytes(serialized_module);
+    printf("Serialized module pointer: %p\n", serialized_module_bytes.bytes);
+    printf("Serialized module length: %d\n", serialized_module_bytes.bytes_len);
+    assert(serialized_module_bytes.bytes != NULL);
+    assert(serialized_module_bytes.bytes_len > 8);
+    assert(serialized_module_bytes.bytes[0] == 'W');
+    assert(serialized_module_bytes.bytes[1] == 'A');
+    assert(serialized_module_bytes.bytes[2] == 'S');
+    assert(serialized_module_bytes.bytes[3] == 'M');
+    assert(serialized_module_bytes.bytes[4] == 'E');
+    assert(serialized_module_bytes.bytes[5] == 'R');
 
     wasmer_module_t *module_two = NULL;
-    wasmer_result_t unserialize_result = wasmer_module_deserialize(&module_two, serialized_module->bytes, serialized_module->bytes_len);
+    wasmer_result_t unserialize_result = wasmer_module_deserialize(&module_two, serialized_module);
     assert(unserialize_result == WASMER_OK);
 
     wasmer_import_t imports[] = {};
@@ -62,7 +64,7 @@ int main()
     assert(call_result == WASMER_OK);
 
     printf("Destroy the serialized module\n");
-    wasmer_module_serialization_destroy(serialized_module);
+    wasmer_serialized_module_destroy(serialized_module);
 
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);

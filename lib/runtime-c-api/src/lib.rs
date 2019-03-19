@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::CStr;
 use std::fmt;
-use std::mem;
 use std::slice;
 use std::sync::Arc;
 use std::{ffi::c_void, ptr};
@@ -24,6 +23,9 @@ use wasmer_runtime_core::units::{Bytes, Pages};
 
 #[repr(C)]
 pub struct wasmer_module_t;
+
+#[repr(C)]
+pub struct wasmer_serialized_module_t;
 
 #[repr(C)]
 pub struct wasmer_instance_t;
@@ -574,7 +576,7 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
 
 /// Serialize the given Module.
 ///
-/// The caller owns the object and should call `wasmer_memory_serialization_destroy` to free it.
+/// The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
 ///
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
 ///
@@ -583,7 +585,7 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_module_serialize(
-    serialized_module: *mut *mut wasmer_byte_array,
+    serialized_module: *mut *mut wasmer_serialized_module_t,
     module: *const wasmer_module_t,
 ) -> wasmer_result_t {
     let module = &*(module as *const Module);
@@ -591,12 +593,7 @@ pub unsafe extern "C" fn wasmer_module_serialize(
     match module.cache() {
         Ok(artifact) => match artifact.serialize() {
             Ok(serialized_artifact) => {
-                *serialized_module = Box::into_raw(Box::new(wasmer_byte_array {
-                    bytes: serialized_artifact.as_ptr(),
-                    bytes_len: serialized_artifact.len() as u32,
-                })) as *mut wasmer_byte_array;
-
-                mem::forget(serialized_artifact);
+                *serialized_module = Box::into_raw(Box::new(serialized_artifact)) as _;
 
                 wasmer_result_t::WASMER_OK
             }
@@ -616,16 +613,21 @@ pub unsafe extern "C" fn wasmer_module_serialize(
     }
 }
 
-/// Frees memory for the given serialized Module.
+/// Get bytes of the serialized module.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_module_serialization_destroy(serialized_module: *mut wasmer_byte_array) {
-    if !serialized_module.is_null() {
-        unsafe { Box::from_raw(serialized_module as *mut wasmer_byte_array) };
+pub unsafe extern "C" fn wasmer_serialized_module_bytes(
+    serialized_module: *const wasmer_serialized_module_t,
+) -> wasmer_byte_array {
+    let serialized_module = &*(serialized_module as *const &[u8]);
+
+    wasmer_byte_array {
+        bytes: serialized_module.as_ptr(),
+        bytes_len: serialized_module.len() as u32,
     }
 }
 
-/// Deserialize the given bytes into a Module.
+/// Deserialize the given serialized module.
 ///
 /// Returns `wasmer_result_t::WASMER_OK` upon success.
 ///
@@ -635,20 +637,16 @@ pub extern "C" fn wasmer_module_serialization_destroy(serialized_module: *mut wa
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_module_deserialize(
     module: *mut *mut wasmer_module_t,
-    serialized_module_bytes: *const uint8_t,
-    serialized_module_bytes_len: uint32_t,
+    serialized_module: *const wasmer_serialized_module_t,
 ) -> wasmer_result_t {
-    if serialized_module_bytes.is_null() {
+    if serialized_module.is_null() {
         update_last_error(CApiError {
-            msg: "`serialized_module_bytes` pointer is null".to_string(),
+            msg: "`serialized_module` pointer is null".to_string(),
         });
         return wasmer_result_t::WASMER_ERROR;
     }
 
-    let serialized_module: &[u8] = slice::from_raw_parts(
-        serialized_module_bytes,
-        serialized_module_bytes_len as usize,
-    );
+    let serialized_module: &[u8] = &*(serialized_module as *const &[u8]);
 
     match Artifact::deserialize(serialized_module) {
         Ok(artifact) => match load_cache_with(artifact, default_compiler()) {
@@ -669,6 +667,17 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
             });
             wasmer_result_t::WASMER_ERROR
         }
+    }
+}
+
+/// Frees memory for the given serialized Module.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_serialized_module_destroy(
+    serialized_module: *mut wasmer_serialized_module_t,
+) {
+    if !serialized_module.is_null() {
+        unsafe { Box::from_raw(serialized_module as *mut &[u8]) };
     }
 }
 
