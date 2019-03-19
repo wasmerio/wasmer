@@ -434,7 +434,7 @@ pub struct DynFunc<'a> {
     pub(crate) signature: Arc<FuncSig>,
     module: &'a ModuleInner,
     pub(crate) instance_inner: &'a InstanceInner,
-    pub func_index: FuncIndex,
+    func_index: FuncIndex,
 }
 
 impl<'a> DynFunc<'a> {
