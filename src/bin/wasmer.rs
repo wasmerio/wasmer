@@ -48,9 +48,11 @@ struct Run {
 
 #[derive(Debug, StructOpt)]
 enum Cache {
+    /// Clear the cache
     #[structopt(name = "clean")]
     Clean,
 
+    /// Display the location of the cache
     #[structopt(name = "dir")]
     Dir,
 }
