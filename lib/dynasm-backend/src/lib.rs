@@ -24,14 +24,11 @@ mod stack;
 
 use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;
-use std::ptr::NonNull;
 use wasmer_runtime_core::{
-    backend::{sys::Memory, Backend, CacheGen, Compiler, FuncResolver, Token},
+    backend::{sys::Memory, Backend, CacheGen, Compiler, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
-    types::LocalFuncIndex,
-    vm,
 };
 
 struct Placeholder;

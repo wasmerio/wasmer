@@ -410,7 +410,12 @@ impl ProtectedCaller for X64ExecutionContext {
                     msg: "only one linear memory is supported".into(),
                 });
             }
-            unsafe { ((**(*_vmctx).imported_memories).base, (**(*_vmctx).imported_memories).bound) }
+            unsafe {
+                (
+                    (**(*_vmctx).imported_memories).base,
+                    (**(*_vmctx).imported_memories).bound,
+                )
+            }
         } else {
             (::std::ptr::null_mut(), 0)
         };
@@ -1782,7 +1787,9 @@ impl X64FunctionCode {
     ) {
         let mem_desc = match MemoryIndex::new(0).local_or_import(module_info) {
             LocalOrImport::Local(local_mem_index) => &module_info.memories[local_mem_index],
-            LocalOrImport::Import(import_mem_index) => &module_info.imported_memories[import_mem_index].1,
+            LocalOrImport::Import(import_mem_index) => {
+                &module_info.imported_memories[import_mem_index].1
+            }
         };
         let need_check = match mem_desc.memory_type() {
             MemoryType::Dynamic => true,
@@ -1850,7 +1857,12 @@ impl X64FunctionCode {
                     ; pop rax
                     ; mov eax, eax
                 );
-                Self::emit_memory_bound_check_if_needed(assembler, module_info, Register::RAX, read_size);
+                Self::emit_memory_bound_check_if_needed(
+                    assembler,
+                    module_info,
+                    Register::RAX,
+                    read_size,
+                );
                 dynasm!(
                     assembler
                     ; add rax, r15
@@ -1899,7 +1911,12 @@ impl X64FunctionCode {
                     assembler
                     ; mov Rd(addr_reg as u8), Rd(addr_reg as u8)
                 );
-                Self::emit_memory_bound_check_if_needed(assembler, module_info, addr_reg, write_size);
+                Self::emit_memory_bound_check_if_needed(
+                    assembler,
+                    module_info,
+                    addr_reg,
+                    write_size,
+                );
                 dynasm!(
                     assembler
                     ; add Rq(addr_reg as u8), r15
@@ -1916,7 +1933,12 @@ impl X64FunctionCode {
                             assembler
                             ; mov Rd(addr_reg as u8), Rd(addr_reg as u8)
                         );
-                        Self::emit_memory_bound_check_if_needed(assembler, module_info, addr_reg, write_size);
+                        Self::emit_memory_bound_check_if_needed(
+                            assembler,
+                            module_info,
+                            addr_reg,
+                            write_size,
+                        );
                         dynasm!(
                             assembler
                             ; add Rq(addr_reg as u8), r15
@@ -1937,7 +1959,12 @@ impl X64FunctionCode {
                             assembler
                             ; mov ecx, ecx
                         );
-                        Self::emit_memory_bound_check_if_needed(assembler, module_info, Register::RCX, write_size);
+                        Self::emit_memory_bound_check_if_needed(
+                            assembler,
+                            module_info,
+                            Register::RCX,
+                            write_size,
+                        );
                         dynasm!(
                             assembler
                             ; add rcx, r15
@@ -3512,7 +3539,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I32,
                     module_info,
-                    4
+                    4,
                 )?;
             }
             Operator::I32Load8U { memarg } => {
@@ -3527,7 +3554,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I32,
                     module_info,
-                    1
+                    1,
                 )?;
             }
             Operator::I32Load8S { memarg } => {
@@ -3542,7 +3569,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I32,
                     module_info,
-                    1
+                    1,
                 )?;
             }
             Operator::I32Load16U { memarg } => {
@@ -3557,7 +3584,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I32,
                     module_info,
-                    2
+                    2,
                 )?;
             }
             Operator::I32Load16S { memarg } => {
@@ -3572,7 +3599,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I32,
                     module_info,
-                    2
+                    2,
                 )?;
             }
             Operator::I32Store { memarg } => {
@@ -3587,7 +3614,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I32,
                     module_info,
-                    4
+                    4,
                 )?;
             }
             Operator::I32Store8 { memarg } => {
@@ -3602,7 +3629,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I32,
                     module_info,
-                    1
+                    1,
                 )?;
             }
             Operator::I32Store16 { memarg } => {
@@ -3617,7 +3644,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I32,
                     module_info,
-                    2
+                    2,
                 )?;
             }
             Operator::I64Load { memarg } => {
@@ -3632,7 +3659,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    8
+                    8,
                 )?;
             }
             Operator::I64Load8U { memarg } => {
@@ -3647,7 +3674,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    1
+                    1,
                 )?;
             }
             Operator::I64Load8S { memarg } => {
@@ -3662,7 +3689,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    1
+                    1,
                 )?;
             }
             Operator::I64Load16U { memarg } => {
@@ -3677,7 +3704,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    2
+                    2,
                 )?;
             }
             Operator::I64Load16S { memarg } => {
@@ -3692,7 +3719,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    2
+                    2,
                 )?;
             }
             Operator::I64Load32U { memarg } => {
@@ -3707,7 +3734,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    4
+                    4,
                 )?;
             }
             Operator::I64Load32S { memarg } => {
@@ -3722,7 +3749,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    4
+                    4,
                 )?;
             }
             Operator::I64Store { memarg } => {
@@ -3737,7 +3764,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    8
+                    8,
                 )?;
             }
             Operator::I64Store8 { memarg } => {
@@ -3752,7 +3779,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    1
+                    1,
                 )?;
             }
             Operator::I64Store16 { memarg } => {
@@ -3767,7 +3794,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    2
+                    2,
                 )?;
             }
             Operator::I64Store32 { memarg } => {
@@ -3782,7 +3809,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::I64,
                     module_info,
-                    4
+                    4,
                 )?;
             }
             Operator::F32Const { value } => {
@@ -3834,7 +3861,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::F32,
                     module_info,
-                    4
+                    4,
                 )?;
             }
             Operator::F32Store { memarg } => {
@@ -3849,7 +3876,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::F32,
                     module_info,
-                    4
+                    4,
                 )?;
             }
             Operator::F64Load { memarg } => {
@@ -3864,7 +3891,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::F64,
                     module_info,
-                    8
+                    8,
                 )?;
             }
             Operator::F64Store { memarg } => {
@@ -3879,7 +3906,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                     WpType::F64,
                     module_info,
-                    8
+                    8,
                 )?;
             }
             Operator::I32ReinterpretF32 => {
@@ -4978,7 +5005,9 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &module_info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_local,
+                            MemoryType::Dynamic => {
+                                self.native_trampolines.memory_size_dynamic_local
+                            }
                             MemoryType::Static => self.native_trampolines.memory_size_static_local,
                             MemoryType::SharedStatic => {
                                 self.native_trampolines.memory_size_shared_local
@@ -4988,7 +5017,9 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Import(import_mem_index) => {
                         let mem_desc = &module_info.imported_memories[import_mem_index].1;
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_import,
+                            MemoryType::Dynamic => {
+                                self.native_trampolines.memory_size_dynamic_import
+                            }
                             MemoryType::Static => self.native_trampolines.memory_size_static_import,
                             MemoryType::SharedStatic => {
                                 self.native_trampolines.memory_size_shared_import
@@ -5004,7 +5035,9 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &module_info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_local,
+                            MemoryType::Dynamic => {
+                                self.native_trampolines.memory_grow_dynamic_local
+                            }
                             MemoryType::Static => self.native_trampolines.memory_grow_static_local,
                             MemoryType::SharedStatic => {
                                 self.native_trampolines.memory_grow_shared_local
@@ -5014,7 +5047,9 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Import(import_mem_index) => {
                         let mem_desc = &module_info.imported_memories[import_mem_index].1;
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_import,
+                            MemoryType::Dynamic => {
+                                self.native_trampolines.memory_grow_dynamic_import
+                            }
                             MemoryType::Static => self.native_trampolines.memory_grow_static_import,
                             MemoryType::SharedStatic => {
                                 self.native_trampolines.memory_grow_shared_import
