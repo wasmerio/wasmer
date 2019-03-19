@@ -102,37 +102,82 @@ fn validate(bytes: &[u8]) -> Result<(), CompileError> {
     }
 }
 
-#[test]
-fn test_read_module() {
-    use std::mem::transmute;
-    use wabt::wat2wasm;
-    use wasmer_runtime_core::{structures::TypedIndex, types::LocalFuncIndex, vm, vmcalls};
-    // let wasm = include_bytes!("../../spectests/examples/simple/simple.wasm") as &[u8];
-    let wat = r#"
-        (module
-        (type $t0 (func (param i32) (result i32)))
-        (type $t1 (func (result i32)))
-        (memory 1)
-        (global $g0 (mut i32) (i32.const 0))
-        (func $foo (type $t0) (param i32) (result i32)
-            get_local 0
-        ))
-    "#;
-    let wasm = wat2wasm(wat).unwrap();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let (info, code_reader) = read_info::read_module(&wasm).unwrap();
+    #[cfg(feature = "disasm")]
+    unsafe fn disass_ptr(ptr: *const u8, size: usize, inst_count: usize) {
+        use capstone::arch::BuildsCapstone;
+        let mut cs = capstone::Capstone::new() // Call builder-pattern
+            .x86() // X86 architecture
+            .mode(capstone::arch::x86::ArchMode::Mode64) // 64-bit mode
+            .detail(true) // Generate extra instruction details
+            .build()
+            .expect("Failed to create Capstone object");
 
-    let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
+        // Get disassembled instructions
+        let insns = cs
+            .disasm_count(
+                std::slice::from_raw_parts(ptr, size),
+                ptr as u64,
+                inst_count,
+            )
+            .expect("Failed to disassemble");
 
-    let (backend, _caller) = backend::LLVMBackend::new(module, intrinsics);
+        println!("count = {}", insns.len());
+        for insn in insns.iter() {
+            println!(
+                "0x{:x}: {:6} {}",
+                insn.address(),
+                insn.mnemonic().unwrap_or(""),
+                insn.op_str().unwrap_or("")
+            );
+        }
+    }
+    #[cfg(not(feature = "disasm"))]
+    unsafe fn disass_ptr(_ptr: *const u8, _size: usize, _inst_count: usize) {}
 
-    let func_ptr = backend.get_func(&info, LocalFuncIndex::new(0)).unwrap();
+    #[test]
+    fn read_module() {
+        use std::mem::transmute;
+        use wabt::wat2wasm;
+        use wasmer_runtime_core::{structures::TypedIndex, types::LocalFuncIndex, vm, vmcalls};
+        // let wasm = include_bytes!("../../spectests/examples/simple/simple.wasm") as &[u8];
+        let wat = r#"
+            (module
+            (type $t0 (func (param i32) (result i32)))
+            (type $t1 (func (result i32)))
+            (memory 1 1)
+            (global $g0 (mut i32) (i32.const 0))
+            (func $bar (type $t0) (param i32) (result i32)
+                get_local 0
+            )
+            (func $foo (type $t0) (param i32) (result i32)
+                get_local 0
+                call $bar
+            ))
+        "#;
+        let wasm = wat2wasm(wat).unwrap();
 
-    println!("func_ptr: {:p}", func_ptr.as_ptr());
+        let (info, code_reader) = read_info::read_module(&wasm).unwrap();
 
-    unsafe {
-        let func: unsafe extern "C" fn(*mut vm::Ctx, i32) -> i32 = transmute(func_ptr);
-        let result = func(0 as _, 42);
-        println!("result: {}", result);
+        let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
+
+        let (backend, _caller) = backend::LLVMBackend::new(module, intrinsics);
+
+        let func_ptr = backend.get_func(&info, LocalFuncIndex::new(1)).unwrap();
+
+        println!("func_ptr: {:p}", func_ptr.as_ptr());
+
+        unsafe {
+            disass_ptr(func_ptr.cast().as_ptr(), 100, 5);
+        }
+
+        // unsafe {
+        //     let func: unsafe extern "C" fn(*mut vm::Ctx, i32) -> i32 = transmute(func_ptr);
+        //     let result = func(0 as _, 42);
+        //     println!("result: {}", result);
+        // }
     }
 }

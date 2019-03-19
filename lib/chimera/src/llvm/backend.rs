@@ -262,13 +262,18 @@ impl LLVMBackend {
         };
 
         {
+            println!("checking for stackmap");
             let mut size = 0;
             if let Some(stackmap_ptr) = unsafe { get_stackmap(module, &mut size) } {
                 use super::stackmap::Stackmap;
 
+                println!("size: {}", size);
+
                 let stackmap_slice = unsafe { slice::from_raw_parts(stackmap_ptr.as_ptr(), size) };
                 let stackmap = Stackmap::parse(stackmap_slice).unwrap();
                 println!("{:#?}", stackmap);
+            } else {
+                println!("no stackmap");
             }
         }
 

@@ -664,15 +664,32 @@ fn parse_function(
 
                 let call_site = match func_index.local_or_import(info) {
                     LocalOrImport::Local(local_func_index) => {
-                        let params: Vec<_> = [ctx.basic()]
-                            .iter()
-                            .chain(state.peekn(func_sig.params().len())?.iter())
-                            .map(|v| *v)
-                            .collect();
+                        let params: Vec<_> = [
+                            // patchpoint args
+                            intrinsics
+                                .i64_ty
+                                .const_int(local_func_index.index() as u64, false)
+                                .as_basic_value_enum(),
+                            intrinsics.i32_ty.const_int(5, false).as_basic_value_enum(), // Reserve 5 bytes for a relative call.
+                            intrinsics.i8_ptr_ty.const_null().as_basic_value_enum(),
+                            // builder.build_int_to_ptr(intrinsics.i64_ty.const_int(0xcafebabe, false), intrinsics.i8_ptr_ty, "int_ptr").as_basic_value_enum(),
+                            intrinsics
+                                .i32_ty
+                                .const_int((func_sig.params().len() + 1) as u64, false)
+                                .as_basic_value_enum(),
+                            // call args
+                            ctx.basic(),
+                        ]
+                        .iter()
+                        .chain(state.peekn(func_sig.params().len())?.iter())
+                        .map(|v| *v)
+                        .collect();
 
-                        let func_ptr = ctx.local_func(local_func_index, llvm_sig);
+                        let func = intrinsics.patchpoint.load(module, llvm_sig);
 
-                        builder.build_call(func_ptr, &params, &state.var_name())
+                        // let func_ptr = ctx.local_func(local_func_index, llvm_sig);
+
+                        builder.build_call(func, &params, &state.var_name())
                     }
                     LocalOrImport::Import(import_func_index) => {
                         let (func_ptr_untyped, ctx_ptr) = ctx.imported_func(import_func_index);

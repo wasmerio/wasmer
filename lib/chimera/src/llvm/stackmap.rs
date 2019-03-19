@@ -146,7 +146,7 @@ named!(parse_stack_map_record<&[u8], StackMapRecord>, do_parse!(
         le_u16 >>
     num_locations: map!(le_u16, u16_as_usize) >>
     locations: count!(parse_location, num_locations) >>
-        le_u32 >>
+        // le_u32 >>
         le_u16 >>
     num_live_outs: map!(le_u16, u16_as_usize) >>
     live_outs: count!(parse_live_out, num_live_outs) >>

@@ -13,7 +13,7 @@ use inkwell::{
     },
     AddressSpace,
 };
-use std::marker::PhantomData;
+use std::{cell::RefCell, marker::PhantomData};
 use wasmer_runtime_core::{
     memory::MemoryType,
     module::ModuleInfo,
@@ -43,7 +43,7 @@ pub struct LazyIntrinsic {
     f32_ty: AnyTypeEnum,
     f64_ty: AnyTypeEnum,
     name: String,
-    type_map: HashMap<FunctionType, FunctionValue>,
+    type_map: RefCell<HashMap<FunctionType, FunctionValue>>,
 }
 
 impl LazyIntrinsic {
@@ -68,13 +68,11 @@ impl LazyIntrinsic {
             f32_ty: f32_ty.as_any_type_enum(),
             f64_ty: f64_ty.as_any_type_enum(),
             name: name.into(),
-            type_map: HashMap::new(),
+            type_map: RefCell::new(HashMap::new()),
         }
     }
 
-    pub fn load(&mut self, module: &Module, ty: FunctionType) -> FunctionValue {
-        let name = &*self.name;
-        let type_map = &mut self.type_map;
+    pub fn load(&self, module: &Module, ty: FunctionType) -> FunctionValue {
         let (void_ty, i1_ty, i8_ty, i16_ty, i32_ty, i64_ty, f32_ty, f64_ty) = (
             self.void_ty,
             self.i1_ty,
@@ -85,7 +83,7 @@ impl LazyIntrinsic {
             self.f32_ty,
             self.f64_ty,
         );
-        *type_map.entry(ty).or_insert_with(|| {
+        *self.type_map.borrow_mut().entry(ty).or_insert_with(|| {
             let ret_ty_name = match ty.get_return_type().as_any_type_enum() {
                 void_ty => "void",
                 i1_ty => "i1",
@@ -98,7 +96,7 @@ impl LazyIntrinsic {
                 _ => unimplemented!(),
             };
 
-            module.add_function(&format!("llvm.{}.{}", name, ret_ty_name), ty, None)
+            module.add_function(&format!("llvm.{}.{}", self.name, ret_ty_name), ty, None)
         })
     }
 }

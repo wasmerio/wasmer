@@ -6,9 +6,9 @@
 #include <exception>
 
 #if defined(__linux__)
-const std::string STACKMAP_SECTION_NAME = "__llvm_stackmaps";
-#elif defined(__MACH__)
 const std::string STACKMAP_SECTION_NAME = ".llvm_stackmaps";
+#elif defined(__MACH__)
+const std::string STACKMAP_SECTION_NAME = "__llvm_stackmaps";
 #endif
 
 extern "C" void __register_frame(uint8_t *);
@@ -178,16 +178,12 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
         {
             auto ptr = allocate_bump(read_section, read_bump_ptr, size, alignment);
 
-            if (section_name == STACKMAP_SECTION_NAME)
-            {
-                stackmap.base = ptr;
-                stackmap.size = size;
-            }
-
             return ptr;
         }
         else
         {
+            std::cout << (std::string)section_name << std::endl;
+            std::cout << "size: " << size << std::endl;
             auto ptr = allocate_bump(readwrite_section, readwrite_bump_ptr, size, alignment);
 
             if (section_name == STACKMAP_SECTION_NAME)
@@ -287,7 +283,7 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
         size_t size;
     };
 
-    View eh_frames, stackmap;
+    View eh_frames, stackmap = {0};
 
   private:
     uint8_t *allocate_bump(View &section, uintptr_t &bump_ptr, size_t size, size_t align)
