@@ -3,7 +3,7 @@ use crate::{
     memory::Memory,
     module::ModuleInner,
     structures::TypedIndex,
-    types::{FuncIndex, LocalOrImport, MemoryIndex},
+    types::{LocalOrImport, MemoryIndex},
 };
 use std::{ffi::c_void, mem, ptr};
 

@@ -5,7 +5,6 @@ use crate::types::{
 use core::borrow::Borrow;
 use std::any::Any;
 use std::sync::Arc;
-use wasmparser::BinaryReaderError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;
@@ -23,14 +22,6 @@ pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
 pub enum CompileError {
     ValidationError { msg: String },
     InternalError { msg: String },
-}
-
-impl From<BinaryReaderError> for CompileError {
-    fn from(other: BinaryReaderError) -> CompileError {
-        CompileError::InternalError {
-            msg: format!("{:?}", other),
-        }
-    }
 }
 
 impl PartialEq for CompileError {
