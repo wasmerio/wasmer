@@ -30,7 +30,14 @@ thread_local! {
 }
 
 lazy_static! {
-    static ref CALL_WASM: unsafe extern "C" fn(params: *const u8, params_len: usize, target: *const u8, memory_base: *mut u8, vmctx: *mut vm::Ctx) -> i64 = {
+    static ref CALL_WASM: unsafe extern "C" fn(
+        params: *const u8,
+        params_len: usize,
+        target: *const u8,
+        memory_base: *mut u8,
+        memory_size_pages: usize,
+        vmctx: *mut vm::Ctx
+    ) -> i64 = {
         let mut assembler = Assembler::new().unwrap();
         let offset = assembler.offset();
         dynasm!(
@@ -40,8 +47,16 @@ lazy_static! {
             ; push r13
             ; push r14
             ; push r15
+
             ; mov r15, rcx // memory_base
-            ; mov r14, r8 // vmctx
+
+            // Use the upper 16 bits of r15 to store memory size (in pages). This can support memory size up to 4GB.
+            // Wasmer currently only runs in usermode so here we assume the upper 17 bits of memory base address are all zero.
+            // FIXME: Change this if want to use this backend in kernel mode.
+            ; shl r8, 48
+            ; or r15, r8
+
+            ; mov r14, r9 // vmctx
             ; lea rax, [>after_call]
             ; push rax
             ; push rbp
@@ -196,7 +211,7 @@ impl Register {
             7 => R11,
             8 => RBX,
             9 => R12,
-            10 => R13,
+            // 10 => R13, // R13 is reserved as temporary register.
             // 11 => R14, // R14 is reserved for vmctx.
             // 12 => R15, // R15 is reserved for memory base pointer.
             _ => unreachable!(),
@@ -382,22 +397,22 @@ impl ProtectedCaller for X64ExecutionContext {
             }
         }
 
-        let memory_base: *mut u8 = if _module.info.memories.len() > 0 {
+        let (memory_base, memory_size): (*mut u8, usize) = if _module.info.memories.len() > 0 {
             if _module.info.memories.len() != 1 || _module.info.imported_memories.len() != 0 {
                 return Err(RuntimeError::Trap {
                     msg: "only one linear memory is supported".into(),
                 });
             }
-            unsafe { (**(*_vmctx).memories).base }
+            unsafe { ((**(*_vmctx).memories).base, (**(*_vmctx).memories).bound) }
         } else if _module.info.imported_memories.len() > 0 {
             if _module.info.memories.len() != 0 || _module.info.imported_memories.len() != 1 {
                 return Err(RuntimeError::Trap {
                     msg: "only one linear memory is supported".into(),
                 });
             }
-            unsafe { (**(*_vmctx).imported_memories).base }
+            unsafe { ((**(*_vmctx).imported_memories).base, (**(*_vmctx).imported_memories).bound) }
         } else {
-            ::std::ptr::null_mut()
+            (::std::ptr::null_mut(), 0)
         };
         //println!("MEMORY = {:?}", memory_base);
 
@@ -410,6 +425,7 @@ impl ProtectedCaller for X64ExecutionContext {
                     param_buf.len(),
                     ptr,
                     memory_base,
+                    memory_size.wrapping_shr(16),
                     _vmctx,
                 )
             })
@@ -545,22 +561,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
     for X64ModuleCodeGenerator
 {
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        for mem in module_info
-            .memories
-            .iter()
-            .map(|(_, v)| v)
-            .chain(module_info.imported_memories.iter().map(|(_, v)| &v.1))
-        {
-            match mem.memory_type() {
-                MemoryType::Dynamic => {
-                    return Err(CodegenError {
-                        message: "dynamic memory isn't supported yet",
-                    });
-                }
-                _ => {}
-            }
-        }
-
         Ok(())
     }
 
@@ -1375,6 +1375,46 @@ impl X64FunctionCode {
         Ok(())
     }
 
+    fn emit_update_memory_from_ctx(
+        assembler: &mut Assembler,
+        info: &ModuleInfo,
+    ) -> Result<(), CodegenError> {
+        if info.memories.len() > 0 {
+            if info.memories.len() != 1 || info.imported_memories.len() != 0 {
+                return Err(CodegenError {
+                    message: "only one linear memory is supported",
+                });
+            }
+            dynasm!(
+                assembler
+                ; mov r15, r14 => vm::Ctx.memories
+            );
+        } else if info.imported_memories.len() > 0 {
+            if info.memories.len() != 0 || info.imported_memories.len() != 1 {
+                return Err(CodegenError {
+                    message: "only one linear memory is supported",
+                });
+            }
+            dynasm!(
+                assembler
+                ; mov r15, r14 => vm::Ctx.imported_memories
+            );
+        } else {
+            return Ok(());
+        };
+
+        dynasm!(
+            assembler
+            ; mov r15, [r15]
+            ; mov r13, r15 => LocalMemory.bound
+            ; shr r13, 16 // 65536 bytes per page
+            ; shl r13, 48
+            ; mov r15, r15 => LocalMemory.base
+            ; or r15, r13
+        );
+        Ok(())
+    }
+
     fn emit_managed_call_trampoline(
         assembler: &mut Assembler,
         info: &ModuleInfo,
@@ -1416,7 +1456,7 @@ impl X64FunctionCode {
 
         dynasm!(
             assembler
-            ; mov r8, rdi // vmctx
+            ; mov r9, rdi // vmctx
             ; mov rdx, QWORD target.0 as usize as i64
             ; mov rsi, QWORD (num_params * 8) as i64
             ; mov rdi, rsp
@@ -1430,7 +1470,7 @@ impl X64FunctionCode {
             }
             dynasm!(
                 assembler
-                ; mov rcx, r8 => vm::Ctx.memories
+                ; mov rcx, r9 => vm::Ctx.memories
             );
             true
         } else if info.imported_memories.len() > 0 {
@@ -1441,7 +1481,7 @@ impl X64FunctionCode {
             }
             dynasm!(
                 assembler
-                ; mov rcx, r8 => vm::Ctx.imported_memories
+                ; mov rcx, r9 => vm::Ctx.imported_memories
             );
             true
         } else {
@@ -1452,6 +1492,8 @@ impl X64FunctionCode {
             dynasm!(
                 assembler
                 ; mov rcx, [rcx]
+                ; mov r8, rcx => LocalMemory.bound
+                ; shr r8, 16 // 65536 bytes per page
                 ; mov rcx, rcx => LocalMemory.base
             );
         } else {
@@ -1732,11 +1774,48 @@ impl X64FunctionCode {
         Ok(())
     }
 
+    fn emit_memory_bound_check_if_needed(
+        assembler: &mut Assembler,
+        module_info: &ModuleInfo,
+        offset_reg: Register,
+        value_size: usize,
+    ) {
+        let mem_desc = match MemoryIndex::new(0).local_or_import(module_info) {
+            LocalOrImport::Local(local_mem_index) => &module_info.memories[local_mem_index],
+            LocalOrImport::Import(import_mem_index) => &module_info.imported_memories[import_mem_index].1,
+        };
+        let need_check = match mem_desc.memory_type() {
+            MemoryType::Dynamic => true,
+            MemoryType::Static | MemoryType::SharedStatic => false,
+        };
+        if need_check || true {
+            dynasm!(
+                assembler
+                ; movq xmm5, r14
+                ; lea r14, [Rq(offset_reg as u8) + value_size as i32] // overflow isn't possible since offset_reg contains a 32-bit value.
+
+                ; mov r13, r15
+                ; shr r13, 48
+                ; shl r13, 16
+                ; cmp r14, r13
+                ; ja >out_of_bounds
+                ; jmp >ok
+
+                ; out_of_bounds:
+                ; ud2
+                ; ok:
+                ; movq r14, xmm5
+            );
+        }
+    }
+
     fn emit_memory_load<F: FnOnce(&mut Assembler, Register)>(
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
         f: F,
         out_ty: WpType,
+        module_info: &ModuleInfo,
+        read_size: usize,
     ) -> Result<(), CodegenError> {
         let addr_info = value_stack.pop()?;
         let out_loc = value_stack.push(out_ty);
@@ -1754,7 +1833,14 @@ impl X64FunctionCode {
                 let reg = Register::from_scratch_reg(x);
                 dynasm!(
                     assembler
+                    ; mov Rd(reg as u8), Rd(reg as u8)
+                );
+                Self::emit_memory_bound_check_if_needed(assembler, module_info, reg, read_size);
+                dynasm!(
+                    assembler
                     ; add Rq(reg as u8), r15
+                    ; shl Rq(reg as u8), 16
+                    ; shr Rq(reg as u8), 16
                 );
                 f(assembler, reg);
             }
@@ -1762,7 +1848,14 @@ impl X64FunctionCode {
                 dynasm!(
                     assembler
                     ; pop rax
+                    ; mov eax, eax
+                );
+                Self::emit_memory_bound_check_if_needed(assembler, module_info, Register::RAX, read_size);
+                dynasm!(
+                    assembler
                     ; add rax, r15
+                    ; shl rax, 16
+                    ; shr rax, 16
                 );
                 f(assembler, Register::RAX);
                 dynasm!(
@@ -1779,6 +1872,8 @@ impl X64FunctionCode {
         value_stack: &mut ValueStack,
         f: F,
         value_ty: WpType,
+        module_info: &ModuleInfo,
+        write_size: usize,
     ) -> Result<(), CodegenError> {
         let value_info = value_stack.pop()?;
         let addr_info = value_stack.pop()?;
@@ -1802,7 +1897,14 @@ impl X64FunctionCode {
                     Register::from_scratch_reg(addr_info.location.get_register().unwrap()); // must be a register
                 dynasm!(
                     assembler
+                    ; mov Rd(addr_reg as u8), Rd(addr_reg as u8)
+                );
+                Self::emit_memory_bound_check_if_needed(assembler, module_info, addr_reg, write_size);
+                dynasm!(
+                    assembler
                     ; add Rq(addr_reg as u8), r15
+                    ; shl Rq(addr_reg as u8), 16
+                    ; shr Rq(addr_reg as u8), 16
                 );
                 f(assembler, addr_reg, value_reg);
             }
@@ -1812,7 +1914,14 @@ impl X64FunctionCode {
                         let addr_reg = Register::from_scratch_reg(x);
                         dynasm!(
                             assembler
+                            ; mov Rd(addr_reg as u8), Rd(addr_reg as u8)
+                        );
+                        Self::emit_memory_bound_check_if_needed(assembler, module_info, addr_reg, write_size);
+                        dynasm!(
+                            assembler
                             ; add Rq(addr_reg as u8), r15
+                            ; shl Rq(addr_reg as u8), 16
+                            ; shr Rq(addr_reg as u8), 16
                             ; pop rax
                         );
                         f(assembler, addr_reg, Register::RAX);
@@ -1823,7 +1932,17 @@ impl X64FunctionCode {
                             ; mov [rsp - 8], rcx // red zone
                             ; pop rax // value
                             ; pop rcx // address
+                        );
+                        dynasm!(
+                            assembler
+                            ; mov ecx, ecx
+                        );
+                        Self::emit_memory_bound_check_if_needed(assembler, module_info, Register::RCX, write_size);
+                        dynasm!(
+                            assembler
                             ; add rcx, r15
+                            ; shl rcx, 16
+                            ; shr rcx, 16
                         );
                         f(assembler, Register::RCX, Register::RAX);
                         dynasm!(
@@ -3392,6 +3511,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                    module_info,
+                    4
                 )?;
             }
             Operator::I32Load8U { memarg } => {
@@ -3405,6 +3526,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                    module_info,
+                    1
                 )?;
             }
             Operator::I32Load8S { memarg } => {
@@ -3418,6 +3541,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                    module_info,
+                    1
                 )?;
             }
             Operator::I32Load16U { memarg } => {
@@ -3431,6 +3556,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                    module_info,
+                    2
                 )?;
             }
             Operator::I32Load16S { memarg } => {
@@ -3444,6 +3571,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                    module_info,
+                    2
                 )?;
             }
             Operator::I32Store { memarg } => {
@@ -3457,6 +3586,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                    module_info,
+                    4
                 )?;
             }
             Operator::I32Store8 { memarg } => {
@@ -3470,6 +3601,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                    module_info,
+                    1
                 )?;
             }
             Operator::I32Store16 { memarg } => {
@@ -3483,6 +3616,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I32,
+                    module_info,
+                    2
                 )?;
             }
             Operator::I64Load { memarg } => {
@@ -3496,6 +3631,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    8
                 )?;
             }
             Operator::I64Load8U { memarg } => {
@@ -3509,6 +3646,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    1
                 )?;
             }
             Operator::I64Load8S { memarg } => {
@@ -3522,6 +3661,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    1
                 )?;
             }
             Operator::I64Load16U { memarg } => {
@@ -3535,6 +3676,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    2
                 )?;
             }
             Operator::I64Load16S { memarg } => {
@@ -3548,6 +3691,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    2
                 )?;
             }
             Operator::I64Load32U { memarg } => {
@@ -3561,6 +3706,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    4
                 )?;
             }
             Operator::I64Load32S { memarg } => {
@@ -3574,6 +3721,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    4
                 )?;
             }
             Operator::I64Store { memarg } => {
@@ -3587,6 +3736,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    8
                 )?;
             }
             Operator::I64Store8 { memarg } => {
@@ -3600,6 +3751,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    1
                 )?;
             }
             Operator::I64Store16 { memarg } => {
@@ -3613,6 +3766,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    2
                 )?;
             }
             Operator::I64Store32 { memarg } => {
@@ -3626,6 +3781,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::I64,
+                    module_info,
+                    4
                 )?;
             }
             Operator::F32Const { value } => {
@@ -3676,6 +3833,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::F32,
+                    module_info,
+                    4
                 )?;
             }
             Operator::F32Store { memarg } => {
@@ -3689,6 +3848,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::F32,
+                    module_info,
+                    4
                 )?;
             }
             Operator::F64Load { memarg } => {
@@ -3702,6 +3863,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::F64,
+                    module_info,
+                    8
                 )?;
             }
             Operator::F64Store { memarg } => {
@@ -3715,6 +3878,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         );
                     },
                     WpType::F64,
+                    module_info,
+                    8
                 )?;
             }
             Operator::I32ReinterpretF32 => {
@@ -4813,8 +4978,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &module_info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            //MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_local,
-                            MemoryType::Dynamic => unimplemented!(),
+                            MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_local,
                             MemoryType::Static => self.native_trampolines.memory_size_static_local,
                             MemoryType::SharedStatic => {
                                 self.native_trampolines.memory_size_shared_local
@@ -4824,8 +4988,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Import(import_mem_index) => {
                         let mem_desc = &module_info.imported_memories[import_mem_index].1;
                         match mem_desc.memory_type() {
-                            //MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_import,
-                            MemoryType::Dynamic => unimplemented!(),
+                            MemoryType::Dynamic => self.native_trampolines.memory_size_dynamic_import,
                             MemoryType::Static => self.native_trampolines.memory_size_static_import,
                             MemoryType::SharedStatic => {
                                 self.native_trampolines.memory_size_shared_import
@@ -4841,8 +5004,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &module_info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            //MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_local,
-                            MemoryType::Dynamic => unimplemented!(),
+                            MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_local,
                             MemoryType::Static => self.native_trampolines.memory_grow_static_local,
                             MemoryType::SharedStatic => {
                                 self.native_trampolines.memory_grow_shared_local
@@ -4852,8 +5014,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     LocalOrImport::Import(import_mem_index) => {
                         let mem_desc = &module_info.imported_memories[import_mem_index].1;
                         match mem_desc.memory_type() {
-                            //MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_import,
-                            MemoryType::Dynamic => unimplemented!(),
+                            MemoryType::Dynamic => self.native_trampolines.memory_grow_dynamic_import,
                             MemoryType::Static => self.native_trampolines.memory_grow_static_import,
                             MemoryType::SharedStatic => {
                                 self.native_trampolines.memory_grow_shared_import
@@ -4868,6 +5029,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     &[WpType::I32],
                     &[WpType::I32],
                 )?;
+                Self::emit_update_memory_from_ctx(assembler, module_info)?;
             }
             _ => {
                 panic!("{:?}", op);
