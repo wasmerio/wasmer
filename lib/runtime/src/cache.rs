@@ -6,8 +6,8 @@ use std::{
     path::PathBuf,
 };
 
-use wasmer_runtime_core::cache::{Error as CacheError};
-pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash, cache_versioned_sub_directory};
+use wasmer_runtime_core::cache::Error as CacheError;
+pub use wasmer_runtime_core::cache::{cache_versioned_sub_directory, Artifact, Cache, WasmHash};
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
@@ -54,7 +54,10 @@ impl FileSystemCache {
             let metadata = path.metadata()?;
             if metadata.is_dir() {
                 if !metadata.permissions().readonly() {
-                    Ok(Self { path, versioned_sub_directory })
+                    Ok(Self {
+                        path,
+                        versioned_sub_directory,
+                    })
                 } else {
                     // This directory is readonly.
                     Err(io::Error::new(
@@ -75,7 +78,10 @@ impl FileSystemCache {
         } else {
             // Create the directory and any parent directories if they don't yet exist.
             create_dir_all(&path)?;
-            Ok(Self { path, versioned_sub_directory })
+            Ok(Self {
+                path,
+                versioned_sub_directory,
+            })
         }
     }
 }

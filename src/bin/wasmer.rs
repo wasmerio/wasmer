@@ -12,7 +12,9 @@ use structopt::StructOpt;
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
-use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, cache_versioned_sub_directory};
+use wasmer_runtime::cache::{
+    cache_versioned_sub_directory, Cache as BaseCache, FileSystemCache, WasmHash,
+};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
