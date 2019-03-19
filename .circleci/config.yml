@@ -305,7 +305,7 @@ jobs:
             #fi
   trigger-benchmark-build:
     docker:
-      - image: circleci/classic:latest
+      - image: circleci/rust:latest
     steps:
       - run:
           name: "Trigger Benchmark Build"
