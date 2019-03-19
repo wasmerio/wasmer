@@ -152,7 +152,8 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
     module.instantiate(import_object)
 }
 
-fn default_compiler() -> &'static dyn Compiler {
+/// Get a single instance of the default compiler to use.
+pub fn default_compiler() -> &'static dyn Compiler {
     use lazy_static::lazy_static;
 
     #[cfg(feature = "llvm")]

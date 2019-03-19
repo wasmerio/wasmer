@@ -8,13 +8,23 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 readme = "README.md"
 
-[dependencies]
-wasmer-runtime = { path = "../runtime", version = "0.2.1" }
-wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
-libc = "0.2"
-
 [lib]
 crate-type = ["cdylib", "rlib", "staticlib"]
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.wasmer-runtime]
+path = "../runtime"
+version = "0.2.1"
+
+[dependencies.wasmer-runtime-core]
+path = "../runtime-core"
+version = "0.2.1"
+
+[features]
+debug = ["wasmer-runtime/debug"]
+llvm = ["wasmer-runtime/llvm"]
 
 [build-dependencies]
 cbindgen = "0.8"
