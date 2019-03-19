@@ -12,9 +12,7 @@ use structopt::StructOpt;
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
-use wasmer_runtime::cache::{
-    cache_versioned_sub_directory, Cache as BaseCache, FileSystemCache, WasmHash,
-};
+use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -73,7 +71,7 @@ fn get_cache_dir() -> PathBuf {
         Err(_) => {
             // We use a temporal directory for saving cache files
             let mut temp_dir = env::temp_dir();
-            temp_dir.push(cache_versioned_sub_directory());
+            temp_dir.push(WASMER_VERSION_HASH);
             temp_dir.push("wasmer");
             temp_dir
         }

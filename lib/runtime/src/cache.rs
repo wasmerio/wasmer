@@ -7,7 +7,7 @@ use std::{
 };
 
 use wasmer_runtime_core::cache::Error as CacheError;
-pub use wasmer_runtime_core::cache::{cache_versioned_sub_directory, Artifact, Cache, WasmHash};
+pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash, WASMER_VERSION_HASH};
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
@@ -36,7 +36,6 @@ pub use wasmer_runtime_core::cache::{cache_versioned_sub_directory, Artifact, Ca
 /// ```
 pub struct FileSystemCache {
     path: PathBuf,
-    versioned_sub_directory: String,
 }
 
 impl FileSystemCache {
@@ -48,16 +47,12 @@ impl FileSystemCache {
     /// stored in this cache haven't been corrupted or tampered with.
     pub unsafe fn new<P: Into<PathBuf>>(path: P) -> io::Result<Self> {
         let path: PathBuf = path.into();
-        let versioned_sub_directory = cache_versioned_sub_directory();
 
         if path.exists() {
             let metadata = path.metadata()?;
             if metadata.is_dir() {
                 if !metadata.permissions().readonly() {
-                    Ok(Self {
-                        path,
-                        versioned_sub_directory,
-                    })
+                    Ok(Self { path })
                 } else {
                     // This directory is readonly.
                     Err(io::Error::new(
@@ -78,10 +73,7 @@ impl FileSystemCache {
         } else {
             // Create the directory and any parent directories if they don't yet exist.
             create_dir_all(&path)?;
-            Ok(Self {
-                path,
-                versioned_sub_directory,
-            })
+            Ok(Self { path })
         }
     }
 }
@@ -93,7 +85,7 @@ impl Cache for FileSystemCache {
     fn load(&self, key: WasmHash) -> Result<Module, CacheError> {
         let filename = key.encode();
         let mut new_path_buf = self.path.clone();
-        new_path_buf.push(&self.versioned_sub_directory);
+        new_path_buf.push(WASMER_VERSION_HASH);
         new_path_buf.push(filename);
         let file = File::open(new_path_buf)?;
         let mmap = unsafe { Mmap::map(&file)? };
@@ -105,7 +97,7 @@ impl Cache for FileSystemCache {
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), CacheError> {
         let filename = key.encode();
         let mut new_path_buf = self.path.clone();
-        new_path_buf.push(&self.versioned_sub_directory);
+        new_path_buf.push(WASMER_VERSION_HASH);
         new_path_buf.push(filename);
 
         let serialized_cache = module.cache()?;
