@@ -7,8 +7,8 @@ type CallProtectedResult = Result<(), CallProtectedData>;
 #[repr(C)]
 pub struct CallProtectedData {
     pub code: u64,
-    pub exceptionAddress: u64,
-    pub instructionPointer: u64,
+    pub exception_address: u64,
+    pub instruction_pointer: u64,
 }
 
 extern "C" {
@@ -32,8 +32,8 @@ pub fn _call_protected(
 ) -> CallProtectedResult {
     let mut out_result = CallProtectedData {
         code: 0,
-        exceptionAddress: 0,
-        instructionPointer: 0,
+        exception_address: 0,
+        instruction_pointer: 0,
     };
     let result = unsafe {
         __call_protected(

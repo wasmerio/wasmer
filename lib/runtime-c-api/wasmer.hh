@@ -418,7 +418,7 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
 /// Returns true for valid wasm bytes and false for invalid bytes
-bool wasmer_validate(uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
+bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 
 } // extern "C"
 
