@@ -422,6 +422,14 @@ wasmer_byte_array wasmer_serialized_module_bytes(const wasmer_serialized_module_
 /// Frees memory for the given serialized Module.
 void wasmer_serialized_module_destroy(wasmer_serialized_module_t *serialized_module);
 
+/// Transform a sequence of bytes into a serialized module.
+/// The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_serialized_module_from_bytes(wasmer_serialized_module_t **serialized_module,
+                                                    const wasmer_byte_array *serialized_module_bytes);
+
 /// Frees memory for the given Table
 void wasmer_table_destroy(wasmer_table_t *table);
 

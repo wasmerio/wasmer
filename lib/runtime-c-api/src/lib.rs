@@ -627,6 +627,36 @@ pub unsafe extern "C" fn wasmer_serialized_module_bytes(
     }
 }
 
+/// Transform a sequence of bytes into a serialized module.
+///
+/// The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_serialized_module_from_bytes(
+    serialized_module: *mut *mut wasmer_serialized_module_t,
+    serialized_module_bytes: *const wasmer_byte_array,
+) -> wasmer_result_t {
+    if serialized_module.is_null() {
+        update_last_error(CApiError {
+            msg: "`serialized_module_bytes` pointer is null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    let serialized_module_bytes: &[u8] = slice::from_raw_parts(
+        (*serialized_module_bytes).bytes,
+        (*serialized_module_bytes).bytes_len as usize,
+    );
+
+    *serialized_module = Box::into_raw(Box::new(serialized_module_bytes)) as _;
+    wasmer_result_t::WASMER_OK
+}
+
 /// Deserialize the given serialized module.
 ///
 /// Returns `wasmer_result_t::WASMER_OK` upon success.

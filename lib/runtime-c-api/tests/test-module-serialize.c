@@ -63,8 +63,21 @@ int main()
     assert(results[0].value.I32 == 15);
     assert(call_result == WASMER_OK);
 
+    wasmer_serialized_module_t *serialized_module_two = NULL;
+    wasmer_result_t serialized_module_from_bytes_result = wasmer_serialized_module_from_bytes(&serialized_module_two, &serialized_module_bytes);
+    assert(serialized_module_from_bytes_result == WASMER_OK);
+
+    wasmer_module_t *module_three = NULL;
+    wasmer_result_t unserialized_result_two = wasmer_module_deserialize(&module_three, serialized_module_two);
+    assert(unserialized_result_two == WASMER_OK);
+
+    wasmer_instance_t *instance_two = NULL;
+    wasmer_result_t instantiate_result_two = wasmer_module_instantiate(module_three, &instance, imports, 0);
+    assert(instantiate_result_two == WASMER_OK);
+
     printf("Destroy the serialized module\n");
     wasmer_serialized_module_destroy(serialized_module);
+    wasmer_serialized_module_destroy(serialized_module_two);
 
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);
