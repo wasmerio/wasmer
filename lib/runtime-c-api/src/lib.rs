@@ -10,15 +10,22 @@ use std::fmt;
 use std::slice;
 use std::sync::Arc;
 use std::{ffi::c_void, ptr};
-use wasmer_runtime::{Ctx, Global, ImportObject, Instance, Memory, Module, Table, Value};
+use wasmer_runtime::{
+    default_compiler, Ctx, Global, ImportObject, Instance, Memory, Module, Table, Value,
+};
+use wasmer_runtime_core::cache::Artifact;
 use wasmer_runtime_core::export::{Context, Export, FuncPointer};
 use wasmer_runtime_core::import::Namespace;
+use wasmer_runtime_core::load_cache_with;
 use wasmer_runtime_core::module::{ExportIndex, ImportName};
 use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
 use wasmer_runtime_core::units::{Bytes, Pages};
 
 #[repr(C)]
 pub struct wasmer_module_t;
+
+#[repr(C)]
+pub struct wasmer_serialized_module_t;
 
 #[repr(C)]
 pub struct wasmer_instance_t;
@@ -165,7 +172,7 @@ pub unsafe extern "C" fn wasmer_validate(
     if wasm_bytes.is_null() {
         return false;
     }
-    let bytes: &[u8] = ::std::slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
 
     wasmer_runtime_core::validate(bytes)
 }
@@ -310,7 +317,7 @@ pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> uint32_t {
 #[no_mangle]
 pub extern "C" fn wasmer_table_destroy(table: *mut wasmer_table_t) {
     if !table.is_null() {
-        drop(unsafe { Box::from_raw(table as *mut Table) });
+        unsafe { Box::from_raw(table as *mut Table) };
     }
 }
 
@@ -365,7 +372,7 @@ pub extern "C" fn wasmer_global_get_descriptor(
 #[no_mangle]
 pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
     if !global.is_null() {
-        drop(unsafe { Box::from_raw(global as *mut Global) });
+        unsafe { Box::from_raw(global as *mut Global) };
     }
 }
 
@@ -374,7 +381,7 @@ pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
 #[no_mangle]
 pub extern "C" fn wasmer_memory_destroy(memory: *mut wasmer_memory_t) {
     if !memory.is_null() {
-        drop(unsafe { Box::from_raw(memory as *mut Memory) });
+        unsafe { Box::from_raw(memory as *mut Memory) };
     }
 }
 
@@ -391,7 +398,7 @@ pub unsafe extern "C" fn wasmer_compile(
     wasm_bytes: *mut uint8_t,
     wasm_bytes_len: uint32_t,
 ) -> wasmer_result_t {
-    let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
     let result = wasmer_runtime::compile(bytes);
     let new_module = match result {
         Ok(instance) => instance,
@@ -509,13 +516,11 @@ pub struct NamedExportDescriptors(Vec<NamedExportDescriptor>);
 /// Frees the memory for the given export descriptors
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_export_descriptors_destroy(
+pub extern "C" fn wasmer_export_descriptors_destroy(
     export_descriptors: *mut wasmer_export_descriptors_t,
 ) {
     if !export_descriptors.is_null() {
-        drop(Box::from_raw(
-            export_descriptors as *mut NamedExportDescriptors,
-        ));
+        unsafe { Box::from_raw(export_descriptors as *mut NamedExportDescriptors) };
     }
 }
 
@@ -569,12 +574,150 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
     named_export_descriptor.kind.clone()
 }
 
+/// Serialize the given Module.
+///
+/// The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_serialize(
+    serialized_module: *mut *mut wasmer_serialized_module_t,
+    module: *const wasmer_module_t,
+) -> wasmer_result_t {
+    let module = &*(module as *const Module);
+
+    match module.cache() {
+        Ok(artifact) => match artifact.serialize() {
+            Ok(serialized_artifact) => {
+                *serialized_module = Box::into_raw(Box::new(serialized_artifact)) as _;
+
+                wasmer_result_t::WASMER_OK
+            }
+            Err(_) => {
+                update_last_error(CApiError {
+                    msg: "Failed to serialize the module artifact".to_string(),
+                });
+                wasmer_result_t::WASMER_ERROR
+            }
+        },
+        Err(_) => {
+            update_last_error(CApiError {
+                msg: "Failed to serialize the module".to_string(),
+            });
+            wasmer_result_t::WASMER_ERROR
+        }
+    }
+}
+
+/// Get bytes of the serialized module.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_serialized_module_bytes(
+    serialized_module: *const wasmer_serialized_module_t,
+) -> wasmer_byte_array {
+    let serialized_module = &*(serialized_module as *const &[u8]);
+
+    wasmer_byte_array {
+        bytes: serialized_module.as_ptr(),
+        bytes_len: serialized_module.len() as u32,
+    }
+}
+
+/// Transform a sequence of bytes into a serialized module.
+///
+/// The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_serialized_module_from_bytes(
+    serialized_module: *mut *mut wasmer_serialized_module_t,
+    serialized_module_bytes: *const uint8_t,
+    serialized_module_bytes_length: uint32_t,
+) -> wasmer_result_t {
+    if serialized_module.is_null() {
+        update_last_error(CApiError {
+            msg: "`serialized_module_bytes` pointer is null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    let serialized_module_bytes: &[u8] = slice::from_raw_parts(
+        serialized_module_bytes,
+        serialized_module_bytes_length as usize,
+    );
+
+    *serialized_module = Box::into_raw(Box::new(serialized_module_bytes)) as _;
+    wasmer_result_t::WASMER_OK
+}
+
+/// Deserialize the given serialized module.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_module_deserialize(
+    module: *mut *mut wasmer_module_t,
+    serialized_module: *const wasmer_serialized_module_t,
+) -> wasmer_result_t {
+    if serialized_module.is_null() {
+        update_last_error(CApiError {
+            msg: "`serialized_module` pointer is null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    let serialized_module: &[u8] = &*(serialized_module as *const &[u8]);
+
+    match Artifact::deserialize(serialized_module) {
+        Ok(artifact) => match load_cache_with(artifact, default_compiler()) {
+            Ok(deserialized_module) => {
+                *module = Box::into_raw(Box::new(deserialized_module)) as _;
+                wasmer_result_t::WASMER_OK
+            }
+            Err(_) => {
+                update_last_error(CApiError {
+                    msg: "Failed to compile the serialized module".to_string(),
+                });
+                wasmer_result_t::WASMER_ERROR
+            }
+        },
+        Err(_) => {
+            update_last_error(CApiError {
+                msg: "Failed to deserialize the module".to_string(),
+            });
+            wasmer_result_t::WASMER_ERROR
+        }
+    }
+}
+
+/// Frees memory for the given serialized Module.
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub extern "C" fn wasmer_serialized_module_destroy(
+    serialized_module: *mut wasmer_serialized_module_t,
+) {
+    if !serialized_module.is_null() {
+        unsafe { Box::from_raw(serialized_module as *mut &[u8]) };
+    }
+}
+
 /// Frees memory for the given Module
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_module_destroy(module: *mut wasmer_module_t) {
     if !module.is_null() {
-        drop(unsafe { Box::from_raw(module as *mut Module) });
+        unsafe { Box::from_raw(module as *mut Module) };
     }
 }
 
@@ -682,13 +825,11 @@ pub struct NamedImportDescriptors(Vec<NamedImportDescriptor>);
 /// Frees the memory for the given import descriptors
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_import_descriptors_destroy(
+pub extern "C" fn wasmer_import_descriptors_destroy(
     import_descriptors: *mut wasmer_import_descriptors_t,
 ) {
     if !import_descriptors.is_null() {
-        drop(Box::from_raw(
-            import_descriptors as *mut NamedImportDescriptors,
-        ));
+        unsafe { Box::from_raw(import_descriptors as *mut NamedImportDescriptors) };
     }
 }
 
@@ -831,7 +972,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
         import_object.register(module_name, namespace);
     }
 
-    let bytes: &[u8] = ::std::slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
     let result = wasmer_runtime::instantiate(bytes, &import_object);
     let new_instance = match result {
         Ok(instance) => instance,
@@ -964,9 +1105,9 @@ pub struct NamedExports(Vec<NamedExport>);
 /// Frees the memory for the given exports
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
+pub extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
     if !exports.is_null() {
-        drop(Box::from_raw(exports as *mut NamedExports));
+        unsafe { Box::from_raw(exports as *mut NamedExports) };
     }
 }
 
@@ -1255,7 +1396,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 #[no_mangle]
 pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
     if !func.is_null() {
-        drop(unsafe { Box::from_raw(func as *mut Export) });
+        unsafe { Box::from_raw(func as *mut Export) };
     }
 }
 
@@ -1395,7 +1536,7 @@ pub extern "C" fn wasmer_memory_data_length(mem: *mut wasmer_memory_t) -> uint32
 #[no_mangle]
 pub extern "C" fn wasmer_instance_destroy(instance: *mut wasmer_instance_t) {
     if !instance.is_null() {
-        drop(unsafe { Box::from_raw(instance as *mut Instance) });
+        unsafe { Box::from_raw(instance as *mut Instance) };
     }
 }
 
