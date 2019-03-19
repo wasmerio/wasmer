@@ -207,3 +207,14 @@ pub trait Cache {
     fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
+
+const WASMER_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
+/// Returns a unique ID generated from the version of Wasmer for use with cache versioning
+pub fn cache_versioned_sub_directory() -> String {
+    let mut state = blake2bp::State::new();
+    state.update(WASMER_VERSION.as_bytes());
+
+    let hasher = state.finalize();
+    hasher.to_hex().as_str().to_owned()
+}
