@@ -9,7 +9,7 @@ jobs:
       - restore_cache:
           keys:
             - v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run: 
+      - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
@@ -41,7 +41,7 @@ jobs:
       - restore_cache:
           keys:
             - v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run: 
+      - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
@@ -140,7 +140,7 @@ jobs:
       - restore_cache:
           keys:
             - v6-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run: 
+      - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
@@ -260,7 +260,7 @@ jobs:
       - restore_cache:
           keys:
             - v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
-      - run: 
+      - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
@@ -306,6 +306,22 @@ jobs:
             #    echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
             #    exit 1
             #fi
+  trigger-benchmark-build:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - run:
+          name: "Trigger Benchmark Build"
+          command: |
+            if [[ -z "${CIRCLE_API_USER_TOKEN}" ]]; then
+               echo "CIRCLE_API_USER_TOKEN environment variable not set"
+               exit 1
+            else
+               echo "Triggering benchmark build"
+               curl -u ${CIRCLE_API_USER_TOKEN} \
+                    -d build_parameters[CIRCLE_JOB]=bench \
+                    https://circleci.com/api/v1.1/project/github/wasmerio/wasmer-bench/tree/master
+            fi
 
 workflows:
   version: 2
@@ -345,6 +361,13 @@ workflows:
             - lint
             - test-and-build
             - test-and-build-macos
+          filters:
+            branches:
+              only: master
+      - trigger-benchmark-build:
+          requires:
+            - test-and-build
+            - lint
           filters:
             branches:
               only: master
