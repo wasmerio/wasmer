@@ -64,7 +64,11 @@ int main()
     assert(call_result == WASMER_OK);
 
     wasmer_serialized_module_t *serialized_module_two = NULL;
-    wasmer_result_t serialized_module_from_bytes_result = wasmer_serialized_module_from_bytes(&serialized_module_two, &serialized_module_bytes);
+    wasmer_result_t serialized_module_from_bytes_result = wasmer_serialized_module_from_bytes(
+        &serialized_module_two,
+        serialized_module_bytes.bytes,
+        serialized_module_bytes.bytes_len
+    );
     assert(serialized_module_from_bytes_result == WASMER_OK);
 
     wasmer_module_t *module_three = NULL;

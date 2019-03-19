@@ -428,7 +428,8 @@ void wasmer_serialized_module_destroy(wasmer_serialized_module_t *serialized_mod
 /// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_serialized_module_from_bytes(wasmer_serialized_module_t **serialized_module,
-                                                    const wasmer_byte_array *serialized_module_bytes);
+                                                    const uint8_t *serialized_module_bytes,
+                                                    uint32_t serialized_module_bytes_length);
 
 /// Frees memory for the given Table
 void wasmer_table_destroy(wasmer_table_t *table);

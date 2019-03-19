@@ -639,7 +639,8 @@ pub unsafe extern "C" fn wasmer_serialized_module_bytes(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_serialized_module_from_bytes(
     serialized_module: *mut *mut wasmer_serialized_module_t,
-    serialized_module_bytes: *const wasmer_byte_array,
+    serialized_module_bytes: *const uint8_t,
+    serialized_module_bytes_length: uint32_t,
 ) -> wasmer_result_t {
     if serialized_module.is_null() {
         update_last_error(CApiError {
@@ -649,8 +650,8 @@ pub unsafe extern "C" fn wasmer_serialized_module_from_bytes(
     }
 
     let serialized_module_bytes: &[u8] = slice::from_raw_parts(
-        (*serialized_module_bytes).bytes,
-        (*serialized_module_bytes).bytes_len as usize,
+        serialized_module_bytes,
+        serialized_module_bytes_length as usize,
     );
 
     *serialized_module = Box::into_raw(Box::new(serialized_module_bytes)) as _;
