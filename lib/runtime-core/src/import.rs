@@ -41,7 +41,13 @@ impl IsExport for Export {
 /// }
 /// ```
 pub struct ImportObject {
-    map: Rc<RefCell<HashMap<String, Box<dyn LikeNamespace>>>>,
+    map: Rc<RefCell<HashMap<(String, String), Box<dyn IsExport>>>>,
+}
+
+pub struct ImportObjectEntry {
+    namespace: String,
+    identifier: String,
+    export: Export,
 }
 
 impl ImportObject {
@@ -66,12 +72,11 @@ impl ImportObject {
     ///     // ...
     /// }
     /// ```
-    pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
+    pub fn register<S, N>(&mut self, namespace: S, identifier: S) -> Option<Box<dyn LikeNamespace>>
     where
         S: Into<String>,
-        N: LikeNamespace + 'static,
     {
-        let mut map = self.map.borrow_mut();
+        /*let mut map = self.map.borrow_mut();
 
         match map.entry(name.into()) {
             Entry::Vacant(empty) => {
@@ -80,21 +85,51 @@ impl ImportObject {
             }
             Entry::Occupied(mut occupied) => Some(occupied.insert(Box::new(namespace))),
         }
+        */
+        unimplemented!()
     }
 
-    pub fn get_namespace(&self, namespace: &str) -> Option<Ref<dyn LikeNamespace + 'static>> {
-        let map_ref = self.map.borrow();
-
-        if map_ref.contains_key(namespace) {
-            Some(Ref::map(map_ref, |map| &*map[namespace]))
-        } else {
-            None
-        }
+    pub fn get<S>(&self, namespace: S, identifier: S) -> Option<Export>
+    where
+        S: Into<String>,
+    {
+        self.map
+            .borrow()
+            .get(&(namespace.into(), identifier.into()))
+            .map(|e| e.to_export())
     }
 
     pub fn clone_ref(&self) -> Self {
         Self {
             map: Rc::clone(&self.map),
+        }
+    }
+}
+
+impl Extend<ImportObjectEntry> for ImportObject {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = ImportObjectEntry>,
+    {
+        for ImportObjectEntry {
+            namespace,
+            identifier,
+            export,
+        } in iter.into_iter()
+        {
+            if let Some(dupe_export) = self.get(namespace.as_ref(), identifier.as_ref()) {
+                panic!(
+                    "Duplicate entry {:?} {:?} found in {} {} ",
+                    dupe_export.to_export(),
+                    export,
+                    namespace,
+                    identifier
+                );
+            } else {
+                self.map
+                    .borrow_mut()
+                    .insert((namespace, identifier), Box::new(export));
+            }
         }
     }
 }

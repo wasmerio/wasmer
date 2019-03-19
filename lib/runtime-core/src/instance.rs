@@ -4,7 +4,7 @@ use crate::{
     error::{CallError, CallResult, ResolveError, ResolveResult, Result},
     export::{Context, Export, ExportIter, FuncPointer},
     global::Global,
-    import::{ImportObject, LikeNamespace},
+    import::{ImportObject, IsExport, LikeNamespace},
     memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
     sig_registry::SigRegistry,
