@@ -1,8 +1,12 @@
 use std::panic;
 use wasmer_runtime::{
     self as runtime,
-    error::{CallResult, Result},
+    error::{CallError, CallResult, ResolveError, Result},
     ImportObject, Instance, Module,
+};
+use wasmer_runtime_core::{
+    export::Export,
+    types::{Type, Value},
 };
 
 use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
@@ -85,9 +89,108 @@ pub fn run_instance(
 ) -> CallResult<()> {
     if is_emscripten_module(module) {
         run_emscripten_instance(module, instance, path, args)?;
-    } else {
-        instance.call("main", &[])?;
-    };
 
-    Ok(())
+        Ok(())
+    } else {
+        instance
+            .exports()
+            .find_map(
+                |(export_name, export)| match (export_name.as_ref(), export) {
+                    ("main", Export::Function { signature, .. }) => Some(signature),
+                    _ => None,
+                },
+            )
+            .ok_or_else(|| {
+                CallError::Resolve(ResolveError::ExportNotFound {
+                    name: "main".to_string(),
+                })
+            })
+            .and_then(|signature| {
+                let signature = signature.clone();
+                let parameter_types = signature.params();
+
+                if args.len() != parameter_types.len() {
+                    Err(CallError::Resolve(ResolveError::Signature {
+                        expected: (*signature).clone(),
+                        found: args.iter().map(|_| Type::I32).collect(),
+                    }))
+                } else {
+                    args.iter()
+                        .enumerate()
+                        .try_fold(
+                            Vec::with_capacity(args.len()),
+                            |mut accumulator, (nth, argument)| {
+                                if let Some(value) = match parameter_types[nth] {
+                                    Type::I32 => argument
+                                        .parse::<i32>()
+                                        .map(|v| Some(Value::I32(v)))
+                                        .unwrap_or_else(|_| {
+                                            eprintln!(
+                                                "Failed to parse `{:?}` as an `i32`",
+                                                argument
+                                            );
+                                            None
+                                        }),
+                                    Type::I64 => argument
+                                        .parse::<i64>()
+                                        .map(|v| Some(Value::I64(v)))
+                                        .unwrap_or_else(|_| {
+                                            eprintln!(
+                                                "Failed to parse `{:?}` as an `i64`",
+                                                argument
+                                            );
+                                            None
+                                        }),
+                                    Type::F32 => argument
+                                        .parse::<f32>()
+                                        .map(|v| Some(Value::F32(v)))
+                                        .unwrap_or_else(|_| {
+                                            eprintln!(
+                                                "Failed to parse `{:?}` as an `f32`",
+                                                argument
+                                            );
+                                            None
+                                        }),
+                                    Type::F64 => argument
+                                        .parse::<f64>()
+                                        .map(|v| Some(Value::F64(v)))
+                                        .unwrap_or_else(|_| {
+                                            eprintln!(
+                                                "Failed to parse `{:?}` as an `f64`",
+                                                argument
+                                            );
+                                            None
+                                        }),
+                                } {
+                                    accumulator.push(value);
+
+                                    Some(accumulator)
+                                } else {
+                                    None
+                                }
+                            },
+                        )
+                        .map_or_else(
+                            || {
+                                Err(CallError::Resolve(ResolveError::ExportWrongType {
+                                    name: "main".to_string(),
+                                }))
+                            },
+                            |arguments| Ok(arguments),
+                        )
+                }
+            })
+            .map(|arguments| match instance.call("main", &arguments[..]) {
+                Ok(result) => result
+                    .iter()
+                    .enumerate()
+                    .for_each(|(nth, value)| match value {
+                        Value::I32(e) => println!("result_{} = i32 : {}", nth, e),
+                        Value::I64(e) => println!("result_{} = i64 : {}", nth, e),
+                        Value::F32(e) => println!("result_{} = f32 : {}", nth, e),
+                        Value::F64(e) => println!("result_{} = f64 : {}", nth, e),
+                    }),
+                Err(error) => eprintln!("{}", error),
+            })
+    }
 }
