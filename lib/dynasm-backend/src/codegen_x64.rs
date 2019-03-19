@@ -560,7 +560,7 @@ impl X64ModuleCodeGenerator {
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolver>
     for X64ModuleCodeGenerator
 {
-    fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         Ok(())
     }
 
@@ -1788,7 +1788,7 @@ impl X64FunctionCode {
             MemoryType::Dynamic => true,
             MemoryType::Static | MemoryType::SharedStatic => false,
         };
-        if need_check || true {
+        if need_check {
             dynasm!(
                 assembler
                 ; movq xmm5, r14
@@ -5110,7 +5110,7 @@ unsafe extern "C" fn call_indirect(
     mut stack_top: *mut u8,
     stack_base: *mut u8,
     vmctx: *mut vm::Ctx,
-    memory_base: *mut u8,
+    _memory_base: *mut u8,
 ) -> u64 {
     let elem_index = *(stack_top as *mut u32) as usize;
     stack_top = stack_top.offset(8);
