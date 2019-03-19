@@ -31,3 +31,6 @@ lazy_static = "1.2.0"
 regex = "1.1.0"
 semver = "0.9"
 rustc_version = "0.2.3"
+
+[dev-dependencies]
+wabt = "0.7.4"

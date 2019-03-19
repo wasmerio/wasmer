@@ -85,8 +85,9 @@ extern "C" {
         callbacks: Callbacks,
         module_out: &mut *mut LLVMModule,
     ) -> LLVMResult;
-    fn module_delete(module: *mut LLVMModule);
     fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
+    fn get_stackmap(module: *mut LLVMModule, size_out: &mut usize) -> Option<NonNull<u8>>;
+    fn module_delete(module: *mut LLVMModule);
 
     fn throw_trap(ty: i32);
 
@@ -259,6 +260,17 @@ impl LLVMBackend {
                 &mut module,
             )
         };
+
+        {
+            let mut size = 0;
+            if let Some(stackmap_ptr) = unsafe { get_stackmap(module, &mut size) } {
+                use super::stackmap::Stackmap;
+
+                let stackmap_slice = unsafe { slice::from_raw_parts(stackmap_ptr.as_ptr(), size) };
+                let stackmap = Stackmap::parse(stackmap_slice).unwrap();
+                println!("{:#?}", stackmap);
+            }
+        }
 
         static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
 

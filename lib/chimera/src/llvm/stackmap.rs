@@ -55,6 +55,7 @@ pub struct StackMapRecord {
     pub live_outs: Box<[LiveOut]>,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Stackmap {
     pub header: Header,
     pub stack_size_records: Box<[StackSizeRecord]>,
