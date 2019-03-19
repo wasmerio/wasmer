@@ -6,8 +6,8 @@ use std::{
     path::PathBuf,
 };
 
-use wasmer_runtime_core::cache::{Error as CacheError, cache_versioned_sub_directory};
-pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash};
+use wasmer_runtime_core::cache::{Error as CacheError};
+pub use wasmer_runtime_core::cache::{Artifact, Cache, WasmHash, cache_versioned_sub_directory};
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
