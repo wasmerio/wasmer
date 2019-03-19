@@ -1,3 +1,7 @@
+use crate::{
+    code::Code,
+    pool::{AllocId, PagePool},
+};
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -18,7 +22,8 @@ use wasmer_runtime_core::{
     },
 };
 use wasmparser::{
-    BinaryReaderError, CodeSectionReader, LocalsReader, MemoryImmediate, Operator, OperatorsReader,
+    BinaryReaderError, CodeSectionReader, FunctionBody, LocalsReader, MemoryImmediate, Operator,
+    OperatorsReader,
 };
 
 use super::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
@@ -58,10 +63,95 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
     }
 }
 
-pub fn parse_function_bodies(
+// pub fn parse_function_bodies(
+//     info: &ModuleInfo,
+//     code_reader: CodeSectionReader,
+// ) -> Result<(Module, Intrinsics), BinaryReaderError> {
+//     let context = Context::create();
+//     let module = context.create_module("module");
+//     let builder = context.create_builder();
+
+//     let intrinsics = Intrinsics::declare(&module, &context);
+
+//     let personality_func = module.add_function(
+//         "__gxx_personality_v0",
+//         intrinsics.i32_ty.fn_type(&[], false),
+//         Some(Linkage::External),
+//     );
+
+//     let signatures: Map<SigIndex, FunctionType> = info
+//         .signatures
+//         .iter()
+//         .map(|(_, sig)| func_sig_to_llvm(&context, &intrinsics, sig))
+//         .collect();
+//     let functions: Map<LocalFuncIndex, FunctionValue> = info
+//         .func_assoc
+//         .iter()
+//         .skip(info.imported_functions.len())
+//         .map(|(func_index, &sig_index)| {
+//             let func = module.add_function(
+//                 &format!("fn{}", func_index.index()),
+//                 signatures[sig_index],
+//                 Some(Linkage::External),
+//             );
+//             func.set_personality_function(personality_func);
+//             func
+//         })
+//         .collect();
+
+//     for (local_func_index, body) in code_reader.into_iter().enumerate() {
+//         let body = body?;
+
+//         let locals_reader = body.get_locals_reader()?;
+//         let op_reader = body.get_operators_reader()?;
+
+//         parse_function(
+//             &context,
+//             &module,
+//             &builder,
+//             &intrinsics,
+//             info,
+//             &signatures,
+//             &functions,
+//             LocalFuncIndex::new(local_func_index),
+//             locals_reader,
+//             op_reader,
+//         )
+//         .map_err(|e| BinaryReaderError {
+//             message: e.message,
+//             offset: local_func_index,
+//         })?;
+//     }
+
+//     // module.print_to_stderr();
+
+//     generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
+
+//     let pass_manager = PassManager::create_for_module();
+//     // pass_manager.add_verifier_pass();
+//     pass_manager.add_function_inlining_pass();
+//     pass_manager.add_promote_memory_to_register_pass();
+//     pass_manager.add_cfg_simplification_pass();
+//     // pass_manager.add_instruction_combining_pass();
+//     pass_manager.add_aggressive_inst_combiner_pass();
+//     pass_manager.add_merged_load_store_motion_pass();
+//     // pass_manager.add_sccp_pass();
+//     // pass_manager.add_gvn_pass();
+//     pass_manager.add_new_gvn_pass();
+//     pass_manager.add_aggressive_dce_pass();
+//     pass_manager.run_on_module(&module);
+
+//     // module.print_to_stderr();
+
+//     Ok((module, intrinsics))
+// }
+
+fn compile_function(
+    pool: &PagePool,
     info: &ModuleInfo,
-    code_reader: CodeSectionReader,
-) -> Result<(Module, Intrinsics), BinaryReaderError> {
+    func_index: LocalFuncIndex,
+    body: FunctionBody,
+) -> Result<AllocId<Code>, BinaryReaderError> {
     let context = Context::create();
     let module = context.create_module("module");
     let builder = context.create_builder();
@@ -79,48 +169,34 @@ pub fn parse_function_bodies(
         .iter()
         .map(|(_, sig)| func_sig_to_llvm(&context, &intrinsics, sig))
         .collect();
-    let functions: Map<LocalFuncIndex, FunctionValue> = info
-        .func_assoc
-        .iter()
-        .skip(info.imported_functions.len())
-        .map(|(func_index, &sig_index)| {
-            let func = module.add_function(
-                &format!("fn{}", func_index.index()),
-                signatures[sig_index],
-                Some(Linkage::External),
-            );
-            func.set_personality_function(personality_func);
-            func
-        })
-        .collect();
 
-    for (local_func_index, body) in code_reader.into_iter().enumerate() {
-        let body = body?;
+    let global_func_index = func_index.convert_up(info);
 
-        let locals_reader = body.get_locals_reader()?;
-        let op_reader = body.get_operators_reader()?;
+    let this_function = module.add_function(
+        &format!("fn{}", global_func_index.index()),
+        signatures[info.func_assoc[global_func_index]],
+        Some(Linkage::External),
+    );
+    this_function.set_personality_function(personality_func);
 
-        parse_function(
-            &context,
-            &module,
-            &builder,
-            &intrinsics,
-            info,
-            &signatures,
-            &functions,
-            LocalFuncIndex::new(local_func_index),
-            locals_reader,
-            op_reader,
-        )
-        .map_err(|e| BinaryReaderError {
-            message: e.message,
-            offset: local_func_index,
-        })?;
-    }
+    parse_function(
+        &context,
+        &module,
+        &builder,
+        &intrinsics,
+        info,
+        &signatures,
+        this_function,
+        func_index,
+        body.get_locals_reader()?,
+        body.get_operators_reader()?,
+    )
+    .map_err(|e| BinaryReaderError {
+        message: e.message,
+        offset: -1isize as usize,
+    })?;
 
     // module.print_to_stderr();
-
-    generate_trampolines(info, &signatures, &module, &context, &builder, &intrinsics);
 
     let pass_manager = PassManager::create_for_module();
     // pass_manager.add_verifier_pass();
@@ -137,8 +213,7 @@ pub fn parse_function_bodies(
     pass_manager.run_on_module(&module);
 
     // module.print_to_stderr();
-
-    Ok((module, intrinsics))
+    Ok(Code::new(pool, 0, &[], ()).unwrap())
 }
 
 fn parse_function(
@@ -148,7 +223,7 @@ fn parse_function(
     intrinsics: &Intrinsics,
     info: &ModuleInfo,
     signatures: &SliceMap<SigIndex, FunctionType>,
-    functions: &SliceMap<LocalFuncIndex, FunctionValue>,
+    function: FunctionValue,
     func_index: LocalFuncIndex,
     locals_reader: LocalsReader,
     op_reader: OperatorsReader,
@@ -157,7 +232,6 @@ fn parse_function(
     let func_sig = &info.signatures[sig_index];
     let llvm_sig = &signatures[sig_index];
 
-    let function = functions[func_index];
     let mut state = State::new();
     let entry_block = context.append_basic_block(&function, "entry");
 

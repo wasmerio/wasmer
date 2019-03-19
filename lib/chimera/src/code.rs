@@ -1,6 +1,7 @@
 use crate::pool::{AllocErr, AllocId, AllocMetadata, ItemAlloc, PagePool};
 use std::{
     alloc::{alloc, Layout},
+    any::Any,
     mem::{align_of, size_of},
     slice,
 };
@@ -9,6 +10,7 @@ use wasmer_runtime_core::types::FuncIndex;
 struct CodeAlloc<'a> {
     call_offsets: &'a [CallOffset],
     code_size: u32,
+    keep_alive: Box<dyn Any>,
 }
 
 unsafe impl<'a> ItemAlloc for CodeAlloc<'a> {
@@ -24,6 +26,7 @@ unsafe impl<'a> ItemAlloc for CodeAlloc<'a> {
     }
 
     unsafe fn in_place(self, header: *mut Code) {
+        (*header).keep_alive = self.keep_alive;
         (*header).code_size = self.code_size;
         (*header).call_offsets_len = self.call_offsets.len() as u32;
         self.call_offsets
@@ -40,6 +43,7 @@ pub struct CallOffset {
 
 #[repr(C)]
 pub struct Code {
+    keep_alive: Box<dyn Any>,
     code_size: u32,
     call_offsets_len: u32,
     call_offsets: [CallOffset; 0],
@@ -50,8 +54,10 @@ impl Code {
         pool: &PagePool,
         code_size: u32,
         call_offsets: &[CallOffset],
+        keep_alive: impl Any,
     ) -> Result<AllocId<Code>, AllocErr> {
         let code_alloc = CodeAlloc {
+            keep_alive: Box::new(keep_alive),
             call_offsets,
             code_size,
         };

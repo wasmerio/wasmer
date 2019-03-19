@@ -12,7 +12,7 @@ use wasmer_runtime_core::{
 use wasmparser::{self, WasmDecoder};
 
 mod backend;
-mod code;
+mod compile;
 mod intrinsics;
 mod platform;
 mod read_info;
@@ -34,41 +34,42 @@ impl Compiler for LLVMCompiler {
     fn compile(&self, wasm: &[u8], _: Token) -> Result<ModuleInner, CompileError> {
         validate(wasm)?;
 
-        let (info, code_reader) = read_info::read_module(wasm).unwrap();
-        let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
+        // let (info, code_reader) = read_info::read_module(wasm).unwrap();
+        unimplemented!()
+        // let (module, intrinsics) = compile::parse_function_bodies(&info, code_reader).unwrap();
 
-        let (backend, protected_caller) = backend::LLVMBackend::new(module, intrinsics);
+        // let (backend, protected_caller) = backend::LLVMBackend::new(module, intrinsics);
 
-        // Create placeholder values here.
-        let cache_gen = {
-            use wasmer_runtime_core::backend::{
-                sys::Memory, CacheGen, ProtectedCaller, UserTrapper,
-            };
-            use wasmer_runtime_core::cache::Error as CacheError;
-            use wasmer_runtime_core::error::RuntimeResult;
-            use wasmer_runtime_core::module::ModuleInfo;
-            use wasmer_runtime_core::types::{FuncIndex, Value};
-            use wasmer_runtime_core::vm;
-            struct Placeholder;
-            impl CacheGen for Placeholder {
-                fn generate_cache(
-                    &self,
-                    module: &ModuleInner,
-                ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
-                    unimplemented!()
-                }
-            }
+        // // Create placeholder values here.
+        // let cache_gen = {
+        //     use wasmer_runtime_core::backend::{
+        //         sys::Memory, CacheGen, ProtectedCaller, UserTrapper,
+        //     };
+        //     use wasmer_runtime_core::cache::Error as CacheError;
+        //     use wasmer_runtime_core::error::RuntimeResult;
+        //     use wasmer_runtime_core::module::ModuleInfo;
+        //     use wasmer_runtime_core::types::{FuncIndex, Value};
+        //     use wasmer_runtime_core::vm;
+        //     struct Placeholder;
+        //     impl CacheGen for Placeholder {
+        //         fn generate_cache(
+        //             &self,
+        //             module: &ModuleInner,
+        //         ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+        //             unimplemented!()
+        //         }
+        //     }
 
-            Box::new(Placeholder)
-        };
+        //     Box::new(Placeholder)
+        // };
 
-        Ok(ModuleInner {
-            func_resolver: Box::new(backend),
-            protected_caller: Box::new(protected_caller),
-            cache_gen,
+        // Ok(ModuleInner {
+        //     func_resolver: Box::new(backend),
+        //     protected_caller: Box::new(protected_caller),
+        //     cache_gen,
 
-            info,
-        })
+        //     info,
+        // })
     }
 
     unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
@@ -162,17 +163,17 @@ mod tests {
 
         let (info, code_reader) = read_info::read_module(&wasm).unwrap();
 
-        let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
+        // let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
-        let (backend, _caller) = backend::LLVMBackend::new(module, intrinsics);
+        // let (backend, _caller) = backend::LLVMBackend::new(module, intrinsics);
 
-        let func_ptr = backend.get_func(&info, LocalFuncIndex::new(1)).unwrap();
+        // let func_ptr = backend.get_func(&info, LocalFuncIndex::new(1)).unwrap();
 
-        println!("func_ptr: {:p}", func_ptr.as_ptr());
+        // println!("func_ptr: {:p}", func_ptr.as_ptr());
 
-        unsafe {
-            disass_ptr(func_ptr.cast().as_ptr(), 100, 5);
-        }
+        // unsafe {
+        //     disass_ptr(func_ptr.cast().as_ptr(), 100, 5);
+        // }
 
         // unsafe {
         //     let func: unsafe extern "C" fn(*mut vm::Ctx, i32) -> i32 = transmute(func_ptr);

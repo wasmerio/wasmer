@@ -42,7 +42,7 @@ pub enum AllocErr {
 
 struct PagePoolInner {
     memory: Memory,
-    offset_map: Vec<(usize, TypeId)>,
+    offset_map: Vec<(usize, TypeId, unsafe fn(*mut u8))>,
     bump_page: usize,
 }
 
@@ -85,7 +85,11 @@ impl PagePool {
         }
 
         let vec_offset = inner.offset_map.len();
-        inner.offset_map.push((offset, TypeId::of::<A::Output>()));
+        inner.offset_map.push((
+            offset,
+            TypeId::of::<A::Output>(),
+            get_drop_glue::<A::Output>(),
+        ));
 
         unsafe {
             inner
@@ -108,7 +112,7 @@ impl PagePool {
 
     pub fn get<T>(&self, index: &AllocId<T>) -> &T {
         let inner = self.inner.lock();
-        let (offset, type_id) = inner.offset_map[index.0 as usize];
+        let (offset, type_id, _) = inner.offset_map[index.0 as usize];
         assert_eq!(type_id, TypeId::of::<T>(), "types must match");
 
         unsafe { &*(self.memory_start.add(offset) as *const T) }
@@ -116,11 +120,30 @@ impl PagePool {
 
     pub fn get_mut<T>(&self, index: &mut AllocId<T>) -> &mut T {
         let inner = self.inner.lock();
-        let (offset, type_id) = inner.offset_map[index.0 as usize];
+        let (offset, type_id, _) = inner.offset_map[index.0 as usize];
         assert_eq!(type_id, TypeId::of::<T>(), "types must match");
 
         unsafe { &mut *(self.memory_start.add(offset) as *mut T) }
     }
+}
+
+impl Drop for PagePool {
+    fn drop(&mut self) {
+        let memory_start = self.memory_start;
+        let inner = self.inner.lock();
+        for &(offset, _, drop_fn) in inner.offset_map.iter() {
+            unsafe {
+                drop_fn(memory_start.add(offset));
+            }
+        }
+    }
+}
+
+fn get_drop_glue<T>() -> unsafe fn(*mut u8) {
+    fn do_it<T>(x: *mut u8) {
+        unsafe { std::ptr::drop_in_place(x as *mut T) }
+    }
+    do_it::<T>
 }
 
 /// Round `size` up to the nearest multiple of `page_size`.
