@@ -25,7 +25,6 @@ use libc::{
     in_addr_t,
     in_port_t,
     ioctl,
-    kill,
     lchown,
     link,
     // iovec,
@@ -249,10 +248,10 @@ pub fn ___syscall41(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     unsafe { dup(fd) }
 }
 
-// tkill? REVIEW: double check this, truncate on OSX?
-pub fn ___syscall200(_ctx: &mut Ctx, pid: pid_t, sig: c_int) -> i32 {
-    debug!("emscripten::___syscall200 (tkill)");
-    unsafe { kill(pid, sig) }
+/// getgid
+pub fn ___syscall200(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall200 (getgid)");
+    unsafe { getgid() as i32 }
 }
 
 // getgid
