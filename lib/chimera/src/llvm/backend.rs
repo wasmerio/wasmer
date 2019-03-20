@@ -1,5 +1,9 @@
 use super::intrinsics::Intrinsics;
 use super::platform;
+use crate::{
+    pool::{PagePool, AllocId},
+    code::Code,
+};
 use inkwell::{
     memory_buffer::MemoryBuffer,
     module::Module,
@@ -33,7 +37,7 @@ use wasmer_runtime_core::{
 };
 
 #[repr(C)]
-struct LLVMModule {
+struct LLVMFunction {
     _private: [u8; 0],
 }
 
@@ -212,17 +216,17 @@ fn get_callbacks() -> Callbacks {
     }
 }
 
-unsafe impl Send for LLVMBackend {}
-unsafe impl Sync for LLVMBackend {}
+unsafe impl Send for Function {}
+unsafe impl Sync for Function {}
 
-pub struct LLVMBackend {
-    module: *mut LLVMModule,
+pub struct Function {
+    func: *mut LLVMFunction,
     #[allow(dead_code)]
     memory_buffer: MemoryBuffer,
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, intrinsics: Intrinsics) -> (Self, LLVMProtectedCaller) {
+    pub fn new(module: Module, intrinsics: Intrinsics) ->  {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
             asm_printer: true,
