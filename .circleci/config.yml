@@ -167,6 +167,10 @@ jobs:
             echo "${VERSION}" >> artifacts/version
             echo "${CIRCLE_TAG}" >> artifacts/git_version
             cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
+      - run:
+          name: Debug flag checked
+          command: |
+            cargo check --features "debug"
       - persist_to_workspace:
           root: .
           paths:
