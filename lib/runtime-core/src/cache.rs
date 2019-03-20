@@ -207,3 +207,7 @@ pub trait Cache {
     fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
+
+/// A unique ID generated from the version of Wasmer for use with cache versioning
+pub const WASMER_VERSION_HASH: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/wasmer_version_hash.txt"));

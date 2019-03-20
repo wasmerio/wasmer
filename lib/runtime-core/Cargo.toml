@@ -46,3 +46,5 @@ field-offset = "0.1.1"
 [features]
 debug = []
 
+[build-dependencies]
+blake2b_simd = "0.4.1"
