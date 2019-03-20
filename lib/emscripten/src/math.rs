@@ -12,6 +12,18 @@ pub fn _llvm_log2_f64(_ctx: &mut Ctx, value: f64) -> f64 {
     value.log2()
 }
 
+/// emscripten: _llvm_sin_f64
+pub fn _llvm_sin_f64(_ctx: &mut Ctx, value: f64) -> f64 {
+    debug!("emscripten::_llvm_sin_f64");
+    value.sin()
+}
+
+/// emscripten: _llvm_cos_f64
+pub fn _llvm_cos_f64(_ctx: &mut Ctx, value: f64) -> f64 {
+    debug!("emscripten::_llvm_cos_f64");
+    value.cos()
+}
+
 pub fn _llvm_log10_f32(_ctx: &mut Ctx, _value: f64) -> f64 {
     debug!("emscripten::_llvm_log10_f32");
     -1.0

@@ -421,9 +421,21 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "___lock" => func!(crate::lock::___lock),
             "___unlock" => func!(crate::lock::___unlock),
             "___wait" => func!(crate::lock::___wait),
+            "_flock" => func!(crate::lock::_flock),
+            "_chroot" => func!(crate::io::chroot),
+            "_getprotobyname" => func!(crate::io::getprotobyname),
+            "_getprotobynumber" => func!(crate::io::getprotobynumber),
+            "_getpwuid" => func!(crate::io::getpwuid),
+            "_longjmp" => func!(crate::io::longjmp),
+            "_sigdelset" => func!(crate::io::sigdelset),
+            "_sigfillset" => func!(crate::io::sigfillset),
+            "_tzset" => func!(crate::io::tzset),
+            "_strptime" => func!(crate::io::strptime),
 
             // exec
             "_execvp" => func!(crate::exec::execvp),
+            "_execl" => func!(crate::exec::execl),
+            "_execle" => func!(crate::exec::execle),
 
             // exit
             "__exit" => func!(crate::exit::exit),
@@ -547,6 +559,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_setgroups" => func!(crate::process::_setgroups),
             "_setitimer" => func!(crate::process::_setitimer),
             "_usleep" => func!(crate::process::_usleep),
+            "_nanosleep" => func!(crate::process::_nanosleep),
             "_utimes" => func!(crate::process::_utimes),
             "_waitpid" => func!(crate::process::_waitpid),
 
@@ -594,6 +607,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_llvm_log2_f64" => func!(crate::math::_llvm_log2_f64),
             "_llvm_log10_f32" => func!(crate::math::_llvm_log10_f32),
             "_llvm_log2_f32" => func!(crate::math::_llvm_log2_f64),
+            "_llvm_sin_f64" => func!(crate::math::_llvm_sin_f64),
+            "_llvm_cos_f64" => func!(crate::math::_llvm_cos_f64),
             "_emscripten_random" => func!(crate::math::_emscripten_random),
 
             // Jump
@@ -641,7 +656,12 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_pthread_mutexattr_settype" => func!(crate::emscripten_target::_pthread_mutexattr_settype),
             "_pthread_rwlock_rdlock" => func!(crate::emscripten_target::_pthread_rwlock_rdlock),
             "_pthread_rwlock_unlock" => func!(crate::emscripten_target::_pthread_rwlock_unlock),
+            "_pthread_setcancelstate" => func!(crate::emscripten_target::_pthread_setcancelstate),
             "___gxx_personality_v0" => func!(crate::emscripten_target::___gxx_personality_v0),
+            "_getdtablesize" => func!(crate::emscripten_target::_getdtablesize),
+            "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
+            "_gethostbyname_r" => func!(crate::emscripten_target::_gethostbyname_r),
+            "_getloadavg" => func!(crate::emscripten_target::_getloadavg),
             // round 2
             "nullFunc_dii" => func!(crate::emscripten_target::nullFunc_dii),
             "nullFunc_diiii" => func!(crate::emscripten_target::nullFunc_diiii),

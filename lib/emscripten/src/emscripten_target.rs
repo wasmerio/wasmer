@@ -1,6 +1,8 @@
 #![allow(non_snake_case)]
 
 use crate::env::get_emscripten_data;
+#[cfg(target_os = "linux")]
+use libc::getdtablesize;
 use wasmer_runtime_core::vm::Ctx;
 
 pub fn setTempRet0(_ctx: &mut Ctx, _a: i32) {
@@ -171,6 +173,10 @@ pub fn _pthread_rwlock_unlock(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_rwlock_unlock");
     0
 }
+pub fn _pthread_setcancelstate(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_pthread_setcancelstate");
+    0
+}
 pub fn ___gxx_personality_v0(
     _ctx: &mut Ctx,
     _a: i32,
@@ -181,6 +187,37 @@ pub fn ___gxx_personality_v0(
     _f: i32,
 ) -> i32 {
     debug!("emscripten::___gxx_personality_v0");
+    0
+}
+#[cfg(target_os = "linux")]
+pub fn _getdtablesize(_ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::getdtablesize");
+    unsafe { getdtablesize() }
+}
+#[cfg(not(target_os = "linux"))]
+pub fn _getdtablesize(_ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::getdtablesize");
+    -1
+}
+pub fn _gethostbyaddr(_ctx: &mut Ctx, _addr: i32, _addrlen: i32, _atype: i32) -> i32 {
+    debug!("emscripten::gethostbyaddr");
+    0
+}
+pub fn _gethostbyname_r(
+    _ctx: &mut Ctx,
+    _name: i32,
+    _ret: i32,
+    _buf: i32,
+    _buflen: i32,
+    _out: i32,
+    _err: i32,
+) -> i32 {
+    debug!("emscripten::gethostbyname_r");
+    0
+}
+// NOTE: php.js has proper impl; libc has proper impl for linux
+pub fn _getloadavg(_ctx: &mut Ctx, _loadavg: i32, _nelem: i32) -> i32 {
+    debug!("emscripten::getloadavg");
     0
 }
 // round 2

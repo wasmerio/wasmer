@@ -121,6 +121,11 @@ pub fn _usleep(_ctx: &mut Ctx, _one: i32) -> i32 {
     -1
 }
 
+pub fn _nanosleep(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::_nanosleep");
+    -1
+}
+
 pub fn _utimes(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::_utimes");
     -1
