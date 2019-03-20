@@ -37,3 +37,13 @@ pub fn f64_rem(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
 pub fn pow(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
     x.powf(y)
 }
+
+// emscripten: global.Math exp
+pub fn exp(_ctx: &mut Ctx, value: f64) -> f64 {
+    value.exp()
+}
+
+// emscripten: global.Math log
+pub fn log(_ctx: &mut Ctx, value: f64) -> f64 {
+    value.ln()
+}

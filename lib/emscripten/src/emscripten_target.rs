@@ -287,6 +287,26 @@ pub fn invoke_iiiiii(
         panic!("dyn_call_iiiiii is set to None");
     }
 }
+pub fn invoke_iiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiiiiii");
+    if let Some(dyn_call_iiiiiii) = &get_emscripten_data(ctx).dyn_call_iiiiiii {
+        dyn_call_iiiiiii
+            .call(index, a1, a2, a3, a4, a5, a6)
+            .unwrap()
+    } else {
+        panic!("dyn_call_iiiiiii is set to None");
+    }
+}
+
 pub fn invoke_vd(ctx: &mut Ctx, index: i32, a1: f64) {
     debug!("emscripten::invoke_vd");
     if let Some(dyn_call_vd) = &get_emscripten_data(ctx).dyn_call_vd {
@@ -571,5 +591,13 @@ pub fn invoke_vijj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32
         dyn_call_vijj.call(index, a1, a2, a3, a4, a5).unwrap()
     } else {
         panic!("dyn_call_vijj is set to None");
+    }
+}
+pub fn invoke_viidii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: f64, a4: i32, a5: i32) {
+    debug!("emscripten::invoke_viidii");
+    if let Some(dyn_call_viidii) = &get_emscripten_data(ctx).dyn_call_viidii {
+        dyn_call_viidii.call(index, a1, a2, a3, a4, a5).unwrap();
+    } else {
+        panic!("dyn_call_viidii is set to None");
     }
 }

@@ -94,6 +94,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_diiii: Option<Func<'a, (i32, i32, i32, i32, i32), f64>>,
     pub dyn_call_iiiii: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_vd: Option<Func<'a, (i32, f64)>>,
     pub dyn_call_viiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
@@ -117,6 +118,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_viji: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_viidii: Option<Func<'a, (i32, i32, i32, f64, i32, i32)>>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -146,6 +148,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_diiii = instance.func("dynCall_diiii").ok();
         let dyn_call_iiiii = instance.func("dynCall_iiiii").ok();
         let dyn_call_iiiiii = instance.func("dynCall_iiiiii").ok();
+        let dyn_call_iiiiiii = instance.func("dynCall_iiiiiii").ok();
         let dyn_call_vd = instance.func("dynCall_vd").ok();
         let dyn_call_viiiii = instance.func("dynCall_viiiii").ok();
         let dyn_call_viiiiii = instance.func("dynCall_viiiiii").ok();
@@ -168,6 +171,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_viji = instance.func("dynCall_viji").ok();
         let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
         let dyn_call_vijj = instance.func("dynCall_vijj").ok();
+        let dyn_call_viidii = instance.func("dynCall_viidii").ok();
 
         EmscriptenData {
             malloc,
@@ -191,6 +195,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_diiii,
             dyn_call_iiiii,
             dyn_call_iiiiii,
+            dyn_call_iiiiiii,
             dyn_call_vd,
             dyn_call_viiiii,
             dyn_call_viiiiii,
@@ -213,6 +218,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_viji,
             dyn_call_vijiii,
             dyn_call_vijj,
+            dyn_call_viidii,
         }
     }
 }
@@ -457,13 +463,17 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "___syscall4" => func!(crate::syscalls::___syscall4),
             "___syscall5" => func!(crate::syscalls::___syscall5),
             "___syscall6" => func!(crate::syscalls::___syscall6),
+            "___syscall9" => func!(crate::syscalls::___syscall9),
             "___syscall10" => func!(crate::syscalls::___syscall10),
             "___syscall12" => func!(crate::syscalls::___syscall12),
             "___syscall15" => func!(crate::syscalls::___syscall15),
             "___syscall20" => func!(crate::syscalls::___syscall20),
+            "___syscall33" => func!(crate::syscalls::___syscall33),
+            "___syscall34" => func!(crate::syscalls::___syscall34),
             "___syscall39" => func!(crate::syscalls::___syscall39),
             "___syscall38" => func!(crate::syscalls::___syscall38),
             "___syscall40" => func!(crate::syscalls::___syscall40),
+            "___syscall41" => func!(crate::syscalls::___syscall41),
             "___syscall42" => func!(crate::syscalls::___syscall42),
             "___syscall54" => func!(crate::syscalls::___syscall54),
             "___syscall57" => func!(crate::syscalls::___syscall57),
@@ -472,6 +482,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "___syscall64" => func!(crate::syscalls::___syscall64),
             "___syscall66" => func!(crate::syscalls::___syscall66),
             "___syscall75" => func!(crate::syscalls::___syscall75),
+            "___syscall77" => func!(crate::syscalls::___syscall77),
+            "___syscall83" => func!(crate::syscalls::___syscall83),
             "___syscall85" => func!(crate::syscalls::___syscall85),
             "___syscall91" => func!(crate::syscalls::___syscall191),
             "___syscall97" => func!(crate::syscalls::___syscall97),
@@ -493,10 +505,14 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "___syscall195" => func!(crate::syscalls::___syscall195),
             "___syscall196" => func!(crate::syscalls::___syscall196),
             "___syscall197" => func!(crate::syscalls::___syscall197),
+            "___syscall198" => func!(crate::syscalls::___syscall198),
             "___syscall199" => func!(crate::syscalls::___syscall199),
+            "___syscall200" => func!(crate::syscalls::___syscall200),
             "___syscall201" => func!(crate::syscalls::___syscall201),
             "___syscall202" => func!(crate::syscalls::___syscall202),
+            "___syscall205" => func!(crate::syscalls::___syscall205),
             "___syscall212" => func!(crate::syscalls::___syscall212),
+            "___syscall219" => func!(crate::syscalls::___syscall219),
             "___syscall220" => func!(crate::syscalls::___syscall220),
             "___syscall221" => func!(crate::syscalls::___syscall221),
             "___syscall268" => func!(crate::syscalls::___syscall268),
@@ -652,6 +668,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "invoke_diiii" => func!(crate::emscripten_target::invoke_diiii),
             "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),
             "invoke_iiiiii" => func!(crate::emscripten_target::invoke_iiiiii),
+            "invoke_iiiiiii" => func!(crate::emscripten_target::invoke_iiiiiii),
             "invoke_vd" => func!(crate::emscripten_target::invoke_vd),
             "invoke_viiiii" => func!(crate::emscripten_target::invoke_viiiii),
             "invoke_viiiiii" => func!(crate::emscripten_target::invoke_viiiiii),
@@ -674,6 +691,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "invoke_viji" => func!(crate::emscripten_target::invoke_viji),
             "invoke_vijiii" => func!(crate::emscripten_target::invoke_vijiii),
             "invoke_vijj" => func!(crate::emscripten_target::invoke_vijj),
+            "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
         },
         "global" => {
           "NaN" => Global::new(Value::F64(f64::NAN)),
@@ -681,6 +699,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
         "global.Math" => {
             "pow" => func!(crate::math::pow),
+            "exp" => func!(crate::math::exp),
+            "log" => func!(crate::math::log),
         },
         "asm2wasm" => {
             "f64-rem" => func!(crate::math::f64_rem),
