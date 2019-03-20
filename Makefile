@@ -51,9 +51,6 @@ release:
 	cargo build --release
 
 debug-release:
-	cargo build --release --features debug
-
-debug-release:
 	cargo build --release --features "debug"
 
 publish-release:
