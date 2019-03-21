@@ -1,16 +1,12 @@
+use crate::syscalls::emscripten_vfs::FileHandle::{Socket, VirtualFile};
+use crate::syscalls::emscripten_vfs::{FileHandle, VirtualFd};
 use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
 use crate::varargs::VarArgs;
 use libc::stat;
+use std::ffi::c_void;
 use std::os::raw::c_int;
 use std::slice;
 use wasmer_runtime_core::vm::Ctx;
-
-// Another conditional constant for name resolution: Macos et iOS use
-// SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
-// Other platforms do otherwise.
-use crate::syscalls::emscripten_vfs::FileHandle::{Socket, VirtualFile};
-use crate::syscalls::emscripten_vfs::{FileHandle, VirtualFd};
-use std::ffi::c_void;
 
 /// read
 pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
@@ -394,12 +390,6 @@ pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("fstat return: {}", ret);
     ret
 }
-
-// getgid
-//pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-//    debug!("emscripten::___syscall201 (getgid)");
-//    0
-//}
 
 // socketcall
 #[allow(clippy::cast_ptr_alignment)]
@@ -874,4 +864,39 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
 
     result
+}
+
+/// dup3
+pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> libc::pid_t {
+    unimplemented!();
+    // Implementation based on description at https://linux.die.net/man/2/dup3
+    debug!("emscripten::___syscall330 (dup3)");
+    let oldfd: c_int = varargs.get(ctx);
+    let newfd: c_int = varargs.get(ctx);
+    let flags: c_int = varargs.get(ctx);
+
+    if oldfd == newfd {
+        return libc::EINVAL;
+    }
+
+    let res = unsafe { libc::dup2(oldfd, newfd) };
+
+    // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
+    let mut old_flags = unsafe { libc::fcntl(newfd, libc::F_GETFD, 0) };
+
+    if old_flags > 0 {
+        old_flags |= flags;
+    } else if old_flags == 0 {
+        old_flags &= !flags;
+    }
+
+    unsafe {
+        libc::fcntl(newfd, libc::F_SETFD, old_flags);
+    }
+
+    debug!(
+        "=> oldfd: {}, newfd: {}, flags: {} = pid: {}",
+        oldfd, newfd, flags, res
+    );
+    res
 }

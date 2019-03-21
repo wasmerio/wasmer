@@ -1,12 +1,7 @@
-use std::slice;
-
 use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
 use crate::varargs::VarArgs;
-use libc::{
-    c_int, c_void, connect, fcntl, ioctl, pid_t,
-    recvfrom, recvmsg, sa_family_t, select, sendmsg, sendto, setsockopt, sockaddr, socket,
-    socklen_t, EINVAL, FIOCLEX, FIONBIO, F_GETFD, F_SETFD, SOL_SOCKET, SO_REUSEADDR, TIOCGWINSZ,
-};
+use libc::{c_int, c_void, ioctl, sockaddr, socklen_t};
+use std::slice;
 use wasmer_runtime_core::vm::Ctx;
 
 /// read
@@ -120,7 +115,7 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
             // FIONBIO
             let argp: u32 = varargs.get(ctx);
             let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-            let ret = unsafe { ioctl(fd, FIONBIO, argp_ptr) };
+            let ret = unsafe { ioctl(fd, libc::FIONBIO, argp_ptr) };
             debug!("ret(FIONBIO): {}", ret);
             ret
             // 0
@@ -129,7 +124,7 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
             // TIOCGWINSZ
             let argp: u32 = varargs.get(ctx);
             let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
-            let ret = unsafe { ioctl(fd, TIOCGWINSZ, argp_ptr) };
+            let ret = unsafe { ioctl(fd, libc::TIOCGWINSZ, argp_ptr) };
             debug!("ret(TIOCGWINSZ): {} (harcoded to 0)", ret);
             // ret
             // TODO: We hardcode the value to have emscripten tests pass, as for some reason
@@ -159,7 +154,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     #[repr(C)]
     pub struct GuestSockaddrIn {
-        pub sin_family: sa_family_t,
+        pub sin_family: libc::sa_family_t,
         // u16
         pub sin_port: libc::in_port_t,
         // u16
@@ -196,16 +191,16 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let domain: i32 = socket_varargs.get(ctx);
             let ty: i32 = socket_varargs.get(ctx);
             let protocol: i32 = socket_varargs.get(ctx);
-            let fd = unsafe { socket(domain, ty, protocol) };
+            let fd = unsafe { libc::socket(domain, ty, protocol) };
             // set_cloexec
             unsafe {
-                ioctl(fd, FIOCLEX);
+                ioctl(fd, libc::FIOCLEX);
             };
 
             let _err = errno::errno();
 
             let _result =
-                unsafe { libc::setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, 0 as *const _, 4) };
+                unsafe { libc::setsockopt(fd, libc::SOL_SOCKET, SO_NOSIGPIPE, 0 as *const _, 4) };
 
             let _err2 = errno::errno();
 
@@ -247,7 +242,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address: u32 = socket_varargs.get(ctx);
             let address_len = socket_varargs.get(ctx);
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
-            unsafe { connect(socket, address, address_len) }
+            unsafe { libc::connect(socket, address, address_len) }
         }
         4 => {
             debug!("socket: listen");
@@ -290,7 +285,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
             // set_cloexec
             unsafe {
-                ioctl(fd, FIOCLEX);
+                ioctl(fd, libc::FIOCLEX);
             };
 
             debug!("fd: {}", fd);
@@ -330,7 +325,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address_len = socket_varargs.get(ctx);
             let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
-            unsafe { sendto(socket, buf_addr, flags, len, address, address_len) as i32 }
+            unsafe { libc::sendto(socket, buf_addr, flags, len, address, address_len) as i32 }
         }
         12 => {
             debug!("socket: recvfrom");
@@ -345,7 +340,9 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             let address_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
-            unsafe { libc::recvfrom(socket, buf_addr, flags, len, address, address_len_addr) as i32 }
+            unsafe {
+                libc::recvfrom(socket, buf_addr, flags, len, address, address_len_addr) as i32
+            }
         }
         14 => {
             debug!("socket: setsockopt");
@@ -357,15 +354,15 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
             let socket = socket_varargs.get(ctx);
             // SOL_SOCKET = 0xffff (BSD, Linux)
-            let level: i32 = SOL_SOCKET;
+            let level: i32 = libc::SOL_SOCKET;
             let _: u32 = socket_varargs.get(ctx);
             // SO_REUSEADDR = 0x4 (BSD, Linux)
-            let name: i32 = SO_REUSEADDR;
+            let name: i32 = libc::SO_REUSEADDR;
             let _: u32 = socket_varargs.get(ctx);
             let value: u32 = socket_varargs.get(ctx);
             let option_len = socket_varargs.get(ctx);
             let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as _; // Endian problem
-            let ret = unsafe { setsockopt(socket, level, name, value_addr, option_len) };
+            let ret = unsafe { libc::setsockopt(socket, level, name, value_addr, option_len) };
 
             debug!("=> socketfd: {}, level: {} (SOL_SOCKET/0xffff), name: {} (SO_REUSEADDR/4), value_addr: {:?}, option_len: {} = status: {}", socket, level, name, value_addr, option_len, ret);
             ret
@@ -381,7 +378,8 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as _;
             let option_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), option_len) as *mut socklen_t;
-            let result = unsafe { libc::getsockopt(socket, level, name, value_addr, option_len_addr) };
+            let result =
+                unsafe { libc::getsockopt(socket, level, name, value_addr, option_len_addr) };
             result
         }
         16 => {
@@ -391,7 +389,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let msg: u32 = socket_varargs.get(ctx);
             let flags: i32 = socket_varargs.get(ctx);
             let msg_addr = emscripten_memory_pointer!(ctx.memory(0), msg) as *const libc::msghdr;
-            unsafe { sendmsg(socket, msg_addr, flags) as i32 }
+            unsafe { libc::sendmsg(socket, msg_addr, flags) as i32 }
         }
         17 => {
             debug!("socket: recvmsg");
@@ -400,7 +398,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let msg: u32 = socket_varargs.get(ctx);
             let flags: i32 = socket_varargs.get(ctx);
             let msg_addr = emscripten_memory_pointer!(ctx.memory(0), msg) as *mut libc::msghdr;
-            unsafe { recvmsg(socket, msg_addr, flags) as i32 }
+            unsafe { libc::recvmsg(socket, msg_addr, flags) as i32 }
         }
         _ => {
             // others
@@ -446,7 +444,7 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     let _err = errno::errno();
 
-    let result = unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
+    let result = unsafe { libc::select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
 
     assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
     assert!(exceptfds == 0, "`exceptfds` is not supporrted");
@@ -537,29 +535,8 @@ pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     0
 }
 
-// getgid
-//#[cfg(not(feature = "vfs"))]
-pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall201 (getgid)");
-    let result = unsafe {
-        // Maybe fix: Emscripten returns 0 always
-        libc::getgid() as i32
-    };
-    result
-}
-
-// getgid32
-pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    // gid_t
-    debug!("emscripten::___syscall202 (getgid32)");
-    unsafe {
-        // Maybe fix: Emscripten returns 0 always
-        libc::getgid() as _
-    }
-}
-
 /// dup3
-pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
+pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> libc::pid_t {
     // Implementation based on description at https://linux.die.net/man/2/dup3
     debug!("emscripten::___syscall330 (dup3)");
     let oldfd: c_int = varargs.get(ctx);
@@ -567,13 +544,13 @@ pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
     let flags: c_int = varargs.get(ctx);
 
     if oldfd == newfd {
-        return EINVAL;
+        return libc::EINVAL;
     }
 
     let res = unsafe { libc::dup2(oldfd, newfd) };
 
     // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
-    let mut old_flags = unsafe { fcntl(newfd, F_GETFD, 0) };
+    let mut old_flags = unsafe { libc::fcntl(newfd, libc::F_GETFD, 0) };
 
     if old_flags > 0 {
         old_flags |= flags;
@@ -582,7 +559,7 @@ pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
     }
 
     unsafe {
-        fcntl(newfd, F_SETFD, old_flags);
+        libc::fcntl(newfd, libc::F_SETFD, old_flags);
     }
 
     debug!(

@@ -35,27 +35,6 @@ use libc::wait4;
 //#[cfg(not(target_os = "darwin"))]
 //const SO_NOSIGPIPE: c_int = 0;
 
-// getgid
-//#[cfg(not(feature = "vfs"))]
-pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall201 (getgid)");
-    let result = unsafe {
-        // Maybe fix: Emscripten returns 0 always
-        libc::getgid() as i32
-    };
-    result
-}
-
-// getgid32
-pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    // gid_t
-    debug!("emscripten::___syscall202 (getgid32)");
-    unsafe {
-        // Maybe fix: Emscripten returns 0 always
-        libc::getgid() as _
-    }
-}
-
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
@@ -90,6 +69,26 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("=> buf: {}", buf);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut utsname;
     unsafe { uname(buf_addr) }
+}
+
+/// getgid
+pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall201 (getgid)");
+    let result = unsafe {
+        // Maybe fix: Emscripten returns 0 always
+        libc::getgid() as i32
+    };
+    result
+}
+
+/// getgid32
+pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    // gid_t
+    debug!("emscripten::___syscall202 (getgid32)");
+    unsafe {
+        // Maybe fix: Emscripten returns 0 always
+        libc::getgid() as _
+    }
 }
 
 /// chown
