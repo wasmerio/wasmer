@@ -14,6 +14,7 @@ pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
     let ret = unsafe { libc::read(fd, buf_addr, count as _) };
     debug!("=> ret: {}", ret);
+    debug!("read: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     ret as _
 }
 
@@ -25,7 +26,9 @@ pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let count: i32 = varargs.get(ctx);
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
-    unsafe { libc::write(fd, buf_addr, count as _) as i32 }
+    let ret = unsafe { libc::write(fd, buf_addr, count as _) as i32 };
+    debug!("wrote: '{}'", read_string_from_wasm(ctx.memory(0), buf));
+    ret
 }
 
 /// open
@@ -407,7 +410,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
 }
 
-// select
+/// select = ___syscall142
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall142 (newselect) {}", _which);
@@ -443,14 +446,19 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let writefds_ptr = emscripten_memory_pointer!(ctx.memory(0), writefds) as _;
 
     let _err = errno::errno();
+    debug!("set read descriptors BEFORE select: {:?}", bits);
 
     let result = unsafe { libc::select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
 
-    assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
-    assert!(exceptfds == 0, "`exceptfds` is not supporrted");
-
-    let _err = errno::errno();
-    debug!("gah again: {}", _err);
+    let mut set_file_descriptors = vec![];
+    for virtual_fd in 0..nfds {
+        let bit_flag = readfds_slice.get_bit(virtual_fd as usize);
+        if !bit_flag {
+            continue;
+        }
+        set_file_descriptors.push(virtual_fd);
+    }
+    debug!("set read descriptors AFTER select: {:?}", set_file_descriptors);
 
     result
 }
@@ -506,8 +514,7 @@ pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
 
     let pread_result = unsafe { libc::pread(fd, buf_ptr, count as _, offset) as _ };
-    let _data_string = read_string_from_wasm(ctx.memory(0), buf);
-
+    debug!("read: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     pread_result
 }
 
@@ -529,6 +536,7 @@ pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         "=> fd: {}, buf: {}, count: {}, offset: {} = status:{}",
         fd, buf, count, offset, status
     );
+    debug!("wrote: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     status
 }
 

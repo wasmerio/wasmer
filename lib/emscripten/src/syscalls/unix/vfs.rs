@@ -7,6 +7,7 @@ use std::ffi::c_void;
 use std::os::raw::c_int;
 use std::slice;
 use wasmer_runtime_core::vm::Ctx;
+use std::collections::HashMap;
 
 /// read
 pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
@@ -25,6 +26,7 @@ pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
         .read_file(virtual_file_handle as _, &mut buf_slice)
         .unwrap();
     debug!("=> read syscall returns: {}", ret);
+    debug!("read: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     ret as _
 }
 
@@ -50,6 +52,7 @@ pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
         },
         None => panic!(),
     };
+    debug!("wrote: {}", read_string_from_wasm(ctx.memory(0), buf));
     debug!(
         "=> fd: {} (host {}), buf: {}, count: {}\n",
         vfd.0, fd, buf, count
@@ -638,77 +641,106 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let writefds_set_u8_ptr = writefds_set_ptr as *mut u8;
     let nfds = nfds as _;
     let readfds_slice = unsafe { slice::from_raw_parts_mut(readfds_set_u8_ptr, nfds) };
-    let _writefds_slice = unsafe { slice::from_raw_parts_mut(writefds_set_u8_ptr, nfds) };
+    let writefds_slice = unsafe { slice::from_raw_parts_mut(writefds_set_u8_ptr, nfds) };
     use bit_field::BitArray;
     let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-    let mut file_descriptors_to_watch = vec![];
-    for virtual_fd in 0..nfds {
+
+    for x in writefds_slice {
+        panic!("write slice was not empty.");
+    }
+
+    let file_descriptors_to_watch_iter = (0..nfds).filter_map(|virtual_fd| {
+        let bit_flag = readfds_slice.get_bit(virtual_fd as usize);
+        if bit_flag {
+            Some(virtual_fd as i32)
+        }
+        else {
+            None
+        }
+    });
+
+    let file_descriptors_to_watch = file_descriptors_to_watch_iter.clone().collect::<Vec<_>>();
+    debug!("set virtual read descriptors BEFORE select: {:?}", file_descriptors_to_watch);
+
+    let mut max = -1;
+    let host_file_descriptors_to_watch = file_descriptors_to_watch_iter.clone().map(|virtual_fd| {
+        let fd = if let Some(FileHandle::Socket(host_fd)) = vfs.fd_map.get(&VirtualFd(virtual_fd)) {
+            let fd = *host_fd;
+            if fd > max {
+                max = fd;
+            }
+            fd
+        } else {
+            panic!()
+        };
+        fd
+    }).collect::<Vec<_>>();
+
+    debug!("set host read descriptors BEFORE select: {:?}", host_file_descriptors_to_watch);
+
+    let mut lookup_map = HashMap::new();
+
+    for mapping in file_descriptors_to_watch.iter().zip(host_file_descriptors_to_watch.iter()) {
+        let (virtual_fd, fd) = mapping;
+        unsafe {
+            libc::FD_CLR(*virtual_fd, readfds_set_ptr);
+            libc::FD_SET(*fd, readfds_set_ptr);
+        }
+        lookup_map.insert(*fd, *virtual_fd);
+    }
+
+    let sz = max + 1;
+
+//    let result = unsafe { libc::select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
+    let result = unsafe { libc::select(sz, readfds_set_ptr, writefds_set_ptr, 0 as _, 0 as _) };
+
+    let set_file_descriptors = (0..nfds).filter_map(|virtual_fd| {
         let bit_flag = readfds_slice.get_bit(virtual_fd as usize);
         if !bit_flag {
-            continue;
+            None
         }
-        file_descriptors_to_watch.push(virtual_fd);
+        else {
+            Some(virtual_fd as i32)
+        }
+    }).collect::<Vec<_>>();
+    debug!("host read descriptors AFTER select: {:?}", set_file_descriptors);
+
+    unsafe {
+        libc::FD_ZERO(readfds_set_ptr);
     }
-    let mut count = 0;
-    let mut max = -1;
-    let mut read_mappings = vec![];
-    for virtual_fd in 0..nfds {
-        let bit_flag = readfds_slice.get_bit(virtual_fd);
-        if !bit_flag {
-            continue;
-        }
-        let virtual_file = vfs.fd_map.get(&VirtualFd(virtual_fd as _));
-        match virtual_file {
-            Some(FileHandle::VirtualFile(_fd)) => {
-                count = count + 1;
+
+    let mut re_set_virtual_fds = vec![];
+    for set_host_fd in set_file_descriptors.clone() {
+        if let Some(vfd) = lookup_map.get(&set_host_fd) {
+            unsafe {
+                libc::FD_SET(*vfd, readfds_set_ptr);
+                re_set_virtual_fds.push(*vfd);
             }
-            Some(FileHandle::Socket(host_fd)) => {
-                count = count + 1;
-                let virtual_fd = virtual_fd as i32;
-                let fd = *host_fd;
-                if fd > max {
-                    max = fd;
-                }
-                read_mappings.push((virtual_fd, fd));
-            }
-            None => {}
-        };
-    }
-    for mapping in read_mappings.clone() {
-        let (virtual_fd, fd) = mapping;
-        unsafe {
-            libc::FD_CLR(virtual_fd, readfds_set_ptr);
-            libc::FD_SET(fd, readfds_set_ptr);
+        }
+        else {
+            panic!()
         }
     }
-    let timeval_ptr = emscripten_memory_pointer!(ctx.memory(0), timeout) as *mut libc::timeval;
-    let mut tval = unsafe {
-        libc::timeval {
-            tv_sec: (*timeval_ptr).tv_sec,
-            tv_usec: (*timeval_ptr).tv_usec,
-        }
-    };
-    let _tval_ptr: *mut libc::timeval = &mut tval;
-    let sz = max + 1;
-    let result = unsafe { libc::select(sz, readfds_set_ptr, writefds_set_ptr, 0 as _, 0 as _) };
-    let _err = errno::errno();
-    for mapping in read_mappings {
-        let (virtual_fd, fd) = mapping;
-        unsafe {
-            libc::FD_CLR(fd, readfds_set_ptr);
-            libc::FD_SET(virtual_fd, readfds_set_ptr);
-        }
-    }
-    for input in file_descriptors_to_watch {
-        unsafe {
-            let in_set = libc::FD_ISSET(input as _, readfds_set_ptr);
-            assert!(in_set);
-        }
-    }
+    debug!("virtual read descriptors AFTER select: {:?}", re_set_virtual_fds);
+
+
+//    for mapping in file_descriptors_to_watch.iter().zip(host_file_descriptors_to_watch.iter()) {
+//        let (virtual_fd, fd) = mapping;
+//        unsafe {
+//            libc::FD_CLR(*fd, readfds_set_ptr);
+//            libc::FD_SET(*virtual_fd, readfds_set_ptr);
+//        }
+//    }
+//    for input in set_file_descriptors {
+//        unsafe {
+//            let in_set = libc::FD_ISSET(input as _, readfds_set_ptr);
+//            assert!(in_set);
+//        }
+//    }
     result
 }
 
-// writev
+/// writev
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     unimplemented!();
@@ -761,6 +793,7 @@ pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         .vfs
         .read_file(virtual_file_handle as _, &mut buf_slice_with_offset)
         .unwrap();
+    debug!("read: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     ret as _
 }
 
@@ -779,6 +812,7 @@ pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     vfs.vfs
         .write_file(virtual_file_handle as _, buf_slice, count as _, offset as _)
         .unwrap();
+    debug!("wrote: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     count as _
 }
 

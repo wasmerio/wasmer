@@ -26,14 +26,7 @@ extern "C" {
 
 #[cfg(not(target_os = "macos"))]
 use libc::wait4;
-
-// Another conditional constant for name resolution: Macos et iOS use
-// SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
-// Other platforms do otherwise.
-//#[cfg(target_os = "darwin")]
-//use libc::SO_NOSIGPIPE;
-//#[cfg(not(target_os = "darwin"))]
-//const SO_NOSIGPIPE: c_int = 0;
+use crate::utils::read_string_from_wasm;
 
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]
@@ -68,7 +61,9 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let buf: u32 = varargs.get(ctx);
     debug!("=> buf: {}", buf);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut utsname;
-    unsafe { uname(buf_addr) }
+    let uname_result = unsafe { uname(buf_addr) };
+    debug!("uname buf: {}", read_string_from_wasm(ctx.memory(0), buf));
+    uname_result
 }
 
 /// getgid
