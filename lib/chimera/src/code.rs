@@ -26,7 +26,7 @@ unsafe impl<'a> ItemAlloc for CodeAlloc<'a> {
     }
 
     unsafe fn in_place(self, header: *mut Code) {
-        (*header).keep_alive = self.keep_alive;
+        (&mut (*header).keep_alive as *mut Box<dyn Any>).write(self.keep_alive);
         (*header).code_size = self.code_size;
         (*header).call_offsets_len = self.call_offsets.len() as u32;
         self.call_offsets
@@ -87,7 +87,7 @@ mod tests {
     #[test]
     fn test_alloc() {
         let pool = PagePool::new();
-        let _code = Code::new(&pool, 16, &[]).unwrap();
+        let _code = Code::new(&pool, 16, &[], ()).unwrap();
     }
 
     #[test]
@@ -107,7 +107,7 @@ mod tests {
         }
 
         let pool = PagePool::new();
-        let mut code_id = Code::new(&pool, 16, &[]).unwrap();
+        let mut code_id = Code::new(&pool, 16, &[], ()).unwrap();
 
         let mut code = pool.get_mut(&mut code_id);
 

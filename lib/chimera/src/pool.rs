@@ -130,10 +130,10 @@ impl PagePool {
 impl Drop for PagePool {
     fn drop(&mut self) {
         let memory_start = self.memory_start;
-        let inner = self.inner.lock();
+        let inner = self.inner.get_mut();
         for &(offset, _, drop_fn) in inner.offset_map.iter() {
             unsafe {
-                drop_fn(memory_start.add(offset));
+                // drop_fn(memory_start.add(offset));
             }
         }
     }

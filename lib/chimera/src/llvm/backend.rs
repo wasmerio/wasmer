@@ -1,8 +1,9 @@
 use super::intrinsics::Intrinsics;
 use super::platform;
 use crate::{
-    pool::{PagePool, AllocId},
     code::Code,
+    pool::{AllocId, PagePool},
+    utils::lazy::Lazy,
 };
 use inkwell::{
     memory_buffer::MemoryBuffer,
@@ -83,15 +84,14 @@ struct Callbacks {
 }
 
 extern "C" {
-    fn module_load(
+    fn function_load(
         mem_ptr: *const u8,
         mem_size: usize,
         callbacks: Callbacks,
-        module_out: &mut *mut LLVMModule,
+        func_out: &mut *mut LLVMFunction,
     ) -> LLVMResult;
-    fn get_func_symbol(module: *mut LLVMModule, name: *const c_char) -> *const vm::Func;
-    fn get_stackmap(module: *mut LLVMModule, size_out: &mut usize) -> Option<NonNull<u8>>;
-    fn module_delete(module: *mut LLVMModule);
+    fn get_stackmap(func: *mut LLVMFunction, size_out: &mut usize) -> Option<NonNull<u8>>;
+    fn func_delete(func: *mut LLVMFunction);
 
     fn throw_trap(ty: i32);
 
@@ -225,79 +225,91 @@ pub struct Function {
     memory_buffer: MemoryBuffer,
 }
 
-impl LLVMBackend {
-    pub fn new(module: Module, intrinsics: Intrinsics) ->  {
-        Target::initialize_x86(&InitializationConfig {
-            asm_parser: true,
-            asm_printer: true,
-            base: true,
-            disassembler: true,
-            info: true,
-            machine_code: true,
-        });
-        let triple = TargetMachine::get_default_triple().to_string();
-        let target = Target::from_triple(&triple).unwrap();
-        let target_machine = target
-            .create_target_machine(
-                &triple,
-                &TargetMachine::get_host_cpu_name().to_string(),
-                &TargetMachine::get_host_cpu_features().to_string(),
-                OptimizationLevel::Aggressive,
-                RelocMode::PIC,
-                CodeModel::Default,
-            )
-            .unwrap();
+impl Function {
+    pub fn new(module: Module, intrinsics: Intrinsics) -> AllocId<Code> {
+        unsafe impl Sync for SyncTargetMachine {}
+        /// I'm going to assume that TargetMachine is actually threadsafe.
+        /// It might not be, but there's really no way of knowing.
+        struct SyncTargetMachine(TargetMachine);
 
-        let memory_buffer = target_machine
+        static TARGET: Lazy<SyncTargetMachine> = Lazy::new(|| {
+            Target::initialize_x86(&InitializationConfig {
+                asm_parser: true,
+                asm_printer: true,
+                base: true,
+                disassembler: true,
+                info: true,
+                machine_code: true,
+            });
+
+            let triple = TargetMachine::get_default_triple().to_string();
+            let target = Target::from_triple(&triple).unwrap();
+            SyncTargetMachine(
+                target
+                    .create_target_machine(
+                        &triple,
+                        &TargetMachine::get_host_cpu_name().to_string(),
+                        &TargetMachine::get_host_cpu_features().to_string(),
+                        OptimizationLevel::Aggressive,
+                        RelocMode::PIC,
+                        CodeModel::Default,
+                    )
+                    .unwrap(),
+            )
+        });
+
+        let memory_buffer = TARGET.0
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
+
         let mem_buf_slice = memory_buffer.as_slice();
 
         let callbacks = get_callbacks();
-        let mut module: *mut LLVMModule = ptr::null_mut();
+        let mut function: *mut LLVMFunction = ptr::null_mut();
 
         let res = unsafe {
-            module_load(
+            function_load(
                 mem_buf_slice.as_ptr(),
                 mem_buf_slice.len(),
                 callbacks,
-                &mut module,
+                &mut function,
             )
         };
 
-        {
-            println!("checking for stackmap");
-            let mut size = 0;
-            if let Some(stackmap_ptr) = unsafe { get_stackmap(module, &mut size) } {
-                use super::stackmap::Stackmap;
+        // {
+        //     println!("checking for stackmap");
+        //     let mut size = 0;
+        //     if let Some(stackmap_ptr) = unsafe { get_stackmap(module, &mut size) } {
+        //         use super::stackmap::Stackmap;
 
-                println!("size: {}", size);
+        //         println!("size: {}", size);
 
-                let stackmap_slice = unsafe { slice::from_raw_parts(stackmap_ptr.as_ptr(), size) };
-                let stackmap = Stackmap::parse(stackmap_slice).unwrap();
-                println!("{:#?}", stackmap);
-            } else {
-                println!("no stackmap");
-            }
-        }
+        //         let stackmap_slice = unsafe { slice::from_raw_parts(stackmap_ptr.as_ptr(), size) };
+        //         let stackmap = Stackmap::parse(stackmap_slice).unwrap();
+        //         println!("{:#?}", stackmap);
+        //     } else {
+        //         println!("no stackmap");
+        //     }
+        // }
 
-        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
+        // static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
 
-        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
-            platform::install_signal_handler();
-        });
+        // SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
+        //     platform::install_signal_handler();
+        // });
 
-        if res != LLVMResult::OK {
-            panic!("failed to load object")
-        }
+        // if res != LLVMResult::OK {
+        //     panic!("failed to load object")
+        // }
 
-        (
-            Self {
-                module,
-                memory_buffer,
-            },
-            LLVMProtectedCaller { module },
-        )
+        // (
+        //     Self {
+        //         module,
+        //         memory_buffer,
+        //     },
+        //     LLVMProtectedCaller { module },
+        // )
+        unimplemented!()
     }
 
     pub fn get_func(
@@ -313,19 +325,19 @@ impl LLVMBackend {
         };
 
         let c_str = CString::new(name).ok()?;
-        let ptr = unsafe { get_func_symbol(self.module, c_str.as_ptr()) };
+        let ptr = unsafe { get_func_symbol(self.func, c_str.as_ptr()) };
 
         NonNull::new(ptr as _)
     }
 }
 
-impl Drop for LLVMBackend {
+impl Drop for Function {
     fn drop(&mut self) {
-        unsafe { module_delete(self.module) }
+        unsafe { module_delete(self.func) }
     }
 }
 
-impl FuncResolver for LLVMBackend {
+impl FuncResolver for Function {
     fn get(
         &self,
         module: &ModuleInner,
@@ -341,7 +353,7 @@ unsafe impl Send for LLVMProtectedCaller {}
 unsafe impl Sync for LLVMProtectedCaller {}
 
 pub struct LLVMProtectedCaller {
-    module: *mut LLVMModule,
+    module: *mut LLVMFunction,
 }
 
 impl ProtectedCaller for LLVMProtectedCaller {
