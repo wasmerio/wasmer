@@ -114,7 +114,7 @@ pub fn ___syscall15(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     0
 }
 
-// mkdir
+/// mkdir
 pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir vfs) {}", _which);
     let pathname: u32 = varargs.get(ctx);
@@ -132,7 +132,6 @@ pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     } else {
         -1
     };
-    //    debug!("mkdir returns {}", ret);
     ret
 }
 
