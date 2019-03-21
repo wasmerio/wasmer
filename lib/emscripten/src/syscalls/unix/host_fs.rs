@@ -3,24 +3,15 @@ use std::slice;
 use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
 use crate::varargs::VarArgs;
 use libc::{
-    accept, bind, c_char, c_int, c_void, connect, dup2, fcntl, getgid, getpeername, getsockname,
-    getsockopt, in_addr_t, in_port_t, ioctl, listen, msghdr, pid_t, recvfrom, recvmsg, sa_family_t,
-    select, sendmsg, sendto, setsockopt, sockaddr, socket, socklen_t, EINVAL, FIOCLEX, FIONBIO,
-    F_GETFD, F_SETFD, SOL_SOCKET, SO_REUSEADDR, TIOCGWINSZ,
+    c_int, c_void, connect, fcntl, getgid, getpeername, getsockname, getsockopt, in_addr_t,
+    in_port_t, ioctl, listen, msghdr, pid_t, recvfrom, recvmsg, sa_family_t, select, sendmsg,
+    sendto, setsockopt, sockaddr, socket, socklen_t, EINVAL, FIOCLEX, FIONBIO, F_GETFD, F_SETFD,
+    SOL_SOCKET, SO_REUSEADDR, TIOCGWINSZ,
 };
 use wasmer_runtime_core::vm::Ctx;
 
-// Another conditional constant for name resolution: Macos et iOS use
-// SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
-// Other platforms do otherwise.
-#[cfg(target_os = "darwin")]
-use libc::SO_NOSIGPIPE;
-#[cfg(not(target_os = "darwin"))]
-const SO_NOSIGPIPE: c_int = 0;
-
 /// read
 pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
-    // -> ssize_t
     debug!("emscripten::___syscall3 (read) {}", _which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
@@ -73,19 +64,6 @@ pub fn ___syscall15(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     -1
 }
 
-/// chown
-pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall212 (chown) {}", _which);
-
-    let pathname: u32 = varargs.get(ctx);
-    let owner: u32 = varargs.get(ctx);
-    let group: u32 = varargs.get(ctx);
-
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
-
-    unsafe { libc::chown(pathname_addr, owner, group) }
-}
-
 /// mkdir
 pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", _which);
@@ -129,61 +107,6 @@ pub fn ___syscall63(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let dst: i32 = varargs.get(ctx);
 
     unsafe { libc::dup2(src, dst) }
-}
-
-// getgid
-//#[cfg(not(feature = "vfs"))]
-pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall201 (getgid)");
-    let result = unsafe {
-        // Maybe fix: Emscripten returns 0 always
-        getgid() as i32
-    };
-    result
-}
-
-// getgid32
-pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    // gid_t
-    debug!("emscripten::___syscall202 (getgid32)");
-    unsafe {
-        // Maybe fix: Emscripten returns 0 always
-        getgid() as _
-    }
-}
-
-/// dup3
-pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
-    // Implementation based on description at https://linux.die.net/man/2/dup3
-    debug!("emscripten::___syscall330 (dup3)");
-    let oldfd: c_int = varargs.get(ctx);
-    let newfd: c_int = varargs.get(ctx);
-    let flags: c_int = varargs.get(ctx);
-
-    if oldfd == newfd {
-        return EINVAL;
-    }
-
-    let res = unsafe { dup2(oldfd, newfd) };
-
-    // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
-    let mut old_flags = unsafe { fcntl(newfd, F_GETFD, 0) };
-
-    if old_flags > 0 {
-        old_flags |= flags;
-    } else if old_flags == 0 {
-        old_flags &= !flags;
-    }
-
-    unsafe {
-        fcntl(newfd, F_SETFD, old_flags);
-    }
-
-    debug!(
-        "=> oldfd: {}, newfd: {}, flags: {} = pid: {}",
-        oldfd, newfd, flags, res
-    );
-    res
 }
 
 /// ioctl
@@ -256,12 +179,20 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     pub struct LinuxSockAddr {
         pub sa_family: u16,
-        pub sa_data: [c_char; 14],
+        pub sa_data: [libc::c_char; 14],
     }
 
     match call {
         1 => {
             debug!("socket: socket");
+            // Another conditional constant for name resolution: Macos et iOS use
+            // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
+            // Other platforms do otherwise.
+            #[cfg(target_os = "darwin")]
+            use libc::SO_NOSIGPIPE;
+            #[cfg(not(target_os = "darwin"))]
+            const SO_NOSIGPIPE: c_int = 0;
+
             // socket (domain: c_int, ty: c_int, protocol: c_int) -> c_int
             let domain: i32 = socket_varargs.get(ctx);
             let ty: i32 = socket_varargs.get(ctx);
@@ -274,9 +205,8 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
             let _err = errno::errno();
 
-            //            type T = u32;
-            //            let payload = 1 as *const T as _;
-            let _result = unsafe { setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, 0 as *const _, 4) };
+            let _result =
+                unsafe { libc::setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, 0 as *const _, 4) };
 
             let _err2 = errno::errno();
 
@@ -301,7 +231,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
                 "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
                 unsafe { (*_proper_address).sin_family }, unsafe { (*_proper_address).sin_port }, unsafe { (*_proper_address).sin_addr.s_addr }
             );
-            let status = unsafe { bind(socket, address, address_len) };
+            let status = unsafe { libc::bind(socket, address, address_len) };
             // debug!("=> status: {}", status);
             debug!(
                 "=> socketfd: {}, address: {:?}, address_len: {} = status: {}",
@@ -348,7 +278,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
             // let mut address_len_addr: socklen_t = 0;
 
-            let fd = unsafe { accept(socket, address, address_len_addr) };
+            let fd = unsafe { libc::accept(socket, address, address_len_addr) };
 
             unsafe {
                 let address_linux =
@@ -480,47 +410,6 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
 }
 
-/// pread
-pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall180 (pread) {}", _which);
-    let fd: i32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-    let count: u32 = varargs.get(ctx);
-    {
-        let zero: u32 = varargs.get(ctx);
-        assert_eq!(zero, 0);
-    }
-    let offset: i64 = varargs.get(ctx);
-
-    let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
-
-    let pread_result = unsafe { libc::pread(fd, buf_ptr, count as _, offset) as _ };
-    let _data_string = read_string_from_wasm(ctx.memory(0), buf);
-
-    pread_result
-}
-
-/// pwrite
-pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall181 (pwrite) {}", _which);
-    let fd: i32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-    let count: u32 = varargs.get(ctx);
-    {
-        let zero: u32 = varargs.get(ctx);
-        assert_eq!(zero, 0);
-    }
-    let offset: i64 = varargs.get(ctx);
-
-    let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
-    let status = unsafe { libc::pwrite(fd, buf_ptr, count as _, offset) as _ };
-    debug!(
-        "=> fd: {}, buf: {}, count: {}, offset: {} = status:{}",
-        fd, buf, count, offset, status
-    );
-    status
-}
-
 // select
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
@@ -569,6 +458,47 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     result
 }
 
+/// pread
+pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall180 (pread) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: u32 = varargs.get(ctx);
+    {
+        let zero: u32 = varargs.get(ctx);
+        assert_eq!(zero, 0);
+    }
+    let offset: i64 = varargs.get(ctx);
+
+    let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
+
+    let pread_result = unsafe { libc::pread(fd, buf_ptr, count as _, offset) as _ };
+    let _data_string = read_string_from_wasm(ctx.memory(0), buf);
+
+    pread_result
+}
+
+/// pwrite
+pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall181 (pwrite) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: u32 = varargs.get(ctx);
+    {
+        let zero: u32 = varargs.get(ctx);
+        assert_eq!(zero, 0);
+    }
+    let offset: i64 = varargs.get(ctx);
+
+    let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
+    let status = unsafe { libc::pwrite(fd, buf_ptr, count as _, offset) as _ };
+    debug!(
+        "=> fd: {}, buf: {}, count: {}, offset: {} = status:{}",
+        fd, buf, count, offset, status
+    );
+    status
+}
+
 /// stat64
 pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall195 (stat64) {}", _which);
@@ -606,4 +536,59 @@ pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
 
     0
+}
+
+// getgid
+//#[cfg(not(feature = "vfs"))]
+pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall201 (getgid)");
+    let result = unsafe {
+        // Maybe fix: Emscripten returns 0 always
+        libc::getgid() as i32
+    };
+    result
+}
+
+// getgid32
+pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    // gid_t
+    debug!("emscripten::___syscall202 (getgid32)");
+    unsafe {
+        // Maybe fix: Emscripten returns 0 always
+        libc::getgid() as _
+    }
+}
+
+/// dup3
+pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
+    // Implementation based on description at https://linux.die.net/man/2/dup3
+    debug!("emscripten::___syscall330 (dup3)");
+    let oldfd: c_int = varargs.get(ctx);
+    let newfd: c_int = varargs.get(ctx);
+    let flags: c_int = varargs.get(ctx);
+
+    if oldfd == newfd {
+        return EINVAL;
+    }
+
+    let res = unsafe { libc::dup2(oldfd, newfd) };
+
+    // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
+    let mut old_flags = unsafe { fcntl(newfd, F_GETFD, 0) };
+
+    if old_flags > 0 {
+        old_flags |= flags;
+    } else if old_flags == 0 {
+        old_flags &= !flags;
+    }
+
+    unsafe {
+        fcntl(newfd, F_SETFD, old_flags);
+    }
+
+    debug!(
+        "=> oldfd: {}, newfd: {}, flags: {} = pid: {}",
+        oldfd, newfd, flags, res
+    );
+    res
 }

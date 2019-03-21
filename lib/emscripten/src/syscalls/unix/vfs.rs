@@ -10,12 +10,7 @@ use wasmer_runtime_core::vm::Ctx;
 // Other platforms do otherwise.
 use crate::syscalls::emscripten_vfs::FileHandle::{Socket, VirtualFile};
 use crate::syscalls::emscripten_vfs::{FileHandle, VirtualFd};
-#[cfg(target_os = "darwin")]
-use libc::SO_NOSIGPIPE;
 use std::ffi::c_void;
-
-#[cfg(not(target_os = "darwin"))]
-const SO_NOSIGPIPE: c_int = 0;
 
 /// read
 pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
@@ -23,23 +18,16 @@ pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
     let count: i32 = varargs.get(ctx);
-
     debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
-
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut u8;
     let mut buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
     let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-
     let vfd = VirtualFd(fd);
     let virtual_file_handle = vfs.get_virtual_file_handle(vfd).unwrap();
-
     let ret = vfs
         .vfs
         .read_file(virtual_file_handle as _, &mut buf_slice)
         .unwrap();
-
-    debug!("{:?}", buf_slice);
-
     debug!("=> read syscall returns: {}", ret);
     ret as _
 }
@@ -51,11 +39,9 @@ pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let buf: u32 = varargs.get(ctx);
     let count: i32 = varargs.get(ctx);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf);
-
     let buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
     let vfd = VirtualFd(fd);
     let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-
     let count: usize = match vfs.fd_map.get(&vfd) {
         Some(FileHandle::VirtualFile(handle)) => {
             vfs.vfs
@@ -68,14 +54,10 @@ pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
         },
         None => panic!(),
     };
-
-    let string = read_string_from_wasm(ctx.memory(0), buf);
-
     debug!(
         "=> fd: {} (host {}), buf: {}, count: {}\n",
         vfd.0, fd, buf, count
     );
-    debug!("=> data:\n \"{}\"", string);
     count as c_int
 }
 
@@ -463,48 +445,35 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     match call {
         1 => {
             debug!("socket: socket");
+            // Another conditional constant for name resolution: Macos et iOS use
+            // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
+            // Other platforms do otherwise.
+            #[cfg(target_os = "darwin")]
+            use libc::SO_NOSIGPIPE;
+            #[cfg(not(target_os = "darwin"))]
+            const SO_NOSIGPIPE: c_int = 0;
             // socket (domain: c_int, ty: c_int, protocol: c_int) -> c_int
             let domain: i32 = socket_varargs.get(ctx);
             let ty: i32 = socket_varargs.get(ctx);
             let protocol: i32 = socket_varargs.get(ctx);
-
             let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-
             let _test_errno = errno::errno();
-
             // create the host socket
             let host_fd = unsafe { libc::socket(domain, ty, protocol) };
             let vfd = vfs.new_socket_fd(host_fd);
-
             debug!("--- host fd from libc::socket: {} ---", host_fd);
             debug!("--- reference fd in vfs from libc::socket: {} ---", vfd);
-
             // set_cloexec
             let _ioctl_result = unsafe { libc::ioctl(host_fd, libc::FIOCLEX) };
-
-            use libc::{setsockopt, SOL_SOCKET};
-
             let _err = errno::errno();
-
-            type T = u32;
-            let payload = 1 as *const T as _;
-            let _setsockopt_result = unsafe {
-                setsockopt(
-                    host_fd,
-                    SOL_SOCKET,
-                    SO_NOSIGPIPE,
-                    payload,
-                    std::mem::size_of::<T>() as libc::socklen_t,
-                )
+            let _result = unsafe {
+                libc::setsockopt(host_fd, libc::SOL_SOCKET, SO_NOSIGPIPE, 0 as *const _, 4)
             };
-
             let _err2 = errno::errno();
-
             debug!(
                 "=> domain: {} (AF_INET/2), type: {} (SOCK_STREAM/1), protocol: {} = fd: {}",
                 domain, ty, protocol, vfd
             );
-
             vfd.0 as _
         }
         2 => {
@@ -905,14 +874,4 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
 
     result
-}
-
-// chown
-pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall212 (chown) {}", _which);
-    let _pathname: u32 = varargs.get(ctx);
-    let _owner: u32 = varargs.get(ctx);
-    let _group: u32 = varargs.get(ctx);
-    debug!("syscall `chown` always returns 0");
-    0
 }

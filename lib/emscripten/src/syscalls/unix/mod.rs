@@ -14,9 +14,7 @@ pub use vfs::*;
 
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
-use libc::{
-    c_int, dup2, fcntl, getgid, pid_t, rusage, setpgid, uname, utsname, EINVAL, F_GETFD, F_SETFD,
-};
+use libc::{c_int, dup2, fcntl, pid_t, rusage, setpgid, uname, utsname, EINVAL, F_GETFD, F_SETFD};
 use wasmer_runtime_core::vm::Ctx;
 
 // Linking to functions that are not provided by rust libc
@@ -43,7 +41,7 @@ pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall201 (getgid)");
     let result = unsafe {
         // Maybe fix: Emscripten returns 0 always
-        getgid() as i32
+        libc::getgid() as i32
     };
     result
 }
@@ -54,42 +52,8 @@ pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall202 (getgid32)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
-        getgid() as _
+        libc::getgid() as _
     }
-}
-
-/// dup3
-pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
-    // Implementation based on description at https://linux.die.net/man/2/dup3
-    debug!("emscripten::___syscall330 (dup3)");
-    let oldfd: c_int = varargs.get(ctx);
-    let newfd: c_int = varargs.get(ctx);
-    let flags: c_int = varargs.get(ctx);
-
-    if oldfd == newfd {
-        return EINVAL;
-    }
-
-    let res = unsafe { dup2(oldfd, newfd) };
-
-    // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
-    let mut old_flags = unsafe { fcntl(newfd, F_GETFD, 0) };
-
-    if old_flags > 0 {
-        old_flags |= flags;
-    } else if old_flags == 0 {
-        old_flags &= !flags;
-    }
-
-    unsafe {
-        fcntl(newfd, F_SETFD, old_flags);
-    }
-
-    debug!(
-        "=> oldfd: {}, newfd: {}, flags: {} = pid: {}",
-        oldfd, newfd, flags, res
-    );
-    res
 }
 
 /// wait4
@@ -126,4 +90,51 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("=> buf: {}", buf);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut utsname;
     unsafe { uname(buf_addr) }
+}
+
+/// chown
+pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall212 (chown) {}", _which);
+
+    let pathname: u32 = varargs.get(ctx);
+    let owner: u32 = varargs.get(ctx);
+    let group: u32 = varargs.get(ctx);
+
+    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
+
+    unsafe { libc::chown(pathname_addr, owner, group) }
+}
+
+/// dup3
+pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
+    // Implementation based on description at https://linux.die.net/man/2/dup3
+    debug!("emscripten::___syscall330 (dup3)");
+    let oldfd: c_int = varargs.get(ctx);
+    let newfd: c_int = varargs.get(ctx);
+    let flags: c_int = varargs.get(ctx);
+
+    if oldfd == newfd {
+        return EINVAL;
+    }
+
+    let res = unsafe { dup2(oldfd, newfd) };
+
+    // Set flags on newfd (https://www.gnu.org/software/libc/manual/html_node/Descriptor-Flags.html)
+    let mut old_flags = unsafe { fcntl(newfd, F_GETFD, 0) };
+
+    if old_flags > 0 {
+        old_flags |= flags;
+    } else if old_flags == 0 {
+        old_flags &= !flags;
+    }
+
+    unsafe {
+        fcntl(newfd, F_SETFD, old_flags);
+    }
+
+    debug!(
+        "=> oldfd: {}, newfd: {}, flags: {} = pid: {}",
+        oldfd, newfd, flags, res
+    );
+    res
 }
