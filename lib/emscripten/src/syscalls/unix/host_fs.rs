@@ -1,6 +1,7 @@
+use std::slice;
+
+use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
 use crate::varargs::VarArgs;
-/// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
-/// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
     accept, bind, c_char, c_int, c_void, connect, dup2, fcntl, getgid, getpeername, getsockname,
     getsockopt, in_addr_t, in_port_t, ioctl, listen, msghdr, pid_t, recvfrom, recvmsg, sa_family_t,
@@ -9,15 +10,11 @@ use libc::{
 };
 use wasmer_runtime_core::vm::Ctx;
 
-use std::slice;
-
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
 // Other platforms do otherwise.
-use crate::utils::copy_stat_into_wasm;
 #[cfg(target_os = "darwin")]
 use libc::SO_NOSIGPIPE;
-
 #[cfg(not(target_os = "darwin"))]
 const SO_NOSIGPIPE: c_int = 0;
 
@@ -240,11 +237,14 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     #[repr(C)]
     pub struct GuestSockaddrIn {
-        pub sin_family: sa_family_t, // u16
-        pub sin_port: in_port_t,     // u16
-        pub sin_addr: GuestInAddr,   // u32
-        pub sin_zero: [u8; 8],       // u8 * 8
-                                     // 2 + 2 + 4 + 8 = 16
+        pub sin_family: sa_family_t,
+        // u16
+        pub sin_port: in_port_t,
+        // u16
+        pub sin_addr: GuestInAddr,
+        // u32
+        pub sin_zero: [u8; 8], // u8 * 8
+                               // 2 + 2 + 4 + 8 = 16
     }
 
     #[repr(C)]
@@ -298,9 +298,9 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // Debug received address
             let _proper_address = address as *const GuestSockaddrIn;
             debug!(
-                    "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
-                    unsafe { (*_proper_address).sin_family }, unsafe { (*_proper_address).sin_port }, unsafe { (*_proper_address).sin_addr.s_addr }
-                );
+                "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
+                unsafe { (*_proper_address).sin_family }, unsafe { (*_proper_address).sin_port }, unsafe { (*_proper_address).sin_addr.s_addr }
+            );
             let status = unsafe { bind(socket, address, address_len) };
             // debug!("=> status: {}", status);
             debug!(
@@ -494,7 +494,10 @@ pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
 
-    unsafe { libc::pread(fd, buf_ptr, count as _, offset) as _ }
+    let pread_result = unsafe { libc::pread(fd, buf_ptr, count as _, offset) as _ };
+    let _data_string = read_string_from_wasm(ctx.memory(0), buf);
+
+    pread_result
 }
 
 /// pwrite
@@ -553,8 +556,6 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let readfds_ptr = emscripten_memory_pointer!(ctx.memory(0), readfds) as _;
     let writefds_ptr = emscripten_memory_pointer!(ctx.memory(0), writefds) as _;
 
-    //    let rd = unsafe { libc::read(bits[0], 0 as *mut _, 0)};
-
     let _err = errno::errno();
 
     let result = unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
@@ -566,7 +567,26 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("gah again: {}", _err);
 
     result
-    //    unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
+}
+
+/// stat64
+pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall195 (stat64) {}", _which);
+    let pathname: u32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+
+    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
+
+    unsafe {
+        let mut _stat: libc::stat = std::mem::zeroed();
+        let ret = libc::stat(pathname_addr, &mut _stat);
+        debug!("ret: {}", ret);
+        if ret != 0 {
+            return ret;
+        }
+        copy_stat_into_wasm(ctx, buf, &_stat);
+    }
+    0
 }
 
 /// fstat64

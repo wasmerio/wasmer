@@ -16,30 +16,11 @@ pub use self::windows::*;
 #[cfg(feature = "vfs")]
 pub use self::emscripten_vfs::*;
 
-#[cfg(not(feature = "vfs"))]
-use super::utils::copy_stat_into_wasm;
-
 use super::varargs::VarArgs;
 use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
-use libc::{
-    // ENOTTY,
-    c_int,
-    c_void,
-    chdir,
-    // fcntl, setsockopt, getppid
-    exit,
-    getpid,
-    // iovec,
-    lseek,
-    //    open,
-    // readv,
-    rmdir,
-    // writev,
-    write,
-    // sockaddr_in,
-};
+use libc::{c_int, c_void, chdir, exit, getpid, lseek, rmdir, write};
 use wasmer_runtime_core::vm::Ctx;
 
 use super::env;
@@ -285,27 +266,6 @@ pub fn ___syscall196(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall199 - stub");
     -1
-}
-
-// stat64
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall195 (stat64) {}", _which);
-    let pathname: u32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-
-    let pathname_addr = emscripten_memory_pointer!(ctx.memory(0), pathname) as *const i8;
-
-    unsafe {
-        let mut _stat: libc::stat = std::mem::zeroed();
-        let ret = libc::stat(pathname_addr, &mut _stat);
-        debug!("ret: {}", ret);
-        if ret != 0 {
-            return ret;
-        }
-        copy_stat_into_wasm(ctx, buf, &_stat);
-    }
-    0
 }
 
 pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {

@@ -29,6 +29,7 @@ pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut u8;
     let mut buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
     let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
+
     let vfd = VirtualFd(fd);
     let virtual_file_handle = vfs.get_virtual_file_handle(vfd).unwrap();
 
@@ -36,6 +37,9 @@ pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
         .vfs
         .read_file(virtual_file_handle as _, &mut buf_slice)
         .unwrap();
+
+    debug!("{:?}", buf_slice);
+
     debug!("=> read syscall returns: {}", ret);
     ret as _
 }
@@ -310,7 +314,10 @@ pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         .vfs
         .read_file(virtual_file_handle as _, &mut buf_slice_with_offset)
         .unwrap();
+    //    let pread_result = unsafe { libc::pread(fd, buf_ptr, count as _, offset) as _ };
+    let _data_string = read_string_from_wasm(ctx.memory(0), buf);
 
+    //    pread_result
     //    debug!("=> pread returns: {}", ret);
     ret as _
 }
