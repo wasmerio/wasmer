@@ -46,22 +46,22 @@ impl Vfs {
 
         // TODO: What to do about the creation of the device files?
         let _ = repo.create_dir(PathBuf::from("/dev/"));
-        let stdin = repo.create_file(PathBuf::from("/dev/stdin"))?;
-        let stdout = repo.create_file(PathBuf::from("/dev/stdout"))?;
-        let stderr = repo.create_file(PathBuf::from("/dev/stderr"))?;
+        let _stdin = repo.create_file(PathBuf::from("/dev/stdin"))?;
+        let _stdout = repo.create_file(PathBuf::from("/dev/stdout"))?;
+        let _stderr = repo.create_file(PathBuf::from("/dev/stderr"))?;
 
         use crate::vfs::device_file;
         fd_map.insert(0, Rc::new(device_file::Stdin {}));
         fd_map.insert(1, Rc::new(device_file::Stdin {})); // TODO FIX ME
         fd_map.insert(2, Rc::new(device_file::Stdin {}));
 
-        let errors = tar::Archive::new(tar_bytes)
+        let _errors = tar::Archive::new(tar_bytes)
             .entries()?
             .map(|entry| {
                 let mut entry: tar::Entry<Reader> = entry?;
                 let path = entry.path()?;
                 let path = convert_to_absolute_path(path);
-                let result = match (entry.header().entry_type(), path.parent()) {
+                let _result = match (entry.header().entry_type(), path.parent()) {
                     (EntryType::Regular, Some(parent)) => {
                         if let Err(e) = repo.create_dir_all(parent) {
                             if e == zbox::Error::AlreadyExists || e == zbox::Error::IsRoot {
@@ -90,6 +90,8 @@ impl Vfs {
                 Ok(())
             })
             .collect::<Vec<Result<(), VfsAggregateError>>>();
+
+        //        let import_errors = errors.iter().filter_map(|e| e.err()).collect::<Vec<_>>();
 
         let vfs = Vfs {
             repo,
@@ -242,10 +244,9 @@ impl Vfs {
             .ok_or(VfsError::FileWithFileDescriptorNotExist(fd))?;
         let file = Rc::get_mut(&mut file);
         match file {
-           Some(file) =>  file.write(buf, count, offset),
-            None => Ok(count) // BAD!!! Switch to Rc<RefCell>
+            Some(file) => file.write(buf, count, offset),
+            None => Ok(count), // BAD!!! Switch to Rc<RefCell>
         }
-
     }
 }
 

@@ -5,9 +5,6 @@ mod unix;
 mod windows;
 
 #[cfg(feature = "vfs")]
-mod vfs;
-
-#[cfg(feature = "vfs")]
 mod emscripten_vfs;
 
 #[cfg(unix)]
@@ -15,9 +12,6 @@ pub use self::unix::*;
 
 #[cfg(windows)]
 pub use self::windows::*;
-
-#[cfg(feature = "vfs")]
-pub use self::vfs::*;
 
 #[cfg(feature = "vfs")]
 pub use self::emscripten_vfs::*;
@@ -60,42 +54,6 @@ pub fn ___syscall1(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) {
     }
 }
 
-/// read
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
-    // -> ssize_t
-    debug!("emscripten::___syscall3 (read) {}", _which);
-    let fd: i32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-    let count: i32 = varargs.get(ctx);
-    debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
-    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
-    let ret = unsafe { libc::read(fd, buf_addr, count as _) };
-    debug!("=> ret: {}", ret);
-    ret as _
-}
-
-/// write
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall4 (write) {}", _which);
-    let fd: i32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-    let count: i32 = varargs.get(ctx);
-    debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
-    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
-    unsafe { write(fd, buf_addr, count as _) as i32 }
-}
-
-/// close
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall6(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall6 (close) {}", _which);
-    let fd: i32 = varargs.get(ctx);
-    debug!("fd: {}", fd);
-    unsafe { libc::close(fd) }
-}
-
 // chdir
 pub fn ___syscall12(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall12 (chdir) {}", _which);
@@ -111,13 +69,6 @@ pub fn ___syscall12(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 
 pub fn ___syscall10(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall10");
-    -1
-}
-
-/// chmod
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall15(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall15");
     -1
 }
 
@@ -140,46 +91,9 @@ pub fn ___syscall40(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     unsafe { rmdir(pathname_addr) }
 }
 
-// pipe
-pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall42 (pipe)");
-    // offset to a file descriptor, which contains a read end and write end, 2 integers
-    let fd_offset: u32 = varargs.get(ctx);
-
-    let emscripten_memory = ctx.memory(0);
-
-    // convert the file descriptor into a vec with two slots
-    let mut fd_vec: Vec<c_int> = emscripten_memory.view()[((fd_offset / 4) as usize)..]
-        .iter()
-        .map(|pipe_end: &std::cell::Cell<c_int>| pipe_end.get())
-        .take(2)
-        .collect();
-
-    // get it as a mutable pointer
-    let fd_ptr = fd_vec.as_mut_ptr();
-
-    // call pipe and store the pointers in this array
-    #[cfg(target_os = "windows")]
-    let result: c_int = unsafe { libc::pipe(fd_ptr, 2048, 0) };
-    #[cfg(not(target_os = "windows"))]
-    let result: c_int = unsafe { libc::pipe(fd_ptr) };
-    result
-}
-
 pub fn ___syscall60(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall60");
     -1
-}
-
-/// dup2
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall63(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall63 (dup2) {}", _which);
-
-    let src: i32 = varargs.get(ctx);
-    let dst: i32 = varargs.get(ctx);
-
-    unsafe { libc::dup2(src, dst) }
 }
 
 // getppid
@@ -391,26 +305,6 @@ pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         }
         copy_stat_into_wasm(ctx, buf, &_stat);
     }
-    0
-}
-
-/// fstat64
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall197 (fstat64) {}", _which);
-    let fd: c_int = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-
-    unsafe {
-        let mut stat = std::mem::zeroed();
-        let ret = libc::fstat(fd, &mut stat);
-        debug!("ret: {}", ret);
-        if ret != 0 {
-            return ret;
-        }
-        copy_stat_into_wasm(ctx, buf, &stat);
-    }
-
     0
 }
 

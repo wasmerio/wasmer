@@ -1,10 +1,6 @@
-use crate::syscalls::emscripten_vfs::FileHandle::{Socket, VirtualFile};
-use crate::varargs::VarArgs;
 use std::cmp::{Eq, Ord, Ordering, PartialEq};
 use std::collections::BTreeMap;
-use std::env::home_dir;
 use std::fmt::Display;
-use wasmer_runtime_abi::vfs::device_file;
 use wasmer_runtime_abi::vfs::vfs::Vfs;
 
 pub type Fd = i32;
@@ -63,10 +59,10 @@ impl EmscriptenVfs {
                 fd_map.insert(vfd, FileHandle::VirtualFile(*handle));
             });
 
-//        let _ = repo.create_dir(PathBuf::from("/dev/"));
-//        let stdin = repo.create_file(PathBuf::from("/dev/stdin"))?;
-//        let stdout = repo.create_file(PathBuf::from("/dev/stdout"))?;
-//        let stderr = repo.create_file(PathBuf::from("/dev/stderr"))?;
+        //        let _ = repo.create_dir(PathBuf::from("/dev/"));
+        //        let stdin = repo.create_file(PathBuf::from("/dev/stdin"))?;
+        //        let stdout = repo.create_file(PathBuf::from("/dev/stdout"))?;
+        //        let stderr = repo.create_file(PathBuf::from("/dev/stderr"))?;
 
         let stdin_fd = VirtualFd(0);
         let stdin_handle = FileHandle::VirtualFile(0);
@@ -85,8 +81,8 @@ impl EmscriptenVfs {
     pub fn close(&mut self, vfd: &VirtualFd) -> () {
         match self.fd_map.get(&vfd) {
             Some(FileHandle::VirtualFile(handle)) => {
-                self.vfs.close(handle);
-            },
+                self.vfs.close(handle).unwrap();
+            }
             Some(FileHandle::Socket(fd)) => unsafe {
                 libc::close(*fd);
             },

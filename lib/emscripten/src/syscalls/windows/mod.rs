@@ -1,3 +1,15 @@
+#[cfg(not(feature = "vfs"))]
+pub mod host_fs;
+
+#[cfg(feature = "vfs")]
+pub mod vfs;
+
+#[cfg(not(feature = "vfs"))]
+pub use host_fs::*;
+
+#[cfg(feature = "vfs")]
+pub use vfs::*;
+
 use crate::env::get_emscripten_data;
 use crate::utils::copy_cstr_into_wasm;
 use crate::varargs::VarArgs;

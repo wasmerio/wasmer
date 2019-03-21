@@ -2,78 +2,51 @@ use crate::varargs::VarArgs;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
 use libc::{
-    accept,
-    bind,
-    // ENOTTY,
-    c_char,
-    c_int,
-    c_void,
-    // fcntl, setsockopt, getppid
-    connect,
-    dup2,
-    fcntl,
-    getgid,
-    getpeername,
-    getsockname,
-    getsockopt,
-    in_addr_t,
-    in_port_t,
-    ioctl,
-    // iovec,
-    listen,
-    msghdr,
-    pid_t,
-    // readv,
-    recvfrom,
-    recvmsg,
-    // ENOTTY,
-    rusage,
-    sa_family_t,
-    // writev,
-    select,
-    sendmsg,
-    sendto,
-    setpgid,
-    setsockopt,
-    sockaddr,
-    socket,
-    socklen_t,
-    uname,
-    utsname,
-    EINVAL,
-    // sockaddr_in,
-    FIOCLEX,
-    FIONBIO,
-    F_GETFD,
-    F_SETFD,
-    SOL_SOCKET,
-    SO_REUSEADDR,
-    TIOCGWINSZ,
+    accept, bind, c_char, c_int, c_void, connect, dup2, fcntl, getgid, getpeername, getsockname,
+    getsockopt, in_addr_t, in_port_t, ioctl, listen, msghdr, pid_t, recvfrom, recvmsg, sa_family_t,
+    select, sendmsg, sendto, setsockopt, sockaddr, socket, socklen_t, EINVAL, FIOCLEX, FIONBIO,
+    F_GETFD, F_SETFD, SOL_SOCKET, SO_REUSEADDR, TIOCGWINSZ,
 };
 use wasmer_runtime_core::vm::Ctx;
 
-use std::{mem, slice};
-
-// Linking to functions that are not provided by rust libc
-#[cfg(target_os = "macos")]
-#[link(name = "c")]
-extern "C" {
-    pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
-}
-
-#[cfg(not(target_os = "macos"))]
-use libc::wait4;
+use std::slice;
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
 // Other platforms do otherwise.
+use crate::utils::copy_stat_into_wasm;
 #[cfg(target_os = "darwin")]
 use libc::SO_NOSIGPIPE;
+
 #[cfg(not(target_os = "darwin"))]
 const SO_NOSIGPIPE: c_int = 0;
 
+/// read
+pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    // -> ssize_t
+    debug!("emscripten::___syscall3 (read) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: i32 = varargs.get(ctx);
+    debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
+    let ret = unsafe { libc::read(fd, buf_addr, count as _) };
+    debug!("=> ret: {}", ret);
+    ret as _
+}
+
+/// write
+pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall4 (write) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: i32 = varargs.get(ctx);
+    debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
+    unsafe { libc::write(fd, buf_addr, count as _) as i32 }
+}
+
 /// open
-#[cfg(not(feature = "vfs"))]
 pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", _which);
     let pathname: u32 = varargs.get(ctx);
@@ -89,8 +62,21 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     fd
 }
 
-// chown
-#[cfg(not(feature = "vfs"))]
+/// close
+pub fn ___syscall6(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall6 (close) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    debug!("fd: {}", fd);
+    unsafe { libc::close(fd) }
+}
+
+/// chmod
+pub fn ___syscall15(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall15");
+    -1
+}
+
+/// chown
 pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall212 (chown) {}", _which);
 
@@ -103,8 +89,7 @@ pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     unsafe { libc::chown(pathname_addr, owner, group) }
 }
 
-// mkdir
-#[cfg(not(feature = "vfs"))]
+/// mkdir
 pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", _which);
     let pathname: u32 = varargs.get(ctx);
@@ -113,11 +98,47 @@ pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     unsafe { libc::mkdir(pathname_addr, mode as _) }
 }
 
+/// pipe
+pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall42 (pipe)");
+    // offset to a file descriptor, which contains a read end and write end, 2 integers
+    let fd_offset: u32 = varargs.get(ctx);
+
+    let emscripten_memory = ctx.memory(0);
+
+    // convert the file descriptor into a vec with two slots
+    let mut fd_vec: Vec<c_int> = emscripten_memory.view()[((fd_offset / 4) as usize)..]
+        .iter()
+        .map(|pipe_end: &std::cell::Cell<c_int>| pipe_end.get())
+        .take(2)
+        .collect();
+
+    // get it as a mutable pointer
+    let fd_ptr = fd_vec.as_mut_ptr();
+
+    // call pipe and store the pointers in this array
+    #[cfg(target_os = "windows")]
+    let result: c_int = unsafe { libc::pipe(fd_ptr, 2048, 0) };
+    #[cfg(not(target_os = "windows"))]
+    let result: c_int = unsafe { libc::pipe(fd_ptr) };
+    result
+}
+
+/// dup2
+pub fn ___syscall63(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall63 (dup2) {}", _which);
+
+    let src: i32 = varargs.get(ctx);
+    let dst: i32 = varargs.get(ctx);
+
+    unsafe { libc::dup2(src, dst) }
+}
+
 // getgid
 //#[cfg(not(feature = "vfs"))]
 pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall201 (getgid)");
-    let result  = unsafe {
+    let result = unsafe {
         // Maybe fix: Emscripten returns 0 always
         getgid() as i32
     };
@@ -169,7 +190,6 @@ pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
 }
 
 /// ioctl
-#[cfg(not(feature = "vfs"))]
 pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall54 (ioctl) {}", _which);
     let fd: i32 = varargs.get(ctx);
@@ -212,7 +232,6 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 }
 
 // socketcall
-#[cfg(not(feature = "vfs"))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall102 (socketcall) {}", _which);
@@ -253,21 +272,13 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
                 ioctl(fd, FIOCLEX);
             };
 
-            let err = errno::errno();
+            let _err = errno::errno();
 
-//            type T = u32;
-//            let payload = 1 as *const T as _;
-            let result = unsafe {
-                setsockopt(
-                    fd,
-                    SOL_SOCKET,
-                    SO_NOSIGPIPE,
-                    0 as *const _,
-                    4,
-                )
-            };
+            //            type T = u32;
+            //            let payload = 1 as *const T as _;
+            let _result = unsafe { setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, 0 as *const _, 4) };
 
-            let err2 = errno::errno();
+            let _err2 = errno::errno();
 
             debug!(
                 "=> domain: {} (AF_INET/2), type: {} (SOCK_STREAM/1), protocol: {} = fd: {}",
@@ -286,12 +297,10 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
             // Debug received address
             let _proper_address = address as *const GuestSockaddrIn;
-            unsafe {
-                debug!(
+            debug!(
                     "=> address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}",
-                    (*_proper_address).sin_family, (*_proper_address).sin_port, (*_proper_address).sin_addr.s_addr
+                    unsafe { (*_proper_address).sin_family }, unsafe { (*_proper_address).sin_port }, unsafe { (*_proper_address).sin_addr.s_addr }
                 );
-            }
             let status = unsafe { bind(socket, address, address_len) };
             // debug!("=> status: {}", status);
             debug!(
@@ -341,24 +350,13 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
             let fd = unsafe { accept(socket, address, address_len_addr) };
 
-            use bit_field::BitArray;
-
             unsafe {
                 let address_linux =
                     emscripten_memory_pointer!(ctx.memory(0), address_addr) as *mut LinuxSockAddr;
                 (*address_linux).sa_family = (*address).sa_family as u16;
                 (*address_linux).sa_data = (*address).sa_data;
-//                let sa_data = (*address).sa_data;
-//                let sa_data_slice: &[i8] = slice::from_raw_parts((*address).sa_data, 14);
-                let x = (*address).sa_data[0];
-                let y = (*address).sa_data[1];
-                let raw_family: [i8; 2] = [x, y];
-                let zz = std::mem::transmute::<[i8; 2], i16>(raw_family);
-
-//                let sin_family = &sa_data_slice[0..2];
-//                let sin_port = &sa_data_slice[2..4];
                 let _proper_address = address as *const GuestSockaddrIn;
-                let x = 10;
+                let _x = 10;
             };
 
             // set_cloexec
@@ -483,7 +481,6 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// pread
-#[cfg(not(feature = "vfs"))]
 pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall180 (pread) {}", _which);
     let fd: i32 = varargs.get(ctx);
@@ -501,7 +498,6 @@ pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// pwrite
-#[cfg(not(feature = "vfs"))]
 pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall181 (pwrite) {}", _which);
     let fd: i32 = varargs.get(ctx);
@@ -522,26 +518,7 @@ pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     status
 }
 
-/// wait4
-#[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
-    debug!("emscripten::___syscall114 (wait4)");
-    let pid: pid_t = varargs.get(ctx);
-    let status: u32 = varargs.get(ctx);
-    let options: c_int = varargs.get(ctx);
-    let rusage: u32 = varargs.get(ctx);
-    let status_addr = emscripten_memory_pointer!(ctx.memory(0), status) as *mut c_int;
-    let rusage_addr = emscripten_memory_pointer!(ctx.memory(0), rusage) as *mut rusage;
-    let res = unsafe { wait4(pid, status_addr, options, rusage_addr) };
-    debug!(
-        "=> pid: {}, status: {:?}, options: {}, rusage: {:?} = pid: {}",
-        pid, status_addr, options, rusage_addr, res
-    );
-    res
-}
-
 // select
-#[cfg(not(feature = "vfs"))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall142 (newselect) {}", _which);
@@ -559,7 +536,7 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     let nfds = nfds as _;
     let readfds_slice = unsafe { slice::from_raw_parts_mut(readfds_set_u8_ptr, nfds) };
-    let writefds_slice = unsafe { slice::from_raw_parts_mut(writefds_set_u8_ptr, nfds) };
+    let _writefds_slice = unsafe { slice::from_raw_parts_mut(writefds_set_u8_ptr, nfds) };
     let nfds = nfds as _;
 
     use bit_field::BitArray;
@@ -578,34 +555,35 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     //    let rd = unsafe { libc::read(bits[0], 0 as *mut _, 0)};
 
-    let err = errno::errno();
+    let _err = errno::errno();
 
     let result = unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
 
     assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
     assert!(exceptfds == 0, "`exceptfds` is not supporrted");
 
-    let err = errno::errno();
-    debug!("gah again: {}", err);
+    let _err = errno::errno();
+    debug!("gah again: {}", _err);
 
     result
     //    unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
 }
 
-// setpgid
-pub fn ___syscall57(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall57 (setpgid) {}", _which);
-    let pid: i32 = varargs.get(ctx);
-    let pgid: i32 = varargs.get(ctx);
-    unsafe { setpgid(pid, pgid) }
-}
-
-/// uname
-// NOTE: Wondering if we should return custom utsname, like Emscripten.
-pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall122 (uname) {}", _which);
+/// fstat64
+pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall197 (fstat64) {}", _which);
+    let fd: c_int = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
-    debug!("=> buf: {}", buf);
-    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut utsname;
-    unsafe { uname(buf_addr) }
+
+    unsafe {
+        let mut stat = std::mem::zeroed();
+        let ret = libc::fstat(fd, &mut stat);
+        debug!("ret: {}", ret);
+        if ret != 0 {
+            return ret;
+        }
+        copy_stat_into_wasm(ctx, buf, &stat);
+    }
+
+    0
 }

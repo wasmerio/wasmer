@@ -139,7 +139,8 @@ pub fn _sysconf(_ctx: &mut Ctx, name: c_int) -> i32 {
     unsafe { sysconf(name) as i32 } // TODO review i64
 }
 
-pub fn _initgroups(_ctx: &mut Ctx, user_offset: u32, gid: u32) -> c_int {
+/// initgroups
+pub fn _initgroups(_ctx: &mut Ctx, _user_offset: u32, _gid: u32) -> c_int {
     0
 }
 
