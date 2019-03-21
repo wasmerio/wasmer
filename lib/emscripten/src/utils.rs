@@ -90,24 +90,6 @@ pub unsafe fn allocate_cstr_on_stack<'a>(ctx: &'a mut Ctx, s: &str) -> (u32, &'a
     (offset, slice)
 }
 
-#[cfg(not(target_os = "windows"))]
-pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
-    let _total_num = {
-        let mut ptr = cstrs;
-        let mut counter = 0;
-        while !(*ptr).is_null() {
-            counter += 1;
-            ptr = ptr.add(1);
-        }
-        counter
-    };
-    debug!(
-        "emscripten::copy_terminated_array_of_cstrs::total_num: {}",
-        _total_num
-    );
-    0
-}
-
 #[repr(C)]
 pub struct GuestStat {
     st_dev: u32,
@@ -188,9 +170,7 @@ mod tests {
 
     #[cfg(not(any(feature = "llvm", feature = "clif")))]
     fn get_compiler() -> impl Compiler {
-        panic!("compiler not specified, activate a compiler via features");
-        use wasmer_clif_backend::CraneliftCompiler;
-        CraneliftCompiler::new()
+        panic!("compiler not specified, activate a compiler via features")
     }
 
     #[test]

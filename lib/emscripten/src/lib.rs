@@ -55,6 +55,9 @@ pub use self::utils::{
 };
 
 #[cfg(feature = "vfs")]
+use crate::syscalls::EmscriptenVfs;
+
+#[cfg(feature = "vfs")]
 use wasmer_runtime_abi::vfs::vfs::Vfs;
 
 // TODO: Magic number - how is this calculated?
@@ -122,7 +125,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
 
     #[cfg(feature = "vfs")]
-    pub vfs: Option<Vfs>,
+    pub vfs: Option<EmscriptenVfs>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -241,8 +244,11 @@ pub fn run_emscripten_instance(
     {
         data.vfs = match module.info().custom_sections.get("wasmer:fs") {
             Some(bytes) => match Vfs::from_compressed_bytes(&bytes[..]) {
-                Ok(vfs_backing) => Some(vfs_backing),
-                Err(e) => None,
+                Ok(vfs) => {
+                    let emscripten_vfs = EmscriptenVfs::new(vfs);
+                    Some(emscripten_vfs)
+                }
+                Err(_) => None,
             },
             None => None,
         };
@@ -459,6 +465,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_getpagesize" => func!(crate::env::_getpagesize),
             "_sysconf" => func!(crate::env::_sysconf),
             "_getaddrinfo" => func!(crate::env::_getaddrinfo),
+            "_initgroups" => func!(crate::env::_initgroups),
 
             // Null func
             "nullFunc_i" => func!(crate::nullfunc::nullfunc_i),

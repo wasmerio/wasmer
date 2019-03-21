@@ -75,3 +75,30 @@ pub fn ___assert_fail(_ctx: &mut Ctx, _a: c_int, _b: c_int, _c: c_int, _d: c_int
     // TODO: Implement like emscripten expects regarding memory/page size
     // TODO raise an error
 }
+
+#[cfg(feature = "vfs")]
+#[allow(clippy::cast_ptr_alignment)]
+pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
+    debug!("emscripten::_getgrnam {}", name_ptr);
+    #[cfg(not(feature = "debug"))]
+    let _ = name_ptr;
+
+    #[repr(C)]
+    struct GuestGroup {
+        gr_name: u32,
+        gr_passwd: u32,
+        gr_gid: u32,
+        gr_mem: u32,
+    }
+
+    unsafe {
+        let group_struct_offset = call_malloc(ctx, std::mem::size_of::<GuestGroup>() as _);
+        let group_struct_ptr =
+            emscripten_memory_pointer!(ctx.memory(0), group_struct_offset) as *mut GuestGroup;
+        (*group_struct_ptr).gr_name = 0;
+        (*group_struct_ptr).gr_passwd = 0;
+        (*group_struct_ptr).gr_gid = 0;
+        (*group_struct_ptr).gr_mem = 0;
+        group_struct_offset as c_int
+    }
+}

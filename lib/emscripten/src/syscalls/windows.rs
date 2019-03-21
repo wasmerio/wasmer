@@ -69,6 +69,7 @@ pub fn ___syscall212(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
 }
 
 // mkdir
+#[cfg(not(feature = "vfs"))]
 pub fn ___syscall39(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", which);
     #[cfg(not(feature = "debug"))]
@@ -106,6 +107,7 @@ pub fn ___syscall54(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_in
 }
 
 // socketcall
+#[cfg(not(feature = "vfs"))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall102(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall102 (socketcall) {}", which);
@@ -114,16 +116,18 @@ pub fn ___syscall102(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     -1
 }
 
-// pread
-pub fn ___syscall180(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
+/// pread
+#[cfg(not(feature = "vfs"))]
+pub fn ___syscall180(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall180 (pread) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
     -1
 }
 
-// pwrite
-pub fn ___syscall181(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
+/// pwrite
+#[cfg(not(feature = "vfs"))]
+pub fn ___syscall181(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall181 (pwrite) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;

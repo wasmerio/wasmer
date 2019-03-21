@@ -97,6 +97,7 @@ pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     }
 }
 
+#[cfg(not(feature = "vfs"))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);

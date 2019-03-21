@@ -26,6 +26,7 @@ wasmer-runtime = { path = "lib/runtime" }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
+errno = "0.2.4"
 
 [target.'cfg(not(windows))'.dependencies]
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }

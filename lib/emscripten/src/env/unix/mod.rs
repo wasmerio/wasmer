@@ -1,14 +1,11 @@
 /// NOTE: These syscalls only support wasm_32 for now because they take u32 offset
-use libc::{
-    c_int, getenv, getgrnam as libc_getgrnam, getpwnam as libc_getpwnam, putenv, setenv, sysconf,
-    unsetenv,
-};
+use libc::{c_int, getenv, getpwnam as libc_getpwnam, putenv, setenv, sysconf, unsetenv};
 use std::ffi::CStr;
 use std::mem;
 use std::os::raw::c_char;
 
 use crate::env::call_malloc;
-use crate::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
+use crate::utils::copy_cstr_into_wasm;
 use wasmer_runtime_core::vm::Ctx;
 
 // #[no_mangle]
@@ -103,6 +100,7 @@ pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     }
 }
 
+#[cfg(not(feature = "vfs"))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
@@ -121,7 +119,7 @@ pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     };
 
     unsafe {
-        let group = &*libc_getgrnam(name.as_ptr());
+        let group = &*libc::getgrnam(name.as_ptr());
         let group_struct_offset = call_malloc(ctx, mem::size_of::<GuestGroup>() as _);
 
         let group_struct_ptr =
@@ -139,4 +137,26 @@ pub fn _sysconf(_ctx: &mut Ctx, name: c_int) -> i32 {
     debug!("emscripten::_sysconf {}", name);
     // TODO: Implement like emscripten expects regarding memory/page size
     unsafe { sysconf(name) as i32 } // TODO review i64
+}
+
+pub fn _initgroups(_ctx: &mut Ctx, user_offset: u32, gid: u32) -> c_int {
+    0
+}
+
+#[cfg(not(feature = "vfs"))]
+unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
+    let _total_num = {
+        let mut ptr = cstrs;
+        let mut counter = 0;
+        while !(*ptr).is_null() {
+            counter += 1;
+            ptr = ptr.add(1);
+        }
+        counter
+    };
+    debug!(
+        "emscripten::copy_terminated_array_of_cstrs::total_num: {}",
+        _total_num
+    );
+    0
 }

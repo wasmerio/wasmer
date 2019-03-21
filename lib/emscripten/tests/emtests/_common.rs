@@ -62,10 +62,31 @@ macro_rules! assert_emscripten_output {
 }
 
 pub fn assert_emscripten_output(wasm_bytes: &[u8], raw_expected_str: &str) {
-    use wasmer_clif_backend::CraneliftCompiler;
     use wasmer_emscripten::{generate_emscripten_env, stdio::StdioCapturer, EmscriptenGlobals};
+    use wasmer_runtime_core::backend::Compiler;
 
-    let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &CraneliftCompiler::new())
+    #[cfg(feature = "clif")]
+    fn get_compiler() -> impl Compiler {
+        use wasmer_clif_backend::CraneliftCompiler;
+        CraneliftCompiler::new()
+    }
+
+    #[cfg(feature = "llvm")]
+    fn get_compiler() -> impl Compiler {
+        use wasmer_llvm_backend::LLVMCompiler;
+        LLVMCompiler::new()
+    }
+
+    #[cfg(not(any(feature = "llvm", feature = "clif")))]
+    fn get_compiler() -> impl Compiler {
+        panic!("compiler not specified, activate a compiler via features");
+        use wasmer_clif_backend::CraneliftCompiler;
+        CraneliftCompiler::new()
+    }
+
+    let compiler = get_compiler();
+
+    let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &compiler)
         .expect("WASM can't be compiled");
 
     let mut emscripten_globals = EmscriptenGlobals::new(&module);
