@@ -131,8 +131,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 let module = webassembly::compile(&wasm_binary[..])
                     .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
-                // We save the module into a cache file
-                cache.store(hash, module.clone()).unwrap();
+                // We try to save the module into a cache file
+                cache.store(hash, module.clone()).unwrap_or_default();
+
                 module
             }
         };

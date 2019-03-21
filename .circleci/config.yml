@@ -18,8 +18,10 @@ jobs:
       - run:
           name: Install lint deps
           command: |
+            git config --global --unset url."ssh://git@github.com".insteadOf || true
+            rustup toolchain install nightly
             rustup component add rustfmt
-            rustup component add clippy
+            rustup component add clippy --toolchain=nightly || cargo +nightly install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
           name: Execute lints
           command: |
@@ -274,6 +276,9 @@ jobs:
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make test
+          make test-nightly
+          make test-emscripten
+          make test-emscripten-nightly
       - save_cache:
           paths:
             - /usr/local/cargo/registry
