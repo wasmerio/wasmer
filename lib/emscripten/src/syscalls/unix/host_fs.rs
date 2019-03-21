@@ -3,10 +3,9 @@ use std::slice;
 use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
 use crate::varargs::VarArgs;
 use libc::{
-    c_int, c_void, connect, fcntl, getgid, getpeername, getsockname, getsockopt, in_addr_t,
-    in_port_t, ioctl, listen, msghdr, pid_t, recvfrom, recvmsg, sa_family_t, select, sendmsg,
-    sendto, setsockopt, sockaddr, socket, socklen_t, EINVAL, FIOCLEX, FIONBIO, F_GETFD, F_SETFD,
-    SOL_SOCKET, SO_REUSEADDR, TIOCGWINSZ,
+    c_int, c_void, connect, fcntl, ioctl, pid_t,
+    recvfrom, recvmsg, sa_family_t, select, sendmsg, sendto, setsockopt, sockaddr, socket,
+    socklen_t, EINVAL, FIOCLEX, FIONBIO, F_GETFD, F_SETFD, SOL_SOCKET, SO_REUSEADDR, TIOCGWINSZ,
 };
 use wasmer_runtime_core::vm::Ctx;
 
@@ -162,7 +161,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     pub struct GuestSockaddrIn {
         pub sin_family: sa_family_t,
         // u16
-        pub sin_port: in_port_t,
+        pub sin_port: libc::in_port_t,
         // u16
         pub sin_addr: GuestInAddr,
         // u32
@@ -172,7 +171,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     #[repr(C)]
     pub struct GuestInAddr {
-        pub s_addr: in_addr_t, // u32
+        pub s_addr: libc::in_addr_t, // u32
     }
 
     // debug!("GuestSockaddrIn = {}", size_of::<GuestSockaddrIn>());
@@ -255,7 +254,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // listen (socket: c_int, backlog: c_int) -> c_int
             let socket = socket_varargs.get(ctx);
             let backlog: i32 = socket_varargs.get(ctx);
-            let status = unsafe { listen(socket, backlog) };
+            let status = unsafe { libc::listen(socket, backlog) };
             debug!(
                 "=> socketfd: {}, backlog: {} = status: {}",
                 socket, backlog, status
@@ -307,7 +306,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             let address_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
-            unsafe { getsockname(socket, address, address_len_addr) }
+            unsafe { libc::getsockname(socket, address, address_len_addr) }
         }
         7 => {
             debug!("socket: getpeername");
@@ -318,7 +317,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             let address_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
-            unsafe { getpeername(socket, address, address_len_addr) }
+            unsafe { libc::getpeername(socket, address, address_len_addr) }
         }
         11 => {
             debug!("socket: sendto");
@@ -346,7 +345,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             let address_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
-            unsafe { recvfrom(socket, buf_addr, flags, len, address, address_len_addr) as i32 }
+            unsafe { libc::recvfrom(socket, buf_addr, flags, len, address, address_len_addr) as i32 }
         }
         14 => {
             debug!("socket: setsockopt");
@@ -382,7 +381,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as _;
             let option_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), option_len) as *mut socklen_t;
-            let result = unsafe { getsockopt(socket, level, name, value_addr, option_len_addr) };
+            let result = unsafe { libc::getsockopt(socket, level, name, value_addr, option_len_addr) };
             result
         }
         16 => {
@@ -391,7 +390,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let socket: i32 = socket_varargs.get(ctx);
             let msg: u32 = socket_varargs.get(ctx);
             let flags: i32 = socket_varargs.get(ctx);
-            let msg_addr = emscripten_memory_pointer!(ctx.memory(0), msg) as *const msghdr;
+            let msg_addr = emscripten_memory_pointer!(ctx.memory(0), msg) as *const libc::msghdr;
             unsafe { sendmsg(socket, msg_addr, flags) as i32 }
         }
         17 => {
@@ -400,7 +399,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let socket: i32 = socket_varargs.get(ctx);
             let msg: u32 = socket_varargs.get(ctx);
             let flags: i32 = socket_varargs.get(ctx);
-            let msg_addr = emscripten_memory_pointer!(ctx.memory(0), msg) as *mut msghdr;
+            let msg_addr = emscripten_memory_pointer!(ctx.memory(0), msg) as *mut libc::msghdr;
             unsafe { recvmsg(socket, msg_addr, flags) as i32 }
         }
         _ => {
