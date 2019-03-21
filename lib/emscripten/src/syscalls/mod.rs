@@ -20,7 +20,7 @@ use super::varargs::VarArgs;
 use byteorder::{ByteOrder, LittleEndian};
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
-use libc::{c_int, c_void, chdir, exit, getpid, lseek, rmdir, write};
+use libc::{c_int, c_void, chdir, exit, getpid, lseek, rmdir};
 use wasmer_runtime_core::vm::Ctx;
 
 use super::env;
@@ -197,42 +197,6 @@ pub fn ___syscall145(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 
             let iov_len = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
             let curr = libc::read(fd, iov_base, iov_len);
-            if curr < 0 {
-                return -1;
-            }
-            ret += curr;
-        }
-        // debug!(" => ret: {}", ret);
-        ret as _
-    }
-}
-
-// writev
-#[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
-    // -> ssize_t
-    debug!("emscripten::___syscall146 (writev) {}", _which);
-    let fd: i32 = varargs.get(ctx);
-    let iov: i32 = varargs.get(ctx);
-    let iovcnt: i32 = varargs.get(ctx);
-
-    #[repr(C)]
-    struct GuestIovec {
-        iov_base: i32,
-        iov_len: i32,
-    }
-
-    debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
-    let mut ret = 0;
-    unsafe {
-        for i in 0..iovcnt {
-            let guest_iov_addr =
-                emscripten_memory_pointer!(ctx.memory(0), (iov + i * 8)) as *mut GuestIovec;
-            let iov_base = emscripten_memory_pointer!(ctx.memory(0), (*guest_iov_addr).iov_base)
-                as *const c_void;
-            let iov_len = (*guest_iov_addr).iov_len as _;
-            // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
-            let curr = write(fd, iov_base, iov_len);
             if curr < 0 {
                 return -1;
             }

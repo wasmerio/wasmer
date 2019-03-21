@@ -93,16 +93,6 @@ pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     result
 }
 
-/// dup2
-pub fn ___syscall63(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall63 (dup2) {}", _which);
-
-    let src: i32 = varargs.get(ctx);
-    let dst: i32 = varargs.get(ctx);
-
-    unsafe { libc::dup2(src, dst) }
-}
-
 /// ioctl
 pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall54 (ioctl) {}", _which);
@@ -143,6 +133,16 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
             0
         }
     }
+}
+
+/// dup2
+pub fn ___syscall63(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall63 (dup2) {}", _which);
+
+    let src: i32 = varargs.get(ctx);
+    let dst: i32 = varargs.get(ctx);
+
+    unsafe { libc::dup2(src, dst) }
 }
 
 // socketcall
@@ -453,6 +453,42 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("gah again: {}", _err);
 
     result
+}
+
+// writev
+#[allow(clippy::cast_ptr_alignment)]
+pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    // -> ssize_t
+    debug!("emscripten::___syscall146 (writev) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let iov: i32 = varargs.get(ctx);
+    let iovcnt: i32 = varargs.get(ctx);
+
+    #[repr(C)]
+    struct GuestIovec {
+        iov_base: i32,
+        iov_len: i32,
+    }
+
+    debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
+    let mut ret = 0;
+    unsafe {
+        for i in 0..iovcnt {
+            let guest_iov_addr =
+                emscripten_memory_pointer!(ctx.memory(0), (iov + i * 8)) as *mut GuestIovec;
+            let iov_base = emscripten_memory_pointer!(ctx.memory(0), (*guest_iov_addr).iov_base)
+                as *const c_void;
+            let iov_len = (*guest_iov_addr).iov_len as _;
+            // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
+            let curr = libc::write(fd, iov_base, iov_len);
+            if curr < 0 {
+                return -1;
+            }
+            ret += curr;
+        }
+        // debug!(" => ret: {}", ret);
+        ret as _
+    }
 }
 
 /// pread

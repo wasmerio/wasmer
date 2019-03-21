@@ -138,6 +138,7 @@ pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 
 /// pipe
 pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    unimplemented!();
     debug!("emscripten::___syscall42 (pipe)");
     // offset to a file descriptor, which contains a read end and write end, 2 integers
     let fd_offset: u32 = varargs.get(ctx);
@@ -262,133 +263,6 @@ pub fn ___syscall63(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     debug!("emscripten::___syscall63 (dup2) returns {}", dst);
 
     dst
-}
-
-/// pread
-pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall180 (pread) {}", _which);
-    let fd: i32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-    let count: i32 = varargs.get(ctx);
-    let offset: i32/*i64*/ = varargs.get(ctx);
-    //    debug!(
-    //        "=> fd: {}, buf_offset: {}, count: {}, offset: {}",
-    //        fd, buf, count, offset
-    //    );
-    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut u8;
-    let buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
-    let mut buf_slice_with_offset: &mut [u8] = &mut buf_slice[(offset as usize)..];
-
-    //    let emscripten_data = crate::env::get_emscripten_data(ctx);
-    //    let ret = match &mut emscripten_data.vfs {
-    //        Some(vfs) => vfs.vfs.read_file(fd as _, &mut buf_slice_with_offset).unwrap(),
-    //        None => 0,
-    //    };
-
-    let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-    let vfd = VirtualFd(fd);
-    let virtual_file_handle = vfs.get_virtual_file_handle(vfd).unwrap();
-    let ret = vfs
-        .vfs
-        .read_file(virtual_file_handle as _, &mut buf_slice_with_offset)
-        .unwrap();
-    //    let pread_result = unsafe { libc::pread(fd, buf_ptr, count as _, offset) as _ };
-    let _data_string = read_string_from_wasm(ctx.memory(0), buf);
-
-    //    pread_result
-    //    debug!("=> pread returns: {}", ret);
-    ret as _
-}
-
-/// pwrite
-pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall181 (pwrite) {}", _which);
-    let fd: i32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-    let count: u32 = varargs.get(ctx);
-    let offset: i32 = varargs.get(ctx);
-
-    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf);
-
-    let buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
-
-    //    let emscripten_data = crate::env::get_emscripten_data(ctx);
-    //    let count = if let Some(vfs) = &mut emscripten_data.vfs {
-    //        vfs.vfs.write_file(fd as _, buf_slice, count as _, offset as _)
-    //            .unwrap()
-    //    } else {
-    //        0
-    //    };
-
-    let vfd = VirtualFd(fd);
-    let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-    let virtual_file_handle = vfs.get_virtual_file_handle(vfd).unwrap();
-    vfs.vfs
-        .write_file(virtual_file_handle as _, buf_slice, count as _, offset as _)
-        .unwrap();
-
-    count as _
-}
-
-// stat64
-#[cfg(feature = "vfs")]
-pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall195 (stat64) {}", _which);
-    let pathname: u32 = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-    let path_string = read_string_from_wasm(ctx.memory(0), pathname);
-    debug!("path extract for `stat` syscall: {}", &path_string);
-    let path = std::path::PathBuf::from(path_string);
-
-    let emscripten_data = crate::env::get_emscripten_data(ctx);
-    let ret = match &mut emscripten_data.vfs {
-        Some(vfs) => {
-            let metadata = vfs.vfs.get_path_metadata(&path).unwrap();
-            let len = metadata.len();
-            unsafe {
-                let mut stat: stat = std::mem::zeroed();
-                stat.st_size = len as _;
-                debug!("stat size: {}", len);
-                copy_stat_into_wasm(ctx, buf, &stat as _);
-            }
-            0
-        }
-        None => -1,
-    };
-    debug!("stat return: {}", ret);
-    ret
-}
-
-/// fstat64
-pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall197 (fstat64) {}", _which);
-    let fd: c_int = varargs.get(ctx);
-    let buf: u32 = varargs.get(ctx);
-    let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-    let vfd = VirtualFd(fd);
-    let ret = match vfs.fd_map.get(&vfd) {
-        Some(FileHandle::VirtualFile(internal_handle)) => {
-            let metadata = vfs.vfs.get_file_metadata(internal_handle).unwrap();
-            let len = metadata.len;
-            let mode = if metadata.is_file {
-                libc::S_IFREG
-            } else {
-                libc::S_IFDIR
-            };
-            unsafe {
-                let mut stat: stat = std::mem::zeroed();
-                stat.st_mode = mode as _;
-                stat.st_size = len as _;
-                debug!("fstat size: {}", len);
-                copy_stat_into_wasm(ctx, buf, &stat as _);
-            }
-            0
-        }
-        Some(FileHandle::Socket(_host_fd)) => panic!(),
-        None => -1,
-    };
-    debug!("fstat return: {}", ret);
-    ret
 }
 
 // socketcall
@@ -753,29 +627,21 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall142 (newselect) {}", _which);
-
     let nfds: i32 = varargs.get(ctx);
     let readfds: u32 = varargs.get(ctx);
     let writefds: u32 = varargs.get(ctx);
     let _exceptfds: u32 = varargs.get(ctx);
     let timeout: i32 = varargs.get(ctx);
-
     assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
-    //    assert_eq!(exceptfds, 0, "`exceptfds` is not supporrted");
-
     let readfds_set_ptr = emscripten_memory_pointer!(ctx.memory(0), readfds) as *mut _;
     let readfds_set_u8_ptr = readfds_set_ptr as *mut u8;
     let writefds_set_ptr = emscripten_memory_pointer!(ctx.memory(0), writefds) as *mut _;
     let writefds_set_u8_ptr = writefds_set_ptr as *mut u8;
-
     let nfds = nfds as _;
     let readfds_slice = unsafe { slice::from_raw_parts_mut(readfds_set_u8_ptr, nfds) };
     let _writefds_slice = unsafe { slice::from_raw_parts_mut(writefds_set_u8_ptr, nfds) };
-
     use bit_field::BitArray;
-
     let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-
     let mut file_descriptors_to_watch = vec![];
     for virtual_fd in 0..nfds {
         let bit_flag = readfds_slice.get_bit(virtual_fd as usize);
@@ -784,12 +650,9 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         }
         file_descriptors_to_watch.push(virtual_fd);
     }
-
     let mut count = 0;
     let mut max = -1;
-
     let mut read_mappings = vec![];
-
     for virtual_fd in 0..nfds {
         let bit_flag = readfds_slice.get_bit(virtual_fd);
         if !bit_flag {
@@ -812,7 +675,6 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             None => {}
         };
     }
-
     for mapping in read_mappings.clone() {
         let (virtual_fd, fd) = mapping;
         unsafe {
@@ -820,13 +682,6 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             libc::FD_SET(fd, readfds_set_ptr);
         }
     }
-
-    //    #[repr(C)]
-    //    pub struct timeval {
-    //        pub tv_sec: libc::c_long, // time t
-    //        pub tv_usec: libc::c_long,     // long int
-    //    }
-
     let timeval_ptr = emscripten_memory_pointer!(ctx.memory(0), timeout) as *mut libc::timeval;
     let mut tval = unsafe {
         libc::timeval {
@@ -835,19 +690,9 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         }
     };
     let _tval_ptr: *mut libc::timeval = &mut tval;
-
-    let sz = max as i32 + 1;
-    //    let result = unsafe { libc::select(sz, readfds_set_ptr, writefds_set_ptr, 0 as _, timeval_ptr as *mut libc::timeval) };
+    let sz = max + 1;
     let result = unsafe { libc::select(sz, readfds_set_ptr, writefds_set_ptr, 0 as _, 0 as _) };
-
-    assert!(nfds <= 64, "`nfds` must be less than or equal to 64");
-    //    assert!(exceptfds == 0, "`exceptfds` is not supporrted");
-
-    let err = errno::errno();
-    debug!("gah again: {}", err);
-
-    //    let len = read_mappings.len();
-
+    let _err = errno::errno();
     for mapping in read_mappings {
         let (virtual_fd, fd) = mapping;
         unsafe {
@@ -855,15 +700,147 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             libc::FD_SET(virtual_fd, readfds_set_ptr);
         }
     }
-
     for input in file_descriptors_to_watch {
         unsafe {
             let in_set = libc::FD_ISSET(input as _, readfds_set_ptr);
             assert!(in_set);
         }
     }
-
     result
+}
+
+// writev
+#[allow(clippy::cast_ptr_alignment)]
+pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    unimplemented!();
+    // -> ssize_t
+    debug!("emscripten::___syscall146 (writev) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let iov: i32 = varargs.get(ctx);
+    let iovcnt: i32 = varargs.get(ctx);
+
+    #[repr(C)]
+    struct GuestIovec {
+        iov_base: i32,
+        iov_len: i32,
+    }
+
+    debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
+    let mut ret = 0;
+    unsafe {
+        for i in 0..iovcnt {
+            let guest_iov_addr =
+                emscripten_memory_pointer!(ctx.memory(0), (iov + i * 8)) as *mut GuestIovec;
+            let iov_base = emscripten_memory_pointer!(ctx.memory(0), (*guest_iov_addr).iov_base)
+                as *const c_void;
+            let iov_len = (*guest_iov_addr).iov_len as _;
+            // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
+            let curr = libc::write(fd, iov_base, iov_len);
+            if curr < 0 {
+                return -1;
+            }
+            ret += curr;
+        }
+        ret as _
+    }
+}
+
+/// pread
+pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall180 (pread) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: i32 = varargs.get(ctx);
+    let offset: i32/*i64*/ = varargs.get(ctx);
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut u8;
+    let buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
+    let mut buf_slice_with_offset: &mut [u8] = &mut buf_slice[(offset as usize)..];
+    let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
+    let vfd = VirtualFd(fd);
+    let virtual_file_handle = vfs.get_virtual_file_handle(vfd).unwrap();
+    let ret = vfs
+        .vfs
+        .read_file(virtual_file_handle as _, &mut buf_slice_with_offset)
+        .unwrap();
+    ret as _
+}
+
+/// pwrite
+pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall181 (pwrite) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: u32 = varargs.get(ctx);
+    let offset: i32 = varargs.get(ctx);
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf);
+    let buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
+    let vfd = VirtualFd(fd);
+    let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
+    let virtual_file_handle = vfs.get_virtual_file_handle(vfd).unwrap();
+    vfs.vfs
+        .write_file(virtual_file_handle as _, buf_slice, count as _, offset as _)
+        .unwrap();
+    count as _
+}
+
+// stat64
+pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall195 (stat64) {}", _which);
+    let pathname: u32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let path_string = read_string_from_wasm(ctx.memory(0), pathname);
+    debug!("path extract for `stat` syscall: {}", &path_string);
+    let path = std::path::PathBuf::from(path_string);
+
+    let emscripten_data = crate::env::get_emscripten_data(ctx);
+    let ret = match &mut emscripten_data.vfs {
+        Some(vfs) => {
+            let metadata = vfs.vfs.get_path_metadata(&path).unwrap();
+            let len = metadata.len();
+            unsafe {
+                let mut stat: stat = std::mem::zeroed();
+                stat.st_size = len as _;
+                debug!("stat size: {}", len);
+                copy_stat_into_wasm(ctx, buf, &stat as _);
+            }
+            0
+        }
+        None => -1,
+    };
+    debug!("stat return: {}", ret);
+    ret
+}
+
+/// fstat64
+pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall197 (fstat64) {}", _which);
+    let fd: c_int = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
+    let vfd = VirtualFd(fd);
+    let ret = match vfs.fd_map.get(&vfd) {
+        Some(FileHandle::VirtualFile(internal_handle)) => {
+            let metadata = vfs.vfs.get_file_metadata(internal_handle).unwrap();
+            let len = metadata.len;
+            let mode = if metadata.is_file {
+                libc::S_IFREG
+            } else {
+                libc::S_IFDIR
+            };
+            unsafe {
+                let mut stat: stat = std::mem::zeroed();
+                stat.st_mode = mode as _;
+                stat.st_size = len as _;
+                debug!("fstat size: {}", len);
+                copy_stat_into_wasm(ctx, buf, &stat as _);
+            }
+            0
+        }
+        Some(FileHandle::Socket(_host_fd)) => panic!(),
+        None => -1,
+    };
+    debug!("fstat return: {}", ret);
+    ret
 }
 
 /// dup3
