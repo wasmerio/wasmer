@@ -14,7 +14,7 @@ use std::{ffi::c_void, mem, ptr};
 #[repr(C)]
 pub struct Ctx {
     // `internal` must be the first field of `Ctx`.
-    pub internal: InternalCtx,
+    pub(crate) internal: InternalCtx,
 
     pub(crate) local_functions: *const *const Func,
 
@@ -29,6 +29,7 @@ pub struct Ctx {
 /// The internal context of the currently running WebAssembly instance.
 ///
 ///
+#[doc(hidden)]
 #[derive(Debug)]
 #[repr(C)]
 pub struct InternalCtx {

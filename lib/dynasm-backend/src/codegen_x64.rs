@@ -406,10 +406,8 @@ impl ProtectedCaller for X64ExecutionContext {
                 });
             }
             unsafe {
-                (
-                    (**(*_vmctx).internal.memories).base,
-                    (**(*_vmctx).internal.memories).bound,
-                )
+                let vmctx = _vmctx as *mut vm::InternalCtx;
+                ((**(*vmctx).memories).base, (**(*vmctx).memories).bound)
             }
         } else if _module.info.imported_memories.len() > 0 {
             if _module.info.memories.len() != 0 || _module.info.imported_memories.len() != 1 {
@@ -418,9 +416,10 @@ impl ProtectedCaller for X64ExecutionContext {
                 });
             }
             unsafe {
+                let vmctx = _vmctx as *mut vm::InternalCtx;
                 (
-                    (**(*_vmctx).internal.imported_memories).base,
-                    (**(*_vmctx).internal.imported_memories).bound,
+                    (**(*vmctx).imported_memories).base,
+                    (**(*vmctx).imported_memories).bound,
                 )
             }
         } else {
@@ -5130,13 +5129,13 @@ unsafe extern "C" fn invoke_import(
     import_id: usize,
     stack_top: *mut u8,
     stack_base: *mut u8,
-    vmctx: *mut vm::Ctx,
+    _vmctx: *mut vm::Ctx,
     _memory_base: *mut u8,
 ) -> u64 {
-    let vmctx: &mut vm::Ctx = &mut *vmctx;
-    let import = (*vmctx.internal.imported_funcs.offset(import_id as isize)).func;
+    let vmctx: &mut vm::InternalCtx = &mut *(_vmctx as *mut vm::InternalCtx);
+    let import = (*vmctx.imported_funcs.offset(import_id as isize)).func;
 
-    CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, vmctx, import)
+    CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, _vmctx, import)
 }
 
 #[repr(u64)]
@@ -5160,16 +5159,17 @@ unsafe extern "C" fn call_indirect(
     assert!(stack_top as usize <= stack_base as usize);
 
     let table: &LocalTable = match local_or_import {
-        CallIndirectLocalOrImport::Local => &*(*(*vmctx).internal.tables),
-        CallIndirectLocalOrImport::Import => &*(*(*vmctx).internal.imported_tables),
+        CallIndirectLocalOrImport::Local => &*(*(*(vmctx as *mut vm::InternalCtx)).tables),
+        CallIndirectLocalOrImport::Import => {
+            &*(*(*(vmctx as *mut vm::InternalCtx)).imported_tables)
+        }
     };
     if elem_index >= table.count as usize {
         eprintln!("element index out of bounds");
         protect_unix::trigger_trap();
     }
     let anyfunc = &*(table.base as *mut vm::Anyfunc).offset(elem_index as isize);
-    let dynamic_sigindex = *(*vmctx)
-        .internal
+    let dynamic_sigindex = *(*(vmctx as *mut vm::InternalCtx))
         .dynamic_sigindices
         .offset(sig_index as isize);
 
