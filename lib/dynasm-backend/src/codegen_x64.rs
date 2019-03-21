@@ -405,7 +405,12 @@ impl ProtectedCaller for X64ExecutionContext {
                     msg: "only one linear memory is supported".into(),
                 });
             }
-            unsafe { ((**(*_vmctx).memories).base, (**(*_vmctx).memories).bound) }
+            unsafe {
+                (
+                    (**(*_vmctx).internal.memories).base,
+                    (**(*_vmctx).internal.memories).bound,
+                )
+            }
         } else if _module.info.imported_memories.len() > 0 {
             if _module.info.memories.len() != 0 || _module.info.imported_memories.len() != 1 {
                 return Err(RuntimeError::Trap {
@@ -414,8 +419,8 @@ impl ProtectedCaller for X64ExecutionContext {
             }
             unsafe {
                 (
-                    (**(*_vmctx).imported_memories).base,
-                    (**(*_vmctx).imported_memories).bound,
+                    (**(*_vmctx).internal.imported_memories).base,
+                    (**(*_vmctx).internal.imported_memories).bound,
                 )
             }
         } else {
@@ -1394,7 +1399,7 @@ impl X64FunctionCode {
             }
             dynasm!(
                 assembler
-                ; mov r15, r14 => vm::Ctx.memories
+                ; mov r15, r14 => vm::InternalCtx.memories
             );
         } else if info.imported_memories.len() > 0 {
             if info.memories.len() != 0 || info.imported_memories.len() != 1 {
@@ -1404,7 +1409,7 @@ impl X64FunctionCode {
             }
             dynasm!(
                 assembler
-                ; mov r15, r14 => vm::Ctx.imported_memories
+                ; mov r15, r14 => vm::InternalCtx.imported_memories
             );
         } else {
             return Ok(());
@@ -1477,7 +1482,7 @@ impl X64FunctionCode {
             }
             dynasm!(
                 assembler
-                ; mov rcx, r9 => vm::Ctx.memories
+                ; mov rcx, r9 => vm::InternalCtx.memories
             );
             true
         } else if info.imported_memories.len() > 0 {
@@ -1488,7 +1493,7 @@ impl X64FunctionCode {
             }
             dynasm!(
                 assembler
-                ; mov rcx, r9 => vm::Ctx.imported_memories
+                ; mov rcx, r9 => vm::InternalCtx.imported_memories
             );
             true
         } else {
@@ -2101,7 +2106,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 if global_index < module_info.imported_globals.len() {
                     dynasm!(
                         assembler
-                        ; mov rax, r14 => vm::Ctx.imported_globals
+                        ; mov rax, r14 => vm::InternalCtx.imported_globals
                     );
                 } else {
                     global_index -= module_info.imported_globals.len();
@@ -2112,7 +2117,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     }
                     dynasm!(
                         assembler
-                        ; mov rax, r14 => vm::Ctx.globals
+                        ; mov rax, r14 => vm::InternalCtx.globals
                     );
                 }
 
@@ -2139,7 +2144,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     dynasm!(
                         assembler
                         ; push rbx
-                        ; mov rbx, r14 => vm::Ctx.imported_globals
+                        ; mov rbx, r14 => vm::InternalCtx.imported_globals
                     );
                 } else {
                     global_index -= module_info.imported_globals.len();
@@ -2151,7 +2156,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     dynasm!(
                         assembler
                         ; push rbx
-                        ; mov rbx, r14 => vm::Ctx.globals
+                        ; mov rbx, r14 => vm::InternalCtx.globals
                     );
                 }
 
@@ -5129,7 +5134,7 @@ unsafe extern "C" fn invoke_import(
     _memory_base: *mut u8,
 ) -> u64 {
     let vmctx: &mut vm::Ctx = &mut *vmctx;
-    let import = (*vmctx.imported_funcs.offset(import_id as isize)).func;
+    let import = (*vmctx.internal.imported_funcs.offset(import_id as isize)).func;
 
     CONSTRUCT_STACK_AND_CALL_NATIVE(stack_top, stack_base, vmctx, import)
 }
@@ -5155,15 +5160,18 @@ unsafe extern "C" fn call_indirect(
     assert!(stack_top as usize <= stack_base as usize);
 
     let table: &LocalTable = match local_or_import {
-        CallIndirectLocalOrImport::Local => &*(*(*vmctx).tables),
-        CallIndirectLocalOrImport::Import => &*(*(*vmctx).imported_tables),
+        CallIndirectLocalOrImport::Local => &*(*(*vmctx).internal.tables),
+        CallIndirectLocalOrImport::Import => &*(*(*vmctx).internal.imported_tables),
     };
     if elem_index >= table.count as usize {
         eprintln!("element index out of bounds");
         protect_unix::trigger_trap();
     }
     let anyfunc = &*(table.base as *mut vm::Anyfunc).offset(elem_index as isize);
-    let dynamic_sigindex = *(*vmctx).dynamic_sigindices.offset(sig_index as isize);
+    let dynamic_sigindex = *(*vmctx)
+        .internal
+        .dynamic_sigindices
+        .offset(sig_index as isize);
 
     if anyfunc.func.is_null() {
         eprintln!("null anyfunc");
