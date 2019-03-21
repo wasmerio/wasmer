@@ -3,11 +3,11 @@ use crate::syscalls::emscripten_vfs::{FileHandle, VirtualFd};
 use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
 use crate::varargs::VarArgs;
 use libc::stat;
+use std::collections::HashMap;
 use std::ffi::c_void;
 use std::os::raw::c_int;
 use std::slice;
 use wasmer_runtime_core::vm::Ctx;
-use std::collections::HashMap;
 
 /// read
 pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
@@ -645,98 +645,181 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     use bit_field::BitArray;
     let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
 
-    for x in writefds_slice {
-        panic!("write slice was not empty.");
+    #[derive(Debug)]
+    struct FdPair {
+        pub virtual_fd: i32,
+        pub host_fd: i32,
     }
 
-    let file_descriptors_to_watch_iter = (0..nfds).filter_map(|virtual_fd| {
-        let bit_flag = readfds_slice.get_bit(virtual_fd as usize);
-        if bit_flag {
-            Some(virtual_fd as i32)
-        }
-        else {
-            None
-        }
-    });
+    let mut virtual_file_descriptors_to_always_set_when_done = vec![];
+    let mut virtual_file_descriptors_for_writing_to_always_set_when_done = vec![];
 
-    let file_descriptors_to_watch = file_descriptors_to_watch_iter.clone().collect::<Vec<_>>();
-    debug!("set virtual read descriptors BEFORE select: {:?}", file_descriptors_to_watch);
-
-    let mut max = -1;
-    let host_file_descriptors_to_watch = file_descriptors_to_watch_iter.clone().map(|virtual_fd| {
-        let fd = if let Some(FileHandle::Socket(host_fd)) = vfs.fd_map.get(&VirtualFd(virtual_fd)) {
-            let fd = *host_fd;
-            if fd > max {
-                max = fd;
+    // virtual read and write file descriptors
+    let file_descriptors_to_read = (0..nfds)
+        .filter_map(|virtual_fd| {
+            if readfds_slice.get_bit(virtual_fd as usize) {
+                Some(virtual_fd as i32)
+            } else {
+                None
             }
-            fd
-        } else {
-            panic!()
-        };
-        fd
-    }).collect::<Vec<_>>();
-
-    debug!("set host read descriptors BEFORE select: {:?}", host_file_descriptors_to_watch);
-
-    let mut lookup_map = HashMap::new();
-
-    for mapping in file_descriptors_to_watch.iter().zip(host_file_descriptors_to_watch.iter()) {
-        let (virtual_fd, fd) = mapping;
-        unsafe {
-            libc::FD_CLR(*virtual_fd, readfds_set_ptr);
-            libc::FD_SET(*fd, readfds_set_ptr);
-        }
-        lookup_map.insert(*fd, *virtual_fd);
-    }
-
-    let sz = max + 1;
-
-//    let result = unsafe { libc::select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
-    let result = unsafe { libc::select(sz, readfds_set_ptr, writefds_set_ptr, 0 as _, 0 as _) };
-
-    let set_file_descriptors = (0..nfds).filter_map(|virtual_fd| {
-        let bit_flag = readfds_slice.get_bit(virtual_fd as usize);
-        if !bit_flag {
-            None
-        }
-        else {
-            Some(virtual_fd as i32)
-        }
-    }).collect::<Vec<_>>();
-    debug!("host read descriptors AFTER select: {:?}", set_file_descriptors);
-
-    unsafe {
-        libc::FD_ZERO(readfds_set_ptr);
-    }
-
-    let mut re_set_virtual_fds = vec![];
-    for set_host_fd in set_file_descriptors.clone() {
-        if let Some(vfd) = lookup_map.get(&set_host_fd) {
+        })
+        .filter(|vfd| {
+            if let FileHandle::VirtualFile(handle) = vfs.fd_map.get(&VirtualFd(*vfd)).unwrap() {
+                virtual_file_descriptors_to_always_set_when_done.push(*handle);
+                false
+            }
+            else {
+                true
+            }
+        })
+        .map(|vfd| {
+            let vfd = VirtualFd(vfd);
+            let file_handle = vfs.fd_map.get(&vfd).unwrap();
+            let host_fd = match file_handle {
+                FileHandle::Socket(host_fd) => host_fd,
+//                FileHandle::VirtualFile(handle) => handle,
+                _ => panic!(),
+            };
+            let pair = FdPair {
+                virtual_fd: vfd.0,
+                host_fd: *host_fd,
+            };
+            // swap the read descriptors
             unsafe {
-                libc::FD_SET(*vfd, readfds_set_ptr);
-                re_set_virtual_fds.push(*vfd);
+                libc::FD_CLR(pair.virtual_fd, readfds_set_ptr);
+                libc::FD_SET(pair.host_fd, readfds_set_ptr);
+            };
+            pair
+        })
+        .collect::<Vec<_>>();
+
+    let file_descriptors_to_write = (0..nfds)
+        .filter_map(|virtual_fd| {
+            if writefds_slice.get_bit(virtual_fd as usize) {
+                Some(virtual_fd as i32)
+            } else {
+                None
             }
-        }
-        else {
-            panic!()
-        }
+        })
+        .filter(|vfd| {
+            if let FileHandle::VirtualFile(handle) = vfs.fd_map.get(&VirtualFd(*vfd)).unwrap() {
+                virtual_file_descriptors_for_writing_to_always_set_when_done.push(*handle);
+                false
+            }
+            else {
+                true
+            }
+        })
+        .map(|vfd| {
+            let vfd = VirtualFd(vfd);
+            let file_handle = vfs.fd_map.get(&vfd).unwrap();
+            let host_fd = match file_handle {
+                FileHandle::Socket(host_fd) => host_fd,
+                FileHandle::VirtualFile(handle) => handle,
+                _ => panic!(),
+            };
+            let pair = FdPair {
+                virtual_fd: vfd.0,
+                host_fd: *host_fd,
+            };
+            // swap the write descriptors
+            unsafe {
+                libc::FD_CLR(pair.virtual_fd, writefds_set_ptr);
+                libc::FD_SET(pair.host_fd, writefds_set_ptr);
+            };
+            pair
+        })
+        .collect::<Vec<_>>();
+
+    let mut sz = -1;
+
+    // helper look up tables
+    let mut read_lookup = HashMap::new();
+    for pair in file_descriptors_to_read.iter() {
+        if pair.virtual_fd > sz { sz = pair.host_fd }
+        read_lookup.insert(pair.host_fd, pair.virtual_fd);
     }
-    debug!("virtual read descriptors AFTER select: {:?}", re_set_virtual_fds);
 
+    let mut write_lookup = HashMap::new();
+    for pair in file_descriptors_to_write.iter() {
+        if pair.virtual_fd > sz { sz = pair.host_fd }
+        write_lookup.insert(pair.host_fd, pair.virtual_fd);
+    }
 
-//    for mapping in file_descriptors_to_watch.iter().zip(host_file_descriptors_to_watch.iter()) {
-//        let (virtual_fd, fd) = mapping;
+    debug!("set read descriptors BEFORE select: {:?}", file_descriptors_to_read);
+
+    // call `select`
+    sz = sz + 1;
+    let mut result = unsafe { libc::select(sz, readfds_set_ptr, writefds_set_ptr, 0 as _, 0 as _) };
+
+    if result == -1 {
+        panic!("result returned from select was -1. The errno code: {}", errno::errno());
+    }
+
+    // swap the read descriptors back
+    let file_descriptors_to_read = (0..sz)
+        .filter_map(|host_fd| {
+            if readfds_slice.get_bit(host_fd as usize) {
+                Some(host_fd as i32)
+            } else {
+                None
+            }
+        })
+        .filter_map(|host_fd| {
+            read_lookup.get(&host_fd).map(|virtual_fd| (*virtual_fd, host_fd))
+        })
+        .map(|(virtual_fd, host_fd)| {
+            unsafe {
+                libc::FD_CLR(host_fd, readfds_set_ptr);
+                libc::FD_SET(virtual_fd, readfds_set_ptr);
+            }
+            FdPair { virtual_fd, host_fd }
+        }).collect::<Vec<_>>();;
+
+    debug!(
+        "set read descriptors AFTER select: {:?}",
+        file_descriptors_to_read
+    );
+
+//    for auto_set_file_descriptor in virtual_file_descriptors_to_always_set_when_done.iter() {
 //        unsafe {
-//            libc::FD_CLR(*fd, readfds_set_ptr);
-//            libc::FD_SET(*virtual_fd, readfds_set_ptr);
+//            libc::FD_SET(*auto_set_file_descriptor, readfds_set_ptr);
 //        }
+//        result += 1;
 //    }
-//    for input in set_file_descriptors {
+
+    // swap the write descriptors back
+    let file_descriptors_to_write = (0..sz)
+        .filter_map(|host_fd| {
+            if writefds_slice.get_bit(host_fd as usize) {
+                Some(host_fd as i32)
+            } else {
+                None
+            }
+        })
+        .filter_map(|host_fd| {
+            write_lookup.get(&host_fd).map(|virtual_fd| (*virtual_fd, host_fd))
+        })
+        .map(|(virtual_fd, host_fd)| {
+            unsafe {
+                libc::FD_CLR(host_fd, readfds_set_ptr);
+                libc::FD_SET(virtual_fd, readfds_set_ptr);
+            }
+            (virtual_fd, host_fd)
+        }).collect::<Vec<_>>();
+
+//    for auto_set_file_descriptor in virtual_file_descriptors_for_writing_to_always_set_when_done.iter() {
 //        unsafe {
-//            let in_set = libc::FD_ISSET(input as _, readfds_set_ptr);
-//            assert!(in_set);
+//            libc::FD_SET(*auto_set_file_descriptor, writefds_set_ptr);
 //        }
+//        result += 1;
 //    }
+
+//    debug!("select - reading: {:?} auto set: {:?}", file_descriptors_to_read, virtual_file_descriptors_to_always_set_when_done);
+
+//    debug!("select - writing: {:?} auto set: {:?}", file_descriptors_to_write, virtual_file_descriptors_for_writing_to_always_set_when_done);
+
+    // return the result of select
     result
 }
 
