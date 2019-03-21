@@ -348,43 +348,45 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{Anyfunc, Ctx, ImportedFunc, LocalGlobal, LocalMemory, LocalTable};
+    use super::{Anyfunc, Ctx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable};
 
     #[test]
     fn vmctx() {
+        assert_eq!(0usize, offset_of!(Ctx => internal).get_byte_offset(),);
+
         assert_eq!(
             Ctx::offset_memories() as usize,
-            offset_of!(Ctx => memories).get_byte_offset(),
+            offset_of!(InternalCtx => memories).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_tables() as usize,
-            offset_of!(Ctx => tables).get_byte_offset(),
+            offset_of!(InternalCtx => tables).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_globals() as usize,
-            offset_of!(Ctx => globals).get_byte_offset(),
+            offset_of!(InternalCtx => globals).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_memories() as usize,
-            offset_of!(Ctx => imported_memories).get_byte_offset(),
+            offset_of!(InternalCtx => imported_memories).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_tables() as usize,
-            offset_of!(Ctx => imported_tables).get_byte_offset(),
+            offset_of!(InternalCtx => imported_tables).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_globals() as usize,
-            offset_of!(Ctx => imported_globals).get_byte_offset(),
+            offset_of!(InternalCtx => imported_globals).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_funcs() as usize,
-            offset_of!(Ctx => imported_funcs).get_byte_offset(),
+            offset_of!(InternalCtx => imported_funcs).get_byte_offset(),
         );
 
         assert_eq!(
