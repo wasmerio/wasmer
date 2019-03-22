@@ -31,9 +31,10 @@ typedef enum
     RESULT_OBJECT_LOAD_FAILURE,
 } result_t;
 
-typedef result_t (*alloc_memory_t)(size_t size, mem_protect_t protect, uint8_t **ptr_out, size_t *size_out);
-typedef result_t (*protect_memory_t)(uint8_t *ptr, size_t size, mem_protect_t protect);
-typedef result_t (*dealloc_memory_t)(uint8_t *ptr, size_t size);
+typedef uint8_t *(*alloc_t)(size_t size, size_t align);
+typedef void (*dealloc_t)(uint8_t *ptr, size_t size, size_t align);
+typedef uint8_t *(*create_code_t)(void *pool, uint32_t code_size, uint32_t *offset_out);
+
 typedef uintptr_t (*lookup_vm_symbol_t)(const char *name_ptr, size_t length);
 typedef void (*fde_visitor_t)(uint8_t *fde);
 typedef result_t (*visit_fde_t)(uint8_t *fde, size_t size, fde_visitor_t visitor);
@@ -42,13 +43,10 @@ typedef void (*trampoline_t)(void *, void *, void *, void *);
 
 typedef struct
 {
-    /* Memory management. */
-    alloc_memory_t alloc_memory;
-    protect_memory_t protect_memory;
-    dealloc_memory_t dealloc_memory;
-
+    alloc_t alloc;
+    dealloc_t dealloc;
+    create_code_t create_code;
     lookup_vm_symbol_t lookup_vm_symbol;
-
     visit_fde_t visit_fde;
 } callbacks_t;
 
@@ -154,20 +152,29 @@ struct CatchableException : WasmException
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager
 {
   public:
-    MemoryManager(callbacks_t callbacks) : callbacks(callbacks) {}
+    MemoryManager(callbacks_t callbacks, void *pool) : callbacks(callbacks), pool(pool) {}
 
     virtual ~MemoryManager() override
     {
         deregisterEHFrames();
         // Deallocate all of the allocated memory.
-        callbacks.dealloc_memory(code_section.base, code_section.size);
-        callbacks.dealloc_memory(read_section.base, read_section.size);
-        callbacks.dealloc_memory(readwrite_section.base, readwrite_section.size);
+        callbacks.dealloc(read_section.base, read_section.size, read_align);
+        callbacks.dealloc(readwrite_section.base, readwrite_section.size, readwrite_align);
     }
 
     virtual uint8_t *allocateCodeSection(uintptr_t size, unsigned alignment, unsigned section_id, llvm::StringRef section_name) override
     {
-        return allocate_bump(code_section, code_bump_ptr, size, alignment);
+        if (!allocate_code_was_called)
+        {
+            allocate_code_was_called = true;
+        }
+        else
+        {
+            std::cerr << "allocateCodeSection was called more than once" << std::endl;
+            exit(1);
+        }
+
+        return code_section.base;
     }
 
     virtual uint8_t *allocateDataSection(uintptr_t size, unsigned alignment, unsigned section_id, llvm::StringRef section_name, bool read_only) override
@@ -204,34 +211,20 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
         uintptr_t read_write_data_size,
         uint32_t read_write_data_align) override
     {
-        auto aligner = [](uintptr_t ptr, size_t align) {
-            if (ptr == 0)
-            {
-                return align;
-            }
-            return (ptr + align - 1) & ~(align - 1);
-        };
+        auto code_ptr = callbacks.create_code(pool, code_size, &code_offset);
+        code_section = View{code_ptr, code_size};
 
-        uint8_t *code_ptr_out = nullptr;
-        size_t code_size_out = 0;
-        auto code_result = callbacks.alloc_memory(aligner(code_size, 4096), PROTECT_READ_WRITE, &code_ptr_out, &code_size_out);
-        assert(code_result == RESULT_OK);
-        code_section = View{code_ptr_out, code_size_out};
-        code_bump_ptr = (uintptr_t)code_ptr_out;
+        auto read_ptr = callbacks.alloc(read_data_size, read_data_align);
+        assert(read_ptr);
+        read_section = View{read_ptr, read_data_size};
+        read_bump_ptr = (uintptr_t)read_ptr;
+        read_align = read_data_align;
 
-        uint8_t *read_ptr_out = nullptr;
-        size_t read_size_out = 0;
-        auto read_result = callbacks.alloc_memory(aligner(read_data_size, 4096), PROTECT_READ_WRITE, &read_ptr_out, &read_size_out);
-        assert(read_result == RESULT_OK);
-        read_section = View{read_ptr_out, read_size_out};
-        read_bump_ptr = (uintptr_t)read_ptr_out;
-
-        uint8_t *readwrite_ptr_out = nullptr;
-        size_t readwrite_size_out = 0;
-        auto readwrite_result = callbacks.alloc_memory(aligner(read_write_data_size, 4096), PROTECT_READ_WRITE, &readwrite_ptr_out, &readwrite_size_out);
-        assert(readwrite_result == RESULT_OK);
-        readwrite_section = View{readwrite_ptr_out, readwrite_size_out};
-        readwrite_bump_ptr = (uintptr_t)readwrite_ptr_out;
+        auto readwrite_ptr = callbacks.alloc(read_write_data_size, read_write_data_align);
+        assert(readwrite_ptr);
+        readwrite_section = View{readwrite_ptr, read_write_data_size};
+        readwrite_bump_ptr = (uintptr_t)readwrite_ptr;
+        readwrite_align = read_write_data_align;
     }
 
     /* Turn on the `reserveAllocationSpace` callback. */
@@ -258,20 +251,6 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
 
     virtual bool finalizeMemory(std::string *ErrMsg = nullptr) override
     {
-        auto code_result = callbacks.protect_memory(code_section.base, code_section.size, mem_protect_t::PROTECT_READ_EXECUTE);
-        if (code_result != RESULT_OK)
-        {
-            return false;
-        }
-
-        auto read_result = callbacks.protect_memory(read_section.base, read_section.size, mem_protect_t::PROTECT_READ);
-        if (read_result != RESULT_OK)
-        {
-            return false;
-        }
-
-        // The readwrite section is already mapped as read-write.
-
         return false;
     }
 
@@ -284,6 +263,7 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
     };
 
     View eh_frames, stackmap = {0};
+    uint32_t code_offset;
 
   private:
     uint8_t *allocate_bump(View &section, uintptr_t &bump_ptr, size_t size, size_t align)
@@ -304,21 +284,23 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
     }
 
     View code_section, read_section, readwrite_section;
-    uintptr_t code_bump_ptr, read_bump_ptr, readwrite_bump_ptr;
+    uintptr_t read_bump_ptr, readwrite_bump_ptr;
+    size_t read_align, readwrite_align;
     bool eh_frames_registered = false;
 
     callbacks_t callbacks;
+    void *pool;
+    bool allocate_code_was_called = false;
 };
 
-struct WasmModule
+struct WasmFunction
 {
   public:
-    WasmModule(
+    WasmFunction(
         const uint8_t *object_start,
         size_t object_size,
-        callbacks_t callbacks);
-
-    void *get_func(llvm::StringRef name) const;
+        callbacks_t callbacks,
+        void *pool);
 
     std::unique_ptr<MemoryManager> memory_manager;
 
@@ -329,28 +311,25 @@ struct WasmModule
 
 extern "C"
 {
-    result_t module_load(const uint8_t *mem_ptr, size_t mem_size, callbacks_t callbacks, WasmModule **module_out)
+    result_t function_load(const uint8_t *mem_ptr, size_t mem_size, callbacks_t callbacks, void *pool, WasmFunction **function_out, uint32_t *code_offset_out)
     {
-        *module_out = new WasmModule(mem_ptr, mem_size, callbacks);
+        auto function = new WasmFunction(mem_ptr, mem_size, callbacks, pool);
+        *function_out = function;
+        *code_offset_out = function->memory_manager->code_offset;
 
         return RESULT_OK;
     }
 
-    void *get_func_symbol(WasmModule *module, const char *name)
+    uint8_t *get_stackmap(WasmFunction *function, size_t *size_out)
     {
-        return module->get_func(llvm::StringRef(name));
-    }
-
-    uint8_t *get_stackmap(WasmModule *module, size_t *size_out)
-    {
-        auto stackmap = module->memory_manager->stackmap;
+        auto stackmap = function->memory_manager->stackmap;
         *size_out = stackmap.size;
         return stackmap.base;
     }
 
-    void module_delete(WasmModule *module)
+    void function_delete(WasmFunction *function)
     {
-        delete module;
+        delete function;
     }
 
     [[noreturn]] void throw_trap(WasmTrap::Type ty) {

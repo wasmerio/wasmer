@@ -1,7 +1,7 @@
 use super::intrinsics::Intrinsics;
 use super::platform;
 use crate::{
-    code::Code,
+    code::{CallOffset, Code},
     pool::{AllocId, PagePool},
     utils::lazy::Lazy,
 };
@@ -16,6 +16,7 @@ use libc::{
     PROT_WRITE,
 };
 use std::{
+    alloc::{alloc_zeroed, dealloc as _dealloc, Layout},
     any::Any,
     ffi::CString,
     mem,
@@ -75,9 +76,9 @@ enum WasmTrapType {
 
 #[repr(C)]
 struct Callbacks {
-    alloc_memory: extern "C" fn(usize, MemProtect, &mut *mut u8, &mut usize) -> LLVMResult,
-    protect_memory: extern "C" fn(*mut u8, usize, MemProtect) -> LLVMResult,
-    dealloc_memory: extern "C" fn(*mut u8, usize) -> LLVMResult,
+    alloc: extern "C" fn(usize, usize) -> Option<NonNull<u8>>,
+    dealloc: extern "C" fn(NonNull<u8>, usize, usize),
+    create_code: extern "C" fn(&PagePool, u32, &mut AllocId<Code>) -> Option<NonNull<u8>>,
 
     lookup_vm_symbol: extern "C" fn(*const c_char, usize) -> *const vm::Func,
     visit_fde: extern "C" fn(*mut u8, usize, extern "C" fn(*mut u8)),
@@ -88,10 +89,12 @@ extern "C" {
         mem_ptr: *const u8,
         mem_size: usize,
         callbacks: Callbacks,
+        pool: &PagePool,
         func_out: &mut *mut LLVMFunction,
+        code_id_out: &mut AllocId<Code>,
     ) -> LLVMResult;
     fn get_stackmap(func: *mut LLVMFunction, size_out: &mut usize) -> Option<NonNull<u8>>;
-    fn func_delete(func: *mut LLVMFunction);
+    fn function_delete(func: *mut LLVMFunction);
 
     fn throw_trap(ty: i32);
 
@@ -106,69 +109,30 @@ extern "C" {
 }
 
 fn get_callbacks() -> Callbacks {
-    fn round_up_to_page_size(size: usize) -> usize {
-        (size + (4096 - 1)) & !(4096 - 1)
-    }
-
-    extern "C" fn alloc_memory(
-        size: usize,
-        protect: MemProtect,
-        ptr_out: &mut *mut u8,
-        size_out: &mut usize,
-    ) -> LLVMResult {
-        let size = round_up_to_page_size(size);
-        let ptr = unsafe {
-            mmap(
-                ptr::null_mut(),
-                size,
-                match protect {
-                    MemProtect::NONE => PROT_NONE,
-                    MemProtect::READ => PROT_READ,
-                    MemProtect::READ_WRITE => PROT_READ | PROT_WRITE,
-                    MemProtect::READ_EXECUTE => PROT_READ | PROT_EXEC,
-                },
-                MAP_PRIVATE | MAP_ANON,
-                -1,
-                0,
-            )
-        };
-        if ptr as isize == -1 {
-            return LLVMResult::ALLOCATE_FAILURE;
-        }
-        *ptr_out = ptr as _;
-        *size_out = size;
-        LLVMResult::OK
-    }
-
-    extern "C" fn protect_memory(ptr: *mut u8, size: usize, protect: MemProtect) -> LLVMResult {
-        let res = unsafe {
-            mprotect(
-                ptr as _,
-                round_up_to_page_size(size),
-                match protect {
-                    MemProtect::NONE => PROT_NONE,
-                    MemProtect::READ => PROT_READ,
-                    MemProtect::READ_WRITE => PROT_READ | PROT_WRITE,
-                    MemProtect::READ_EXECUTE => PROT_READ | PROT_EXEC,
-                },
-            )
-        };
-
-        if res == 0 {
-            LLVMResult::OK
-        } else {
-            LLVMResult::PROTECT_FAILURE
+    extern "C" fn alloc(size: usize, align: usize) -> Option<NonNull<u8>> {
+        unsafe {
+            let layout = Layout::from_size_align_unchecked(size, align);
+            NonNull::new(alloc_zeroed(layout))
         }
     }
 
-    extern "C" fn dealloc_memory(ptr: *mut u8, size: usize) -> LLVMResult {
-        let res = unsafe { munmap(ptr as _, round_up_to_page_size(size)) };
-
-        if res == 0 {
-            LLVMResult::OK
-        } else {
-            LLVMResult::DEALLOC_FAILURE
+    extern "C" fn dealloc(ptr: NonNull<u8>, size: usize, align: usize) {
+        unsafe {
+            let layout = Layout::from_size_align_unchecked(size, align);
+            _dealloc(ptr.as_ptr(), layout);
         }
+    }
+
+    extern "C" fn create_code(
+        pool: &PagePool,
+        code_size: u32,
+        offset_out: &mut AllocId<Code>,
+    ) -> Option<NonNull<u8>> {
+        let code_id = Code::new(pool, code_size, ()).ok()?;
+        let code = pool.get(&code_id);
+        let ptr = code.code_ptr();
+        *offset_out = code_id;
+        Some(ptr)
     }
 
     extern "C" fn lookup_vm_symbol(name_ptr: *const c_char, length: usize) -> *const vm::Func {
@@ -208,9 +172,9 @@ fn get_callbacks() -> Callbacks {
     }
 
     Callbacks {
-        alloc_memory,
-        protect_memory,
-        dealloc_memory,
+        alloc,
+        dealloc,
+        create_code,
         lookup_vm_symbol,
         visit_fde,
     }
@@ -226,7 +190,7 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(module: Module, intrinsics: Intrinsics) -> AllocId<Code> {
+    pub fn new(pool: &PagePool, module: Module, intrinsics: Intrinsics) -> AllocId<Code> {
         unsafe impl Sync for SyncTargetMachine {}
         /// I'm going to assume that TargetMachine is actually threadsafe.
         /// It might not be, but there's really no way of knowing.
@@ -258,23 +222,58 @@ impl Function {
             )
         });
 
-        let memory_buffer = TARGET.0
+        let memory_buffer = TARGET
+            .0
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
         let mem_buf_slice = memory_buffer.as_slice();
 
         let callbacks = get_callbacks();
-        let mut function: *mut LLVMFunction = ptr::null_mut();
+        let mut llvm_function: *mut LLVMFunction = ptr::null_mut();
+        let mut alloc_id = unsafe { std::mem::zeroed() };
 
         let res = unsafe {
             function_load(
                 mem_buf_slice.as_ptr(),
                 mem_buf_slice.len(),
                 callbacks,
-                &mut function,
+                pool,
+                &mut llvm_function,
+                &mut alloc_id,
             )
         };
+        assert!(res == LLVMResult::OK);
+
+        let mut code = pool.get_mut(&mut alloc_id);
+
+        if let (size, Some(stackmap_ptr)) = unsafe {
+            let mut size = 0;
+            (size, get_stackmap(llvm_function, &mut size))
+        } {
+            use super::stackmap::{StackMapRecord, Stackmap};
+            let stackmap_slice = unsafe { slice::from_raw_parts(stackmap_ptr.as_ptr(), size) };
+            let stackmap = Stackmap::parse(stackmap_slice).expect("unable to parse stackmap");
+
+            code.call_offsets = stackmap
+                .stack_map_records
+                .iter()
+                .map(
+                    |&StackMapRecord {
+                         patchpoint_id,
+                         inst_offset,
+                         ..
+                     }| {
+                        let func_index = LocalFuncIndex::new(patchpoint_id as _);
+                        CallOffset {
+                            func_index,
+                            offset: inst_offset,
+                        }
+                    },
+                )
+                .collect::<Vec<_>>()
+                .into_boxed_slice();
+        }
 
         // {
         //     println!("checking for stackmap");
@@ -292,218 +291,189 @@ impl Function {
         //     }
         // }
 
-        // static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
-
-        // SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
-        //     platform::install_signal_handler();
-        // });
-
-        // if res != LLVMResult::OK {
-        //     panic!("failed to load object")
-        // }
-
-        // (
-        //     Self {
-        //         module,
-        //         memory_buffer,
-        //     },
-        //     LLVMProtectedCaller { module },
-        // )
-        unimplemented!()
-    }
-
-    pub fn get_func(
-        &self,
-        info: &ModuleInfo,
-        local_func_index: LocalFuncIndex,
-    ) -> Option<NonNull<vm::Func>> {
-        let index = info.imported_functions.len() + local_func_index.index();
-        let name = if cfg!(target_os = "macos") {
-            format!("_fn{}", index)
-        } else {
-            format!("fn{}", index)
+        let function = Self {
+            func: llvm_function,
+            memory_buffer,
         };
+        code.keep_alive = Box::new(function);
 
-        let c_str = CString::new(name).ok()?;
-        let ptr = unsafe { get_func_symbol(self.func, c_str.as_ptr()) };
-
-        NonNull::new(ptr as _)
+        alloc_id
     }
 }
 
 impl Drop for Function {
     fn drop(&mut self) {
-        unsafe { module_delete(self.func) }
+        unsafe { function_delete(self.func) }
     }
 }
 
-impl FuncResolver for Function {
-    fn get(
-        &self,
-        module: &ModuleInner,
-        local_func_index: LocalFuncIndex,
-    ) -> Option<NonNull<vm::Func>> {
-        self.get_func(&module.info, local_func_index)
-    }
-}
+// impl FuncResolver for Function {
+//     fn get(
+//         &self,
+//         module: &ModuleInner,
+//         local_func_index: LocalFuncIndex,
+//     ) -> Option<NonNull<vm::Func>> {
+//         self.get_func(&module.info, local_func_index)
+//     }
+// }
 
-struct Placeholder;
+// struct Placeholder;
 
-unsafe impl Send for LLVMProtectedCaller {}
-unsafe impl Sync for LLVMProtectedCaller {}
+// unsafe impl Send for LLVMProtectedCaller {}
+// unsafe impl Sync for LLVMProtectedCaller {}
 
-pub struct LLVMProtectedCaller {
-    module: *mut LLVMFunction,
-}
+// pub struct LLVMProtectedCaller {
+//     module: *mut LLVMFunction,
+// }
 
-impl ProtectedCaller for LLVMProtectedCaller {
-    fn call(
-        &self,
-        module: &ModuleInner,
-        func_index: FuncIndex,
-        params: &[Value],
-        import_backing: &ImportBacking,
-        vmctx: *mut vm::Ctx,
-        _: Token,
-    ) -> RuntimeResult<Vec<Value>> {
-        let (func_ptr, ctx, signature, sig_index) =
-            get_func_from_index(&module, import_backing, func_index);
+// impl ProtectedCaller for LLVMProtectedCaller {
+//     fn call(
+//         &self,
+//         module: &ModuleInner,
+//         func_index: FuncIndex,
+//         params: &[Value],
+//         import_backing: &ImportBacking,
+//         vmctx: *mut vm::Ctx,
+//         _: Token,
+//     ) -> RuntimeResult<Vec<Value>> {
+//         let (func_ptr, ctx, signature, sig_index) =
+//             get_func_from_index(&module, import_backing, func_index);
 
-        let vmctx_ptr = match ctx {
-            Context::External(external_vmctx) => external_vmctx,
-            Context::Internal => vmctx,
-        };
+//         let vmctx_ptr = match ctx {
+//             Context::External(external_vmctx) => external_vmctx,
+//             Context::Internal => vmctx,
+//         };
 
-        assert!(
-            signature.returns().len() <= 1,
-            "multi-value returns not yet supported"
-        );
+//         assert!(
+//             signature.returns().len() <= 1,
+//             "multi-value returns not yet supported"
+//         );
 
-        assert!(
-            signature.check_param_value_types(params),
-            "incorrect signature"
-        );
+//         assert!(
+//             signature.check_param_value_types(params),
+//             "incorrect signature"
+//         );
 
-        let param_vec: Vec<u64> = params
-            .iter()
-            .map(|val| match val {
-                Value::I32(x) => *x as u64,
-                Value::I64(x) => *x as u64,
-                Value::F32(x) => x.to_bits() as u64,
-                Value::F64(x) => x.to_bits(),
-            })
-            .collect();
+//         let param_vec: Vec<u64> = params
+//             .iter()
+//             .map(|val| match val {
+//                 Value::I32(x) => *x as u64,
+//                 Value::I64(x) => *x as u64,
+//                 Value::F32(x) => x.to_bits() as u64,
+//                 Value::F64(x) => x.to_bits(),
+//             })
+//             .collect();
 
-        let mut return_vec = vec![0; signature.returns().len()];
+//         let mut return_vec = vec![0; signature.returns().len()];
 
-        let trampoline: unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64) = unsafe {
-            let name = if cfg!(target_os = "macos") {
-                format!("_trmp{}", sig_index.index())
-            } else {
-                format!("trmp{}", sig_index.index())
-            };
+//         let trampoline: unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64) = unsafe {
+//             let name = if cfg!(target_os = "macos") {
+//                 format!("_trmp{}", sig_index.index())
+//             } else {
+//                 format!("trmp{}", sig_index.index())
+//             };
 
-            let c_str = CString::new(name).unwrap();
-            let symbol = get_func_symbol(self.module, c_str.as_ptr());
-            assert!(!symbol.is_null());
+//             let c_str = CString::new(name).unwrap();
+//             let symbol = get_func_symbol(self.module, c_str.as_ptr());
+//             assert!(!symbol.is_null());
 
-            mem::transmute(symbol)
-        };
+//             mem::transmute(symbol)
+//         };
 
-        let mut trap_out = WasmTrapType::Unknown;
+//         let mut trap_out = WasmTrapType::Unknown;
 
-        // Here we go.
-        let success = unsafe {
-            invoke_trampoline(
-                trampoline,
-                vmctx_ptr,
-                func_ptr,
-                param_vec.as_ptr(),
-                return_vec.as_mut_ptr(),
-                &mut trap_out,
-            )
-        };
+//         // Here we go.
+//         let success = unsafe {
+//             invoke_trampoline(
+//                 trampoline,
+//                 vmctx_ptr,
+//                 func_ptr,
+//                 param_vec.as_ptr(),
+//                 return_vec.as_mut_ptr(),
+//                 &mut trap_out,
+//             )
+//         };
 
-        if success {
-            Ok(return_vec
-                .iter()
-                .zip(signature.returns().iter())
-                .map(|(&x, ty)| match ty {
-                    Type::I32 => Value::I32(x as i32),
-                    Type::I64 => Value::I64(x as i64),
-                    Type::F32 => Value::F32(f32::from_bits(x as u32)),
-                    Type::F64 => Value::F64(f64::from_bits(x as u64)),
-                })
-                .collect())
-        } else {
-            Err(match trap_out {
-                WasmTrapType::Unreachable => RuntimeError::Trap {
-                    msg: "unreachable".into(),
-                },
-                WasmTrapType::IncorrectCallIndirectSignature => RuntimeError::Trap {
-                    msg: "uncorrect call_indirect signature".into(),
-                },
-                WasmTrapType::MemoryOutOfBounds => RuntimeError::Trap {
-                    msg: "memory out-of-bounds access".into(),
-                },
-                WasmTrapType::CallIndirectOOB => RuntimeError::Trap {
-                    msg: "call_indirect out-of-bounds".into(),
-                },
-                WasmTrapType::IllegalArithmetic => RuntimeError::Trap {
-                    msg: "illegal arithmetic operation".into(),
-                },
-                WasmTrapType::Unknown => RuntimeError::Trap {
-                    msg: "unknown trap".into(),
-                },
-            })
-        }
-    }
+//         if success {
+//             Ok(return_vec
+//                 .iter()
+//                 .zip(signature.returns().iter())
+//                 .map(|(&x, ty)| match ty {
+//                     Type::I32 => Value::I32(x as i32),
+//                     Type::I64 => Value::I64(x as i64),
+//                     Type::F32 => Value::F32(f32::from_bits(x as u32)),
+//                     Type::F64 => Value::F64(f64::from_bits(x as u64)),
+//                 })
+//                 .collect())
+//         } else {
+//             Err(match trap_out {
+//                 WasmTrapType::Unreachable => RuntimeError::Trap {
+//                     msg: "unreachable".into(),
+//                 },
+//                 WasmTrapType::IncorrectCallIndirectSignature => RuntimeError::Trap {
+//                     msg: "uncorrect call_indirect signature".into(),
+//                 },
+//                 WasmTrapType::MemoryOutOfBounds => RuntimeError::Trap {
+//                     msg: "memory out-of-bounds access".into(),
+//                 },
+//                 WasmTrapType::CallIndirectOOB => RuntimeError::Trap {
+//                     msg: "call_indirect out-of-bounds".into(),
+//                 },
+//                 WasmTrapType::IllegalArithmetic => RuntimeError::Trap {
+//                     msg: "illegal arithmetic operation".into(),
+//                 },
+//                 WasmTrapType::Unknown => RuntimeError::Trap {
+//                     msg: "unknown trap".into(),
+//                 },
+//             })
+//         }
+//     }
 
-    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
-        Box::new(Placeholder)
-    }
-}
+//     fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+//         Box::new(Placeholder)
+//     }
+// }
 
-impl UserTrapper for Placeholder {
-    unsafe fn do_early_trap(&self, _data: Box<dyn Any>) -> ! {
-        unimplemented!("do early trap")
-    }
-}
+// impl UserTrapper for Placeholder {
+//     unsafe fn do_early_trap(&self, _data: Box<dyn Any>) -> ! {
+//         unimplemented!("do early trap")
+//     }
+// }
 
-fn get_func_from_index<'a>(
-    module: &'a ModuleInner,
-    import_backing: &ImportBacking,
-    func_index: FuncIndex,
-) -> (*const vm::Func, Context, &'a FuncSig, SigIndex) {
-    let sig_index = *module
-        .info
-        .func_assoc
-        .get(func_index)
-        .expect("broken invariant, incorrect func index");
+// fn get_func_from_index<'a>(
+//     module: &'a ModuleInner,
+//     import_backing: &ImportBacking,
+//     func_index: FuncIndex,
+// ) -> (*const vm::Func, Context, &'a FuncSig, SigIndex) {
+//     let sig_index = *module
+//         .info
+//         .func_assoc
+//         .get(func_index)
+//         .expect("broken invariant, incorrect func index");
 
-    let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
-        LocalOrImport::Local(local_func_index) => (
-            module
-                .func_resolver
-                .get(&module, local_func_index)
-                .expect("broken invariant, func resolver not synced with module.exports")
-                .cast()
-                .as_ptr() as *const _,
-            Context::Internal,
-        ),
-        LocalOrImport::Import(imported_func_index) => {
-            let imported_func = import_backing.imported_func(imported_func_index);
-            (
-                imported_func.func as *const _,
-                Context::External(imported_func.vmctx),
-            )
-        }
-    };
+//     let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
+//         LocalOrImport::Local(local_func_index) => (
+//             module
+//                 .func_resolver
+//                 .get(&module, local_func_index)
+//                 .expect("broken invariant, func resolver not synced with module.exports")
+//                 .cast()
+//                 .as_ptr() as *const _,
+//             Context::Internal,
+//         ),
+//         LocalOrImport::Import(imported_func_index) => {
+//             let imported_func = import_backing.imported_func(imported_func_index);
+//             (
+//                 imported_func.func as *const _,
+//                 Context::External(imported_func.vmctx),
+//             )
+//         }
+//     };
 
-    let signature = &module.info.signatures[sig_index];
+//     let signature = &module.info.signatures[sig_index];
 
-    (func_ptr, ctx, signature, sig_index)
-}
+//     (func_ptr, ctx, signature, sig_index)
+// }
 
 #[cfg(feature = "disasm")]
 unsafe fn disass_ptr(ptr: *const u8, size: usize, inst_count: usize) {

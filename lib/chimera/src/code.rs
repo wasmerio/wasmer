@@ -3,80 +3,67 @@ use std::{
     alloc::{alloc, Layout},
     any::Any,
     mem::{align_of, size_of},
+    ptr::NonNull,
     slice,
 };
-use wasmer_runtime_core::types::FuncIndex;
+use wasmer_runtime_core::types::LocalFuncIndex;
 
-struct CodeAlloc<'a> {
-    call_offsets: &'a [CallOffset],
+struct CodeAlloc {
     code_size: u32,
     keep_alive: Box<dyn Any>,
 }
 
-unsafe impl<'a> ItemAlloc for CodeAlloc<'a> {
+unsafe impl ItemAlloc for CodeAlloc {
     type Output = Code;
 
     fn metadata(&self) -> AllocMetadata {
         AllocMetadata {
-            size: size_of::<Code>()
-                + (self.call_offsets.len() * size_of::<CallOffset>())
-                + self.code_size as usize,
+            size: size_of::<Code>() + self.code_size as usize,
             executable: true,
         }
     }
 
     unsafe fn in_place(self, header: *mut Code) {
         (&mut (*header).keep_alive as *mut Box<dyn Any>).write(self.keep_alive);
+        (&mut (*header).call_offsets as *mut Box<[CallOffset]>).write(Box::new([]));
         (*header).code_size = self.code_size;
-        (*header).call_offsets_len = self.call_offsets.len() as u32;
-        self.call_offsets
-            .as_ptr()
-            .copy_to((*header).call_offsets.as_mut_ptr(), self.call_offsets.len());
     }
 }
 
 #[repr(C)]
 pub struct CallOffset {
-    func_index: FuncIndex,
-    offset: u32,
+    pub func_index: LocalFuncIndex,
+    pub offset: u32,
 }
 
 #[repr(C)]
 pub struct Code {
-    keep_alive: Box<dyn Any>,
+    pub keep_alive: Box<dyn Any>,
+    pub call_offsets: Box<[CallOffset]>,
     code_size: u32,
-    call_offsets_len: u32,
-    call_offsets: [CallOffset; 0],
+    code: [u8; 0],
 }
 
 impl Code {
     pub fn new(
         pool: &PagePool,
         code_size: u32,
-        call_offsets: &[CallOffset],
         keep_alive: impl Any,
     ) -> Result<AllocId<Code>, AllocErr> {
         let code_alloc = CodeAlloc {
             keep_alive: Box::new(keep_alive),
-            call_offsets,
             code_size,
         };
 
         pool.alloc(code_alloc)
     }
 
-    pub fn call_offsets(&self) -> &[CallOffset] {
-        let call_offsets_len = self.call_offsets_len as usize;
-        unsafe { slice::from_raw_parts(self.call_offsets.as_ptr(), call_offsets_len) }
-    }
-
-    pub fn code_ptr(&self) -> *const u8 {
-        let call_offsets_len = self.call_offsets_len as usize;
-        unsafe { (&self.call_offsets as *const CallOffset).add(call_offsets_len) as *const u8 }
+    pub fn code_ptr(&self) -> NonNull<u8> {
+        unsafe { NonNull::new_unchecked(self.code.as_ptr() as *mut u8) }
     }
 
     pub fn code_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.code_ptr() as *mut u8, self.code_size as usize) }
+        unsafe { slice::from_raw_parts_mut(self.code.as_mut_ptr(), self.code_size as usize) }
     }
 }
 
@@ -87,7 +74,7 @@ mod tests {
     #[test]
     fn test_alloc() {
         let pool = PagePool::new();
-        let _code = Code::new(&pool, 16, &[], ()).unwrap();
+        let _code = Code::new(&pool, 16, ()).unwrap();
     }
 
     #[test]
@@ -107,7 +94,7 @@ mod tests {
         }
 
         let pool = PagePool::new();
-        let mut code_id = Code::new(&pool, 16, &[], ()).unwrap();
+        let mut code_id = Code::new(&pool, 16, ()).unwrap();
 
         let mut code = pool.get_mut(&mut code_id);
 

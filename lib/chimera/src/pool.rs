@@ -46,6 +46,9 @@ struct PagePoolInner {
     bump_page: usize,
 }
 
+unsafe impl Send for PagePool {}
+unsafe impl Sync for PagePool {}
+
 pub struct PagePool {
     inner: Mutex<PagePoolInner>,
     memory_start: *mut u8,
@@ -110,7 +113,7 @@ impl PagePool {
         Ok(AllocId(vec_offset as u32, PhantomData))
     }
 
-    pub fn get<T>(&self, index: &AllocId<T>) -> &T {
+    pub fn get<'a, T>(&self, index: &'a AllocId<T>) -> &'a T {
         let inner = self.inner.lock();
         let (offset, type_id, _) = inner.offset_map[index.0 as usize];
         assert_eq!(type_id, TypeId::of::<T>(), "types must match");
@@ -118,7 +121,7 @@ impl PagePool {
         unsafe { &*(self.memory_start.add(offset) as *const T) }
     }
 
-    pub fn get_mut<T>(&self, index: &mut AllocId<T>) -> &mut T {
+    pub fn get_mut<'a, T>(&self, index: &'a mut AllocId<T>) -> &'a mut T {
         let inner = self.inner.lock();
         let (offset, type_id, _) = inner.offset_map[index.0 as usize];
         assert_eq!(type_id, TypeId::of::<T>(), "types must match");

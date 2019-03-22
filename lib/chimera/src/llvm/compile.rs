@@ -1,5 +1,6 @@
 use crate::{
     code::Code,
+    llvm::backend::Function,
     pool::{AllocId, PagePool},
 };
 use inkwell::{
@@ -213,7 +214,8 @@ fn compile_function(
     pass_manager.run_on_module(&module);
 
     // module.print_to_stderr();
-    Ok(Code::new(pool, 0, &[], ()).unwrap())
+    // Ok(Code::new(pool, 0, &[], ()).unwrap())
+    Ok(Function::new(pool, module, intrinsics))
 }
 
 fn parse_function(

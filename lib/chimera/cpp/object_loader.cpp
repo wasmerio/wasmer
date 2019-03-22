@@ -42,10 +42,11 @@ struct SymbolLookup : llvm::JITSymbolResolver
     callbacks_t callbacks;
 };
 
-WasmModule::WasmModule(
+WasmFunction::WasmFunction(
     const uint8_t *object_start,
     size_t object_size,
-    callbacks_t callbacks) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks)))
+    callbacks_t callbacks,
+    void *pool) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks, pool)))
 {
     object_file = llvm::cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
         llvm::StringRef((const char *)object_start, object_size), "object")));
@@ -63,10 +64,4 @@ WasmModule::WasmModule(
         std::cout << "RuntimeDyld error: " << (std::string)runtime_dyld->getErrorString() << std::endl;
         abort();
     }
-}
-
-void *WasmModule::get_func(llvm::StringRef name) const
-{
-    auto symbol = runtime_dyld->getSymbol(name);
-    return (void *)symbol.getAddress();
 }
