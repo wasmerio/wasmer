@@ -129,7 +129,10 @@ pub fn ___syscall77(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 
     let resource: c_int = varargs.get(ctx);
     let rusage_ptr: c_int = varargs.get(ctx);
+    #[allow(clippy::cast_ptr_alignment)]
     let rusage = emscripten_memory_pointer!(ctx.memory(0), rusage_ptr) as *mut rusage;
+    // REVIEW: is this the correct way to verify alignment?
+    assert_eq!(8, mem::align_of_val(&rusage));
     unsafe { getrusage(resource, rusage) }
 }
 
@@ -170,12 +173,15 @@ pub fn ___syscall198(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// getgroups
-pub fn ___syscall205(ctx: &mut Ctx, ngroups_max: c_int, groups: c_int) -> c_int {
-    debug!(
-        "emscripten::___syscall205 (getgroups) {} {}",
-        ngroups_max, groups
-    );
+pub fn ___syscall205(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall205 (getgroups) {}", _which);
+    let ngroups_max: c_int = varargs.get(ctx);
+    let groups: c_int = varargs.get(ctx);
+
+    #[allow(clippy::cast_ptr_alignment)]
     let gid_ptr = emscripten_memory_pointer!(ctx.memory(0), groups) as *mut gid_t;
+    // REVIEW: is this how we should verify allignment?
+    assert_eq!(4, mem::align_of_val(&gid_ptr));
     let result = unsafe { getgroups(ngroups_max, gid_ptr) };
     debug!(
         "=> ngroups_max: {}, gid_ptr: {:?}, result: {}",
@@ -647,6 +653,7 @@ pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
     let options: c_int = varargs.get(ctx);
     let rusage: u32 = varargs.get(ctx);
     let status_addr = emscripten_memory_pointer!(ctx.memory(0), status) as *mut c_int;
+
     let rusage_addr = emscripten_memory_pointer!(ctx.memory(0), rusage) as *mut rusage;
     let res = unsafe { wait4(pid, status_addr, options, rusage_addr) };
     debug!(
