@@ -44,7 +44,7 @@ impl Job {
             sender,
         });
 
-        receiver.map(|f| f.unwrap())
+        receiver.map(|f| f.expect("the receiver has closed itself somehow, this shouldn't happen"))
     }
 
     pub(crate) fn do_compile(self) {
