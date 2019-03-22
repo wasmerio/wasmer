@@ -95,6 +95,8 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_iiiii: Option<Func<'a, (i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_vd: Option<Func<'a, (i32, f64)>>,
     pub dyn_call_viiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viiiiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
@@ -149,6 +151,8 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_iiiii = instance.func("dynCall_iiiii").ok();
         let dyn_call_iiiiii = instance.func("dynCall_iiiiii").ok();
         let dyn_call_iiiiiii = instance.func("dynCall_iiiiiii").ok();
+        let dyn_call_iiiiiiii = instance.func("dynCall_iiiiiiii").ok();
+        let dyn_call_iiiiiiiiii = instance.func("dynCall_iiiiiiiiii").ok();
         let dyn_call_vd = instance.func("dynCall_vd").ok();
         let dyn_call_viiiii = instance.func("dynCall_viiiii").ok();
         let dyn_call_viiiiii = instance.func("dynCall_viiiiii").ok();
@@ -196,6 +200,8 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_iiiii,
             dyn_call_iiiiii,
             dyn_call_iiiiiii,
+            dyn_call_iiiiiiii,
+            dyn_call_iiiiiiiiii,
             dyn_call_vd,
             dyn_call_viiiii,
             dyn_call_viiiiii,
@@ -625,6 +631,11 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
             "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
             "nullFunc_ji" => func!(crate::emscripten_target::nullFunc_ji),
+            "nullFunc_d" => func!(crate::emscripten_target::nullFunc_d),
+            "nullFunc_viidii" => func!(crate::emscripten_target::nullFunc_viidii),
+            "nullFunc_iiiiiii" => func!(crate::emscripten_target::nullFunc_iiiiiii),
+            "nullFunc_iiiiiiii" => func!(crate::emscripten_target::nullFunc_iiiiiiii),
+            "nullFunc_iiiiiiiiii" => func!(crate::emscripten_target::nullFunc_iiiiiiiiii),
             "invoke_i" => func!(crate::emscripten_target::invoke_i),
             "invoke_ii" => func!(crate::emscripten_target::invoke_ii),
             "invoke_iii" => func!(crate::emscripten_target::invoke_iii),
@@ -689,6 +700,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),
             "invoke_iiiiii" => func!(crate::emscripten_target::invoke_iiiiii),
             "invoke_iiiiiii" => func!(crate::emscripten_target::invoke_iiiiiii),
+            "invoke_iiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiii),
+            "invoke_iiiiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiiiii),
             "invoke_vd" => func!(crate::emscripten_target::invoke_vd),
             "invoke_viiiii" => func!(crate::emscripten_target::invoke_viiiii),
             "invoke_viiiiii" => func!(crate::emscripten_target::invoke_viiiiii),

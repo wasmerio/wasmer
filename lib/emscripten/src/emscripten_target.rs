@@ -12,8 +12,23 @@ pub fn getTempRet0(_ctx: &mut Ctx) -> i32 {
     debug!("emscripten::getTempRet0");
     0
 }
+pub fn nullFunc_d(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_d");
+}
 pub fn nullFunc_ji(_ctx: &mut Ctx, _a: i32) {
     debug!("emscripten::nullFunc_ji");
+}
+pub fn nullFunc_viidii(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_viidii");
+}
+pub fn nullFunc_iiiiiii(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_iiiiiii");
+}
+pub fn nullFunc_iiiiiiii(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_iiiiiiii");
+}
+pub fn nullFunc_iiiiiiiiii(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_iiiiiiiiii");
 }
 pub fn invoke_i(ctx: &mut Ctx, index: i32) -> i32 {
     debug!("emscripten::invoke_i");
@@ -343,7 +358,48 @@ pub fn invoke_iiiiiii(
         panic!("dyn_call_iiiiiii is set to None");
     }
 }
-
+pub fn invoke_iiiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiiiiiii");
+    if let Some(dyn_call_iiiiiiii) = &get_emscripten_data(ctx).dyn_call_iiiiiiii {
+        dyn_call_iiiiiiii
+            .call(index, a1, a2, a3, a4, a5, a6, a7)
+            .unwrap()
+    } else {
+        panic!("dyn_call_iiiiiiii is set to None");
+    }
+}
+pub fn invoke_iiiiiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiiiiiiiii");
+    if let Some(dyn_call_iiiiiiiiii) = &get_emscripten_data(ctx).dyn_call_iiiiiiiiii {
+        dyn_call_iiiiiiiiii
+            .call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+            .unwrap()
+    } else {
+        panic!("dyn_call_iiiiiiiiii is set to None");
+    }
+}
 pub fn invoke_vd(ctx: &mut Ctx, index: i32, a1: f64) {
     debug!("emscripten::invoke_vd");
     if let Some(dyn_call_vd) = &get_emscripten_data(ctx).dyn_call_vd {
