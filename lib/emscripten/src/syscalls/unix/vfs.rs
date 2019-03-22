@@ -9,6 +9,7 @@ use std::os::raw::c_int;
 use std::slice;
 use wasmer_runtime_core::vm::Ctx;
 use bit_field::BitArray;
+use crate::macros::emscripten_memory_ptr;
 
 /// read
 pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
@@ -633,11 +634,10 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 /// writev
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
-//    unimplemented!();
     // -> ssize_t
     debug!("emscripten::___syscall146 (writev) {}", _which);
     let fd: i32 = varargs.get(ctx);
-    let iov: i32 = varargs.get(ctx);
+    let iov_array_offset: i32 = varargs.get(ctx);
     let iovcnt: i32 = varargs.get(ctx);
 
     #[repr(C)]
@@ -646,54 +646,48 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         iov_len: i32,
     }
 
-    debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
-    let mut ret = 0;
-    unsafe {
-        for i in 0..iovcnt {
-            let guest_iov_addr =
-                emscripten_memory_pointer!(ctx.memory(0), (iov + i * 8)) as *mut GuestIovec;
-            let iov_base = emscripten_memory_pointer!(ctx.memory(0), (*guest_iov_addr).iov_base)
-                as *const c_void;
-            let iov_len = (*guest_iov_addr).iov_len as _;
-            // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
-//            let curr = libc::write(fd, iov_base, iov_len);
+    let iov_array_offset = iov_array_offset as u32;
+    let count = (0..iovcnt as u32).fold(0,|acc, iov_array_index| {
+        unsafe {
+            let iov_offset = iov_array_offset + iov_array_index * 8; // get the offset to the iov
 
-            let curr = {
-                debug!("emscripten::___syscall4 (write - vfs) {}", _which);
-                let fd: i32 = fd; // varargs.get(ctx);
-//                let buf = iov_base; // varargs.get(ctx);
-                let count: i32 = iov_len; // varargs.get(ctx);
-                let buf_slice = unsafe { slice::from_raw_parts_mut(iov_base as *mut _, count as _) };
-                let vfd = VirtualFd(fd);
-                let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-                let count: usize = match vfs.fd_map.get(&vfd) {
-                    Some(FileHandle::VirtualFile(handle)) => {
-                        vfs.vfs
-                            .write_file(*handle as _, buf_slice, count as _, 0)
-                            .unwrap();
-                        count as usize
-                    }
-                    Some(FileHandle::Socket(host_fd)) => unsafe {
-                        libc::write(*host_fd, iov_base as _, count as _) as usize
-                    },
-                    None => panic!(),
-                };
-//                debug!("wrote: {}", read_string_from_wasm(ctx.memory(0), buf));
-                debug!(
-                    "=> fd: {} (host {}), buf: {:?}, count: {}\n",
-                    vfd.0, fd, iov_base, count
-                );
-                count as c_int
+            let (iov_buf_slice, iov_buf_ptr, count) = {
+                let emscripten_memory = ctx.memory(0);
+                let guest_iov_ptr = emscripten_memory_ptr(emscripten_memory, iov_offset) as *mut GuestIovec;
+                let iov_base_offset = (*guest_iov_ptr).iov_base as u32;
+                let iov_buf_ptr = emscripten_memory_ptr(emscripten_memory, iov_base_offset) as *const c_void;
+                let iov_len = (*guest_iov_ptr).iov_len as usize;
+                let iov_buf_slice = unsafe { slice::from_raw_parts(iov_buf_ptr as *const u8, iov_len) };
+                (iov_buf_slice, iov_buf_ptr, iov_len)
             };
 
-            if curr < 0 {
-                return -1;
-            }
-            ret += curr;
+            let vfd = VirtualFd(fd);
+            let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
+            let count: usize = match vfs.fd_map.get(&vfd) {
+                Some(FileHandle::VirtualFile(handle)) => {
+                    vfs.vfs
+                        .write_file(*handle as _, iov_buf_slice, count, 0)
+                        .unwrap();
+                    count as usize
+                }
+                Some(FileHandle::Socket(host_fd)) => unsafe {
+                    let count = libc::write(*host_fd, iov_buf_ptr, count);
+                    if count < 0 {
+                        panic!()
+                    }
+                    count as usize
+                },
+                None => panic!(),
+            };
+
+            acc + count
         }
-        ret as _
-    }
+    });
+
+    debug!("=> fd: {}, iov: {}, iovcnt = {}, returning {}", fd, iov_array_offset, iovcnt, count);
+    count as _
 }
+
 
 /// pread
 pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
