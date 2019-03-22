@@ -46,7 +46,8 @@ WasmFunction::WasmFunction(
     const uint8_t *object_start,
     size_t object_size,
     callbacks_t callbacks,
-    void *pool) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks, pool)))
+    void *pool,
+    uint32_t func_index) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks, pool, func_index)))
 {
     object_file = llvm::cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
         llvm::StringRef((const char *)object_start, object_size), "object")));

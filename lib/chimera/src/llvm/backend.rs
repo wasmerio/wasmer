@@ -1,7 +1,7 @@
 use super::intrinsics::Intrinsics;
 use super::platform;
 use crate::{
-    code::{CallOffset, Code},
+    code::{CallOffset, Code, Metadata},
     pool::{AllocId, PagePool},
     utils::lazy::Lazy,
 };
@@ -78,7 +78,7 @@ enum WasmTrapType {
 struct Callbacks {
     alloc: extern "C" fn(usize, usize) -> Option<NonNull<u8>>,
     dealloc: extern "C" fn(NonNull<u8>, usize, usize),
-    create_code: extern "C" fn(&PagePool, u32, &mut AllocId<Code>) -> Option<NonNull<u8>>,
+    create_code: extern "C" fn(&PagePool, u32, LocalFuncIndex, &mut AllocId<Code>) -> Option<NonNull<u8>>,
 
     lookup_vm_symbol: extern "C" fn(*const c_char, usize) -> *const vm::Func,
     visit_fde: extern "C" fn(*mut u8, usize, extern "C" fn(*mut u8)),
@@ -91,6 +91,7 @@ extern "C" {
         callbacks: Callbacks,
         pool: &PagePool,
         func_out: &mut *mut LLVMFunction,
+        func_index: LocalFuncIndex,
         code_id_out: &mut AllocId<Code>,
     ) -> LLVMResult;
     fn get_stackmap(func: *mut LLVMFunction, size_out: &mut usize) -> Option<NonNull<u8>>;
@@ -126,9 +127,10 @@ fn get_callbacks() -> Callbacks {
     extern "C" fn create_code(
         pool: &PagePool,
         code_size: u32,
+        func_index: LocalFuncIndex,
         offset_out: &mut AllocId<Code>,
     ) -> Option<NonNull<u8>> {
-        let code_id = Code::new(pool, code_size, ()).ok()?;
+        let code_id = Code::new(pool, (), Metadata { func_index, code_size }).ok()?;
         let code = pool.get(&code_id);
         let ptr = code.code_ptr();
         *offset_out = code_id;
@@ -190,7 +192,7 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(pool: &PagePool, module: Module, intrinsics: Intrinsics) -> AllocId<Code> {
+    pub fn new(pool: &PagePool, func_index: LocalFuncIndex, module: Module, intrinsics: Intrinsics) -> AllocId<Code> {
         unsafe impl Sync for SyncTarget {}
         /// I'm going to assume that TargetMachine is actually threadsafe.
         /// It might not be, but there's really no way of knowing.
@@ -244,6 +246,7 @@ impl Function {
                 callbacks,
                 pool,
                 &mut llvm_function,
+                func_index,
                 &mut alloc_id,
             )
         };

@@ -12,13 +12,12 @@ use wasmer_runtime_core::{
 use wasmparser::{self, WasmDecoder};
 
 mod backend;
-mod compile;
+pub mod compile;
 mod intrinsics;
 mod platform;
 mod read_info;
 mod stackmap;
 mod state;
-mod trampolines;
 
 pub struct LLVMCompiler {
     _private: (),
@@ -162,11 +161,14 @@ mod tests {
         "#;
         let wasm = wat2wasm(wat).unwrap();
 
-        let (info, code_reader) = read_info::read_module(&wasm).unwrap();
+        let info_collection = crate::pipeline::InfoCollection::new(&wasm).unwrap();
+        let (info, baseline_compile) = info_collection.run().unwrap();
 
         let pool = PagePool::new();
 
-        let codes = compile::compile_module(&pool, &info, code_reader).unwrap();
+        let codes = baseline_compile.run(|code_reader| {
+            compile::compile_module(&pool, &info, code_reader).unwrap()
+        });
 
         unsafe {
             let second_id = &codes[1];

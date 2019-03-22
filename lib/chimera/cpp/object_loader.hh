@@ -33,7 +33,7 @@ typedef enum
 
 typedef uint8_t *(*alloc_t)(size_t size, size_t align);
 typedef void (*dealloc_t)(uint8_t *ptr, size_t size, size_t align);
-typedef uint8_t *(*create_code_t)(void *pool, uint32_t code_size, uint32_t *offset_out);
+typedef uint8_t *(*create_code_t)(void *pool, uint32_t code_size, uint32_t func_index, uint32_t *offset_out);
 
 typedef uintptr_t (*lookup_vm_symbol_t)(const char *name_ptr, size_t length);
 typedef void (*fde_visitor_t)(uint8_t *fde);
@@ -152,7 +152,7 @@ struct CatchableException : WasmException
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager
 {
   public:
-    MemoryManager(callbacks_t callbacks, void *pool) : callbacks(callbacks), pool(pool) {}
+    MemoryManager(callbacks_t callbacks, void *pool, uint32_t func_index) : callbacks(callbacks), pool(pool), func_index(func_index) {}
 
     virtual ~MemoryManager() override
     {
@@ -209,7 +209,7 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
         uintptr_t read_write_data_size,
         uint32_t read_write_data_align) override
     {
-        auto code_ptr = callbacks.create_code(pool, code_size, &code_offset);
+        auto code_ptr = callbacks.create_code(pool, code_size, func_index, &code_offset);
         code_section = View{code_ptr, code_size};
 
         auto read_ptr = callbacks.alloc(read_data_size, read_data_align);
@@ -261,7 +261,7 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
     };
 
     View eh_frames, stackmap = {0};
-    uint32_t code_offset;
+    uint32_t code_offset, func_index;
 
   private:
     uint8_t *allocate_bump(View &section, uintptr_t &bump_ptr, size_t size, size_t align)
@@ -298,7 +298,8 @@ struct WasmFunction
         const uint8_t *object_start,
         size_t object_size,
         callbacks_t callbacks,
-        void *pool);
+        void *pool,
+        uint32_t func_index);
 
     std::unique_ptr<MemoryManager> memory_manager;
 
@@ -309,9 +310,9 @@ struct WasmFunction
 
 extern "C"
 {
-    result_t function_load(const uint8_t *mem_ptr, size_t mem_size, callbacks_t callbacks, void *pool, WasmFunction **function_out, uint32_t *code_offset_out)
+    result_t function_load(const uint8_t *mem_ptr, size_t mem_size, callbacks_t callbacks, void *pool, WasmFunction **function_out, uint32_t func_index, uint32_t *code_offset_out)
     {
-        auto function = new WasmFunction(mem_ptr, mem_size, callbacks, pool);
+        auto function = new WasmFunction(mem_ptr, mem_size, callbacks, pool, func_index);
         *function_out = function;
         *code_offset_out = function->memory_manager->code_offset;
 

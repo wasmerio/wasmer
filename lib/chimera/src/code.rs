@@ -13,7 +13,7 @@ pub trait KeepAlive: Send + 'static {}
 impl<T> KeepAlive for T where T: Send + 'static {}
 
 struct CodeAlloc {
-    code_size: u32,
+    metadata: Metadata,
     keep_alive: Box<dyn KeepAlive>,
 }
 
@@ -22,7 +22,7 @@ unsafe impl ItemAlloc for CodeAlloc {
 
     fn metadata(&self) -> AllocMetadata {
         AllocMetadata {
-            size: size_of::<Code>() + self.code_size as usize,
+            size: size_of::<Code>() + self.metadata.code_size as usize,
             executable: true,
         }
     }
@@ -30,7 +30,7 @@ unsafe impl ItemAlloc for CodeAlloc {
     unsafe fn in_place(self, header: *mut Code) {
         (&mut (*header).keep_alive as *mut Box<dyn KeepAlive>).write(self.keep_alive);
         (&mut (*header).call_offsets as *mut Box<[CallOffset]>).write(Box::new([]));
-        (*header).code_size = self.code_size;
+        (*header).metadata = self.metadata;
     }
 }
 
@@ -40,23 +40,30 @@ pub struct CallOffset {
     pub offset: u32,
 }
 
+#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+pub struct Metadata {
+    pub func_index: LocalFuncIndex,
+    pub code_size: u32,
+}
+
 #[repr(C)]
 pub struct Code {
     pub keep_alive: Box<dyn KeepAlive>,
     pub call_offsets: Box<[CallOffset]>,
-    code_size: u32,
+    pub metadata: Metadata,
     code: [u8; 0],
 }
 
 impl Code {
     pub fn new(
         pool: &PagePool,
-        code_size: u32,
         keep_alive: impl KeepAlive,
+        metadata: Metadata,
     ) -> Result<AllocId<Code>, AllocErr> {
         let code_alloc = CodeAlloc {
             keep_alive: Box::new(keep_alive),
-            code_size,
+            metadata,
         };
 
         pool.alloc(code_alloc)
@@ -67,18 +74,19 @@ impl Code {
     }
 
     pub fn code_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.code.as_mut_ptr(), self.code_size as usize) }
+        unsafe { slice::from_raw_parts_mut(self.code.as_mut_ptr(), self.metadata.code_size as usize) }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wasmer_runtime_core::structures::TypedIndex;
 
     #[test]
     fn test_alloc() {
         let pool = PagePool::new();
-        let _code = Code::new(&pool, 16, ()).unwrap();
+        let _code = Code::new(&pool, (), Metadata { func_index: LocalFuncIndex::new(0), code_size: 16 }).unwrap();
     }
 
     #[test]
@@ -98,7 +106,7 @@ mod tests {
         }
 
         let pool = PagePool::new();
-        let mut code_id = Code::new(&pool, 16, ()).unwrap();
+        let mut code_id = Code::new(&pool, (), Metadata { func_index: LocalFuncIndex::new(0), code_size: 16 }).unwrap();
 
         let mut code = pool.get_mut(&mut code_id);
 

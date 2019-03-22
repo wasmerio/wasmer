@@ -10,7 +10,7 @@
 
 pub mod clif;
 pub mod code;
-pub mod compile;
+pub mod pipeline;
 pub mod llvm;
 pub mod pool;
 pub mod state;

@@ -31,7 +31,6 @@ use wasmparser::{
 use super::intrinsics::{CtxType, GlobalCache, Intrinsics, MemoryCache};
 use super::read_info::type_to_type;
 use super::state::{ControlFrame, IfElseState, State};
-use super::trampolines::generate_trampolines;
 
 fn func_sig_to_llvm(context: &Context, intrinsics: &Intrinsics, sig: &FuncSig) -> FunctionType {
     let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
@@ -231,7 +230,7 @@ fn compile_function(
 
     // module.print_to_stderr();
     // Ok(Code::new(pool, 0, &[], ()).unwrap())
-    Ok(Function::new(pool, module, intrinsics))
+    Ok(Function::new(pool, func_index, module, intrinsics))
 }
 
 fn parse_function(

@@ -672,36 +672,6 @@ impl<'a> CtxType<'a> {
         )
     }
 
-    pub fn local_func(&mut self, index: LocalFuncIndex, fn_ty: FunctionType) -> PointerValue {
-        let local_func_array_ptr_ptr = unsafe {
-            self.builder
-                .build_struct_gep(self.ctx_ptr_value, 8, "local_func_array_ptr_ptr")
-        };
-        let local_func_array_ptr = self
-            .builder
-            .build_load(local_func_array_ptr_ptr, "local_func_array_ptr")
-            .into_pointer_value();
-        let local_func_ptr_ptr = unsafe {
-            self.builder.build_in_bounds_gep(
-                local_func_array_ptr,
-                &[self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(index.index() as u64, false)],
-                "local_func_ptr_ptr",
-            )
-        };
-        let local_func_ptr = self
-            .builder
-            .build_load(local_func_ptr_ptr, "local_func_ptr")
-            .into_pointer_value();
-        self.builder.build_pointer_cast(
-            local_func_ptr,
-            fn_ty.ptr_type(AddressSpace::Generic),
-            "local_func_ptr",
-        )
-    }
-
     pub fn dynamic_sigindex(&mut self, index: SigIndex) -> IntValue {
         let (cached_sigindices, builder, info, ctx_ptr_value, intrinsics, cache_builder) = (
             &mut self.cached_sigindices,
