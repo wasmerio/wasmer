@@ -343,9 +343,14 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let address = emscripten_memory_pointer!(ctx.memory(0), address) as *mut sockaddr;
             let address_len_addr =
                 emscripten_memory_pointer!(ctx.memory(0), address_len) as *mut socklen_t;
-            unsafe {
+            let recv_result = unsafe {
                 libc::recvfrom(socket, buf_addr, flags, len, address, address_len_addr) as i32
-            }
+            };
+            debug!(
+                "recvfrom: socket: {}, flags: {}, len: {}, result: {}",
+                socket, flags, len, recv_result
+            );
+            recv_result
         }
         14 => {
             debug!("socket: setsockopt");
@@ -458,7 +463,10 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         }
         set_file_descriptors.push(virtual_fd);
     }
-    debug!("set read descriptors AFTER select: {:?}", set_file_descriptors);
+    debug!(
+        "set read descriptors AFTER select: {:?}",
+        set_file_descriptors
+    );
     debug!("select returns {}", result);
 
     result

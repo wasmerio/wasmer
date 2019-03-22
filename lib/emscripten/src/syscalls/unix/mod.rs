@@ -30,9 +30,9 @@ extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
 }
 
+use crate::utils::read_string_from_wasm;
 #[cfg(not(target_os = "macos"))]
 use libc::wait4;
-use crate::utils::read_string_from_wasm;
 
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]

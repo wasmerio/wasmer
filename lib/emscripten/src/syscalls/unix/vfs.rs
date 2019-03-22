@@ -1,15 +1,15 @@
+use crate::macros::emscripten_memory_ptr;
 use crate::syscalls::emscripten_vfs::FileHandle::{Socket, VirtualFile};
 use crate::syscalls::emscripten_vfs::{FileHandle, VirtualFd};
 use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
 use crate::varargs::VarArgs;
+use bit_field::BitArray;
 use libc::stat;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::os::raw::c_int;
 use std::slice;
 use wasmer_runtime_core::vm::Ctx;
-use bit_field::BitArray;
-use crate::macros::emscripten_memory_ptr;
 
 /// read
 pub fn ___syscall3(ctx: &mut Ctx, _: i32, mut varargs: VarArgs) -> i32 {
@@ -42,22 +42,25 @@ pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let buf_slice = unsafe { slice::from_raw_parts_mut(buf_addr, count as _) };
     let vfd = VirtualFd(fd);
     let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
-    let count: usize = match vfs.fd_map.get(&vfd) {
+    let (host_fd, count) = match vfs.fd_map.get(&vfd) {
         Some(FileHandle::VirtualFile(handle)) => {
             vfs.vfs
                 .write_file(*handle as _, buf_slice, count as _, 0)
                 .unwrap();
-            count as usize
+            (*handle, count as usize)
         }
         Some(FileHandle::Socket(host_fd)) => unsafe {
-            libc::write(*host_fd, buf_addr as _, count as _) as usize
+            (
+                *host_fd,
+                libc::write(*host_fd, buf_addr as _, count as _) as usize,
+            )
         },
         None => panic!(),
     };
     debug!("wrote: {}", read_string_from_wasm(ctx.memory(0), buf));
     debug!(
         "=> fd: {} (host {}), buf: {}, count: {}\n",
-        vfd.0, fd, buf, count
+        vfd.0, host_fd, buf, count
     );
     count as c_int
 }
@@ -76,8 +79,14 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
         !vfs.fd_map.contains_key(&next_lowest_virtual_fd),
         "Emscripten vfs should not contain file descriptor."
     );
-    vfs.fd_map.insert(next_lowest_virtual_fd.clone(), virtual_file_handle);
-    debug!("=> opening `{}` with new virtual fd: {} (zbox handle {})", path_str, next_lowest_virtual_fd.clone(), fd);
+    vfs.fd_map
+        .insert(next_lowest_virtual_fd.clone(), virtual_file_handle);
+    debug!(
+        "=> opening `{}` with new virtual fd: {} (zbox handle {})",
+        path_str,
+        next_lowest_virtual_fd.clone(),
+        fd
+    );
     debug!("{}", path_str);
     return next_lowest_virtual_fd.0 as _;
 }
@@ -525,7 +534,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let vfd = VirtualFd(socket);
             let host_socket_fd = vfs.get_host_socket_fd(&vfd).unwrap();
 
-            let rcv_result = unsafe {
+            let recv_result = unsafe {
                 libc::recvfrom(
                     host_socket_fd,
                     buf_addr,
@@ -535,8 +544,11 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
                     address_len_addr,
                 ) as i32
             };
-            rcv_result
-
+            debug!(
+                "recvfrom: socket: {}, flags: {}, len: {}, result: {}",
+                socket, flags, len, recv_result
+            );
+            recv_result
         }
         14 => {
             debug!("socket: setsockopt");
@@ -574,7 +586,10 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             use libc::socklen_t;
             let socket = socket_varargs.get(ctx);
             let level: i32 = socket_varargs.get(ctx);
+            let correct_level = if level == 1 { libc::SOL_SOCKET } else { level };
             let name: i32 = socket_varargs.get(ctx);
+            let correct_name = if name == 3 { libc::SO_TYPE } else { name };
+
             let value: u32 = socket_varargs.get(ctx);
             let option_len: u32 = socket_varargs.get(ctx);
             let value_addr = emscripten_memory_pointer!(ctx.memory(0), value) as _;
@@ -586,7 +601,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let host_socket_fd = vfs.get_host_socket_fd(&vfd).unwrap();
 
             let result = unsafe {
-                libc::getsockopt(host_socket_fd, level, name, value_addr, option_len_addr)
+                libc::getsockopt(host_socket_fd, correct_level, correct_name, value_addr, option_len_addr)
             };
 
             if result == -1 {
@@ -647,17 +662,20 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     }
 
     let iov_array_offset = iov_array_offset as u32;
-    let count = (0..iovcnt as u32).fold(0,|acc, iov_array_index| {
+    let count = (0..iovcnt as u32).fold(0, |acc, iov_array_index| {
         unsafe {
             let iov_offset = iov_array_offset + iov_array_index * 8; // get the offset to the iov
 
             let (iov_buf_slice, iov_buf_ptr, count) = {
                 let emscripten_memory = ctx.memory(0);
-                let guest_iov_ptr = emscripten_memory_ptr(emscripten_memory, iov_offset) as *mut GuestIovec;
+                let guest_iov_ptr =
+                    emscripten_memory_ptr(emscripten_memory, iov_offset) as *mut GuestIovec;
                 let iov_base_offset = (*guest_iov_ptr).iov_base as u32;
-                let iov_buf_ptr = emscripten_memory_ptr(emscripten_memory, iov_base_offset) as *const c_void;
+                let iov_buf_ptr =
+                    emscripten_memory_ptr(emscripten_memory, iov_base_offset) as *const c_void;
                 let iov_len = (*guest_iov_ptr).iov_len as usize;
-                let iov_buf_slice = unsafe { slice::from_raw_parts(iov_buf_ptr as *const u8, iov_len) };
+                let iov_buf_slice =
+                    unsafe { slice::from_raw_parts(iov_buf_ptr as *const u8, iov_len) };
                 (iov_buf_slice, iov_buf_ptr, iov_len)
             };
 
@@ -684,10 +702,12 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         }
     });
 
-    debug!("=> fd: {}, iov: {}, iovcnt = {}, returning {}", fd, iov_array_offset, iovcnt, count);
+    debug!(
+        "=> fd: {}, iov: {}, iovcnt = {}, returning {}",
+        fd, iov_array_offset, iovcnt, count
+    );
     count as _
 }
-
 
 /// pread
 pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
