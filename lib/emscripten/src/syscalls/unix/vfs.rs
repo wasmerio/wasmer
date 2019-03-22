@@ -509,8 +509,8 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // recvfrom (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
             let socket: i32 = socket_varargs.get(ctx);
             let buf: u32 = socket_varargs.get(ctx);
-            let len: i32 = socket_varargs.get(ctx);
             let flags = socket_varargs.get(ctx);
+            let len: i32 = socket_varargs.get(ctx);
             let address: u32 = socket_varargs.get(ctx);
             let address_len: u32 = socket_varargs.get(ctx);
             let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
@@ -522,7 +522,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let vfd = VirtualFd(socket);
             let host_socket_fd = vfs.get_host_socket_fd(&vfd).unwrap();
 
-            unsafe {
+            let rcv_result = unsafe {
                 libc::recvfrom(
                     host_socket_fd,
                     buf_addr,
@@ -531,7 +531,9 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
                     address,
                     address_len_addr,
                 ) as i32
-            }
+            };
+            rcv_result
+
         }
         14 => {
             debug!("socket: setsockopt");
@@ -625,6 +627,17 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     }
 }
 
+
+#[derive(Debug)]
+struct FdPair {
+    pub virtual_fd: i32,
+    pub host_fd: i32,
+}
+
+fn translate_to_host_file_descriptors(ctx: &mut Ctx, nfds_offset: i32, fds_set_offset: u32) {
+
+}
+
 /// select
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
@@ -645,27 +658,36 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     use bit_field::BitArray;
     let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
 
-    #[derive(Debug)]
-    struct FdPair {
-        pub virtual_fd: i32,
-        pub host_fd: i32,
-    }
 
     let mut virtual_file_descriptors_to_always_set_when_done = vec![];
     let mut virtual_file_descriptors_for_writing_to_always_set_when_done = vec![];
 
-    // virtual read and write file descriptors
-    let file_descriptors_to_read = (0..nfds)
+    let read_fds: Vec<i32> = (0..nfds)
         .filter_map(|virtual_fd| {
             if readfds_slice.get_bit(virtual_fd as usize) {
                 Some(virtual_fd as i32)
             } else {
                 None
             }
-        })
+        }).collect::<Vec<_>>();
+    debug!("select read descriptors: {:?}", read_fds);
+
+    let write_fds: Vec<i32> = (0..nfds)
+        .filter_map(|virtual_fd| {
+            if writefds_slice.get_bit(virtual_fd as usize) {
+                Some(virtual_fd as i32)
+            } else {
+                None
+            }
+        }).collect::<Vec<_>>();
+    debug!("select write descriptors: {:?}", write_fds);
+
+    // virtual read and write file descriptors
+    let file_descriptors_to_read = read_fds.iter()
         .filter(|vfd| {
-            if let FileHandle::VirtualFile(handle) = vfs.fd_map.get(&VirtualFd(*vfd)).unwrap() {
+            if let FileHandle::VirtualFile(handle) = vfs.fd_map.get(&VirtualFd(**vfd)).unwrap() {
                 virtual_file_descriptors_to_always_set_when_done.push(*handle);
+                debug!("skipping virtual fd {} (vbox handle {}) because is a virtual file", *vfd, *handle);
                 false
             }
             else {
@@ -673,7 +695,7 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             }
         })
         .map(|vfd| {
-            let vfd = VirtualFd(vfd);
+            let vfd = VirtualFd(*vfd);
             let file_handle = vfs.fd_map.get(&vfd).unwrap();
             let host_fd = match file_handle {
                 FileHandle::Socket(host_fd) => host_fd,
@@ -693,16 +715,9 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         })
         .collect::<Vec<_>>();
 
-    let file_descriptors_to_write = (0..nfds)
-        .filter_map(|virtual_fd| {
-            if writefds_slice.get_bit(virtual_fd as usize) {
-                Some(virtual_fd as i32)
-            } else {
-                None
-            }
-        })
+    let file_descriptors_to_write = write_fds.iter()
         .filter(|vfd| {
-            if let FileHandle::VirtualFile(handle) = vfs.fd_map.get(&VirtualFd(*vfd)).unwrap() {
+            if let FileHandle::VirtualFile(handle) = vfs.fd_map.get(&VirtualFd(**vfd)).unwrap() {
                 virtual_file_descriptors_for_writing_to_always_set_when_done.push(*handle);
                 false
             }
@@ -711,7 +726,7 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             }
         })
         .map(|vfd| {
-            let vfd = VirtualFd(vfd);
+            let vfd = VirtualFd(*vfd);
             let file_handle = vfs.fd_map.get(&vfd).unwrap();
             let host_fd = match file_handle {
                 FileHandle::Socket(host_fd) => host_fd,
@@ -756,24 +771,27 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         panic!("result returned from select was -1. The errno code: {}", errno::errno());
     }
 
-    // swap the read descriptors back
-    let file_descriptors_to_read = (0..sz)
-        .filter_map(|host_fd| {
-            if readfds_slice.get_bit(host_fd as usize) {
-                Some(host_fd as i32)
+    let read_fds = (0..nfds)
+        .filter_map(|virtual_fd| {
+            if readfds_slice.get_bit(virtual_fd as usize) {
+                Some(virtual_fd as i32)
             } else {
                 None
             }
-        })
+        }).collect::<Vec<_>>();
+    debug!("select read descriptors after select completes: {:?}", read_fds);
+
+    // swap the read descriptors back
+    let file_descriptors_to_read = read_fds.iter()
         .filter_map(|host_fd| {
             read_lookup.get(&host_fd).map(|virtual_fd| (*virtual_fd, host_fd))
         })
         .map(|(virtual_fd, host_fd)| {
             unsafe {
-                libc::FD_CLR(host_fd, readfds_set_ptr);
+                libc::FD_CLR(*host_fd, readfds_set_ptr);
                 libc::FD_SET(virtual_fd, readfds_set_ptr);
             }
-            FdPair { virtual_fd, host_fd }
+            FdPair { virtual_fd, host_fd: *host_fd }
         }).collect::<Vec<_>>();;
 
     debug!(
@@ -781,52 +799,36 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         file_descriptors_to_read
     );
 
-//    for auto_set_file_descriptor in virtual_file_descriptors_to_always_set_when_done.iter() {
-//        unsafe {
-//            libc::FD_SET(*auto_set_file_descriptor, readfds_set_ptr);
-//        }
-//        result += 1;
-//    }
-
-    // swap the write descriptors back
-    let file_descriptors_to_write = (0..sz)
-        .filter_map(|host_fd| {
-            if writefds_slice.get_bit(host_fd as usize) {
-                Some(host_fd as i32)
+    let write_fds = (0..nfds)
+        .filter_map(|virtual_fd| {
+            if writefds_slice.get_bit(virtual_fd as usize) {
+                Some(virtual_fd as i32)
             } else {
                 None
             }
-        })
+        }).collect::<Vec<_>>();
+    debug!("select write descriptors after select completes: {:?}", write_fds);
+
+    // swap the write descriptors back
+    let file_descriptors_to_write = write_fds.iter()
         .filter_map(|host_fd| {
             write_lookup.get(&host_fd).map(|virtual_fd| (*virtual_fd, host_fd))
         })
         .map(|(virtual_fd, host_fd)| {
             unsafe {
-                libc::FD_CLR(host_fd, readfds_set_ptr);
-                libc::FD_SET(virtual_fd, readfds_set_ptr);
+                libc::FD_CLR(*host_fd, writefds_set_ptr);
+                libc::FD_SET(virtual_fd, writefds_set_ptr);
             }
             (virtual_fd, host_fd)
         }).collect::<Vec<_>>();
 
-//    for auto_set_file_descriptor in virtual_file_descriptors_for_writing_to_always_set_when_done.iter() {
-//        unsafe {
-//            libc::FD_SET(*auto_set_file_descriptor, writefds_set_ptr);
-//        }
-//        result += 1;
-//    }
-
-//    debug!("select - reading: {:?} auto set: {:?}", file_descriptors_to_read, virtual_file_descriptors_to_always_set_when_done);
-
-//    debug!("select - writing: {:?} auto set: {:?}", file_descriptors_to_write, virtual_file_descriptors_for_writing_to_always_set_when_done);
-
-    // return the result of select
     result
 }
 
 /// writev
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
-    unimplemented!();
+//    unimplemented!();
     // -> ssize_t
     debug!("emscripten::___syscall146 (writev) {}", _which);
     let fd: i32 = varargs.get(ctx);
@@ -849,7 +851,36 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
                 as *const c_void;
             let iov_len = (*guest_iov_addr).iov_len as _;
             // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
-            let curr = libc::write(fd, iov_base, iov_len);
+//            let curr = libc::write(fd, iov_base, iov_len);
+
+            let curr = {
+                debug!("emscripten::___syscall4 (write - vfs) {}", _which);
+                let fd: i32 = fd; // varargs.get(ctx);
+//                let buf = iov_base; // varargs.get(ctx);
+                let count: i32 = iov_len; // varargs.get(ctx);
+                let buf_slice = unsafe { slice::from_raw_parts_mut(iov_base as *mut _, count as _) };
+                let vfd = VirtualFd(fd);
+                let vfs = crate::env::get_emscripten_data(ctx).vfs.as_mut().unwrap();
+                let count: usize = match vfs.fd_map.get(&vfd) {
+                    Some(FileHandle::VirtualFile(handle)) => {
+                        vfs.vfs
+                            .write_file(*handle as _, buf_slice, count as _, 0)
+                            .unwrap();
+                        count as usize
+                    }
+                    Some(FileHandle::Socket(host_fd)) => unsafe {
+                        libc::write(*host_fd, iov_base as _, count as _) as usize
+                    },
+                    None => panic!(),
+                };
+//                debug!("wrote: {}", read_string_from_wasm(ctx.memory(0), buf));
+                debug!(
+                    "=> fd: {} (host {}), buf: {:?}, count: {}\n",
+                    vfd.0, fd, iov_base, count
+                );
+                count as c_int
+            };
+
             if curr < 0 {
                 return -1;
             }
