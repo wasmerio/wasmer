@@ -264,7 +264,7 @@ pub fn ___syscall63(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
         Some(FileHandle::Socket(src_host_fd)) => unsafe {
             // get a dst file descriptor, or just use the underlying dup syscall
             let dst_host_fd = libc::dup(*src_host_fd);
-            if dst_host_fd == -1 {
+            if dst_host_fd < 0 {
                 panic!()
             }
             FileHandle::Socket(dst_host_fd)
@@ -440,6 +440,10 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let new_accept_host_fd =
                 unsafe { libc::accept(host_socket_fd, address, address_len_addr) };
 
+            if new_accept_host_fd < 0 {
+                panic!("accept file descriptor should not be negative.");
+            }
+
             unsafe {
                 let address_linux =
                     emscripten_memory_pointer!(ctx.memory(0), address_addr) as *mut LinuxSockAddr;
@@ -548,6 +552,9 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
                 "recvfrom: socket: {}, flags: {}, len: {}, result: {}",
                 socket, flags, len, recv_result
             );
+            if recv_result < 0 {
+                panic!("recvfrom result was less than zero. Errno: {}", errno::errno());
+            }
             recv_result
         }
         14 => {
@@ -691,7 +698,7 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
                 Some(FileHandle::Socket(host_fd)) => unsafe {
                     let count = libc::write(*host_fd, iov_buf_ptr, count);
                     if count < 0 {
-                        panic!()
+                        panic!("the count from write was less than zero. errno: {}", errno::errno());
                     }
                     count as usize
                 },

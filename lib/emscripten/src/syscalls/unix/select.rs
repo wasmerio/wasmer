@@ -194,6 +194,27 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: libc::c_int, mut varargs: VarArgs) -
             .map(|pair| pair.host_fd)
             .collect::<Vec<_>>()
     );
+
+    unsafe {
+        use libc::FD_ISSET;
+        let s = 3;
+        let x = [
+            FD_ISSET(s, readfds_set_ptr),
+            FD_ISSET(s + 1, readfds_set_ptr),
+            FD_ISSET(s + 2, readfds_set_ptr),
+            FD_ISSET(s + 3, readfds_set_ptr),
+            FD_ISSET(s + 4, readfds_set_ptr),
+            FD_ISSET(s + 5, readfds_set_ptr),
+            FD_ISSET(s + 6, readfds_set_ptr),
+            FD_ISSET(s + 7, readfds_set_ptr),
+            FD_ISSET(s + 8, readfds_set_ptr),
+            FD_ISSET(s + 9, readfds_set_ptr),
+            FD_ISSET(s + 10, readfds_set_ptr),
+            FD_ISSET(s + 11, readfds_set_ptr),
+        ];
+        debug!("BEFORE sets start with fd #{}: {:?}", s, x);
+    }
+
     let fds_slice = unsafe { slice::from_raw_parts(readfds_set_ptr as *const u8, 4) } as &[u8];
     debug!("host read set before: {:?}", fds_slice);
     let mut result = unsafe { libc::select(sz, readfds_set_ptr, writefds_set_ptr, 0 as _, 0 as _) };
@@ -216,7 +237,7 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: libc::c_int, mut varargs: VarArgs) -
             FD_ISSET(s + 10, readfds_set_ptr),
             FD_ISSET(s + 11, readfds_set_ptr),
         ];
-        debug!("sets (start with fd #{}: {:?}", s, x);
+        debug!("AFTER sets (start with fd #{}: {:?}", s, x);
     }
 
     if result == -1 {

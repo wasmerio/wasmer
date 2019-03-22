@@ -97,7 +97,12 @@ impl EmscriptenVfs {
 
     pub fn get_host_socket_fd(&self, vfd: &VirtualFd) -> Option<Fd> {
         match self.fd_map.get(&vfd) {
-            Some(FileHandle::Socket(fd)) => Some(*fd),
+            Some(FileHandle::Socket(fd)) => {
+                if *fd < 0 {
+                    panic!()
+                }
+                Some(*fd)
+            },
             _ => None,
         }
     }
@@ -119,6 +124,9 @@ impl EmscriptenVfs {
 
     pub fn new_socket_fd(&mut self, host_fd: Fd) -> VirtualFd {
         let vfd = self.next_lowest_fd();
+        if host_fd < 0 {
+            panic!()
+        }
         self.fd_map.insert(vfd.clone(), FileHandle::Socket(host_fd));
         vfd
     }
