@@ -189,8 +189,6 @@ struct MemoryManager : llvm::RuntimeDyld::MemoryManager
         }
         else
         {
-            std::cout << (std::string)section_name << std::endl;
-            std::cout << "size: " << size << std::endl;
             auto ptr = allocate_bump(readwrite_section, readwrite_bump_ptr, size, alignment);
 
             if (section_name == STACKMAP_SECTION_NAME)

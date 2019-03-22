@@ -12,6 +12,7 @@ use inkwell::{
     values::{BasicValue, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue},
     AddressSpace, FloatPredicate, IntPredicate,
 };
+use rayon::prelude::*;
 use smallvec::SmallVec;
 use wasmer_runtime_core::{
     memory::MemoryType,
@@ -147,6 +148,22 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
 //     Ok((module, intrinsics))
 // }
 
+pub fn compile_module(
+    pool: &PagePool,
+    info: &ModuleInfo,
+    code_reader: CodeSectionReader,
+) -> Result<Vec<AllocId<Code>>, BinaryReaderError> {
+    code_reader
+        .into_iter()
+        .enumerate()
+        .par_bridge()
+        .map(|(i, body)| {
+            let func_index = LocalFuncIndex::new(i as _);
+            compile_function(pool, info, func_index, body?)
+        })
+        .collect()
+}
+
 fn compile_function(
     pool: &PagePool,
     info: &ModuleInfo,
@@ -201,7 +218,6 @@ fn compile_function(
 
     let pass_manager = PassManager::create_for_module();
     // pass_manager.add_verifier_pass();
-    pass_manager.add_function_inlining_pass();
     pass_manager.add_promote_memory_to_register_pass();
     pass_manager.add_cfg_simplification_pass();
     // pass_manager.add_instruction_combining_pass();

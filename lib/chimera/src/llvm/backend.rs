@@ -191,12 +191,12 @@ pub struct Function {
 
 impl Function {
     pub fn new(pool: &PagePool, module: Module, intrinsics: Intrinsics) -> AllocId<Code> {
-        unsafe impl Sync for SyncTargetMachine {}
+        unsafe impl Sync for SyncTarget {}
         /// I'm going to assume that TargetMachine is actually threadsafe.
         /// It might not be, but there's really no way of knowing.
-        struct SyncTargetMachine(TargetMachine);
+        struct SyncTarget(Target);
 
-        static TARGET: Lazy<SyncTargetMachine> = Lazy::new(|| {
+        static TARGET: Lazy<(SyncTarget, String, String, String)> = Lazy::new(|| {
             Target::initialize_x86(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,
@@ -208,22 +208,26 @@ impl Function {
 
             let triple = TargetMachine::get_default_triple().to_string();
             let target = Target::from_triple(&triple).unwrap();
-            SyncTargetMachine(
-                target
-                    .create_target_machine(
-                        &triple,
-                        &TargetMachine::get_host_cpu_name().to_string(),
-                        &TargetMachine::get_host_cpu_features().to_string(),
-                        OptimizationLevel::Aggressive,
-                        RelocMode::PIC,
-                        CodeModel::Default,
-                    )
-                    .unwrap(),
-            )
+            let host_cpu_name = TargetMachine::get_host_cpu_name().to_string();
+            let host_cpu_features = TargetMachine::get_host_cpu_features().to_string();
+
+            (SyncTarget(target), triple, host_cpu_name, host_cpu_features)
         });
 
-        let memory_buffer = TARGET
+        let (target, triple, host_cpu_name, host_cpu_features) = &*TARGET;
+        let target_machine = target
             .0
+            .create_target_machine(
+                &triple,
+                &host_cpu_name,
+                &host_cpu_features,
+                OptimizationLevel::Aggressive,
+                RelocMode::PIC,
+                CodeModel::Default,
+            )
+            .unwrap();
+
+        let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
@@ -249,7 +253,8 @@ impl Function {
 
         if let (size, Some(stackmap_ptr)) = unsafe {
             let mut size = 0;
-            (size, get_stackmap(llvm_function, &mut size))
+            let ptr = get_stackmap(llvm_function, &mut size);
+            (size, ptr)
         } {
             use super::stackmap::{StackMapRecord, Stackmap};
             let stackmap_slice = unsafe { slice::from_raw_parts(stackmap_ptr.as_ptr(), size) };

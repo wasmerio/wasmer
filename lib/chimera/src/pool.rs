@@ -3,6 +3,7 @@
 use parking_lot::Mutex;
 use std::{
     any::TypeId,
+    fmt,
     marker::PhantomData,
     mem::{align_of, size_of, transmute},
 };
@@ -33,6 +34,12 @@ pub unsafe trait ItemAlloc {
 }
 
 pub struct AllocId<T: 'static>(u32, PhantomData<T>);
+
+impl<T: 'static> fmt::Debug for AllocId<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "AllocId")
+    }
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum AllocErr {
@@ -98,7 +105,7 @@ impl PagePool {
             inner
                 .memory
                 .protect(
-                    offset..size,
+                    offset..offset + size,
                     match executable {
                         false => Protect::ReadWrite,
                         true => Protect::ReadWriteExec,

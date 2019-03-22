@@ -141,6 +141,7 @@ mod tests {
 
     #[test]
     fn read_module() {
+        use crate::pool::PagePool;
         use std::mem::transmute;
         use wabt::wat2wasm;
         use wasmer_runtime_core::{structures::TypedIndex, types::LocalFuncIndex, vm, vmcalls};
@@ -163,6 +164,18 @@ mod tests {
 
         let (info, code_reader) = read_info::read_module(&wasm).unwrap();
 
+        let pool = PagePool::new();
+
+        let codes = compile::compile_module(&pool, &info, code_reader).unwrap();
+
+        unsafe {
+            let second_id = &codes[1];
+            let ptr = pool.get(second_id).code_ptr().as_ptr();
+            disass_ptr(ptr, 100, 5);
+        }
+
+        // println!("codes: {:?}", codes);
+
         // let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
         // let (backend, _caller) = backend::LLVMBackend::new(module, intrinsics);
@@ -170,10 +183,6 @@ mod tests {
         // let func_ptr = backend.get_func(&info, LocalFuncIndex::new(1)).unwrap();
 
         // println!("func_ptr: {:p}", func_ptr.as_ptr());
-
-        // unsafe {
-        //     disass_ptr(func_ptr.cast().as_ptr(), 100, 5);
-        // }
 
         // unsafe {
         //     let func: unsafe extern "C" fn(*mut vm::Ctx, i32) -> i32 = transmute(func_ptr);

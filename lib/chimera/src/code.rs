@@ -8,9 +8,13 @@ use std::{
 };
 use wasmer_runtime_core::types::LocalFuncIndex;
 
+pub trait KeepAlive: Send + 'static {}
+
+impl<T> KeepAlive for T where T: Send + 'static {}
+
 struct CodeAlloc {
     code_size: u32,
-    keep_alive: Box<dyn Any>,
+    keep_alive: Box<dyn KeepAlive>,
 }
 
 unsafe impl ItemAlloc for CodeAlloc {
@@ -24,7 +28,7 @@ unsafe impl ItemAlloc for CodeAlloc {
     }
 
     unsafe fn in_place(self, header: *mut Code) {
-        (&mut (*header).keep_alive as *mut Box<dyn Any>).write(self.keep_alive);
+        (&mut (*header).keep_alive as *mut Box<dyn KeepAlive>).write(self.keep_alive);
         (&mut (*header).call_offsets as *mut Box<[CallOffset]>).write(Box::new([]));
         (*header).code_size = self.code_size;
     }
@@ -38,7 +42,7 @@ pub struct CallOffset {
 
 #[repr(C)]
 pub struct Code {
-    pub keep_alive: Box<dyn Any>,
+    pub keep_alive: Box<dyn KeepAlive>,
     pub call_offsets: Box<[CallOffset]>,
     code_size: u32,
     code: [u8; 0],
@@ -48,7 +52,7 @@ impl Code {
     pub fn new(
         pool: &PagePool,
         code_size: u32,
-        keep_alive: impl Any,
+        keep_alive: impl KeepAlive,
     ) -> Result<AllocId<Code>, AllocErr> {
         let code_alloc = CodeAlloc {
             keep_alive: Box::new(keep_alive),
