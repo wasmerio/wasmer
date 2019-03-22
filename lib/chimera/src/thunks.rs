@@ -1,4 +1,4 @@
-use crate::pool::{AllocId, AllocMetadata, PagePool};
+use crate::alloc_pool::{AllocId, AllocMetadata, AllocPool};
 use std::arch::x86_64::cmpxchg16b;
 use std::sync::atomic::Ordering;
 use wasmer_runtime_core::{

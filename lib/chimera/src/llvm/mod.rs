@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn read_module() {
-        use crate::pool::PagePool;
+        use crate::alloc_pool::AllocPool;
         use std::mem::transmute;
         use wabt::wat2wasm;
         use wasmer_runtime_core::{structures::TypedIndex, types::LocalFuncIndex, vm, vmcalls};
@@ -164,11 +164,10 @@ mod tests {
         let info_collection = crate::pipeline::InfoCollection::new(&wasm).unwrap();
         let (info, baseline_compile) = info_collection.run().unwrap();
 
-        let pool = PagePool::new();
+        let pool = AllocPool::new();
 
-        let codes = baseline_compile.run(|code_reader| {
-            compile::compile_module(&pool, &info, code_reader).unwrap()
-        });
+        let codes = baseline_compile
+            .run(|code_reader| compile::compile_module(&pool, &info, code_reader).unwrap());
 
         unsafe {
             let second_id = &codes[1];

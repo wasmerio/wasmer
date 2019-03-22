@@ -8,11 +8,11 @@
 //     module::ModuleInner,
 // };
 
+pub mod alloc_pool;
 pub mod clif;
 pub mod code;
-pub mod pipeline;
 pub mod llvm;
-pub mod pool;
+pub mod pipeline;
 pub mod state;
 pub mod thunks;
 pub mod utils;

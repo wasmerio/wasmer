@@ -1,7 +1,7 @@
 use crate::{
+    alloc_pool::{AllocId, AllocPool},
     code::Code,
     llvm::backend::Function,
-    pool::{AllocId, PagePool},
 };
 use inkwell::{
     builder::Builder,
@@ -148,7 +148,7 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
 // }
 
 pub fn compile_module(
-    pool: &PagePool,
+    pool: &AllocPool,
     info: &ModuleInfo,
     code_reader: CodeSectionReader,
 ) -> Result<Vec<AllocId<Code>>, BinaryReaderError> {
@@ -164,7 +164,7 @@ pub fn compile_module(
 }
 
 fn compile_function(
-    pool: &PagePool,
+    pool: &AllocPool,
     info: &ModuleInfo,
     func_index: LocalFuncIndex,
     body: FunctionBody,

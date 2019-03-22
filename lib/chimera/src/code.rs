@@ -1,4 +1,4 @@
-use crate::pool::{AllocErr, AllocId, AllocMetadata, ItemAlloc, PagePool};
+use crate::alloc_pool::{AllocErr, AllocId, AllocMetadata, AllocPool, ItemAlloc};
 use std::{
     alloc::{alloc, Layout},
     any::Any,
@@ -57,7 +57,7 @@ pub struct Code {
 
 impl Code {
     pub fn new(
-        pool: &PagePool,
+        pool: &AllocPool,
         keep_alive: impl KeepAlive,
         metadata: Metadata,
     ) -> Result<AllocId<Code>, AllocErr> {
@@ -74,7 +74,9 @@ impl Code {
     }
 
     pub fn code_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.code.as_mut_ptr(), self.metadata.code_size as usize) }
+        unsafe {
+            slice::from_raw_parts_mut(self.code.as_mut_ptr(), self.metadata.code_size as usize)
+        }
     }
 }
 
@@ -85,8 +87,16 @@ mod tests {
 
     #[test]
     fn test_alloc() {
-        let pool = PagePool::new();
-        let _code = Code::new(&pool, (), Metadata { func_index: LocalFuncIndex::new(0), code_size: 16 }).unwrap();
+        let pool = AllocPool::new();
+        let _code = Code::new(
+            &pool,
+            (),
+            Metadata {
+                func_index: LocalFuncIndex::new(0),
+                code_size: 16,
+            },
+        )
+        .unwrap();
     }
 
     #[test]
@@ -105,8 +115,16 @@ mod tests {
             42
         }
 
-        let pool = PagePool::new();
-        let mut code_id = Code::new(&pool, (), Metadata { func_index: LocalFuncIndex::new(0), code_size: 16 }).unwrap();
+        let pool = AllocPool::new();
+        let mut code_id = Code::new(
+            &pool,
+            (),
+            Metadata {
+                func_index: LocalFuncIndex::new(0),
+                code_size: 16,
+            },
+        )
+        .unwrap();
 
         let mut code = pool.get_mut(&mut code_id);
 

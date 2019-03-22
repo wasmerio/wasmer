@@ -47,27 +47,27 @@ pub enum AllocErr {
     CantProtect,
 }
 
-struct PagePoolInner {
+struct AllocPoolInner {
     memory: Memory,
     offset_map: Vec<(usize, TypeId, unsafe fn(*mut u8))>,
     bump_page: usize,
 }
 
-unsafe impl Send for PagePool {}
-unsafe impl Sync for PagePool {}
+unsafe impl Send for AllocPool {}
+unsafe impl Sync for AllocPool {}
 
-pub struct PagePool {
-    inner: Mutex<PagePoolInner>,
+pub struct AllocPool {
+    inner: Mutex<AllocPoolInner>,
     memory_start: *mut u8,
 }
 
-impl PagePool {
+impl AllocPool {
     pub fn new() -> Self {
         let memory = Memory::with_size(POOL_SIZE).unwrap();
         let memory_start = memory.as_ptr();
 
-        PagePool {
-            inner: Mutex::new(PagePoolInner {
+        AllocPool {
+            inner: Mutex::new(AllocPoolInner {
                 memory,
                 offset_map: Vec::new(),
                 bump_page: 0,
@@ -137,7 +137,7 @@ impl PagePool {
     }
 }
 
-impl Drop for PagePool {
+impl Drop for AllocPool {
     fn drop(&mut self) {
         let memory_start = self.memory_start;
         let inner = self.inner.get_mut();
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn creation() {
-        let _pool = PagePool::new();
+        let _pool = AllocPool::new();
     }
 
     #[test]
@@ -187,7 +187,7 @@ mod tests {
             }
         }
 
-        let pool = PagePool::new();
+        let pool = AllocPool::new();
         let foobar_id = pool.alloc(FoobarAlloc).unwrap();
 
         let foobar = pool.get(&foobar_id);
@@ -233,7 +233,7 @@ mod tests {
             }
         }
 
-        let pool = PagePool::new();
+        let pool = AllocPool::new();
         let callable_id = pool.alloc(CallableAlloc).unwrap();
         let callable_ref = pool.get(&callable_id);
         let result = unsafe {
