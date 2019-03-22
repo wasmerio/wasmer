@@ -17,6 +17,8 @@ nix = "0.13.0"
 libc = "0.2.50"
 smallvec = "0.6.9"
 capstone = { version = "0.5.0", optional = true }
+log = "0.4.6"
+futures-preview = "0.3.0-alpha.13"
 
 # For cranelift
 cranelift-native = "0.29.0"
@@ -25,6 +27,10 @@ cranelift-entity = "0.29.0"
 cranelift-wasm = "0.29.0"
 # cranelift-codegen is using target-lexicon 0.2.0.
 target-lexicon = "0.2.0"
+
+# For the compile pool
+crossbeam-deque = "0.7.1"
+num_cpus = "1.10"
 
 [build-dependencies]
 cc = "1.0"

@@ -1,5 +1,8 @@
-#![feature(stdsimd)]
+#![feature(stdsimd, futures_api)]
 #![cfg_attr(nightly, feature(unwind_attributes))]
+
+#[macro_use]
+extern crate log;
 
 // use wasmer_runtime_core::{
 //     backend::{Compiler, Token},
@@ -11,6 +14,7 @@
 pub mod alloc_pool;
 pub mod clif;
 pub mod code;
+pub mod compile_pool;
 pub mod llvm;
 pub mod pipeline;
 pub mod state;
