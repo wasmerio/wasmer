@@ -10,6 +10,12 @@ pub mod vfs;
 pub use host_fs::*;
 
 #[cfg(feature = "vfs")]
+pub mod select;
+
+#[cfg(feature = "vfs")]
+pub use select::*;
+
+#[cfg(feature = "vfs")]
 pub use vfs::*;
 
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32

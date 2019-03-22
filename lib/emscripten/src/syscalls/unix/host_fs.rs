@@ -333,7 +333,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         12 => {
             debug!("socket: recvfrom");
             // recvfrom (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -> ssize_t
-            let socket = socket_varargs.get(ctx);
+            let socket: i32 = socket_varargs.get(ctx);
             let buf: u32 = socket_varargs.get(ctx);
             let flags = socket_varargs.get(ctx);
             let len: i32 = socket_varargs.get(ctx);
@@ -459,6 +459,7 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         set_file_descriptors.push(virtual_fd);
     }
     debug!("set read descriptors AFTER select: {:?}", set_file_descriptors);
+    debug!("select returns {}", result);
 
     result
 }
