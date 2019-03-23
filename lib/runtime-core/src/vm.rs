@@ -158,7 +158,20 @@ impl Ctx {
         }
     }
 
-    /// TODO Needs doc WIP
+    /// This exposes the specified table of the WebAssembly instance.
+    ///
+    /// # Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{
+    /// #     vm::Ctx,
+    /// # };
+    /// fn table_size(ctx: &Ctx) -> u32 {
+    ///     let first_table = ctx.table(0);
+    ///     // Get the size of the table
+    ///     first_table.size()
+    /// }
+    /// ```
     pub fn table(&self, table_index: u32) -> &Table {
         let module = unsafe { &*self.module };
         let table_index = TableIndex::new(table_index as usize);
