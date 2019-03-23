@@ -3,7 +3,8 @@ use crate::{
     memory::Memory,
     module::ModuleInner,
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex},
+    table::Table,
+    types::{LocalOrImport, MemoryIndex, TableIndex},
 };
 use std::{ffi::c_void, mem, ptr};
 
@@ -153,6 +154,22 @@ impl Ctx {
             LocalOrImport::Import(import_mem_index) => unsafe {
                 let import_backing = &*self.import_backing;
                 &import_backing.memories[import_mem_index]
+            },
+        }
+    }
+
+    /// TODO Needs doc WIP
+    pub fn table(&self, table_index: u32) -> &Table {
+        let module = unsafe { &*self.module };
+        let table_index = TableIndex::new(table_index as usize);
+        match table_index.local_or_import(&module.info) {
+            LocalOrImport::Local(local_table_index) => unsafe {
+                let local_backing = &*self.local_backing;
+                &local_backing.tables[local_table_index]
+            },
+            LocalOrImport::Import(import_table_index) => unsafe {
+                let import_backing = &*self.import_backing;
+                &import_backing.tables[import_table_index]
             },
         }
     }
