@@ -206,7 +206,7 @@ impl Instance {
                 module: &self.module,
                 vmctx,
                 import_backing: &self.inner.import_backing,
-                func_index: *func_index,
+                func_index: dbg!(*func_index),
             })
         } else {
             Err(ResolveError::ExportWrongType {
