@@ -1,12 +1,37 @@
-install_sodium: &install_sodium
-  command: |
-    curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-    tar xf libsodium-1.0.17.tar.gz
-    cd libsodium-1.0.17/
-    ./configure
-    make && make check
-    sudo make install
-    cd ..
+run_install_sodium: &run_install_sodium
+  run:
+    name: install sodium
+    command: |
+      curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+      tar xf libsodium-1.0.17.tar.gz
+      cd libsodium-1.0.17/
+      ./configure
+      make && make check
+      sudo make install
+      cd ..
+
+run_with_build_env_vars: &run_with_build_env_vars
+  environment:
+    LLVM_SYS_70_PREFIX: "`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+    SODIUM_LIB_DIR: /usr/local/lib
+    SODIUM_STATIC: true
+
+run_install_dependencies: &run_install_dependencies
+  run:
+    name: install dependencies
+    command: |
+      sudo apt-get install -y cmake
+      curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+
+save_cargo_cache: &save_cargo_cache
+  save_cache:
+    paths:
+      - /usr/local/cargo/registry
+      - target/debug/.fingerprint
+      - target/debug/build
+      - target/debug/deps
+    key: v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
 
 version: 2
 jobs:
@@ -14,20 +39,14 @@ jobs:
   lint:
     docker:
       - image: circleci/rust:latest
+    <<: *run_with_build_env_vars
     steps:
       - checkout
       - restore_cache:
           keys:
             - v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Install dependencies
-          command: |
-            sudo apt-get install -y cmake
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - run:
-          name: Install sodium
-          <<: *install_sodium
+      - <<: *run_install_dependencies
+      - <<: *run_install_sodium
       - run:
           name: Install lint deps
           command: |
@@ -38,9 +57,6 @@ jobs:
       - run:
           name: Execute lints
           command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make lint
       - save_cache:
           paths:
@@ -48,7 +64,8 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
+
   test:
     docker:
       - image: circleci/rust:latest
@@ -63,9 +80,7 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - run:
-          name: Install sodium
-          <<: *install_sodium
+      - <<: *run_install_sodium
       - run:
           name: Tests
           command: |
@@ -109,9 +124,7 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-      - run:
-          name: Install sodium
-          <<: *install_sodium
+      - <<: *run_install_sodium
       - run:
           name: Install Rust
           command: |
@@ -177,9 +190,7 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - run:
-          name: Install sodium
-          <<: *install_sodium
+      - <<: *run_install_sodium
       - run:
           name: Tests
           command: |
@@ -244,9 +255,7 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-      - run:
-          name: Install sodium
-          <<: *install_sodium
+      - <<: *run_install_sodium
       - run:
           name: Install Rust
           command: |
@@ -319,9 +328,7 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - run:
-          name: Install sodium
-          <<: *install_sodium
+      - <<: *run_install_sodium
       - run: rustup default nightly
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
