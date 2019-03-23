@@ -139,7 +139,10 @@ impl Extend<(String, String, Export)> for ImportObject {
         let mut map = self.map.borrow_mut();
         for (ns, id, exp) in iter.into_iter() {
             if let Some(like_ns) = map.get_mut(&ns) {
-                like_ns.maybe_insert(&id, exp).expect(&format!("Insert failed. Duplicate name {} found in namespace {}", id, ns));
+                like_ns.maybe_insert(&id, exp).expect(&format!(
+                    "Insert failed. Duplicate name {} found in namespace {}",
+                    id, ns
+                ));
             } else {
                 let mut new_ns = Namespace::new();
                 new_ns.insert(id, exp);
