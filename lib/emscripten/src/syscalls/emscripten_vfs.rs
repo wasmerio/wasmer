@@ -102,7 +102,7 @@ impl EmscriptenVfs {
                     panic!()
                 }
                 Some(*fd)
-            },
+            }
             _ => None,
         }
     }

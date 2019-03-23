@@ -3,9 +3,7 @@ use crate::syscalls::emscripten_vfs::FileHandle::{Socket, VirtualFile};
 use crate::syscalls::emscripten_vfs::{FileHandle, VirtualFd};
 use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
 use crate::varargs::VarArgs;
-use bit_field::BitArray;
 use libc::stat;
-use std::collections::HashMap;
 use std::ffi::c_void;
 use std::os::raw::c_int;
 use std::slice;
@@ -553,7 +551,10 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
                 socket, flags, len, recv_result
             );
             if recv_result < 0 {
-                panic!("recvfrom result was less than zero. Errno: {}", errno::errno());
+                panic!(
+                    "recvfrom result was less than zero. Errno: {}",
+                    errno::errno()
+                );
             }
             recv_result
         }
@@ -608,7 +609,13 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let host_socket_fd = vfs.get_host_socket_fd(&vfd).unwrap();
 
             let result = unsafe {
-                libc::getsockopt(host_socket_fd, correct_level, correct_name, value_addr, option_len_addr)
+                libc::getsockopt(
+                    host_socket_fd,
+                    correct_level,
+                    correct_name,
+                    value_addr,
+                    option_len_addr,
+                )
             };
 
             if result == -1 {
@@ -698,7 +705,10 @@ pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
                 Some(FileHandle::Socket(host_fd)) => unsafe {
                     let count = libc::write(*host_fd, iov_buf_ptr, count);
                     if count < 0 {
-                        panic!("the count from write was less than zero. errno: {}", errno::errno());
+                        panic!(
+                            "the count from write was less than zero. errno: {}",
+                            errno::errno()
+                        );
                     }
                     count as usize
                 },
