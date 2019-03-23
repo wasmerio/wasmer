@@ -12,7 +12,7 @@ run_install_sodium: &run_install_sodium
 
 run_with_build_env_vars: &run_with_build_env_vars
   environment:
-    LLVM_SYS_70_PREFIX: "`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
+    LLVM_SYS_70_PREFIX: /home/circleci/project/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/
     SODIUM_LIB_DIR: /usr/local/lib
     SODIUM_STATIC: true
 
