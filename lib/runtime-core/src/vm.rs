@@ -586,7 +586,7 @@ mod vm_ctx_tests {
         use crate::backend::{
             sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
         };
-        use crate::cache::{Error as CacheError, WasmHash};
+        use crate::cache::Error as CacheError;
         use crate::error::RuntimeResult;
         use crate::types::{FuncIndex, LocalFuncIndex, Value};
         use hashbrown::HashMap;
@@ -620,7 +620,7 @@ mod vm_ctx_tests {
         impl CacheGen for Placeholder {
             fn generate_cache(
                 &self,
-                module: &ModuleInner,
+                _module: &ModuleInner,
             ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
                 unimplemented!()
             }
