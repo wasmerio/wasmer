@@ -194,10 +194,18 @@ impl Instance {
             let signature =
                 SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
 
+            let vmctx = match func_index.local_or_import(&self.module.info) {
+                LocalOrImport::Local(_) => self.inner.vmctx,
+                LocalOrImport::Import(imported_func_index) => {
+                    self.inner.import_backing.vm_functions[imported_func_index].vmctx
+                }
+            };
+
             Ok(DynFunc {
                 signature,
                 module: &self.module,
-                instance_inner: &self.inner,
+                vmctx,
+                import_backing: &self.inner.import_backing,
                 func_index: *func_index,
             })
         } else {
@@ -440,9 +448,10 @@ impl LikeNamespace for Instance {
 /// A representation of an exported WebAssembly function.
 pub struct DynFunc<'a> {
     pub(crate) signature: Arc<FuncSig>,
-    module: &'a ModuleInner,
-    pub(crate) instance_inner: &'a InstanceInner,
-    func_index: FuncIndex,
+    pub(crate) module: &'a ModuleInner,
+    pub(crate) vmctx: *mut vm::Ctx,
+    pub(crate) import_backing: &'a ImportBacking,
+    pub(crate) func_index: FuncIndex,
 }
 
 impl<'a> DynFunc<'a> {
@@ -476,21 +485,14 @@ impl<'a> DynFunc<'a> {
             })?
         }
 
-        let vmctx = match self.func_index.local_or_import(&self.module.info) {
-            LocalOrImport::Local(_) => self.instance_inner.vmctx,
-            LocalOrImport::Import(imported_func_index) => {
-                self.instance_inner.import_backing.vm_functions[imported_func_index].vmctx
-            }
-        };
-
         let token = Token::generate();
 
         let returns = self.module.protected_caller.call(
             &self.module,
             self.func_index,
             params,
-            &self.instance_inner.import_backing,
-            vmctx,
+            &self.import_backing,
+            self.vmctx,
             token,
         )?;
 
@@ -510,7 +512,7 @@ impl<'a> DynFunc<'a> {
                 .unwrap()
                 .as_ptr(),
             LocalOrImport::Import(import_func_index) => {
-                self.instance_inner.import_backing.vm_functions[import_func_index].func
+                self.import_backing.vm_functions[import_func_index].func
             }
         }
     }
