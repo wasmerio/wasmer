@@ -12,7 +12,7 @@ use structopt::StructOpt;
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
-use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash};
+use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -48,9 +48,11 @@ struct Run {
 
 #[derive(Debug, StructOpt)]
 enum Cache {
+    /// Clear the cache
     #[structopt(name = "clean")]
     Clean,
 
+    /// Display the location of the cache
     #[structopt(name = "dir")]
     Dir,
 }
@@ -72,6 +74,7 @@ fn get_cache_dir() -> PathBuf {
             // We use a temporal directory for saving cache files
             let mut temp_dir = env::temp_dir();
             temp_dir.push("wasmer");
+            temp_dir.push(WASMER_VERSION_HASH);
             temp_dir
         }
     }
@@ -128,8 +131,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 let module = webassembly::compile(&wasm_binary[..])
                     .map_err(|e| format!("Can't compile module: {:?}", e))?;
 
-                // We save the module into a cache file
-                cache.store(hash, module.clone()).unwrap();
+                // We try to save the module into a cache file
+                cache.store(hash, module.clone()).unwrap_or_default();
+
                 module
             }
         };
@@ -194,8 +198,10 @@ fn main() {
             Cache::Clean => {
                 use std::fs;
                 let cache_dir = get_cache_dir();
-                fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
-                fs::create_dir(cache_dir.clone()).expect("Can't create cache dir");
+                if cache_dir.exists() {
+                    fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
+                }
+                fs::create_dir_all(cache_dir.clone()).expect("Can't create cache dir");
             }
             Cache::Dir => {
                 println!("{}", get_cache_dir().to_string_lossy());

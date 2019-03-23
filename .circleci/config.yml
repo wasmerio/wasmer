@@ -19,7 +19,7 @@ jobs:
       - restore_cache:
           keys:
             - v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run: 
+      - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
@@ -31,8 +31,10 @@ jobs:
       - run:
           name: Install lint deps
           command: |
+            git config --global --unset url."ssh://git@github.com".insteadOf || true
+            rustup toolchain install nightly
             rustup component add rustfmt
-            rustup component add clippy
+            rustup component add clippy --toolchain=nightly || cargo +nightly install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
           name: Execute lints
           command: |
@@ -55,7 +57,7 @@ jobs:
       - restore_cache:
           keys:
             - v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run: 
+      - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
@@ -169,7 +171,7 @@ jobs:
       - restore_cache:
           keys:
             - v6-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run: 
+      - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
@@ -205,6 +207,10 @@ jobs:
             echo "${VERSION}" >> artifacts/version
             echo "${CIRCLE_TAG}" >> artifacts/git_version
             cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
+      - run:
+          name: Debug flag checked
+          command: |
+            cargo check --features "debug"
       - persist_to_workspace:
           root: .
           paths:
@@ -307,7 +313,7 @@ jobs:
       - restore_cache:
           keys:
             - v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
-      - run: 
+      - run:
           name: Install dependencies
           command: |
             sudo apt-get install -y cmake
@@ -322,6 +328,9 @@ jobs:
           export SODIUM_LIB_DIR=/usr/local/lib
           export SODIUM_STATIC=true
           make test
+          make test-nightly
+          make test-emscripten
+          make test-emscripten-nightly
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -355,6 +364,22 @@ jobs:
             #    echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
             #    exit 1
             #fi
+  trigger-benchmark-build:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - run:
+          name: "Trigger Benchmark Build"
+          command: |
+            if [[ -z "${CIRCLE_API_USER_TOKEN}" ]]; then
+               echo "CIRCLE_API_USER_TOKEN environment variable not set"
+               exit 1
+            else
+               echo "Triggering benchmark build"
+               curl -u ${CIRCLE_API_USER_TOKEN} \
+                    -d build_parameters[CIRCLE_JOB]=bench \
+                    https://circleci.com/api/v1.1/project/github/wasmerio/wasmer-bench/tree/master
+            fi
 
 workflows:
   version: 2
@@ -394,6 +419,13 @@ workflows:
             - lint
             - test-and-build
             - test-and-build-macos
+          filters:
+            branches:
+              only: master
+      - trigger-benchmark-build:
+          requires:
+            - test-and-build
+            - lint
           filters:
             branches:
               only: master

@@ -19,20 +19,19 @@ include = [
 ]
 
 [dependencies]
+errno = "0.2.4"
 structopt = "0.2.11"
 wabt = "0.7.2"
 wasmer-clif-backend = { path = "lib/clif-backend" }
+wasmer-dynasm-backend = { path = "lib/dynasm-backend", optional = true }
 wasmer-runtime = { path = "lib/runtime" }
+wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
-wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
-errno = "0.2.4"
-
-[target.'cfg(not(windows))'.dependencies]
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 
 [workspace]
-members = ["lib/clif-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/runtime-abi"]
+members = ["lib/clif-backend", "lib/dynasm-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend"]
 
 [build-dependencies]
 wabt = "0.7.2"
@@ -44,4 +43,5 @@ debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
 llvm = ["wasmer-llvm-backend"]
+dynasm = ["wasmer-dynasm-backend"]
 vfs = ["wasmer-runtime-abi", "wasmer-emscripten/vfs"]

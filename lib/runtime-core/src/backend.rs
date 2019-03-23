@@ -22,6 +22,7 @@ pub use crate::sig_registry::SigRegistry;
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Backend {
     Cranelift,
+    Dynasm,
     LLVM,
 }
 
