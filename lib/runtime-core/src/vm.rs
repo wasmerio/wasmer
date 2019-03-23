@@ -1,10 +1,12 @@
 pub use crate::backing::{ImportBacking, LocalBacking};
 use crate::{
+    instance::DynFunc,
     memory::Memory,
     module::ModuleInner,
+    sig_registry::SigRegistry,
     structures::TypedIndex,
     table::Table,
-    types::{LocalOrImport, MemoryIndex, TableIndex},
+    types::{FuncIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex},
 };
 use std::{ffi::c_void, mem, ptr};
 
@@ -185,6 +187,20 @@ impl Ctx {
                 &import_backing.tables[import_table_index]
             },
         }
+    }
+
+    pub fn dyn_func(&mut self, table_index: u32, func_index: u32) -> Option<DynFunc> {
+        let module = unsafe { &*self.module };
+        let table = self.table(table_index);
+        let func = table.get_anyfunc(func_index)?;
+        let signature = SigRegistry.lookup_signature(SigIndex::new(func.sig_id.0 as _));
+        Some(DynFunc {
+            signature,
+            module,
+            vmctx: self as *mut Ctx,
+            import_backing: unsafe { &*self.import_backing },
+            func_index: FuncIndex::new(func_index as _),
+        })
     }
 }
 
