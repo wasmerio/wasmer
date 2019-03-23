@@ -128,4 +128,8 @@ impl AnyfuncTable {
             Err(())
         }
     }
+
+    pub fn get(&mut self, index: u32) -> Option<vm::Anyfunc> {
+        self.backing.get(index as usize).map(|slot| *slot)
+    }
 }

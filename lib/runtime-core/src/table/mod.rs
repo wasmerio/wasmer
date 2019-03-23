@@ -92,6 +92,13 @@ impl Table {
         }
     }
 
+    /// Gets the Anyfunc at index.
+    pub fn get_anyfunc(&self, index: u32) -> Option<vm::Anyfunc> {
+        match &mut *self.storage.borrow_mut() {
+            (TableStorage::Anyfunc(ref mut anyfunc_table), _) => anyfunc_table.get(index),
+        }
+    }
+
     pub(crate) fn anyfunc_direct_access_mut<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&mut [vm::Anyfunc]) -> R,
