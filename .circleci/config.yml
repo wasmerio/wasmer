@@ -38,6 +38,7 @@ jobs:
     docker:
       - image: circleci/rust:latest
     steps:
+      - checkout
       - restore_cache:
           keys:
             - v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
