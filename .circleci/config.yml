@@ -8,7 +8,6 @@ run_install_sodium: &run_install_sodium
       ./configure
       make && make check
       sudo make install
-      cd ..
 
 run_with_build_env_vars: &run_with_build_env_vars
   environment:
@@ -35,6 +34,27 @@ save_cargo_cache: &save_cargo_cache
 
 version: 2
 jobs:
+  build_dependencies:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - restore_cache:
+          keys:
+            - v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
+      - run:
+          name: install sodium
+          command: |
+            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
+            tar xf libsodium-1.0.17.tar.gz
+            cd libsodium-1.0.17/
+            ./configure
+            make && make check
+            make install
+      - save_cache:
+          paths:
+            - /usr/local/lib
+          key: v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
+
   # Job used for testing
   lint:
     docker:
@@ -45,8 +65,9 @@ jobs:
       - restore_cache:
           keys:
             - v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
       - <<: *run_install_dependencies
-      - <<: *run_install_sodium
+#      - <<: *run_install_sodium
       - run:
           name: Install lint deps
           command: |
@@ -392,7 +413,10 @@ workflows:
   version: 2
   main:
     jobs:
-      - lint
+      - build_dependencies
+      - lint:
+          requires:
+            - build_dependencies
       - test:
           filters:
             branches:
