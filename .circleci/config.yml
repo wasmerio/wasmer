@@ -34,22 +34,6 @@ save_cargo_cache: &save_cargo_cache
 
 version: 2
 jobs:
-  build_dependencies:
-    docker:
-      - image: circleci/rust:latest
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
-      - run:
-          name: install sodium
-          command: scripts/install_lib_sodium.sh
-      - save_cache:
-          paths:
-            - /usr/local/lib
-          key: v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
-
   # Job used for testing
   lint:
     docker:
@@ -62,7 +46,6 @@ jobs:
             - v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
             - v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
       - <<: *run_install_dependencies
-#      - <<: *run_install_sodium
       - run:
           name: Install lint deps
           command: |
@@ -408,10 +391,7 @@ workflows:
   version: 2
   main:
     jobs:
-      - build_dependencies
-      - lint:
-          requires:
-            - build_dependencies
+      - lint
       - test:
           filters:
             branches:

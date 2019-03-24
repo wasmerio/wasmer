@@ -779,7 +779,7 @@ pub fn ___syscall195(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let ret = match &mut emscripten_data.vfs {
         Some(vfs) => {
             let metadata = vfs.vfs.get_path_metadata(&path).unwrap();
-            let len = metadata.len();
+            let len = metadata.content_len();
             unsafe {
                 let mut stat: stat = std::mem::zeroed();
                 stat.st_size = len as _;

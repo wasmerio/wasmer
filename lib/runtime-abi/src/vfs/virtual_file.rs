@@ -33,7 +33,7 @@ impl FileLike for VirtualFile {
         self.zbox_file
             .metadata()
             .map(|m| Metadata {
-                len: m.len(),
+                len: m.content_len(),
                 is_file: m.is_file(),
             })
             .map_err(|e: zbox::Error| e.into())
