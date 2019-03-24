@@ -4,4 +4,4 @@ tar xf libsodium-1.0.17.tar.gz
 cd libsodium-1.0.17/
 ./configure
 make && make check
-make install
+sudo make install

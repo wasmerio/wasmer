@@ -43,13 +43,7 @@ jobs:
             - v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
       - run:
           name: install sodium
-          command: |
-            curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-            tar xf libsodium-1.0.17.tar.gz
-            cd libsodium-1.0.17/
-            ./configure
-            make && make check
-            make install
+          command: scripts/install_lib_sodium.sh
       - save_cache:
           paths:
             - /usr/local/lib
