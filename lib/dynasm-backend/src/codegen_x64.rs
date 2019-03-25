@@ -1093,7 +1093,7 @@ impl X64FunctionCode {
         }
     }
 
-    fn emit_cmp_i32<F: FnOnce(&mut Assembler)>(
+    fn emit_cmp_i32<F: FnOnce(&mut Assembler, Register)>(
         assembler: &mut Assembler,
         left: Register,
         right: Register,
@@ -1103,18 +1103,14 @@ impl X64FunctionCode {
             assembler
             ; cmp Rd(left as u8), Rd(right as u8)
         );
-        f(assembler);
+        f(assembler, left);
         dynasm!(
             assembler
-            ; xor Rd(left as u8), Rd(left as u8)
-            ; jmp >label_end
-            ; label_true:
-            ; mov Rd(left as u8), 1
-            ; label_end:
+            ; and Rd(left as u8), 1
         );
     }
 
-    fn emit_cmp_i64<F: FnOnce(&mut Assembler)>(
+    fn emit_cmp_i64<F: FnOnce(&mut Assembler, Register)>(
         assembler: &mut Assembler,
         left: Register,
         right: Register,
@@ -1124,14 +1120,10 @@ impl X64FunctionCode {
             assembler
             ; cmp Rq(left as u8), Rq(right as u8)
         );
-        f(assembler);
+        f(assembler, left);
         dynasm!(
             assembler
-            ; xor Rq(left as u8), Rq(left as u8)
-            ; jmp >label_end
-            ; label_true:
-            ; mov Rq(left as u8), 1
-            ; label_end:
+            ; and Rd(left as u8), 1
         );
     }
 
@@ -1453,7 +1445,8 @@ impl X64FunctionCode {
             assembler
             ; mov rsp, rbp
             ; pop rbp
-            ; ret
+            ; pop rbx
+            ; jmp rbx
         );
 
         Ok(())
@@ -1749,7 +1742,8 @@ impl X64FunctionCode {
             ; call rax
             ; mov rsp, rbp
             ; pop rbp
-            ; ret
+            ; pop rbx
+            ; jmp rbx
         );
 
         label
@@ -2755,10 +2749,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i32(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i32(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jl >label_true
+                                ; setl Rb(reg as u8)
                             );
                         });
                     },
@@ -2769,10 +2763,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i32(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i32(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jle >label_true
+                                ; setle Rb(reg as u8)
                             );
                         });
                     },
@@ -2783,10 +2777,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i32(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i32(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jg >label_true
+                                ; setg Rb(reg as u8)
                             );
                         });
                     },
@@ -2797,10 +2791,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i32(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i32(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jge >label_true
+                                ; setge Rb(reg as u8)
                             );
                         });
                     },
@@ -2811,10 +2805,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i32(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i32(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jb >label_true
+                                ; setb Rb(reg as u8)
                             );
                         });
                     },
@@ -2825,10 +2819,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i32(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i32(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jbe >label_true
+                                ; setbe Rb(reg as u8)
                             );
                         });
                     },
@@ -2839,10 +2833,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i32(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i32(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; ja >label_true
+                                ; seta Rb(reg as u8)
                             );
                         });
                     },
@@ -2853,10 +2847,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i32(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i32(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jae >label_true
+                                ; setae Rb(reg as u8)
                             );
                         });
                     },
@@ -3191,10 +3185,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jl >label_true
+                                ; setl Rb(reg as u8)
                             );
                         });
                     },
@@ -3207,10 +3201,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jle >label_true
+                                ; setle Rb(reg as u8)
                             );
                         });
                     },
@@ -3223,10 +3217,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jg >label_true
+                                ; setg Rb(reg as u8)
                             );
                         });
                     },
@@ -3239,10 +3233,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jge >label_true
+                                ; setge Rb(reg as u8)
                             );
                         });
                     },
@@ -3255,10 +3249,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jb >label_true
+                                ; setb Rb(reg as u8)
                             );
                         });
                     },
@@ -3271,10 +3265,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jbe >label_true
+                                ; setbe Rb(reg as u8)
                             );
                         });
                     },
@@ -3287,10 +3281,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; ja >label_true
+                                ; seta Rb(reg as u8)
                             );
                         });
                     },
@@ -3303,10 +3297,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     |assembler, _value_stack, left, right| {
-                        Self::emit_cmp_i64(assembler, left, right, |assembler| {
+                        Self::emit_cmp_i64(assembler, left, right, |assembler, reg| {
                             dynasm!(
                                 assembler
-                                ; jae >label_true
+                                ; setae Rb(reg as u8)
                             );
                         });
                     },
@@ -5250,7 +5244,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
             assembler
             ; mov rsp, rbp
             ; pop rbp
-            ; ret
+            ; pop rbx
+            ; jmp rbx
         );
 
         if self.value_stack.values.len() != 0
