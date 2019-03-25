@@ -136,6 +136,14 @@ pub fn _pthread_cond_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_cond_destroy");
     0
 }
+pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
+    debug!("emscripten::_pthread_create");
+    0
+}
+pub fn _pthread_join(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_pthread_join");
+    0
+}
 pub fn _pthread_cond_init(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_pthread_cond_init");
     0
@@ -236,6 +244,9 @@ pub fn _getloadavg(_ctx: &mut Ctx, _loadavg: i32, _nelem: i32) -> i32 {
     0
 }
 // round 2
+pub fn nullFunc_di(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_di");
+}
 pub fn nullFunc_dii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_dii");
 }
@@ -245,20 +256,68 @@ pub fn nullFunc_diiii(_ctx: &mut Ctx, _index: i32) {
 pub fn nullFunc_iiji(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_iiji");
 }
+pub fn nullFunc_iiid(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiid");
+}
+pub fn nullFunc_iij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iij");
+}
+pub fn nullFunc_iiiiiiiii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiiiiiii");
+}
+pub fn nullFunc_iiiiiiiiiii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiiiiiiiii");
+}
+pub fn nullFunc_iiiiijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiiijii");
+}
+pub fn nullFunc_iiiijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiijii");
+}
+pub fn nullFunc_iiiij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiij");
+}
+pub fn nullFunc_iiij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiij");
+}
+pub fn nullFunc_iijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iijii");
+}
+pub fn nullFunc_iiiiji(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiiji");
+}
+pub fn nullFunc_ij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_ij");
+}
 pub fn nullFunc_j(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_j");
 }
 pub fn nullFunc_jij(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_jij");
 }
+pub fn nullFunc_jj(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_jj");
+}
 pub fn nullFunc_jjj(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_jjj");
+}
+pub fn nullFunc_jii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_jii");
+}
+pub fn nullFunc_jiij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_jiij");
 }
 pub fn nullFunc_vd(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_vd");
 }
+pub fn nullFunc_vid(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_vid");
+}
 pub fn nullFunc_viiiiiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiiiiii");
+}
+pub fn nullFunc_viiiij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_viiiij");
 }
 pub fn nullFunc_viiiiiiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiiiiiii");
@@ -280,6 +339,9 @@ pub fn nullFunc_viij(_ctx: &mut Ctx, _index: i32) {
 }
 pub fn nullFunc_viiji(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiji");
+}
+pub fn nullFunc_viijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_viijii");
 }
 pub fn nullFunc_viijiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viijiii");

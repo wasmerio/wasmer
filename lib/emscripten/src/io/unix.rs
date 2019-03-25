@@ -1,4 +1,4 @@
-use libc::{chroot as _chroot, printf as _printf};
+use libc::{chroot as _chroot, printf as _printf, getpwuid as _getpwuid};
 
 use wasmer_runtime_core::vm::Ctx;
 
@@ -21,4 +21,11 @@ pub fn chroot(ctx: &mut Ctx, name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
     let name = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const i8;
     unsafe { _chroot(name) }
+}
+
+/// getpwuid
+pub fn getpwuid(_ctx: &mut Ctx, uid: i32) -> i32 {
+    debug!("emscripten::getpwuid");
+    // REVIEW: this seems wrong
+    unsafe { _getpwuid(uid as u32) as _ }
 }

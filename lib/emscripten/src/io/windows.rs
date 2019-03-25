@@ -38,3 +38,9 @@ pub fn chroot(ctx: &mut Ctx, name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
     unimplemented!()
 }
+
+/// getpwuid
+pub fn getpwuid(_ctx: &mut Ctx, uid: i32) -> i32 {
+    debug!("emscripten::getpwuid");
+    unimplemented!()
+}
