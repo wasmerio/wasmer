@@ -1,14 +1,3 @@
-run_install_sodium: &run_install_sodium
-  run:
-    name: install sodium
-    command: |
-      curl -O https://download.libsodium.org/libsodium/releases/libsodium-1.0.17.tar.gz
-      tar xf libsodium-1.0.17.tar.gz
-      cd libsodium-1.0.17/
-      ./configure
-      make && make check
-      sudo make install
-
 run_with_build_env_vars: &run_with_build_env_vars
   environment:
     LLVM_SYS_70_PREFIX: /home/circleci/project/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/
@@ -20,15 +9,6 @@ run_install_dependencies: &run_install_dependencies
       sudo apt-get install -y cmake
       curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-
-save_cargo_cache: &save_cargo_cache
-  save_cache:
-    paths:
-      - /usr/local/cargo/registry
-      - target/debug/.fingerprint
-      - target/debug/build
-      - target/debug/deps
-    key: v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
 
 version: 2
 jobs:
