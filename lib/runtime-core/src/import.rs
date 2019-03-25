@@ -1,5 +1,6 @@
 use crate::export::Export;
 use hashbrown::{hash_map::Entry, HashMap};
+use std::collections::VecDeque;
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -7,6 +8,8 @@ use std::{
 
 pub trait LikeNamespace {
     fn get_export(&self, name: &str) -> Option<Export>;
+    fn get_exports(&self) -> Vec<(String, Export)>;
+    fn maybe_insert(&mut self, name: &str, export: Export) -> Option<()>;
 }
 
 pub trait IsExport {
@@ -97,6 +100,53 @@ impl ImportObject {
             map: Rc::clone(&self.map),
         }
     }
+
+    fn get_objects(&self) -> VecDeque<(String, String, Export)> {
+        let mut out = VecDeque::new();
+        for (name, ns) in self.map.borrow().iter() {
+            for (id, exp) in ns.get_exports() {
+                out.push_back((name.clone(), id, exp));
+            }
+        }
+        out
+    }
+}
+
+pub struct ImportObjectIterator {
+    elements: VecDeque<(String, String, Export)>,
+}
+
+impl Iterator for ImportObjectIterator {
+    type Item = (String, String, Export);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.elements.pop_front()
+    }
+}
+
+impl IntoIterator for ImportObject {
+    type IntoIter = ImportObjectIterator;
+    type Item = (String, String, Export);
+
+    fn into_iter(self) -> Self::IntoIter {
+        ImportObjectIterator {
+            elements: self.get_objects(),
+        }
+    }
+}
+
+impl Extend<(String, String, Export)> for ImportObject {
+    fn extend<T: IntoIterator<Item = (String, String, Export)>>(&mut self, iter: T) {
+        let mut map = self.map.borrow_mut();
+        for (ns, id, exp) in iter.into_iter() {
+            if let Some(like_ns) = map.get_mut(&ns) {
+                like_ns.maybe_insert(&id, exp);
+            } else {
+                let mut new_ns = Namespace::new();
+                new_ns.insert(id, exp);
+                map.insert(ns, Box::new(new_ns));
+            }
+        }
+    }
 }
 
 pub struct Namespace {
@@ -122,5 +172,77 @@ impl Namespace {
 impl LikeNamespace for Namespace {
     fn get_export(&self, name: &str) -> Option<Export> {
         self.map.get(name).map(|is_export| is_export.to_export())
+    }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        self.map
+            .iter()
+            .map(|(k, v)| (k.clone(), v.to_export()))
+            .collect()
+    }
+
+    fn maybe_insert(&mut self, name: &str, export: Export) -> Option<()> {
+        self.map.insert(name.to_owned(), Box::new(export));
+        Some(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::export::Export;
+    use crate::global::Global;
+    use crate::types::Value;
+
+    #[test]
+    fn extending_works() {
+        let mut imports1 = imports! {
+            "dog" => {
+                "happy" => Global::new(Value::I32(0)),
+            },
+        };
+
+        let imports2 = imports! {
+            "dog" => {
+                "small" => Global::new(Value::I32(2)),
+            },
+            "cat" => {
+                "small" => Global::new(Value::I32(3)),
+            },
+        };
+
+        imports1.extend(imports2);
+
+        let cat_ns = imports1.get_namespace("cat").unwrap();
+        assert!(cat_ns.get_export("small").is_some());
+
+        let dog_ns = imports1.get_namespace("dog").unwrap();
+        assert!(dog_ns.get_export("happy").is_some());
+        assert!(dog_ns.get_export("small").is_some());
+    }
+
+    #[test]
+    fn extending_conflict_overwrites() {
+        let mut imports1 = imports! {
+            "dog" => {
+                "happy" => Global::new(Value::I32(0)),
+            },
+        };
+
+        let imports2 = imports! {
+            "dog" => {
+                "happy" => Global::new(Value::I32(4)),
+            },
+        };
+
+        imports1.extend(imports2);
+        let dog_ns = imports1.get_namespace("dog").unwrap();
+
+        assert!(
+            if let Export::Global(happy_dog_global) = dog_ns.get_export("happy").unwrap() {
+                happy_dog_global.get() == Value::I32(4)
+            } else {
+                false
+            }
+        );
     }
 }
