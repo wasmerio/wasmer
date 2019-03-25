@@ -44,6 +44,7 @@ use super::env;
 use std::cell::Cell;
 #[allow(unused_imports)]
 use std::io::Error;
+use std::mem;
 use std::slice;
 
 /// exit
@@ -263,7 +264,9 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let whence: i32 = varargs.get(ctx);
     let offset = offset_low as off_t;
     let ret = unsafe { lseek(fd, offset, whence) as i32 };
+    #[allow(clippy::cast_ptr_alignment)]
     let result_ptr = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
+    assert_eq!(4, mem::align_of_val(&result_ptr));
     unsafe {
         *result_ptr = ret;
     }
