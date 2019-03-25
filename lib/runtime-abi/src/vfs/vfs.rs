@@ -348,7 +348,7 @@ mod open_test {
         let fd_3 = open_result_3.unwrap();
         assert!(fd_3 > 0, "File descriptor was less than 0.");
 
-        let close_result = vfs.close(fd_3);
+        let close_result = vfs.close(&fd_3);
         assert!(close_result.is_ok(), "Close failed.");
 
         // re-open the file, assert the file descriptor is the same
@@ -365,7 +365,7 @@ mod open_test {
         );
 
         // close a lower file descriptor
-        let close_result_2 = vfs.close(fd_1);
+        let close_result_2 = vfs.close(&fd_1);
         assert!(close_result_2.is_ok(), "Close failed");
 
         // re-open the file, assert the file descriptor is the same
