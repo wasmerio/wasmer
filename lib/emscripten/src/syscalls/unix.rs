@@ -73,6 +73,8 @@ use libc::{
 };
 use wasmer_runtime_core::vm::Ctx;
 
+#[allow(unused_imports)]
+use std::io::Error;
 use std::mem;
 
 // Linking to functions that are not provided by rust libc
@@ -82,10 +84,11 @@ extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
     pub fn madvise(addr: *mut c_void, len: size_t, advice: c_int) -> c_int;
     pub fn fdatasync(fd: c_int) -> c_int;
+    pub fn lstat64(path: *const c_char, buf: *mut c_void) -> c_int;
 }
 
 #[cfg(not(target_os = "macos"))]
-use libc::{fallocate, fdatasync, madvise, wait4};
+use libc::{fallocate, fdatasync, ftruncate64, lstat64, madvise, wait4};
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
@@ -105,8 +108,13 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let _path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
     let fd = unsafe { open(pathname_addr, flags, mode) };
     debug!(
-        "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
-        pathname, flags, mode, fd, _path_str
+        "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}\nlast os error: {}",
+        pathname,
+        flags,
+        mode,
+        fd,
+        _path_str,
+        Error::last_os_error(),
     );
     fd
 }
@@ -157,6 +165,19 @@ pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
         result,
     );
     result
+}
+
+/// ftruncate64
+pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall194 (ftruncate64) {}", _which);
+    let _fd: c_int = varargs.get(ctx);
+    let _length: i64 = varargs.get(ctx);
+    #[cfg(not(target_os = "macos"))]
+    unsafe {
+        ftruncate64(_fd, _length)
+    }
+    #[cfg(target_os = "macos")]
+    unimplemented!()
 }
 
 /// lchown
@@ -736,6 +757,25 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("=> buf: {}", buf);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut utsname;
     unsafe { uname(buf_addr) }
+}
+
+/// lstat64
+pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall196 (lstat64) {}", _which);
+    let path_ptr: c_int = varargs.get(ctx);
+    let buf_ptr: c_int = varargs.get(ctx);
+    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const c_char;
+    let buf = emscripten_memory_pointer!(ctx.memory(0), buf_ptr) as *mut c_void;
+    let result = unsafe { lstat64(path, buf as _) };
+    debug!(
+        "=> path: {}, buf: {} = fd: {}\npath: {}\nlast os error: {}",
+        path_ptr,
+        buf_ptr,
+        result,
+        unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
+        Error::last_os_error(),
+    );
+    result
 }
 
 /// fallocate

@@ -64,6 +64,12 @@ pub fn ___syscall9(_ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     unimplemented!()
 }
 
+/// ftruncate64
+pub fn ___syscall194(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall194 - stub");
+    unimplemented!()
+}
+
 // chown
 pub fn ___syscall212(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall212 (chown) {}", which);
@@ -236,6 +242,12 @@ pub fn ___syscall122(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     debug!("emscripten::___syscall122 (uname) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
+    -1
+}
+
+/// lstat64
+pub fn ___syscall196(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall196 (lstat64) - stub");
     -1
 }
 
