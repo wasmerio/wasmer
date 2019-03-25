@@ -186,7 +186,13 @@ mod tests {
         LLVMCompiler::new()
     }
 
-    #[cfg(not(any(feature = "llvm", feature = "clif")))]
+    #[cfg(feature = "dynasm")]
+    fn get_compiler() -> impl Compiler {
+        use wasmer_dynasm_backend::SinglePassCompiler;
+        SinglePassCompiler::new()
+    }
+
+    #[cfg(not(any(feature = "llvm", feature = "clif", feature = "dynasm")))]
     fn get_compiler() -> impl Compiler {
         panic!("compiler not specified, activate a compiler via features");
         use wasmer_clif_backend::CraneliftCompiler;
