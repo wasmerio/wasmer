@@ -12,8 +12,6 @@ run_install_sodium: &run_install_sodium
 run_with_build_env_vars: &run_with_build_env_vars
   environment:
     LLVM_SYS_70_PREFIX: /home/circleci/project/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/
-    SODIUM_LIB_DIR: /usr/local/lib
-    SODIUM_STATIC: true
 
 run_install_dependencies: &run_install_dependencies
   run:
@@ -44,7 +42,6 @@ jobs:
       - restore_cache:
           keys:
             - v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v1-lint-{{ arch }}-{{ checksum "scripts/install_lib_sodium.sh" }}
       - <<: *run_install_dependencies
       - run:
           name: Install lint deps
