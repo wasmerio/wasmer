@@ -427,6 +427,14 @@ impl LikeNamespace for Instance {
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
     }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        unimplemented!("Use the exports method instead");
+    }
+
+    fn maybe_insert(&mut self, _name: &str, _export: Export) -> Option<()> {
+        None
+    }
 }
 
 /// A representation of an exported WebAssembly function.
