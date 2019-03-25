@@ -103,6 +103,12 @@ pub fn ___syscall54(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_in
     -1
 }
 
+/// fchmod
+pub fn ___syscall94(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall118 (fchmod) {}", _which);
+    unimplemented!()
+}
+
 // socketcall
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall102(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
@@ -110,6 +116,12 @@ pub fn ___syscall102(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     #[cfg(not(feature = "debug"))]
     let _ = which;
     -1
+}
+
+/// fsync
+pub fn ___syscall118(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall118 (fsync) {}", _which);
+    unimplemented!()
 }
 
 // pread
@@ -159,4 +171,10 @@ pub fn ___syscall122(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     #[cfg(not(feature = "debug"))]
     let _ = which;
     -1
+}
+
+/// fchown
+pub fn ___syscall207(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall207 (fchown) {}", _which);
+    unimplemented!()
 }

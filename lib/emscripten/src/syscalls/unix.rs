@@ -4,7 +4,6 @@ use crate::varargs::VarArgs;
 use libc::{
     accept,
     bind,
-    // ENOTTY,
     c_char,
     c_int,
     c_void,
@@ -12,17 +11,23 @@ use libc::{
     // fcntl, setsockopt, getppid
     connect,
     dup2,
+    fchmod,
+    fchown,
     fcntl,
+    // ENOTTY,
+    fsync,
     getgid,
     getpeername,
     getsockname,
     getsockopt,
+    gid_t,
     in_addr_t,
     in_port_t,
     ioctl,
     // iovec,
     listen,
     mkdir,
+    mode_t,
     msghdr,
     open,
     pid_t,
@@ -43,6 +48,7 @@ use libc::{
     sockaddr,
     socket,
     socklen_t,
+    uid_t,
     uname,
     utsname,
     EINVAL,
@@ -132,6 +138,15 @@ pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
         // Maybe fix: Emscripten returns 0 always
         getgid() as _
     }
+}
+
+/// fchown
+pub fn ___syscall207(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall207 (fchown) {}", _which);
+    let fd: c_int = varargs.get(ctx);
+    let owner: uid_t = varargs.get(ctx);
+    let group: gid_t = varargs.get(ctx);
+    unsafe { fchown(fd, owner, group) }
 }
 
 /// dup3
@@ -499,6 +514,14 @@ pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     status
 }
 
+/// fchmod
+pub fn ___syscall94(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall118 (fchmod) {}", _which);
+    let fd: c_int = varargs.get(ctx);
+    let mode: mode_t = varargs.get(ctx);
+    unsafe { fchmod(fd, mode) }
+}
+
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
@@ -515,6 +538,13 @@ pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
         pid, status_addr, options, rusage_addr, res
     );
     res
+}
+
+/// fsync
+pub fn ___syscall118(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall118 (fsync) {}", _which);
+    let fd: c_int = varargs.get(ctx);
+    unsafe { fsync(fd) }
 }
 
 // select
