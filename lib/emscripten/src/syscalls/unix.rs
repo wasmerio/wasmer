@@ -135,7 +135,7 @@ pub fn ___syscall77(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     unsafe { getrusage(resource, rusage) }
 }
 
-/// link
+/// symlink
 pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall83 (symlink) {}", _which);
 

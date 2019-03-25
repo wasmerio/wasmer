@@ -433,7 +433,6 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "_getprotobyname" => func!(crate::io::getprotobyname),
             "_getprotobynumber" => func!(crate::io::getprotobynumber),
             "_getpwuid" => func!(crate::io::getpwuid),
-            "_longjmp" => func!(crate::io::longjmp),
             "_sigdelset" => func!(crate::io::sigdelset),
             "_sigfillset" => func!(crate::io::sigfillset),
             "_tzset" => func!(crate::io::tzset),
@@ -621,6 +620,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             // Jump
             "__setjmp" => func!(crate::jmp::__setjmp),
             "__longjmp" => func!(crate::jmp::__longjmp),
+            "_longjmp" => func!(crate::jmp::__longjmp),
 
             // Linking
             "_dlclose" => func!(crate::linking::_dlclose),
