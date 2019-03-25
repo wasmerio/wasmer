@@ -1,4 +1,5 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
+use hashbrown::HashMap;
 use wasmer_runtime_core::{
     backend::{Backend, FuncResolver, ProtectedCaller},
     module::{
@@ -18,7 +19,6 @@ use wasmparser::{
     Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator, SectionCode, Type as WpType,
     WasmDecoder,
 };
-use hashbrown::HashMap;
 
 #[derive(Debug)]
 pub enum LoadError {
