@@ -37,7 +37,6 @@ pub fn getprotobynumber(_ctx: &mut Ctx, _one: i32) -> i32 {
     0
 }
 
-// REVIEW: does this belong here?
 /// getpwuid
 pub fn getpwuid(_ctx: &mut Ctx, _uid: i32) -> i32 {
     debug!("emscripten::getpwuid");

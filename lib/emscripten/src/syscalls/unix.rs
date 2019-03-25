@@ -131,7 +131,6 @@ pub fn ___syscall77(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let rusage_ptr: c_int = varargs.get(ctx);
     #[allow(clippy::cast_ptr_alignment)]
     let rusage = emscripten_memory_pointer!(ctx.memory(0), rusage_ptr) as *mut rusage;
-    // REVIEW: is this the correct way to verify alignment?
     assert_eq!(8, mem::align_of_val(&rusage));
     unsafe { getrusage(resource, rusage) }
 }
@@ -180,7 +179,6 @@ pub fn ___syscall205(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
     #[allow(clippy::cast_ptr_alignment)]
     let gid_ptr = emscripten_memory_pointer!(ctx.memory(0), groups) as *mut gid_t;
-    // REVIEW: is this how we should verify allignment?
     assert_eq!(4, mem::align_of_val(&gid_ptr));
     let result = unsafe { getgroups(ngroups_max, gid_ptr) };
     debug!(
