@@ -18,6 +18,7 @@ use wasmparser::{
     Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator, SectionCode, Type as WpType,
     WasmDecoder,
 };
+use hashbrown::HashMap;
 
 #[derive(Debug)]
 pub enum LoadError {
@@ -95,6 +96,8 @@ pub fn read_module<
 
         namespace_table: StringTable::new(),
         name_table: StringTable::new(),
+
+        custom_sections: HashMap::new(),
     };
 
     let mut reader = ModuleReader::new(wasm)?;
