@@ -139,10 +139,7 @@ impl Extend<(String, String, Export)> for ImportObject {
         let mut map = self.map.borrow_mut();
         for (ns, id, exp) in iter.into_iter() {
             if let Some(like_ns) = map.get_mut(&ns) {
-                like_ns.maybe_insert(&id, exp).expect(&format!(
-                    "Insert failed. Duplicate name {} found in namespace {}",
-                    id, ns
-                ));
+                like_ns.maybe_insert(&id, exp);
             } else {
                 let mut new_ns = Namespace::new();
                 new_ns.insert(id, exp);
@@ -185,17 +182,14 @@ impl LikeNamespace for Namespace {
     }
 
     fn maybe_insert(&mut self, name: &str, export: Export) -> Option<()> {
-        if self.map.contains_key(name) {
-            None
-        } else {
-            self.map.insert(name.to_owned(), Box::new(export));
-            Some(())
-        }
+        self.map.insert(name.to_owned(), Box::new(export));
+        Some(())
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::export::Export;
     use crate::global::Global;
     use crate::types::Value;
 
@@ -227,8 +221,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
-    fn extending_conflict_panics() {
+    fn extending_conflict_overwrites() {
         let mut imports1 = imports! {
             "dog" => {
                 "happy" => Global::new(Value::I32(0)),
@@ -242,5 +235,14 @@ mod test {
         };
 
         imports1.extend(imports2);
+        let dog_ns = imports1.get_namespace("dog").unwrap();
+
+        assert!(
+            if let Export::Global(happy_dog_global) = dog_ns.get_export("happy").unwrap() {
+                happy_dog_global.get() == Value::I32(4)
+            } else {
+                false
+            }
+        );
     }
 }
