@@ -27,6 +27,14 @@ use wasmer_runtime_core::{
 };
 use wasmparser::{Operator, Type as WpType};
 
+static LOCAL_REGS: &'static [Register] = &[
+    Register::R12,
+    Register::R11,
+    Register::R10,
+    Register::R9,
+    Register::R8,
+];
+
 thread_local! {
     static CURRENT_EXECUTION_CONTEXT: RefCell<Vec<*const X64ExecutionContext>> = RefCell::new(Vec::new());
 }
@@ -45,6 +53,10 @@ lazy_static! {
         dynasm!(
             assembler
             ; push rbx
+            ; push r8
+            ; push r9
+            ; push r10
+            ; push r11
             ; push r12
             ; push r13
             ; push r14
@@ -58,20 +70,64 @@ lazy_static! {
             ; shl r8, 48
             ; or r15, r8
 
+            /*
+            [
+                Register::R12,
+                Register::R11,
+                Register::R10,
+                Register::R9,
+                Register::R8,
+            ]
+            */
+
             ; mov r14, r9 // vmctx
             ; lea rax, [>after_call]
             ; push rax
             ; push rbp
             ; mov rbp, rsp
+
+            ; mov rbx, rdi
+            ; add rbx, rsi
+
+            ; cmp rsi, 0
+            ; je >_loop_end
+            ; sub rbx, 8
+            ; mov r12, [rbx]
+            ; sub rsi, 8
+
+            ; cmp rsi, 0
+            ; je >_loop_end
+            ; sub rbx, 8
+            ; mov r11, [rbx]
+            ; sub rsi, 8
+
+            ; cmp rsi, 0
+            ; je >_loop_end
+            ; sub rbx, 8
+            ; mov r10, [rbx]
+            ; sub rsi, 8
+
+            ; cmp rsi, 0
+            ; je >_loop_end
+            ; sub rbx, 8
+            ; mov r9, [rbx]
+            ; sub rsi, 8
+
+            ; cmp rsi, 0
+            ; je >_loop_end
+            ; sub rbx, 8
+            ; mov r8, [rbx]
+            ; sub rsi, 8
+
             ; sub rsp, rsi // params_len
             ; mov rcx, 0
-            ; mov r8, rsp
+            ; mov rbx, rsp
             ; _loop:
             ; cmp rsi, 0
             ; je >_loop_end
             ; mov rax, [rdi]
-            ; mov [r8], rax
-            ; add r8, 8
+            ; mov [rbx], rax
+            ; add rbx, 8
             ; add rdi, 8
             ; sub rsi, 8
             ; jmp <_loop
@@ -82,6 +138,10 @@ lazy_static! {
             ; pop r14
             ; pop r13
             ; pop r12
+            ; pop r11
+            ; pop r10
+            ; pop r9
+            ; pop r8
             ; pop rbx
             ; ret
         );
@@ -274,7 +334,6 @@ pub struct X64FunctionCode {
     returns: Vec<WpType>,
     locals: Vec<Local>,
     num_params: usize,
-    current_stack_offset: usize,
     value_stack: ValueStack,
     control_stack: Option<ControlStack>,
     unreachable_depth: usize,
@@ -366,14 +425,10 @@ impl ProtectedCaller for X64ExecutionContext {
         let f = &self.functions[index];
         let total_size = f.num_params * 8;
 
-        if f.num_params > 0 && f.locals[f.num_params - 1].stack_offset != total_size {
-            panic!("internal error: inconsistent stack layout");
-        }
-
         let mut param_buf: Vec<u8> = vec![0; total_size];
         for i in 0..f.num_params {
             let local = &f.locals[i];
-            let buf = &mut param_buf[total_size - local.stack_offset..];
+            let buf = &mut param_buf[total_size - (i + 1) * 8..];
             let size = get_size_of_type(&local.ty).unwrap();
 
             if is_dword(size) {
@@ -473,9 +528,15 @@ impl ProtectedCaller for X64ExecutionContext {
 }
 
 #[derive(Copy, Clone, Debug)]
+enum LocalLocation {
+    Register(Register),
+    Stack(usize),
+}
+
+#[derive(Copy, Clone, Debug)]
 struct Local {
     ty: WpType,
-    stack_offset: usize,
+    location: LocalLocation,
 }
 
 impl X64ModuleCodeGenerator {
@@ -485,72 +546,84 @@ impl X64ModuleCodeGenerator {
             memory_size_dynamic_local: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_size,
+                0,
                 MemoryKind::DynamicLocal,
                 0usize,
             ),
             memory_size_static_local: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_size,
+                0,
                 MemoryKind::StaticLocal,
                 0usize,
             ),
             memory_size_shared_local: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_size,
+                0,
                 MemoryKind::SharedLocal,
                 0usize,
             ),
             memory_size_dynamic_import: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_size,
+                0,
                 MemoryKind::DynamicImport,
                 0usize,
             ),
             memory_size_static_import: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_size,
+                0,
                 MemoryKind::StaticImport,
                 0usize,
             ),
             memory_size_shared_import: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_size,
+                0,
                 MemoryKind::SharedImport,
                 0usize,
             ),
             memory_grow_dynamic_local: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_grow,
+                1,
                 MemoryKind::DynamicLocal,
                 0usize,
             ),
             memory_grow_static_local: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_grow,
+                1,
                 MemoryKind::StaticLocal,
                 0usize,
             ),
             memory_grow_shared_local: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_grow,
+                1,
                 MemoryKind::SharedLocal,
                 0usize,
             ),
             memory_grow_dynamic_import: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_grow,
+                1,
                 MemoryKind::DynamicImport,
                 0usize,
             ),
             memory_grow_static_import: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_grow,
+                1,
                 MemoryKind::StaticImport,
                 0usize,
             ),
             memory_grow_shared_import: X64FunctionCode::emit_native_call_trampoline(
                 &mut assembler,
                 _memory_grow,
+                1,
                 MemoryKind::SharedImport,
                 0usize,
             ),
@@ -576,18 +649,40 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
     }
 
     fn next_function(&mut self) -> Result<&mut X64FunctionCode, CodegenError> {
-        let (mut assembler, mut function_labels, br_table_data) = match self.functions.last_mut() {
+        let (mut assembler, mut function_labels, br_table_data, init) = match self.functions.last_mut() {
             Some(x) => (
                 x.assembler.take().unwrap(),
                 x.function_labels.take().unwrap(),
                 x.br_table_data.take().unwrap(),
+                false,
             ),
             None => (
                 self.assembler.take().unwrap(),
                 self.function_labels.take().unwrap(),
                 vec![],
+                true,
             ),
         };
+
+        if init {
+            // Initialize imports.
+            for i in 0..self.func_import_count {
+                let num_params = self.signatures.as_ref().unwrap().get(
+                    *self.function_signatures.as_ref().unwrap().get(FuncIndex::new(i)).unwrap()
+                ).unwrap().params().len();
+                let offset = assembler.offset();
+
+                let label = X64FunctionCode::emit_native_call_trampoline(
+                    &mut assembler,
+                    invoke_import,
+                    num_params,
+                    0,
+                    i,
+                );
+                function_labels.insert(i, (label, Some(offset)));
+            }
+        }
+
         let begin_offset = assembler.offset();
         let begin_label_info = function_labels
             .entry(self.functions.len() + self.func_import_count)
@@ -613,7 +708,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             returns: vec![],
             locals: vec![],
             num_params: 0,
-            current_stack_offset: 0,
             value_stack: ValueStack::new(4), // FIXME: Use of R8 and above registers generates incorrect assembly.
             control_stack: None,
             unreachable_depth: 0,
@@ -711,28 +805,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
     }
 
     fn feed_import_function(&mut self) -> Result<(), CodegenError> {
-        let labels = match self.function_labels.as_mut() {
-            Some(x) => x,
-            None => {
-                return Err(CodegenError {
-                    message: "got function import after code",
-                });
-            }
-        };
-        let id = labels.len();
-
-        let offset = self.assembler.as_mut().unwrap().offset();
-
-        let label = X64FunctionCode::emit_native_call_trampoline(
-            self.assembler.as_mut().unwrap(),
-            invoke_import,
-            0,
-            id,
-        );
-        labels.insert(id, (label, Some(offset)));
-
         self.func_import_count += 1;
-
         Ok(())
     }
 }
@@ -1628,6 +1701,7 @@ impl X64FunctionCode {
             vmctx: *mut vm::Ctx,
             memory_base: *mut u8,
         ) -> u64,
+        num_params: usize,
         ctx1: A,
         ctx2: B,
     ) -> DynamicLabel {
@@ -1644,10 +1718,29 @@ impl X64FunctionCode {
 
         dynasm!(
             assembler
+            ; sub rsp, (num_params * 8) as i32
+        );
+        for i in 0..num_params {
+            if i < LOCAL_REGS.len() {
+                dynasm!(
+                    assembler
+                    ; mov [rsp + ((num_params - 1 - i) * 8) as i32], Rq(LOCAL_REGS[i] as u8)
+                );
+            } else {
+                dynasm!(
+                    assembler
+                    ; mov rax, [rbp - (((i + 1 - LOCAL_REGS.len()) * 8) as i32)]
+                    ; mov [rsp + ((num_params - 1 - i) * 8) as i32], rax
+                );
+            }
+        }
+
+        dynasm!(
+            assembler
             ; mov rdi, QWORD unsafe { ::std::mem::transmute_copy::<A, i64>(&ctx1) }
             ; mov rsi, QWORD unsafe { ::std::mem::transmute_copy::<B, i64>(&ctx2) }
             ; mov rdx, rsp
-            ; mov rcx, rbp
+            ; lea rcx, [rsp + (num_params * 8) as i32]
             ; mov r8, r14 // vmctx
             ; mov r9, r15 // memory_base
             ; mov rax, QWORD 0xfffffffffffffff0u64 as i64
@@ -1666,16 +1759,19 @@ impl X64FunctionCode {
         assembler: &mut Assembler,
         value_stack: &mut ValueStack,
         target: DynamicLabel,
+        locals: &[Local],
         params: &[WpType],
         returns: &[WpType],
     ) -> Result<(), CodegenError> {
-        let total_size: usize = params.len() * 8;
+        let total_size: usize = params.len().checked_sub(LOCAL_REGS.len()).unwrap_or(0usize) * 8;
 
         if params.len() > value_stack.values.len() {
             return Err(CodegenError {
                 message: "value stack underflow in call",
             });
         }
+
+        Self::emit_save_locals(assembler, locals);
 
         let mut saved_regs: Vec<Register> = Vec::new();
 
@@ -1709,7 +1805,8 @@ impl X64FunctionCode {
 
         let mut offset: usize = 0;
         let mut caller_stack_offset: usize = 0;
-        for ty in params.iter().rev() {
+        for (i, ty) in params.iter().rev().enumerate() {
+            let i = params.len() - 1 - i;
             let val = value_stack.pop()?;
             if val.ty != *ty {
                 return Err(CodegenError {
@@ -1720,22 +1817,37 @@ impl X64FunctionCode {
             match val.location {
                 ValueLocation::Register(x) => {
                     let reg = Register::from_scratch_reg(x);
-                    dynasm!(
-                        assembler
-                        ; mov [rsp + offset as i32], Rq(reg as u8)
-                    );
+
+                    if i >= LOCAL_REGS.len() {
+                        dynasm!(
+                            assembler
+                            ; mov [rsp + offset as i32], Rq(reg as u8)
+                        );
+                        offset += 8;
+                    } else {
+                        dynasm!(
+                            assembler
+                            ; mov Rq(LOCAL_REGS[i] as u8), Rq(reg as u8)
+                        )
+                    }
                 }
                 ValueLocation::Stack => {
-                    dynasm!(
-                        assembler
-                        ; mov rax, [rsp + (total_size + 16 + saved_regs.len() * 8 + caller_stack_offset) as i32]
-                        ; mov [rsp + offset as i32], rax
-                    );
+                    if i >= LOCAL_REGS.len() {
+                        dynasm!(
+                            assembler
+                            ; mov rax, [rsp + (total_size + 16 + saved_regs.len() * 8 + caller_stack_offset) as i32]
+                            ; mov [rsp + offset as i32], rax
+                        );
+                        offset += 8;
+                    } else {
+                        dynasm!(
+                            assembler
+                            ; mov Rq(LOCAL_REGS[i] as u8), [rsp + (total_size + 16 + saved_regs.len() * 8 + caller_stack_offset) as i32]
+                        )
+                    }
                     caller_stack_offset += 8;
                 }
             }
-
-            offset += 8;
         }
 
         assert_eq!(offset, total_size);
@@ -1762,6 +1874,8 @@ impl X64FunctionCode {
                 ; pop Rq(*reg as u8)
             );
         }
+
+        Self::emit_restore_locals(assembler, locals);
 
         if caller_stack_offset != 0 {
             dynasm!(
@@ -1988,6 +2102,96 @@ impl X64FunctionCode {
         }
         Ok(())
     }
+
+    fn next_local_location(locals: &[Local]) -> LocalLocation {
+        if locals.len() < LOCAL_REGS.len() {
+            LocalLocation::Register(LOCAL_REGS[locals.len()])
+        } else {
+            LocalLocation::Stack(locals.len() - LOCAL_REGS.len())
+        }
+    }
+
+    fn compute_local_stack_size_bytes(locals: &[Local]) -> usize {
+        match locals.last().map(|x| x.location) {
+            Some(LocalLocation::Stack(x)) => (x + 1) * 8,
+            _ => 0,
+        }
+    }
+
+    fn emit_mov_to_local_from_reg(assembler: &mut Assembler, local: &Local, source: Register) {
+        match local.location {
+            LocalLocation::Register(x) => {
+                dynasm!(
+                    assembler
+                    ; mov Rq(x as u8), Rq(source as u8)
+                );
+            }
+            LocalLocation::Stack(x) => {
+                dynasm!(
+                    assembler
+                    ; mov [rbp - (((x + 1) * 8) as i32)], Rq(source as u8)
+                )
+            }
+        }
+    }
+
+    fn emit_mov_to_reg_from_local(assembler: &mut Assembler, local: &Local, destination: Register) {
+        match local.location {
+            LocalLocation::Register(x) => {
+                dynasm!(
+                    assembler
+                    ; mov Rq(destination as u8), Rq(x as u8)
+                );
+            }
+            LocalLocation::Stack(x) => {
+                dynasm!(
+                    assembler
+                    ; mov Rq(destination as u8), [rbp - (((x + 1) * 8) as i32)]
+                )
+            }
+        }
+    }
+
+    fn emit_save_locals(assembler: &mut Assembler, locals: &[Local]) {
+        for local in locals {
+            if let LocalLocation::Register(x) = local.location {
+                dynasm!(
+                    assembler
+                    ; push Rq(x as u8)
+                );
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn emit_restore_locals(assembler: &mut Assembler, locals: &[Local]) {
+        let mut n_reg_locals: usize = locals.len();
+
+        for (i, local) in locals.iter().enumerate() {
+            if let LocalLocation::Stack(x) = local.location {
+                n_reg_locals = i;
+                break;
+            }
+        }
+
+        if n_reg_locals == 0 {
+            return;
+        }
+
+        for i in 0..n_reg_locals {
+            let i = n_reg_locals - 1 - i;
+            let reg = if let LocalLocation::Register(x) = locals[i].location {
+                x
+            } else {
+                unreachable!()
+            };
+            dynasm!(
+                assembler
+                ; pop Rq(reg as u8)
+            );
+        }
+    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -2002,10 +2206,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
     /// - Params in reversed order, caller initialized
     /// - Locals in reversed order, callee initialized
     fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError> {
-        self.current_stack_offset += 8;
+        let location = Self::next_local_location(&self.locals);
         self.locals.push(Local {
             ty: ty,
-            stack_offset: self.current_stack_offset,
+            location: location,
         });
 
         self.num_params += 1;
@@ -2017,44 +2221,38 @@ impl FunctionCodeGenerator for X64FunctionCode {
         let assembler = self.assembler.as_mut().unwrap();
         let size = get_size_of_type(&ty)?;
 
-        if is_dword(size) {
-            for _ in 0..n {
-                // FIXME: check range of n
-                self.current_stack_offset += 4;
-                self.locals.push(Local {
-                    ty: ty,
-                    stack_offset: self.current_stack_offset,
-                });
-                dynasm!(
-                    assembler
-                    ; sub rsp, 4
-                    ; mov DWORD [rsp], 0
-                );
-            }
-            if n % 2 == 1 {
-                self.current_stack_offset += 4;
-                dynasm!(
-                    assembler
-                    ; sub rsp, 4
-                );
-            }
-        } else {
-            for _ in 0..n {
-                // FIXME: check range of n
-                self.current_stack_offset += 8;
-                self.locals.push(Local {
-                    ty: ty,
-                    stack_offset: self.current_stack_offset,
-                });
-                dynasm!(
-                    assembler
-                    ; push 0
-                );
-            }
+        for _ in 0..n {
+            let location = Self::next_local_location(&self.locals);
+            self.locals.push(Local {
+                ty: ty,
+                location: location,
+            });
         }
         Ok(())
     }
     fn begin_body(&mut self) -> Result<(), CodegenError> {
+        let assembler = self.assembler.as_mut().unwrap();
+        let local_stack_size =
+            Self::compute_local_stack_size_bytes(&self.locals) -
+            Self::compute_local_stack_size_bytes(&self.locals[..self.num_params]);
+
+        dynasm!(
+            assembler
+            ; sub rsp, local_stack_size as i32
+        );
+        for i in 0..local_stack_size / 8 {
+            dynasm!(
+                assembler
+                ; mov QWORD [rsp + (i * 8) as i32], 0
+            );
+        }
+        for i in self.num_params..LOCAL_REGS.len().min(self.locals.len()) {
+            dynasm!(
+                assembler
+                ; mov Rq(LOCAL_REGS[i] as u8), 0
+            );
+        }
+
         self.control_stack = Some(ControlStack::new(
             self.assembler.as_mut().unwrap().new_dynamic_label(),
             self.returns.clone(),
@@ -2190,32 +2388,14 @@ impl FunctionCodeGenerator for X64FunctionCode {
 
                 match location {
                     ValueLocation::Register(id) => {
-                        if is_dword(size) {
-                            dynasm!(
-                                assembler
-                                ; mov Rd(Register::from_scratch_reg(id) as u8), [rbp - (local.stack_offset as i32)]
-                            );
-                        } else {
-                            dynasm!(
-                                assembler
-                                ; mov Rq(Register::from_scratch_reg(id) as u8), [rbp - (local.stack_offset as i32)]
-                            );
-                        }
+                        Self::emit_mov_to_reg_from_local(assembler, &local, Register::from_scratch_reg(id));
                     }
                     ValueLocation::Stack => {
-                        if is_dword(size) {
-                            dynasm!(
-                                assembler
-                                ; mov eax, [rbp - (local.stack_offset as i32)]
-                                ; push rax
-                            );
-                        } else {
-                            dynasm!(
-                                assembler
-                                ; mov rax, [rbp - (local.stack_offset as i32)]
-                                ; push rax
-                            );
-                        }
+                        Self::emit_mov_to_reg_from_local(assembler, &local, Register::RAX);
+                        dynasm!(
+                            assembler
+                            ; push rax
+                        );
                     }
                 }
             }
@@ -2234,17 +2414,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     });
                 }
 
-                if is_dword(get_size_of_type(&ty)?) {
-                    dynasm!(
-                        assembler
-                        ; mov [rbp - (local.stack_offset as i32)], eax
-                    );
-                } else {
-                    dynasm!(
-                        assembler
-                        ; mov [rbp - (local.stack_offset as i32)], rax
-                    );
-                }
+                Self::emit_mov_to_local_from_reg(assembler, &local, Register::RAX);
             }
             Operator::TeeLocal { local_index } => {
                 let local_index = local_index as usize;
@@ -2261,17 +2431,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     });
                 }
 
-                if is_dword(get_size_of_type(&ty)?) {
-                    dynasm!(
-                        assembler
-                        ; mov [rbp - (local.stack_offset as i32)], eax
-                    );
-                } else {
-                    dynasm!(
-                        assembler
-                        ; mov [rbp - (local.stack_offset as i32)], rax
-                    );
-                }
+                Self::emit_mov_to_local_from_reg(assembler, &local, Register::RAX);
             }
             Operator::I32Const { value } => {
                 let location = self.value_stack.push(WpType::I32);
@@ -3257,6 +3417,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     label,
+                    &self.locals,
                     &param_types,
                     &return_types,
                 )?;
@@ -3309,6 +3470,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let trampoline_label = Self::emit_native_call_trampoline(
                     assembler,
                     call_indirect,
+                    param_types.len(),
                     index as usize,
                     local_or_import,
                 );
@@ -3322,6 +3484,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     trampoline_label,
+                    &self.locals,
                     &param_types,
                     &return_types,
                 )?;
@@ -5033,7 +5196,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         }
                     }
                 };
-                Self::emit_call_raw(assembler, &mut self.value_stack, label, &[], &[WpType::I32])?;
+                Self::emit_call_raw(assembler, &mut self.value_stack, label, &self.locals, &[], &[WpType::I32])?;
             }
             Operator::MemoryGrow { reserved } => {
                 let memory_index = MemoryIndex::new(reserved as usize);
@@ -5067,6 +5230,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     assembler,
                     &mut self.value_stack,
                     label,
+                    &self.locals,
                     &[WpType::I32],
                     &[WpType::I32],
                 )?;
