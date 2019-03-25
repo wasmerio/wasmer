@@ -1,4 +1,4 @@
-use libc::{chroot as _chroot, printf as _printf, getpwuid as _getpwuid};
+use libc::{chroot as _chroot, getpwuid as _getpwuid, printf as _printf};
 
 use wasmer_runtime_core::vm::Ctx;
 
