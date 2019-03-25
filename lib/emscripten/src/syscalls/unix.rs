@@ -36,6 +36,7 @@ use libc::{
     mode_t,
     msghdr,
     nice,
+    off_t,
     open,
     pid_t,
     pread,
@@ -80,10 +81,11 @@ use std::mem;
 extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
     pub fn madvise(addr: *mut c_void, len: size_t, advice: c_int) -> c_int;
+    pub fn fdatasync(fd: c_int) -> c_int;
 }
 
 #[cfg(not(target_os = "macos"))]
-use libc::{madvise, wait4};
+use libc::{fallocate, fdatasync, madvise, wait4};
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
@@ -709,6 +711,15 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
 }
 
+/// fdatasync
+pub fn ___syscall148(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall148 (fdatasync) {}", _which);
+
+    let fd: i32 = varargs.get(ctx);
+
+    unsafe { fdatasync(fd) }
+}
+
 // setpgid
 pub fn ___syscall57(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall57 (setpgid) {}", _which);
@@ -725,4 +736,21 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("=> buf: {}", buf);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut utsname;
     unsafe { uname(buf_addr) }
+}
+
+/// fallocate
+pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall324 (fallocate) {}", _which);
+    let _fd: c_int = varargs.get(ctx);
+    let _mode: c_int = varargs.get(ctx);
+    let _offset: off_t = varargs.get(ctx);
+    let _len: off_t = varargs.get(ctx);
+    #[cfg(not(target_os = "macos"))]
+    unsafe {
+        fallocate(_fd, _mode, _offset, _len)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unimplemented!()
+    }
 }

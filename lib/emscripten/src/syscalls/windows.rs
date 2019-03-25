@@ -216,6 +216,12 @@ pub fn ___syscall142(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     -1
 }
 
+/// fdatasync
+pub fn ___syscall148(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall148 (fdatasync) {}", _which);
+    unimplemented!();
+}
+
 // setpgid
 pub fn ___syscall57(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall57 (setpgid) {}", which);
@@ -236,5 +242,11 @@ pub fn ___syscall122(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
 /// fchown
 pub fn ___syscall207(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall207 (fchown) {}", _which);
+    unimplemented!()
+}
+
+/// fallocate
+pub fn ___syscall324(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall324 (fallocate) {}", _which);
     unimplemented!()
 }

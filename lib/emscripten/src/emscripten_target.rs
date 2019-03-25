@@ -283,6 +283,9 @@ pub fn nullFunc_iiij(_ctx: &mut Ctx, _index: i32) {
 pub fn nullFunc_iijii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_iijii");
 }
+pub fn nullFunc_iijj(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iijj");
+}
 pub fn nullFunc_iiiiji(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_iiiiji");
 }
@@ -337,11 +340,14 @@ pub fn nullFunc_viiijiiiiii(_ctx: &mut Ctx, _index: i32) {
 pub fn nullFunc_viij(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viij");
 }
+pub fn nullFunc_viijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_viijii");
+}
 pub fn nullFunc_viiji(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiji");
 }
-pub fn nullFunc_viijii(_ctx: &mut Ctx, _index: i32) {
-    debug!("emscripten::nullFunc_viijii");
+pub fn nullFunc_vijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_vijii");
 }
 pub fn nullFunc_viijiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viijiii");
