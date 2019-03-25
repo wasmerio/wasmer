@@ -65,35 +65,22 @@ jobs:
   test:
     docker:
       - image: circleci/rust:latest
+    <<: *run_with_build_env_vars
     steps:
       - checkout
       - restore_cache:
           keys:
             - v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Install dependencies
-          command: |
-            sudo apt-get install -y cmake
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - <<: *run_install_sodium
+      - <<: *run_install_dependencies
       - run:
           name: Tests
-          command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make test
+          command: make test
       - run:
           name: Emscripten Tests
-          command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
-            make test-emscripten
+          command: make test-emscripten
       - run:
           name: Integration Tests
-          command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make integration-tests
+          command: make integration-tests
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -120,7 +107,6 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-      - <<: *run_install_sodium
       - run:
           name: Install Rust
           command: |
@@ -130,15 +116,12 @@ jobs:
       - run:
           name: Tests
           command: |
-
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make test
       - run:
           name: Emscripten Tests
@@ -149,8 +132,6 @@ jobs:
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make test-emscripten
       - run:
           name: Integration Tests
@@ -158,8 +139,6 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make integration-tests
       - save_cache:
           paths:
@@ -186,27 +165,20 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - <<: *run_install_sodium
       - run:
           name: Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make test
       - run:
           name: Emscripten Tests
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make test-emscripten
       - run:
           name: Release Build
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make release
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
@@ -251,7 +223,6 @@ jobs:
             # Installing LLVM outside of brew
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-      - <<: *run_install_sodium
       - run:
           name: Install Rust
           command: |
@@ -267,8 +238,6 @@ jobs:
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make test
       - run:
           name: Emscripten Tests
@@ -279,8 +248,6 @@ jobs:
             # We increase the ulimit for fixing cargo unclosed files in mac
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make test-emscripten
       - run:
           name: Release Build
@@ -288,8 +255,6 @@ jobs:
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            export SODIUM_LIB_DIR=/usr/local/lib
-            export SODIUM_STATIC=true
             make release
             mkdir -p artifacts
             # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
@@ -324,12 +289,9 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - <<: *run_install_sodium
       - run: rustup default nightly
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-          export SODIUM_LIB_DIR=/usr/local/lib
-          export SODIUM_STATIC=true
           make test
           make test-nightly
           make test-emscripten
