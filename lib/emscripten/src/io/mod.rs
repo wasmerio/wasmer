@@ -24,12 +24,6 @@ pub fn getprotobynumber(_ctx: &mut Ctx, _one: i32) -> i32 {
     unimplemented!()
 }
 
-/// getpwuid
-pub fn getpwuid(_ctx: &mut Ctx, _uid: i32) -> i32 {
-    debug!("emscripten::getpwuid");
-    unimplemented!()
-}
-
 /// sigdelset
 pub fn sigdelset(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::sigdelset");

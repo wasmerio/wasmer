@@ -5,7 +5,6 @@ use libc::{
     accept,
     access,
     bind,
-    // ENOTTY,
     c_char,
     c_int,
     c_void,
@@ -14,7 +13,11 @@ use libc::{
     connect,
     dup,
     dup2,
+    fchmod,
+    fchown,
     fcntl,
+    // ENOTTY,
+    fsync,
     getgid,
     getgroups,
     getpeername,
@@ -30,8 +33,10 @@ use libc::{
     // iovec,
     listen,
     mkdir,
+    mode_t,
     msghdr,
     nice,
+    off_t,
     open,
     pid_t,
     pread,
@@ -68,6 +73,8 @@ use libc::{
 };
 use wasmer_runtime_core::vm::Ctx;
 
+#[allow(unused_imports)]
+use std::io::Error;
 use std::mem;
 
 // Linking to functions that are not provided by rust libc
@@ -76,10 +83,12 @@ use std::mem;
 extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
     pub fn madvise(addr: *mut c_void, len: size_t, advice: c_int) -> c_int;
+    pub fn fdatasync(fd: c_int) -> c_int;
+    pub fn lstat64(path: *const c_char, buf: *mut c_void) -> c_int;
 }
 
 #[cfg(not(target_os = "macos"))]
-use libc::{madvise, wait4};
+use libc::{fallocate, fdatasync, ftruncate64, lstat64, madvise, wait4};
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
@@ -99,8 +108,13 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let _path_str = unsafe { std::ffi::CStr::from_ptr(pathname_addr).to_str().unwrap() };
     let fd = unsafe { open(pathname_addr, flags, mode) };
     debug!(
-        "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}",
-        pathname, flags, mode, fd, _path_str
+        "=> pathname: {}, flags: {}, mode: {} = fd: {}\npath: {}\nlast os error: {}",
+        pathname,
+        flags,
+        mode,
+        fd,
+        _path_str,
+        Error::last_os_error(),
     );
     fd
 }
@@ -151,6 +165,19 @@ pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
         result,
     );
     result
+}
+
+/// ftruncate64
+pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall194 (ftruncate64) {}", _which);
+    let _fd: c_int = varargs.get(ctx);
+    let _length: i64 = varargs.get(ctx);
+    #[cfg(not(target_os = "macos"))]
+    unsafe {
+        ftruncate64(_fd, _length)
+    }
+    #[cfg(target_os = "macos")]
+    unimplemented!()
 }
 
 /// lchown
@@ -275,6 +302,15 @@ pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
         // Maybe fix: Emscripten returns 0 always
         getgid() as _
     }
+}
+
+/// fchown
+pub fn ___syscall207(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall207 (fchown) {}", _which);
+    let fd: c_int = varargs.get(ctx);
+    let owner: uid_t = varargs.get(ctx);
+    let group: gid_t = varargs.get(ctx);
+    unsafe { fchown(fd, owner, group) }
 }
 
 /// dup3
@@ -642,6 +678,14 @@ pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     status
 }
 
+/// fchmod
+pub fn ___syscall94(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall118 (fchmod) {}", _which);
+    let fd: c_int = varargs.get(ctx);
+    let mode: mode_t = varargs.get(ctx);
+    unsafe { fchmod(fd, mode) }
+}
+
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
@@ -659,6 +703,13 @@ pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
         pid, status_addr, options, rusage_addr, res
     );
     res
+}
+
+/// fsync
+pub fn ___syscall118(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall118 (fsync) {}", _which);
+    let fd: c_int = varargs.get(ctx);
+    unsafe { fsync(fd) }
 }
 
 // select
@@ -681,6 +732,15 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     unsafe { select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) }
 }
 
+/// fdatasync
+pub fn ___syscall148(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall148 (fdatasync) {}", _which);
+
+    let fd: i32 = varargs.get(ctx);
+
+    unsafe { fdatasync(fd) }
+}
+
 // setpgid
 pub fn ___syscall57(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall57 (setpgid) {}", _which);
@@ -697,4 +757,40 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("=> buf: {}", buf);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut utsname;
     unsafe { uname(buf_addr) }
+}
+
+/// lstat64
+pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall196 (lstat64) {}", _which);
+    let path_ptr: c_int = varargs.get(ctx);
+    let buf_ptr: c_int = varargs.get(ctx);
+    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const c_char;
+    let buf = emscripten_memory_pointer!(ctx.memory(0), buf_ptr) as *mut c_void;
+    let result = unsafe { lstat64(path, buf as _) };
+    debug!(
+        "=> path: {}, buf: {} = fd: {}\npath: {}\nlast os error: {}",
+        path_ptr,
+        buf_ptr,
+        result,
+        unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
+        Error::last_os_error(),
+    );
+    result
+}
+
+/// fallocate
+pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall324 (fallocate) {}", _which);
+    let _fd: c_int = varargs.get(ctx);
+    let _mode: c_int = varargs.get(ctx);
+    let _offset: off_t = varargs.get(ctx);
+    let _len: off_t = varargs.get(ctx);
+    #[cfg(not(target_os = "macos"))]
+    unsafe {
+        fallocate(_fd, _mode, _offset, _len)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unimplemented!()
+    }
 }
