@@ -388,7 +388,7 @@ extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
 extern "C" fn start_debug(ctx: &mut vm::Ctx, func_index: u32) {
     if let Some(symbol_map) = &ctx.maybe_symbol_map {
         if let Some(fn_name) = symbol_map.get(&func_index) {
-            print!("func ({} - {}), args: [", fn_name, func_index);
+            print!("func ({} ({})), args: [", fn_name, func_index);
             return;
         }
     }
