@@ -385,7 +385,13 @@ extern "C" fn f32_print(_ctx: &mut vm::Ctx, n: f32) {
 extern "C" fn f64_print(_ctx: &mut vm::Ctx, n: f64) {
     print!(" f64: {},", n);
 }
-extern "C" fn start_debug(_ctx: &mut vm::Ctx, func_index: u32) {
+extern "C" fn start_debug(ctx: &mut vm::Ctx, func_index: u32) {
+    if let Some(symbol_map) = &ctx.maybe_symbol_map {
+        if let Some(fn_name) = symbol_map.get(&func_index) {
+            print!("func ({} - {}), args: [", fn_name, func_index);
+            return;
+        }
+    }
     print!("func ({}), args: [", func_index);
 }
 extern "C" fn end_debug(_ctx: &mut vm::Ctx) {

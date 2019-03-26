@@ -149,7 +149,7 @@ pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
 /// depending on the cause of the failure.
 pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<Instance> {
     let module = compile(wasm)?;
-    module.instantiate(import_object)
+    module.instantiate(import_object, None)
 }
 
 /// Get a single instance of the default compiler to use.

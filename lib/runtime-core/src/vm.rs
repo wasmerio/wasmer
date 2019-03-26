@@ -5,6 +5,7 @@ use crate::{
     structures::TypedIndex,
     types::{LocalOrImport, MemoryIndex},
 };
+use hashbrown::HashMap;
 use std::{ffi::c_void, mem, ptr};
 
 /// The context of the currently running WebAssembly instance.
@@ -24,6 +25,8 @@ pub struct Ctx {
 
     pub data: *mut c_void,
     pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
+
+    pub maybe_symbol_map: Option<HashMap<u32, String>>,
 }
 
 /// The internal context of the currently running WebAssembly instance.
@@ -67,6 +70,7 @@ impl Ctx {
         local_backing: &mut LocalBacking,
         import_backing: &mut ImportBacking,
         module: &ModuleInner,
+        maybe_symbol_map: Option<HashMap<u32, String>>,
     ) -> Self {
         Self {
             internal: InternalCtx {
@@ -89,6 +93,7 @@ impl Ctx {
 
             data: ptr::null_mut(),
             data_finalizer: None,
+            maybe_symbol_map,
         }
     }
 
@@ -121,6 +126,7 @@ impl Ctx {
 
             data,
             data_finalizer: Some(data_finalizer),
+            maybe_symbol_map: None,
         }
     }
 

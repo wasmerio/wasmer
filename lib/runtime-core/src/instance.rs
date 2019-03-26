@@ -13,6 +13,7 @@ use crate::{
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vm,
 };
+use hashbrown::HashMap;
 use std::{mem, sync::Arc};
 
 pub(crate) struct InstanceInner {
@@ -39,12 +40,16 @@ impl Drop for InstanceInner {
 pub struct Instance {
     module: Arc<ModuleInner>,
     inner: Box<InstanceInner>,
-    #[allow(dead_code)]
+
     import_object: ImportObject,
 }
 
 impl Instance {
-    pub(crate) fn new(module: Arc<ModuleInner>, imports: &ImportObject) -> Result<Instance> {
+    pub(crate) fn new(
+        module: Arc<ModuleInner>,
+        imports: &ImportObject,
+        maybe_symbol_map: Option<HashMap<u32, String>>,
+    ) -> Result<Instance> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
         // uninitialized vm::Ctx and then initialize it in-place.
@@ -63,7 +68,12 @@ impl Instance {
         // Initialize the vm::Ctx in-place after the backing
         // has been boxed.
         unsafe {
-            *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module)
+            *inner.vmctx = vm::Ctx::new(
+                &mut inner.backing,
+                &mut inner.import_backing,
+                &module,
+                maybe_symbol_map,
+            )
         };
 
         let instance = Instance {

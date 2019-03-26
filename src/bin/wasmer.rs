@@ -1,12 +1,13 @@
 extern crate structopt;
 
 use std::env;
-use std::fs::File;
+use std::fs::{read_to_string, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 
+use hashbrown::HashMap;
 use structopt::StructOpt;
 
 use wasmer::webassembly::InstanceABI;
@@ -44,6 +45,10 @@ struct Run {
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
+
+    /// Symbol map
+    #[structopt(long = "symbol-map", parse(from_os_str))]
+    symbol_map: Option<PathBuf>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -97,6 +102,48 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             err
         )
     })?;
+
+    let maybe_symbol_map = if let Some(symbol_map_path) = options.symbol_map.clone() {
+        let symbol_map_content: String = read_to_string(&symbol_map_path)
+            .map_err(|err| {
+                format!(
+                    "Can't read symbol map file {}: {}",
+                    symbol_map_path.as_os_str().to_string_lossy(),
+                    err,
+                )
+            })?
+            .to_owned();
+        let mut symbol_map = HashMap::new();
+        for line in symbol_map_content.lines() {
+            let mut split = line.split(':');
+            let num_str = if let Some(ns) = split.next() {
+                ns
+            } else {
+                return Err(format!(
+                    "Can't parse symbol map (expected each entry to be of the form: `0:func_name`)"
+                ));
+            };
+            let num: u32 = num_str.parse::<u32>().map_err(|err| {
+                format!(
+                    "Failed to parse {} as a number in symbol map: {}",
+                    num_str, err
+                )
+            })?;
+            let name_str: String = if let Some(name_str) = split.next() {
+                name_str
+            } else {
+                return Err(format!(
+                    "Can't parse symbol map (expected each entry to be of the form: `0:func_name`)"
+                ));
+            }
+            .to_owned();
+
+            symbol_map.insert(num, name_str);
+        }
+        Some(symbol_map)
+    } else {
+        None
+    };
 
     if !utils::is_wasm_binary(&wasm_binary) {
         wasm_binary = wabt::wat2wasm(wasm_binary)
@@ -159,7 +206,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     let mut instance = module
-        .instantiate(&import_object)
+        .instantiate(&import_object, maybe_symbol_map)
         .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
     webassembly::run_instance(
