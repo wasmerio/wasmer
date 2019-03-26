@@ -83,7 +83,7 @@ pub fn ___syscall77(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
     let resource: c_int = varargs.get(ctx);
     let rusage_ptr: c_int = varargs.get(ctx);
     #[allow(clippy::cast_ptr_alignment)]
-        let rusage = emscripten_memory_pointer!(ctx.memory(0), rusage_ptr) as *mut rusage;
+    let rusage = emscripten_memory_pointer!(ctx.memory(0), rusage_ptr) as *mut rusage;
     assert_eq!(8, std::mem::align_of_val(&rusage));
     unsafe { libc::getrusage(resource, rusage) }
 }
@@ -169,7 +169,6 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     uname_result
 }
 
-
 /// fdatasync
 pub fn ___syscall148(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall148 (fdatasync) {}", _which);
@@ -185,7 +184,7 @@ pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let _fd: c_int = varargs.get(ctx);
     let _length: i64 = varargs.get(ctx);
     #[cfg(not(target_os = "macos"))]
-        unsafe {
+    unsafe {
         ftruncate64(_fd, _length)
     }
     #[cfg(target_os = "macos")]
@@ -271,7 +270,7 @@ pub fn ___syscall205(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let groups: c_int = varargs.get(ctx);
 
     #[allow(clippy::cast_ptr_alignment)]
-        let gid_ptr = emscripten_memory_pointer!(ctx.memory(0), groups) as *mut libc::gid_t;
+    let gid_ptr = emscripten_memory_pointer!(ctx.memory(0), groups) as *mut libc::gid_t;
     assert_eq!(4, std::mem::align_of_val(&gid_ptr));
     let result = unsafe { libc::getgroups(ngroups_max, gid_ptr) };
     debug!(
@@ -315,11 +314,11 @@ pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let _offset: libc::off_t = varargs.get(ctx);
     let _len: libc::off_t = varargs.get(ctx);
     #[cfg(not(target_os = "macos"))]
-        unsafe {
+    unsafe {
         fallocate(_fd, _mode, _offset, _len)
     }
     #[cfg(target_os = "macos")]
-        {
-            unimplemented!()
-        }
+    {
+        unimplemented!()
+    }
 }
