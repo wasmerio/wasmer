@@ -1,3 +1,5 @@
+use std::io;
+
 pub type Fd = isize;
 
 #[derive(Debug)]
@@ -6,13 +8,10 @@ pub struct Metadata {
     pub is_file: bool,
 }
 
-pub trait FileLike {
-    /// write
-    fn write(&mut self, buf: &[u8], count: usize, offset: usize) -> Result<usize, failure::Error>;
-    /// like read(2), will read the data for the file descriptor
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, failure::Error>;
-    /// close
-    fn close(&self) -> Result<(), failure::Error>;
+pub trait FileLike: std::io::Read {
     // get metadata
     fn metadata(&self) -> Result<Metadata, failure::Error>;
+
+    // write
+    fn write_file(&mut self, buf: &[u8], offset: usize) -> Result<usize, io::Error>;
 }

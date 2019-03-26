@@ -4,7 +4,7 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 
-#[cfg(feature = "vfs")]
+#[cfg(all(feature = "vfs", not(target_os = "windows")))]
 mod emscripten_vfs;
 
 #[cfg(unix)]
@@ -13,7 +13,7 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
-#[cfg(feature = "vfs")]
+#[cfg(all(feature = "vfs", not(target_os = "windows")))]
 pub use self::emscripten_vfs::*;
 
 use super::varargs::VarArgs;

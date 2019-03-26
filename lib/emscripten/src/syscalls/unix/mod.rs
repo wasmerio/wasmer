@@ -3,7 +3,7 @@ use crate::varargs::VarArgs;
 #[cfg(not(feature = "vfs"))]
 pub mod host_fs;
 
-#[cfg(feature = "vfs")]
+#[cfg(all(not(target_os = "windows"), feature = "vfs"))]
 pub mod vfs;
 
 #[cfg(not(feature = "vfs"))]
@@ -30,7 +30,6 @@ extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
 }
 
-use crate::utils::read_string_from_wasm;
 #[cfg(not(target_os = "macos"))]
 use libc::wait4;
 
@@ -68,7 +67,10 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("=> buf: {}", buf);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut utsname;
     let uname_result = unsafe { uname(buf_addr) };
-    debug!("uname buf: {}", read_string_from_wasm(ctx.memory(0), buf));
+    debug!(
+        "uname buf: {}",
+        crate::utils::read_string_from_wasm(ctx.memory(0), buf)
+    );
     uname_result
 }
 

@@ -1,16 +1,3 @@
-#[cfg(not(feature = "vfs"))]
-pub mod host_fs;
-
-#[cfg(feature = "vfs")]
-pub mod vfs;
-
-#[cfg(not(feature = "vfs"))]
-pub use host_fs::*;
-
-#[cfg(feature = "vfs")]
-pub use vfs::*;
-
-use crate::env::get_emscripten_data;
 use crate::utils::copy_cstr_into_wasm;
 use crate::varargs::VarArgs;
 use libc::mkdir;
@@ -27,7 +14,6 @@ use wasmer_runtime_core::vm::Ctx;
 type pid_t = c_int;
 
 /// open
-#[cfg(not(feature = "vfs"))]
 pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", which);
     #[cfg(not(feature = "debug"))]
@@ -81,7 +67,6 @@ pub fn ___syscall212(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
 }
 
 // mkdir
-#[cfg(not(feature = "vfs"))]
 pub fn ___syscall39(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", which);
     #[cfg(not(feature = "debug"))]
@@ -119,7 +104,6 @@ pub fn ___syscall54(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_in
 }
 
 // socketcall
-#[cfg(not(feature = "vfs"))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___syscall102(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall102 (socketcall) {}", which);
@@ -128,18 +112,16 @@ pub fn ___syscall102(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
     -1
 }
 
-/// pread
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall180(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
+// pread
+pub fn ___syscall180(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall180 (pread) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;
     -1
 }
 
-/// pwrite
-#[cfg(not(feature = "vfs"))]
-pub fn ___syscall181(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
+// pwrite
+pub fn ___syscall181(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall181 (pwrite) {}", which);
     #[cfg(not(feature = "debug"))]
     let _ = which;

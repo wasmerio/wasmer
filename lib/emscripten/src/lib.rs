@@ -54,10 +54,10 @@ pub use self::utils::{
     get_emscripten_table_size, is_emscripten_module,
 };
 
-#[cfg(feature = "vfs")]
+#[cfg(all(feature = "vfs", not(target_os = "windows")))]
 use crate::syscalls::EmscriptenVfs;
 
-#[cfg(feature = "vfs")]
+#[cfg(all(feature = "vfs", not(target_os = "windows")))]
 use wasmer_runtime_abi::vfs::vfs::Vfs;
 
 // TODO: Magic number - how is this calculated?
@@ -124,7 +124,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
 
-    #[cfg(feature = "vfs")]
+    #[cfg(all(feature = "vfs", not(target_os = "windows")))]
     pub vfs: Option<EmscriptenVfs>,
 }
 
@@ -222,7 +222,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_viji,
             dyn_call_vijiii,
             dyn_call_vijj,
-            #[cfg(feature = "vfs")]
+            #[cfg(all(feature = "vfs", not(target_os = "windows")))]
             vfs: None,
         }
     }
@@ -240,7 +240,7 @@ pub fn run_emscripten_instance(
     // This is behind a feature flag for now, but will be default in the future
     #[cfg(not(feature = "vfs"))]
     let _ = module;
-    #[cfg(feature = "vfs")]
+    #[cfg(all(feature = "vfs", not(target_os = "windows")))]
     {
         data.vfs = match module.info().custom_sections.get("wasmer:fs") {
             Some(bytes) => match Vfs::from_compressed_bytes(&bytes[..]) {

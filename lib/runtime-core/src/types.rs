@@ -1,8 +1,4 @@
-use crate::error::{CompileError, CompileResult};
-use crate::{
-    memory::MemoryType, module::ModuleInfo, module::ModuleInner, structures::TypedIndex,
-    units::Pages,
-};
+use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
 use std::{borrow::Cow, mem};
 
 /// Represents a WebAssembly type.

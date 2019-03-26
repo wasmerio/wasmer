@@ -1,7 +1,6 @@
-use crate::utils::{copy_stat_into_wasm, read_string_from_wasm};
+use crate::utils::copy_stat_into_wasm;
 use crate::varargs::VarArgs;
 use libc::{c_int, c_void, ioctl, sockaddr, socklen_t};
-use std::slice;
 use wasmer_runtime_core::vm::Ctx;
 
 /// read
@@ -14,7 +13,6 @@ pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
     let ret = unsafe { libc::read(fd, buf_addr, count as _) };
     debug!("=> ret: {}", ret);
-    debug!("read: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     ret as _
 }
 
@@ -27,7 +25,6 @@ pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
     let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
     let ret = unsafe { libc::write(fd, buf_addr, count as _) as i32 };
-    debug!("wrote: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     ret
 }
 
@@ -423,52 +420,16 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let nfds: i32 = varargs.get(ctx);
     let readfds: u32 = varargs.get(ctx);
     let writefds: u32 = varargs.get(ctx);
-    let exceptfds: u32 = varargs.get(ctx);
+    let _exceptfds: u32 = varargs.get(ctx);
     let _timeout: i32 = varargs.get(ctx);
-
-    let readfds_set_ptr = emscripten_memory_pointer!(ctx.memory(0), readfds) as *mut _;
-    let readfds_set_u8_ptr = readfds_set_ptr as *mut u8;
-    let writefds_set_ptr = emscripten_memory_pointer!(ctx.memory(0), writefds) as *mut _;
-    let writefds_set_u8_ptr = writefds_set_ptr as *mut u8;
-
-    let nfds = nfds as _;
-    let readfds_slice = unsafe { slice::from_raw_parts_mut(readfds_set_u8_ptr, nfds) };
-    let _writefds_slice = unsafe { slice::from_raw_parts_mut(writefds_set_u8_ptr, nfds) };
-    let nfds = nfds as _;
-
-    use bit_field::BitArray;
-
-    let mut bits = vec![];
-    for virtual_fd in 0..nfds {
-        let bit_flag = readfds_slice.get_bit(virtual_fd as usize);
-        if !bit_flag {
-            continue;
-        }
-        bits.push(virtual_fd);
-    }
-
     let readfds_ptr = emscripten_memory_pointer!(ctx.memory(0), readfds) as _;
     let writefds_ptr = emscripten_memory_pointer!(ctx.memory(0), writefds) as _;
-
-    let _err = errno::errno();
-    debug!("set read descriptors BEFORE select: {:?}", bits);
-
     let result = unsafe { libc::select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
-
-    let mut set_file_descriptors = vec![];
-    for virtual_fd in 0..nfds {
-        let bit_flag = readfds_slice.get_bit(virtual_fd as usize);
-        if !bit_flag {
-            continue;
-        }
-        set_file_descriptors.push(virtual_fd);
-    }
     debug!(
         "set read descriptors AFTER select: {:?}",
         set_file_descriptors
     );
     debug!("select returns {}", result);
-
     result
 }
 
@@ -519,11 +480,8 @@ pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         assert_eq!(zero, 0);
     }
     let offset: i64 = varargs.get(ctx);
-
     let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
-
     let pread_result = unsafe { libc::pread(fd, buf_ptr, count as _, offset) as _ };
-    debug!("read: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     pread_result
 }
 
@@ -538,14 +496,12 @@ pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
         assert_eq!(zero, 0);
     }
     let offset: i64 = varargs.get(ctx);
-
     let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
     let status = unsafe { libc::pwrite(fd, buf_ptr, count as _, offset) as _ };
     debug!(
         "=> fd: {}, buf: {}, count: {}, offset: {} = status:{}",
         fd, buf, count, offset, status
     );
-    debug!("wrote: '{}'", read_string_from_wasm(ctx.memory(0), buf));
     status
 }
 

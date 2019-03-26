@@ -100,7 +100,6 @@ pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     }
 }
 
-#[cfg(not(feature = "vfs"))]
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
@@ -144,7 +143,6 @@ pub fn _initgroups(_ctx: &mut Ctx, _user_offset: u32, _gid: u32) -> c_int {
     0
 }
 
-#[cfg(not(feature = "vfs"))]
 unsafe fn copy_terminated_array_of_cstrs(_ctx: &mut Ctx, cstrs: *mut *mut c_char) -> u32 {
     let _total_num = {
         let mut ptr = cstrs;

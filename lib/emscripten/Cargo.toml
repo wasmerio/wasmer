@@ -16,10 +16,12 @@ lazy_static = "1.2.0"
 libc = "0.2.49"
 time = "0.1.41"
 wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
-wasmer-runtime-abi = { path = "../runtime-abi", optional = true }
 wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
 wasmer-dynasm-backend = { path = "../dynasm-backend", version = "0.1.0", optional = true }
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.1.0", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+wasmer-runtime-abi = { path = "../runtime-abi", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 rand = "0.6"
