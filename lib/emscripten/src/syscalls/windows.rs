@@ -13,6 +13,31 @@ use wasmer_runtime_core::vm::Ctx;
 #[allow(non_camel_case_types)]
 type pid_t = c_int;
 
+/// read
+pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall3 (read) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: i32 = varargs.get(ctx);
+    debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
+    let ret = unsafe { libc::read(fd, buf_addr, count as _) };
+    debug!("=> ret: {}", ret);
+    ret as _
+}
+
+/// write
+pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall4 (write) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let buf: u32 = varargs.get(ctx);
+    let count: i32 = varargs.get(ctx);
+    debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
+    let ret = unsafe { libc::write(fd, buf_addr, count as _) as i32 };
+    ret
+}
+
 /// open
 pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", which);
@@ -62,6 +87,58 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
 pub fn ___syscall9(_ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall9 (link) {}", _which);
     unimplemented!()
+}
+
+/// chmod
+pub fn ___syscall15(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::___syscall15");
+    -1
+}
+
+/// dup2
+pub fn ___syscall63(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall63 (dup2) {}", _which);
+
+    let src: i32 = varargs.get(ctx);
+    let dst: i32 = varargs.get(ctx);
+
+    unsafe { libc::dup2(src, dst) }
+}
+
+// writev
+#[allow(clippy::cast_ptr_alignment)]
+pub fn ___syscall146(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    // -> ssize_t
+    debug!("emscripten::___syscall146 (writev) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    let iov: i32 = varargs.get(ctx);
+    let iovcnt: i32 = varargs.get(ctx);
+
+    #[repr(C)]
+    struct GuestIovec {
+        iov_base: i32,
+        iov_len: i32,
+    }
+
+    debug!("=> fd: {}, iov: {}, iovcnt = {}", fd, iov, iovcnt);
+    let mut ret = 0;
+    unsafe {
+        for i in 0..iovcnt {
+            let guest_iov_addr =
+                emscripten_memory_pointer!(ctx.memory(0), (iov + i * 8)) as *mut GuestIovec;
+            let iov_base = emscripten_memory_pointer!(ctx.memory(0), (*guest_iov_addr).iov_base)
+                as *const libc::c_void;
+            let iov_len = (*guest_iov_addr).iov_len as _;
+            // debug!("=> iov_addr: {:?}, {:?}", iov_base, iov_len);
+            let curr = libc::write(fd, iov_base, iov_len);
+            if curr < 0 {
+                return -1;
+            }
+            ret += curr;
+        }
+        // debug!(" => ret: {}", ret);
+        ret as _
+    }
 }
 
 /// ftruncate64
@@ -159,6 +236,32 @@ pub fn ___syscall219(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int 
 pub fn ___syscall330(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> pid_t {
     debug!("emscripten::___syscall330 (dup3)");
     -1
+}
+
+/// pipe
+pub fn ___syscall42(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall42 (pipe)");
+    // offset to a file descriptor, which contains a read end and write end, 2 integers
+    let fd_offset: u32 = varargs.get(ctx);
+
+    let emscripten_memory = ctx.memory(0);
+
+    // convert the file descriptor into a vec with two slots
+    let mut fd_vec: Vec<c_int> = emscripten_memory.view()[((fd_offset / 4) as usize)..]
+        .iter()
+        .map(|pipe_end: &std::cell::Cell<c_int>| pipe_end.get())
+        .take(2)
+        .collect();
+
+    // get it as a mutable pointer
+    let fd_ptr = fd_vec.as_mut_ptr();
+
+    // call pipe and store the pointers in this array
+    #[cfg(target_os = "windows")]
+    let result: c_int = unsafe { libc::pipe(fd_ptr, 2048, 0) };
+    #[cfg(not(target_os = "windows"))]
+    let result: c_int = unsafe { libc::pipe(fd_ptr) };
+    result
 }
 
 /// ioctl
