@@ -21,6 +21,7 @@ mod codegen_x64;
 mod parse;
 mod protect_unix;
 mod stack;
+mod emitter_x64;
 
 use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;
