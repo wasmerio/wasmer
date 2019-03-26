@@ -19,9 +19,9 @@ jobs:
           name: Install lint deps
           command: |
             git config --global --unset url."ssh://git@github.com".insteadOf || true
-            rustup toolchain install nightly
+            rustup toolchain install nightly-2019-02-27
             rustup component add rustfmt
-            rustup component add clippy --toolchain=nightly || cargo +nightly install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+            rustup component add clippy --toolchain=nightly-2019-02-27 || cargo +nightly-2019-02-27 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
           name: Execute lints
           command: |
@@ -272,7 +272,7 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - run: rustup default nightly
+      - run: rustup default nightly-2019-02-27
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make test
