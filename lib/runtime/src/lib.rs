@@ -110,7 +110,7 @@ pub mod units {
 
 pub mod cache;
 
-use wasmer_runtime_core::backend::Compiler;
+use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
@@ -127,6 +127,13 @@ use wasmer_runtime_core::backend::Compiler;
 /// If the operation fails, the function returns `Err(error::CompileError::...)`.
 pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
     wasmer_runtime_core::compile_with(&wasm[..], default_compiler())
+}
+
+pub fn compile_with_config(
+    wasm: &[u8],
+    compiler_config: CompilerConfig,
+) -> error::CompileResult<Module> {
+    wasmer_runtime_core::compile_with_config(&wasm[..], default_compiler(), compiler_config)
 }
 
 /// Compile and instantiate WebAssembly code without
@@ -149,7 +156,7 @@ pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
 /// depending on the cause of the failure.
 pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<Instance> {
     let module = compile(wasm)?;
-    module.instantiate(import_object, None)
+    module.instantiate(import_object)
 }
 
 /// Get a single instance of the default compiler to use.

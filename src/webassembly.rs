@@ -4,6 +4,7 @@ use wasmer_runtime::{
     error::{CallResult, Result},
     ImportObject, Instance, Module,
 };
+use wasmer_runtime_core::backend::CompilerConfig;
 use wasmer_runtime_core::types::Value;
 
 use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
@@ -42,7 +43,7 @@ pub fn instantiate(buffer_source: &[u8], import_object: ImportObject) -> Result<
     let module = compile(&buffer_source[..])?;
 
     debug!("webassembly - instantiating");
-    let instance = module.instantiate(&import_object, None)?;
+    let instance = module.instantiate(&import_object)?;
 
     debug!("webassembly - instance created");
     Ok(ResultObject {
@@ -73,6 +74,14 @@ pub fn instantiate_streaming(
 /// webassembly::CompileError.
 pub fn compile(buffer_source: &[u8]) -> Result<Module> {
     let module = runtime::compile(buffer_source)?;
+    Ok(module)
+}
+
+pub fn compile_with_config(
+    buffer_source: &[u8],
+    compiler_config: CompilerConfig,
+) -> Result<Module> {
+    let module = runtime::compile_with_config(buffer_source, compiler_config)?;
     Ok(module)
 }
 

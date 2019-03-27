@@ -68,7 +68,19 @@ pub fn compile_with(
 ) -> CompileResult<module::Module> {
     let token = backend::Token::generate();
     compiler
-        .compile(wasm, token)
+        .compile(wasm, Default::default(), token)
+        .map(|inner| module::Module::new(Arc::new(inner)))
+}
+
+/// The same as `compile_with` but takes a symbol map for use with debugging
+pub fn compile_with_config(
+    wasm: &[u8],
+    compiler: &dyn backend::Compiler,
+    compiler_config: backend::CompilerConfig,
+) -> CompileResult<module::Module> {
+    let token = backend::Token::generate();
+    compiler
+        .compile(wasm, compiler_config, token)
         .map(|inner| module::Module::new(Arc::new(inner)))
 }
 

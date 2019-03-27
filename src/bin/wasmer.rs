@@ -14,6 +14,7 @@ use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
+use wasmer_runtime_core::backend::CompilerConfig;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -46,9 +47,9 @@ struct Run {
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
 
-    /// Symbol map
-    #[structopt(long = "symbol-map", parse(from_os_str))]
-    symbol_map: Option<PathBuf>,
+    /// Emscripten symbol map
+    #[structopt(long = "em-symbol-map", parse(from_os_str))]
+    em_symbol_map: Option<PathBuf>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -103,18 +104,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
     })?;
 
-    let maybe_symbol_map = if let Some(symbol_map_path) = options.symbol_map.clone() {
-        let symbol_map_content: String = read_to_string(&symbol_map_path)
+    let em_symbol_map = if let Some(em_symbol_map_path) = options.em_symbol_map.clone() {
+        let em_symbol_map_content: String = read_to_string(&em_symbol_map_path)
             .map_err(|err| {
                 format!(
                     "Can't read symbol map file {}: {}",
-                    symbol_map_path.as_os_str().to_string_lossy(),
+                    em_symbol_map_path.as_os_str().to_string_lossy(),
                     err,
                 )
             })?
             .to_owned();
-        let mut symbol_map = HashMap::new();
-        for line in symbol_map_content.lines() {
+        let mut em_symbol_map = HashMap::new();
+        for line in em_symbol_map_content.lines() {
             let mut split = line.split(':');
             let num_str = if let Some(ns) = split.next() {
                 ns
@@ -138,9 +139,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             }
             .to_owned();
 
-            symbol_map.insert(num, name_str);
+            em_symbol_map.insert(num, name_str);
         }
-        Some(symbol_map)
+        Some(em_symbol_map)
     } else {
         None
     };
@@ -175,9 +176,13 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 module
             }
             Err(_) => {
-                let module = webassembly::compile(&wasm_binary[..])
-                    .map_err(|e| format!("Can't compile module: {:?}", e))?;
-
+                let module = webassembly::compile_with_config(
+                    &wasm_binary[..],
+                    CompilerConfig {
+                        symbol_map: em_symbol_map,
+                    },
+                )
+                .map_err(|e| format!("Can't compile module: {:?}", e))?;
                 // We try to save the module into a cache file
                 cache.store(hash, module.clone()).unwrap_or_default();
 
@@ -186,8 +191,13 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         };
         module
     } else {
-        webassembly::compile(&wasm_binary[..])
-            .map_err(|e| format!("Can't compile module: {:?}", e))?
+        webassembly::compile_with_config(
+            &wasm_binary[..],
+            CompilerConfig {
+                symbol_map: em_symbol_map,
+            },
+        )
+        .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
 
     let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
@@ -206,7 +216,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     let mut instance = module
-        .instantiate(&import_object, maybe_symbol_map)
+        .instantiate(&import_object)
         .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
 
     webassembly::run_instance(

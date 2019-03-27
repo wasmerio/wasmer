@@ -56,6 +56,8 @@ pub struct ModuleInfo {
 
     pub namespace_table: StringTable<NamespaceIndex>,
     pub name_table: StringTable<NameIndex>,
+
+    pub em_symbol_map: Option<HashMap<u32, String>>,
 }
 
 /// A compiled WebAssembly module.
@@ -100,12 +102,8 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn instantiate(
-        &self,
-        import_object: &ImportObject,
-        maybe_symbol_map: Option<HashMap<u32, String>>,
-    ) -> error::Result<Instance> {
-        Instance::new(Arc::clone(&self.inner), import_object, maybe_symbol_map)
+    pub fn instantiate(&self, import_object: &ImportObject) -> error::Result<Instance> {
+        Instance::new(Arc::clone(&self.inner), import_object)
     }
 
     pub fn cache(&self) -> Result<Artifact, CacheError> {

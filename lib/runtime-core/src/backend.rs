@@ -14,6 +14,8 @@ use crate::{
 };
 use std::{any::Any, ptr::NonNull};
 
+use hashbrown::HashMap;
+
 pub mod sys {
     pub use crate::sys::*;
 }
@@ -38,11 +40,28 @@ impl Token {
     }
 }
 
+/// Configuration data for the compiler
+pub struct CompilerConfig {
+    /// Symbol information generated from emscripten; used for more detailed debug messages
+    pub symbol_map: Option<HashMap<u32, String>>,
+}
+
+impl Default for CompilerConfig {
+    fn default() -> CompilerConfig {
+        CompilerConfig { symbol_map: None }
+    }
+}
+
 pub trait Compiler {
     /// Compiles a `Module` from WebAssembly binary format.
     /// The `CompileToken` parameter ensures that this can only
     /// be called from inside the runtime.
-    fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner>;
+    fn compile(
+        &self,
+        wasm: &[u8],
+        comp_conf: CompilerConfig,
+        _: Token,
+    ) -> CompileResult<ModuleInner>;
 
     unsafe fn from_cache(&self, cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
