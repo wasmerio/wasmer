@@ -39,7 +39,7 @@ impl Drop for InstanceInner {
 pub struct Instance {
     module: Arc<ModuleInner>,
     inner: Box<InstanceInner>,
-
+    #[allow(dead_code)]
     import_object: ImportObject,
 }
 

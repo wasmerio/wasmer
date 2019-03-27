@@ -159,6 +159,7 @@ impl Ctx {
         }
     }
 
+    /// Gives access to the emscripten symbol map, used for debugging
     pub unsafe fn borrow_symbol_map(&self) -> &Option<HashMap<u32, String>> {
         &(*self.module).info.em_symbol_map
     }

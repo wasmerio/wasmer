@@ -129,6 +129,8 @@ pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
     wasmer_runtime_core::compile_with(&wasm[..], default_compiler())
 }
 
+/// The same as `compile` but takes a `CompilerConfig` for the purpose of
+/// changing the compiler's behavior
 pub fn compile_with_config(
     wasm: &[u8],
     compiler_config: CompilerConfig,

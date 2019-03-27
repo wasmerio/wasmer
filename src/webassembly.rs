@@ -77,6 +77,8 @@ pub fn compile(buffer_source: &[u8]) -> Result<Module> {
     Ok(module)
 }
 
+/// The same as `compile` but takes a `CompilerConfig` for the purpose of
+/// changing the compiler's behavior
 pub fn compile_with_config(
     buffer_source: &[u8],
     compiler_config: CompilerConfig,

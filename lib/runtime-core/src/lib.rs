@@ -72,7 +72,8 @@ pub fn compile_with(
         .map(|inner| module::Module::new(Arc::new(inner)))
 }
 
-/// The same as `compile_with` but takes a symbol map for use with debugging
+/// The same as `compile_with` but changes the compiler behavior
+/// with the values in the `CompilerConfig`
 pub fn compile_with_config(
     wasm: &[u8],
     compiler: &dyn backend::Compiler,
