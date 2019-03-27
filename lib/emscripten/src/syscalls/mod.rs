@@ -118,9 +118,11 @@ pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 }
 
 // getcwd
-pub fn ___syscall183(ctx: &mut Ctx, buf_offset: u32, _size: u32) -> u32 {
+pub fn ___syscall183(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall183");
     use std::env;
+    let buf_offset: c_int = varargs.get(ctx);
+    let _size: c_int = varargs.get(ctx);
     let path = env::current_dir();
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
@@ -175,7 +177,7 @@ pub fn ___syscall140(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let ret = unsafe { lseek(fd, offset, whence) as i32 };
     #[allow(clippy::cast_ptr_alignment)]
     let result_ptr = emscripten_memory_pointer!(ctx.memory(0), result_ptr_value) as *mut i32;
-    assert_eq!(4, mem::align_of_val(&result_ptr));
+    assert_eq!(8, mem::align_of_val(&result_ptr));
     unsafe {
         *result_ptr = ret;
     }

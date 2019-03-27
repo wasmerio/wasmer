@@ -28,7 +28,7 @@ integration-tests: release
 
 lint:
 	cargo fmt --all -- --check
-	cargo +nightly clippy --all
+	cargo +nightly-2019-02-27 clippy --all
 
 precommit: lint test
 
