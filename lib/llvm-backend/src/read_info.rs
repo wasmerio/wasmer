@@ -20,7 +20,7 @@ use wasmparser::{
 
 pub fn read_module(
     wasm: &[u8],
-    compiler_config: &CompilerConfig,
+    compiler_config: CompilerConfig,
 ) -> Result<(ModuleInfo, CodeSectionReader), BinaryReaderError> {
     let mut info = ModuleInfo {
         memories: Map::new(),

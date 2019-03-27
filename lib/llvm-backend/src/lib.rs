@@ -40,7 +40,7 @@ impl Compiler for LLVMCompiler {
     ) -> Result<ModuleInner, CompileError> {
         validate(wasm)?;
 
-        let (info, code_reader) = read_info::read_module(wasm, &compiler_config).unwrap();
+        let (info, code_reader) = read_info::read_module(wasm, compiler_config).unwrap();
         let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
         let (backend, protected_caller) = backend::LLVMBackend::new(module, intrinsics);
