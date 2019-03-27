@@ -175,9 +175,7 @@ mod tests {
     }
 
     #[cfg(not(any(feature = "llvm", feature = "clif", feature = "dynasm")))]
-    fn get_compiler() -> impl Compiler {
-        panic!("compiler not specified, activate a compiler via features")
-    }
+    compile_error!("compiler not specified, activate a compiler via features");
 
     #[test]
     fn should_detect_emscripten_files() {
