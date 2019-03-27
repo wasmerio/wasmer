@@ -16,7 +16,7 @@ tar = "0.4"
 wasmparser = "0.23.0"
 zstd = "0.4"
 
-[dependencies.zbox]
+[target.'cfg(unix)'.dependencies.zbox]
 git = "https://github.com/wasmerio/zbox"
 branch = "bundle-libsodium"
 features = ["libsodium-bundled"]

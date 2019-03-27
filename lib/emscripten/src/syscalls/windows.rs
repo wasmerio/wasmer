@@ -20,7 +20,7 @@ pub fn ___syscall3(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let buf: u32 = varargs.get(ctx);
     let count: i32 = varargs.get(ctx);
     debug!("=> fd: {}, buf_offset: {}, count: {}", fd, buf, count);
-    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut c_void;
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *mut libc::c_void;
     let ret = unsafe { libc::read(fd, buf_addr, count as _) };
     debug!("=> ret: {}", ret);
     ret as _
@@ -33,7 +33,7 @@ pub fn ___syscall4(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
     let buf: u32 = varargs.get(ctx);
     let count: i32 = varargs.get(ctx);
     debug!("=> fd: {}, buf: {}, count: {}", fd, buf, count);
-    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const c_void;
+    let buf_addr = emscripten_memory_pointer!(ctx.memory(0), buf) as *const libc::c_void;
     let ret = unsafe { libc::write(fd, buf_addr, count as _) as i32 };
     ret
 }
@@ -83,8 +83,16 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
     }
 }
 
+/// close
+pub fn ___syscall6(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall6 (close) {}", _which);
+    let fd: i32 = varargs.get(ctx);
+    debug!("fd: {}", fd);
+    unsafe { libc::close(fd) }
+}
+
 /// link
-pub fn ___syscall9(_ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall9(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall9 (link) {}", _which);
     unimplemented!()
 }
@@ -156,13 +164,13 @@ pub fn ___syscall212(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
 }
 
 /// access
-pub fn ___syscall33(_ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall33(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
     unimplemented!()
 }
 
 /// nice
-pub fn ___syscall34(_ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall34(_ctx: &mut Ctx, _which: c_int, _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall34 (nice) {}", _which);
     unimplemented!()
 }

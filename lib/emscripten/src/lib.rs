@@ -252,7 +252,7 @@ pub fn run_emscripten_instance(
 
     // Construct a new virtual filesystem and inject it into the emscripten data
     // This is behind a feature flag for now, but will be default in the future
-    #[cfg(not(feature = "vfs"))]
+    #[cfg(any(not(feature = "vfs"), target_os = "windows"))]
     let _ = module;
     #[cfg(all(feature = "vfs", not(target_os = "windows")))]
     {
