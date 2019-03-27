@@ -59,7 +59,7 @@ pub fn ___syscall5(ctx: &mut Ctx, which: c_int, mut varargs: VarArgs) -> c_int {
 }
 
 /// link
-pub fn ___syscall9(_ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall9(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall9 (link) {}", _which);
     unimplemented!()
 }
@@ -79,13 +79,13 @@ pub fn ___syscall212(_ctx: &mut Ctx, which: c_int, mut _varargs: VarArgs) -> c_i
 }
 
 /// access
-pub fn ___syscall33(_ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall33(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
     unimplemented!()
 }
 
 /// nice
-pub fn ___syscall34(_ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall34(_ctx: &mut Ctx, _which: c_int, mut _varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall34 (nice) {}", _which);
     unimplemented!()
 }
