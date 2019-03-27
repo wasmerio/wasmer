@@ -1,6 +1,6 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
 use wasmer_runtime_core::{
-    backend::{Backend, FuncResolver, ProtectedCaller},
+    backend::{Backend, CompilerConfig, FuncResolver, ProtectedCaller},
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
