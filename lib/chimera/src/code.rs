@@ -8,6 +8,8 @@ use std::{
 };
 use wasmer_runtime_core::types::LocalFuncIndex;
 
+pub const CODE_MAGIC: u128 = 0x636f6465636f6465636f6465636f6465;
+
 pub trait KeepAlive: Send + 'static {}
 
 impl<T> KeepAlive for T where T: Send + 'static {}
@@ -28,6 +30,7 @@ unsafe impl ItemAlloc for CodeAlloc {
     }
 
     unsafe fn in_place(self, header: *mut Code) {
+        (*header).magic = CODE_MAGIC;
         (&mut (*header).keep_alive as *mut Box<dyn KeepAlive>).write(self.keep_alive);
         (&mut (*header).call_offsets as *mut Box<[CallOffset]>).write(Box::new([]));
         (*header).metadata = self.metadata;
@@ -49,6 +52,15 @@ pub struct Metadata {
 
 #[repr(C)]
 pub struct Code {
+    /// The magic is used as a way of finding the header from
+    /// an instruction pointer somewhere inside a block of code.
+    /// We can simply traverse upwards until we find the correct
+    /// magic value. It's 16 bytes long because we want to avoid
+    /// any possible false-positives in the actual machine code.
+    /// We also know that `Code` headers will be page aligned, so
+    /// we just have to check the first 16 bytes of every page above
+    /// the given instruction pointer.
+    magic: u128,
     pub keep_alive: Box<dyn KeepAlive>,
     pub call_offsets: Box<[CallOffset]>,
     pub metadata: Metadata,
@@ -76,6 +88,28 @@ impl Code {
     pub fn code_mut(&mut self) -> &mut [u8] {
         unsafe {
             slice::from_raw_parts_mut(self.code.as_mut_ptr(), self.metadata.code_size as usize)
+        }
+    }
+
+    /// Given an instruction pointer, locate the parent
+    /// block of code by iterating upwards on page boundries.
+    pub unsafe fn search_from_ip(ip: *const u8) -> NonNull<Code> {
+        /// Round `size` down to the nearest multiple of the page size.
+        fn round_down_to_page_size(size: usize) -> usize {
+            size & !(4096 - 1)
+        }
+
+        let mut possible_magic = round_down_to_page_size(ip as usize) as *const u8;
+
+        loop {
+            unsafe {
+                if *(possible_magic as *const u128) == CODE_MAGIC {
+                    break NonNull::new(possible_magic as *mut Code)
+                        .expect("null code ptr from search");
+                }
+
+                possible_magic = possible_magic.sub(4096);
+            }
         }
     }
 }

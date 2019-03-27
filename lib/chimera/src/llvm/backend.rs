@@ -208,8 +208,10 @@ impl Function {
         intrinsics: Intrinsics,
     ) -> AllocId<Code> {
         unsafe impl Sync for SyncTarget {}
-        /// I'm going to assume that TargetMachine is actually threadsafe.
+        /// I'm going to assume that Target is actually threadsafe.
         /// It might not be, but there's really no way of knowing.
+        /// I'd prefer to use `TargetMachine` here, but I tried that
+        /// and it _most definetly_ wasn't threadsafe.
         struct SyncTarget(Target);
 
         static TARGET: Lazy<(SyncTarget, String, String, String)> = Lazy::new(|| {

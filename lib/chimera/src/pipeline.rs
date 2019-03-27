@@ -29,7 +29,7 @@ impl<'wasm> InfoCollection<'wasm> {
         })
     }
 
-    pub fn run(mut self) -> Result<(ModuleInfo, BaselineCompile<'wasm>), BinaryReaderError> {
+    pub fn run(mut self) -> Result<(ModuleInfo, InitialCompile<'wasm>), BinaryReaderError> {
         let mut info = ModuleInfo {
             memories: Map::new(),
             globals: Map::new(),
@@ -61,7 +61,7 @@ impl<'wasm> InfoCollection<'wasm> {
             if self.reader.eof() {
                 return Ok((
                     info,
-                    BaselineCompile {
+                    InitialCompile {
                         reader: code_reader.unwrap(),
                     },
                 ));
@@ -296,11 +296,11 @@ impl<'wasm> InfoCollection<'wasm> {
     }
 }
 
-pub struct BaselineCompile<'wasm> {
+pub struct InitialCompile<'wasm> {
     reader: CodeSectionReader<'wasm>,
 }
 
-impl<'wasm> BaselineCompile<'wasm> {
+impl<'wasm> InitialCompile<'wasm> {
     pub fn run<R>(self, f: impl FnOnce(CodeSectionReader<'wasm>) -> R) -> R {
         f(self.reader)
     }

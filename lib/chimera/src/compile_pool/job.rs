@@ -20,10 +20,18 @@ pub enum Priority {
     Hot,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Mode {
+    Baseline,
+    Medium,
+    High(u8),
+}
+
 /// A `Job` represents the compilation of a function that will
 /// complete sometime in the future.
 pub struct Job {
     priority: Priority,
+    mode: Mode,
     func_index: LocalFuncIndex,
     alloc_pool: Arc<AllocPool>,
     sender: Sender<Result<AllocId<Code>, String>>,
@@ -34,11 +42,15 @@ impl Job {
         alloc_pool: Arc<AllocPool>,
         func_index: LocalFuncIndex,
         priority: Priority,
+        mode: Mode,
     ) -> impl Future<Output = Result<AllocId<Code>, String>> {
+        // Create an async, oneshot channel that will receive
+        // the compiled code at some point™️.
         let (sender, receiver) = oneshot::channel();
 
         Compiler.inject(Job {
             priority,
+            mode,
             func_index,
             alloc_pool,
             sender,
@@ -80,7 +92,7 @@ mod tests {
         let alloc_pool = Arc::new(AllocPool::new());
         let func_index = LocalFuncIndex::new(0);
 
-        let future_code = Job::create(alloc_pool, func_index, Priority::Hot);
+        let future_code = Job::create(alloc_pool, func_index, Priority::Hot, Mode::Baseline);
 
         assert!(futures::executor::block_on(future_code).is_ok());
     }
