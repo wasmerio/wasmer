@@ -152,13 +152,17 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
     module.instantiate(import_object)
 }
 
-fn default_compiler() -> &'static dyn Compiler {
+/// Get a single instance of the default compiler to use.
+pub fn default_compiler() -> &'static dyn Compiler {
     use lazy_static::lazy_static;
 
     #[cfg(feature = "llvm")]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(not(feature = "llvm"))]
+    #[cfg(feature = "dynasm")]
+    use wasmer_dynasm_backend::SinglePassCompiler as DefaultCompiler;
+
+    #[cfg(not(any(feature = "llvm", feature = "dynasm")))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     lazy_static! {

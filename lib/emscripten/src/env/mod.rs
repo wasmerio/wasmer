@@ -70,8 +70,8 @@ pub fn ___build_environment(ctx: &mut Ctx, environ: c_int) {
     // };
 }
 
-pub fn ___assert_fail(_ctx: &mut Ctx, a: c_int, b: c_int, c: c_int, d: c_int) {
-    debug!("emscripten::___assert_fail {} {} {} {}", a, b, c, d);
+pub fn ___assert_fail(_ctx: &mut Ctx, _a: c_int, _b: c_int, _c: c_int, _d: c_int) {
+    debug!("emscripten::___assert_fail {} {} {} {}", _a, _b, _c, _d);
     // TODO: Implement like emscripten expects regarding memory/page size
     // TODO raise an error
 }

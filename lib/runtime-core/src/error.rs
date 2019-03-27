@@ -3,7 +3,8 @@ use crate::types::{
     Value,
 };
 use core::borrow::Borrow;
-use std::{any::Any, sync::Arc};
+use std::any::Any;
+use std::sync::Arc;
 
 pub type Result<T> = std::result::Result<T, Error>;
 pub type CompileResult<T> = std::result::Result<T, CompileError>;

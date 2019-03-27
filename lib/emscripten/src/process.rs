@@ -1,10 +1,9 @@
 use libc::{abort, c_char, c_int, exit, EAGAIN};
 
 #[cfg(not(target_os = "windows"))]
-use libc::pid_t;
-
+type PidT = libc::pid_t;
 #[cfg(target_os = "windows")]
-type pid_t = c_int;
+type PidT = c_int;
 
 use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
@@ -22,7 +21,7 @@ pub fn _abort(_ctx: &mut Ctx) {
     }
 }
 
-pub fn _fork(_ctx: &mut Ctx) -> pid_t {
+pub fn _fork(_ctx: &mut Ctx) -> PidT {
     debug!("emscripten::_fork");
     // unsafe {
     //     fork()
@@ -98,7 +97,7 @@ pub fn _sem_wait(_ctx: &mut Ctx, _one: i32) -> i32 {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getgrent(ctx: &mut Ctx) -> c_int {
+pub fn _getgrent(_ctx: &mut Ctx) -> c_int {
     debug!("emscripten::_getgrent");
     -1
 }
@@ -119,6 +118,11 @@ pub fn _setitimer(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32) -> i32 {
 
 pub fn _usleep(_ctx: &mut Ctx, _one: i32) -> i32 {
     debug!("emscripten::_usleep");
+    -1
+}
+
+pub fn _nanosleep(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::_nanosleep");
     -1
 }
 

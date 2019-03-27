@@ -13,32 +13,8 @@ use std::{ffi::c_void, mem, ptr};
 #[derive(Debug)]
 #[repr(C)]
 pub struct Ctx {
-    /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
-    pub(crate) memories: *mut *mut LocalMemory,
-
-    /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
-    pub(crate) tables: *mut *mut LocalTable,
-
-    /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
-    pub(crate) globals: *mut *mut LocalGlobal,
-
-    /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-    pub(crate) imported_memories: *mut *mut LocalMemory,
-
-    /// A pointer to an array of imported tables, indexed by `TableIndex`.
-    pub(crate) imported_tables: *mut *mut LocalTable,
-
-    /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-    pub(crate) imported_globals: *mut *mut LocalGlobal,
-
-    /// A pointer to an array of imported functions, indexed by `FuncIndex`.
-    pub(crate) imported_funcs: *mut ImportedFunc,
-
-    /// A pointer to an array of signature ids. Conceptually, this maps
-    /// from a static, module-local signature id to a runtime-global
-    /// signature id. This is used to allow call-indirect to other
-    /// modules safely.
-    pub(crate) dynamic_sigindices: *const SigId,
+    // `internal` must be the first field of `Ctx`.
+    pub(crate) internal: InternalCtx,
 
     pub(crate) local_functions: *const *const Func,
 
@@ -50,6 +26,41 @@ pub struct Ctx {
     pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
 }
 
+/// The internal context of the currently running WebAssembly instance.
+///
+///
+#[doc(hidden)]
+#[derive(Debug)]
+#[repr(C)]
+pub struct InternalCtx {
+    /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
+    pub memories: *mut *mut LocalMemory,
+
+    /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
+    pub tables: *mut *mut LocalTable,
+
+    /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
+    pub globals: *mut *mut LocalGlobal,
+
+    /// A pointer to an array of imported memories, indexed by `MemoryIndex,
+    pub imported_memories: *mut *mut LocalMemory,
+
+    /// A pointer to an array of imported tables, indexed by `TableIndex`.
+    pub imported_tables: *mut *mut LocalTable,
+
+    /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
+    pub imported_globals: *mut *mut LocalGlobal,
+
+    /// A pointer to an array of imported functions, indexed by `FuncIndex`.
+    pub imported_funcs: *mut ImportedFunc,
+
+    /// A pointer to an array of signature ids. Conceptually, this maps
+    /// from a static, module-local signature id to a runtime-global
+    /// signature id. This is used to allow call-indirect to other
+    /// modules safely.
+    pub dynamic_sigindices: *const SigId,
+}
+
 impl Ctx {
     #[doc(hidden)]
     pub unsafe fn new(
@@ -58,16 +69,18 @@ impl Ctx {
         module: &ModuleInner,
     ) -> Self {
         Self {
-            memories: local_backing.vm_memories.as_mut_ptr(),
-            tables: local_backing.vm_tables.as_mut_ptr(),
-            globals: local_backing.vm_globals.as_mut_ptr(),
+            internal: InternalCtx {
+                memories: local_backing.vm_memories.as_mut_ptr(),
+                tables: local_backing.vm_tables.as_mut_ptr(),
+                globals: local_backing.vm_globals.as_mut_ptr(),
 
-            imported_memories: import_backing.vm_memories.as_mut_ptr(),
-            imported_tables: import_backing.vm_tables.as_mut_ptr(),
-            imported_globals: import_backing.vm_globals.as_mut_ptr(),
-            imported_funcs: import_backing.vm_functions.as_mut_ptr(),
+                imported_memories: import_backing.vm_memories.as_mut_ptr(),
+                imported_tables: import_backing.vm_tables.as_mut_ptr(),
+                imported_globals: import_backing.vm_globals.as_mut_ptr(),
+                imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
-            dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+                dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+            },
             local_functions: local_backing.local_functions.as_ptr(),
 
             local_backing,
@@ -88,16 +101,18 @@ impl Ctx {
         data_finalizer: extern "C" fn(*mut c_void),
     ) -> Self {
         Self {
-            memories: local_backing.vm_memories.as_mut_ptr(),
-            tables: local_backing.vm_tables.as_mut_ptr(),
-            globals: local_backing.vm_globals.as_mut_ptr(),
+            internal: InternalCtx {
+                memories: local_backing.vm_memories.as_mut_ptr(),
+                tables: local_backing.vm_tables.as_mut_ptr(),
+                globals: local_backing.vm_globals.as_mut_ptr(),
 
-            imported_memories: import_backing.vm_memories.as_mut_ptr(),
-            imported_tables: import_backing.vm_tables.as_mut_ptr(),
-            imported_globals: import_backing.vm_globals.as_mut_ptr(),
-            imported_funcs: import_backing.vm_functions.as_mut_ptr(),
+                imported_memories: import_backing.vm_memories.as_mut_ptr(),
+                imported_tables: import_backing.vm_tables.as_mut_ptr(),
+                imported_globals: import_backing.vm_globals.as_mut_ptr(),
+                imported_funcs: import_backing.vm_functions.as_mut_ptr(),
 
-            dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+                dynamic_sigindices: local_backing.dynamic_sigindices.as_ptr(),
+            },
             local_functions: local_backing.local_functions.as_ptr(),
 
             local_backing,
@@ -333,43 +348,45 @@ impl Anyfunc {
 
 #[cfg(test)]
 mod vm_offset_tests {
-    use super::{Anyfunc, Ctx, ImportedFunc, LocalGlobal, LocalMemory, LocalTable};
+    use super::{Anyfunc, Ctx, ImportedFunc, InternalCtx, LocalGlobal, LocalMemory, LocalTable};
 
     #[test]
     fn vmctx() {
+        assert_eq!(0usize, offset_of!(Ctx => internal).get_byte_offset(),);
+
         assert_eq!(
             Ctx::offset_memories() as usize,
-            offset_of!(Ctx => memories).get_byte_offset(),
+            offset_of!(InternalCtx => memories).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_tables() as usize,
-            offset_of!(Ctx => tables).get_byte_offset(),
+            offset_of!(InternalCtx => tables).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_globals() as usize,
-            offset_of!(Ctx => globals).get_byte_offset(),
+            offset_of!(InternalCtx => globals).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_memories() as usize,
-            offset_of!(Ctx => imported_memories).get_byte_offset(),
+            offset_of!(InternalCtx => imported_memories).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_tables() as usize,
-            offset_of!(Ctx => imported_tables).get_byte_offset(),
+            offset_of!(InternalCtx => imported_tables).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_globals() as usize,
-            offset_of!(Ctx => imported_globals).get_byte_offset(),
+            offset_of!(InternalCtx => imported_globals).get_byte_offset(),
         );
 
         assert_eq!(
             Ctx::offset_imported_funcs() as usize,
-            offset_of!(Ctx => imported_funcs).get_byte_offset(),
+            offset_of!(InternalCtx => imported_funcs).get_byte_offset(),
         );
 
         assert_eq!(

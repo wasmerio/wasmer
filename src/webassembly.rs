@@ -4,6 +4,7 @@ use wasmer_runtime::{
     error::{CallResult, Result},
     ImportObject, Instance, Module,
 };
+use wasmer_runtime_core::types::Value;
 
 use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
 
@@ -86,7 +87,11 @@ pub fn run_instance(
     if is_emscripten_module(module) {
         run_emscripten_instance(module, instance, path, args)?;
     } else {
-        instance.call("main", &[])?;
+        let args: Vec<Value> = args
+            .into_iter()
+            .map(|x| Value::I32(x.parse().unwrap()))
+            .collect();
+        instance.call("main", &args)?;
     };
 
     Ok(())

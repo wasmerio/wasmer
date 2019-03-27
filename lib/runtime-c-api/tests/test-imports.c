@@ -117,7 +117,7 @@ int main()
     wasmer_import_t imports[] = {func_import, global_import, memory_import, table_import};
 
     // Read the wasm file bytes
-    FILE *file = fopen("hello_wasm.wasm", "r");
+    FILE *file = fopen("assets/hello_wasm.wasm", "r");
     fseek(file, 0, SEEK_END);
     long len = ftell(file);
     uint8_t *bytes = malloc(len);
@@ -127,7 +127,7 @@ int main()
 
     // Creates a WebAssembly Instance from wasm bytes and imports
     wasmer_instance_t *instance = NULL;
-    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 3);
+    wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 4);
     printf("Compile result:  %d\n", compile_result);
     if (compile_result != WASMER_OK)
     {

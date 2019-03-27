@@ -61,6 +61,10 @@ struct wasmer_export_t {
 
 };
 
+struct wasmer_memory_t {
+
+};
+
 struct wasmer_exports_t {
 
 };
@@ -87,10 +91,6 @@ struct wasmer_import_func_t {
 };
 
 struct wasmer_instance_t {
-
-};
-
-struct wasmer_memory_t {
 
 };
 
@@ -124,6 +124,10 @@ struct wasmer_limit_option_t {
 struct wasmer_limits_t {
   uint32_t min;
   wasmer_limit_option_t max;
+};
+
+struct wasmer_serialized_module_t {
+
 };
 
 extern "C" {
@@ -205,6 +209,12 @@ wasmer_byte_array wasmer_export_name(wasmer_export_t *export_);
 
 /// Gets export func from export
 const wasmer_export_func_t *wasmer_export_to_func(const wasmer_export_t *export_);
+
+/// Gets a memory pointer from an export pointer.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_export_to_memory(const wasmer_export_t *export_, wasmer_memory_t **memory);
 
 /// Frees the memory for the given exports
 void wasmer_exports_destroy(wasmer_exports_t *exports);
@@ -307,6 +317,13 @@ wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                      wasmer_value_t *results,
                                      int results_len);
 
+/// Gets the `data` field within the context.
+void *wasmer_instance_context_data_get(const wasmer_instance_context_t *ctx);
+
+/// Sets the `data` field of the instance context. This context will be
+/// passed to all imported function for instance.
+void wasmer_instance_context_data_set(wasmer_instance_t *instance, void *data_ptr);
+
 /// Gets the memory within the context at the index `memory_idx`.
 /// The index is always 0 until multiple memories are supported.
 const wasmer_memory_t *wasmer_instance_context_memory(const wasmer_instance_context_t *ctx,
@@ -378,6 +395,13 @@ uint32_t wasmer_memory_length(const wasmer_memory_t *memory);
 /// and `wasmer_last_error_message` to get an error message.
 wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
 
+/// Deserialize the given serialized module.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_module_deserialize(wasmer_module_t **module,
+                                          const wasmer_serialized_module_t *serialized_module);
+
 /// Frees memory for the given Module
 void wasmer_module_destroy(wasmer_module_t *module);
 
@@ -389,6 +413,29 @@ wasmer_result_t wasmer_module_instantiate(const wasmer_module_t *module,
                                           wasmer_instance_t **instance,
                                           wasmer_import_t *imports,
                                           int imports_len);
+
+/// Serialize the given Module.
+/// The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_module_serialize(wasmer_serialized_module_t **serialized_module,
+                                        const wasmer_module_t *module);
+
+/// Get bytes of the serialized module.
+wasmer_byte_array wasmer_serialized_module_bytes(const wasmer_serialized_module_t *serialized_module);
+
+/// Frees memory for the given serialized Module.
+void wasmer_serialized_module_destroy(wasmer_serialized_module_t *serialized_module);
+
+/// Transform a sequence of bytes into a serialized module.
+/// The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_serialized_module_from_bytes(wasmer_serialized_module_t **serialized_module,
+                                                    const uint8_t *serialized_module_bytes,
+                                                    uint32_t serialized_module_bytes_length);
 
 /// Frees memory for the given Table
 void wasmer_table_destroy(wasmer_table_t *table);
@@ -411,7 +458,7 @@ uint32_t wasmer_table_length(wasmer_table_t *table);
 wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits);
 
 /// Returns true for valid wasm bytes and false for invalid bytes
-bool wasmer_validate(uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
+bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 
 } // extern "C"
 

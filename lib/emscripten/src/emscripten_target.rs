@@ -1,15 +1,34 @@
+#![allow(non_snake_case)]
+
 use crate::env::get_emscripten_data;
+#[cfg(target_os = "linux")]
+use libc::getdtablesize;
 use wasmer_runtime_core::vm::Ctx;
 
-pub fn setTempRet0(ctx: &mut Ctx, a: i32) {
+pub fn setTempRet0(_ctx: &mut Ctx, _a: i32) {
     debug!("emscripten::setTempRet0");
 }
-pub fn getTempRet0(ctx: &mut Ctx) -> i32 {
+pub fn getTempRet0(_ctx: &mut Ctx) -> i32 {
     debug!("emscripten::getTempRet0");
     0
 }
-pub fn nullFunc_ji(ctx: &mut Ctx, a: i32) {
+pub fn nullFunc_d(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_d");
+}
+pub fn nullFunc_ji(_ctx: &mut Ctx, _a: i32) {
     debug!("emscripten::nullFunc_ji");
+}
+pub fn nullFunc_viidii(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_viidii");
+}
+pub fn nullFunc_iiiiiii(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_iiiiiii");
+}
+pub fn nullFunc_iiiiiiii(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_iiiiiiii");
+}
+pub fn nullFunc_iiiiiiiiii(_ctx: &mut Ctx, _a: i32) {
+    debug!("emscripten::nullFunc_iiiiiiiiii");
 }
 pub fn invoke_i(ctx: &mut Ctx, index: i32) -> i32 {
     debug!("emscripten::invoke_i");
@@ -83,158 +102,269 @@ pub fn invoke_viiii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i3
         panic!("dyn_call_viiii is set to None");
     }
 }
-pub fn __Unwind_Backtrace(ctx: &mut Ctx, a: i32, b: i32) -> i32 {
+pub fn __Unwind_Backtrace(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::__Unwind_Backtrace");
     0
 }
-pub fn __Unwind_FindEnclosingFunction(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn __Unwind_FindEnclosingFunction(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::__Unwind_FindEnclosingFunction");
     0
 }
-pub fn __Unwind_GetIPInfo(ctx: &mut Ctx, a: i32, b: i32) -> i32 {
+pub fn __Unwind_GetIPInfo(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::__Unwind_GetIPInfo");
     0
 }
-pub fn ___cxa_find_matching_catch_2(ctx: &mut Ctx) -> i32 {
+pub fn ___cxa_find_matching_catch_2(_ctx: &mut Ctx) -> i32 {
     debug!("emscripten::___cxa_find_matching_catch_2");
     0
 }
-pub fn ___cxa_find_matching_catch_3(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn ___cxa_find_matching_catch_3(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::___cxa_find_matching_catch_3");
     0
 }
-pub fn ___cxa_free_exception(ctx: &mut Ctx, a: i32) {
+pub fn ___cxa_free_exception(_ctx: &mut Ctx, _a: i32) {
     debug!("emscripten::___cxa_free_exception");
 }
-pub fn ___resumeException(ctx: &mut Ctx, a: i32) {
+pub fn ___resumeException(_ctx: &mut Ctx, _a: i32) {
     debug!("emscripten::___resumeException");
 }
-pub fn _dladdr(ctx: &mut Ctx, a: i32, b: i32) -> i32 {
+pub fn _dladdr(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_dladdr");
     0
 }
-pub fn _pthread_cond_destroy(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_cond_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_cond_destroy");
     0
 }
-pub fn _pthread_cond_init(ctx: &mut Ctx, a: i32, b: i32) -> i32 {
+pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
+    debug!("emscripten::_pthread_create");
+    0
+}
+pub fn _pthread_join(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_pthread_join");
+    0
+}
+pub fn _pthread_cond_init(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_pthread_cond_init");
     0
 }
-pub fn _pthread_cond_signal(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_cond_signal(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_cond_signal");
     0
 }
-pub fn _pthread_cond_wait(ctx: &mut Ctx, a: i32, b: i32) -> i32 {
+pub fn _pthread_cond_wait(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_pthread_cond_wait");
     0
 }
-pub fn _pthread_condattr_destroy(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_condattr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_condattr_destroy");
     0
 }
-pub fn _pthread_condattr_init(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_condattr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_condattr_init");
     0
 }
-pub fn _pthread_condattr_setclock(ctx: &mut Ctx, a: i32, b: i32) -> i32 {
+pub fn _pthread_condattr_setclock(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_pthread_condattr_setclock");
     0
 }
-pub fn _pthread_mutex_destroy(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_mutex_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_mutex_destroy");
     0
 }
-pub fn _pthread_mutex_init(ctx: &mut Ctx, a: i32, b: i32) -> i32 {
+pub fn _pthread_mutex_init(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_pthread_mutex_init");
     0
 }
-pub fn _pthread_mutexattr_destroy(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_mutexattr_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_mutexattr_destroy");
     0
 }
-pub fn _pthread_mutexattr_init(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_mutexattr_init(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_mutexattr_init");
     0
 }
-pub fn _pthread_mutexattr_settype(ctx: &mut Ctx, a: i32, b: i32) -> i32 {
+pub fn _pthread_mutexattr_settype(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
     debug!("emscripten::_pthread_mutexattr_settype");
     0
 }
-pub fn _pthread_rwlock_rdlock(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_rwlock_rdlock(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_rwlock_rdlock");
     0
 }
-pub fn _pthread_rwlock_unlock(ctx: &mut Ctx, a: i32) -> i32 {
+pub fn _pthread_rwlock_unlock(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_rwlock_unlock");
     0
 }
-pub fn ___gxx_personality_v0(ctx: &mut Ctx, a: i32, b: i32, c: i32, d: i32, e: i32, f: i32) -> i32 {
+pub fn _pthread_setcancelstate(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_pthread_setcancelstate");
+    0
+}
+pub fn ___gxx_personality_v0(
+    _ctx: &mut Ctx,
+    _a: i32,
+    _b: i32,
+    _c: i32,
+    _d: i32,
+    _e: i32,
+    _f: i32,
+) -> i32 {
     debug!("emscripten::___gxx_personality_v0");
     0
 }
+#[cfg(target_os = "linux")]
+pub fn _getdtablesize(_ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::getdtablesize");
+    unsafe { getdtablesize() }
+}
+#[cfg(not(target_os = "linux"))]
+pub fn _getdtablesize(_ctx: &mut Ctx) -> i32 {
+    debug!("emscripten::getdtablesize");
+    -1
+}
+pub fn _gethostbyaddr(_ctx: &mut Ctx, _addr: i32, _addrlen: i32, _atype: i32) -> i32 {
+    debug!("emscripten::gethostbyaddr");
+    0
+}
+pub fn _gethostbyname_r(
+    _ctx: &mut Ctx,
+    _name: i32,
+    _ret: i32,
+    _buf: i32,
+    _buflen: i32,
+    _out: i32,
+    _err: i32,
+) -> i32 {
+    debug!("emscripten::gethostbyname_r");
+    0
+}
+// NOTE: php.js has proper impl; libc has proper impl for linux
+pub fn _getloadavg(_ctx: &mut Ctx, _loadavg: i32, _nelem: i32) -> i32 {
+    debug!("emscripten::getloadavg");
+    0
+}
 // round 2
-pub fn nullFunc_dii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_di(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_di");
+}
+pub fn nullFunc_dii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_dii");
 }
-pub fn nullFunc_diiii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_diiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_diiii");
 }
-pub fn nullFunc_iiji(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_iiji(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_iiji");
 }
-pub fn nullFunc_j(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_iiid(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiid");
+}
+pub fn nullFunc_iij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iij");
+}
+pub fn nullFunc_iiiiiiiii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiiiiiii");
+}
+pub fn nullFunc_iiiiiiiiiii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiiiiiiiii");
+}
+pub fn nullFunc_iiiiijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiiijii");
+}
+pub fn nullFunc_iiiijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiijii");
+}
+pub fn nullFunc_iiiij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiij");
+}
+pub fn nullFunc_iiij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiij");
+}
+pub fn nullFunc_iijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iijii");
+}
+pub fn nullFunc_iijj(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iijj");
+}
+pub fn nullFunc_iiiiji(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_iiiiji");
+}
+pub fn nullFunc_ij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_ij");
+}
+pub fn nullFunc_j(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_j");
 }
-pub fn nullFunc_jij(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_jij(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_jij");
 }
-pub fn nullFunc_jjj(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_jj(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_jj");
+}
+pub fn nullFunc_jjj(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_jjj");
 }
-pub fn nullFunc_vd(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_jii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_jii");
+}
+pub fn nullFunc_jiij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_jiij");
+}
+pub fn nullFunc_vd(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_vd");
 }
-pub fn nullFunc_viiiiiii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_vid(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_vid");
+}
+pub fn nullFunc_viiiiiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiiiiii");
 }
-pub fn nullFunc_viiiiiiii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viiiij(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_viiiij");
+}
+pub fn nullFunc_viiiiiiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiiiiiii");
 }
-pub fn nullFunc_viiiiiiiii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viiiiiiiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiiiiiiii");
 }
-pub fn nullFunc_viiij(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viiij(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiij");
 }
-pub fn nullFunc_viiijiiii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viiijiiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiijiiii");
 }
-pub fn nullFunc_viiijiiiiii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viiijiiiiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiijiiiiii");
 }
-pub fn nullFunc_viij(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viij(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viij");
 }
-pub fn nullFunc_viiji(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_viijii");
+}
+pub fn nullFunc_viiji(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viiji");
 }
-pub fn nullFunc_viijiii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_vijii(_ctx: &mut Ctx, _index: i32) {
+    debug!("emscripten::nullFunc_vijii");
+}
+pub fn nullFunc_viijiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viijiii");
 }
-pub fn nullFunc_viijj(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viijj(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viijj");
 }
-pub fn nullFunc_vij(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_vij(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_vij");
 }
-pub fn nullFunc_viji(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_viji(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_viji");
 }
-pub fn nullFunc_vijiii(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_vijiii(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_vijiii");
 }
-pub fn nullFunc_vijj(ctx: &mut Ctx, index: i32) {
+pub fn nullFunc_vijj(_ctx: &mut Ctx, _index: i32) {
     debug!("emscripten::nullFunc_vijj");
 }
 pub fn invoke_dii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) -> f64 {
@@ -275,6 +405,67 @@ pub fn invoke_iiiiii(
         dyn_call_iiiiii.call(index, a1, a2, a3, a4, a5).unwrap()
     } else {
         panic!("dyn_call_iiiiii is set to None");
+    }
+}
+pub fn invoke_iiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiiiiii");
+    if let Some(dyn_call_iiiiiii) = &get_emscripten_data(ctx).dyn_call_iiiiiii {
+        dyn_call_iiiiiii
+            .call(index, a1, a2, a3, a4, a5, a6)
+            .unwrap()
+    } else {
+        panic!("dyn_call_iiiiiii is set to None");
+    }
+}
+pub fn invoke_iiiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiiiiiii");
+    if let Some(dyn_call_iiiiiiii) = &get_emscripten_data(ctx).dyn_call_iiiiiiii {
+        dyn_call_iiiiiiii
+            .call(index, a1, a2, a3, a4, a5, a6, a7)
+            .unwrap()
+    } else {
+        panic!("dyn_call_iiiiiiii is set to None");
+    }
+}
+pub fn invoke_iiiiiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiiiiiiiii");
+    if let Some(dyn_call_iiiiiiiiii) = &get_emscripten_data(ctx).dyn_call_iiiiiiiiii {
+        dyn_call_iiiiiiiiii
+            .call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+            .unwrap()
+    } else {
+        panic!("dyn_call_iiiiiiiiii is set to None");
     }
 }
 pub fn invoke_vd(ctx: &mut Ctx, index: i32, a1: f64) {
@@ -561,5 +752,13 @@ pub fn invoke_vijj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32
         dyn_call_vijj.call(index, a1, a2, a3, a4, a5).unwrap()
     } else {
         panic!("dyn_call_vijj is set to None");
+    }
+}
+pub fn invoke_viidii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: f64, a4: i32, a5: i32) {
+    debug!("emscripten::invoke_viidii");
+    if let Some(dyn_call_viidii) = &get_emscripten_data(ctx).dyn_call_viidii {
+        dyn_call_viidii.call(index, a1, a2, a3, a4, a5).unwrap();
+    } else {
+        panic!("dyn_call_viidii is set to None");
     }
 }
