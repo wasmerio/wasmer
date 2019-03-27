@@ -117,7 +117,7 @@ int main()
     wasmer_import_t imports[] = {func_import, global_import, memory_import, table_import};
 
     // Read the wasm file bytes
-    FILE *file = fopen("hello_wasm.wasm", "r");
+    FILE *file = fopen("assets/hello_wasm.wasm", "r");
     fseek(file, 0, SEEK_END);
     long len = ftell(file);
     uint8_t *bytes = malloc(len);
