@@ -481,7 +481,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     }
 
     let module = &*(module as *const Module);
-    let new_instance = if let Ok(res) = module.instantiate(&import_object) {
+    let new_instance = if let Ok(res) = module.instantiate(&import_object, None) {
         res
     } else {
         update_last_error(CApiError {
