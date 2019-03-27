@@ -2,7 +2,7 @@ extern crate wasmer_runtime;
 extern crate wasmer_runtime_core;
 
 use libc::{c_char, c_int, int32_t, int64_t, uint32_t, uint8_t};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::CStr;
@@ -1409,6 +1409,34 @@ pub unsafe extern "C" fn wasmer_export_to_func(
     export as *const wasmer_export_func_t
 }
 
+/// Gets a memory pointer from an export pointer.
+///
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+///
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_export_to_memory(
+    export: *const wasmer_export_t,
+    memory: *mut *mut wasmer_memory_t,
+) -> wasmer_result_t {
+    let named_export = &*(export as *const NamedExport);
+    let export = &named_export.export;
+
+    if let Export::Memory(exported_memory) = export {
+        *memory = exported_memory as *const Memory as *mut wasmer_memory_t;
+        wasmer_result_t::WASMER_OK
+    } else {
+        update_last_error(CApiError {
+            msg: "cannot cast the `wasmer_export_t` pointer to a  `wasmer_memory_t` \
+                  pointer because it does not represent a memory export."
+                .to_string(),
+        });
+        wasmer_result_t::WASMER_ERROR
+    }
+}
+
 /// Gets name from wasmer_export
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
@@ -1517,9 +1545,8 @@ pub extern "C" fn wasmer_instance_context_data_get(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_data(mem: *const wasmer_memory_t) -> *mut uint8_t {
-    let memory = mem as *const Memory;
-    use std::cell::Cell;
-    unsafe { ((*memory).view::<u8>()[..]).as_ptr() as *mut Cell<u8> as *mut u8 }
+    let memory = unsafe { &*(mem as *const Memory) };
+    memory.view::<u8>()[..].as_ptr() as *mut Cell<u8> as *mut u8
 }
 
 /// Gets the size in bytes of a Memory
