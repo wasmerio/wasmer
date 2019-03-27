@@ -6,7 +6,7 @@ use inkwell::{
     OptimizationLevel,
 };
 use wasmer_runtime_core::{
-    backend::{Compiler, Token},
+    backend::{Compiler, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     error::CompileError,
     module::ModuleInner,
@@ -32,10 +32,15 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
-    fn compile(&self, wasm: &[u8], _: Token) -> Result<ModuleInner, CompileError> {
+    fn compile(
+        &self,
+        wasm: &[u8],
+        compiler_config: CompilerConfig,
+        _: Token,
+    ) -> Result<ModuleInner, CompileError> {
         validate(wasm)?;
 
-        let (info, code_reader) = read_info::read_module(wasm).unwrap();
+        let (info, code_reader) = read_info::read_module(wasm, &compiler_config).unwrap();
         let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
         let (backend, protected_caller) = backend::LLVMBackend::new(module, intrinsics);

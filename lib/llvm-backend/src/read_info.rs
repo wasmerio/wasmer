@@ -1,5 +1,5 @@
 use wasmer_runtime_core::{
-    backend::Backend,
+    backend::{Backend, CompilerConfig},
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -18,7 +18,10 @@ use wasmparser::{
     SectionCode, Type as WpType,
 };
 
-pub fn read_module(wasm: &[u8]) -> Result<(ModuleInfo, CodeSectionReader), BinaryReaderError> {
+pub fn read_module(
+    wasm: &[u8],
+    compiler_config: &CompilerConfig,
+) -> Result<(ModuleInfo, CodeSectionReader), BinaryReaderError> {
     let mut info = ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),
@@ -42,6 +45,8 @@ pub fn read_module(wasm: &[u8]) -> Result<(ModuleInfo, CodeSectionReader), Binar
 
         namespace_table: StringTable::new(),
         name_table: StringTable::new(),
+
+        em_symbol_map: compiler_config.symbol_map.clone(),
     };
 
     let mut reader = ModuleReader::new(wasm)?;
