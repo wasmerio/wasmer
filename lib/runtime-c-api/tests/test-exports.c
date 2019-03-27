@@ -17,14 +17,14 @@ int main()
     wasmer_import_t imports[] = {};
     wasmer_instance_t *instance = NULL;
     wasmer_result_t compile_result = wasmer_instantiate(&instance, bytes, len, imports, 0);
-    printf("Compile result:  %d\n", compile_result);
+    printf("Compile result: %d\n", compile_result);
     assert(compile_result == WASMER_OK);
 
     wasmer_exports_t *exports = NULL;
     wasmer_instance_exports(instance, &exports);
 
     int exports_len = wasmer_exports_len(exports);
-    printf("exports_len:  %d\n", exports_len);
+    printf("exports_len: %d\n", exports_len);
     assert(exports_len == 1);
 
     wasmer_export_t *export = wasmer_exports_get(exports, 0);
