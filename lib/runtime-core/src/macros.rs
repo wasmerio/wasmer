@@ -78,7 +78,7 @@ macro_rules! __imports_internal {
 
 #[macro_export]
 #[doc(hidden)]
-macro_rules! ecapseman {
+macro_rules! namespace {
     ( $( $imp_name:expr => $import_item:expr, )* ) => {{
         let mut ns = $crate::import::Namespace::new();
         $(

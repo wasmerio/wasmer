@@ -424,7 +424,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         func!(crate::memory::abort_on_cannot_grow_memory).to_export()
     };
 
-    let mut env_ns = ecapseman! {
+    let mut env_ns = namespace! {
         "memory" => Export::Memory(globals.memory.clone()),
         "table" => Export::Table(globals.table.clone()),
 
