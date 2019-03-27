@@ -61,6 +61,10 @@ struct wasmer_export_t {
 
 };
 
+struct wasmer_memory_t {
+
+};
+
 struct wasmer_exports_t {
 
 };
@@ -91,10 +95,6 @@ struct wasmer_instance_t {
 };
 
 struct wasmer_instance_context_t {
-
-};
-
-struct wasmer_memory_t {
 
 };
 
@@ -209,6 +209,12 @@ wasmer_byte_array wasmer_export_name(wasmer_export_t *export_);
 
 /// Gets export func from export
 const wasmer_export_func_t *wasmer_export_to_func(const wasmer_export_t *export_);
+
+/// Gets a memory pointer from an export pointer.
+/// Returns `wasmer_result_t::WASMER_OK` upon success.
+/// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+/// and `wasmer_last_error_message` to get an error message.
+wasmer_result_t wasmer_export_to_memory(const wasmer_export_t *export_, wasmer_memory_t **memory);
 
 /// Frees the memory for the given exports
 void wasmer_exports_destroy(wasmer_exports_t *exports);
