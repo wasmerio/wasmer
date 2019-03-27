@@ -27,6 +27,7 @@ mod file_descriptor;
 pub mod stdio;
 
 // EMSCRIPTEN APIS
+mod bitwise;
 mod emscripten_target;
 mod env;
 mod errno;
@@ -627,6 +628,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "__setjmp" => func!(crate::jmp::__setjmp),
         "__longjmp" => func!(crate::jmp::__longjmp),
         "_longjmp" => func!(crate::jmp::__longjmp),
+
+        // Bitwise
+        "_llvm_bswap_i64" => func!(crate::bitwise::_llvm_bswap_i64),
 
         // Linking
         "_dlclose" => func!(crate::linking::_dlclose),

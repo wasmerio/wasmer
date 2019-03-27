@@ -209,9 +209,11 @@ pub fn ___syscall110(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 }
 
 // getcwd
-pub fn ___syscall183(ctx: &mut Ctx, buf_offset: u32, _size: u32) -> u32 {
+pub fn ___syscall183(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall183");
     use std::env;
+    let buf_offset: c_int = varargs.get(ctx);
+    let _size: c_int = varargs.get(ctx);
     let path = env::current_dir();
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
