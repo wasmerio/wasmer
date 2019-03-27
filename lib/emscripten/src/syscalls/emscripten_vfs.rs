@@ -102,9 +102,7 @@ impl EmscriptenVfs {
         match self.fd_map.get(&fd) {
             Some(FileHandle::Vf(file)) => {
                 let mut mut_ref = RefCell::borrow_mut(file);
-                mut_ref
-                    .write_file(buf_slice, 0)
-                    .map_err(|e| EmscriptenVfsError::Io(e))
+                mut_ref.write_file(buf_slice, 0).into()
             }
             Some(FileHandle::Socket(host_fd)) => unsafe {
                 let result = libc::write(*host_fd, buf_slice.as_ptr() as _, count as _);
@@ -148,4 +146,10 @@ pub enum EmscriptenVfsError {
     Io(io::Error),
     Errno(errno::Errno),
     FileSystemError,
+}
+
+impl From<io::Error> for EmscriptenVfsError {
+    fn from(io_error: io::Error) -> Self {
+        EmscriptenVfsError::Io(io_error)
+    }
 }
