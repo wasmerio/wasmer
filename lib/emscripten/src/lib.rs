@@ -316,6 +316,7 @@ pub struct EmscriptenGlobals {
     pub table: Table,
     pub memory_min: Pages,
     pub memory_max: Option<Pages>,
+    pub null_func_names: Vec<String>,
 }
 
 impl EmscriptenGlobals {
@@ -389,12 +390,29 @@ impl EmscriptenGlobals {
 
         emscripten_set_up_memory(&memory, &data);
 
+        let mut null_func_names = vec![];
+        for (
+            _,
+            ImportName {
+                namespace_index,
+                name_index,
+            },
+        ) in &module.info().imported_functions
+            {
+                let namespace = module.info().namespace_table.get(*namespace_index);
+                let name = module.info().name_table.get(*name_index);
+                if namespace == "env" && name.starts_with("nullFunc_") {
+                    null_func_names.push(name.to_string())
+                }
+            }
+
         Self {
             data,
             memory,
             table,
             memory_min,
             memory_max,
+            null_func_names,
         }
     }
 }
@@ -406,8 +424,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         func!(crate::memory::abort_on_cannot_grow_memory).to_export()
     };
 
-    imports! {
-        "env" => {
+    let mut env_ns = ecapseman! {
             "memory" => Export::Memory(globals.memory.clone()),
             "table" => Export::Table(globals.table.clone()),
 
@@ -753,7 +770,14 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
             "invoke_vijiii" => func!(crate::emscripten_target::invoke_vijiii),
             "invoke_vijj" => func!(crate::emscripten_target::invoke_vijj),
             "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
-        },
+        };
+
+    for null_func_name in globals.null_func_names.iter() {
+        env_ns.insert(null_func_name.as_str(), Func::new(nullfunc_x).to_export());
+    }
+
+    let import_object: ImportObject = imports! {
+        "env" => env_ns,
         "global" => {
           "NaN" => Global::new(Value::F64(f64::NAN)),
           "Infinity" => Global::new(Value::F64(f64::INFINITY)),
@@ -766,8 +790,17 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "asm2wasm" => {
             "f64-rem" => func!(crate::math::f64_rem),
         },
-    }
+    };
+
+    import_object
+}
+
+pub fn nullfunc_x(ctx: &mut Ctx, _x: u32) {
+    use crate::process::abort_with_message;
+    debug!("emscripten::nullfunc_i {}", _x);
+    abort_with_message(ctx, "Invalid function pointer called with signature 'i'. Perhaps this is an invalid value (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an incorrect type, which will fail? (it is worth building your source files with -Werror (warnings are errors), as warnings can indicate undefined behavior which can cause this)");
 }
 
 /// The current version of this crate
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
