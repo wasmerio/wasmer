@@ -295,7 +295,7 @@ pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
 /// madvise
 pub fn ___syscall219(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall212 (chown) {}", _which);
+    debug!("emscripten::___syscall212 (madvise) {}", _which);
 
     let addr_ptr: c_int = varargs.get(ctx);
     let len: usize = varargs.get(ctx);
