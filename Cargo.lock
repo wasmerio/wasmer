@@ -1478,6 +1478,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-wasi"
+version = "0.1.0"
+dependencies = [
+ "wasmer-runtime-core 0.2.1",
+]
+
+[[package]]
 name = "wasmer-win-exception-handler"
 version = "0.2.0"
 dependencies = [
