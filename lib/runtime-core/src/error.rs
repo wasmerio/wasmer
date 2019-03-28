@@ -8,6 +8,7 @@ pub type LinkResult<T> = std::result::Result<T, Vec<LinkError>>;
 pub type RuntimeResult<T> = std::result::Result<T, RuntimeError>;
 pub type CallResult<T> = std::result::Result<T, CallError>;
 pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
+pub type ParseResult<T> = std::result::Result<T, ParseError>;
 
 /// This is returned when the chosen compiler is unable to
 /// successfully compile the provided webassembly module into
@@ -443,5 +444,16 @@ impl std::error::Error for MemoryProtectionError {}
 impl Into<GrowError> for MemoryProtectionError {
     fn into(self) -> GrowError {
         GrowError::CouldNotProtectMemory(self)
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseError {
+    BinaryReadError,
+}
+
+impl From<wasmparser::BinaryReaderError> for ParseError {
+    fn from(_: wasmparser::BinaryReaderError) -> Self {
+        ParseError::BinaryReadError
     }
 }
