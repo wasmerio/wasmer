@@ -63,7 +63,16 @@ impl Instance {
         // Initialize the vm::Ctx in-place after the backing
         // has been boxed.
         unsafe {
-            *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module)
+            *inner.vmctx = match imports.call_state_creator() {
+                Some((data, dtor)) => vm::Ctx::new_with_data(
+                    &mut inner.backing,
+                    &mut inner.import_backing,
+                    &module,
+                    data,
+                    dtor,
+                ),
+                None => vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module),
+            };
         };
 
         let instance = Instance {

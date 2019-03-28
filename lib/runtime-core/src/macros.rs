@@ -37,7 +37,7 @@ macro_rules! func {
 ///         "foo" => func!(foo),
 ///     },
 /// };
-/// 
+///
 /// let imports_with_state = imports! {
 ///     || (0 as _, |_a| {}),
 ///     "env" => {

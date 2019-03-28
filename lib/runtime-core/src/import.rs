@@ -3,8 +3,8 @@ use hashbrown::{hash_map::Entry, HashMap};
 use std::collections::VecDeque;
 use std::{
     cell::{Ref, RefCell},
-    rc::Rc,
     ffi::c_void,
+    rc::Rc,
 };
 
 pub trait LikeNamespace {
@@ -58,7 +58,7 @@ impl ImportObject {
         }
     }
 
-    pub fn new_with_data<F>(state_creator: F) -> Self 
+    pub fn new_with_data<F>(state_creator: F) -> Self
     where
         F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static,
     {
@@ -66,6 +66,10 @@ impl ImportObject {
             map: Rc::new(RefCell::new(HashMap::new())),
             state_creator: Some(Rc::new(state_creator)),
         }
+    }
+
+    pub(crate) fn call_state_creator(&self) -> Option<(*mut c_void, fn(*mut c_void))> {
+        self.state_creator.as_ref().map(|state_gen| state_gen())
     }
 
     /// Register anything that implements `LikeNamespace` as a namespace.

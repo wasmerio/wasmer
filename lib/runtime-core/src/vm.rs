@@ -25,7 +25,7 @@ pub struct Ctx {
     module: *const ModuleInner,
 
     pub data: *mut c_void,
-    pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
+    pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
 
 /// The internal context of the currently running WebAssembly instance.
@@ -100,7 +100,7 @@ impl Ctx {
         import_backing: &mut ImportBacking,
         module: &ModuleInner,
         data: *mut c_void,
-        data_finalizer: extern "C" fn(*mut c_void),
+        data_finalizer: fn(*mut c_void),
     ) -> Self {
         Self {
             internal: InternalCtx {
