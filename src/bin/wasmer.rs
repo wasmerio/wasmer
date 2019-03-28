@@ -15,6 +15,7 @@ use wasmer::*;
 use wasmer_emscripten;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
 use wasmer_runtime_core::backend::CompilerConfig;
+#[cfg(feature = "wasi")]
 use wasmer_wasi;
 
 #[derive(Debug, StructOpt)]
