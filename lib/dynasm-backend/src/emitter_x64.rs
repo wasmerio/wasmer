@@ -38,6 +38,7 @@ pub enum XMM {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Location {
+    Imm8(u8),
     Imm32(u32),
     Imm64(u64),
     GPR(GPR),
@@ -90,6 +91,46 @@ pub trait Emitter {
     fn emit_shl(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_shr(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_sar(&mut self, sz: Size, src: Location, dst: Location);
+}
+
+macro_rules! unop_gpr {
+    ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
+        match ($sz, $loc) {
+            (Size::S32, Location::GPR(loc)) => {
+                dynasm!($assembler ; $ins Rd(loc as u8));
+            },
+            (Size::S64, Location::GPR(loc)) => {
+                dynasm!($assembler ; $ins Rq(loc as u8));
+            },
+            _ => $otherwise
+        }
+    };
+}
+
+macro_rules! unop_mem {
+    ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
+        match ($sz, $loc) {
+            (Size::S32, Location::Memory(loc, disp)) => {
+                dynasm!($assembler ; $ins DWORD [Rq(loc as u8) + disp] );
+            },
+            (Size::S64, Location::Memory(loc, disp)) => {
+                dynasm!($assembler ; $ins QWORD [Rq(loc as u8) + disp] );
+            },
+            _ => $otherwise
+        }
+    };
+}
+
+macro_rules! unop_gpr_or_mem {
+    ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
+        unop_gpr!(
+            $ins, $assembler, $sz, $loc,
+            {unop_mem!(
+                $ins, $assembler, $sz, $loc,
+                $otherwise
+            )}
+        )
+    };
 }
 
 macro_rules! binop_imm32_gpr {
@@ -175,6 +216,38 @@ macro_rules! binop_all_nofp {
             )}
         )
     };
+}
+
+macro_rules! binop_shift {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
+        match ($sz, $src, $dst) {
+            (Size::S32, Location::GPR(GPR::RCX), Location::GPR(dst)) => {
+                dynasm!($assembler ; $ins Rd(dst as u8), cl);
+            },
+            (Size::S32, Location::GPR(GPR::RCX), Location::Memory(dst, disp)) => {
+                dynasm!($assembler ; $ins DWORD [Rq(dst as u8) + disp], cl);
+            },
+            (Size::S32, Location::Imm8(imm), Location::GPR(dst)) => {
+                dynasm!($assembler ; $ins Rd(dst as u8), imm as i8);
+            },
+            (Size::S32, Location::Imm8(imm), Location::Memory(dst, disp)) => {
+                dynasm!($assembler ; $ins DWORD [Rq(dst as u8) + disp], imm as i8);
+            },
+            (Size::S64, Location::GPR(GPR::RCX), Location::GPR(dst)) => {
+                dynasm!($assembler ; $ins Rq(dst as u8), cl);
+            },
+            (Size::S64, Location::GPR(GPR::RCX), Location::Memory(dst, disp)) => {
+                dynasm!($assembler ; $ins QWORD [Rq(dst as u8) + disp], cl);
+            },
+            (Size::S64, Location::Imm8(imm), Location::GPR(dst)) => {
+                dynasm!($assembler ; $ins Rq(dst as u8), imm as i8);
+            },
+            (Size::S64, Location::Imm8(imm), Location::Memory(dst, disp)) => {
+                dynasm!($assembler ; $ins QWORD [Rq(dst as u8) + disp], imm as i8);
+            },
+            _ => $otherwise
+        }
+    }
 }
 
 macro_rules! jmp_op {
@@ -300,10 +373,20 @@ impl Emitter for Assembler {
             binop_mem_gpr!(imul, self, sz, src, dst, {unreachable!()})
         });
     }
-    fn emit_div(&mut self, sz: Size, divisor: Location) { unimplemented!() }
-    fn emit_idiv(&mut self, sz: Size, divisor: Location) { unimplemented!() }
-    fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!() }
-    fn emit_shr(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!() }
-    fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) { unimplemented!() }
+    fn emit_div(&mut self, sz: Size, divisor: Location) {
+        unop_gpr_or_mem!(div, self, sz, divisor, { unreachable!() });
+    }
+    fn emit_idiv(&mut self, sz: Size, divisor: Location) {
+        unop_gpr_or_mem!(idiv, self, sz, divisor, { unreachable!() });
+    }
+    fn emit_shl(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_shift!(shl, self, sz, src, dst, { unreachable!() });
+    }
+    fn emit_shr(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_shift!(shr, self, sz, src, dst, { unreachable!() });
+    }
+    fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_shift!(sar, self, sz, src, dst, { unreachable!() });
+    }
 
 }
