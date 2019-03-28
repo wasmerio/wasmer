@@ -75,3 +75,15 @@ macro_rules! __imports_internal {
         $ns
     };
 }
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! namespace {
+    ( $( $imp_name:expr => $import_item:expr, )* ) => {{
+        let mut ns = $crate::import::Namespace::new();
+        $(
+            ns.insert($imp_name, $import_item);
+        )*
+        ns
+    }};
+}

@@ -18,7 +18,7 @@
 
 ## Introduction
 
-[Wasmer](https://wasmer.io/) is a standalone JIT WebAssembly runtime, aiming to be fully compatible with Emscripten, Rust and Go.
+[Wasmer](https://wasmer.io/) is a standalone JIT WebAssembly runtime, aiming to be fully compatible with [WASI](https://hacks.mozilla.org/2019/03/standardizing-wasi-a-webassembly-system-interface/) and [Emscripten](https://emscripten.org/).
 
 Install Wasmer with:
 
@@ -164,6 +164,7 @@ Below are some of the goals of this project (in order of priority):
 
 - [x] It should be 100% compatible with the [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests)
 - [x] It should be fast _(partially achieved)_
+- [ ] Support WASI _(in the works)_
 - [ ] Support Emscripten calls _(in the works)_
 - [ ] Support Rust ABI calls
 - [ ] Support Go ABI calls
