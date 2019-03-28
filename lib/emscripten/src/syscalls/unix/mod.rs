@@ -205,7 +205,7 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         buf_ptr,
         result,
         unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
-        Error::last_os_error(),
+        std::io::Error::last_os_error(),
     );
     result
 }

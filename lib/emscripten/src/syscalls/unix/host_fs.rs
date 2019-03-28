@@ -425,10 +425,6 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let readfds_ptr = emscripten_memory_pointer!(ctx.memory(0), readfds) as _;
     let writefds_ptr = emscripten_memory_pointer!(ctx.memory(0), writefds) as _;
     let result = unsafe { libc::select(nfds, readfds_ptr, writefds_ptr, 0 as _, 0 as _) };
-    debug!(
-        "set read descriptors AFTER select: {:?}",
-        set_file_descriptors
-    );
     debug!("select returns {}", result);
     result
 }
