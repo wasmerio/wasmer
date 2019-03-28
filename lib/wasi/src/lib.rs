@@ -7,7 +7,7 @@ use std::ffi::c_void;
 
 use wasmer_runtime_core::{func, import::ImportObject, imports};
 
-pub fn generate_import_object(args: Vec<u8>, envs: Vec<u8>) -> ImportObject {
+pub fn generate_import_object(args: Vec<Vec<u8>>, envs: Vec<Vec<u8>>) -> ImportObject {
     let state_gen = move || {
         fn state_dtor(data: *mut c_void) {
             unsafe {
