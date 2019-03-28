@@ -3,7 +3,7 @@ use dynasmrt::{
 };
 
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum GPR {
     RAX,
     RCX,
@@ -24,7 +24,7 @@ pub enum GPR {
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum XMM {
     XMM0,
     XMM1,
@@ -36,7 +36,7 @@ pub enum XMM {
     XMM7,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
     Imm8(u8),
     Imm32(u32),
