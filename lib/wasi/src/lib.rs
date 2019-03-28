@@ -1,9 +1,13 @@
 mod state;
 mod syscalls;
+mod utils;
+
 use self::state::WasiState;
 use self::syscalls::*;
 
 use std::ffi::c_void;
+
+pub use self::utils::is_wasi_module;
 
 use wasmer_runtime_core::{func, import::ImportObject, imports};
 
