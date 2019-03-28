@@ -126,7 +126,7 @@ fn test_read_module() {
     "#;
     let wasm = wat2wasm(wat).unwrap();
 
-    let (info, code_reader) = read_info::read_module(&wasm).unwrap();
+    let (info, code_reader) = read_info::read_module(&wasm, Default::default()).unwrap();
 
     let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
