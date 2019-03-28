@@ -1,6 +1,7 @@
 use crate::state::WasiState;
 use wasmer_runtime_core::{memory::Memory, vm::Ctx};
 
+#[allow(clippy::mut_from_ref)]
 fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
     unsafe { &mut *(ctx.data as *mut WasiState) }
 }
