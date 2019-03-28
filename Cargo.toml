@@ -22,6 +22,7 @@ include = [
 errno = "0.2.4"
 structopt = "0.2.11"
 wabt = "0.7.2"
+hashbrown = "0.1.8"
 wasmer-clif-backend = { path = "lib/clif-backend" }
 wasmer-dynasm-backend = { path = "lib/dynasm-backend", optional = true }
 wasmer-runtime = { path = "lib/runtime" }

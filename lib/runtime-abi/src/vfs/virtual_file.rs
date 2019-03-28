@@ -2,7 +2,7 @@ use failure::Error;
 
 use crate::vfs::file_like::{FileLike, Metadata};
 use std::io;
-use std::io::{Seek, SeekFrom, Write};
+use std::io::{Seek, SeekFrom, Write, Read};
 
 impl FileLike for zbox::File {
     fn metadata(&self) -> Result<Metadata, Error> {
@@ -19,5 +19,14 @@ impl FileLike for zbox::File {
         let result = self.write(buf);
         self.finish().unwrap();
         result
+    }
+
+    fn read_file(&mut self, buf: &mut [u8], offset: usize) -> Result<usize, io::Error> {
+        self.seek(io::SeekFrom::Start(offset as u64))?;
+        self.read(buf)
+    }
+
+    fn set_file_len(&mut self, len: usize) -> Result<(), failure::Error> {
+        self.set_len(len).map_err(|e| e.into())
     }
 }

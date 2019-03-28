@@ -57,6 +57,9 @@ pub struct ModuleInfo {
     pub namespace_table: StringTable<NamespaceIndex>,
     pub name_table: StringTable<NameIndex>,
 
+    /// Symbol information from emscripten
+    pub em_symbol_map: Option<HashMap<u32, String>>,
+
     pub custom_sections: HashMap<String, Vec<u8>>,
 }
 

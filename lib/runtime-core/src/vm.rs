@@ -7,6 +7,8 @@ use crate::{
 };
 use std::{ffi::c_void, mem, ptr};
 
+use hashbrown::HashMap;
+
 /// The context of the currently running WebAssembly instance.
 ///
 ///
@@ -155,6 +157,11 @@ impl Ctx {
                 &import_backing.memories[import_mem_index]
             },
         }
+    }
+
+    /// Gives access to the emscripten symbol map, used for debugging
+    pub unsafe fn borrow_symbol_map(&self) -> &Option<HashMap<u32, String>> {
+        &(*self.module).info.em_symbol_map
     }
 }
 
@@ -608,6 +615,8 @@ mod vm_ctx_tests {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
+
+                em_symbol_map: None,
 
                 custom_sections: HashMap::new(),
             },

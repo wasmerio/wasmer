@@ -123,7 +123,7 @@ impl EmscriptenVfs {
             Some(FileHandle::Vf(file)) => {
                 let count = {
                     let mut result = RefCell::borrow_mut(&file);
-                    let result = result.read(buf_slice);
+                    let result = result.read_file(buf_slice, 0);
                     result.unwrap()
                 };
                 count as _

@@ -4,6 +4,7 @@ use wasmer_runtime::{
     error::{CallResult, Result},
     ImportObject, Instance, Module,
 };
+use wasmer_runtime_core::backend::CompilerConfig;
 use wasmer_runtime_core::types::Value;
 
 use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
@@ -73,6 +74,16 @@ pub fn instantiate_streaming(
 /// webassembly::CompileError.
 pub fn compile(buffer_source: &[u8]) -> Result<Module> {
     let module = runtime::compile(buffer_source)?;
+    Ok(module)
+}
+
+/// The same as `compile` but takes a `CompilerConfig` for the purpose of
+/// changing the compiler's behavior
+pub fn compile_with_config(
+    buffer_source: &[u8],
+    compiler_config: CompilerConfig,
+) -> Result<Module> {
+    let module = runtime::compile_with_config(buffer_source, compiler_config)?;
     Ok(module)
 }
 
