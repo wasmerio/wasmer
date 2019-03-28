@@ -30,7 +30,7 @@ wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-dynasm-backend = { path = "lib/dynasm-backend", optional = true }
 
 [workspace]
-members = ["lib/clif-backend", "lib/dynasm-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend"]
+members = ["lib/clif-backend", "lib/dynasm-backend", "lib/runtime", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi"]
 
 [build-dependencies]
 wabt = "0.7.2"

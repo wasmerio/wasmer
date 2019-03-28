@@ -1,0 +1,7 @@
+[package]
+name = "wasmer-wasi"
+version = "0.1.0"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+
+[dependencies]
