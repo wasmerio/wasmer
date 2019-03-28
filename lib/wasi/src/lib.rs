@@ -1,14 +1,33 @@
+mod state;
 mod syscalls;
-use syscalls::*;
+use self::state::WasiState;
+use self::syscalls::*;
+
+use std::ffi::c_void;
 
 use wasmer_runtime_core::{func, import::ImportObject, imports};
 
-pub fn generate_import_object() -> ImportObject {
+pub fn generate_import_object(args: Vec<Vec<u8>>, envs: Vec<Vec<u8>>) -> ImportObject {
+    let state_gen = move || {
+        fn state_dtor(data: *mut c_void) {
+            unsafe {
+                drop(Box::from_raw(data as *mut WasiState));
+            }
+        }
+
+        let state = Box::new(WasiState {
+            args: &args[..],
+            envs: &envs[..],
+        });
+
+        (
+            Box::leak(state) as *mut WasiState as *mut c_void,
+            state_dtor as fn(*mut c_void),
+        )
+    };
     imports! {
         // This generates the wasi state.
-        || {
-            // returns (pointer to state, function that can destruct the state).
-        },
+        state_gen,
         "wasi_unstable" => {
             "__wasi_args_get" => func!(__wasi_args_get),
             "__wasi_args_sizes_get" => func!(__wasi_args_sizes_get),
