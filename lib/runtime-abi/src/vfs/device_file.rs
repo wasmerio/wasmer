@@ -1,7 +1,6 @@
 use crate::vfs::file_like::{FileLike, Metadata};
 use failure::Error;
 use std::io;
-use std::io::{Seek, Write};
 
 pub struct Stdin;
 pub struct Stdout;
@@ -12,16 +11,24 @@ impl FileLike for Stdin {
         unimplemented!()
     }
 
-    fn write_file(&mut self, _buf: &[u8], _offset: usize) -> Result<usize, io::Error> {
-        unimplemented!()
-    }
-
-    fn read_file(&mut self, _buf: &mut [u8], _offset: usize) -> Result<usize, io::Error> {
-        unimplemented!()
-    }
-
     fn set_file_len(&mut self, _len: usize) -> Result<(), failure::Error> {
         panic!("Cannot set length of stdin");
+    }
+}
+
+impl io::Read for Stdin {
+    fn read(&mut self, _buf: &mut [u8]) -> Result<usize, io::Error> {
+        unimplemented!()
+    }
+}
+
+impl io::Write for Stdin {
+    fn write(&mut self, _buf: &[u8]) -> Result<usize, io::Error> {
+        unimplemented!()
+    }
+
+    fn flush(&mut self) -> Result<(), io::Error> {
+        unimplemented!()
     }
 }
 
@@ -36,18 +43,28 @@ impl FileLike for Stdout {
         unimplemented!()
     }
 
-    fn write_file(&mut self, buf: &[u8], _offset: usize) -> Result<usize, io::Error> {
+    fn set_file_len(&mut self, _len: usize) -> Result<(), failure::Error> {
+        panic!("Cannot set length of stdout");
+    }
+}
+
+impl io::Read for Stdout {
+    fn read(&mut self, _buf: &mut [u8]) -> Result<usize, io::Error> {
+        unimplemented!()
+    }
+}
+
+impl io::Write for Stdout {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
         handle.write(buf)
     }
 
-    fn read_file(&mut self, _buf: &mut [u8], _offset: usize) -> Result<usize, io::Error> {
-        unimplemented!()
-    }
-
-    fn set_file_len(&mut self, _len: usize) -> Result<(), failure::Error> {
-        panic!("Cannot set length of stdout");
+    fn flush(&mut self) -> Result<(), io::Error> {
+        let stdout = io::stdout();
+        let mut handle = stdout.lock();
+        handle.flush()
     }
 }
 
@@ -62,18 +79,28 @@ impl FileLike for Stderr {
         unimplemented!()
     }
 
-    fn write_file(&mut self, buf: &[u8], _offset: usize) -> Result<usize, io::Error> {
+    fn set_file_len(&mut self, _len: usize) -> Result<(), failure::Error> {
+        panic!("Cannot set length of stderr");
+    }
+}
+
+impl io::Read for Stderr {
+    fn read(&mut self, _buf: &mut [u8]) -> Result<usize, io::Error> {
+        unimplemented!()
+    }
+}
+
+impl io::Write for Stderr {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
         let stderr = io::stderr();
         let mut handle = stderr.lock();
         handle.write(buf)
     }
 
-    fn read_file(&mut self, _buf: &mut [u8], _offset: usize) -> Result<usize, io::Error> {
-        unimplemented!()
-    }
-
-    fn set_file_len(&mut self, _len: usize) -> Result<(), failure::Error> {
-        panic!("Cannot set length of stderr");
+    fn flush(&mut self) -> Result<(), io::Error> {
+        let stderr = io::stderr();
+        let mut handle = stderr.lock();
+        handle.flush()
     }
 }
 

@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use tar::EntryType;
 use zbox::{init_env, OpenOptions, Repo, RepoOpener};
+use crate::vfs::virtual_file::VirtualFile;
 
 pub struct Vfs {
     repo: Repo,
@@ -103,7 +104,7 @@ impl Vfs {
         init_env();
         let path = convert_to_absolute_path(path);
         if let Ok(file) = OpenOptions::new().write(true).open(&mut self.repo, &path) {
-            Some(Rc::new(RefCell::new(file)))
+            Some(Rc::new(RefCell::new(VirtualFile::new(file))))
         } else if let Some(dev_file) = self.device_files.get(&path) {
             Some(dev_file.clone())
         } else {
