@@ -615,6 +615,8 @@ mod vm_ctx_tests {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
+
+                em_symbol_map: None,
             },
         }
     }
