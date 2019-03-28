@@ -1339,6 +1339,7 @@ dependencies = [
  "wasmer-llvm-backend 0.1.0",
  "wasmer-runtime 0.2.1",
  "wasmer-runtime-core 0.2.1",
+ "wasmer-wasi 0.1.0",
 ]
 
 [[package]]

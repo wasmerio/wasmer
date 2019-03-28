@@ -21,6 +21,7 @@ pub struct ResultObject {
 #[derive(PartialEq)]
 pub enum InstanceABI {
     Emscripten,
+    WASI,
     None,
 }
 

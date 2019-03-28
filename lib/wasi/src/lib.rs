@@ -1,5 +1,9 @@
 mod syscalls;
+mod utils;
+
 use syscalls::*;
+
+pub use self::utils::is_wasi_module;
 
 use wasmer_runtime_core::{func, import::ImportObject, imports};
 

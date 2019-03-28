@@ -15,6 +15,7 @@ use wasmer::*;
 use wasmer_emscripten;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
 use wasmer_runtime_core::backend::CompilerConfig;
+use wasmer_wasi;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -200,6 +201,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
 
+    // TODO: refactor this
+    #[cfg(not(features = "wasi"))]
     let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
@@ -212,6 +215,19 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             InstanceABI::None,
             wasmer_runtime_core::import::ImportObject::new(),
             None,
+        )
+    };
+
+    #[cfg(features = "wasi")]
+    let (_abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
+        (
+            InstanceABI::WASI,
+            wasmer_emscripten::generate_import_object(),
+        )
+    } else {
+        (
+            InstanceABI::None,
+            wasmer_runtime_core::import::ImportObject::new(),
         )
     };
 
