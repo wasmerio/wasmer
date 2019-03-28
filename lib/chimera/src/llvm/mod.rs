@@ -12,12 +12,14 @@ use wasmer_runtime_core::{
 use wasmparser::{self, WasmDecoder};
 
 mod backend;
-pub mod compile;
+mod compile;
 mod intrinsics;
 mod platform;
 mod read_info;
 mod stackmap;
 mod state;
+
+pub use self::compile::{compile_function, Opt};
 
 pub struct LLVMCompiler {
     _private: (),

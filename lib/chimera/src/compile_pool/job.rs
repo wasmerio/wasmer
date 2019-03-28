@@ -2,13 +2,15 @@ use super::pool::Compiler;
 use crate::{
     alloc_pool::{AllocId, AllocPool},
     code::Code,
+    llvm,
+    module_ctx::{ModuleContext, SharedFunctionBody},
 };
 use futures::{
     channel::oneshot::{self, Receiver, Sender},
     future::{Future, FutureExt},
 };
 use std::sync::Arc;
-use wasmer_runtime_core::types::LocalFuncIndex;
+use wasmer_runtime_core::{module::ModuleInfo, types::LocalFuncIndex};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Priority {
@@ -24,7 +26,7 @@ pub enum Priority {
 pub enum Mode {
     Baseline,
     Medium,
-    High(u8),
+    High(llvm::Opt),
 }
 
 /// A `Job` represents the compilation of a function that will
@@ -33,13 +35,17 @@ pub struct Job {
     priority: Priority,
     mode: Mode,
     func_index: LocalFuncIndex,
+    func_body: SharedFunctionBody,
+    info: Arc<ModuleInfo>,
     alloc_pool: Arc<AllocPool>,
     sender: Sender<Result<AllocId<Code>, String>>,
 }
 
 impl Job {
     pub fn create(
+        info: Arc<ModuleInfo>,
         alloc_pool: Arc<AllocPool>,
+        func_body: SharedFunctionBody,
         func_index: LocalFuncIndex,
         priority: Priority,
         mode: Mode,
@@ -52,6 +58,8 @@ impl Job {
             priority,
             mode,
             func_index,
+            func_body,
+            info,
             alloc_pool,
             sender,
         });
@@ -61,14 +69,18 @@ impl Job {
 
     pub(crate) fn do_compile(self) {
         use crate::code::Metadata;
-        let code_id_res = Code::new(
-            &self.alloc_pool,
-            (),
-            Metadata {
-                func_index: self.func_index,
-                code_size: 0,
-            },
-        )
+
+        let code_id_res = match self.mode {
+            Mode::Baseline => unimplemented!("compile with dynasm"),
+            Mode::Medium => unimplemented!("compile with clif"),
+            Mode::High(opt) => llvm::compile_function(
+                &self.alloc_pool,
+                &self.info,
+                self.func_index,
+                self.func_body.body(),
+                opt,
+            ),
+        }
         .map_err(|e| format!("{:?}", e));
 
         // Ignore the result. In the future, we may want

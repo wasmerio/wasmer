@@ -16,6 +16,7 @@ pub mod clif;
 pub mod code;
 pub mod compile_pool;
 pub mod llvm;
+pub mod module_ctx;
 pub mod pipeline;
 pub mod state;
 pub mod thunks;

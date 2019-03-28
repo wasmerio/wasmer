@@ -1,3 +1,4 @@
+use super::compile::Opt;
 use super::intrinsics::Intrinsics;
 use super::platform;
 use crate::{
@@ -206,6 +207,7 @@ impl Function {
         func_index: LocalFuncIndex,
         module: Module,
         intrinsics: Intrinsics,
+        opt: Opt,
     ) -> AllocId<Code> {
         unsafe impl Sync for SyncTarget {}
         /// I'm going to assume that Target is actually threadsafe.
@@ -239,7 +241,11 @@ impl Function {
                 &triple,
                 &host_cpu_name,
                 &host_cpu_features,
-                OptimizationLevel::Aggressive,
+                match opt {
+                    Opt::Low => OptimizationLevel::Less,
+                    // Opt::Medium => OptimizationLevel::Default,
+                    Opt::High => OptimizationLevel::Aggressive,
+                },
                 RelocMode::PIC,
                 CodeModel::Default,
             )

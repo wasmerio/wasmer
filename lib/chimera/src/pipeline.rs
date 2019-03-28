@@ -1,3 +1,5 @@
+use rayon::iter::{ParallelBridge, ParallelIterator};
+use std::sync::Arc;
 use wasmer_runtime_core::{
     backend::Backend,
     module::{
@@ -7,15 +9,15 @@ use wasmer_runtime_core::{
     structures::{Map, TypedIndex},
     types::{
         ElementType, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
-        ImportedGlobalIndex, Initializer, MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor,
-        TableIndex, Type, Value,
+        ImportedGlobalIndex, Initializer, LocalFuncIndex, MemoryDescriptor, MemoryIndex, SigIndex,
+        TableDescriptor, TableIndex, Type, Value,
     },
     units::Pages,
 };
 use wasmparser::{
     BinaryReaderError, CodeSectionReader, Data, DataKind, Element, ElementKind, Export,
     ExternalKind, FuncType, Import, ImportSectionEntryType, InitExpr, ModuleReader, Operator,
-    SectionCode, Type as WpType,
+    Range, SectionCode, Type as WpType,
 };
 
 pub struct InfoCollection<'wasm> {
@@ -301,8 +303,25 @@ pub struct InitialCompile<'wasm> {
 }
 
 impl<'wasm> InitialCompile<'wasm> {
-    pub fn run<R>(self, f: impl FnOnce(CodeSectionReader<'wasm>) -> R) -> R {
-        f(self.reader)
+    pub fn run(
+        self,
+    ) -> impl ParallelIterator<Item = Result<(LocalFuncIndex, Arc<[u8]>), BinaryReaderError>> + 'wasm
+    {
+        self.reader
+            .into_iter()
+            .enumerate()
+            .par_bridge()
+            .map(|(index, maybe_func_body)| {
+                let func_body = maybe_func_body?;
+                let mut binary_reader = func_body.get_binary_reader();
+                let Range { start, end } = func_body.range();
+                Ok((
+                    LocalFuncIndex::new(index as _),
+                    binary_reader
+                        .read_bytes(end - start)
+                        .map(|bytes| bytes.into())?,
+                ))
+            })
     }
 }
 

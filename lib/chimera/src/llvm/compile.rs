@@ -64,6 +64,12 @@ fn type_to_llvm(intrinsics: &Intrinsics, ty: Type) -> BasicTypeEnum {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Opt {
+    Low,
+    High,
+}
+
 // pub fn parse_function_bodies(
 //     info: &ModuleInfo,
 //     code_reader: CodeSectionReader,
@@ -158,16 +164,17 @@ pub fn compile_module(
         .par_bridge()
         .map(|(i, body)| {
             let func_index = LocalFuncIndex::new(i as _);
-            compile_function(pool, info, func_index, body?)
+            compile_function(pool, info, func_index, body?, Opt::High)
         })
         .collect()
 }
 
-fn compile_function(
+pub fn compile_function(
     pool: &AllocPool,
     info: &ModuleInfo,
     func_index: LocalFuncIndex,
     body: FunctionBody,
+    opt: Opt,
 ) -> Result<AllocId<Code>, BinaryReaderError> {
     let context = Context::create();
     let module = context.create_module("module");
@@ -230,7 +237,7 @@ fn compile_function(
 
     // module.print_to_stderr();
     // Ok(Code::new(pool, 0, &[], ()).unwrap())
-    Ok(Function::new(pool, func_index, module, intrinsics))
+    Ok(Function::new(pool, func_index, module, intrinsics, opt))
 }
 
 fn parse_function(
