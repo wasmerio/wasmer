@@ -203,7 +203,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     // TODO: refactor this
-    #[cfg(not(features = "wasi"))]
+    #[cfg(not(feature = "wasi"))]
     let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
@@ -219,14 +219,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
     };
 
-    #[cfg(features = "wasi")]
+    #[cfg(feature = "wasi")]
     let (_abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
         (
             InstanceABI::WASI,
             wasmer_wasi::generate_import_object(
-                options.args.iter().map(|arg| arg.into_bytes()).collect(),
-                env::vars()
+                options
+                    .args
                     .iter()
+                    .cloned()
+                    .map(|arg| arg.into_bytes())
+                    .collect(),
+                env::vars()
                     .map(|(k, v)| format!("{}={}", k, v).into_bytes())
                     .collect(),
             ),
