@@ -203,39 +203,45 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     // TODO: refactor this
-    #[cfg(not(features = "wasi"))]
-    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
-        let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
-        (
-            InstanceABI::Emscripten,
-            wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
-            Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
-        )
+    let (_abi, import_object, _em_globals) = if cfg!(feature = "wasi") {
+        if wasmer_wasi::is_wasi_module(&module) {
+            (
+                InstanceABI::WASI,
+                wasmer_wasi::generate_import_object(
+                    options
+                        .args
+                        .iter()
+                        .cloned()
+                        .map(|arg| arg.into_bytes())
+                        .collect(),
+                    env::vars()
+                        .map(|(k, v)| format!("{}={}", k, v).into_bytes())
+                        .collect(),
+                ),
+                None,
+            )
+        } else {
+            (
+                InstanceABI::None,
+                wasmer_runtime_core::import::ImportObject::new(),
+                None,
+            )
+        }
     } else {
-        (
-            InstanceABI::None,
-            wasmer_runtime_core::import::ImportObject::new(),
-            None,
-        )
-    };
-
-    #[cfg(features = "wasi")]
-    let (_abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
-        (
-            InstanceABI::WASI,
-            wasmer_wasi::generate_import_object(
-                options.args.iter().map(|arg| arg.into_bytes()).collect(),
-                env::vars()
-                    .iter()
-                    .map(|(k, v)| format!("{}={}", k, v).into_bytes())
-                    .collect(),
-            ),
-        )
-    } else {
-        (
-            InstanceABI::None,
-            wasmer_runtime_core::import::ImportObject::new(),
-        )
+        if wasmer_emscripten::is_emscripten_module(&module) {
+            let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
+            (
+                InstanceABI::Emscripten,
+                wasmer_emscripten::generate_emscripten_env(&mut emscripten_globals),
+                Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
+            )
+        } else {
+            (
+                InstanceABI::None,
+                wasmer_runtime_core::import::ImportObject::new(),
+                None,
+            )
+        }
     };
 
     let mut instance = module
