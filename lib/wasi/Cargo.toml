@@ -5,3 +5,4 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 
 [dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
