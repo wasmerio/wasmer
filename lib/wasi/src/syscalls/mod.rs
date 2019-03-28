@@ -1,4 +1,9 @@
+use crate::state::WasiState;
 use wasmer_runtime_core::vm::Ctx;
+
+fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
+    unsafe { &mut *(ctx.data as *mut WasiState) }
+}
 
 pub fn __wasi_args_get(ctx: &mut Ctx) {
     unimplemented!()
