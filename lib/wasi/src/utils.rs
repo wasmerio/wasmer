@@ -1,8 +1,15 @@
-use wasmer_runtime_core::{module::Module, vm::Ctx};
+use wasmer_runtime_core::module::Module;
 
-// Cargo culting this from our emscripten implementation for now, but it seems like a
-// good thing to check; TODO: verify this is useful
+/// Check if a provided module is compiled with WASI support
 pub fn is_wasi_module(module: &Module) -> bool {
-    true
-    // TODO:
+    for (_, import_name) in &module.info().imported_functions {
+        let namespace = module
+            .info()
+            .namespace_table
+            .get(import_name.namespace_index);
+        if namespace == "wasi_unstable" {
+            return true;
+        }
+    }
+    false
 }
