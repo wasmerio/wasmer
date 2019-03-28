@@ -1,16 +1,19 @@
-use failure::Error;
 use crate::vfs::file_like::{FileLike, Metadata};
+use failure::Error;
 use std::io;
 
 pub struct VirtualFile(zbox::File);
 
 impl VirtualFile {
-    pub fn new(file: zbox::File) -> Self { VirtualFile(file) }
+    pub fn new(file: zbox::File) -> Self {
+        VirtualFile(file)
+    }
 }
 
 impl FileLike for VirtualFile {
     fn metadata(&self) -> Result<Metadata, Error> {
-        self.0.metadata()
+        self.0
+            .metadata()
             .map(|m| Metadata {
                 len: m.content_len(),
                 is_file: m.is_file(),

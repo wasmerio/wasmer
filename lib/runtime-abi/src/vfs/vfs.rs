@@ -1,5 +1,6 @@
 use crate::vfs::file_like::FileLike;
 use crate::vfs::vfs_header::{header_from_bytes, ArchiveType, CompressionType};
+use crate::vfs::virtual_file::VirtualFile;
 use hashbrown::HashMap;
 use std::cell::RefCell;
 use std::io;
@@ -8,7 +9,6 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use tar::EntryType;
 use zbox::{init_env, OpenOptions, Repo, RepoOpener};
-use crate::vfs::virtual_file::VirtualFile;
 
 pub struct Vfs {
     repo: Repo,
