@@ -54,6 +54,12 @@ pub use self::utils::{
     get_emscripten_table_size, is_emscripten_module,
 };
 
+#[cfg(all(feature = "vfs", not(target_os = "windows")))]
+use crate::syscalls::EmscriptenVfs;
+
+#[cfg(all(feature = "vfs", not(target_os = "windows")))]
+use wasmer_runtime_abi::vfs::vfs::Vfs;
+
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
 // TODO: make this variable
@@ -122,6 +128,9 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viidii: Option<Func<'a, (i32, i32, i32, f64, i32, i32)>>,
+
+    #[cfg(all(feature = "vfs", not(target_os = "windows")))]
+    pub vfs: Option<EmscriptenVfs>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -226,17 +235,38 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_vijiii,
             dyn_call_vijj,
             dyn_call_viidii,
+            #[cfg(all(feature = "vfs", not(target_os = "windows")))]
+            vfs: None,
         }
     }
 }
 
 pub fn run_emscripten_instance(
-    _module: &Module,
+    module: &Module,
     instance: &mut Instance,
     path: &str,
     args: Vec<&str>,
 ) -> CallResult<()> {
     let mut data = EmscriptenData::new(instance);
+
+    // Construct a new virtual filesystem and inject it into the emscripten data
+    // This is behind a feature flag for now, but will be default in the future
+    #[cfg(any(not(feature = "vfs"), target_os = "windows"))]
+    let _ = module;
+    #[cfg(all(feature = "vfs", not(target_os = "windows")))]
+    {
+        data.vfs = match module.info().custom_sections.get("wasmer:fs") {
+            Some(bytes) => match Vfs::from_compressed_bytes(&bytes[..]) {
+                Ok(vfs) => {
+                    let emscripten_vfs = EmscriptenVfs::new(vfs);
+                    Some(emscripten_vfs)
+                }
+                Err(_) => None,
+            },
+            None => None,
+        };
+    }
+
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
@@ -476,6 +506,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_getpagesize" => func!(crate::env::_getpagesize),
         "_sysconf" => func!(crate::env::_sysconf),
         "_getaddrinfo" => func!(crate::env::_getaddrinfo),
+        "_initgroups" => func!(crate::env::_initgroups),
 
         // Syscalls
         "___syscall1" => func!(crate::syscalls::___syscall1),
