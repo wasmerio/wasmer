@@ -67,11 +67,13 @@ pub fn compile_with(
     compiler: &dyn backend::Compiler,
 ) -> CompileResult<module::Module> {
     let token = backend::Token::generate();
-    compiler.compile(wasm, Default::default(), token).map(|mut inner| {
-        let inner_info: &mut crate::module::ModuleInfo = &mut inner.info;
-        inner_info.import_custom_sections(wasm).unwrap();
-        module::Module::new(Arc::new(inner))
-    })
+    compiler
+        .compile(wasm, Default::default(), token)
+        .map(|mut inner| {
+            let inner_info: &mut crate::module::ModuleInfo = &mut inner.info;
+            inner_info.import_custom_sections(wasm).unwrap();
+            module::Module::new(Arc::new(inner))
+        })
 }
 
 /// The same as `compile_with` but changes the compiler behavior

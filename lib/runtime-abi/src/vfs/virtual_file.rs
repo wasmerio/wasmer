@@ -2,7 +2,7 @@ use failure::Error;
 
 use crate::vfs::file_like::{FileLike, Metadata};
 use std::io;
-use std::io::{Seek, SeekFrom, Write, Read};
+use std::io::{Read, Seek, SeekFrom, Write};
 
 impl FileLike for zbox::File {
     fn metadata(&self) -> Result<Metadata, Error> {

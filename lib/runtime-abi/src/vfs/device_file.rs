@@ -48,7 +48,6 @@ impl FileLike for Stdout {
 
     fn set_file_len(&mut self, _len: usize) -> Result<(), failure::Error> {
         panic!("Cannot set length of stdout");
-
     }
 }
 
