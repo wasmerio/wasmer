@@ -220,7 +220,16 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     #[cfg(features = "wasi")]
     let (_abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
-        (InstanceABI::WASI, wasmer_wasi::generate_import_object())
+        (
+            InstanceABI::WASI,
+            wasmer_wasi::generate_import_object(
+                options.args.iter().map(|arg| arg.into_bytes()).collect(),
+                env::vars()
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v).into_bytes())
+                    .collect(),
+            ),
+        )
     } else {
         (
             InstanceABI::None,
