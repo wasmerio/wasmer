@@ -131,8 +131,3 @@ pub fn _sysconf(_ctx: &mut Ctx, name: c_int) -> c_long {
     // stub because sysconf is not valid on windows
     0
 }
-
-/// initgroups
-pub fn _initgroups(_ctx: &mut Ctx, _user_offset: u32, _gid: u32) -> c_int {
-    0
-}

@@ -176,8 +176,6 @@ mod test_unary_literal;
 mod test_utf;
 mod test_varargs;
 mod test_varargs_multi;
-#[cfg(all(feature = "vfs", not(target_os = "windows")))]
-mod test_vfs;
 mod test_vprintf;
 mod test_vsnprintf;
 mod test_wprintf;
