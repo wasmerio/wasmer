@@ -481,7 +481,7 @@ mod vm_ctx_tests {
         str: String,
     }
 
-    extern "C" fn test_data_finalizer(data: *mut c_void) {
+    fn test_data_finalizer(data: *mut c_void) {
         let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
         assert_eq!(test_data.x, 10);
         assert_eq!(test_data.y, true);
