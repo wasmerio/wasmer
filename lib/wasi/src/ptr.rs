@@ -55,8 +55,9 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
 
         unsafe {
             let cell_ptrs = memory.view::<T>().get_unchecked(
-                ((self.offset() as usize) / mem::size_of::<T>())
-                    ..((self.offset() as usize) / mem::size_of::<T>()) + (length as usize),
+                ((self.offset as usize) / mem::size_of::<T>()) + (index as usize)
+                    ..((self.offset() as usize) / mem::size_of::<T>())
+                        + ((index + length) as usize),
             ) as *const _;
             Some(&*cell_ptrs)
         }
