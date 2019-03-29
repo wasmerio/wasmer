@@ -150,6 +150,11 @@ pub fn _llvm_trap(ctx: &mut Ctx) {
     abort_with_message(ctx, "abort!");
 }
 
+pub fn _llvm_eh_typeid_for(_ctx: &mut Ctx, _type_info_addr: u32) -> i32 {
+    debug!("emscripten::_llvm_eh_typeid_for");
+    -1
+}
+
 pub fn _system(_ctx: &mut Ctx, _one: i32) -> c_int {
     debug!("emscripten::_system");
     // TODO: May need to change this Em impl to a working version
