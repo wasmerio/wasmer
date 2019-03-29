@@ -204,7 +204,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
     // TODO: refactor this
     #[cfg(not(feature = "wasi"))]
-    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
+    let (abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
             InstanceABI::Emscripten,
@@ -220,7 +220,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     #[cfg(feature = "wasi")]
-    let (_abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
+    let (abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
         (
             InstanceABI::WASI,
             wasmer_wasi::generate_import_object(
@@ -249,6 +249,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     webassembly::run_instance(
         &module,
         &mut instance,
+        abi,
         options.path.to_str().unwrap(),
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
