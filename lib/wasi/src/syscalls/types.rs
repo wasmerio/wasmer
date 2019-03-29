@@ -2,6 +2,7 @@
 
 use crate::ptr::{Array, WasmPtr};
 use wasmer_runtime_core::types::{ValueError, ValueType};
+use std::mem;
 
 pub type __wasi_advice_t = u8;
 pub const __WASI_ADVICE_DONTNEED: u8 = 0;
@@ -170,10 +171,42 @@ pub struct __wasi_prestat_u_dir_t {
     pr_name_len: u32,
 }
 
+impl ValueType for __wasi_prestat_u_dir_t {
+    fn into_le(self, buffer: &mut [u8]) {
+        self.pr_name_len
+            .into_le(&mut buffer[..mem::size_of::<u32>()]);
+    }
+
+    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
+        if buffer.len() >= mem::size_of::<__wasi_iovec_t>() {
+            let pr_name_len = ValueType::from_le(&buffer[..mem::size_of::<u32>()])?;
+            Ok(Self { pr_name_len })
+        } else {
+            Err(ValueError::BufferTooSmall)
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union __wasi_prestat_u {
     dir: __wasi_prestat_u_dir_t,
+}
+
+impl ValueType for __wasi_prestat_u {
+    fn into_le(self, buffer: &mut [u8]) {
+        unsafe {self.dir
+                .into_le(&mut buffer[..mem::size_of::<__wasi_prestat_u_dir_t>()])};
+    }
+
+    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
+        if buffer.len() >= mem::size_of::<__wasi_iovec_t>() {
+            let dir = ValueType::from_le(&buffer[..mem::size_of::<__wasi_prestat_u_dir_t>()])?;
+            Ok(Self { dir })
+        } else {
+            Err(ValueError::BufferTooSmall)
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -181,6 +214,25 @@ pub union __wasi_prestat_u {
 pub struct __wasi_prestat_t {
     pr_type: __wasi_preopentype_t,
     u: __wasi_prestat_u,
+}
+
+impl ValueType for __wasi_prestat_t {
+    fn into_le(self, buffer: &mut [u8]) {
+        self.pr_type
+            .into_le(&mut buffer[..mem::size_of::<__wasi_preopentype_t>()]);
+        self.u
+            .into_le(&mut buffer[mem::size_of::<__wasi_preopentype_t>()..]);
+    }
+
+    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
+        if buffer.len() >= mem::size_of::<__wasi_iovec_t>() {
+            let pr_type = ValueType::from_le(&buffer[..mem::size_of::<__wasi_preopentype_t>()])?;
+            let u = ValueType::from_le(&buffer[mem::size_of::<__wasi_preopentype_t>()..])?;
+            Ok(Self { pr_type, u })
+        } else {
+            Err(ValueError::BufferTooSmall)
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
