@@ -16,6 +16,7 @@ pub enum wasmer_value_tag {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
+#[allow(non_snake_case)]
 pub union wasmer_value {
     pub I32: int32_t,
     pub I64: int64_t,
@@ -33,6 +34,7 @@ pub struct wasmer_value_t {
 impl From<wasmer_value_t> for Value {
     fn from(v: wasmer_value_t) -> Self {
         unsafe {
+            #[allow(unreachable_patterns, non_snake_case)]
             match v {
                 wasmer_value_t {
                     tag: wasmer_value_tag::WASM_I32,
@@ -81,6 +83,7 @@ impl From<Value> for wasmer_value_t {
 
 impl From<Type> for wasmer_value_tag {
     fn from(ty: Type) -> Self {
+        #[allow(unreachable_patterns)]
         match ty {
             Type::I32 => wasmer_value_tag::WASM_I32,
             Type::I64 => wasmer_value_tag::WASM_I64,
@@ -93,6 +96,7 @@ impl From<Type> for wasmer_value_tag {
 
 impl From<wasmer_value_tag> for Type {
     fn from(v: wasmer_value_tag) -> Self {
+        #[allow(unreachable_patterns)]
         match v {
             wasmer_value_tag::WASM_I32 => Type::I32,
             wasmer_value_tag::WASM_I64 => Type::I64,
