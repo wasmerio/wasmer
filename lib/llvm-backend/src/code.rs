@@ -153,7 +153,6 @@ fn parse_function(
 ) -> Result<(), BinaryReaderError> {
     let sig_index = info.func_assoc[func_index.convert_up(info)];
     let func_sig = &info.signatures[sig_index];
-    let llvm_sig = &signatures[sig_index];
 
     let function = functions[func_index];
     let mut state = State::new();
