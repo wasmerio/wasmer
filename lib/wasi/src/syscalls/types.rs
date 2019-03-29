@@ -34,7 +34,7 @@ pub const __WASI_DIRCOOKIE_START: u64 = 0;
 pub struct __wasi_dirent_t {
     pub d_next: __wasi_dircookie_t,
     pub d_ino: __wasi_inode_t,
-    pub _namlen: u32,
+    pub d_namlen: u32,
     pub d_type: __wasi_filetype_t,
 }
 
@@ -160,6 +160,28 @@ pub const __WASI_FDFLAG_DSYNC: u16 = 1 << 1;
 pub const __WASI_FDFLAG_NONBLOCK: u16 = 1 << 2;
 pub const __WASI_FDFLAG_RSYNC: u16 = 1 << 3;
 pub const __WASI_FDFLAG_SYNC: u16 = 1 << 4;
+
+pub type __wasi_preopentype_t = u8;
+pub const __WASI_PREOPENTYPE_DIR: u8 = 0;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(C)]
+pub struct __wasi_prestat_u_dir_t {
+    pr_name_len: u32,
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union __wasi_prestat_u {
+    dir: __wasi_prestat_u_dir_t,
+}
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct __wasi_prestat_t {
+    pr_type: __wasi_preopentype_t,
+    u: __wasi_prestat_u,
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]

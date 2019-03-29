@@ -238,7 +238,7 @@ pub fn fd_pread(
 pub fn fd_prestat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
-    buf: WasmPtr<__wasi_fdstat_t>,
+    buf: WasmPtr<__wasi_prestat_t>,
 ) -> __wasi_errno_t {
     unimplemented!()
 }
