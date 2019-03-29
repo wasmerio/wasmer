@@ -24,7 +24,7 @@ pub fn platform_fd_pread(
         )
     };
     nread.set(result as u32);
-    for (arr_cell, i) in iovs.iter().enumerate() {
+    for (i, arr_cell) in iovs.iter().enumerate() {
         let wasi_iovec = __wasi_iovec_t {
             buf: iovec[i] as _,
             buf_len: iovec[i].iov_len as u32,
