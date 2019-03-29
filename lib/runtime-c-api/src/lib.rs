@@ -21,6 +21,10 @@ use wasmer_runtime_core::module::{ExportIndex, ImportName};
 use wasmer_runtime_core::types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type};
 use wasmer_runtime_core::units::{Bytes, Pages};
 
+pub mod value;
+
+use value::{wasmer_value, wasmer_value_t, wasmer_value_tag};
+
 #[repr(C)]
 pub struct wasmer_module_t;
 
@@ -38,32 +42,6 @@ pub struct wasmer_instance_context_t;
 pub enum wasmer_result_t {
     WASMER_OK = 1,
     WASMER_ERROR = 2,
-}
-
-#[allow(non_camel_case_types)]
-#[repr(u32)]
-#[derive(Clone)]
-pub enum wasmer_value_tag {
-    WASM_I32,
-    WASM_I64,
-    WASM_F32,
-    WASM_F64,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub union wasmer_value {
-    I32: int32_t,
-    I64: int64_t,
-    F32: f32,
-    F64: f64,
-}
-
-#[repr(C)]
-#[derive(Clone)]
-pub struct wasmer_value_t {
-    tag: wasmer_value_tag,
-    value: wasmer_value,
 }
 
 #[repr(C)]
