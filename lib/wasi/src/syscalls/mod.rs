@@ -1,5 +1,18 @@
+pub mod types;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod unix;
+#[cfg(any(target_os = "windows"))]
+pub mod windows;
+
 use crate::state::WasiState;
+use types::*;
 use wasmer_runtime_core::{memory::Memory, vm::Ctx};
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub use unix::*;
+
+#[cfg(any(target_os = "windows"))]
+pub use windows::*;
 
 #[allow(clippy::mut_from_ref)]
 fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
@@ -57,13 +70,6 @@ pub fn args_sizes_get(ctx: &mut Ctx, argc_out: u32, argv_buf_size_out: u32) {
 
     memory.view::<u32>()[(argc_out / 4) as usize].set(arg_count as u32);
     memory.view::<u32>()[(argv_buf_size_out / 4) as usize].set(total_arg_size as u32);
-}
-
-pub fn clock_res_get(ctx: &mut Ctx) {
-    unimplemented!()
-}
-pub fn clock_time_get(ctx: &mut Ctx) {
-    unimplemented!()
 }
 
 /// ### `environ_get()`
