@@ -18,6 +18,8 @@ use wasmparser::{
     SectionCode, Type as WpType,
 };
 
+use hashbrown::HashMap;
+
 pub fn read_module(
     wasm: &[u8],
     compiler_config: CompilerConfig,
@@ -47,6 +49,8 @@ pub fn read_module(
         name_table: StringTable::new(),
 
         em_symbol_map: compiler_config.symbol_map.clone(),
+
+        custom_sections: HashMap::new(),
     };
 
     let mut reader = ModuleReader::new(wasm)?;

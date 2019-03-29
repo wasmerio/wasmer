@@ -51,6 +51,8 @@ impl Module {
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
                 em_symbol_map: compiler_config.symbol_map.clone(),
+
+                custom_sections: HashMap::new(),
             },
         }
     }
