@@ -1,7 +1,7 @@
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 use wasmer_runtime_core::{
     memory::Memory,
-    types::{Type, ValueType, WasmExternType},
+    types::{Type, ValueError, ValueType, WasmExternType},
 };
 
 pub struct Array;
@@ -14,6 +14,7 @@ pub struct WasmPtr<T: Copy, Ty = Item> {
 }
 
 impl<T: Copy, Ty> WasmPtr<T, Ty> {
+    #[inline]
     pub fn new(offset: u32) -> Self {
         Self {
             offset,
@@ -21,12 +22,14 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
         }
     }
 
+    #[inline]
     pub fn offset(self) -> u32 {
         self.offset
     }
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
+    #[inline]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
         if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
             return None;
@@ -42,8 +45,9 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
-    pub fn deref<'a>(self, memory: &'a Memory, length: u32) -> Option<&'a [Cell<T>]> {
-        if (self.offset as usize) + (mem::size_of::<T>() * (length as usize))
+    #[inline]
+    pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
+        if (self.offset as usize) + (mem::size_of::<T>() * ((index + length) as usize))
             >= memory.size().bytes().0
         {
             return None;
@@ -61,6 +65,24 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
 
 unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
     const TYPE: Type = Type::I32;
+}
+
+impl<T: Copy, Ty> ValueType for WasmPtr<T, Ty> {
+    fn into_le(self, buffer: &mut [u8]) {
+        buffer[..mem::size_of::<u32>()].copy_from_slice(&self.offset.to_le_bytes());
+    }
+    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
+        if buffer.len() >= mem::size_of::<Self>() {
+            let mut array = [0u8; mem::size_of::<u32>()];
+            array.copy_from_slice(&buffer[..mem::size_of::<u32>()]);
+            Ok(Self {
+                offset: u32::from_le_bytes(array),
+                _phantom: PhantomData,
+            })
+        } else {
+            Err(ValueError::BufferTooSmall)
+        }
+    }
 }
 
 impl<T: Copy, Ty> Clone for WasmPtr<T, Ty> {

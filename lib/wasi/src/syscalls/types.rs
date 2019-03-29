@@ -223,7 +223,7 @@ pub const __WASI_O_DIRECTORY: u16 = 1 << 1;
 pub const __WASI_O_EXCL: u16 = 1 << 2;
 pub const __WASI_O_TRUNC: u16 = 1 << 3;
 
-pub type __wasi_riflags = u16;
+pub type __wasi_riflags_t = u16;
 pub const __WASI_SOCK_RECV_PEEK: u16 = 1 << 0;
 pub const __WASI_SOCK_RECV_WAITALL: u16 = 1 << 1;
 
