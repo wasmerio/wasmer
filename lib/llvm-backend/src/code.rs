@@ -102,7 +102,6 @@ pub fn parse_function_bodies(
 
         parse_function(
             &context,
-            &module,
             &builder,
             &intrinsics,
             info,
@@ -143,7 +142,6 @@ pub fn parse_function_bodies(
 
 fn parse_function(
     context: &Context,
-    module: &Module,
     builder: &Builder,
     intrinsics: &Intrinsics,
     info: &ModuleInfo,
