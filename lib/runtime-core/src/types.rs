@@ -77,6 +77,19 @@ where
 {
     const TYPE: Type;
 }
+
+unsafe impl WasmExternType for i8 {
+    const TYPE: Type = Type::I32;
+}
+unsafe impl WasmExternType for u8 {
+    const TYPE: Type = Type::I32;
+}
+unsafe impl WasmExternType for i16 {
+    const TYPE: Type = Type::I32;
+}
+unsafe impl WasmExternType for u16 {
+    const TYPE: Type = Type::I32;
+}
 unsafe impl WasmExternType for i32 {
     const TYPE: Type = Type::I32;
 }
