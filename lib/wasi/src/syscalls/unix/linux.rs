@@ -42,12 +42,17 @@ pub fn platform_clock_time_get(
         _ => return __WASI_EINVAL,
     };
 
-    let output = unsafe {
+    let (output, timespec_out) = unsafe {
         let mut timespec_out: timespec = mem::uninitialized();
-        clock_gettime(linux_clock_id, precision, &mut timespec_out);
+        (
+            clock_gettime(linux_clock_id, &mut timespec_out),
+            timespec_out,
+        )
     };
 
-    resolution.set(timespec_out.tv_nsec as __wasi_timestamp_t);
+    // TODO: adjust output by precision...
+
+    time.set(timespec_out.tv_nsec as __wasi_timestamp_t);
 
     // TODO: map output of clock_gettime to __wasi_errno_t
     __WASI_ESUCCESS
