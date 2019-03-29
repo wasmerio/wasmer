@@ -218,7 +218,7 @@ pub struct LLVMBackend {
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, intrinsics: Intrinsics) -> (Self, LLVMProtectedCaller) {
+    pub fn new(module: Module, _intrinsics: Intrinsics) -> (Self, LLVMProtectedCaller) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
             asm_printer: true,
