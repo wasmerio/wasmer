@@ -3,11 +3,12 @@
 use crate::{
     error::{update_last_error, CApiError},
     global::wasmer_global_t,
+    import::wasmer_import_func_t,
     memory::wasmer_memory_t,
     module::wasmer_module_t,
     table::wasmer_table_t,
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
-    wasmer_byte_array, wasmer_import_func_t, wasmer_result_t,
+    wasmer_byte_array, wasmer_result_t,
 };
 use libc::{c_int, uint32_t};
 use std::{ptr, slice};

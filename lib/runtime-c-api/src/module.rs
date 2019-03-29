@@ -2,8 +2,9 @@
 
 use crate::{
     error::{update_last_error, CApiError},
-    wasmer_byte_array, wasmer_import_export_kind, wasmer_import_t, wasmer_instance_t,
-    wasmer_result_t,
+    export::wasmer_import_export_kind,
+    import::wasmer_import_t,
+    wasmer_byte_array, wasmer_instance_t, wasmer_result_t,
 };
 use libc::{c_int, uint32_t, uint8_t};
 use std::{collections::HashMap, slice};
