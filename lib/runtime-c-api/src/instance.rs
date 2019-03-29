@@ -2,10 +2,10 @@
 
 use crate::{
     error::{update_last_error, CApiError},
+    export::{wasmer_exports_t, NamedExport, NamedExports},
     memory::wasmer_memory_t,
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
-    wasmer_exports_t, wasmer_import_export_kind, wasmer_import_t, wasmer_result_t, NamedExport,
-    NamedExports,
+    wasmer_import_export_kind, wasmer_import_t, wasmer_result_t,
 };
 use libc::{c_char, c_int, c_void, uint32_t, uint8_t};
 use std::{collections::HashMap, ffi::CStr, slice};
