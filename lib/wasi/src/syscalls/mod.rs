@@ -248,6 +248,7 @@ pub fn fd_filestat_set_times(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
 pub fn fd_pread(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -256,8 +257,17 @@ pub fn fd_pread(
     offset: __wasi_filesize_t,
     nread: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+
+    if let ((Some(iov_cells), Some(nread_cell))) =
+        (iovs.deref(memory, 0, iovs_len), nread.deref(memory))
+    {
+        platform_fd_pread(fd, iov_cells, iovs_len, offset, nread_cell)
+    } else {
+        __WASI_EFAULT
+    }
 }
+
 pub fn fd_prestat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
