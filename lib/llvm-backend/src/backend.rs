@@ -54,6 +54,7 @@ enum LLVMResult {
     OBJECT_LOAD_FAILURE,
 }
 
+#[allow(dead_code)]
 #[repr(C)]
 enum WasmTrapType {
     Unreachable = 0,
