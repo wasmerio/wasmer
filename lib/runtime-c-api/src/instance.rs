@@ -1,4 +1,4 @@
-//! Wasm instance.
+//! Instantiate a module, call functions, and read exports.
 
 use crate::{
     error::{update_last_error, CApiError},

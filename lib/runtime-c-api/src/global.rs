@@ -1,4 +1,4 @@
-//! Wasm global.
+//! Create, set, get and destroy global variables of an instance.
 
 use crate::value::{wasmer_value_t, wasmer_value_tag};
 use wasmer_runtime::Global;
