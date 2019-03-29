@@ -114,7 +114,6 @@ pub struct Intrinsics {
 
     pub throw_trap: FunctionValue,
 
-    ctx_ty: StructType,
     pub ctx_ptr_ty: PointerType,
 }
 
@@ -367,7 +366,6 @@ impl Intrinsics {
                 void_ty.fn_type(&[i32_ty_basic], false),
                 None,
             ),
-            ctx_ty,
             ctx_ptr_ty,
         }
     }
@@ -380,9 +378,6 @@ impl Intrinsics {
         cache_builder: Builder,
     ) -> CtxType<'a> {
         CtxType {
-            ctx_ty: self.ctx_ty,
-            ctx_ptr_ty: self.ctx_ptr_ty,
-
             ctx_ptr_value: func_value.get_nth_param(0).unwrap().into_pointer_value(),
 
             builder,
@@ -432,9 +427,6 @@ struct ImportedFuncCache {
 }
 
 pub struct CtxType<'a> {
-    ctx_ty: StructType,
-    ctx_ptr_ty: PointerType,
-
     ctx_ptr_value: PointerValue,
 
     builder: &'a Builder,
