@@ -42,20 +42,12 @@ pub fn generate_trampolines(
             Some(Linkage::External),
         );
 
-        generate_trampoline(
-            trampoline_func,
-            func_type,
-            sig,
-            context,
-            builder,
-            intrinsics,
-        );
+        generate_trampoline(trampoline_func, sig, context, builder, intrinsics);
     }
 }
 
 fn generate_trampoline(
     trampoline_func: FunctionValue,
-    sig_type: FunctionType,
     func_sig: &FuncSig,
     context: &Context,
     builder: &Builder,
