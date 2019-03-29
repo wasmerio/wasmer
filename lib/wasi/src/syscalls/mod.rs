@@ -72,6 +72,23 @@ pub fn args_sizes_get(ctx: &mut Ctx, argc_out: u32, argv_buf_size_out: u32) {
     memory.view::<u32>()[(argv_buf_size_out / 4) as usize].set(total_arg_size as u32);
 }
 
+pub fn clock_res_get(
+    ctx: &mut Ctx,
+    clock_id: __wasi_clockid_t,
+    resolution: WasmPtr<__wasi_timestamp_t>,
+) -> __wasi_errno_t {
+    platform_clock_res_get(ctx, clock_id, resolution)
+}
+
+pub fn clock_time_get(
+    ctx: &mut Ctx,
+    clock_id: __wasi_clockid_t,
+    precision: __wasi_timestamp_t,
+    time: WasmPtr<__wasi_timestamp_t>,
+) -> __wasi_errno_t {
+    platform_clock_time_get(ctx, clock_id, precision, time)
+}
+
 /// ### `environ_get()`
 /// Read environment variable data.
 /// The sizes of the buffers should match that returned by [`environ_sizes_get()`](#environ_sizes_get).

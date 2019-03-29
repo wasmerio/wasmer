@@ -1,7 +1,7 @@
 use crate::syscalls::types::*;
 use wasmer_runtime_core::{memory::Memory, vm::Ctx};
 
-pub fn clock_res_get(
+pub fn platform_clock_res_get(
     ctx: &mut Ctx,
     clock_id: __wasi_clockid_t,
     resolution: WasmPtr<__wasi_timestamp_t>,
@@ -9,7 +9,7 @@ pub fn clock_res_get(
     __WASI_EINVAL
 }
 
-pub fn clock_time_get(
+pub fn platform_clock_time_get(
     ctx: &mut Ctx,
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
