@@ -1,4 +1,5 @@
 use crate::syscalls::types::*;
+use crate::ptr::{Array, WasmPtr},
 use wasmer_runtime_core::{memory::Memory, vm::Ctx};
 
 pub fn platform_clock_res_get(
