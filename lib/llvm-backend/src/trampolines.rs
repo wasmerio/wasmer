@@ -3,10 +3,9 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
-    passes::PassManager,
-    types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
-    values::{BasicValue, FunctionValue, PhiValue, PointerValue},
-    AddressSpace, FloatPredicate, IntPredicate,
+    types::{BasicType, FunctionType},
+    values::FunctionValue,
+    AddressSpace,
 };
 use wasmer_runtime_core::{
     module::ModuleInfo,

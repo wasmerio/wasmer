@@ -3,14 +3,14 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    types::{BasicType, BasicTypeEnum, FunctionType, IntType, PointerType},
+    types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
     values::{BasicValue, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue},
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 use wasmer_runtime_core::{
     memory::MemoryType,
-    module::{ExportIndex, ModuleInfo},
+    module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,

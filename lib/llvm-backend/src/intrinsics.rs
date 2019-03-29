@@ -4,10 +4,7 @@ use inkwell::{
     context::Context,
     module::Module,
     types::{BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VoidType},
-    values::{
-        BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
-        PointerValue,
-    },
+    values::{BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
 use std::marker::PhantomData;

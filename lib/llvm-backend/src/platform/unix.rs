@@ -1,7 +1,5 @@
 use libc::{c_void, siginfo_t};
-use nix::sys::signal::{
-    sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
-};
+use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGSEGV};
 
 /// `__register_frame` and `__deregister_frame` on macos take a single fde as an
 /// argument, so we need to parse the fde table here.
