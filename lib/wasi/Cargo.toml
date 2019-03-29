@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
+libc = "0.2.50"

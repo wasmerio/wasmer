@@ -1482,6 +1482,7 @@ dependencies = [
 name = "wasmer-wasi"
 version = "0.1.0"
 dependencies = [
+ "libc 0.2.50 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.2.1",
 ]
 

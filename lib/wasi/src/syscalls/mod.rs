@@ -108,7 +108,13 @@ pub fn clock_res_get(
     clock_id: __wasi_clockid_t,
     resolution: WasmPtr<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-    platform_clock_res_get(ctx, clock_id, resolution)
+    let memory = ctx.memory(0);
+
+    if let Some(out_addr) = resolution.deref(memory) {
+        platform_clock_res_get(clock_id, out_addr)
+    } else {
+        __WASI_EFAULT
+    }
 }
 
 pub fn clock_time_get(
@@ -117,7 +123,13 @@ pub fn clock_time_get(
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-    platform_clock_time_get(ctx, clock_id, precision, time)
+    let memory = ctx.memory(0);
+
+    if let Some(out_addr) = time.deref(memory) {
+        platform_clock_time_get(clock_id, precision, out_addr)
+    } else {
+        __WASI_EFAULT
+    }
 }
 
 /// ### `environ_get()`
