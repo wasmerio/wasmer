@@ -14,12 +14,14 @@ use wasmer_runtime_core::module::{ExportIndex, ImportName};
 use wasmer_runtime_core::types::{FuncSig, Type};
 
 pub mod error;
+pub mod global;
 pub mod memory;
 pub mod module;
 pub mod table;
 pub mod value;
 
 use error::{update_last_error, CApiError};
+use global::wasmer_global_t;
 use memory::wasmer_memory_t;
 use module::wasmer_module_t;
 use table::wasmer_table_t;
@@ -40,22 +42,11 @@ pub enum wasmer_result_t {
 
 #[repr(C)]
 #[derive(Clone)]
-pub struct wasmer_global_descriptor_t {
-    mutable: bool,
-    kind: wasmer_value_tag,
-}
-
-#[repr(C)]
-#[derive(Clone)]
 pub struct wasmer_import_func_t;
 
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_export_func_t;
-
-#[repr(C)]
-#[derive(Clone)]
-pub struct wasmer_global_t;
 
 #[repr(C)]
 pub struct wasmer_limits_t {
@@ -124,61 +115,6 @@ pub union wasmer_import_export_value {
 pub struct wasmer_byte_array {
     bytes: *const uint8_t,
     bytes_len: uint32_t,
-}
-
-/// Creates a new Global and returns a pointer to it.
-/// The caller owns the object and should call `wasmer_global_destroy` to free it.
-#[no_mangle]
-pub unsafe extern "C" fn wasmer_global_new(
-    value: wasmer_value_t,
-    mutable: bool,
-) -> *mut wasmer_global_t {
-    let global = if mutable {
-        Global::new_mutable(value.into())
-    } else {
-        Global::new(value.into())
-    };
-    Box::into_raw(Box::new(global)) as *mut wasmer_global_t
-}
-
-/// Gets the value stored by the given Global
-#[allow(clippy::cast_ptr_alignment)]
-#[no_mangle]
-pub extern "C" fn wasmer_global_get(global: *mut wasmer_global_t) -> wasmer_value_t {
-    let global = unsafe { &*(global as *mut Global) };
-    let value: wasmer_value_t = global.get().into();
-    value
-}
-
-/// Sets the value stored by the given Global
-#[allow(clippy::cast_ptr_alignment)]
-#[no_mangle]
-pub extern "C" fn wasmer_global_set(global: *mut wasmer_global_t, value: wasmer_value_t) {
-    let global = unsafe { &*(global as *mut Global) };
-    global.set(value.into());
-}
-
-/// Returns a descriptor (type, mutability) of the given Global
-#[allow(clippy::cast_ptr_alignment)]
-#[no_mangle]
-pub extern "C" fn wasmer_global_get_descriptor(
-    global: *mut wasmer_global_t,
-) -> wasmer_global_descriptor_t {
-    let global = unsafe { &*(global as *mut Global) };
-    let descriptor = global.descriptor();
-    wasmer_global_descriptor_t {
-        mutable: descriptor.mutable,
-        kind: descriptor.ty.into(),
-    }
-}
-
-/// Frees memory for the given Global
-#[allow(clippy::cast_ptr_alignment)]
-#[no_mangle]
-pub extern "C" fn wasmer_global_destroy(global: *mut wasmer_global_t) {
-    if !global.is_null() {
-        unsafe { Box::from_raw(global as *mut Global) };
-    }
 }
 
 /// Gets export descriptors for the given module
