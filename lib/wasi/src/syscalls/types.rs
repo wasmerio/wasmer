@@ -1,5 +1,8 @@
 #![allow(non_camel_case_types)]
 
+use crate::ptr::{Array, WasmPtr};
+use wasmer_runtime_core::types::{ValueError, ValueType};
+
 pub type __wasi_advice_t = u8;
 pub const __WASI_ADVICE_DONTNEED: u8 = 0;
 pub const __WASI_ADVICE_NOREUSE: u8 = 1;
@@ -11,7 +14,7 @@ pub const __WASI_ADVICE_WILLNEED: u8 = 5;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct __wasi_ciovec_t {
-    pub buf: u32,
+    pub buf: WasmPtr<u8, Array>,
     pub buf_len: u32,
 }
 
@@ -205,7 +208,7 @@ pub type __wasi_inode_t = u64;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct __wasi_iovec_t {
-    pub buf: u32,
+    pub buf: WasmPtr<u8, Array>,
     pub buf_len: u32,
 }
 
@@ -220,7 +223,7 @@ pub const __WASI_O_DIRECTORY: u16 = 1 << 1;
 pub const __WASI_O_EXCL: u16 = 1 << 2;
 pub const __WASI_O_TRUNC: u16 = 1 << 3;
 
-pub type __wasi_riflags = u16;
+pub type __wasi_riflags_t = u16;
 pub const __WASI_SOCK_RECV_PEEK: u16 = 1 << 0;
 pub const __WASI_SOCK_RECV_WAITALL: u16 = 1 << 1;
 
