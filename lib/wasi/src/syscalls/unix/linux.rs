@@ -1,5 +1,6 @@
 use crate::syscalls::types::*;
 use std::cell::Cell;
+use std::mem;
 
 use libc::preadv;
 
@@ -12,10 +13,18 @@ pub fn platform_fd_pread(
 ) -> __wasi_errno_t {
     let (result, iovec) = unsafe {
         let mut iovec = vec![mem::uninitialized(); iovs_len as usize];
-        (preadv(fd, &mut iovec, iovs_len, offset), iovec)
+        (
+            preadv(
+                fd as i32,
+                iovec.as_mut_ptr(),
+                iovs_len as i32,
+                offset as i64,
+            ),
+            iovec,
+        )
     };
-    nread.set(result);
-    for (arr_cell, i) in iov_arr.iter().enumerate() {
+    nread.set(result as u32);
+    for (arr_cell, i) in iovs.iter().enumerate() {
         let wasi_iovec = __wasi_iovec_t {
             buf: iovec[i] as _,
             buf_len: iovec[i].iov_len as u32,
