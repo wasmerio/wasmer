@@ -23,6 +23,7 @@ mod protect_unix;
 mod stack;
 mod emitter_x64;
 mod machine;
+mod codegen_x64_v2;
 
 use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;

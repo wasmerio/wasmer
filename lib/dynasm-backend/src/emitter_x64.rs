@@ -91,6 +91,8 @@ pub trait Emitter {
     fn emit_shl(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_shr(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_sar(&mut self, sz: Size, src: Location, dst: Location);
+
+    fn emit_ud2(&mut self);
 }
 
 macro_rules! unop_gpr {
@@ -389,4 +391,7 @@ impl Emitter for Assembler {
         binop_shift!(sar, self, sz, src, dst, { unreachable!() });
     }
 
+    fn emit_ud2(&mut self) {
+        dynasm!(self ; ud2);
+    }
 }
