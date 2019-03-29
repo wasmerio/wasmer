@@ -487,7 +487,6 @@ fn parse_function(
                 if let ControlFrame::IfElse {
                     if_else,
                     next,
-                    phis,
                     if_else_state,
                     ..
                 } = &frame
@@ -863,7 +862,7 @@ fn parse_function(
                         let value = call_site.try_as_basic_value().left().unwrap();
                         state.push1(value);
                     }
-                    returns @ _ => unimplemented!("multi-value returns"),
+                    _ => unimplemented!("multi-value returns"),
                 }
             }
 
@@ -2155,7 +2154,7 @@ fn parse_function(
         [one_value] => {
             builder.build_return(Some(one_value));
         }
-        returns @ _ => {
+        _ => {
             // let struct_ty = llvm_sig.get_return_type().as_struct_type();
             // let ret_struct = struct_ty.const_zero();
             unimplemented!("multi-value returns not yet implemented")
@@ -2208,7 +2207,7 @@ fn trap_if_not_representatable_as_int(
             ),
         };
 
-        let masked = builder.build_and(
+        builder.build_and(
             float_bits,
             int_ty.const_int(exponent_mask, false),
             "masked_bits",
