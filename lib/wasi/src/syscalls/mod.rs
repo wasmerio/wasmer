@@ -10,6 +10,7 @@ use crate::{
     ptr::{Array, WasmPtr},
     state::WasiState,
 };
+use rand::{thread_rng, Rng};
 use wasmer_runtime_core::{memory::Memory, vm::Ctx};
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -451,12 +452,36 @@ pub fn proc_exit(ctx: &mut Ctx, rval: __wasi_exitcode_t) {
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `random_get()`
+/// Fill buffer with high-quality random data.  This function may be slow and block
+/// Inputs:
+/// - `void *buf`
+///     A pointer to a buffer where the random bytes will be written
+/// - `size_t buf_len`
+///     The number of bytes that will be written
 pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __wasi_errno_t {
-    unimplemented!()
+    let mut rng = thread_rng();
+    let memory = ctx.memory(0);
+
+    if let Some(buf) = buf.deref(memory, 0, buf_len) {
+        for i in 0..(buf_len as usize) {
+            let random_byte = rng.gen::<u8>();
+            buf[i].set(random_byte);
+        }
+    } else {
+        return __WASI_EFAULT;
+    }
+
+    __WASI_ESUCCESS
 }
+
+/// ### `sched_yield()`
+/// Yields execution of the thread
 pub fn sched_yield(ctx: &mut Ctx) -> __wasi_errno_t {
-    unimplemented!()
+    __WASI_ESUCCESS
 }
+
 pub fn sock_recv(
     ctx: &mut Ctx,
     sock: __wasi_fd_t,
