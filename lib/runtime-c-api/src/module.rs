@@ -42,6 +42,21 @@ pub unsafe extern "C" fn wasmer_compile(
     wasmer_result_t::WASMER_OK
 }
 
+/// Returns true for valid wasm bytes and false for invalid bytes
+#[allow(clippy::cast_ptr_alignment)]
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_validate(
+    wasm_bytes: *const uint8_t,
+    wasm_bytes_len: uint32_t,
+) -> bool {
+    if wasm_bytes.is_null() {
+        return false;
+    }
+    let bytes: &[u8] = slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
+
+    wasmer_runtime_core::validate(bytes)
+}
+
 /// Creates a new Instance from the given module and imports.
 ///
 /// Returns `wasmer_result_t::WASMER_OK` upon success.

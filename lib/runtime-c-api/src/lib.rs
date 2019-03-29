@@ -128,21 +128,6 @@ pub struct wasmer_byte_array {
     bytes_len: uint32_t,
 }
 
-/// Returns true for valid wasm bytes and false for invalid bytes
-#[allow(clippy::cast_ptr_alignment)]
-#[no_mangle]
-pub unsafe extern "C" fn wasmer_validate(
-    wasm_bytes: *const uint8_t,
-    wasm_bytes_len: uint32_t,
-) -> bool {
-    if wasm_bytes.is_null() {
-        return false;
-    }
-    let bytes: &[u8] = slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
-
-    wasmer_runtime_core::validate(bytes)
-}
-
 /// Creates a new Table for the given descriptor and initializes the given
 /// pointer to pointer to a pointer to the new Table.
 ///
