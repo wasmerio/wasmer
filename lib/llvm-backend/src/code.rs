@@ -190,7 +190,7 @@ fn parse_function(
     let param_len = locals.len();
 
     let mut local_idx = 0;
-    for (index, local) in locals_reader.into_iter().enumerate() {
+    for local in locals_reader.into_iter() {
         let (count, ty) = local?;
         let wasmer_ty = type_to_type(ty)?;
         let ty = type_to_llvm(intrinsics, wasmer_ty);
