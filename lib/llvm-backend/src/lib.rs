@@ -47,10 +47,11 @@ impl Compiler for LLVMCompiler {
             use wasmer_runtime_core::module::ModuleInfo;
 
             struct Placeholder;
+
             impl CacheGen for Placeholder {
                 fn generate_cache(
                     &self,
-                    module: &ModuleInner,
+                    _module: &ModuleInner,
                 ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
                     unimplemented!()
                 }
