@@ -240,16 +240,39 @@ pub fn fd_prestat_get(
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_prestat_t>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+
+    if let Some(prestat_ptr) = buf.deref(memory) {
+        // open fd
+        // write info to prestat_ptr
+        __WASI_ESUCCESS
+    } else {
+        __WASI_EFAULT
+    }
 }
+
 pub fn fd_prestat_dir_name(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+
+    if let Some(path_chars) = path.deref(memory, 0, path_len) {
+        if true /* check if dir */ {
+            // get name
+            // write name
+            // if overflow __WASI_EOVERFLOW
+            __WASI_ESUCCESS
+        } else {
+            __WASI_ENOTDIR
+        }
+    } else {
+        __WASI_EFAULT
+    }
 }
+
 pub fn fd_pwrite(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
