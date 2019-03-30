@@ -25,8 +25,6 @@ impl Machine {
     pub fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &'static [GPR] = &[
-            RCX,
-            RDX,
             RBX,
             RSI,
             RDI,
@@ -34,6 +32,8 @@ impl Machine {
             R9,
             R10,
             R11,
+            R12,
+            R13,
         ];
         for r in REGS {
             if !self.used_gprs.contains(r) {
@@ -50,8 +50,8 @@ impl Machine {
         use GPR::*;
         static REGS: &'static [GPR] = &[
             RAX,
-            R12,
-            R13,
+            RCX,
+            RDX,
             R14,
             R15
         ];
@@ -129,6 +129,34 @@ impl Machine {
         assert_eq!(self.used_xmms.remove(&xmm), true);
     }
 
+    /// Acquires stack locations from the machine state.
+    pub fn acquire_stack_locations<E: Emitter>(
+        &mut self,
+        assembler: &mut E,
+        n: usize,
+        zeroed: bool,
+    ) -> Vec<Location> {
+        let mut ret = vec![];
+        let mut delta_stack_offset: usize = 0;
+
+        for _ in 0..n {
+            let loc = {
+                self.stack_offset.0 += 8;
+                delta_stack_offset += 8;
+                Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32))
+            };
+            ret.push(loc);
+        }
+
+        assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        if zeroed {
+            for i in 0..n {
+                assembler.emit_mov(Size::S64, Location::Imm32(0), ret[i]);
+            }
+        }
+        ret
+    }
+
     /// Acquires locations from the machine state.
     /// 
     /// If the returned locations are used for stack value, `release_location` needs to be called on them;
@@ -173,7 +201,7 @@ impl Machine {
         assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
         if zeroed {
             for i in 0..tys.len() {
-                assembler.emit_mov(Size::S64, Location::Imm32(0), Location::Memory(GPR::RSP, (i * 8) as i32));
+                assembler.emit_mov(Size::S64, Location::Imm32(0), ret[i]);
             }
         }
         ret

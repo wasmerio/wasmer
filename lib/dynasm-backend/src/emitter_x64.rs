@@ -91,6 +91,11 @@ pub trait Emitter {
     fn emit_shl(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_shr(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_sar(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_and(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_or(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location);
 
     fn emit_ud2(&mut self);
 }
@@ -389,6 +394,27 @@ impl Emitter for Assembler {
     }
     fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) {
         binop_shift!(sar, self, sz, src, dst, { unreachable!() });
+    }
+    fn emit_and(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_all_nofp!(and, self, sz, src, dst, {unreachable!()});
+    }
+    fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_all_nofp!(or, self, sz, src, dst, {unreachable!()});
+    }
+    fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_gpr_gpr!(lzcnt, self, sz, src, dst, {
+            binop_mem_gpr!(lzcnt, self, sz, src, dst, {unreachable!()})
+        });
+    }
+    fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_gpr_gpr!(tzcnt, self, sz, src, dst, {
+            binop_mem_gpr!(tzcnt, self, sz, src, dst, {unreachable!()})
+        });
+    }
+    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_gpr_gpr!(popcnt, self, sz, src, dst, {
+            binop_mem_gpr!(popcnt, self, sz, src, dst, {unreachable!()})
+        });
     }
 
     fn emit_ud2(&mut self) {

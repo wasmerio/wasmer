@@ -35,6 +35,12 @@ pub struct X64ModuleCodeGenerator {
     func_import_count: usize,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum LocalOrTemp {
+    Local,
+    Temp
+}
+
 pub struct X64FunctionCode {
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
@@ -46,7 +52,7 @@ pub struct X64FunctionCode {
     returns: Vec<WpType>,
     locals: Vec<Location>,
     num_params: usize,
-    value_stack: Vec<Location>,
+    value_stack: Vec<(Location, LocalOrTemp)>,
     control_stack: Vec<ControlFrame>,
     machine: Machine,
     unreachable_depth: usize,
@@ -346,6 +352,99 @@ impl X64FunctionCode {
         }
     }
 
+    fn emit_binop_i32<F: FnOnce(&mut Assembler, Size, Location, Location)>(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        f: F,
+    ) {
+        // Using Red Zone here.
+        let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
+        let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
+        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        assert_eq!(loc_a, ret);
+        Self::emit_relaxed_binop(
+            a, m, f,
+            Size::S32, loc_b, ret,
+        );
+    }
+
+    fn emit_cmpop_i32_dynamic_b(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        c: Condition,
+        loc_b: Location,
+    ) {
+        // Using Red Zone here.
+        let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
+        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        match ret {
+            Location::GPR(x) => {
+                a.emit_xor(Size::S32, Location::GPR(x), Location::GPR(x));
+                Self::emit_relaxed_binop(
+                    a, m, Assembler::emit_cmp,
+                    Size::S32, loc_b, loc_a,
+                );
+                a.emit_set(c, x);
+            },
+            Location::Memory(_, _) => {
+                let tmp = m.acquire_temp_gpr().unwrap();
+                a.emit_xor(Size::S32, Location::GPR(tmp), Location::GPR(tmp));
+                Self::emit_relaxed_binop(
+                    a, m, Assembler::emit_cmp,
+                    Size::S32, loc_b, loc_a,
+                );
+                a.emit_set(c, tmp);
+                a.emit_mov(Size::S32, Location::GPR(tmp), ret);
+                m.release_temp_gpr(tmp);
+            },
+            _ => unreachable!()
+        }
+    }
+
+    fn emit_cmpop_i32(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        c: Condition,
+    ) {
+        let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
+        Self::emit_cmpop_i32_dynamic_b(a, m, value_stack, c, loc_b);
+    }
+
+    fn emit_xcnt_i32<F: FnOnce(&mut Assembler, Size, Location, Location)>(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        f: F,
+    ) {
+        let loc = get_location_released(a, m, value_stack.pop().unwrap());
+        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        if let Location::Imm32(x) = loc {
+            let tmp = m.acquire_temp_gpr().unwrap();
+            a.emit_mov(Size::S32, loc, Location::GPR(tmp));
+            if let Location::Memory(_, _) = ret {
+                let out_tmp = m.acquire_temp_gpr().unwrap();
+                f(a, Size::S32, Location::GPR(tmp), Location::GPR(out_tmp));
+                a.emit_mov(Size::S32, Location::GPR(out_tmp), ret);
+                m.release_temp_gpr(out_tmp);
+            } else {
+                f(a, Size::S32, Location::GPR(tmp), ret);
+            }
+            m.release_temp_gpr(tmp);
+        } else {
+            if let Location::Memory(_, _) = ret {
+                let out_tmp = m.acquire_temp_gpr().unwrap();
+                f(a, Size::S32, loc, Location::GPR(out_tmp));
+                a.emit_mov(Size::S32, Location::GPR(out_tmp), ret);
+                m.release_temp_gpr(out_tmp);
+            } else {
+                f(a, Size::S32, loc, ret);
+            }
+        }
+    }
+
     fn get_param_location(
         idx: usize
     ) -> Location {
@@ -372,13 +471,13 @@ impl FunctionCodeGenerator for X64FunctionCode {
         self.locals.push(Self::get_param_location(
             self.num_params + 1
         ));
+        self.num_params += 1;
         Ok(())
     }
 
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
-        let types: Vec<_> = ::std::iter::repeat(ty).take(n).collect();
-        self.machine.acquire_locations(a, &types, true);
+        self.machine.acquire_stack_locations(a, n, true);
         Ok(())
     }
 
@@ -434,6 +533,166 @@ impl FunctionCodeGenerator for X64FunctionCode {
         }
 
         let a = self.assembler.as_mut().unwrap();
-        unimplemented!();
+        match op {
+            Operator::GetGlobal { global_index } => {
+                let mut global_index = global_index as usize;
+                let loc = self.machine.acquire_locations(
+                    a,
+                    &[type_to_wp_type(
+                        module_info.globals[LocalGlobalIndex::new(global_index)]
+                            .desc
+                            .ty,
+                    )],
+                    false
+                )[0];
+                self.value_stack.push((loc, LocalOrTemp::Temp));
+
+                let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                if global_index < module_info.imported_globals.len() {
+                    a.emit_mov(Size::S64, Location::Memory(GPR::RDI, vm::Ctx::offset_imported_globals() as i32), Location::GPR(tmp));
+                } else {
+                    global_index -= module_info.imported_globals.len();
+                    assert!(global_index < module_info.globals.len());
+                    a.emit_mov(Size::S64, Location::Memory(GPR::RDI, vm::Ctx::offset_globals() as i32), Location::GPR(tmp));
+                }
+                a.emit_mov(Size::S64, Location::Memory(tmp, (global_index as i32) * 8), Location::GPR(tmp));
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_mov,
+                    Size::S64, Location::Memory(tmp, LocalGlobal::offset_data() as i32), loc
+                );
+
+                self.machine.release_temp_gpr(tmp);
+            }
+            Operator::SetGlobal { global_index } => {
+                let mut global_index = global_index as usize;
+                let (loc, local_or_temp) = self.value_stack.pop().unwrap();
+
+                let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                if global_index < module_info.imported_globals.len() {
+                    a.emit_mov(Size::S64, Location::Memory(GPR::RDI, vm::Ctx::offset_imported_globals() as i32), Location::GPR(tmp));
+                } else {
+                    global_index -= module_info.imported_globals.len();
+                    assert!(global_index < module_info.globals.len());
+                    a.emit_mov(Size::S64, Location::Memory(GPR::RDI, vm::Ctx::offset_globals() as i32), Location::GPR(tmp));
+                }
+                a.emit_mov(Size::S64, Location::Memory(tmp, (global_index as i32) * 8), Location::GPR(tmp));
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_mov,
+                    Size::S64, loc, Location::Memory(tmp, LocalGlobal::offset_data() as i32)
+                );
+
+                self.machine.release_temp_gpr(tmp);
+                if local_or_temp == LocalOrTemp::Temp {
+                    self.machine.release_locations(a, &[loc]);
+                }
+            }
+            Operator::GetLocal { local_index } => {
+                let local_index = local_index as usize;
+                self.value_stack.push((self.locals[local_index], LocalOrTemp::Local));
+            }
+            Operator::SetLocal { local_index } => {
+                let local_index = local_index as usize;
+                let (loc, local_or_temp) = self.value_stack.pop().unwrap();
+
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_mov,
+                    Size::S64, loc, self.locals[local_index],
+                );
+                if local_or_temp == LocalOrTemp::Temp {
+                    self.machine.release_locations(a, &[loc]);
+                }
+            }
+            Operator::TeeLocal { local_index } => {
+                let local_index = local_index as usize;
+                let (loc, _) = *self.value_stack.last().unwrap();
+
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_mov,
+                    Size::S64, loc, self.locals[local_index],
+                );
+            }
+            Operator::I32Const { value } => self.value_stack.push((Location::Imm32(value as u32), LocalOrTemp::Temp)),
+            Operator::I32Add => Self::emit_binop_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_add),
+            Operator::I32Sub => Self::emit_binop_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_sub),
+            Operator::I32Mul => Self::emit_binop_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_imul),
+            Operator::I32DivU => {
+                // We assume that RAX and RDX are temporary registers here.
+                let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+                a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_div(Size::S32, loc_b);
+                a.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::I32DivS => {
+                // We assume that RAX and RDX are temporary registers here.
+                let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+                a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_idiv(Size::S32, loc_b);
+                a.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::I32RemU => {
+                // We assume that RAX and RDX are temporary registers here.
+                let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+                a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_div(Size::S32, loc_b);
+                a.emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
+            }
+            Operator::I32RemS => {
+                // We assume that RAX and RDX are temporary registers here.
+                let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+                a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_idiv(Size::S32, loc_b);
+                a.emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
+            }
+            Operator::I32And => Self::emit_binop_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_and),
+            Operator::I32Or => Self::emit_binop_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_or),
+            Operator::I32Xor => Self::emit_binop_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_xor),
+            Operator::I32Eq => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Equal),
+            Operator::I32Ne => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::NotEqual),
+            Operator::I32LtU => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Below),
+            Operator::I32LeU => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::BelowEqual),
+            Operator::I32GtU => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Above),
+            Operator::I32GeU => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::AboveEqual),
+            Operator::I32LtS => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Less),
+            Operator::I32LeS => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::LessEqual),
+            Operator::I32GtS => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Greater),
+            Operator::I32GeS => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::GreaterEqual),
+            Operator::I32Eqz => Self::emit_cmpop_i32_dynamic_b(a, &mut self.machine, &mut self.value_stack, Condition::Equal, Location::Imm32(0)),
+            Operator::I32Clz => Self::emit_xcnt_i32(a, &mut self.machine, &mut self.value_stack, Emitter::emit_lzcnt),
+            Operator::I32Ctz => Self::emit_xcnt_i32(a, &mut self.machine, &mut self.value_stack, Emitter::emit_tzcnt),
+            Operator::I32Popcnt => Self::emit_xcnt_i32(a, &mut self.machine, &mut self.value_stack, Emitter::emit_popcnt),
+            _ => unimplemented!()
+        }
+
+        Ok(())
     }
+}
+
+fn type_to_wp_type(ty: Type) -> WpType {
+    match ty {
+        Type::I32 => WpType::I32,
+        Type::I64 => WpType::I64,
+        Type::F32 => WpType::F32,
+        Type::F64 => WpType::F64,
+    }
+}
+
+fn get_location_released(a: &mut Assembler, m: &mut Machine, (loc, lot): (Location, LocalOrTemp)) -> Location {
+    if lot == LocalOrTemp::Temp {
+        m.release_locations(a, &[loc]);
+    }
+    loc
 }
