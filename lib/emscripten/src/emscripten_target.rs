@@ -118,6 +118,22 @@ pub fn _pthread_cond_destroy(_ctx: &mut Ctx, _a: i32) -> i32 {
     debug!("emscripten::_pthread_cond_destroy");
     0
 }
+pub fn _pthread_getspecific(_ctx: &mut Ctx, _a: i32) -> i32 {
+    debug!("emscripten::_pthread_getspecific");
+    0
+}
+pub fn _pthread_setspecific(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_pthread_setspecific");
+    0
+}
+pub fn _pthread_once(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_pthread_once");
+    0
+}
+pub fn _pthread_key_create(_ctx: &mut Ctx, _a: i32, _b: i32) -> i32 {
+    debug!("emscripten::_pthread_key_create");
+    0
+}
 pub fn _pthread_create(_ctx: &mut Ctx, _a: i32, _b: i32, _c: i32, _d: i32) -> i32 {
     debug!("emscripten::_pthread_create");
     0
@@ -424,6 +440,30 @@ pub fn invoke_viiiiiiiii(
         panic!("dyn_call_viiiiiiiii is set to None");
     }
 }
+pub fn invoke_viiiiiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
+    a10: i32,
+) {
+    debug!("emscripten::invoke_viiiiiiiiii");
+    if let Some(dyn_call_viiiiiiiiii) = &get_emscripten_data(ctx).dyn_call_viiiiiiiiii {
+        dyn_call_viiiiiiiiii
+            .call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
+            .unwrap();
+    } else {
+        panic!("dyn_call_viiiiiiiiii is set to None");
+    }
+}
+
 pub fn invoke_iiji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
     debug!("emscripten::invoke_iiji");
     if let Some(dyn_call_iiji) = &get_emscripten_data(ctx).dyn_call_iiji {
@@ -448,6 +488,15 @@ pub fn invoke_ji(ctx: &mut Ctx, index: i32, a1: i32) -> i32 {
         panic!("dyn_call_ji is set to None");
     }
 }
+pub fn invoke_jii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) -> i32 {
+    debug!("emscripten::invoke_jii");
+    if let Some(dyn_call_jii) = &get_emscripten_data(ctx).dyn_call_jii {
+        dyn_call_jii.call(index, a1, a2).unwrap()
+    } else {
+        panic!("dyn_call_jii is set to None");
+    }
+}
+
 pub fn invoke_jij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     debug!("emscripten::invoke_jij");
     if let Some(dyn_call_jij) = &get_emscripten_data(ctx).dyn_call_jij {
