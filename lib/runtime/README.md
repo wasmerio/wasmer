@@ -1,12 +1,41 @@
-# Wasmer-Runtime
+<p align="center">
+  <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
+    <img width="400" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
+  </a>
+</p>
 
-Wasmer-runtime is a library that makes embedding WebAssembly
-in your application easy, efficient, and safe.
+<p align="center">
+  <a href="https://circleci.com/gh/wasmerio/wasmer/">
+    <img src="https://img.shields.io/circleci/project/github/wasmerio/wasmer/master.svg" alt="Build Status">
+  </a>
+  <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
+    <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+  </a>
+  <a href="https://spectrum.chat/wasmer">
+    <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
+  </a>
+  <a href="https://crates.io/crates/wasmer-runtime">
+    <img src="https://img.shields.io/crates/d/wasmer-runtime.svg" alt="Number of downloads from crates.io">
+  </a>
+  <a href="https://docs.rs/wasmer-runtime">
+    <img src="https://docs.rs/wasmer-runtime/badge.svg" alt="Read our API documentation">
+  </a>
+</p>
 
-# How to use Wasmer-Runtime
+# Wasmer Runtime
 
-The easiest way is to use the [`instantiate`] function to create an [`Instance`].
-Then you can use [`call`] or [`func`] and then [`call`][func.call] to call an exported function safely.
+Wasmer is a standalone JIT WebAssembly runtime, aiming to be fully
+compatible with Emscripten, Rust and Go. [Learn
+more](https://github.com/wasmerio/wasmer).
+
+This crate represents the high-level runtime API, making embedding
+WebAssembly in your application easy, efficient, and safe.
+
+## How to use Wasmer Runtime
+
+The easiest way is to use the [`instantiate`] function to create an
+[`Instance`]. Then you can use [`call`] or [`func`] and then
+[`call`][func.call] to call an exported function safely.
 
 [`instantiate`]: https://docs.rs/wasmer-runtime/*/wasmer_runtime/fn.instantiate.html
 [`Instance`]: https://docs.rs/wasmer-runtime/*/wasmer_runtime/struct.Instance.html
@@ -14,7 +43,7 @@ Then you can use [`call`] or [`func`] and then [`call`][func.call] to call an ex
 [`func`]: https://docs.rs/wasmer-runtime/*/wasmer_runtime/struct.Instance.html#method.func
 [func.call]: https://docs.rs/wasmer-runtime/*/wasmer_runtime/struct.Function.html#method.call
 
-## Here's an example:
+## Example
 
 Given this WebAssembly:
 
@@ -27,7 +56,7 @@ Given this WebAssembly:
     i32.add))
 ```
 
-compiled into wasm bytecode, we can call the exported "add_one" function:
+compiled into Wasm bytecode, we can call the exported `add_one` function:
 
 ```rust
 static WASM: &'static [u8] = &[
@@ -63,10 +92,11 @@ fn main() -> error::Result<()> {
 }
 ```
 
-# Additional Notes:
+## Additional Notes
 
-The `wasmer-runtime` is build to support compiler multiple backends.
-Currently, we support the [Cranelift] compiler with the [`wasmer-clif-backend`] crate.
+The `wasmer-runtime` crate is build to support multiple compiler
+backends.  Currently, we support the [Cranelift] compiler with the
+[`wasmer-clif-backend`] crate by default.
 
 You can specify the compiler you wish to use with the [`compile_with`] function.
 
