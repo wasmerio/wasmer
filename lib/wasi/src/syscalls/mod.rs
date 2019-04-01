@@ -1,13 +1,23 @@
 #![allow(unused)]
-
-mod types;
+pub mod types;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod unix;
+#[cfg(any(target_os = "windows"))]
+pub mod windows;
 
 use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::WasiState,
 };
+use rand::{thread_rng, Rng};
 use wasmer_runtime_core::{memory::Memory, vm::Ctx};
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub use unix::*;
+
+#[cfg(any(target_os = "windows"))]
+pub use windows::*;
 
 #[allow(clippy::mut_from_ref)]
 fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
@@ -99,15 +109,28 @@ pub fn clock_res_get(
     clock_id: __wasi_clockid_t,
     resolution: WasmPtr<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+
+    if let Some(out_addr) = resolution.deref(memory) {
+        platform_clock_res_get(clock_id, out_addr)
+    } else {
+        __WASI_EFAULT
+    }
 }
+
 pub fn clock_time_get(
     ctx: &mut Ctx,
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+
+    if let Some(out_addr) = time.deref(memory) {
+        platform_clock_time_get(clock_id, precision, out_addr)
+    } else {
+        __WASI_EFAULT
+    }
 }
 
 /// ### `environ_get()`
@@ -225,6 +248,7 @@ pub fn fd_filestat_set_times(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
 pub fn fd_pread(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -233,8 +257,17 @@ pub fn fd_pread(
     offset: __wasi_filesize_t,
     nread: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+
+    if let ((Some(iov_cells), Some(nread_cell))) =
+        (iovs.deref(memory, 0, iovs_len), nread.deref(memory))
+    {
+        platform_fd_pread(fd, iov_cells, iovs_len, offset, nread_cell)
+    } else {
+        __WASI_EFAULT
+    }
 }
+
 pub fn fd_prestat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -452,12 +485,36 @@ pub fn proc_exit(ctx: &mut Ctx, rval: __wasi_exitcode_t) {
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `random_get()`
+/// Fill buffer with high-quality random data.  This function may be slow and block
+/// Inputs:
+/// - `void *buf`
+///     A pointer to a buffer where the random bytes will be written
+/// - `size_t buf_len`
+///     The number of bytes that will be written
 pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __wasi_errno_t {
-    unimplemented!()
+    let mut rng = thread_rng();
+    let memory = ctx.memory(0);
+
+    if let Some(buf) = buf.deref(memory, 0, buf_len) {
+        for i in 0..(buf_len as usize) {
+            let random_byte = rng.gen::<u8>();
+            buf[i].set(random_byte);
+        }
+    } else {
+        return __WASI_EFAULT;
+    }
+
+    __WASI_ESUCCESS
 }
+
+/// ### `sched_yield()`
+/// Yields execution of the thread
 pub fn sched_yield(ctx: &mut Ctx) -> __wasi_errno_t {
-    unimplemented!()
+    __WASI_ESUCCESS
 }
+
 pub fn sock_recv(
     ctx: &mut Ctx,
     sock: __wasi_fd_t,
