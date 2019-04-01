@@ -336,6 +336,19 @@ pub fn fd_pwrite(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_read()`
+/// Read data from file descriptor
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     File descriptor from which data will be read
+/// - `const __wasi_iovec_t *iovs`
+///     Vectors where data will be stored
+/// - `u32 iovs_len`
+///     Length of data in `iovs`
+/// Output:
+/// - `u32 *nread`
+///     Number of bytes read
 pub fn fd_read(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -343,8 +356,34 @@ pub fn fd_read(
     iovs_len: u32,
     nread: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+
+    // check __WASI_RIGHT_FD_READ
+
+    if let (Some(iovs_arr_cell), Some(nwritten_cell)) =
+        (iovs.deref(memory, 0, iovs_len), nread.deref(memory))
+    {
+        unimplemented!()
+    } else {
+        __WASI_EFAULT
+    }
 }
+
+/// ### `fd_readdir()`
+/// Read data from directory specified by file descriptor
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     File descriptor from which directory data will be read
+/// - `void *buf`
+///     Buffer where directory entries are stored
+/// - `u32 buf_len`
+///     Length of data in `buf`
+/// - `__wasi_dircookie_t cookie`
+///     Where the directory reading should start from
+/// Output:
+/// - `u32 *bufused`
+///     The Number of bytes stored in `buf`; if less than `buf_len` then entire
+///     directory has been read
 pub fn fd_readdir(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -353,11 +392,40 @@ pub fn fd_readdir(
     cookie: __wasi_dircookie_t,
     bufused: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+
+    if let (Some(buf_arr_cell), Some(bufused_cell)) =
+        (buf.deref(memory, 0, buf_len), bufused.deref(memory))
+    {
+        unimplemented!()
+    } else {
+        __WASI_EFAULT
+    }
 }
+
+/// ### `fd_renumber()`
+/// Atomically copy file descriptor
+/// Inputs:
+/// - `__wasi_fd_t from`
+///     File descriptor to copy
+/// - `__wasi_fd_t to`
+///     Location to copy file descriptor to
 pub fn fd_renumber(ctx: &mut Ctx, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_seek()`
+/// Update file descriptor offset
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     File descriptor to mutate
+/// - `__wasi_filedelta_t offset`
+///     Number of bytes to adjust offset by
+/// - `__wasi_whence_t whence`
+///     What the offset is relative to
+/// Output:
+/// - `__wasi_filesize_t *fd`
+///     The new offset relative to the start of the file
 pub fn fd_seek(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -365,16 +433,44 @@ pub fn fd_seek(
     whence: __wasi_whence_t,
     newoffset: WasmPtr<__wasi_filesize_t>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+    // TODO: check __WASI_RIGHT_FD_SEEK
+    // TODO: handle directory input
+    if let Some(new_offset_cell) = newoffset.deref(memory) {
+        unimplemented!()
+    } else {
+        __WASI_EFAULT
+    }
 }
+
+/// ### `fd_sync()`
+/// Synchronize file and metadata to disk (TODO: expand upon what this means in our system)
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file descriptor to sync
+/// Errors:
+/// TODO: figure out which errors this should return
+/// - `__WASI_EPERM`
+/// - `__WAIS_ENOTCAPABLE`
 pub fn fd_sync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
+    // TODO: check __WASI_RIGHT_FD_SYNC
     unimplemented!()
 }
+
+/// ### `fd_tell()`
+/// Get the offset of the file descriptor
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file descriptor to access
+/// Output:
+/// - `__wasi_filesize_t *offset`
+///     The offset of `fd` relative to the start of the file
 pub fn fd_tell(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
     offset: WasmPtr<__wasi_filesize_t>,
 ) -> __wasi_errno_t {
+    // TODO: check __WASI_RIGHT_FD_TELL
     unimplemented!()
 }
 
@@ -411,14 +507,43 @@ pub fn fd_write(
     }
 }
 
+/// ### `path_create_directory()`
+/// Create directory at a path
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The directory that the path is relative to
+/// - `const char *path`
+///     String containing path data
+/// - `u32 path_len`
+///     The length of `path`
+/// Errors:
+/// Required Rights:
+/// - __WASI_RIGHT_PATH_CREATE_DIRECTORY
+///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
 pub fn path_create_directory(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
+    // check __WASI_RIGHT_PATH_CREATE_DIRECTORY
     unimplemented!()
 }
+
+/// ### `path_filestat_get()`
+/// Access metadata about a file or directory
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file to acces
+/// - `__wasi_lookupflags_t flags`
+///     Flags to control how the path is understood
+/// - `const char *path`
+///     String containing the file path
+/// - `u32 path_len`
+///     The length of the `path` string
+/// Output:
+/// - `__wasi_file_stat_t *buf`
+///     The location where the metadata will be stored
 pub fn path_filestat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -427,8 +552,27 @@ pub fn path_filestat_get(
     path_len: u32,
     buf: WasmPtr<__wasi_filestat_t>,
 ) -> __wasi_errno_t {
+    // check __WASI_RIGHT_PATH_FILESTAT_GET
     unimplemented!()
 }
+
+/// ### `path_filestat_set_times()`
+/// Update time metadata on a file or directory
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The directory relative to which the path is resolved
+/// - `__wasi_lookupflags_t flags`
+///     Flags to control how the path is understood
+/// - `const char *path`
+///     String containing the file path
+/// - `u32 path_len`
+///     The length of the `path` string
+/// - `__wasi_timestamp_t st_atim`
+///     The timestamp that the last accessed time attribute is set to
+/// -  `__wasi_timestamp_t st_mtim`
+///     The timestamp that the last modified time attribute is set to
+/// - `__wasi_fstflags_t fst_flags`
+///     A bitmask controlling which attributes are set
 pub fn path_filestat_set_times(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -441,6 +585,24 @@ pub fn path_filestat_set_times(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `path_link()`
+/// Create a hard link
+/// Inputs:
+/// - `__wasi_fd_t old_fd`
+///     The directory relative to which the `old_path` is
+/// - `__wasi_lookupflags_t old_flags`
+///     Flags to control how `old_path` is understood
+/// - `const char *old_path`
+///     String containing the old file path
+/// - `u32 old_path_len`
+///     Length of the `old_path` string
+/// - `__wasi_fd_t new_fd`
+///     The directory relative to which the `new_path` is
+/// - `const char *new_path`
+///     String containing the new file path
+/// - `u32 old_path_len`
+///     Length of the `new_path` string
 pub fn path_link(
     ctx: &mut Ctx,
     old_fd: __wasi_fd_t,
