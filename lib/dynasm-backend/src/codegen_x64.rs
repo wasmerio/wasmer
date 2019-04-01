@@ -1276,11 +1276,11 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 } else {
                     false
                 };
-                let released: Vec<Location> = self.value_stack.drain(frame.value_stack_depth..)
-                    .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
-                    .map(|(x, _)| x)
+                let released: Vec<Location> = self.value_stack[frame.value_stack_depth..].iter()
+                    .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
+                    .map(|&(x, _)| x)
                     .collect();
-                self.machine.release_locations(a, &released);
+                self.machine.release_locations_keep_state(a, &released);
                 a.emit_jmp(Condition::None, frame.label);
                 self.unreachable_depth = 1;
             }
