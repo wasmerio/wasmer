@@ -1,9 +1,13 @@
+
+#[macro_use]
+extern crate log;
+
 mod ptr;
 mod state;
 mod syscalls;
 mod utils;
 
-use self::state::WasiState;
+use self::state::{WasiState, WasiFs};
 use self::syscalls::*;
 
 use std::ffi::c_void;
@@ -21,6 +25,7 @@ pub fn generate_import_object(args: Vec<Vec<u8>>, envs: Vec<Vec<u8>>) -> ImportO
         }
 
         let state = Box::new(WasiState {
+            fs: WasiFs::new().unwrap(),
             args: &args[..],
             envs: &envs[..],
         });

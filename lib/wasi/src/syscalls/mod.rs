@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-mod types;
+pub mod types;
 
 use self::types::*;
 use crate::{
@@ -185,7 +185,20 @@ pub fn fd_fdstat_get(
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_fdstat_t>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let mut state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
+    let stat = match state.fs.filestat_fd(fd) {
+        Ok(stat) => stat,
+        Err(errno) => return errno,
+    };
+
+    if let Some(buf) = buf.deref(memory) {
+        buf.set(stat);
+        __WASI_ESUCCESS
+    } else {
+        __WASI_EFAULT
+    }
 }
 pub fn fd_fdstat_set_flags(
     ctx: &mut Ctx,

@@ -6,3 +6,8 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
+# wasmer-runtime-abi = { path = "../runtime-abi" }
+hashbrown = "0.1.8"
+generational-arena = "0.2.2"
+zbox = "0.6.1"
+log = "0.4.6"
