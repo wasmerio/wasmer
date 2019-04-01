@@ -451,38 +451,51 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
 }
 
 impl X64FunctionCode {
-    fn emit_relaxed_binop<F: FnOnce(&mut Assembler, Size, Location, Location)> (
+    fn emit_relaxed_binop(
         a: &mut Assembler,
         m: &mut Machine,
-        op: F,
+        op: fn(&mut Assembler, Size, Location, Location),
         sz: Size,
         src: Location,
         dst: Location,
     ) {
-        match (src, dst) {
-            (Location::Memory(_, _), Location::Memory(_, _)) => {
+        enum RelaxMode {
+            Direct,
+            SrcToGPR,
+            DstToGPR,
+        }
+        let mode = match (src, dst) {
+            (Location::Memory(_, _), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
+            (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,
+            (Location::Imm64(_), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
+            (Location::Imm64(_), Location::GPR(_)) if (op as *const u8 != Assembler::emit_mov as *const u8) => RelaxMode::SrcToGPR,
+            _ => RelaxMode::Direct,
+        };
+
+        match mode {
+            RelaxMode::SrcToGPR => {
                 let temp = m.acquire_temp_gpr().unwrap();
                 a.emit_mov(sz, src, Location::GPR(temp));
                 op(a, sz, Location::GPR(temp), dst);
                 m.release_temp_gpr(temp);
             },
-            (_, Location::Imm32(_)) => {
+            RelaxMode::DstToGPR => {
                 let temp = m.acquire_temp_gpr().unwrap();
                 a.emit_mov(sz, dst, Location::GPR(temp));
                 op(a, sz, src, Location::GPR(temp));
                 m.release_temp_gpr(temp);
-            }
-            _ => {
+            },
+            RelaxMode::Direct => {
                 op(a, sz, src, dst);
             }
         }
     }
 
-    fn emit_binop_i32<F: FnOnce(&mut Assembler, Size, Location, Location)>(
+    fn emit_binop_i32(
         a: &mut Assembler,
         m: &mut Machine,
         value_stack: &mut Vec<(Location, LocalOrTemp)>,
-        f: F,
+        f: fn(&mut Assembler, Size, Location, Location),
     ) {
         // Using Red Zone here.
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
@@ -560,11 +573,11 @@ impl X64FunctionCode {
         Self::emit_cmpop_i32_dynamic_b(a, m, value_stack, c, loc_b);
     }
 
-    fn emit_xcnt_i32<F: FnOnce(&mut Assembler, Size, Location, Location)>(
+    fn emit_xcnt_i32(
         a: &mut Assembler,
         m: &mut Machine,
         value_stack: &mut Vec<(Location, LocalOrTemp)>,
-        f: F,
+        f: fn(&mut Assembler, Size, Location, Location),
     ) {
         let loc = get_location_released(a, m, value_stack.pop().unwrap());
         let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
@@ -593,11 +606,11 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
-    fn emit_shift_i32<F: FnOnce(&mut Assembler, Size, Location, Location)>(
+    fn emit_shift_i32(
         a: &mut Assembler,
         m: &mut Machine,
         value_stack: &mut Vec<(Location, LocalOrTemp)>,
-        f: F,
+        f: fn(&mut Assembler, Size, Location, Location),
     ) {
         let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
