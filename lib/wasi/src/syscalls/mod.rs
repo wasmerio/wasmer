@@ -31,23 +31,13 @@ fn write_buffer_array(
     ptr_buffer: WasmPtr<WasmPtr<u8, Array>, Array>,
     buffer: WasmPtr<u8, Array>,
 ) -> __wasi_errno_t {
-    let ptrs = if let Some(cells) = ptr_buffer.deref(memory, 0, from.len() as u32) {
-        cells
-    } else {
-        return __WASI_EOVERFLOW;
-    };
+    let ptrs = wasi_try!(ptr_buffer.deref(memory, 0, from.len() as u32));
 
     let mut current_buffer_offset = 0;
     for ((i, sub_buffer), ptr) in from.iter().enumerate().zip(ptrs.iter()) {
         ptr.set(WasmPtr::new(buffer.offset() + current_buffer_offset));
 
-        let cells = if let Some(cells) =
-            buffer.deref(memory, current_buffer_offset, sub_buffer.len() as u32)
-        {
-            cells
-        } else {
-            return __WASI_EOVERFLOW;
-        };
+        let cells = wasi_try!(buffer.deref(memory, current_buffer_offset, sub_buffer.len() as u32));
 
         for (cell, &byte) in cells.iter().zip(sub_buffer.iter()) {
             cell.set(byte);
@@ -92,16 +82,15 @@ pub fn args_sizes_get(
 ) -> __wasi_errno_t {
     let memory = ctx.memory(0);
 
-    if let (Some(argc), Some(argv_buf_size)) = (argc.deref(memory), argv_buf_size.deref(memory)) {
-        let state = get_wasi_state(ctx);
+    let argc = wasi_try!(argc.deref(memory));
+    let argv_buf_size = wasi_try!(argv_buf_size.deref(memory));
 
-        argc.set(state.args.len() as u32);
-        argv_buf_size.set(state.args.iter().map(|v| v.len() as u32).sum());
+    let state = get_wasi_state(ctx);
 
-        __WASI_ESUCCESS
-    } else {
-        __WASI_EOVERFLOW
-    }
+    argc.set(state.args.len() as u32);
+    argv_buf_size.set(state.args.iter().map(|v| v.len() as u32).sum());
+
+    __WASI_ESUCCESS
 }
 
 /// ### `clock_res_get()`
@@ -119,11 +108,8 @@ pub fn clock_res_get(
 ) -> __wasi_errno_t {
     let memory = ctx.memory(0);
 
-    if let Some(out_addr) = resolution.deref(memory) {
-        platform_clock_res_get(clock_id, out_addr)
-    } else {
-        __WASI_EFAULT
-    }
+    let out_addr = wasi_try!(resolution.deref(memory));
+    platform_clock_res_get(clock_id, out_addr)
 }
 
 /// ### `clock_time_get()`
@@ -144,11 +130,8 @@ pub fn clock_time_get(
 ) -> __wasi_errno_t {
     let memory = ctx.memory(0);
 
-    if let Some(out_addr) = time.deref(memory) {
-        platform_clock_time_get(clock_id, precision, out_addr)
-    } else {
-        __WASI_EFAULT
-    }
+    let out_addr = wasi_try!(time.deref(memory));
+    platform_clock_time_get(clock_id, precision, out_addr)
 }
 
 /// ### `environ_get()`
@@ -184,18 +167,15 @@ pub fn environ_sizes_get(
 ) -> __wasi_errno_t {
     let memory = ctx.memory(0);
 
-    if let (Some(environ_count), Some(environ_buf_size)) =
-        (environ_count.deref(memory), environ_buf_size.deref(memory))
-    {
-        let state = get_wasi_state(ctx);
+    let environ_count = wasi_try!(environ_count.deref(memory));
+    let environ_buf_size = wasi_try!(environ_buf_size.deref(memory));
 
-        environ_count.set(state.envs.len() as u32);
-        environ_buf_size.set(state.envs.iter().map(|v| v.len() as u32).sum());
+    let state = get_wasi_state(ctx);
 
-        __WASI_ESUCCESS
-    } else {
-        __WASI_EOVERFLOW
-    }
+    environ_count.set(state.envs.len() as u32);
+    environ_buf_size.set(state.envs.iter().map(|v| v.len() as u32).sum());
+
+    __WASI_EOVERFLOW
 }
 
 /// ### `fd_advise()`
@@ -282,17 +262,12 @@ pub fn fd_fdstat_get(
     let mut state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    let stat = match state.fs.fdstat(fd) {
-        Ok(stat) => stat,
-        Err(errno) => return errno,
-    };
+    let stat = wasi_try!(state.fs.fdstat(fd));
 
-    if let Some(buf) = buf.deref(memory) {
-        buf.set(stat);
-        __WASI_ESUCCESS
-    } else {
-        __WASI_EFAULT
-    }
+    let buf = wasi_try!(buf.deref(memory));
+    buf.set(stat);
+
+    __WASI_EFAULT
 }
 
 /// ### `fd_fdstat_set_flags()`
@@ -344,17 +319,12 @@ pub fn fd_filestat_get(
     let mut state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    let stat = match state.fs.filestat_fd(fd) {
-        Ok(stat) => stat,
-        Err(errno) => return errno,
-    };
+    let stat = wasi_try!(state.fs.filestat_fd(fd));
 
-    if let Some(buf) = buf.deref(memory) {
-        buf.set(stat);
-        __WASI_ESUCCESS
-    } else {
-        __WASI_EFAULT
-    }
+    let buf = wasi_try!(buf.deref(memory));
+    buf.set(stat);
+
+    __WASI_ESUCCESS
 }
 
 pub fn fd_filestat_set_size(
@@ -384,7 +354,7 @@ pub fn fd_pread(
 ) -> __wasi_errno_t {
     let memory = ctx.memory(0);
 
-    if let ((Some(iov_cells), Some(nread_cell))) =
+    if let ((Ok(iov_cells), Ok(nread_cell))) =
         (iovs.deref(memory, 0, iovs_len), nread.deref(memory))
     {
         platform_fd_pread(fd, iov_cells, iovs_len, offset, nread_cell)
@@ -400,7 +370,7 @@ pub fn fd_prestat_get(
 ) -> __wasi_errno_t {
     let memory = ctx.memory(0);
 
-    if let Some(prestat_ptr) = buf.deref(memory) {
+    if let Ok(prestat_ptr) = buf.deref(memory) {
         // open fd
         // write info to prestat_ptr
         __WASI_ESUCCESS
@@ -417,7 +387,7 @@ pub fn fd_prestat_dir_name(
 ) -> __wasi_errno_t {
     let memory = ctx.memory(0);
 
-    if let Some(path_chars) = path.deref(memory, 0, path_len) {
+    if let Ok(path_chars) = path.deref(memory, 0, path_len) {
         if true
         /* check if dir */
         {
@@ -467,7 +437,7 @@ pub fn fd_read(
 
     // check __WASI_RIGHT_FD_READ
 
-    if let (Some(iovs_arr_cell), Some(nwritten_cell)) =
+    if let (Ok(iovs_arr_cell), Ok(nwritten_cell)) =
         (iovs.deref(memory, 0, iovs_len), nread.deref(memory))
     {
         unimplemented!()
@@ -501,7 +471,7 @@ pub fn fd_readdir(
 ) -> __wasi_errno_t {
     let memory = ctx.memory(0);
 
-    if let (Some(buf_arr_cell), Some(bufused_cell)) =
+    if let (Ok(buf_arr_cell), Ok(bufused_cell)) =
         (buf.deref(memory, 0, buf_len), bufused.deref(memory))
     {
         unimplemented!()
@@ -543,7 +513,7 @@ pub fn fd_seek(
     let memory = ctx.memory(0);
     // TODO: check __WASI_RIGHT_FD_SEEK
     // TODO: handle directory input
-    if let Some(new_offset_cell) = newoffset.deref(memory) {
+    if let Ok(new_offset_cell) = newoffset.deref(memory) {
         unimplemented!()
     } else {
         __WASI_EFAULT
@@ -605,7 +575,7 @@ pub fn fd_write(
     let memory = ctx.memory(0);
     // TODO: check __WASI_RIGHT_FD_WRITE
     // return __WASI_EISDIR if dir (probably)
-    if let (Some(iovs_arr_cell), Some(nwritten_cell)) =
+    if let (Ok(iovs_arr_cell), Ok(nwritten_cell)) =
         (iovs.deref(memory, 0, iovs_len), nwritten.deref(memory))
     {
         unimplemented!()
@@ -659,6 +629,9 @@ pub fn path_filestat_get(
     path_len: u32,
     buf: WasmPtr<__wasi_filestat_t>,
 ) -> __wasi_errno_t {
+    let mut state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
     // check __WASI_RIGHT_PATH_FILESTAT_GET
     unimplemented!()
 }
@@ -768,7 +741,7 @@ pub fn path_open(
 
     // check for __WASI_RIGHT_PATH_OPEN somewhere, probably via dirfd
 
-    if let (Some(fd_cell), Some(path_cell)) = (fd.deref(memory), path.deref(memory, 0, path_len)) {
+    if let (Ok(fd_cell), Ok(path_cell)) = (fd.deref(memory), path.deref(memory, 0, path_len)) {
         // o_flags:
         // - __WASI_O_FLAG_CREAT (create if it does not exist)
         // - __WASI_O_DIRECTORY (fail if not dir)
@@ -860,7 +833,7 @@ pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __was
     let mut rng = thread_rng();
     let memory = ctx.memory(0);
 
-    if let Some(buf) = buf.deref(memory, 0, buf_len) {
+    if let Ok(buf) = buf.deref(memory, 0, buf_len) {
         for i in 0..(buf_len as usize) {
             let random_byte = rng.gen::<u8>();
             buf[i].set(random_byte);

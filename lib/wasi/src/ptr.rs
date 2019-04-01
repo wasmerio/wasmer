@@ -1,3 +1,4 @@
+use crate::syscalls::types::{__wasi_errno_t, __WASI_EFAULT};
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 use wasmer_runtime_core::{
     memory::Memory,
@@ -30,27 +31,32 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
 
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
+    pub fn deref<'a>(self, memory: &'a Memory) -> Result<&'a Cell<T>, __wasi_errno_t> {
         if (self.offset as usize) + mem::size_of::<T>() >= memory.size().bytes().0 {
-            return None;
+            return Err(__WASI_EFAULT);
         }
         unsafe {
             let cell_ptr = memory
                 .view::<T>()
                 .get_unchecked((self.offset() as usize) / mem::size_of::<T>())
                 as *const _;
-            Some(&*cell_ptr)
+            Ok(&*cell_ptr)
         }
     }
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
+    pub fn deref<'a>(
+        self,
+        memory: &'a Memory,
+        index: u32,
+        length: u32,
+    ) -> Result<&'a [Cell<T>], __wasi_errno_t> {
         if (self.offset as usize) + (mem::size_of::<T>() * ((index + length) as usize))
             >= memory.size().bytes().0
         {
-            return None;
+            return Err(__WASI_EFAULT);
         }
 
         unsafe {
@@ -59,7 +65,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
                     ..((self.offset() as usize) / mem::size_of::<T>())
                         + ((index + length) as usize),
             ) as *const _;
-            Some(&*cell_ptrs)
+            Ok(&*cell_ptrs)
         }
     }
 }
