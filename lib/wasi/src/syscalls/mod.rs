@@ -104,6 +104,14 @@ pub fn args_sizes_get(
     }
 }
 
+/// ### `clock_res_get()`
+/// Get the resolution of the specified clock
+/// Input:
+/// - `__wasi_clockid_t clock_id`
+///     The ID of the clock to get the resolution of
+/// Output:
+/// - `__wasi_timestamp_t *resolution`
+///     The resolution of the clock in nanoseconds
 pub fn clock_res_get(
     ctx: &mut Ctx,
     clock_id: __wasi_clockid_t,
@@ -118,6 +126,16 @@ pub fn clock_res_get(
     }
 }
 
+/// ### `clock_time_get()`
+/// Get the time of the specified clock
+/// Inputs:
+/// - `__wasi_clockid_t clock_id`
+///     The ID of the clock to query
+/// - `__wasi_timestamp_t precision`
+///     The maximum amount of error the reading may have
+/// Output:
+/// - `__wasi_timestamp_t *time`
+///     The value of the clock in nanoseconds
 pub fn clock_time_get(
     ctx: &mut Ctx,
     clock_id: __wasi_clockid_t,
@@ -180,6 +198,17 @@ pub fn environ_sizes_get(
     }
 }
 
+/// ### `fd_advise()`
+/// Advise the system about how a file will be used
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file descriptor the advice applies to
+/// - `__wasi_filesize_t offset`
+///     The offset from which the advice applies
+/// - `__wasi_filesize_t len`
+///     The length from the offset to which the advice applies
+/// - `__wasi_advice_t advice`
+///     The advice to give
 pub fn fd_advise(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -189,6 +218,16 @@ pub fn fd_advise(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_allocate`
+/// Allocate extra space for a file descriptor
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file descriptor to allocate for
+/// - `__wasi_filesize_t offset`
+///     The offset from the start marking the beginning of the allocation
+/// - `__wasi_filesize_t len`
+///     The length from the offset marking the end of the allocation
 pub fn fd_allocate(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -218,9 +257,23 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     __WASI_ESUCCESS
 }
 
+/// ### `fd_datasync()`
+/// Synchronize the file data to disk
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file descriptor to sync
 pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_fdstat_get()`
+/// Get metadata of a file descriptor
+/// Input:
+/// - `__wasi_fd_t fd`
+///     The file descriptor whose metadata will be accessed
+/// Output:
+/// - `__wasi_fdstat_t *buf`
+///     The location where the metadata will be written
 pub fn fd_fdstat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -228,6 +281,14 @@ pub fn fd_fdstat_get(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_fdstat_set_flags()`
+/// Set file descriptor flags for a file descriptor
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file descriptor to apply the new flags to
+/// - `__wasi_fdflags_t flags`
+///     The flags to apply to `fd`
 pub fn fd_fdstat_set_flags(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -235,6 +296,16 @@ pub fn fd_fdstat_set_flags(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_fdstat_set_rights()`
+/// Set the rights of a file descriptor
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     The file descriptor to apply the new rights to
+/// - `__wasi_rights_t fs_rights_base`
+///     The rights to apply to `fd`
+/// - `__wasi_rights_t fs_rights_inheriting`
+///     The inheriting rights to apply to `fd`
 pub fn fd_fdstat_set_rights(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -243,6 +314,15 @@ pub fn fd_fdstat_set_rights(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_filestat_get()`
+/// Get the metadata of an open file
+/// Input:
+/// - `__wasi_fd_t fd`
+///     The open file descriptor whose metadata will be read
+/// Output:
+/// - `__wasi_filestat_t *buf`
+///     Where the metadata from `fd` will be written
 pub fn fd_filestat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -250,6 +330,7 @@ pub fn fd_filestat_get(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
 pub fn fd_filestat_set_size(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
