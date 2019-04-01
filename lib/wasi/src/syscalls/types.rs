@@ -19,6 +19,25 @@ pub struct __wasi_ciovec_t {
     pub buf_len: u32,
 }
 
+impl ValueType for __wasi_ciovec_t {
+    fn into_le(self, buffer: &mut [u8]) {
+        self.buf
+            .into_le(&mut buffer[..mem::size_of::<WasmPtr<u8, Array>>()]);
+        self.buf_len
+            .into_le(&mut buffer[mem::size_of::<WasmPtr<u8, Array>>()..]);
+    }
+
+    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
+        if buffer.len() >= mem::size_of::<__wasi_ciovec_t>() {
+            let buf = ValueType::from_le(&buffer[..mem::size_of::<WasmPtr<u8, Array>>()])?;
+            let buf_len = ValueType::from_le(&buffer[mem::size_of::<WasmPtr<u8, Array>>()..])?;
+            Ok(Self { buf, buf_len })
+        } else {
+            Err(ValueError::BufferTooSmall)
+        }
+    }
+}
+
 pub type __wasi_clockid_t = u32;
 pub const __WASI_CLOCK_MONOTONIC: u32 = 0;
 pub const __WASI_CLOCK_PROCESS_CPUTIME_ID: u32 = 1;

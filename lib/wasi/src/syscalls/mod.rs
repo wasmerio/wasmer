@@ -197,9 +197,27 @@ pub fn fd_allocate(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_close()`
+/// Close an open file descriptor
+/// Inputs:
+/// - `__wasi_fd_t fd`
+///     A file descriptor mapping to an open file to close
+/// Errors:
+/// - `__WASI_EISDIR`
+///     If `fd` is a directory
+/// - `__WASI_EBADF`
+///     If `fd` is invalid or not open (TODO: consider __WASI_EINVAL)
 pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
-    unimplemented!()
+    // FD is too large
+    return __WASI_EMFILE;
+    // FD is a directory (due to user input)
+    return __WASI_EISDIR;
+    // FD is invalid
+    return __WASI_EBADF;
+    __WASI_ESUCCESS
 }
+
 pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     unimplemented!()
 }
@@ -293,7 +311,9 @@ pub fn fd_prestat_dir_name(
     let memory = ctx.memory(0);
 
     if let Some(path_chars) = path.deref(memory, 0, path_len) {
-        if true /* check if dir */ {
+        if true
+        /* check if dir */
+        {
             // get name
             // write name
             // if overflow __WASI_EOVERFLOW
@@ -357,6 +377,21 @@ pub fn fd_tell(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `fd_write()`
+/// Write data to the file descriptor
+/// Inputs:
+/// - `__wasi_fd_t`
+///     File descriptor (opened with writing) to write to
+/// - `const __wasi_ciovec_t *iovs`
+///     List of vectors to read data from
+/// - `u32 iovs_len`
+///     Length of data in `iovs`
+/// Output:
+/// - `u32 *nwritten`
+///     Number of bytes written
+/// Errors:
+///
 pub fn fd_write(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -364,8 +399,18 @@ pub fn fd_write(
     iovs_len: u32,
     nwritten: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+    // TODO: check __WASI_RIGHT_FD_WRITE
+    // return __WASI_EISDIR if dir (probably)
+    if let (Some(iovs_arr_cell), Some(nwritten_cell)) =
+        (iovs.deref(memory, 0, iovs_len), nwritten.deref(memory))
+    {
+        unimplemented!()
+    } else {
+        __WASI_EFAULT
+    }
 }
+
 pub fn path_create_directory(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -408,6 +453,31 @@ pub fn path_link(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
+
+/// ### `path_open()`
+/// Open file located at the given path
+/// Inputs:
+/// - `__wasi_fd_t dirfd`
+///     The fd corresponding to the directory that the file is in
+/// - `__wasi_lookupflags_t dirflags`
+///     Flags specifying how the path will be resolved
+/// - `char *path`
+///     The path of the file or directory to open
+/// - `u32 path_len`
+///     The length of the `path` string
+/// - `__wasi_oflags_t o_flags`
+///     How the file will be opened
+/// - `__wasi_rights_t fs_rights_base`
+///     The rights of the created file descriptor
+/// - `__wasi_rights_t fs_rightsinheriting`
+///     The rights of file descriptors derived from the created file descriptor
+/// - `__wasi_fdflags_t fs_flags`
+///     The flags of the file descriptor
+/// Output:
+/// - `__wasi_fd_t* fd`
+///     The new file descriptor
+/// Possible Errors:
+/// - `__WASI_EACCES`, `__WASI_EBADF`, `__WASI_EFAULT`, `__WASI_EFBIG?`, `__WASI_EINVAL`, `__WASI_EIO`, `__WASI_ELOOP`, `__WASI_EMFILE`, `__WASI_ENAMETOOLONG?`, `__WASI_ENFILE`, `__WASI_ENOENT`, `__WASI_ENOTDIR`, `__WASI_EROFS`, and `__WASI_ENOTCAPABLE`
 pub fn path_open(
     ctx: &mut Ctx,
     dirfd: __wasi_fd_t,
@@ -420,8 +490,32 @@ pub fn path_open(
     fs_flags: __wasi_fdflags_t,
     fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let memory = ctx.memory(0);
+    if path_len > 1024
+    /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
+    {
+        return __WASI_ENAMETOOLONG;
+    }
+
+    // check for __WASI_RIGHT_PATH_OPEN somewhere, probably via dirfd
+
+    if let (Some(fd_cell), Some(path_cell)) = (fd.deref(memory), path.deref(memory, 0, path_len)) {
+        // o_flags:
+        // - __WASI_O_FLAG_CREAT (create if it does not exist)
+        // - __WASI_O_DIRECTORY (fail if not dir)
+        // - __WASI_O_EXCL (fail if file exists)
+        // - __WASI_O_TRUNC (truncate size to 0)
+        if (o_flags & __WASI_O_DIRECTORY) != 0 {
+            // fail if fd is not a dir
+            // need to check and be able to clean up
+        }
+
+        unimplemented!();
+    } else {
+        __WASI_EFAULT
+    }
 }
+
 pub fn path_readlink(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
