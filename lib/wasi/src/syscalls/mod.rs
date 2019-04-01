@@ -229,7 +229,7 @@ pub fn fd_fdstat_get(
     let mut state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    let stat = match state.fs.filestat_fd(fd) {
+    let stat = match state.fs.fdstat(fd) {
         Ok(stat) => stat,
         Err(errno) => return errno,
     };
@@ -261,7 +261,20 @@ pub fn fd_filestat_get(
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_filestat_t>,
 ) -> __wasi_errno_t {
-    unimplemented!()
+    let mut state = get_wasi_state(ctx);
+    let memory = ctx.memory(0);
+
+    let stat = match state.fs.filestat_fd(fd) {
+        Ok(stat) => stat,
+        Err(errno) => return errno,
+    };
+
+    if let Some(buf) = buf.deref(memory) {
+        buf.set(stat);
+        __WASI_ESUCCESS
+    } else {
+        __WASI_EFAULT
+    }
 }
 pub fn fd_filestat_set_size(
     ctx: &mut Ctx,

@@ -1,8 +1,9 @@
 #![allow(non_camel_case_types)]
 
 use crate::ptr::{Array, WasmPtr};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::mem;
-use wasmer_runtime_core::types::{ValueError, ValueType};
+use wasmer_runtime_core::types::ValueType;
 
 pub type __wasi_advice_t = u8;
 pub const __WASI_ADVICE_DONTNEED: u8 = 0;
@@ -19,24 +20,7 @@ pub struct __wasi_ciovec_t {
     pub buf_len: u32,
 }
 
-impl ValueType for __wasi_ciovec_t {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.buf
-            .into_le(&mut buffer[..mem::size_of::<WasmPtr<u8, Array>>()]);
-        self.buf_len
-            .into_le(&mut buffer[mem::size_of::<WasmPtr<u8, Array>>()..]);
-    }
-
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        if buffer.len() >= mem::size_of::<__wasi_ciovec_t>() {
-            let buf = ValueType::from_le(&buffer[..mem::size_of::<WasmPtr<u8, Array>>()])?;
-            let buf_len = ValueType::from_le(&buffer[mem::size_of::<WasmPtr<u8, Array>>()..])?;
-            Ok(Self { buf, buf_len })
-        } else {
-            Err(ValueError::BufferTooSmall)
-        }
-    }
-}
+unsafe impl ValueType for __wasi_ciovec_t {}
 
 pub type __wasi_clockid_t = u32;
 pub const __WASI_CLOCK_MONOTONIC: u32 = 0;
@@ -190,21 +174,7 @@ pub struct __wasi_prestat_u_dir_t {
     pr_name_len: u32,
 }
 
-impl ValueType for __wasi_prestat_u_dir_t {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.pr_name_len
-            .into_le(&mut buffer[..mem::size_of::<u32>()]);
-    }
-
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        if buffer.len() >= mem::size_of::<__wasi_prestat_u_dir_t>() {
-            let pr_name_len = ValueType::from_le(&buffer[..mem::size_of::<u32>()])?;
-            Ok(Self { pr_name_len })
-        } else {
-            Err(ValueError::BufferTooSmall)
-        }
-    }
-}
+unsafe impl ValueType for __wasi_prestat_u_dir_t {}
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -212,23 +182,7 @@ pub union __wasi_prestat_u {
     dir: __wasi_prestat_u_dir_t,
 }
 
-impl ValueType for __wasi_prestat_u {
-    fn into_le(self, buffer: &mut [u8]) {
-        unsafe {
-            self.dir
-                .into_le(&mut buffer[..mem::size_of::<__wasi_prestat_u_dir_t>()])
-        };
-    }
-
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        if buffer.len() >= mem::size_of::<__wasi_prestat_u>() {
-            let dir = ValueType::from_le(&buffer[..mem::size_of::<__wasi_prestat_u_dir_t>()])?;
-            Ok(Self { dir })
-        } else {
-            Err(ValueError::BufferTooSmall)
-        }
-    }
-}
+unsafe impl ValueType for __wasi_prestat_u {}
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -237,24 +191,7 @@ pub struct __wasi_prestat_t {
     u: __wasi_prestat_u,
 }
 
-impl ValueType for __wasi_prestat_t {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.pr_type
-            .into_le(&mut buffer[..mem::size_of::<__wasi_preopentype_t>()]);
-        self.u
-            .into_le(&mut buffer[mem::size_of::<__wasi_preopentype_t>()..]);
-    }
-
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        if buffer.len() >= mem::size_of::<__wasi_prestat_t>() {
-            let pr_type = ValueType::from_le(&buffer[..mem::size_of::<__wasi_preopentype_t>()])?;
-            let u = ValueType::from_le(&buffer[mem::size_of::<__wasi_preopentype_t>()..])?;
-            Ok(Self { pr_type, u })
-        } else {
-            Err(ValueError::BufferTooSmall)
-        }
-    }
-}
+unsafe impl ValueType for __wasi_prestat_t {}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
@@ -265,50 +202,7 @@ pub struct __wasi_fdstat_t {
     pub fs_rights_inheriting: __wasi_rights_t,
 }
 
-impl ValueType for __wasi_fdstat_t {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.fs_filetype
-            .into_le(&mut buffer[..mem::size_of::<__wasi_filetype_t>()]);
-        self.fs_flags.into_le(
-            &mut buffer[mem::size_of::<__wasi_filetype_t>()..mem::size_of::<__wasi_fdflags_t>()],
-        );
-        self.fs_rights_base.into_le(
-            &mut buffer[(mem::size_of::<__wasi_filetype_t>() + mem::size_of::<__wasi_fdflags_t>())
-                ..mem::size_of::<__wasi_rights_t>()],
-        );
-        self.fs_rights_inheriting.into_le(
-            &mut buffer[(mem::size_of::<__wasi_filetype_t>()
-                + mem::size_of::<__wasi_fdflags_t>()
-                + mem::size_of::<__wasi_rights_t>())..],
-        );
-    }
-
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        if buffer.len() >= mem::size_of::<__wasi_fdstat_t>() {
-            let fs_filetype = ValueType::from_le(&buffer[..mem::size_of::<__wasi_filetype_t>()])?;
-            let fs_flags = ValueType::from_le(
-                &buffer[mem::size_of::<__wasi_filetype_t>()..mem::size_of::<__wasi_fdflags_t>()],
-            )?;
-            let fs_rights_base = ValueType::from_le(
-                &buffer[(mem::size_of::<__wasi_filetype_t>() + mem::size_of::<__wasi_fdflags_t>())
-                    ..mem::size_of::<__wasi_rights_t>()],
-            )?;
-            let fs_rights_inheriting = ValueType::from_le(
-                &buffer[(mem::size_of::<__wasi_filetype_t>()
-                    + mem::size_of::<__wasi_fdflags_t>()
-                    + mem::size_of::<__wasi_rights_t>())..],
-            )?;
-            Ok(Self {
-                fs_filetype,
-                fs_flags,
-                fs_rights_base,
-                fs_rights_inheriting,
-            })
-        } else {
-            Err(ValueError::BufferTooSmall)
-        }
-    }
-}
+unsafe impl ValueType for __wasi_fdstat_t {}
 
 pub type __wasi_filedelta_t = i64;
 
@@ -326,6 +220,8 @@ pub struct __wasi_filestat_t {
     pub st_mtim: __wasi_timestamp_t,
     pub st_ctim: __wasi_timestamp_t,
 }
+
+unsafe impl ValueType for __wasi_filestat_t {}
 
 pub type __wasi_filetype_t = u8;
 pub const __WASI_FILETYPE_UNKNOWN: u8 = 0;
@@ -352,24 +248,7 @@ pub struct __wasi_iovec_t {
     pub buf_len: u32,
 }
 
-impl ValueType for __wasi_iovec_t {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.buf
-            .into_le(&mut buffer[..mem::size_of::<WasmPtr<u8, Array>>()]);
-        self.buf_len
-            .into_le(&mut buffer[mem::size_of::<WasmPtr<u8, Array>>()..]);
-    }
-
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        if buffer.len() >= mem::size_of::<__wasi_iovec_t>() {
-            let buf = ValueType::from_le(&buffer[..mem::size_of::<WasmPtr<u8, Array>>()])?;
-            let buf_len = ValueType::from_le(&buffer[mem::size_of::<WasmPtr<u8, Array>>()..])?;
-            Ok(Self { buf, buf_len })
-        } else {
-            Err(ValueError::BufferTooSmall)
-        }
-    }
-}
+unsafe impl ValueType for __wasi_iovec_t {}
 
 pub type __wasi_linkcount_t = u32;
 

@@ -1,7 +1,7 @@
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 use wasmer_runtime_core::{
     memory::Memory,
-    types::{Type, ValueError, ValueType, WasmExternType},
+    types::{Type, ValueType, WasmExternType},
 };
 
 pub struct Array;
@@ -68,23 +68,7 @@ unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
     const TYPE: Type = Type::I32;
 }
 
-impl<T: Copy, Ty> ValueType for WasmPtr<T, Ty> {
-    fn into_le(self, buffer: &mut [u8]) {
-        buffer[..mem::size_of::<u32>()].copy_from_slice(&self.offset.to_le_bytes());
-    }
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        if buffer.len() >= mem::size_of::<Self>() {
-            let mut array = [0u8; mem::size_of::<u32>()];
-            array.copy_from_slice(&buffer[..mem::size_of::<u32>()]);
-            Ok(Self {
-                offset: u32::from_le_bytes(array),
-                _phantom: PhantomData,
-            })
-        } else {
-            Err(ValueError::BufferTooSmall)
-        }
-    }
-}
+unsafe impl<T: Copy, Ty> ValueType for WasmPtr<T, Ty> {}
 
 impl<T: Copy, Ty> Clone for WasmPtr<T, Ty> {
     fn clone(&self) -> Self {

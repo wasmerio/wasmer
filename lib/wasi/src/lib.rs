@@ -1,4 +1,3 @@
-
 #[macro_use]
 extern crate log;
 
@@ -7,7 +6,7 @@ mod state;
 mod syscalls;
 mod utils;
 
-use self::state::{WasiState, WasiFs};
+use self::state::{WasiFs, WasiState};
 use self::syscalls::*;
 
 use std::ffi::c_void;
