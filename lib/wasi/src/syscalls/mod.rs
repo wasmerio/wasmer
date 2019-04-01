@@ -875,6 +875,7 @@ pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __was
 /// ### `sched_yield()`
 /// Yields execution of the thread
 pub fn sched_yield(ctx: &mut Ctx) -> __wasi_errno_t {
+    ::std::thread::yield_now();
     __WASI_ESUCCESS
 }
 

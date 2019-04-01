@@ -60,7 +60,7 @@ impl WasiFs {
         Ok(Self {
             repo: RepoOpener::new()
                 .create(true)
-                .open("mem://📂", "very unsafe pwd")
+                .open("mem://not-an-emoji", "very unsafe pwd")
                 .map_err(|e| e.to_string())?,
             name_map: HashMap::new(),
             inodes: Arena::new(),
@@ -107,10 +107,10 @@ impl WasiFs {
                             FileType::Dir => __WASI_FILETYPE_DIRECTORY,
                         },
                         st_nlink: 0,
-                        st_size: metadata.len() as u64,
+                        st_size: metadata.content_len() as u64,
                         st_atim: systime_to_nanos(SystemTime::now()),
-                        st_mtim: systime_to_nanos(metadata.modified()),
-                        st_ctim: systime_to_nanos(metadata.created()),
+                        st_mtim: systime_to_nanos(metadata.modified_at()),
+                        st_ctim: systime_to_nanos(metadata.created_at()),
                     },
                     is_preopened: false,
                     name: path.to_string(),
