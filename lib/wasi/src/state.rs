@@ -166,31 +166,19 @@ impl WasiFs {
         path: &str,
     ) -> Result<__wasi_filestat_t, __wasi_errno_t> {
         warn!("Should use preopned_fd: {}", preopened_fd);
-        let inode = if let Some(inode) = self.get_inode(path) {
-            inode
-        } else {
-            return Err(__WASI_EINVAL);
-        };
+        let inode = self.get_inode(path).ok_or(__WASI_EINVAL)?;
 
         self.filestat_inode(inode, flags)
     }
 
     pub fn filestat_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_filestat_t, __wasi_errno_t> {
-        let fd = if let Some(fd) = self.fd_map.get(&fd) {
-            fd
-        } else {
-            return Err(__WASI_EBADF);
-        };
+        let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
 
         Ok(self.inodes[fd.inode].stat)
     }
 
     pub fn fdstat(&self, fd: __wasi_fd_t) -> Result<__wasi_fdstat_t, __wasi_errno_t> {
-        let fd = if let Some(fd) = self.fd_map.get(&fd) {
-            fd
-        } else {
-            return Err(__WASI_EBADF);
-        };
+        let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
 
         Ok(__wasi_fdstat_t {
             fs_filetype: match self.inodes[fd.inode].kind {
