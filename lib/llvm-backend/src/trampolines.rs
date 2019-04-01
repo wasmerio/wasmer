@@ -3,10 +3,9 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
-    passes::PassManager,
-    types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
-    values::{BasicValue, FunctionValue, PhiValue, PointerValue},
-    AddressSpace, FloatPredicate, IntPredicate,
+    types::{BasicType, FunctionType},
+    values::FunctionValue,
+    AddressSpace,
 };
 use wasmer_runtime_core::{
     module::ModuleInfo,
@@ -43,20 +42,12 @@ pub fn generate_trampolines(
             Some(Linkage::External),
         );
 
-        generate_trampoline(
-            trampoline_func,
-            func_type,
-            sig,
-            context,
-            builder,
-            intrinsics,
-        );
+        generate_trampoline(trampoline_func, sig, context, builder, intrinsics);
     }
 }
 
 fn generate_trampoline(
     trampoline_func: FunctionValue,
-    sig_type: FunctionType,
     func_sig: &FuncSig,
     context: &Context,
     builder: &Builder,

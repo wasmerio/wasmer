@@ -1,7 +1,5 @@
 use libc::{c_void, siginfo_t};
-use nix::sys::signal::{
-    sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
-};
+use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, SIGBUS, SIGSEGV};
 
 /// `__register_frame` and `__deregister_frame` on macos take a single fde as an
 /// argument, so we need to parse the fde table here.
@@ -51,24 +49,22 @@ pub unsafe fn install_signal_handler() {
         SaFlags::SA_ONSTACK | SaFlags::SA_SIGINFO,
         SigSet::empty(),
     );
-    // sigaction(SIGFPE, &sa).unwrap();
-    // sigaction(SIGILL, &sa).unwrap();
     sigaction(SIGSEGV, &sa).unwrap();
     sigaction(SIGBUS, &sa).unwrap();
 }
 
 #[cfg_attr(nightly, unwind(allowed))]
 extern "C" fn signal_trap_handler(
-    signum: ::nix::libc::c_int,
-    siginfo: *mut siginfo_t,
-    ucontext: *mut c_void,
+    _signum: ::nix::libc::c_int,
+    _siginfo: *mut siginfo_t,
+    _ucontext: *mut c_void,
 ) {
     unsafe {
-        /// Apparently, we can unwind from arbitary instructions, as long
-        /// as we don't need to catch the exception inside the function that
-        /// was interrupted.
-        ///
-        /// This works on macos, not sure about linux.
+        // Apparently, we can unwind from arbitary instructions, as long
+        // as we don't need to catch the exception inside the function that
+        // was interrupted.
+        //
+        // This works on macos, not sure about linux.
         throw_trap(2);
     }
 }

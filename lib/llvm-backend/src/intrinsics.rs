@@ -4,10 +4,7 @@ use inkwell::{
     context::Context,
     module::Module,
     types::{BasicType, FloatType, FunctionType, IntType, PointerType, StructType, VoidType},
-    values::{
-        BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
-        PointerValue,
-    },
+    values::{BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
 use std::marker::PhantomData;
@@ -117,7 +114,6 @@ pub struct Intrinsics {
 
     pub throw_trap: FunctionValue,
 
-    ctx_ty: StructType,
     pub ctx_ptr_ty: PointerType,
 }
 
@@ -370,7 +366,6 @@ impl Intrinsics {
                 void_ty.fn_type(&[i32_ty_basic], false),
                 None,
             ),
-            ctx_ty,
             ctx_ptr_ty,
         }
     }
@@ -383,9 +378,6 @@ impl Intrinsics {
         cache_builder: Builder,
     ) -> CtxType<'a> {
         CtxType {
-            ctx_ty: self.ctx_ty,
-            ctx_ptr_ty: self.ctx_ptr_ty,
-
             ctx_ptr_value: func_value.get_nth_param(0).unwrap().into_pointer_value(),
 
             builder,
@@ -435,9 +427,6 @@ struct ImportedFuncCache {
 }
 
 pub struct CtxType<'a> {
-    ctx_ty: StructType,
-    ctx_ptr_ty: PointerType,
-
     ctx_ptr_value: PointerValue,
 
     builder: &'a Builder,
@@ -460,9 +449,8 @@ impl<'a> CtxType<'a> {
     }
 
     pub fn memory(&mut self, index: MemoryIndex) -> MemoryCache {
-        let (cached_memories, builder, info, ctx_ptr_value, intrinsics, cache_builder) = (
+        let (cached_memories, info, ctx_ptr_value, intrinsics, cache_builder) = (
             &mut self.cached_memories,
-            self.builder,
             self.info,
             self.ctx_ptr_value,
             self.intrinsics,
@@ -618,10 +606,8 @@ impl<'a> CtxType<'a> {
     }
 
     pub fn dynamic_sigindex(&mut self, index: SigIndex) -> IntValue {
-        let (cached_sigindices, builder, info, ctx_ptr_value, intrinsics, cache_builder) = (
+        let (cached_sigindices, ctx_ptr_value, intrinsics, cache_builder) = (
             &mut self.cached_sigindices,
-            self.builder,
-            self.info,
             self.ctx_ptr_value,
             self.intrinsics,
             &self.cache_builder,
@@ -651,9 +637,8 @@ impl<'a> CtxType<'a> {
     }
 
     pub fn global_cache(&mut self, index: GlobalIndex) -> GlobalCache {
-        let (cached_globals, builder, ctx_ptr_value, info, intrinsics, cache_builder) = (
+        let (cached_globals, ctx_ptr_value, info, intrinsics, cache_builder) = (
             &mut self.cached_globals,
-            self.builder,
             self.ctx_ptr_value,
             self.info,
             self.intrinsics,
@@ -728,9 +713,8 @@ impl<'a> CtxType<'a> {
     }
 
     pub fn imported_func(&mut self, index: ImportedFuncIndex) -> (PointerValue, PointerValue) {
-        let (cached_imported_functions, builder, ctx_ptr_value, intrinsics, cache_builder) = (
+        let (cached_imported_functions, ctx_ptr_value, intrinsics, cache_builder) = (
             &mut self.cached_imported_functions,
-            self.builder,
             self.ctx_ptr_value,
             self.intrinsics,
             &self.cache_builder,
@@ -770,38 +754,4 @@ impl<'a> CtxType<'a> {
 
         (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr)
     }
-
-    pub fn build_trap(&self) {
-        self.builder.build_call(self.intrinsics.trap, &[], "trap");
-    }
 }
-
-// pub struct Ctx {
-//     /// A pointer to an array of locally-defined memories, indexed by `MemoryIndex`.
-//     pub(crate) memories: *mut *mut LocalMemory,
-
-//     /// A pointer to an array of locally-defined tables, indexed by `TableIndex`.
-//     pub(crate) tables: *mut *mut LocalTable,
-
-//     /// A pointer to an array of locally-defined globals, indexed by `GlobalIndex`.
-//     pub(crate) globals: *mut *mut LocalGlobal,
-
-//     /// A pointer to an array of imported memories, indexed by `MemoryIndex,
-//     pub(crate) imported_memories: *mut *mut LocalMemory,
-
-//     /// A pointer to an array of imported tables, indexed by `TableIndex`.
-//     pub(crate) imported_tables: *mut *mut LocalTable,
-
-//     /// A pointer to an array of imported globals, indexed by `GlobalIndex`.
-//     pub(crate) imported_globals: *mut *mut LocalGlobal,
-
-//     /// A pointer to an array of imported functions, indexed by `FuncIndex`.
-//     pub(crate) imported_funcs: *mut ImportedFunc,
-
-//     local_backing: *mut LocalBacking,
-//     import_backing: *mut ImportBacking,
-//     module: *const ModuleInner,
-
-//     pub data: *mut c_void,
-//     pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
-// }

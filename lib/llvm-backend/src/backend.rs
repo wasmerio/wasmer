@@ -23,10 +23,7 @@ use wasmer_runtime_core::{
     export::Context,
     module::{ModuleInfo, ModuleInner},
     structures::TypedIndex,
-    types::{
-        FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
-        Value,
-    },
+    types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
     vmcalls,
 };
@@ -57,6 +54,7 @@ enum LLVMResult {
     OBJECT_LOAD_FAILURE,
 }
 
+#[allow(dead_code)]
 #[repr(C)]
 enum WasmTrapType {
     Unreachable = 0,
@@ -220,7 +218,7 @@ pub struct LLVMBackend {
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, intrinsics: Intrinsics) -> (Self, LLVMProtectedCaller) {
+    pub fn new(module: Module, _intrinsics: Intrinsics) -> (Self, LLVMProtectedCaller) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
             asm_printer: true,
