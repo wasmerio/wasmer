@@ -8,3 +8,8 @@ edition = "2018"
 wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
 libc = "0.2.50"
 rand = "0.6.5"
+# wasmer-runtime-abi = { path = "../runtime-abi" }
+hashbrown = "0.1.8"
+generational-arena = "0.2.2"
+zbox = "0.6.1"
+log = "0.4.6"
