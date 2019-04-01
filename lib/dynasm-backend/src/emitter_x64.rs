@@ -63,6 +63,8 @@ pub enum Condition {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Size {
+    S8,
+    S16,
     S32,
     S64,
 }
@@ -98,6 +100,8 @@ pub trait Emitter {
     fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
+    fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
 
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
@@ -443,6 +447,70 @@ impl Emitter for Assembler {
         binop_gpr_gpr!(popcnt, self, sz, src, dst, {
             binop_mem_gpr!(popcnt, self, sz, src, dst, {unreachable!()})
         });
+    }
+    fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
+        match (sz_src, src, sz_dst, dst) {
+            (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; movzx Rd(dst as u8), Rb(src as u8)); 
+            },
+            (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; movzx Rd(dst as u8), Rw(src as u8)); 
+            },
+            (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; movzx Rd(dst as u8), BYTE [Rq(src as u8) + disp]); 
+            },
+            (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; movzx Rd(dst as u8), WORD [Rq(src as u8) + disp]); 
+            },
+            (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movzx Rq(dst as u8), Rb(src as u8)); 
+            },
+            (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movzx Rq(dst as u8), Rw(src as u8)); 
+            },
+            (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movzx Rq(dst as u8), BYTE [Rq(src as u8) + disp]); 
+            },
+            (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]); 
+            },
+            _ => unreachable!(),
+        }
+    }
+    fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
+        match (sz_src, src, sz_dst, dst) {
+            (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rd(dst as u8), Rb(src as u8)); 
+            },
+            (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rd(dst as u8), Rw(src as u8)); 
+            },
+            (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rd(dst as u8), BYTE [Rq(src as u8) + disp]); 
+            },
+            (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rd(dst as u8), WORD [Rq(src as u8) + disp]); 
+            },
+            (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rq(dst as u8), Rb(src as u8)); 
+            },
+            (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rq(dst as u8), Rw(src as u8)); 
+            },
+            (Size::S32, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rq(dst as u8), Rd(src as u8)); 
+            },
+            (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rq(dst as u8), BYTE [Rq(src as u8) + disp]); 
+            },
+            (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rq(dst as u8), WORD [Rq(src as u8) + disp]); 
+            },
+            (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]); 
+            },
+            _ => unreachable!(),
+        }
     }
 
     fn emit_ud2(&mut self) {

@@ -451,6 +451,24 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
 }
 
 impl X64FunctionCode {
+    fn emit_relaxed_xdiv(
+        a: &mut Assembler,
+        m: &mut Machine,
+        op: fn(&mut Assembler, Size, Location),
+        sz: Size,
+        loc: Location,
+    ) {
+        match loc {
+            Location::Imm64(_) | Location::Imm32(_) => {
+                a.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
+                op(a, sz, Location::GPR(GPR::RCX));
+            }
+            _ => {
+                op(a, sz, loc);
+            }
+        }
+    }
+
     fn emit_relaxed_binop(
         a: &mut Assembler,
         m: &mut Machine,
@@ -463,9 +481,11 @@ impl X64FunctionCode {
             Direct,
             SrcToGPR,
             DstToGPR,
+            BothToGPR,
         }
         let mode = match (src, dst) {
             (Location::Memory(_, _), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
+            (Location::Imm64(_), Location::Imm64(_)) | (Location::Imm64(_), Location::Imm32(_)) => RelaxMode::BothToGPR,
             (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,
             (Location::Imm64(_), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
             (Location::Imm64(_), Location::GPR(_)) if (op as *const u8 != Assembler::emit_mov as *const u8) => RelaxMode::SrcToGPR,
@@ -484,6 +504,15 @@ impl X64FunctionCode {
                 a.emit_mov(sz, dst, Location::GPR(temp));
                 op(a, sz, src, Location::GPR(temp));
                 m.release_temp_gpr(temp);
+            },
+            RelaxMode::BothToGPR => {
+                let temp_src = m.acquire_temp_gpr().unwrap();
+                let temp_dst = m.acquire_temp_gpr().unwrap();
+                a.emit_mov(sz, src, Location::GPR(temp_src));
+                a.emit_mov(sz, dst, Location::GPR(temp_dst));
+                op(a, sz, Location::GPR(temp_src), Location::GPR(temp_dst));
+                m.release_temp_gpr(temp_dst);
+                m.release_temp_gpr(temp_src);
             },
             RelaxMode::Direct => {
                 op(a, sz, src, dst);
@@ -521,6 +550,42 @@ impl X64FunctionCode {
             Self::emit_relaxed_binop(
                 a, m, f,
                 Size::S32, loc_b, ret,
+            );
+        }
+
+        value_stack.push((ret, LocalOrTemp::Temp));
+    }
+
+    fn emit_binop_i64(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        f: fn(&mut Assembler, Size, Location, Location),
+    ) {
+        // Using Red Zone here.
+        let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
+        let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
+        let ret = m.acquire_locations(a, &[WpType::I64], false)[0];
+
+        if loc_a != ret {
+            let tmp = m.acquire_temp_gpr().unwrap();
+            Self::emit_relaxed_binop(
+                a, m, Assembler::emit_mov,
+                Size::S64, loc_a, Location::GPR(tmp),
+            );
+            Self::emit_relaxed_binop(
+                a, m, f,
+                Size::S64, loc_b, Location::GPR(tmp),
+            );
+            Self::emit_relaxed_binop(
+                a, m, Assembler::emit_mov,
+                Size::S64, Location::GPR(tmp), ret,
+            );
+            m.release_temp_gpr(tmp);
+        } else {
+            Self::emit_relaxed_binop(
+                a, m, f,
+                Size::S64, loc_b, ret,
             );
         }
 
@@ -573,6 +638,52 @@ impl X64FunctionCode {
         Self::emit_cmpop_i32_dynamic_b(a, m, value_stack, c, loc_b);
     }
 
+    fn emit_cmpop_i64_dynamic_b(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        c: Condition,
+        loc_b: Location,
+    ) {
+        // Using Red Zone here.
+        let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
+
+        let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
+        match ret {
+            Location::GPR(x) => {
+                Self::emit_relaxed_binop(
+                    a, m, Assembler::emit_cmp,
+                    Size::S64, loc_b, loc_a,
+                );
+                a.emit_set(c, x);
+                a.emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x));
+            },
+            Location::Memory(_, _) => {
+                let tmp = m.acquire_temp_gpr().unwrap();
+                Self::emit_relaxed_binop(
+                    a, m, Assembler::emit_cmp,
+                    Size::S64, loc_b, loc_a,
+                );
+                a.emit_set(c, tmp);
+                a.emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(tmp));
+                a.emit_mov(Size::S32, Location::GPR(tmp), ret);
+                m.release_temp_gpr(tmp);
+            },
+            _ => unreachable!()
+        }
+        value_stack.push((ret, LocalOrTemp::Temp));
+    }
+
+    fn emit_cmpop_i64(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        c: Condition,
+    ) {
+        let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
+        Self::emit_cmpop_i64_dynamic_b(a, m, value_stack, c, loc_b);
+    }
+
     fn emit_xcnt_i32(
         a: &mut Assembler,
         m: &mut Machine,
@@ -581,27 +692,70 @@ impl X64FunctionCode {
     ) {
         let loc = get_location_released(a, m, value_stack.pop().unwrap());
         let ret = m.acquire_locations(a, &[WpType::I32], false)[0];
-        if let Location::Imm32(x) = loc {
-            let tmp = m.acquire_temp_gpr().unwrap();
-            a.emit_mov(Size::S32, loc, Location::GPR(tmp));
-            if let Location::Memory(_, _) = ret {
-                let out_tmp = m.acquire_temp_gpr().unwrap();
-                f(a, Size::S32, Location::GPR(tmp), Location::GPR(out_tmp));
-                a.emit_mov(Size::S32, Location::GPR(out_tmp), ret);
-                m.release_temp_gpr(out_tmp);
-            } else {
-                f(a, Size::S32, Location::GPR(tmp), ret);
-            }
-            m.release_temp_gpr(tmp);
-        } else {
-            if let Location::Memory(_, _) = ret {
-                let out_tmp = m.acquire_temp_gpr().unwrap();
-                f(a, Size::S32, loc, Location::GPR(out_tmp));
-                a.emit_mov(Size::S32, Location::GPR(out_tmp), ret);
-                m.release_temp_gpr(out_tmp);
-            } else {
-                f(a, Size::S32, loc, ret);
-            }
+
+        match loc {
+            Location::Imm32(_) => {
+                let tmp = m.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S32, loc, Location::GPR(tmp));
+                if let Location::Memory(_, _) = ret {
+                    let out_tmp = m.acquire_temp_gpr().unwrap();
+                    f(a, Size::S32, Location::GPR(tmp), Location::GPR(out_tmp));
+                    a.emit_mov(Size::S32, Location::GPR(out_tmp), ret);
+                    m.release_temp_gpr(out_tmp);
+                } else {
+                    f(a, Size::S32, Location::GPR(tmp), ret);
+                }
+                m.release_temp_gpr(tmp);
+            },
+            Location::Memory(_, _) | Location::GPR(_) => {
+                if let Location::Memory(_, _) = ret {
+                    let out_tmp = m.acquire_temp_gpr().unwrap();
+                    f(a, Size::S32, loc, Location::GPR(out_tmp));
+                    a.emit_mov(Size::S32, Location::GPR(out_tmp), ret);
+                    m.release_temp_gpr(out_tmp);
+                } else {
+                    f(a, Size::S32, loc, ret);
+                }
+            },
+            _ => unreachable!(),
+        }
+        value_stack.push((ret, LocalOrTemp::Temp));
+    }
+
+    fn emit_xcnt_i64(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        f: fn(&mut Assembler, Size, Location, Location),
+    ) {
+        let loc = get_location_released(a, m, value_stack.pop().unwrap());
+        let ret = m.acquire_locations(a, &[WpType::I64], false)[0];
+
+        match loc {
+            Location::Imm64(_) | Location::Imm32(_) => {
+                let tmp = m.acquire_temp_gpr().unwrap();
+                a.emit_mov(Size::S64, loc, Location::GPR(tmp));
+                if let Location::Memory(_, _) = ret {
+                    let out_tmp = m.acquire_temp_gpr().unwrap();
+                    f(a, Size::S64, Location::GPR(tmp), Location::GPR(out_tmp));
+                    a.emit_mov(Size::S64, Location::GPR(out_tmp), ret);
+                    m.release_temp_gpr(out_tmp);
+                } else {
+                    f(a, Size::S64, Location::GPR(tmp), ret);
+                }
+                m.release_temp_gpr(tmp);
+            },
+            Location::Memory(_, _) | Location::GPR(_) => {
+                if let Location::Memory(_, _) = ret {
+                    let out_tmp = m.acquire_temp_gpr().unwrap();
+                    f(a, Size::S64, loc, Location::GPR(out_tmp));
+                    a.emit_mov(Size::S64, Location::GPR(out_tmp), ret);
+                    m.release_temp_gpr(out_tmp);
+                } else {
+                    f(a, Size::S64, loc, ret);
+                }
+            },
+            _ => unreachable!(),
         }
         value_stack.push((ret, LocalOrTemp::Temp));
     }
@@ -626,6 +780,29 @@ impl X64FunctionCode {
         }
 
         f(a, Size::S32, Location::GPR(GPR::RCX), ret);
+        value_stack.push((ret, LocalOrTemp::Temp));
+    }
+
+    fn emit_shift_i64(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        f: fn(&mut Assembler, Size, Location, Location),
+    ) {
+        let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
+        let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
+        let ret = m.acquire_locations(a, &[WpType::I64], false)[0];
+
+        a.emit_mov(Size::S32, loc_b, Location::GPR(GPR::RCX));
+
+        if loc_a != ret {
+            Self::emit_relaxed_binop(
+                a, m, Assembler::emit_mov,
+                Size::S64, loc_a, ret
+            );
+        }
+
+        f(a, Size::S64, Location::GPR(GPR::RCX), ret);
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
@@ -814,7 +991,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
                 a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
-                a.emit_div(Size::S32, loc_b);
+                Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_div, Size::S32, loc_b);
                 a.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
                 self.value_stack.push((ret, LocalOrTemp::Temp));
             }
@@ -825,7 +1002,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
                 a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
-                a.emit_idiv(Size::S32, loc_b);
+                Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_idiv, Size::S32, loc_b);
                 a.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
                 self.value_stack.push((ret, LocalOrTemp::Temp));
             }
@@ -873,6 +1050,101 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::I32LeS => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::LessEqual),
             Operator::I32GtS => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Greater),
             Operator::I32GeS => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::GreaterEqual),
+            Operator::I64Const { value } => {
+                let value = value as u64;
+                if value <= ::std::u32::MAX as u64 {
+                    self.value_stack.push((Location::Imm32(value as u32), LocalOrTemp::Temp))
+                } else {
+                    self.value_stack.push((Location::Imm64(value), LocalOrTemp::Temp))
+                }
+            },
+            Operator::I64Add => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_add),
+            Operator::I64Sub => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_sub),
+            Operator::I64Mul => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_imul),
+            Operator::I64DivU => {
+                // We assume that RAX and RDX are temporary registers here.
+                let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+                a.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_div, Size::S64, loc_b);
+                a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+            }
+            Operator::I64DivS => {
+                // We assume that RAX and RDX are temporary registers here.
+                let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+                a.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_idiv, Size::S64, loc_b);
+                a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+            }
+            Operator::I64RemU => {
+                // We assume that RAX and RDX are temporary registers here.
+                let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+                a.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_div(Size::S64, loc_b);
+                a.emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+            }
+            Operator::I64RemS => {
+                // We assume that RAX and RDX are temporary registers here.
+                let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+                a.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_idiv(Size::S64, loc_b);
+                a.emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+            }
+            Operator::I64And => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_and),
+            Operator::I64Or => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_or),
+            Operator::I64Xor => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_xor),
+            Operator::I64Eq => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::Equal),
+            Operator::I64Ne => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::NotEqual),
+            Operator::I64Eqz => Self::emit_cmpop_i64_dynamic_b(a, &mut self.machine, &mut self.value_stack, Condition::Equal, Location::Imm64(0)),
+            Operator::I64Clz => Self::emit_xcnt_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_lzcnt),
+            Operator::I64Ctz => Self::emit_xcnt_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_tzcnt),
+            Operator::I64Popcnt => Self::emit_xcnt_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_popcnt),
+            Operator::I64Shl => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_shl),
+            Operator::I64ShrU => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_sar),
+            Operator::I64ShrS => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_shr),
+            Operator::I64Rotl => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_rol),
+            Operator::I64Rotr => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_ror),
+            Operator::I64LtU => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::Below),
+            Operator::I64LeU => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::BelowEqual),
+            Operator::I64GtU => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::Above),
+            Operator::I64GeU => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::AboveEqual),
+            Operator::I64LtS => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::Less),
+            Operator::I64LeS => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::LessEqual),
+            Operator::I64GtS => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::Greater),
+            Operator::I64GeS => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::GreaterEqual),
+            Operator::I64ExtendUI32 => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_mov,
+                    Size::S32, loc, ret,
+                );
+            }
+            Operator::I32WrapI64 => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_mov,
+                    Size::S32, loc, ret,
+                );
+            }
             Operator::If { ty } => {
                 let label_end = a.get_label();
                 let label_else = a.get_label();
@@ -898,7 +1170,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
             }
             Operator::Else => {
                 let mut frame = self.control_stack.last_mut().unwrap();
-                let released: Vec<Location> = self.value_stack.drain(..frame.value_stack_depth)
+                let released: Vec<Location> = self.value_stack.drain(frame.value_stack_depth..)
                     .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
                     .map(|(x, _)| x)
                     .collect();
@@ -971,7 +1243,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 } else {
                     false
                 };
-                let released: Vec<Location> = self.value_stack.drain(..frame.value_stack_depth)
+                let released: Vec<Location> = self.value_stack.drain(frame.value_stack_depth..)
                     .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
                     .map(|(x, _)| x)
                     .collect();
@@ -989,7 +1261,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 } else {
                     false
                 };
-                let released: Vec<Location> = self.value_stack.drain(..frame.value_stack_depth)
+                let released: Vec<Location> = self.value_stack.drain(frame.value_stack_depth..)
                     .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
                     .map(|(x, _)| x)
                     .collect();
@@ -1036,7 +1308,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     a.emit_pop(Size::S64, Location::GPR(GPR::RBP));
                     a.emit_ret();
                 } else {
-                    let released: Vec<Location> = self.value_stack.drain(..frame.value_stack_depth)
+                    let released: Vec<Location> = self.value_stack.drain(frame.value_stack_depth..)
                         .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
                         .map(|(x, _)| x)
                         .collect();
