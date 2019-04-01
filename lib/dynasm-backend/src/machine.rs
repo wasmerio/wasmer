@@ -25,15 +25,10 @@ impl Machine {
     pub fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &'static [GPR] = &[
-            RBX,
             RSI,
             RDI,
             R8,
             R9,
-            R10,
-            R11,
-            R12,
-            R13,
         ];
         for r in REGS {
             if !self.used_gprs.contains(r) {
@@ -52,8 +47,6 @@ impl Machine {
             RAX,
             RCX,
             RDX,
-            R14,
-            R15
         ];
         for r in REGS {
             if !self.used_gprs.contains(r) {
@@ -148,7 +141,9 @@ impl Machine {
             ret.push(loc);
         }
 
-        assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        if delta_stack_offset != 0 {
+            assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        }
         if zeroed {
             for i in 0..n {
                 assembler.emit_mov(Size::S64, Location::Imm32(0), ret[i]);
@@ -198,7 +193,9 @@ impl Machine {
             ret.push(loc);
         }
 
-        assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        if delta_stack_offset != 0 {
+            assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        }
         if zeroed {
             for i in 0..tys.len() {
                 assembler.emit_mov(Size::S64, Location::Imm32(0), ret[i]);
@@ -238,6 +235,36 @@ impl Machine {
             }
         }
 
-        assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        if delta_stack_offset != 0 {
+            assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        }
+    }
+
+    pub fn release_locations_keep_state<E: Emitter>(
+        &self,
+        assembler: &mut E,
+        locs: &[Location]
+    ) {
+        let mut delta_stack_offset: usize = 0;
+
+        for loc in locs {
+            match *loc {
+                Location::Memory(GPR::RBP, x) => {
+                    if x >= 0 {
+                        unreachable!();
+                    }
+                    let offset = (-x) as usize;
+                    if offset != self.stack_offset.0 {
+                        unreachable!();
+                    }
+                    delta_stack_offset += 8;
+                },
+                _ => {}
+            }
+        }
+
+        if delta_stack_offset != 0 {
+            assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        }
     }
 }

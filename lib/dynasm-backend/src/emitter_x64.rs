@@ -91,6 +91,8 @@ pub trait Emitter {
     fn emit_shl(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_shr(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_sar(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_rol(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_ror(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_and(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location);
@@ -98,6 +100,7 @@ pub trait Emitter {
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location);
 
     fn emit_ud2(&mut self);
+    fn emit_ret(&mut self);
 }
 
 macro_rules! unop_gpr {
@@ -148,6 +151,20 @@ macro_rules! binop_imm32_gpr {
             },
             (Size::S64, Location::Imm32(src), Location::GPR(dst)) => {
                 dynasm!($assembler ; $ins Rq(dst as u8), src as i32); // IMM32_2GPR
+            },
+            _ => $otherwise
+        }
+    };
+}
+
+macro_rules! binop_imm32_mem {
+    ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
+        match ($sz, $src, $dst) {
+            (Size::S32, Location::Imm32(src), Location::Memory(dst, disp)) => {
+                dynasm!($assembler ; $ins DWORD [Rq(dst as u8) + disp], src as i32);
+            },
+            (Size::S64, Location::Imm32(src), Location::Memory(dst, disp)) => {
+                dynasm!($assembler ; $ins QWORD [Rq(dst as u8) + disp], src as i32);
             },
             _ => $otherwise
         }
@@ -211,13 +228,16 @@ macro_rules! binop_all_nofp {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         binop_imm32_gpr!(
             $ins, $assembler, $sz, $src, $dst,
-            {binop_gpr_gpr!(
+            {binop_imm32_mem!(
                 $ins, $assembler, $sz, $src, $dst,
-                {binop_gpr_mem!(
+                {binop_gpr_gpr!(
                     $ins, $assembler, $sz, $src, $dst,
-                    {binop_mem_gpr!(
+                    {binop_gpr_mem!(
                         $ins, $assembler, $sz, $src, $dst,
-                        $otherwise
+                        {binop_mem_gpr!(
+                            $ins, $assembler, $sz, $src, $dst,
+                            $otherwise
+                        )}
                     )}
                 )}
             )}
@@ -367,7 +387,9 @@ impl Emitter for Assembler {
         }
     }
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {
-        binop_all_nofp!(cmp, self, sz, left, right, {unreachable!()});
+        binop_all_nofp!(cmp, self, sz, left, right, {
+            panic!("{:?} {:?} {:?}", sz, left, right);
+        });
     }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(add, self, sz, src, dst, {unreachable!()});
@@ -395,6 +417,12 @@ impl Emitter for Assembler {
     fn emit_sar(&mut self, sz: Size, src: Location, dst: Location) {
         binop_shift!(sar, self, sz, src, dst, { unreachable!() });
     }
+    fn emit_rol(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_shift!(rol, self, sz, src, dst, { unreachable!() });
+    }
+    fn emit_ror(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_shift!(ror, self, sz, src, dst, { unreachable!() });
+    }
     fn emit_and(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(and, self, sz, src, dst, {unreachable!()});
     }
@@ -419,5 +447,8 @@ impl Emitter for Assembler {
 
     fn emit_ud2(&mut self) {
         dynasm!(self ; ud2);
+    }
+    fn emit_ret(&mut self) {
+        dynasm!(self ; ret);
     }
 }
