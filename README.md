@@ -70,6 +70,7 @@ Please select your operating system:
 
 - [macOS](#macos)
 - [Debian-based Linuxes](#debian-based-linuxes)
+- [FreeBSD](#freebsd)
 - [Microsoft Windows](#windows-msvc)
 
 #### macOS
@@ -90,6 +91,12 @@ sudo port install cmake
 
 ```sh
 sudo apt install cmake
+```
+
+#### FreeBSD
+
+```sh
+pkg install cmake
 ```
 
 #### Windows (MSVC)
