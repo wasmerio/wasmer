@@ -1145,6 +1145,68 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     Size::S32, loc, ret,
                 );
             }
+            Operator::Call { function_index } => {
+                let function_index = function_index as usize;
+                let label = self
+                    .function_labels
+                    .as_mut()
+                    .unwrap()
+                    .entry(function_index)
+                    .or_insert_with(|| (a.get_label(), None))
+                    .0;
+                let sig_index = *self.function_signatures.get(FuncIndex::new(function_index)).unwrap();
+                let sig = self.signatures.get(sig_index).unwrap();
+                let param_types: Vec<WpType> =
+                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                let return_types: Vec<WpType> =
+                    sig.returns().iter().cloned().map(type_to_wp_type).collect();
+
+                let params = &self.value_stack[self.value_stack.len() - param_types.len()..];
+                    
+                let used_gprs = self.machine.get_used_gprs();
+                for r in used_gprs.iter() {
+                    a.emit_push(Size::S64, Location::GPR(*r));
+                }
+
+                let mut stack_offset: usize = 0;
+
+                for i in (0..param_types.len()).rev() {
+                    a.emit_push(Size::S64, params[i].0);
+                    stack_offset += 8;
+                }
+
+                for i in 0..param_types.len() {
+                    let loc = Self::get_param_location(1 + i);
+                    match loc {
+                        Location::GPR(_) => {
+                            a.emit_pop(Size::S64, loc);
+                            stack_offset -= 8;
+                        },
+                        _ => break
+                    }
+                }
+
+                a.emit_mov(Size::S64, Location::Memory(GPR::RBP, -8), Self::get_param_location(0)); // vmctx
+                a.emit_call_label(label);
+
+                if stack_offset > 0 {
+                    a.emit_add(Size::S64, Location::Imm32(stack_offset as u32), Location::GPR(GPR::RSP));
+                }
+
+                for r in used_gprs.iter().rev() {
+                    a.emit_pop(Size::S64, Location::GPR(*r));
+                }
+
+                let released: Vec<Location> = self.value_stack.drain(self.value_stack.len() - param_types.len()..)
+                    .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
+                    .map(|(x, _)| x)
+                    .collect();
+                self.machine.release_locations(a, &released);
+
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+            }
             Operator::If { ty } => {
                 let label_end = a.get_label();
                 let label_else = a.get_label();
@@ -1170,6 +1232,15 @@ impl FunctionCodeGenerator for X64FunctionCode {
             }
             Operator::Else => {
                 let mut frame = self.control_stack.last_mut().unwrap();
+
+                if frame.returns.len() > 0 {
+                    let (loc, _) = *self.value_stack.last().unwrap();
+                    Self::emit_relaxed_binop(
+                        a, &mut self.machine, Assembler::emit_mov,
+                        Size::S64, loc, Location::GPR(GPR::RAX),
+                    );
+                }
+
                 let released: Vec<Location> = self.value_stack.drain(frame.value_stack_depth..)
                     .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
                     .map(|(x, _)| x)
@@ -1253,7 +1324,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let has_return = if frame.returns.len() > 0 {
                     assert_eq!(frame.returns.len(), 1);
                     let (loc, _) = *self.value_stack.last().unwrap();
-                    a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    Self::emit_relaxed_binop(
+                        a, &mut self.machine, Assembler::emit_mov,
+                        Size::S64, loc, Location::GPR(GPR::RAX),
+                    );
                     true
                 } else {
                     false
@@ -1271,7 +1345,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let has_return = if !frame.loop_like && frame.returns.len() > 0 {
                     assert_eq!(frame.returns.len(), 1);
                     let (loc, _) = *self.value_stack.last().unwrap();
-                    a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    Self::emit_relaxed_binop(
+                        a, &mut self.machine, Assembler::emit_mov,
+                        Size::S64, loc, Location::GPR(GPR::RAX),
+                    );
                     true
                 } else {
                     false

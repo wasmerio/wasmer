@@ -105,6 +105,7 @@ pub trait Emitter {
 
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
+    fn emit_call_label(&mut self, label: Self::Label);
 }
 
 macro_rules! unop_gpr {
@@ -518,5 +519,9 @@ impl Emitter for Assembler {
     }
     fn emit_ret(&mut self) {
         dynasm!(self ; ret);
+    }
+
+    fn emit_call_label(&mut self, label: Self::Label) {
+        dynasm!(self ; call =>label);
     }
 }

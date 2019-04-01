@@ -19,6 +19,14 @@ impl Machine {
         }
     }
 
+    pub fn get_used_gprs(&self) -> Vec<GPR> {
+        self.used_gprs.iter().cloned().collect()
+    }
+
+    pub fn get_used_xmms(&self) -> Vec<XMM> {
+        self.used_xmms.iter().cloned().collect()
+    }
+
     /// Picks an unused general purpose register for local/stack/argument use.
     /// 
     /// This method does not mark the register as used.
