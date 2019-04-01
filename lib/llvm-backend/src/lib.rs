@@ -1,10 +1,5 @@
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
-use inkwell::{
-    execution_engine::JitFunction,
-    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
-    OptimizationLevel,
-};
 use wasmer_runtime_core::{
     backend::{Compiler, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
@@ -47,19 +42,16 @@ impl Compiler for LLVMCompiler {
 
         // Create placeholder values here.
         let cache_gen = {
-            use wasmer_runtime_core::backend::{
-                sys::Memory, CacheGen, ProtectedCaller, UserTrapper,
-            };
+            use wasmer_runtime_core::backend::{sys::Memory, CacheGen};
             use wasmer_runtime_core::cache::Error as CacheError;
-            use wasmer_runtime_core::error::RuntimeResult;
             use wasmer_runtime_core::module::ModuleInfo;
-            use wasmer_runtime_core::types::{FuncIndex, Value};
-            use wasmer_runtime_core::vm;
+
             struct Placeholder;
+
             impl CacheGen for Placeholder {
                 fn generate_cache(
                     &self,
-                    module: &ModuleInner,
+                    _module: &ModuleInner,
                 ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
                     unimplemented!()
                 }
