@@ -220,7 +220,7 @@ impl Machine {
     ) {
         let mut delta_stack_offset: usize = 0;
 
-        for loc in locs {
+        for loc in locs.iter().rev() {
             match *loc {
                 Location::GPR(ref x) => {
                     assert_eq!(self.used_gprs.remove(x), true);
@@ -248,6 +248,52 @@ impl Machine {
         }
     }
 
+    pub fn release_locations_only_regs(
+        &mut self,
+        locs: &[Location]
+    ) {
+        for loc in locs.iter().rev() {
+            match *loc {
+                Location::GPR(ref x) => {
+                    assert_eq!(self.used_gprs.remove(x), true);
+                },
+                Location::XMM(ref x) => {
+                    assert_eq!(self.used_xmms.remove(x), true);
+                },
+                _ => {}
+            }
+        }
+    }
+
+    pub fn release_locations_only_stack<E: Emitter>(
+        &mut self,
+        assembler: &mut E,
+        locs: &[Location]
+    ) {
+        let mut delta_stack_offset: usize = 0;
+
+        for loc in locs.iter().rev() {
+            match *loc {
+                Location::Memory(GPR::RBP, x) => {
+                    if x >= 0 {
+                        unreachable!();
+                    }
+                    let offset = (-x) as usize;
+                    if offset != self.stack_offset.0 {
+                        unreachable!();
+                    }
+                    self.stack_offset.0 -= 8;
+                    delta_stack_offset += 8;
+                },
+                _ => {}
+            }
+        }
+
+        if delta_stack_offset != 0 {
+            assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        }
+    }
+
     pub fn release_locations_keep_state<E: Emitter>(
         &self,
         assembler: &mut E,
@@ -255,7 +301,7 @@ impl Machine {
     ) {
         let mut delta_stack_offset: usize = 0;
 
-        for loc in locs {
+        for loc in locs.iter().rev() {
             match *loc {
                 Location::Memory(GPR::RBP, x) => {
                     if x >= 0 {
