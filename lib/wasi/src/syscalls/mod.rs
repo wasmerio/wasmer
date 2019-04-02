@@ -8,9 +8,10 @@ pub mod windows;
 use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
-    state::WasiState,
+    state::{Kind, WasiState},
 };
 use rand::{thread_rng, Rng};
+use std::cell::Cell;
 use std::io::{self, Write};
 use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
@@ -619,46 +620,65 @@ pub fn fd_write(
     debug!("wasi::fd_write: fd={}", fd);
     let memory = ctx.memory(0);
     // TODO: check __WASI_RIGHT_FD_WRITE
-    // return __WASI_EISDIR if dir (probably)
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
-    let mut bytes_written = 0;
 
-    match fd {
-        0 => unimplemented!(),
+    fn write_bytes<T: Write>(
+        mut write_loc: T,
+        memory: &Memory,
+        iovs_arr_cell: &[Cell<__wasi_ciovec_t>],
+    ) -> Result<u32, __wasi_errno_t> {
+        let mut bytes_written = 0;
+        for iov in iovs_arr_cell {
+            let iov_inner = iov.get();
+            let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
+            write_loc
+                .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
+                .map_err(|_| __WASI_EIO)?;
+
+            // TODO: handle failure more accurately
+            bytes_written += iov_inner.buf_len;
+        }
+        Ok(bytes_written)
+    }
+
+    let bytes_written = match fd {
+        0 => return __WASI_EINVAL,
         1 => {
             let stdout = io::stdout();
             let mut handle = stdout.lock();
 
-            for iov in iovs_arr_cell {
-                let iov_inner = iov.get();
-                let bytes = wasi_try!(iov_inner.buf.deref(memory, 0, iov_inner.buf_len));
-                wasi_try!(handle
-                    .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
-                    .map_err(|_| __WASI_EIO));
-
-                // TODO: handle failure more accurately
-                bytes_written += iov_inner.buf_len;
-            }
+            wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
         }
+
         2 => {
             let stderr = io::stderr();
             let mut handle = stderr.lock();
 
-            // TODO: abstract this
-            for iov in iovs_arr_cell {
-                let iov_inner = iov.get();
-                let bytes = wasi_try!(iov_inner.buf.deref(memory, 0, iov_inner.buf_len));
-                wasi_try!(handle
-                    .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
-                    .map_err(|_| __WASI_EIO));
+            wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+        }
+        _ => {
+            let state = get_wasi_state(ctx);
+            let fd_entry = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
 
-                // TODO: handle failure more accurately
-                bytes_written += iov_inner.buf_len;
+            if fd_entry.rights & __WASI_RIGHT_FD_WRITE == 0 {
+                // TODO: figure out the error to return when lacking rights
+                return __WASI_EACCES;
+            }
+
+            let inode = &mut state.fs.inodes[fd_entry.inode];
+
+            match &mut inode.kind {
+                Kind::File { handle } => wasi_try!(write_bytes(handle, memory, iovs_arr_cell)),
+                Kind::Dir { .. } => {
+                    // TODO: verify
+                    return __WASI_EISDIR;
+                }
+                Kind::Symlink { .. } => unimplemented!(),
+                Kind::Buffer { buffer } => wasi_try!(write_bytes(buffer, memory, iovs_arr_cell)),
             }
         }
-        other => unimplemented!(),
-    }
+    };
 
     nwritten_cell.set(bytes_written);
 

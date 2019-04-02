@@ -17,10 +17,10 @@ use zbox::{init_env as zbox_init_env, File, FileType, OpenOptions, Repo, RepoOpe
 pub const MAX_SYMLINKS: usize = 100;
 
 pub struct InodeVal {
-    stat: __wasi_filestat_t,
-    is_preopened: bool,
-    name: String,
-    kind: Kind,
+    pub stat: __wasi_filestat_t,
+    pub is_preopened: bool,
+    pub name: String,
+    pub kind: Kind,
 }
 
 pub enum Kind {
@@ -41,19 +41,19 @@ pub enum Kind {
 }
 
 pub struct Fd {
-    rights: __wasi_rights_t,
-    flags: __wasi_fdflags_t,
-    offset: u64,
-    inode: Inode,
+    pub rights: __wasi_rights_t,
+    pub flags: __wasi_fdflags_t,
+    pub offset: u64,
+    pub inode: Inode,
 }
 
 pub struct WasiFs {
-    repo: Repo,
-    name_map: HashMap<String, Inode>,
-    inodes: Arena<InodeVal>,
-    fd_map: HashMap<u32, Fd>,
-    next_fd: Cell<u32>,
-    inode_counter: Cell<u64>,
+    pub repo: Repo,
+    pub name_map: HashMap<String, Inode>,
+    pub inodes: Arena<InodeVal>,
+    pub fd_map: HashMap<u32, Fd>,
+    pub next_fd: Cell<u32>,
+    pub inode_counter: Cell<u64>,
 }
 
 impl WasiFs {
