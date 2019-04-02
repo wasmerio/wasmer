@@ -43,6 +43,7 @@ pub enum Kind {
 
 pub struct Fd {
     pub rights: __wasi_rights_t,
+    pub rights_inheriting: __wasi_rights_t,
     pub flags: __wasi_fdflags_t,
     pub offset: u64,
     pub inode: Inode,

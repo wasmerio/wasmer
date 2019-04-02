@@ -307,7 +307,7 @@ pub fn fd_fdstat_set_flags(
 }
 
 /// ### `fd_fdstat_set_rights()`
-/// Set the rights of a file descriptor
+/// Set the rights of a file descriptor.  This can only be used to remove rights
 /// Inputs:
 /// - `__wasi_fd_t fd`
 ///     The file descriptor to apply the new rights to
@@ -322,7 +322,20 @@ pub fn fd_fdstat_set_rights(
     fs_rights_inheriting: __wasi_rights_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_fdstat_set_rights");
-    unimplemented!()
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+
+    // ensure new rights are a subset of current rights
+    if fd_entry.rights | fs_rights_base != fd_entry.rights
+        || fd_entry.rights_inheriting | fs_rights_inheriting != fd_entry.rights_inheriting
+    {
+        return __WASI_ENOTCAPABLE;
+    }
+
+    fd_entry.rights = fs_rights_base;
+    fd_entry.rights_inheriting = fs_rights_inheriting;
+
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_filestat_get()`
