@@ -129,7 +129,8 @@ unsafe impl WasmExternType for f64 {
 pub unsafe trait ValueType: Copy
 where
     Self: Sized,
-{}
+{
+}
 
 macro_rules! convert_value_impl {
     ($t:ty) => {

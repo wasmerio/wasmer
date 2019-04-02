@@ -8,11 +8,11 @@ use hashbrown::hash_map::{Entry, HashMap};
 use std::{
     cell::{Cell, RefCell},
     ops::{Index, IndexMut},
+    path::PathBuf,
     rc::Rc,
     time::SystemTime,
-    path::PathBuf,
 };
-use zbox::{File, FileType, OpenOptions, Repo, RepoOpener, init_env as zbox_init_env};
+use zbox::{init_env as zbox_init_env, File, FileType, OpenOptions, Repo, RepoOpener};
 
 pub const MAX_SYMLINKS: usize = 100;
 

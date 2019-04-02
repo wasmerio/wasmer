@@ -815,8 +815,8 @@ pub fn poll_oneoff(
 ) -> __wasi_errno_t {
     unimplemented!()
 }
-pub fn proc_exit(ctx: &mut Ctx, rval: __wasi_exitcode_t) {
-    unimplemented!()
+pub fn proc_exit(ctx: &mut Ctx, rval: __wasi_exitcode_t) -> Result<(), &'static str> {
+    Err("Instance exited")
 }
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
     unimplemented!()
@@ -833,13 +833,11 @@ pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __was
     let mut rng = thread_rng();
     let memory = ctx.memory(0);
 
-    if let Ok(buf) = buf.deref(memory, 0, buf_len) {
-        for i in 0..(buf_len as usize) {
-            let random_byte = rng.gen::<u8>();
-            buf[i].set(random_byte);
-        }
-    } else {
-        return __WASI_EFAULT;
+    let buf = wasi_try!(buf.deref(memory, 0, buf_len));
+
+    unsafe {
+        let u8_buffer = &mut *(buf as *const [_] as *mut [_] as *mut [u8]);
+        thread_rng().fill(u8_buffer);
     }
 
     __WASI_ESUCCESS
