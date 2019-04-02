@@ -2209,7 +2209,7 @@ dependencies = [
  "wasmer-runtime 0.2.1",
  "wasmer-runtime-abi 0.2.1",
  "wasmer-runtime-core 0.2.1",
- "wasmer-wasi 0.1.0",
+ "wasmer-wasi 0.2.1",
 ]
 
 [[package]]
@@ -2366,7 +2366,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
  "byteorder 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "generational-arena 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
