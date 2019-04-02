@@ -384,6 +384,16 @@ pub fn fd_filestat_set_size(
     debug!("wasi::fd_filestat_set_size");
     unimplemented!()
 }
+
+/// ### `fd_filestat_set_times()`
+/// Set timestamp metadata on a file
+/// Inputs:
+/// - `__wasi_timestamp_t st_atim`
+///     Last accessed time
+/// - `__wasi_timestamp_t st_mtim`
+///     Last modified time
+/// - `__wasi_fstflags_t fst_flags`
+///     Bit-vector for controlling which times get set
 pub fn fd_filestat_set_times(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -392,7 +402,37 @@ pub fn fd_filestat_set_times(
     fst_flags: __wasi_fstflags_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_filestat_set_times");
-    unimplemented!()
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_SET_TIMES) {
+        return __WASI_EACCES;
+    }
+
+    if (fst_flags & __WASI_FILESTAT_SET_ATIM != 0 && fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0)
+        || (fst_flags & __WASI_FILESTAT_SET_MTIM != 0
+            && fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0)
+    {
+        return __WASI_EINVAL;
+    }
+
+    let inode = &mut state.fs.inodes[fd_entry.inode];
+
+    if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 {
+        inode.stat.st_atim = st_atim;
+    } else if fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
+        // set to current real time
+        unimplemented!();
+    }
+
+    if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 {
+        inode.stat.st_mtim = st_mtim;
+    } else if fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
+        // set to current real time
+        unimplemented!();
+    }
+
+    __WASI_ESUCCESS
 }
 
 pub fn fd_pread(
