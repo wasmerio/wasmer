@@ -79,6 +79,7 @@ pub trait Emitter {
     fn emit_label(&mut self, label: Self::Label);
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_jmp(&mut self, condition: Condition, label: Self::Label);
     fn emit_set(&mut self, condition: Condition, dst: GPR);
@@ -342,6 +343,17 @@ impl Emitter for Assembler {
                 }
             )}
         );
+    }
+    fn emit_lea(&mut self, sz: Size, src: Location, dst: Location) {
+        match (sz, src, dst) {
+            (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
+                dynasm!(self ; lea Rd(dst as u8), [Rq(src as u8) + disp]);
+            },
+            (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
+                dynasm!(self ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
+            },
+            _ => unreachable!(),
+        }
     }
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(xor, self, sz, src, dst, {unreachable!()});

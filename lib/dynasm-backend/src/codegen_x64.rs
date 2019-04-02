@@ -138,7 +138,6 @@ pub struct X64FunctionCode {
     br_table_data: Option<Vec<Vec<usize>>>,
     returns: Vec<WpType>,
     locals: Vec<Location>,
-    vmctx_location: Option<Location>,
     num_params: usize,
     num_locals: usize,
     value_stack: Vec<(Location, LocalOrTemp)>,
@@ -320,7 +319,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             locals: vec![],
             num_params: 0,
             num_locals: 0,
-            vmctx_location: None,
             value_stack: vec! [],
             control_stack: vec! [],
             machine: Machine::new(),
@@ -805,20 +803,6 @@ impl X64FunctionCode {
         f(a, Size::S64, Location::GPR(GPR::RCX), ret);
         value_stack.push((ret, LocalOrTemp::Temp));
     }
-
-    fn get_param_location(
-        idx: usize
-    ) -> Location {
-        match idx {
-            0 => Location::GPR(GPR::RDI),
-            1 => Location::GPR(GPR::RSI),
-            2 => Location::GPR(GPR::RDX),
-            3 => Location::GPR(GPR::RCX),
-            4 => Location::GPR(GPR::R8),
-            5 => Location::GPR(GPR::R9),
-            _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
-        }
-    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -842,22 +826,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
         let a = self.assembler.as_mut().unwrap();
         a.emit_push(Size::S64, Location::GPR(GPR::RBP));
         a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
-        
-        let locations = self.machine.acquire_stack_locations(a, 1 + self.num_locals, false);
-        self.vmctx_location = Some(locations[0]);
-        self.locals = locations[1..].to_vec();
 
-        a.emit_mov(Size::S64, Self::get_param_location(0), self.vmctx_location.unwrap());
-
-        for i in 0..self.num_params {
-            Self::emit_relaxed_binop(
-                a, &mut self.machine, Assembler::emit_mov,
-                Size::S64, Self::get_param_location(i + 1), self.locals[i],
-            );
-        }
-        for i in self.num_params..self.num_locals {
-            a.emit_mov(Size::S32, Location::Imm32(0), self.locals[i]);
-        }
+        self.locals = self.machine.init_locals(a, self.num_locals, self.num_params);
 
         self.control_stack.push(ControlFrame {
             label: a.get_label(),
@@ -1181,7 +1151,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let mut call_movs: Vec<(Location, GPR)> = vec![];
 
                 for i in (0..param_types.len()).rev() {
-                    let loc = Self::get_param_location(1 + i);
+                    let loc = Machine::get_param_location(1 + i);
                     match loc {
                         Location::GPR(x) => {
                             call_movs.push((params[i].0, x));
@@ -1201,7 +1171,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     }
                 }
 
-                a.emit_mov(Size::S64, Location::Memory(GPR::RBP, -8), Self::get_param_location(0)); // vmctx
+                a.emit_mov(Size::S64, Location::GPR(Machine::get_vmctx_reg()), Machine::get_param_location(0)); // vmctx
                 a.emit_call_label(label);
 
                 if stack_offset > 0 {
@@ -1415,6 +1385,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
 
                 if self.control_stack.len() == 0 {
                     a.emit_label(frame.label);
+                    self.machine.finalize_locals(a, &self.locals);
                     a.emit_mov(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP));
                     a.emit_pop(Size::S64, Location::GPR(GPR::RBP));
                     a.emit_ret();

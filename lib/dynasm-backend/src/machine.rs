@@ -7,7 +7,8 @@ struct MachineStackOffset(usize);
 pub struct Machine {
     used_gprs: HashSet<GPR>,
     used_xmms: HashSet<XMM>,
-    stack_offset: MachineStackOffset
+    stack_offset: MachineStackOffset,
+    save_area_offset: Option<MachineStackOffset>,
 }
 
 impl Machine {
@@ -16,6 +17,7 @@ impl Machine {
             used_gprs: HashSet::new(),
             used_xmms: HashSet::new(),
             stack_offset: MachineStackOffset(0),
+            save_area_offset: None,
         }
     }
 
@@ -25,6 +27,10 @@ impl Machine {
 
     pub fn get_used_xmms(&self) -> Vec<XMM> {
         self.used_xmms.iter().cloned().collect()
+    }
+
+    pub fn get_vmctx_reg() -> GPR {
+        GPR::R15
     }
 
     /// Picks an unused general purpose register for local/stack/argument use.
@@ -319,6 +325,122 @@ impl Machine {
 
         if delta_stack_offset != 0 {
             assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
+        }
+    }
+
+    pub fn init_locals<E: Emitter>(&mut self, a: &mut E, n: usize, n_params: usize) -> Vec<Location> {
+        // Use callee-saved registers for locals.
+        fn get_local_location(idx: usize) -> Location {
+            match idx {
+                0 => Location::GPR(GPR::R10),
+                1 => Location::GPR(GPR::R11),
+                2 => Location::GPR(GPR::R12),
+                3 => Location::GPR(GPR::R13),
+                4 => Location::GPR(GPR::R14),
+                _ => Location::Memory(GPR::RBP, -(((idx - 4) * 8) as i32)),
+            }
+        }
+
+        let mut locations: Vec<Location> = vec! [];
+        let mut allocated: usize = 0;
+
+        // Determine locations for parameters.
+        for i in 0..n_params {
+            let loc = Self::get_param_location(i + 1);
+            locations.push(match loc {
+                Location::GPR(x) => {
+                    let old_idx = allocated;
+                    allocated += 1;
+                    get_local_location(old_idx)
+                },
+                Location::Memory(_, _) => loc,
+                _ => unreachable!(),
+            });
+        }
+
+        // Determine locations for normal locals.
+        for i in n_params..n {
+            locations.push(get_local_location(allocated));
+            allocated += 1;
+        }
+
+        // How many machine stack slots did all the locals use?
+        let num_mem_slots = locations.iter().filter(|&&loc| {
+            match loc {
+                Location::Memory(_, _) => true,
+                _ => false,
+            }
+        }).count();
+
+        // Move RSP down to reserve space for machine stack slots.
+        if num_mem_slots > 0 {
+            a.emit_sub(Size::S64, Location::Imm32((num_mem_slots * 8) as u32), Location::GPR(GPR::RSP));
+            self.stack_offset.0 += num_mem_slots * 8;
+        }
+
+        // Save callee-saved registers.
+        for loc in locations.iter() {
+            if let Location::GPR(x) = *loc {
+                a.emit_push(Size::S64, *loc);
+                self.stack_offset.0 += 8;
+            }
+        }
+
+        // Save R15 for vmctx use.
+        a.emit_push(Size::S64, Location::GPR(GPR::R15));
+        self.stack_offset.0 += 8;
+
+        // Save the offset of static area.
+        self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
+
+        // Load in-register parameters into the allocated locations.
+        for i in 0..n_params {
+            let loc = Self::get_param_location(i + 1);
+            match loc {
+                Location::GPR(x) => {
+                    a.emit_mov(Size::S64, loc, locations[i]);
+                },
+                _ => break
+            }
+        }
+
+        // Load vmctx.
+        a.emit_mov(Size::S64, Self::get_param_location(0), Location::GPR(GPR::R15));
+
+        // Initialize all normal locals to zero.
+        for i in n_params..n {
+            a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
+        }
+
+        locations
+    }
+
+    pub fn finalize_locals<E: Emitter>(&mut self, a: &mut E, locations: &[Location]) {
+        // Unwind stack to the "save area".
+        a.emit_lea(Size::S64, Location::Memory(GPR::RBP, -(self.save_area_offset.as_ref().unwrap().0 as i32)), Location::GPR(GPR::RSP));
+
+        // Restore R15 used by vmctx.
+        a.emit_pop(Size::S64, Location::GPR(GPR::R15));
+
+        // Restore callee-saved registers.
+        for loc in locations.iter().rev() {
+            if let Location::GPR(x) = *loc {
+                a.emit_pop(Size::S64, *loc);
+            }
+        }
+    }
+
+    pub fn get_param_location(
+        idx: usize
+    ) -> Location {
+        match idx {
+            0 => Location::GPR(GPR::RDI),
+            1 => Location::GPR(GPR::RSI),
+            2 => Location::GPR(GPR::RDX),
+            3 => Location::GPR(GPR::RCX),
+            4 => Location::GPR(GPR::R8),
+            5 => Location::GPR(GPR::R9),
+            _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
         }
     }
 }
