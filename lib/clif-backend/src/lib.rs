@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 mod cache;
 mod func_env;
 mod libcalls;
