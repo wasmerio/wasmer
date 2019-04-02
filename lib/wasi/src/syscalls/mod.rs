@@ -380,6 +380,14 @@ pub fn fd_pread(
     }
 }
 
+/// ### `fd_prestat_get()`
+/// Get metadata about a preopened file descriptor
+/// Input:
+/// - `__wasi_fd_t fd`
+///     The preopened file descriptor to query
+/// Output:
+/// - `__wasi_prestat *buf`
+///     Where the metadata will be written
 pub fn fd_prestat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -388,13 +396,12 @@ pub fn fd_prestat_get(
     debug!("wasi::fd_prestat_get: fd={}", fd);
     let memory = ctx.memory(0);
 
-    if let Ok(prestat_ptr) = buf.deref(memory) {
-        // open fd
-        // write info to prestat_ptr
-        __WASI_ESUCCESS
-    } else {
-        __WASI_EFAULT
-    }
+    let prestat_ptr = wasi_try!(buf.deref(memory));
+
+    let state = get_wasi_state(ctx);
+    prestat_ptr.set(wasi_try!(state.fs.prestat_fd(fd)));
+
+    __WASI_ESUCCESS
 }
 
 pub fn fd_prestat_dir_name(

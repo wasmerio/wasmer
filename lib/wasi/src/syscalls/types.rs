@@ -191,6 +191,37 @@ pub struct __wasi_prestat_t {
     u: __wasi_prestat_u,
 }
 
+#[derive(Copy, Clone)]
+pub enum PrestatEnum {
+    PreOpenDir { pr_name_len: u32 },
+}
+
+impl __wasi_prestat_t {
+    pub fn get_tagged(&self) -> PrestatEnum {
+        match self.pr_type {
+            __WASI_PREOPENTYPE_DIR => PrestatEnum::PreOpenDir {
+                pr_name_len: unsafe { self.u.dir.pr_name_len },
+            },
+            _ => panic!("Invalid enum variant in __wasi_prestat_t: {}", self.pr_type),
+        }
+    }
+}
+
+impl PrestatEnum {
+    pub fn get_untagged(&self) -> __wasi_prestat_t {
+        match self {
+            PrestatEnum::PreOpenDir { pr_name_len } => __wasi_prestat_t {
+                pr_type: __WASI_PREOPENTYPE_DIR,
+                u: __wasi_prestat_u {
+                    dir: __wasi_prestat_u_dir_t {
+                        pr_name_len: *pr_name_len,
+                    },
+                },
+            },
+        }
+    }
+}
+
 unsafe impl ValueType for __wasi_prestat_t {}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

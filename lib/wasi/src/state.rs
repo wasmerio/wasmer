@@ -194,6 +194,21 @@ impl WasiFs {
             fs_rights_inheriting: fd.rights, // TODO(lachlan): Is this right?
         })
     }
+
+    pub fn prestat_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_prestat_t, __wasi_errno_t> {
+        let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
+
+        let inode_val = &self.inodes[fd.inode];
+
+        if inode_val.is_preopened {
+            Ok(PrestatEnum::PreOpenDir {
+                pr_name_len: inode_val.name.len() as u32,
+            }
+            .get_untagged())
+        } else {
+            Err(__WASI_EBADF)
+        }
+    }
 }
 
 pub struct WasiState<'a> {

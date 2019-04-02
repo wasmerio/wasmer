@@ -15,7 +15,7 @@ use std::ffi::c_void;
 
 pub use self::utils::is_wasi_module;
 
-use wasmer_runtime_core::{debug, func, import::ImportObject, imports};
+use wasmer_runtime_core::{func, import::ImportObject, imports};
 
 pub fn generate_import_object(args: Vec<Vec<u8>>, envs: Vec<Vec<u8>>) -> ImportObject {
     let state_gen = move || {
