@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 #[cfg(windows)]
 mod exception_handling;
 
