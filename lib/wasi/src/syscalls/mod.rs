@@ -303,7 +303,15 @@ pub fn fd_fdstat_set_flags(
     flags: __wasi_fdflags_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_fdstat_set_flags");
-    unimplemented!()
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+
+    if fd_entry.rights & __WASI_RIGHT_FD_FDSTAT_SET_FLAGS == 0 {
+        return __WASI_EACCES;
+    }
+
+    fd_entry.flags = flags;
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_fdstat_set_rights()`
