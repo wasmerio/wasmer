@@ -256,7 +256,13 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 ///     The file descriptor to sync
 pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_datasync");
-    unimplemented!()
+    let state = get_wasi_state(ctx);
+
+    if let Err(e) = state.fs.flush(fd) {
+        e
+    } else {
+        __WASI_ESUCCESS
+    }
 }
 
 /// ### `fd_fdstat_get()`

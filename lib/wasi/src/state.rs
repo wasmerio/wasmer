@@ -7,6 +7,7 @@ use generational_arena::{Arena, Index as Inode};
 use hashbrown::hash_map::{Entry, HashMap};
 use std::{
     cell::{Cell, RefCell},
+    io::{self, Write},
     ops::{Index, IndexMut},
     path::PathBuf,
     rc::Rc,
@@ -211,6 +212,31 @@ impl WasiFs {
         } else {
             Err(__WASI_EBADF)
         }
+    }
+
+    pub fn flush(&mut self, fd: __wasi_fd_t) -> Result<(), __wasi_errno_t> {
+        match fd {
+            0 => (),
+            1 => io::stdout().flush().map_err(|_| __WASI_EIO)?,
+            2 => io::stderr().flush().map_err(|_| __WASI_EIO)?,
+            _ => {
+                let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
+                if fd.rights & __WASI_RIGHT_FD_DATASYNC == 0 {
+                    return Err(__WASI_EACCES);
+                }
+
+                let inode = &mut self.inodes[fd.inode];
+
+                match &mut inode.kind {
+                    Kind::File { handle } => handle.flush().map_err(|_| __WASI_EIO)?,
+                    // TODO: verify this behavior
+                    Kind::Dir { .. } => return Err(__WASI_EISDIR),
+                    Kind::Symlink { .. } => unimplemented!(),
+                    Kind::Buffer { .. } => (),
+                }
+            }
+        }
+        Ok(())
     }
 }
 
