@@ -34,6 +34,7 @@ mod errno;
 mod exception;
 mod exec;
 mod exit;
+mod invoke;
 mod io;
 mod jmp;
 mod linking;
