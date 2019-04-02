@@ -10,8 +10,9 @@ use std::{
     ops::{Index, IndexMut},
     rc::Rc,
     time::SystemTime,
+    path::PathBuf,
 };
-use zbox::{File, FileType, OpenOptions, Repo, RepoOpener};
+use zbox::{File, FileType, OpenOptions, Repo, RepoOpener, init_env as zbox_init_env};
 
 pub const MAX_SYMLINKS: usize = 100;
 
@@ -57,10 +58,11 @@ pub struct WasiFs {
 
 impl WasiFs {
     pub fn new() -> Result<Self, String> {
+        zbox_init_env();
         Ok(Self {
             repo: RepoOpener::new()
                 .create(true)
-                .open("mem://not-an-emoji", "very unsafe pwd")
+                .open("mem://foo", "")
                 .map_err(|e| e.to_string())?,
             name_map: HashMap::new(),
             inodes: Arena::new(),
