@@ -201,10 +201,13 @@ impl WasiFs {
         let inode_val = &self.inodes[fd.inode];
 
         if inode_val.is_preopened {
-            Ok(PrestatEnum::PreOpenDir {
-                pr_name_len: inode_val.name.len() as u32,
-            }
-            .get_untagged())
+            Ok(__wasi_prestat_t {
+                pr_type: __WASI_PREOPENTYPE_DIR,
+                u: PrestatEnum::Dir {
+                    pr_name_len: inode_val.name.len() as u32,
+                }
+                .untagged(),
+            })
         } else {
             Err(__WASI_EBADF)
         }
