@@ -41,6 +41,7 @@ pub enum Kind {
     },
 }
 
+#[derive(Clone)]
 pub struct Fd {
     pub rights: __wasi_rights_t,
     pub rights_inheriting: __wasi_rights_t,

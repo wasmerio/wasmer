@@ -657,8 +657,12 @@ pub fn fd_readdir(
 /// - `__wasi_fd_t to`
 ///     Location to copy file descriptor to
 pub fn fd_renumber(ctx: &mut Ctx, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_errno_t {
-    debug!("wasi::fd_renumber");
-    unimplemented!()
+    debug!("wasi::fd_renumber: from={}, to={}", from, to);
+    let state = get_wasi_state(ctx);
+    let fd_entry = wasi_try!(state.fs.fd_map.get(&from).ok_or(__WASI_EBADF));
+
+    state.fs.fd_map.insert(to, fd_entry.clone());
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_seek()`
