@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 extern crate wasmer_runtime;
 extern crate wasmer_runtime_core;
 
