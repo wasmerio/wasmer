@@ -12,7 +12,7 @@ use crate::{
 };
 use rand::{thread_rng, Rng};
 use std::cell::Cell;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -477,10 +477,9 @@ pub fn fd_read(
     let memory = ctx.memory(0);
 
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
-    let nwritten_cell = wasi_try!(nread.deref(memory));
-    // check __WASI_RIGHT_FD_READ
+    let nread_cell = wasi_try!(nread.deref(memory));
 
-    /*fn read_bytes<T: Read>(
+    fn read_bytes<T: Read>(
         mut reader: T,
         memory: &Memory,
         iovs_arr_cell: &[Cell<__wasi_iovec_t>],
@@ -490,14 +489,53 @@ pub fn fd_read(
         for iov in iovs_arr_cell {
             let iov_inner = iov.get();
             let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
-            let raw_bytes = unsafe { bytes as &mut [u8]};
-            reader.read(raw_bytes)
-
-            // TODO: handle failure more accurately
-            bytes_written += iov_inner.buf_len;
+            let mut raw_bytes: &mut [u8] =
+                unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
+            bytes_read += reader.read(raw_bytes).map_err(|_| __WASI_EIO)? as u32;
         }
-        Ok(bytes_written)
-    }*/
+        Ok(bytes_read)
+    }
+
+    let bytes_read = match fd {
+        0 => {
+            let stdin = io::stdin();
+            let mut handle = stdin.lock();
+
+            wasi_try!(read_bytes(handle, memory, iovs_arr_cell))
+        }
+        1 | 2 => return __WASI_EINVAL,
+        _ => {
+            let state = get_wasi_state(ctx);
+            let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+
+            if fd_entry.rights & __WASI_RIGHT_FD_READ == 0 {
+                // TODO: figure out the error to return when lacking rights
+                return __WASI_EACCES;
+            }
+
+            let offset = fd_entry.offset as usize;
+            let inode = &mut state.fs.inodes[fd_entry.inode];
+
+            let bytes_read = match &mut inode.kind {
+                Kind::File { handle } => wasi_try!(read_bytes(handle, memory, iovs_arr_cell)),
+                Kind::Dir { .. } => {
+                    // TODO: verify
+                    return __WASI_EISDIR;
+                }
+                Kind::Symlink { .. } => unimplemented!(),
+                Kind::Buffer { buffer } => {
+                    wasi_try!(read_bytes(&buffer[offset..], memory, iovs_arr_cell))
+                }
+            };
+
+            fd_entry.offset += bytes_read as u64;
+
+            bytes_read
+        }
+    };
+
+    nread_cell.set(bytes_read);
+
     __WASI_ESUCCESS
 }
 
