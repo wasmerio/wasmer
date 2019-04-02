@@ -39,12 +39,13 @@ fn write_buffer_array(
     for ((i, sub_buffer), ptr) in from.iter().enumerate().zip(ptrs.iter()) {
         ptr.set(WasmPtr::new(buffer.offset() + current_buffer_offset));
 
-        let cells = wasi_try!(buffer.deref(memory, current_buffer_offset, sub_buffer.len() as u32));
+        let cells =
+            wasi_try!(buffer.deref(memory, current_buffer_offset, sub_buffer.len() as u32 + 1));
 
-        for (cell, &byte) in cells.iter().zip(sub_buffer.iter()) {
+        for (cell, &byte) in cells.iter().zip(sub_buffer.iter().chain([0].iter())) {
             cell.set(byte);
         }
-        current_buffer_offset += sub_buffer.len() as u32;
+        current_buffer_offset += sub_buffer.len() as u32 + 1;
     }
 
     __WASI_ESUCCESS
@@ -92,7 +93,7 @@ pub fn args_sizes_get(
     let state = get_wasi_state(ctx);
 
     argc.set(state.args.len() as u32);
-    argv_buf_size.set(state.args.iter().map(|v| v.len() as u32).sum());
+    argv_buf_size.set(state.args.iter().map(|v| v.len() as u32 + 1).sum());
 
     __WASI_ESUCCESS
 }
@@ -472,18 +473,32 @@ pub fn fd_read(
     iovs_len: u32,
     nread: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_read");
+    debug!("wasi::fd_read: fd={}", fd);
     let memory = ctx.memory(0);
 
+    let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
+    let nwritten_cell = wasi_try!(nread.deref(memory));
     // check __WASI_RIGHT_FD_READ
 
-    if let (Ok(iovs_arr_cell), Ok(nwritten_cell)) =
-        (iovs.deref(memory, 0, iovs_len), nread.deref(memory))
-    {
-        unimplemented!()
-    } else {
-        __WASI_EFAULT
-    }
+    /*fn read_bytes<T: Read>(
+        mut reader: T,
+        memory: &Memory,
+        iovs_arr_cell: &[Cell<__wasi_iovec_t>],
+    ) -> Result<u32, __wasi_errno_t> {
+        let mut bytes_read = 0;
+
+        for iov in iovs_arr_cell {
+            let iov_inner = iov.get();
+            let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
+            let raw_bytes = unsafe { bytes as &mut [u8]};
+            reader.read(raw_bytes)
+
+            // TODO: handle failure more accurately
+            bytes_written += iov_inner.buf_len;
+        }
+        Ok(bytes_written)
+    }*/
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_readdir()`

@@ -224,9 +224,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         (
             InstanceABI::WASI,
             wasmer_wasi::generate_import_object(
-                options
-                    .args
+                [options.path.to_str().unwrap().to_owned()]
                     .iter()
+                    .chain(options.args.iter())
                     .cloned()
                     .map(|arg| arg.into_bytes())
                     .collect(),
