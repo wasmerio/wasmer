@@ -26,6 +26,11 @@ fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
     unsafe { &mut *(ctx.data as *mut WasiState) }
 }
 
+/// checks that `rights_check_set` is a subset of `rights_set`
+fn has_rights(rights_set: __wasi_rights_t, rights_check_set: __wasi_rights_t) -> bool {
+    rights_set | rights_check_set == rights_set
+}
+
 #[must_use]
 fn write_buffer_array(
     memory: &Memory,
@@ -306,7 +311,7 @@ pub fn fd_fdstat_set_flags(
     let state = get_wasi_state(ctx);
     let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
-    if fd_entry.rights & __WASI_RIGHT_FD_FDSTAT_SET_FLAGS == 0 {
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FDSTAT_SET_FLAGS) {
         return __WASI_EACCES;
     }
 
@@ -535,7 +540,7 @@ pub fn fd_read(
             let state = get_wasi_state(ctx);
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
-            if fd_entry.rights & __WASI_RIGHT_FD_READ == 0 {
+            if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ) {
                 // TODO: figure out the error to return when lacking rights
                 return __WASI_EACCES;
             }
@@ -740,7 +745,7 @@ pub fn fd_write(
             let state = get_wasi_state(ctx);
             let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
-            if fd_entry.rights & __WASI_RIGHT_FD_WRITE == 0 {
+            if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
                 // TODO: figure out the error to return when lacking rights
                 return __WASI_EACCES;
             }
