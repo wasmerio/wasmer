@@ -11,7 +11,7 @@ use crate::{
     state::WasiState,
 };
 use rand::{thread_rng, Rng};
-use wasmer_runtime_core::{memory::Memory, vm::Ctx};
+use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub use unix::*;
@@ -269,7 +269,7 @@ pub fn fd_fdstat_get(
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_fdstat_t>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_fdstat_get");
+    debug!("wasi::fd_fdstat_get: fd={}", fd);
     let mut state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
@@ -385,7 +385,7 @@ pub fn fd_prestat_get(
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_prestat_t>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_prestat_get");
+    debug!("wasi::fd_prestat_get: fd={}", fd);
     let memory = ctx.memory(0);
 
     if let Ok(prestat_ptr) = buf.deref(memory) {
@@ -403,10 +403,20 @@ pub fn fd_prestat_dir_name(
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_prestat_dir_name");
+    debug!(
+        "wasi::fd_prestat_dir_name: fd={}, path_len={}",
+        fd, path_len
+    );
     let memory = ctx.memory(0);
 
     if let Ok(path_chars) = path.deref(memory, 0, path_len) {
+        debug!(
+            "=> path: {}",
+            path_chars
+                .iter()
+                .map(|c| c.get() as char)
+                .collect::<String>()
+        );
         if true
         /* check if dir */
         {
@@ -854,7 +864,7 @@ pub fn poll_oneoff(
     unimplemented!()
 }
 pub fn proc_exit(ctx: &mut Ctx, rval: __wasi_exitcode_t) -> Result<(), &'static str> {
-    debug!("wasi::proc_exit");
+    debug!("wasi::proc_exit, {}", rval);
     Err("Instance exited")
 }
 pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
