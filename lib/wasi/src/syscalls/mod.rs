@@ -210,8 +210,11 @@ pub fn fd_advise(
     len: __wasi_filesize_t,
     advice: __wasi_advice_t,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_advise");
-    unimplemented!()
+    debug!("wasi::fd_advise: fd={}", fd);
+
+    // this is used for our own benefit, so just returning success is a valid
+    // implementation for now
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_allocate`
@@ -677,15 +680,26 @@ pub fn fd_seek(
     whence: __wasi_whence_t,
     newoffset: WasmPtr<__wasi_filesize_t>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_seek");
+    debug!("wasi::fd_seek: fd={}", fd);
     let memory = ctx.memory(0);
-    // TODO: check __WASI_RIGHT_FD_SEEK
-    // TODO: handle directory input
-    if let Ok(new_offset_cell) = newoffset.deref(memory) {
-        unimplemented!()
-    } else {
-        __WASI_EFAULT
+    let state = get_wasi_state(ctx);
+    let new_offset_cell = wasi_try!(newoffset.deref(memory));
+
+    let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_SEEK) {
+        return __WASI_EACCES;
     }
+
+    // TODO: handle case if fd is a dir?
+    match whence {
+        __WASI_WHENCE_CUR => fd_entry.offset = (fd_entry.offset as i64 + offset) as u64,
+        __WASI_WHENCE_END => unimplemented!(),
+        __WASI_WHENCE_SET => fd_entry.offset = offset as u64,
+        _ => return __WASI_EINVAL,
+    }
+
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_sync()`
