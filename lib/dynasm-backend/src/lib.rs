@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #![feature(proc_macro_hygiene)]
 
 #[cfg(not(any(
