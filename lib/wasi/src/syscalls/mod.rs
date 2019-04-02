@@ -699,6 +699,8 @@ pub fn fd_seek(
         _ => return __WASI_EINVAL,
     }
 
+    new_offset_cell.set(fd_entry.offset);
+
     __WASI_ESUCCESS
 }
 
@@ -731,8 +733,19 @@ pub fn fd_tell(
     offset: WasmPtr<__wasi_filesize_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_tell");
-    // TODO: check __WASI_RIGHT_FD_TELL
-    unimplemented!()
+    let memory = ctx.memory(0);
+    let state = get_wasi_state(ctx);
+    let offset_cell = wasi_try!(offset.deref(memory));
+
+    let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+
+    if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_TELL) {
+        return __WASI_EACCES;
+    }
+
+    offset_cell.set(fd_entry.offset);
+
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_write()`
