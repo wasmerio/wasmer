@@ -325,6 +325,7 @@ pub struct EmscriptenGlobals {
     pub memory_min: Pages,
     pub memory_max: Option<Pages>,
     pub null_func_names: Vec<String>,
+    pub invoke_func_names: Vec<String>,
 }
 
 impl EmscriptenGlobals {
@@ -399,6 +400,7 @@ impl EmscriptenGlobals {
         emscripten_set_up_memory(&memory, &data);
 
         let mut null_func_names = vec![];
+        let mut invoke_func_names = vec![];
         for (
             _,
             ImportName {
@@ -412,6 +414,9 @@ impl EmscriptenGlobals {
             if namespace == "env" && name.starts_with("nullFunc_") {
                 null_func_names.push(name.to_string())
             }
+            if namespace == "env" && name.starts_with("invoke_") {
+                invoke_func_names.push(name.to_string())
+            }
         }
 
         Self {
@@ -421,6 +426,7 @@ impl EmscriptenGlobals {
             memory_min,
             memory_max,
             null_func_names,
+            invoke_func_names,
         }
     }
 }
@@ -733,6 +739,9 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     for null_func_name in globals.null_func_names.iter() {
         env_ns.insert(null_func_name.as_str(), Func::new(nullfunc).to_export());
     }
+
+    let module = invoke::create_invoke_module(&globals.invoke_func_names);
+    
 
     let import_object: ImportObject = imports! {
         "env" => env_ns,
