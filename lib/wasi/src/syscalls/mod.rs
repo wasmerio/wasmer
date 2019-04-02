@@ -11,6 +11,7 @@ use crate::{
     state::WasiState,
 };
 use rand::{thread_rng, Rng};
+use std::io::{self, Write};
 use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -181,7 +182,7 @@ pub fn environ_sizes_get(
     environ_count.set(state.envs.len() as u32);
     environ_buf_size.set(state.envs.iter().map(|v| v.len() as u32).sum());
 
-    __WASI_EOVERFLOW
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_advise()`
@@ -615,17 +616,53 @@ pub fn fd_write(
     iovs_len: u32,
     nwritten: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_write");
+    debug!("wasi::fd_write: fd={}", fd);
     let memory = ctx.memory(0);
     // TODO: check __WASI_RIGHT_FD_WRITE
     // return __WASI_EISDIR if dir (probably)
-    if let (Ok(iovs_arr_cell), Ok(nwritten_cell)) =
-        (iovs.deref(memory, 0, iovs_len), nwritten.deref(memory))
-    {
-        unimplemented!()
-    } else {
-        __WASI_EFAULT
+    let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
+    let nwritten_cell = wasi_try!(nwritten.deref(memory));
+    let mut bytes_written = 0;
+
+    match fd {
+        0 => unimplemented!(),
+        1 => {
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+
+            for iov in iovs_arr_cell {
+                let iov_inner = iov.get();
+                let bytes = wasi_try!(iov_inner.buf.deref(memory, 0, iov_inner.buf_len));
+                wasi_try!(handle
+                    .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
+                    .map_err(|_| __WASI_EIO));
+
+                // TODO: handle failure more accurately
+                bytes_written += iov_inner.buf_len;
+            }
+        }
+        2 => {
+            let stderr = io::stderr();
+            let mut handle = stderr.lock();
+
+            // TODO: abstract this
+            for iov in iovs_arr_cell {
+                let iov_inner = iov.get();
+                let bytes = wasi_try!(iov_inner.buf.deref(memory, 0, iov_inner.buf_len));
+                wasi_try!(handle
+                    .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
+                    .map_err(|_| __WASI_EIO));
+
+                // TODO: handle failure more accurately
+                bytes_written += iov_inner.buf_len;
+            }
+        }
+        other => unimplemented!(),
     }
+
+    nwritten_cell.set(bytes_written);
+
+    __WASI_ESUCCESS
 }
 
 /// ### `path_create_directory()`
