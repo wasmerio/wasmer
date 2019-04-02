@@ -26,6 +26,25 @@ fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
     unsafe { &mut *(ctx.data as *mut WasiState) }
 }
 
+fn write_bytes<T: Write>(
+    mut write_loc: T,
+    memory: &Memory,
+    iovs_arr_cell: &[Cell<__wasi_ciovec_t>],
+) -> Result<u32, __wasi_errno_t> {
+    let mut bytes_written = 0;
+    for iov in iovs_arr_cell {
+        let iov_inner = iov.get();
+        let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
+        write_loc
+            .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
+            .map_err(|_| __WASI_EIO)?;
+
+        // TODO: handle failure more accurately
+        bytes_written += iov_inner.buf_len;
+    }
+    Ok(bytes_written)
+}
+
 /// checks that `rights_check_set` is a subset of `rights_set`
 fn has_rights(rights_set: __wasi_rights_t, rights_check_set: __wasi_rights_t) -> bool {
     rights_set | rights_check_set == rights_set
@@ -517,6 +536,20 @@ pub fn fd_prestat_dir_name(
     }
 }
 
+/// ### `fd_pwrite()`
+/// Write to a file without adjusting its offset
+/// Inputs:
+/// - `__wasi_fd_t`
+///     File descriptor (opened with writing) to write to
+/// - `const __wasi_ciovec_t *iovs`
+///     List of vectors to read data from
+/// - `u32 iovs_len`
+///     Length of data in `iovs`
+/// - `__wasi_filesize_t offset`
+///     The offset to write at
+/// Output:
+/// - `u32 *nwritten`
+///     Number of bytes written
 pub fn fd_pwrite(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
@@ -526,7 +559,61 @@ pub fn fd_pwrite(
     nwritten: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_pwrite");
-    unimplemented!()
+    // TODO: refactor, this is just copied from `fd_write`...
+    let memory = ctx.memory(0);
+    let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
+    let nwritten_cell = wasi_try!(nwritten.deref(memory));
+
+    let bytes_written = match fd {
+        0 => return __WASI_EINVAL,
+        1 => {
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+
+            wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+        }
+
+        2 => {
+            let stderr = io::stderr();
+            let mut handle = stderr.lock();
+
+            wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+        }
+        _ => {
+            let state = get_wasi_state(ctx);
+            let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
+
+            if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_WRITE) {
+                // TODO: figure out the error to return when lacking rights
+                return __WASI_EACCES;
+            }
+
+            let inode = &mut state.fs.inodes[fd_entry.inode];
+
+            let bytes_written = match &mut inode.kind {
+                Kind::File { handle } => {
+                    // TODO: adjust by offset
+                    wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                }
+                Kind::Dir { .. } => {
+                    // TODO: verify
+                    return __WASI_EISDIR;
+                }
+                Kind::Symlink { .. } => unimplemented!(),
+                Kind::Buffer { buffer } => wasi_try!(write_bytes(
+                    &mut buffer[(offset as usize)..],
+                    memory,
+                    iovs_arr_cell
+                )),
+            };
+
+            bytes_written
+        }
+    };
+
+    nwritten_cell.set(bytes_written);
+
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_read()`
@@ -777,25 +864,6 @@ pub fn fd_write(
     let memory = ctx.memory(0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
-
-    fn write_bytes<T: Write>(
-        mut write_loc: T,
-        memory: &Memory,
-        iovs_arr_cell: &[Cell<__wasi_ciovec_t>],
-    ) -> Result<u32, __wasi_errno_t> {
-        let mut bytes_written = 0;
-        for iov in iovs_arr_cell {
-            let iov_inner = iov.get();
-            let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
-            write_loc
-                .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
-                .map_err(|_| __WASI_EIO)?;
-
-            // TODO: handle failure more accurately
-            bytes_written += iov_inner.buf_len;
-        }
-        Ok(bytes_written)
-    }
 
     let bytes_written = match fd {
         0 => return __WASI_EINVAL,
