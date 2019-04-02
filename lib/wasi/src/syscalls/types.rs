@@ -135,12 +135,42 @@ pub union __wasi_event_u {
 }
 
 #[derive(Copy, Clone)]
+pub enum EventEnum {
+    FdReadWrite {
+        nbytes: __wasi_filesize_t,
+        flags: __wasi_eventrwflags_t,
+    },
+}
+
+impl EventEnum {
+    pub fn untagged(self) -> __wasi_event_u {
+        match self {
+            EventEnum::FdReadWrite { nbytes, flags } => __wasi_event_u {
+                fd_readwrite: __wasi_event_fd_readwrite_t { nbytes, flags },
+            },
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct __wasi_event_t {
     pub userdata: __wasi_userdata_t,
     pub error: __wasi_errno_t,
     pub type_: __wasi_eventtype_t,
     pub u: __wasi_event_u,
+}
+
+impl __wasi_event_t {
+    pub fn tagged(&self) -> Option<EventEnum> {
+        match self.type_ {
+            __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => Some(EventEnum::FdReadWrite {
+                nbytes: unsafe { self.u.fd_readwrite.nbytes },
+                flags: unsafe { self.u.fd_readwrite.flags },
+            }),
+            _ => None,
+        }
+    }
 }
 
 pub type __wasi_eventrwflags_t = u16;
@@ -171,7 +201,7 @@ pub const __WASI_PREOPENTYPE_DIR: u8 = 0;
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct __wasi_prestat_u_dir_t {
-    pr_name_len: u32,
+    pub pr_name_len: u32,
 }
 
 unsafe impl ValueType for __wasi_prestat_u_dir_t {}
@@ -187,37 +217,32 @@ unsafe impl ValueType for __wasi_prestat_u {}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct __wasi_prestat_t {
-    pr_type: __wasi_preopentype_t,
-    u: __wasi_prestat_u,
+    pub pr_type: __wasi_preopentype_t,
+    pub u: __wasi_prestat_u,
 }
 
 #[derive(Copy, Clone)]
 pub enum PrestatEnum {
-    PreOpenDir { pr_name_len: u32 },
+    Dir { pr_name_len: u32 },
 }
 
-impl __wasi_prestat_t {
-    pub fn get_tagged(&self) -> PrestatEnum {
-        match self.pr_type {
-            __WASI_PREOPENTYPE_DIR => PrestatEnum::PreOpenDir {
-                pr_name_len: unsafe { self.u.dir.pr_name_len },
+impl PrestatEnum {
+    pub fn untagged(self) -> __wasi_prestat_u {
+        match self {
+            PrestatEnum::Dir { pr_name_len } => __wasi_prestat_u {
+                dir: __wasi_prestat_u_dir_t { pr_name_len },
             },
-            _ => panic!("Invalid enum variant in __wasi_prestat_t: {}", self.pr_type),
         }
     }
 }
 
-impl PrestatEnum {
-    pub fn get_untagged(&self) -> __wasi_prestat_t {
-        match self {
-            PrestatEnum::PreOpenDir { pr_name_len } => __wasi_prestat_t {
-                pr_type: __WASI_PREOPENTYPE_DIR,
-                u: __wasi_prestat_u {
-                    dir: __wasi_prestat_u_dir_t {
-                        pr_name_len: *pr_name_len,
-                    },
-                },
-            },
+impl __wasi_prestat_t {
+    pub fn tagged(&self) -> Option<PrestatEnum> {
+        match self.pr_type {
+            __WASI_PREOPENTYPE_DIR => Some(PrestatEnum::Dir {
+                pr_name_len: unsafe { self.u.dir.pr_name_len },
+            }),
+            _ => None,
         }
     }
 }
@@ -396,6 +421,25 @@ pub struct __wasi_subscription_t {
     pub userdata: __wasi_userdata_t,
     pub type_: __wasi_eventtype_t,
     pub u: __wasi_subscription_u,
+}
+
+pub enum SubscriptionEnum {
+    Clock(__wasi_subscription_clock_t),
+    FdReadWrite(__wasi_subscription_fs_readwrite_t),
+}
+
+impl __wasi_subscription_t {
+    pub fn tagged(&self) -> Option<SubscriptionEnum> {
+        match self.type_ {
+            __WASI_EVENTTYPE_CLOCK => Some(SubscriptionEnum::Clock(unsafe { self.u.clock })),
+            __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => {
+                Some(SubscriptionEnum::FdReadWrite(unsafe {
+                    self.u.fd_readwrite
+                }))
+            }
+            _ => None,
+        }
+    }
 }
 
 pub type __wasi_timestamp_t = u64;
