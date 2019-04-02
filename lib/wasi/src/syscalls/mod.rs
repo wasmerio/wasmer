@@ -619,7 +619,6 @@ pub fn fd_write(
 ) -> __wasi_errno_t {
     debug!("wasi::fd_write: fd={}", fd);
     let memory = ctx.memory(0);
-    // TODO: check __WASI_RIGHT_FD_WRITE
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
 
@@ -659,24 +658,31 @@ pub fn fd_write(
         }
         _ => {
             let state = get_wasi_state(ctx);
-            let fd_entry = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+            let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
             if fd_entry.rights & __WASI_RIGHT_FD_WRITE == 0 {
                 // TODO: figure out the error to return when lacking rights
                 return __WASI_EACCES;
             }
 
+            let offset = fd_entry.offset as usize;
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
-            match &mut inode.kind {
+            let bytes_written = match &mut inode.kind {
                 Kind::File { handle } => wasi_try!(write_bytes(handle, memory, iovs_arr_cell)),
                 Kind::Dir { .. } => {
                     // TODO: verify
                     return __WASI_EISDIR;
                 }
                 Kind::Symlink { .. } => unimplemented!(),
-                Kind::Buffer { buffer } => wasi_try!(write_bytes(buffer, memory, iovs_arr_cell)),
-            }
+                Kind::Buffer { buffer } => {
+                    wasi_try!(write_bytes(&mut buffer[offset..], memory, iovs_arr_cell))
+                }
+            };
+
+            fd_entry.offset += bytes_written as u64;
+
+            bytes_written
         }
     };
 
