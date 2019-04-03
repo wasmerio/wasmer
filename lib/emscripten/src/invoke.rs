@@ -1,4 +1,4 @@
-use wasmer_runtime_core::{Module, Instance, compile_with_config};
+use wasmer_runtime_core::{Module, compile_with_config};
 use wasmer_runtime_core::import::{ImportObject, Namespace};
 use wasmer_runtime_core::export::Export;
 use wasmer_runtime_core::backend::CompilerConfig;
@@ -35,7 +35,7 @@ fn create_wat(invoke_function_names: &Vec<String>) -> String {
 fn invoke_name_to_signature(invoke_name: &str) -> Result<(&str, Sig), InvokeError> {
     let mut args: Vec<InvokeArgType> = vec![];
     let mut rets: Vec<InvokeArgType> = vec![];
-    let mut chars = invoke_name.chars();
+    let chars = invoke_name.chars();
     // skip 'invoke_'
     let mut chars = chars.skip(7);
     // 'if next is a 'v' then this does not return
@@ -64,12 +64,6 @@ fn invoke_name_to_signature(invoke_name: &str) -> Result<(&str, Sig), InvokeErro
     Ok((invoke_name, sig))
 }
 
-fn instance_to_imports(instance: Instance) -> ImportObject {
-    let mut imports = ImportObject::new();
-    imports.register("env", instance);
-    imports
-}
-
 fn sig_to_type_wat(func_name: &str, sig: &Sig) -> String {
     let x= sig.args.iter()
         .map(|i| i.to_type_str())
@@ -86,7 +80,7 @@ fn sig_to_type_wat(func_name: &str, sig: &Sig) -> String {
 }
 
 fn sig_to_func_wat(func_name: &str, sig: &Sig) -> String {
-    let x = sig.args.iter().zip((1..))
+    let x = sig.args.iter().zip(1..)
         .map(|(a, i)| format!("(param $p{} {})", i, a.to_type_str()))
         .collect::<Vec<_>>();
     let params_string = match &x[..] {
@@ -97,7 +91,7 @@ fn sig_to_func_wat(func_name: &str, sig: &Sig) -> String {
         Some(ret) => format!(" (result {})", ret.to_type_str()),
         None => "".to_string(),
     };
-    let mut get_locals_vec = sig.args.iter().zip((1..))
+    let get_locals_vec = sig.args.iter().zip((1..))
         .map(|(_, i)| format!("get_local $p{}", i))
         .collect::<Vec<_>>();
 //    get_locals_vec.reverse();
@@ -141,7 +135,7 @@ impl InvokeArgType {
 
 #[cfg(test)]
 mod test {
-    use crate::invoke::{invoke_name_to_signature, InvokeArgType, sig_to_type_wat, Sig, sig_to_func_wat, create_invoke_module, instance_to_imports};
+    use crate::invoke::{invoke_name_to_signature, InvokeArgType, sig_to_type_wat, Sig, sig_to_func_wat, create_invoke_module};
     use wasmer_runtime_core::import::{ImportObject, LikeNamespace};
     use wasmer_runtime_core::Instance;
     use crate::{EmscriptenGlobals, generate_emscripten_env};
@@ -174,8 +168,8 @@ mod test {
     #[test]
     fn create_func_wat_for_invoke_ii() {
         let expected_wat = r#"(func (export "invoke_ii") (param $p0 i32) (param $p1 i32) (result i32)
-get_local $p0
 get_local $p1
+get_local $p0
 call_indirect (type $emscripten_invoke_ii))"#;
         let sig = Sig { args: vec![InvokeArgType::I], rets: vec![InvokeArgType::I] };
         let func_name = "invoke_ii";
@@ -186,50 +180,14 @@ call_indirect (type $emscripten_invoke_ii))"#;
     #[test]
     fn create_func_wat_for_invoke_iiii() {
         let expected_wat = r#"(func (export "invoke_iiii") (param $p0 i32) (param $p1 i32) (param $p2 i32) (param $p3 i32) (result i32)
-get_local $p3
-get_local $p2
 get_local $p1
+get_local $p2
+get_local $p3
 get_local $p0
 call_indirect (type $emscripten_invoke_iiii))"#;
         let sig = Sig { args: vec![InvokeArgType::I, InvokeArgType::I, InvokeArgType::I], rets: vec![InvokeArgType::I] };
         let func_name = "invoke_iiii";
         let actual_wat = sig_to_func_wat(func_name, &sig);
         assert_eq!(expected_wat, actual_wat);
-    }
-
-    #[test]
-    fn compile_module() {
-
-        use wasmer_clif_backend::CraneliftCompiler;
-
-//        let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &CraneliftCompiler::new())
-//            .expect("WASM can't be compiled");
-        let expected_function_name = "invoke_ii".to_string();
-        let module = create_invoke_module(&vec![expected_function_name.clone()]);
-
-        let mut emscripten_globals = EmscriptenGlobals::new(&module);
-        let import_object = generate_emscripten_env(&mut emscripten_globals);
-        let mut instance = module
-            .instantiate(&import_object)
-            .map_err(|err| format!("Can't instantiate the WebAssembly module: {:?}", err))
-            .unwrap();
-
-        let mut exports = instance.exports();
-        let (actual_function_name, _) = exports.next().unwrap();
-        assert_eq!(expected_function_name, actual_function_name);
-
-        let expected_function_name = "invoke_vi".to_string();
-        let module = create_invoke_module(&vec![expected_function_name.clone()]);
-        let mut instance: Instance = module.instantiate(&ImportObject::new()).unwrap();
-        let mut exports = instance.exports();
-        let (actual_function_name, _) = exports.next().unwrap();
-        assert_eq!(expected_function_name, actual_function_name);
-
-        let expected_function_name = "invoke_i".to_string();
-        let module = create_invoke_module(&vec![expected_function_name.clone()]);
-        let mut instance: Instance = module.instantiate(&ImportObject::new()).unwrap();
-        let mut exports = instance.exports();
-        let (actual_function_name, _) = exports.next().unwrap();
-        assert_eq!(expected_function_name, actual_function_name);
     }
 }
