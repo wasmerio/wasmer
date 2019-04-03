@@ -151,7 +151,7 @@ convert_clif_to_runtime_index![
     (SignatureIndex: SigIndex),
 ];
 
-impl<'a> From<Converter<ir::Signature>> for FuncSig {
+impl From<Converter<ir::Signature>> for FuncSig {
     fn from(signature: Converter<ir::Signature>) -> Self {
         FuncSig::new(
             signature
