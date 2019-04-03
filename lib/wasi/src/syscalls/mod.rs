@@ -8,7 +8,7 @@ pub mod windows;
 use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
-    state::{Kind, WasiState},
+    state::{Kind, WasiState, MAX_SYMLINKS},
 };
 use rand::{thread_rng, Rng};
 use std::cell::Cell;
@@ -943,9 +943,9 @@ pub fn path_create_directory(
 /// Access metadata about a file or directory
 /// Inputs:
 /// - `__wasi_fd_t fd`
-///     The file to acces
+///     The directory that `path` is relative to
 /// - `__wasi_lookupflags_t flags`
-///     Flags to control how the path is understood
+///     Flags to control how `path` is understood
 /// - `const char *path`
 ///     String containing the file path
 /// - `u32 path_len`
@@ -962,11 +962,57 @@ pub fn path_filestat_get(
     buf: WasmPtr<__wasi_filestat_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::path_filestat_get");
-    let mut state = get_wasi_state(ctx);
+    let state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    // check __WASI_RIGHT_PATH_FILESTAT_GET
-    unimplemented!()
+    let root_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+
+    if !has_rights(root_dir.rights, __WASI_RIGHT_PATH_FILESTAT_GET) {
+        return __WASI_EACCES;
+    }
+
+    let path_vec = wasi_try!(::std::str::from_utf8(unsafe {
+        &*(wasi_try!(path.deref(memory, 0, path_len)) as *const [_] as *const [u8])
+    })
+    .map_err(|_| __WASI_EINVAL))
+    .split('/')
+    .map(|str| str.to_string())
+    .collect::<Vec<String>>();
+    let buf_cell = wasi_try!(buf.deref(memory));
+
+    // find the inode by traversing the path
+    let mut inode = root_dir.inode;
+    'outer: for segment in path_vec {
+        // loop to traverse symlinks
+        // TODO: proper cycle detection
+        let mut sym_count = 0;
+        loop {
+            match &state.fs.inodes[inode].kind {
+                Kind::Dir { entries, .. } => {
+                    if let Some(entry) = entries.get(&segment) {
+                        inode = entry.clone();
+                        continue 'outer;
+                    } else {
+                        return __WASI_ENOENT;
+                    }
+                }
+                Kind::Symlink { forwarded } => {
+                    sym_count += 1;
+                    inode = forwarded.clone();
+                    if sym_count > MAX_SYMLINKS {
+                        return __WASI_ELOOP;
+                    }
+                }
+                _ => return __WASI_ENOTDIR,
+            }
+        }
+    }
+
+    let stat = state.fs.inodes[inode].stat;
+
+    buf_cell.set(stat);
+
+    __WASI_ESUCCESS
 }
 
 /// ### `path_filestat_set_times()`
