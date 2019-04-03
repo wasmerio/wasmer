@@ -467,6 +467,43 @@ impl X64FunctionCode {
         }
     }
 
+    fn emit_relaxed_zx_sx(
+        a: &mut Assembler,
+        m: &mut Machine,
+        op: fn(&mut Assembler, Size, Location, Size, Location),
+        sz_src: Size,
+        mut src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) {
+        let tmp_src = m.acquire_temp_gpr().unwrap();
+        let tmp_dst = m.acquire_temp_gpr().unwrap();
+
+        match src {
+            Location::Imm32(_) | Location::Imm64(_) => {
+                a.emit_mov(Size::S64, src, Location::GPR(tmp_src));
+                src = Location::GPR(tmp_src);
+            }
+            Location::Memory(_, _) | Location::GPR(_) => {}
+            _ => unreachable!()
+        }
+
+        match dst {
+            Location::Imm32(_) | Location::Imm64(_) => unreachable!(),
+            Location::Memory(_, _) => {
+                op(a, sz_src, src, sz_dst, Location::GPR(tmp_dst));
+                a.emit_mov(Size::S64, Location::GPR(tmp_dst), dst);
+            }
+            Location::GPR(_) => {
+                op(a, sz_src, src, sz_dst, dst);
+            }
+            _ => unreachable!()
+        }
+
+        m.release_temp_gpr(tmp_dst);
+        m.release_temp_gpr(tmp_src);
+    }
+
     fn emit_relaxed_binop(
         a: &mut Assembler,
         m: &mut Machine,
@@ -803,6 +840,49 @@ impl X64FunctionCode {
         f(a, Size::S64, Location::GPR(GPR::RCX), ret);
         value_stack.push((ret, LocalOrTemp::Temp));
     }
+
+    fn emit_call_sysv<I: Iterator<Item = Location>>(a: &mut Assembler, m: &mut Machine, label: DynamicLabel, params: I) {
+        let used_gprs = m.get_used_gprs();
+        for r in used_gprs.iter() {
+            a.emit_push(Size::S64, Location::GPR(*r));
+        }
+
+        let mut stack_offset: usize = 0;
+
+        let mut call_movs: Vec<(Location, GPR)> = vec![];
+
+        for (i, param) in params.enumerate() {
+            let loc = Machine::get_param_location(1 + i);
+            match loc {
+                Location::GPR(x) => {
+                    call_movs.push((param, x));
+                }
+                Location::Memory(_, _) => {
+                    a.emit_push(Size::S64, param);
+                    stack_offset += 8;
+                }
+                _ => unreachable!()
+            }
+        }
+
+        sort_call_movs(&mut call_movs);
+        for (loc, gpr) in call_movs {
+            if loc != Location::GPR(gpr) {
+                a.emit_mov(Size::S64, loc, Location::GPR(gpr));
+            }
+        }
+
+        a.emit_mov(Size::S64, Location::GPR(Machine::get_vmctx_reg()), Machine::get_param_location(0)); // vmctx
+        a.emit_call_label(label);
+
+        if stack_offset > 0 {
+            a.emit_add(Size::S64, Location::Imm32(stack_offset as u32), Location::GPR(GPR::RSP));
+        }
+
+        for r in used_gprs.iter().rev() {
+            a.emit_pop(Size::S64, Location::GPR(*r));
+        }
+    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -1109,6 +1189,15 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     Size::S32, loc, ret,
                 );
             }
+            Operator::I64ExtendSI32 => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                Self::emit_relaxed_zx_sx(
+                    a, &mut self.machine, Assembler::emit_movsx,
+                    Size::S32, loc, Size::S64, ret,
+                );
+            }
             Operator::I32WrapI64 => {
                 let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
@@ -1140,47 +1229,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     .map(|&(x, _)| x)
                     .collect();
                 self.machine.release_locations_only_regs(&released);
-                    
-                let used_gprs = self.machine.get_used_gprs();
-                for r in used_gprs.iter() {
-                    a.emit_push(Size::S64, Location::GPR(*r));
-                }
 
-                let mut stack_offset: usize = 0;
-
-                let mut call_movs: Vec<(Location, GPR)> = vec![];
-
-                for i in (0..param_types.len()).rev() {
-                    let loc = Machine::get_param_location(1 + i);
-                    match loc {
-                        Location::GPR(x) => {
-                            call_movs.push((params[i].0, x));
-                        }
-                        Location::Memory(_, _) => {
-                            a.emit_push(Size::S64, params[i].0);
-                            stack_offset += 8;
-                        }
-                        _ => unreachable!()
-                    }
-                }
-
-                sort_call_movs(&mut call_movs);
-                for (loc, gpr) in call_movs {
-                    if loc != Location::GPR(gpr) {
-                        a.emit_mov(Size::S64, loc, Location::GPR(gpr));
-                    }
-                }
-
-                a.emit_mov(Size::S64, Location::GPR(Machine::get_vmctx_reg()), Machine::get_param_location(0)); // vmctx
-                a.emit_call_label(label);
-
-                if stack_offset > 0 {
-                    a.emit_add(Size::S64, Location::Imm32(stack_offset as u32), Location::GPR(GPR::RSP));
-                }
-
-                for r in used_gprs.iter().rev() {
-                    a.emit_pop(Size::S64, Location::GPR(*r));
-                }
+                Self::emit_call_sysv(a, &mut self.machine, label, params.iter().map(|&(x, _)| x));
 
                 self.machine.release_locations_only_stack(a, &released);
 
