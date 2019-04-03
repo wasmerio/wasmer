@@ -17,12 +17,13 @@ time = "0.1.41"
 wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
 wasmer-dynasm-backend = { path = "../dynasm-backend", version = "0.1.0", optional = true }
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.1.0", optional = true }
+wabt = "0.7.2"
 
 [target.'cfg(windows)'.dependencies]
 rand = "0.6"
 
-[dev-dependencies]
-wabt = "0.7.2"
+#[dev-dependencies]
+#wabt = "0.7.2"
 
 [build-dependencies]
 glob = "0.2.11"

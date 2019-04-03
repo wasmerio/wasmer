@@ -54,6 +54,7 @@ pub use self::utils::{
     allocate_cstr_on_stack, allocate_on_stack, get_emscripten_memory_size,
     get_emscripten_table_size, is_emscripten_module,
 };
+use wasmer_runtime_core::import::Namespace;
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
@@ -401,6 +402,7 @@ impl EmscriptenGlobals {
 
         let mut null_func_names = vec![];
         let mut invoke_func_names = vec![];
+        let mut all_func_names = vec![];
         for (
             _,
             ImportName {
@@ -411,6 +413,7 @@ impl EmscriptenGlobals {
         {
             let namespace = module.info().namespace_table.get(*namespace_index);
             let name = module.info().name_table.get(*name_index);
+            all_func_names.push(name);
             if namespace == "env" && name.starts_with("nullFunc_") {
                 null_func_names.push(name.to_string())
             }
@@ -658,15 +661,15 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         // wasm32-unknown-emscripten
         "setTempRet0" => func!(crate::emscripten_target::setTempRet0),
         "getTempRet0" => func!(crate::emscripten_target::getTempRet0),
-        "invoke_i" => func!(crate::emscripten_target::invoke_i),
-        "invoke_ii" => func!(crate::emscripten_target::invoke_ii),
-        "invoke_iii" => func!(crate::emscripten_target::invoke_iii),
-        "invoke_iiii" => func!(crate::emscripten_target::invoke_iiii),
-        "invoke_v" => func!(crate::emscripten_target::invoke_v),
-        "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
-        "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
-        "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
-        "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
+//        "invoke_i" => func!(crate::emscripten_target::invoke_i),
+//        "invoke_ii" => func!(crate::emscripten_target::invoke_ii),
+//        "invoke_iii" => func!(crate::emscripten_target::invoke_iii),
+//        "invoke_iiii" => func!(crate::emscripten_target::invoke_iiii),
+//        "invoke_v" => func!(crate::emscripten_target::invoke_v),
+//        "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
+//        "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
+//        "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
+//        "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
         "__Unwind_Backtrace" => func!(crate::emscripten_target::__Unwind_Backtrace),
         "__Unwind_FindEnclosingFunction" => func!(crate::emscripten_target::__Unwind_FindEnclosingFunction),
         "__Unwind_GetIPInfo" => func!(crate::emscripten_target::__Unwind_GetIPInfo),
@@ -701,39 +704,39 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_gethostbyaddr" => func!(crate::emscripten_target::_gethostbyaddr),
         "_gethostbyname_r" => func!(crate::emscripten_target::_gethostbyname_r),
         "_getloadavg" => func!(crate::emscripten_target::_getloadavg),
-        "invoke_dii" => func!(crate::emscripten_target::invoke_dii),
-        "invoke_diiii" => func!(crate::emscripten_target::invoke_diiii),
-        "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),
-        "invoke_iiiiii" => func!(crate::emscripten_target::invoke_iiiiii),
-        "invoke_iiiiiii" => func!(crate::emscripten_target::invoke_iiiiiii),
-        "invoke_iiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiii),
-        "invoke_iiiiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiiiii),
-        "invoke_vd" => func!(crate::emscripten_target::invoke_vd),
-        "invoke_viiiii" => func!(crate::emscripten_target::invoke_viiiii),
-        "invoke_viiiiii" => func!(crate::emscripten_target::invoke_viiiiii),
-        "invoke_viiiiiii" => func!(crate::emscripten_target::invoke_viiiiiii),
-        "invoke_viiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiii),
-        "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
-        "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
-        "invoke_viiiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiiii),
-        "invoke_iiji" => func!(crate::emscripten_target::invoke_iiji),
-        "invoke_j" => func!(crate::emscripten_target::invoke_j),
-        "invoke_ji" => func!(crate::emscripten_target::invoke_ji),
-        "invoke_jii" => func!(crate::emscripten_target::invoke_jii),
-        "invoke_jij" => func!(crate::emscripten_target::invoke_jij),
-        "invoke_jjj" => func!(crate::emscripten_target::invoke_jjj),
-        "invoke_viiij" => func!(crate::emscripten_target::invoke_viiij),
-        "invoke_viiijiiii" => func!(crate::emscripten_target::invoke_viiijiiii),
-        "invoke_viiijiiiiii" => func!(crate::emscripten_target::invoke_viiijiiiiii),
-        "invoke_viij" => func!(crate::emscripten_target::invoke_viij),
-        "invoke_viiji" => func!(crate::emscripten_target::invoke_viiji),
-        "invoke_viijiii" => func!(crate::emscripten_target::invoke_viijiii),
-        "invoke_viijj" => func!(crate::emscripten_target::invoke_viijj),
-        "invoke_vij" => func!(crate::emscripten_target::invoke_vij),
-        "invoke_viji" => func!(crate::emscripten_target::invoke_viji),
-        "invoke_vijiii" => func!(crate::emscripten_target::invoke_vijiii),
-        "invoke_vijj" => func!(crate::emscripten_target::invoke_vijj),
-        "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
+//        "invoke_dii" => func!(crate::emscripten_target::invoke_dii),
+//        "invoke_diiii" => func!(crate::emscripten_target::invoke_diiii),
+//        "invoke_iiiii" => func!(crate::emscripten_target::invoke_iiiii),
+//        "invoke_iiiiii" => func!(crate::emscripten_target::invoke_iiiiii),
+//        "invoke_iiiiiii" => func!(crate::emscripten_target::invoke_iiiiiii),
+//        "invoke_iiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiii),
+//        "invoke_iiiiiiiiii" => func!(crate::emscripten_target::invoke_iiiiiiiiii),
+//        "invoke_vd" => func!(crate::emscripten_target::invoke_vd),
+//        "invoke_viiiii" => func!(crate::emscripten_target::invoke_viiiii),
+//        "invoke_viiiiii" => func!(crate::emscripten_target::invoke_viiiiii),
+//        "invoke_viiiiiii" => func!(crate::emscripten_target::invoke_viiiiiii),
+//        "invoke_viiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiii),
+//        "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
+//        "invoke_viiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiii),
+//        "invoke_viiiiiiiiii" => func!(crate::emscripten_target::invoke_viiiiiiiiii),
+//        "invoke_iiji" => func!(crate::emscripten_target::invoke_iiji),
+//        "invoke_j" => func!(crate::emscripten_target::invoke_j),
+//        "invoke_ji" => func!(crate::emscripten_target::invoke_ji),
+//        "invoke_jii" => func!(crate::emscripten_target::invoke_jii),
+//        "invoke_jij" => func!(crate::emscripten_target::invoke_jij),
+//        "invoke_jjj" => func!(crate::emscripten_target::invoke_jjj),
+//        "invoke_viiij" => func!(crate::emscripten_target::invoke_viiij),
+//        "invoke_viiijiiii" => func!(crate::emscripten_target::invoke_viiijiiii),
+//        "invoke_viiijiiiiii" => func!(crate::emscripten_target::invoke_viiijiiiiii),
+//        "invoke_viij" => func!(crate::emscripten_target::invoke_viij),
+//        "invoke_viiji" => func!(crate::emscripten_target::invoke_viiji),
+//        "invoke_viijiii" => func!(crate::emscripten_target::invoke_viijiii),
+//        "invoke_viijj" => func!(crate::emscripten_target::invoke_viijj),
+//        "invoke_vij" => func!(crate::emscripten_target::invoke_vij),
+//        "invoke_viji" => func!(crate::emscripten_target::invoke_viji),
+//        "invoke_vijiii" => func!(crate::emscripten_target::invoke_vijiii),
+//        "invoke_vijj" => func!(crate::emscripten_target::invoke_vijj),
+//        "invoke_viidii" => func!(crate::emscripten_target::invoke_viidii),
     };
 
     for null_func_name in globals.null_func_names.iter() {
@@ -741,7 +744,11 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
     }
 
     let module = invoke::create_invoke_module(&globals.invoke_func_names);
-    
+    let imports = ImportObject::new();
+    let mut instance: Instance = module.instantiate(&imports).unwrap();
+    for (name, export) in instance.exports() {
+        env_ns.insert(name, export);
+    }
 
     let import_object: ImportObject = imports! {
         "env" => env_ns,

@@ -18,17 +18,18 @@ pub fn create_invoke_module(invoke_function_names: &Vec<String>) -> Module {
 }
 
 fn create_wat(invoke_function_names: &Vec<String>) -> String {
-    invoke_function_names.iter()
+    let types_and_funcs_wat = invoke_function_names.iter()
         .map(|s| &**s) // &String -> &str
         .map(invoke_name_to_signature)
         .filter_map(|r| r.ok())
         .map(|(func_name, sig)| {
             let type_wat = sig_to_type_wat(func_name, &sig);
             let func_wat = sig_to_func_wat(func_name, &sig);
-            format!("(module (table {} anyfunc) {}\n{})", invoke_function_names.len(), type_wat, func_wat)
+            format!("{}\n{}", type_wat, func_wat)
         })
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n");
+    format!("(module (table {} anyfunc)\n {})", invoke_function_names.len(), types_and_funcs_wat)
 }
 
 fn invoke_name_to_signature(invoke_name: &str) -> Result<(&str, Sig), InvokeError> {
@@ -86,22 +87,25 @@ fn sig_to_type_wat(func_name: &str, sig: &Sig) -> String {
 
 fn sig_to_func_wat(func_name: &str, sig: &Sig) -> String {
     let x = sig.args.iter().zip((1..))
-        .map(|(a, i)| format!(" (param $p{} {})", i, a.to_type_str()))
+        .map(|(a, i)| format!("(param $p{} {})", i, a.to_type_str()))
         .collect::<Vec<_>>();
     let params_string = match &x[..] {
         [] => "".to_string(),
-        params => params.join(" "),
+        params => format!(" {}", params.join(" ")),
     };
     let result_string = match sig.rets.get(0) {
         Some(ret) => format!(" (result {})", ret.to_type_str()),
         None => "".to_string(),
     };
-    let get_locals_string = sig.args.iter().zip((1..))
-        .map(|(_, i)| format!("get_local $p{}\n", i))
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    format!("(func (export \"{}\") (param $p0 i32){}{}\nget_local $p0\n{}call_indirect (type $emscripten_{}))", func_name, params_string, result_string, get_locals_string, func_name)
+    let mut get_locals_vec = sig.args.iter().zip((1..))
+        .map(|(_, i)| format!("get_local $p{}", i))
+        .collect::<Vec<_>>();
+//    get_locals_vec.reverse();
+    let mut get_locals_string = get_locals_vec.join("\n");
+    if get_locals_string.len() > 0 {
+        get_locals_string = get_locals_string + "\n";
+    }
+    format!("(func (export \"{}\") (param $p0 i32){}{}\n{}get_local $p0\ncall_indirect (type $emscripten_{}))", func_name, params_string, result_string, get_locals_string, func_name)
 }
 
 #[derive(Debug)]
@@ -140,6 +144,7 @@ mod test {
     use crate::invoke::{invoke_name_to_signature, InvokeArgType, sig_to_type_wat, Sig, sig_to_func_wat, create_invoke_module, instance_to_imports};
     use wasmer_runtime_core::import::{ImportObject, LikeNamespace};
     use wasmer_runtime_core::Instance;
+    use crate::{EmscriptenGlobals, generate_emscripten_env};
 
     #[test]
     fn create_type_wat_for_invoke_ii() {
@@ -179,10 +184,36 @@ call_indirect (type $emscripten_invoke_ii))"#;
     }
 
     #[test]
+    fn create_func_wat_for_invoke_iiii() {
+        let expected_wat = r#"(func (export "invoke_iiii") (param $p0 i32) (param $p1 i32) (param $p2 i32) (param $p3 i32) (result i32)
+get_local $p3
+get_local $p2
+get_local $p1
+get_local $p0
+call_indirect (type $emscripten_invoke_iiii))"#;
+        let sig = Sig { args: vec![InvokeArgType::I, InvokeArgType::I, InvokeArgType::I], rets: vec![InvokeArgType::I] };
+        let func_name = "invoke_iiii";
+        let actual_wat = sig_to_func_wat(func_name, &sig);
+        assert_eq!(expected_wat, actual_wat);
+    }
+
+    #[test]
     fn compile_module() {
+
+        use wasmer_clif_backend::CraneliftCompiler;
+
+//        let module = wasmer_runtime_core::compile_with(&wasm_bytes[..], &CraneliftCompiler::new())
+//            .expect("WASM can't be compiled");
         let expected_function_name = "invoke_ii".to_string();
         let module = create_invoke_module(&vec![expected_function_name.clone()]);
-        let mut instance: Instance = module.instantiate(&ImportObject::new()).unwrap();
+
+        let mut emscripten_globals = EmscriptenGlobals::new(&module);
+        let import_object = generate_emscripten_env(&mut emscripten_globals);
+        let mut instance = module
+            .instantiate(&import_object)
+            .map_err(|err| format!("Can't instantiate the WebAssembly module: {:?}", err))
+            .unwrap();
+
         let mut exports = instance.exports();
         let (actual_function_name, _) = exports.next().unwrap();
         assert_eq!(expected_function_name, actual_function_name);
