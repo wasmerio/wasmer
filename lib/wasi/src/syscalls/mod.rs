@@ -93,7 +93,24 @@ pub fn args_get(
     let state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
 
-    write_buffer_array(memory, &*state.args, argv, argv_buf)
+    let result = write_buffer_array(memory, &*state.args, argv, argv_buf);
+
+    debug!(
+        "=> args:\n{}",
+        state
+            .args
+            .iter()
+            .enumerate()
+            .map(|(i, v)| format!(
+                "{:>20}: {}",
+                i,
+                ::std::str::from_utf8(v).unwrap().to_string()
+            ))
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
+
+    result
 }
 
 /// ### `args_sizes_get()`
@@ -116,8 +133,12 @@ pub fn args_sizes_get(
 
     let state = get_wasi_state(ctx);
 
-    argc.set(state.args.len() as u32);
-    argv_buf_size.set(state.args.iter().map(|v| v.len() as u32 + 1).sum());
+    let argc_val = state.args.len() as u32;
+    let argv_buf_size_val = state.args.iter().map(|v| v.len() as u32 + 1).sum();
+    argc.set(argc_val);
+    argv_buf_size.set(argv_buf_size_val);
+
+    debug!("=> argc={}, argv_buf_size={}", argc_val, argv_buf_size_val);
 
     __WASI_ESUCCESS
 }
