@@ -6,11 +6,8 @@ use crate::syscalls::types::*;
 use generational_arena::{Arena, Index as Inode};
 use hashbrown::hash_map::{Entry, HashMap};
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     io::{self, Write},
-    ops::{Index, IndexMut},
-    path::PathBuf,
-    rc::Rc,
     time::SystemTime,
 };
 use zbox::{init_env as zbox_init_env, File, FileType, OpenOptions, Repo, RepoOpener};
@@ -24,6 +21,7 @@ pub struct InodeVal {
     pub kind: Kind,
 }
 
+#[allow(dead_code)]
 pub enum Kind {
     File {
         handle: File,
@@ -75,6 +73,7 @@ impl WasiFs {
         })
     }
 
+    #[allow(dead_code)]
     fn get_inode(&mut self, path: &str) -> Option<Inode> {
         Some(match self.name_map.entry(path.to_string()) {
             Entry::Occupied(o) => *o.get(),
@@ -133,6 +132,7 @@ impl WasiFs {
         })
     }
 
+    #[allow(dead_code)]
     fn filestat_inode(
         &self,
         inode: Inode,
@@ -164,6 +164,7 @@ impl WasiFs {
         }
     }
 
+    #[allow(dead_code)]
     pub fn filestat_path(
         &mut self,
         preopened_fd: __wasi_fd_t,
