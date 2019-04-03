@@ -489,13 +489,12 @@ pub fn fd_pread(
     debug!("wasi::fd_pread");
     let memory = ctx.memory(0);
 
-    if let ((Ok(iov_cells), Ok(nread_cell))) =
-        (iovs.deref(memory, 0, iovs_len), nread.deref(memory))
-    {
-        platform_fd_pread(fd, iov_cells, iovs_len, offset, nread_cell)
-    } else {
-        __WASI_EFAULT
-    }
+    let iov_cells = wasi_try!(iovs.deref(memory, 0, iovs_len));
+    let nread_cell = wasi_try!(nread.deref(memory));
+
+    unimplemented!();
+
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_prestat_get()`
