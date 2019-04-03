@@ -266,7 +266,6 @@ impl EmscriptenGlobals {
 
         let mut null_func_names = vec![];
         let mut invoke_func_names = vec![];
-        let mut all_func_names = vec![];
         for (
             _,
             ImportName {
@@ -277,7 +276,6 @@ impl EmscriptenGlobals {
         {
             let namespace = module.info().namespace_table.get(*namespace_index);
             let name = module.info().name_table.get(*name_index);
-            all_func_names.push(name);
             if namespace == "env" && name.starts_with("nullFunc_") {
                 null_func_names.push(name.to_string())
             }
