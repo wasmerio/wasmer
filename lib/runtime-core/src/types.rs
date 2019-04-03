@@ -207,6 +207,7 @@ pub enum Initializer {
     GetGlobal(ImportedGlobalIndex),
 }
 
+/// Describes the mutability and type of a Global
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlobalDescriptor {
     pub mutable: bool,

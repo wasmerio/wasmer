@@ -74,6 +74,7 @@
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
 //! [`compile_with`]: fn.compile_with.html
 
+pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
 pub use wasmer_runtime_core::import::ImportObject;
 pub use wasmer_runtime_core::instance::{DynFunc, Instance};
@@ -95,7 +96,9 @@ pub mod wasm {
     //! Various types exposed by the Wasmer Runtime.
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::table::Table;
-    pub use wasmer_runtime_core::types::{FuncSig, MemoryDescriptor, TableDescriptor, Type, Value};
+    pub use wasmer_runtime_core::types::{
+        FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
+    };
 }
 
 pub mod error {
