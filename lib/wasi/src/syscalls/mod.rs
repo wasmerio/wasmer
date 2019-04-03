@@ -1076,22 +1076,102 @@ pub fn path_open(
     }
 
     // check for __WASI_RIGHT_PATH_OPEN somewhere, probably via dirfd
+    let fd_cell = wasi_try!(fd.deref(memory));
+    let path_cells = wasi_try!(path.deref(memory, 0, path_len));
+    let state = get_wasi_state(ctx);
 
-    if let (Ok(fd_cell), Ok(path_cell)) = (fd.deref(memory), path.deref(memory, 0, path_len)) {
-        // o_flags:
-        // - __WASI_O_FLAG_CREAT (create if it does not exist)
-        // - __WASI_O_DIRECTORY (fail if not dir)
-        // - __WASI_O_EXCL (fail if file exists)
-        // - __WASI_O_TRUNC (truncate size to 0)
-        if (o_flags & __WASI_O_DIRECTORY) != 0 {
-            // fail if fd is not a dir
-            // need to check and be able to clean up
-        }
+    // o_flags:
+    // - __WASI_O_FLAG_CREAT (create if it does not exist)
+    // - __WASI_O_DIRECTORY (fail if not dir)
+    // - __WASI_O_EXCL (fail if file exists)
+    // - __WASI_O_TRUNC (truncate size to 0)
 
-        unimplemented!();
-    } else {
-        __WASI_EFAULT
+    let working_dir = wasi_try!(state.fs.fd_map.get(&dirfd).ok_or(__WASI_EBADF));
+
+    // ASSUMPTION: open rights cascade down
+    if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_OPEN) {
+        return __WASI_EACCES;
     }
+
+    let path_vec =
+        wasi_try!(
+            ::std::str::from_utf8(unsafe { &*(path_cells as *const [_] as *const [u8]) })
+                .map_err(|_| __WASI_EINVAL)
+        )
+        .split('/')
+        .map(|str| str.to_string())
+        .collect::<Vec<String>>();
+
+    if path_vec.is_empty() {
+        return __WASI_EINVAL;
+    }
+
+    let working_dir_inode = &mut state.fs.inodes[working_dir.inode];
+
+    let mut cur_dir = working_dir;
+
+    // TODO: refactor single path segment logic out and do traversing before
+    // as necessary
+    let out_fd = if path_vec.len() == 1 {
+        // just the file or dir
+        if let Kind::Dir { entries, .. } = &mut working_dir_inode.kind {
+            if let Some(child) = entries.get(&path_vec[0]).cloned() {
+                let child_inode_val = &state.fs.inodes[child];
+                // early return based on flags
+                if o_flags & __WASI_O_EXCL != 0 {
+                    return __WASI_EEXIST;
+                }
+                if o_flags & __WASI_O_DIRECTORY != 0 {
+                    match &child_inode_val.kind {
+                        Kind::Dir { .. } => (),
+                        Kind::Symlink { .. } => unimplemented!(),
+                        _ => return __WASI_ENOTDIR,
+                    }
+                }
+                // do logic on child
+                wasi_try!(state
+                    .fs
+                    .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
+            } else {
+                // entry does not exist in parent directory
+                // check to see if we should create it
+                if o_flags & __WASI_O_CREAT != 0 {
+                    // insert in to directory and set values
+                    //entries.insert(path_segment[0], )
+                    unimplemented!()
+                } else {
+                    // no entry and can't create it
+                    return __WASI_ENOENT;
+                }
+            }
+        } else {
+            // working_dir is not a directory
+            return __WASI_ENOTDIR;
+        }
+    } else {
+        // traverse the pieces of the path
+        // TODO: lots of testing on this
+        for path_segment in &path_vec[..(path_vec.len() - 1)] {
+            match &working_dir_inode.kind {
+                Kind::Dir { entries, .. } => {
+                    if let Some(child) = entries.get(path_segment) {
+                        unimplemented!();
+                    } else {
+                        // Is __WASI_O_FLAG_CREAT recursive?
+                        // ASSUMPTION: it's not
+                        return __WASI_EINVAL;
+                    }
+                }
+                Kind::Symlink { .. } => unimplemented!(),
+                _ => return __WASI_ENOTDIR,
+            }
+        }
+        unimplemented!()
+    };
+
+    fd_cell.set(out_fd);
+
+    __WASI_ESUCCESS
 }
 
 pub fn path_readlink(

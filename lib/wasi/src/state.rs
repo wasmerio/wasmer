@@ -31,7 +31,7 @@ pub enum Kind {
     Dir {
         handle: File,
         /// The entries of a directory are lazily filled.
-        entries: Vec<Inode>,
+        entries: HashMap<String, Inode>,
     },
     Symlink {
         forwarded: Inode,
@@ -123,7 +123,7 @@ impl WasiFs {
                         FileType::File => Kind::File { handle: file },
                         FileType::Dir => Kind::Dir {
                             handle: file,
-                            entries: Vec::new(),
+                            entries: HashMap::new(),
                         },
                     },
                 });
@@ -239,6 +239,28 @@ impl WasiFs {
             }
         }
         Ok(())
+    }
+
+    pub fn create_fd(
+        &mut self,
+        rights: __wasi_rights_t,
+        rights_inheriting: __wasi_rights_t,
+        flags: __wasi_fdflags_t,
+        inode: Inode,
+    ) -> Result<u32, __wasi_errno_t> {
+        let idx = self.next_fd.get();
+        self.next_fd.set(idx + 1);
+        self.fd_map.insert(
+            idx,
+            Fd {
+                rights,
+                rights_inheriting,
+                flags,
+                offset: 0,
+                inode,
+            },
+        );
+        Ok(idx)
     }
 }
 
