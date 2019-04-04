@@ -513,7 +513,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall83" => func!(crate::syscalls::___syscall83),
         "___syscall85" => func!(crate::syscalls::___syscall85),
         "___syscall91" => func!(crate::syscalls::___syscall91),
-        "___syscall94" => func!(crate::syscalls::___syscall194),
+        "___syscall94" => func!(crate::syscalls::___syscall94),
         "___syscall97" => func!(crate::syscalls::___syscall97),
         "___syscall102" => func!(crate::syscalls::___syscall102),
         "___syscall110" => func!(crate::syscalls::___syscall110),
