@@ -326,6 +326,12 @@ impl Emitter for Assembler {
                 mov, self, sz, src, dst,
                 {
                     match (sz, src, dst) {
+                        (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
+                            dynasm!(self ; mov [Rq(dst as u8) + disp], Rb(src as u8));
+                        }
+                        (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
+                            dynasm!(self ; mov [Rq(dst as u8) + disp], Rw(src as u8));
+                        }
                         (Size::S32, Location::GPR(src), Location::XMM(dst)) => {
                             dynasm!(self ; movd Rx(dst as u8), Rd(src as u8));
                         },

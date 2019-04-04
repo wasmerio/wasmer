@@ -843,6 +843,9 @@ impl X64FunctionCode {
     }
 
     fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Assembler)>(a: &mut Assembler, m: &mut Machine, cb: F, params: I) {
+        let params: Vec<_> = params.collect();
+
+        // Save used GPRs.
         let used_gprs = m.get_used_gprs();
         for r in used_gprs.iter() {
             a.emit_push(Size::S64, Location::GPR(*r));
@@ -850,36 +853,60 @@ impl X64FunctionCode {
 
         let mut stack_offset: usize = 0;
 
+        // Calculate stack offset.
+        for (i, param) in params.iter().enumerate() {
+            let loc = Machine::get_param_location(1 + i);
+            match loc {
+                Location::Memory(_, _) => {
+                    stack_offset += 8;
+                }
+                _ => {}
+            }
+        }
+
+        // Align stack to 16 bytes.
+        if (m.get_stack_offset() + used_gprs.len() * 8 + stack_offset) % 16 != 0 {
+            a.emit_sub(Size::S64, Location::Imm32(8), Location::GPR(GPR::RSP));
+            stack_offset += 8;
+        }
+
         let mut call_movs: Vec<(Location, GPR)> = vec![];
 
-        for (i, param) in params.enumerate() {
+        // Prepare register & stack parameters.
+        for (i, param) in params.iter().enumerate() {
             let loc = Machine::get_param_location(1 + i);
             match loc {
                 Location::GPR(x) => {
-                    call_movs.push((param, x));
+                    call_movs.push((*param, x));
                 }
                 Location::Memory(_, _) => {
-                    a.emit_push(Size::S64, param);
-                    stack_offset += 8;
+                    a.emit_push(Size::S64, *param);
                 }
                 _ => unreachable!()
             }
         }
 
+        // Sort register moves so that register are not overwritten before read.
         sort_call_movs(&mut call_movs);
+
+        // Emit register moves.
         for (loc, gpr) in call_movs {
             if loc != Location::GPR(gpr) {
                 a.emit_mov(Size::S64, loc, Location::GPR(gpr));
             }
         }
 
+        // Put vmctx as the first parameter.
         a.emit_mov(Size::S64, Location::GPR(Machine::get_vmctx_reg()), Machine::get_param_location(0)); // vmctx
+
         cb(a);
 
+        // Restore stack.
         if stack_offset > 0 {
             a.emit_add(Size::S64, Location::Imm32(stack_offset as u32), Location::GPR(GPR::RSP));
         }
 
+        // Restore GPRs.
         for r in used_gprs.iter().rev() {
             a.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1548,6 +1575,28 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     Self::emit_relaxed_binop(
                         a, m, Assembler::emit_mov,
                         Size::S32, target_value, Location::Memory(addr, 0),
+                    );
+                });
+            }
+            Operator::I32Store8 { memarg } => {
+                let target_value = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target_addr = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target_addr, memarg.offset as usize, 1, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S8, target_value, Location::Memory(addr, 0),
+                    );
+                });
+            }
+            Operator::I32Store16 { memarg } => {
+                let target_value = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target_addr = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target_addr, memarg.offset as usize, 2, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S16, target_value, Location::Memory(addr, 0),
                     );
                 });
             }

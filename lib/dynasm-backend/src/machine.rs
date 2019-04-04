@@ -21,6 +21,10 @@ impl Machine {
         }
     }
 
+    pub fn get_stack_offset(&self) -> usize {
+        self.stack_offset.0
+    }
+
     pub fn get_used_gprs(&self) -> Vec<GPR> {
         self.used_gprs.iter().cloned().collect()
     }
