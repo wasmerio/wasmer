@@ -530,7 +530,10 @@ impl<'module, 'isa, 'data> ModuleEnvironment<'data> for ModuleEnv<'module, 'isa>
                     .special_param(ir::ArgumentPurpose::VMContext)
                     .expect("missing vmctx parameter");
 
-                let func_index = pos.ins().iconst(ir::types::I32, func_index.index() as i64);
+                let func_index = pos.ins().iconst(
+                    ir::types::I32,
+                    func_index.index() as i64 + self.module.info.imported_functions.len() as i64,
+                );
 
                 pos.ins().call(start_debug, &[vmctx, func_index]);
 
