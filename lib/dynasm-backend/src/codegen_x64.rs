@@ -418,34 +418,32 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
     }
 
     fn feed_import_function(&mut self) -> Result<(), CodegenError> {
-        /*
-        let labels = match self.function_labels.as_mut() {
-            Some(x) => x,
-            None => {
-                return Err(CodegenError {
-                    message: "got function import after code",
-                });
-            }
-        };
+        let labels = self.function_labels.as_mut().unwrap();
         let id = labels.len();
 
-        let assembler = self.assembler.as_mut().unwrap();
-
-        let offset = assembler.offset();
-
-        let label = X64FunctionCode::emit_native_call(
-            self.assembler.as_mut().unwrap(),
-            invoke_import,
-            0,
-            id,
-        );
+        let a = self.assembler.as_mut().unwrap();
+        let offset = a.offset();
+        let label = a.get_label();
+        a.emit_label(label);
         labels.insert(id, (label, Some(offset)));
+
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(
+                GPR::RDI,
+                vm::Ctx::offset_imported_funcs() as i32,
+            ),
+            Location::GPR(GPR::RAX),
+        );
+        a.emit_mov(Size::S64, Location::Memory(
+            GPR::RAX,
+            (vm::ImportedFunc::size() as usize * id + vm::ImportedFunc::offset_func() as usize) as i32
+        ), Location::GPR(GPR::RAX));
+        a.emit_jmp_location(Location::GPR(GPR::RAX));
 
         self.func_import_count += 1;
 
         Ok(())
-        */
-        unimplemented!()
     }
 }
 

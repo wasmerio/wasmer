@@ -82,6 +82,7 @@ pub trait Emitter {
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_jmp(&mut self, condition: Condition, label: Self::Label);
+    fn emit_jmp_location(&mut self, loc: Location);
     fn emit_conditional_trap(&mut self, condition: Condition);
     fn emit_set(&mut self, condition: Condition, dst: GPR);
     fn emit_push(&mut self, sz: Size, src: Location);
@@ -391,6 +392,13 @@ impl Emitter for Assembler {
             Condition::LessEqual => jmp_op!(jle, self, label),
             Condition::Equal => jmp_op!(je, self, label),
             Condition::NotEqual => jmp_op!(jne, self, label),
+        }
+    }
+    fn emit_jmp_location(&mut self, loc: Location) {
+        match loc {
+            Location::GPR(x) => dynasm!(self ; jmp Rq(x as u8)),
+            Location::Memory(base, disp) => dynasm!(self ; jmp QWORD [Rq(base as u8) + disp]),
+            _ => unreachable!(),
         }
     }
     fn emit_conditional_trap(&mut self, condition: Condition) {
