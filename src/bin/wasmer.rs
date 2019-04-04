@@ -14,7 +14,7 @@ use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_emscripten;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
-use wasmer_runtime_core::backend::CompilerConfig;
+use wasmer_runtime_core::{self, backend::CompilerConfig};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -270,15 +270,8 @@ fn validate_wasm(validate: Validate) -> Result<(), String> {
         ));
     }
 
-    wabt::Module::read_binary(wasm_binary, &Default::default())
-        .map_err(|err| {
-            format!(
-                "Failed to read \"{}\" as a WASM binary: {}",
-                wasm_path_as_str, err
-            )
-        })?
-        .validate()
-        .map_err(|err| format!("Failed to validate \"{}\": {}", wasm_path_as_str, err))?;
+    wasmer_runtime_core::validate_and_report_errors(&wasm_binary)
+        .map_err(|err| format!("Validation failed: {}", err))?;
 
     Ok(())
 }
