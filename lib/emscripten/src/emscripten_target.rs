@@ -5,8 +5,8 @@ use crate::env::get_emscripten_data;
 use libc::getdtablesize;
 use wasmer_runtime_core::vm::Ctx;
 
-pub fn setTempRet0(_ctx: &mut Ctx, _a: i32) {
-    debug!("emscripten::setTempRet0");
+pub fn setTempRet0(_ctx: &mut Ctx, _val: i32) {
+    debug!("emscripten::setTempRet0: {}", _val);
 }
 pub fn getTempRet0(_ctx: &mut Ctx) -> i32 {
     debug!("emscripten::getTempRet0");

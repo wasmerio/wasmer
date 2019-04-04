@@ -137,6 +137,9 @@ pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
 
 pub fn _sysconf(_ctx: &mut Ctx, name: c_int) -> i32 {
     debug!("emscripten::_sysconf {}", name);
+    match name {
+        30 => 16384,                          // page size
+        _ => unsafe { sysconf(name) as i32 }, // TODO review i64
+    }
     // TODO: Implement like emscripten expects regarding memory/page size
-    unsafe { sysconf(name) as i32 } // TODO review i64
 }
