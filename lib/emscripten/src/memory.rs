@@ -20,7 +20,7 @@ pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u
 pub fn _emscripten_get_heap_size(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_emscripten_get_heap_size",);
     // TODO: Fix implementation
-    16_777_216
+    162_107_392
 }
 
 /// emscripten: _emscripten_resize_heap
@@ -35,7 +35,7 @@ pub fn get_total_memory(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::get_total_memory");
     // instance.memories[0].current_pages()
     // TODO: Fix implementation
-    16_777_216
+    _ctx.memory(0).size().bytes().0 as u32
 }
 
 /// emscripten: enlargeMemory
