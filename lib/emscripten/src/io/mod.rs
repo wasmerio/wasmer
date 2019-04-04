@@ -28,6 +28,7 @@ pub fn getprotobynumber(_ctx: &mut Ctx, _one: i32) -> i32 {
 pub fn sigdelset(ctx: &mut Ctx, set: i32, signum: i32) -> i32 {
     debug!("emscripten::sigdelset");
     let memory = ctx.memory(0);
+    #[allow(clippy::cast_ptr_alignment)]
     let ptr = emscripten_memory_pointer!(memory, set) as *mut i32;
 
     unsafe { *ptr = *ptr & !(1 << (signum - 1)) }
@@ -39,6 +40,7 @@ pub fn sigdelset(ctx: &mut Ctx, set: i32, signum: i32) -> i32 {
 pub fn sigfillset(ctx: &mut Ctx, set: i32) -> i32 {
     debug!("emscripten::sigfillset");
     let memory = ctx.memory(0);
+    #[allow(clippy::cast_ptr_alignment)]
     let ptr = emscripten_memory_pointer!(memory, set) as *mut i32;
 
     unsafe {
