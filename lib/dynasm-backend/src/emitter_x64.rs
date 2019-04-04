@@ -82,6 +82,7 @@ pub trait Emitter {
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_jmp(&mut self, condition: Condition, label: Self::Label);
+    fn emit_conditional_trap(&mut self, condition: Condition);
     fn emit_set(&mut self, condition: Condition, dst: GPR);
     fn emit_push(&mut self, sz: Size, src: Location);
     fn emit_pop(&mut self, sz: Size, dst: Location);
@@ -107,6 +108,7 @@ pub trait Emitter {
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
     fn emit_call_label(&mut self, label: Self::Label);
+    fn emit_call_location(&mut self, loc: Location);
 }
 
 macro_rules! unop_gpr {
@@ -289,6 +291,18 @@ macro_rules! jmp_op {
     }
 }
 
+macro_rules! trap_op {
+    ($ins:ident, $assembler:tt) => {
+        dynasm!($assembler
+            ; $ins >trap
+            ; jmp >after
+            ; trap:
+            ; ud2
+            ; after:
+        );
+    }
+}
+
 impl Emitter for Assembler {
     type Label = DynamicLabel;
     type Offset = AssemblyOffset;
@@ -371,6 +385,21 @@ impl Emitter for Assembler {
             Condition::LessEqual => jmp_op!(jle, self, label),
             Condition::Equal => jmp_op!(je, self, label),
             Condition::NotEqual => jmp_op!(jne, self, label),
+        }
+    }
+    fn emit_conditional_trap(&mut self, condition: Condition) {
+        match condition {
+            Condition::None => trap_op!(jmp, self),
+            Condition::Above => trap_op!(ja, self),
+            Condition::AboveEqual => trap_op!(jae, self),
+            Condition::Below => trap_op!(jb, self),
+            Condition::BelowEqual => trap_op!(jbe, self),
+            Condition::Greater => trap_op!(jg, self),
+            Condition::GreaterEqual => trap_op!(jge, self),
+            Condition::Less => trap_op!(jl, self),
+            Condition::LessEqual => trap_op!(jle, self),
+            Condition::Equal => trap_op!(je, self),
+            Condition::NotEqual => trap_op!(jne, self),
         }
     }
     fn emit_set(&mut self, condition: Condition, dst: GPR) {
@@ -535,5 +564,12 @@ impl Emitter for Assembler {
 
     fn emit_call_label(&mut self, label: Self::Label) {
         dynasm!(self ; call =>label);
+    }
+    fn emit_call_location(&mut self, loc: Location) {
+        match loc {
+            Location::GPR(x) => dynasm!(self ; call Rq(x as u8)),
+            Location::Memory(base, disp) => dynasm!(self ; call QWORD [Rq(base as u8) + disp]),
+            _ => unreachable!(),
+        }
     }
 }

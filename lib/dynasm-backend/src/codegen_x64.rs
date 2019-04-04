@@ -21,6 +21,7 @@ use wasmer_runtime_core::{
     },
     units::Pages,
     vm::{self, ImportBacking, LocalGlobal, LocalMemory, LocalTable},
+    vmcalls,
 };
 use wasmparser::{Operator, Type as WpType};
 use crate::machine::*;
@@ -841,7 +842,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
-    fn emit_call_sysv<I: Iterator<Item = Location>>(a: &mut Assembler, m: &mut Machine, label: DynamicLabel, params: I) {
+    fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Assembler)>(a: &mut Assembler, m: &mut Machine, cb: F, params: I) {
         let used_gprs = m.get_used_gprs();
         for r in used_gprs.iter() {
             a.emit_push(Size::S64, Location::GPR(*r));
@@ -873,7 +874,7 @@ impl X64FunctionCode {
         }
 
         a.emit_mov(Size::S64, Location::GPR(Machine::get_vmctx_reg()), Machine::get_param_location(0)); // vmctx
-        a.emit_call_label(label);
+        cb(a);
 
         if stack_offset > 0 {
             a.emit_add(Size::S64, Location::Imm32(stack_offset as u32), Location::GPR(GPR::RSP));
@@ -882,6 +883,70 @@ impl X64FunctionCode {
         for r in used_gprs.iter().rev() {
             a.emit_pop(Size::S64, Location::GPR(*r));
         }
+    }
+
+    fn emit_call_sysv_label<I: Iterator<Item = Location>>(a: &mut Assembler, m: &mut Machine, label: DynamicLabel, params: I) {
+        Self::emit_call_sysv(a, m, |a| a.emit_call_label(label), params)
+    }
+
+    fn emit_memory_op<F: FnOnce(&mut Assembler, &mut Machine, GPR)>(
+        module_info: &ModuleInfo,
+        a: &mut Assembler,
+        m: &mut Machine,
+        addr: Location,
+        offset: usize,
+        value_size: usize,
+        cb: F
+    ) {
+        let tmp_addr = m.acquire_temp_gpr().unwrap();
+        let tmp_base = m.acquire_temp_gpr().unwrap();
+        let tmp_bound = m.acquire_temp_gpr().unwrap();
+
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(
+                Machine::get_vmctx_reg(),
+                match MemoryIndex::new(0).local_or_import(module_info) {
+                    LocalOrImport::Local(_) => vm::Ctx::offset_memories(),
+                    LocalOrImport::Import(_) => vm::Ctx::offset_imported_memories(),
+                } as i32
+            ),
+            Location::GPR(tmp_base),
+        );
+        a.emit_mov(Size::S64, Location::Memory(tmp_base, 0), Location::GPR(tmp_base));
+        a.emit_mov(Size::S32, Location::Memory(tmp_base, LocalMemory::offset_bound() as i32), Location::GPR(tmp_bound));
+        a.emit_mov(Size::S64, Location::Memory(tmp_base, LocalMemory::offset_base() as i32), Location::GPR(tmp_base));
+        a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
+
+        let mem_desc = match MemoryIndex::new(0).local_or_import(module_info) {
+            LocalOrImport::Local(local_mem_index) => &module_info.memories[local_mem_index],
+            LocalOrImport::Import(import_mem_index) => {
+                &module_info.imported_memories[import_mem_index].1
+            }
+        };
+        let need_check = match mem_desc.memory_type() {
+            MemoryType::Dynamic => true,
+            MemoryType::Static | MemoryType::SharedStatic => false,
+        };
+
+        if need_check {
+            a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
+            a.emit_add(Size::S64, Location::Imm32((offset + value_size) as u32), Location::GPR(tmp_addr));
+            a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
+            a.emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+            a.emit_conditional_trap(Condition::Above);
+        }
+
+        m.release_temp_gpr(tmp_bound);
+
+        a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
+        a.emit_add(Size::S64, Location::Imm32(offset as u32), Location::GPR(tmp_addr));
+        a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
+        m.release_temp_gpr(tmp_base);
+
+        cb(a, m, tmp_addr);
+
+        m.release_temp_gpr(tmp_addr);
     }
 }
 
@@ -976,11 +1041,11 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
 
                 if global_index < module_info.imported_globals.len() {
-                    a.emit_mov(Size::S64, Location::Memory(GPR::RDI, vm::Ctx::offset_imported_globals() as i32), Location::GPR(tmp));
+                    a.emit_mov(Size::S64, Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_imported_globals() as i32), Location::GPR(tmp));
                 } else {
                     global_index -= module_info.imported_globals.len();
                     assert!(global_index < module_info.globals.len());
-                    a.emit_mov(Size::S64, Location::Memory(GPR::RDI, vm::Ctx::offset_globals() as i32), Location::GPR(tmp));
+                    a.emit_mov(Size::S64, Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_globals() as i32), Location::GPR(tmp));
                 }
                 a.emit_mov(Size::S64, Location::Memory(tmp, (global_index as i32) * 8), Location::GPR(tmp));
                 Self::emit_relaxed_binop(
@@ -997,11 +1062,11 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
 
                 if global_index < module_info.imported_globals.len() {
-                    a.emit_mov(Size::S64, Location::Memory(GPR::RDI, vm::Ctx::offset_imported_globals() as i32), Location::GPR(tmp));
+                    a.emit_mov(Size::S64, Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_imported_globals() as i32), Location::GPR(tmp));
                 } else {
                     global_index -= module_info.imported_globals.len();
                     assert!(global_index < module_info.globals.len());
-                    a.emit_mov(Size::S64, Location::Memory(GPR::RDI, vm::Ctx::offset_globals() as i32), Location::GPR(tmp));
+                    a.emit_mov(Size::S64, Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_globals() as i32), Location::GPR(tmp));
                 }
                 a.emit_mov(Size::S64, Location::Memory(tmp, (global_index as i32) * 8), Location::GPR(tmp));
                 Self::emit_relaxed_binop(
@@ -1230,7 +1295,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     .collect();
                 self.machine.release_locations_only_regs(&released);
 
-                Self::emit_call_sysv(a, &mut self.machine, label, params.iter().map(|&(x, _)| x));
+                Self::emit_call_sysv_label(a, &mut self.machine, label, params.iter().map(|&(x, _)| x));
 
                 self.machine.release_locations_only_stack(a, &released);
 
@@ -1345,6 +1410,146 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         value_stack_depth: self.value_stack.len(),
                     });
                 a.emit_label(label);
+            }
+            Operator::Nop => {}
+            Operator::MemorySize { reserved } => {
+                let memory_index = MemoryIndex::new(reserved as usize);
+                let target: usize = match memory_index.local_or_import(module_info) {
+                    LocalOrImport::Local(local_mem_index) => {
+                        let mem_desc = &module_info.memories[local_mem_index];
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => vmcalls::local_dynamic_memory_size as usize,
+                            MemoryType::Static => vmcalls::local_static_memory_size as usize,
+                            MemoryType::SharedStatic => unimplemented!(),
+                        }
+                    }
+                    LocalOrImport::Import(import_mem_index) => {
+                        let mem_desc = &module_info.imported_memories[import_mem_index].1;
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => vmcalls::imported_dynamic_memory_size as usize,
+                            MemoryType::Static => vmcalls::imported_static_memory_size as usize,
+                            MemoryType::SharedStatic => unimplemented!(),
+                        }
+                    }
+                };
+                Self::emit_call_sysv(a, &mut self.machine, |a| {
+                    a.emit_mov(Size::S64, Location::Imm64(target as u64), Location::GPR(GPR::RAX));
+                    a.emit_call_location(Location::GPR(GPR::RAX));
+                }, ::std::iter::once(Location::Imm32(memory_index.index() as u32)));
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::MemoryGrow { reserved } => {
+                let memory_index = MemoryIndex::new(reserved as usize);
+                let target: usize = match memory_index.local_or_import(module_info) {
+                    LocalOrImport::Local(local_mem_index) => {
+                        let mem_desc = &module_info.memories[local_mem_index];
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => vmcalls::local_dynamic_memory_grow as usize,
+                            MemoryType::Static => vmcalls::local_static_memory_grow as usize,
+                            MemoryType::SharedStatic => unimplemented!(),
+                        }
+                    }
+                    LocalOrImport::Import(import_mem_index) => {
+                        let mem_desc = &module_info.imported_memories[import_mem_index].1;
+                        match mem_desc.memory_type() {
+                            MemoryType::Dynamic => vmcalls::imported_dynamic_memory_grow as usize,
+                            MemoryType::Static => vmcalls::imported_static_memory_grow as usize,
+                            MemoryType::SharedStatic => unimplemented!(),
+                        }
+                    }
+                };
+
+                let (param_pages, param_pages_lot) = self.value_stack.pop().unwrap();
+
+                if param_pages_lot == LocalOrTemp::Temp {
+                    self.machine.release_locations_only_regs(&[param_pages]);
+                }
+
+                Self::emit_call_sysv(a, &mut self.machine, |a| {
+                    a.emit_mov(Size::S64, Location::Imm64(target as u64), Location::GPR(GPR::RAX));
+                    a.emit_call_location(Location::GPR(GPR::RAX));
+                }, ::std::iter::once(Location::Imm32(memory_index.index() as u32)).chain(::std::iter::once(param_pages)));
+
+                if param_pages_lot == LocalOrTemp::Temp {
+                    self.machine.release_locations_only_stack(a, &[param_pages]);
+                }
+
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::I32Load { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 4, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S32, Location::Memory(addr, 0), ret,
+                    );
+                });
+            }
+            Operator::I32Load8U { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 1, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movzx,
+                        Size::S8, Location::Memory(addr, 0), Size::S32, ret,
+                    );
+                });
+            }
+            Operator::I32Load8S { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 1, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movsx,
+                        Size::S8, Location::Memory(addr, 0), Size::S32, ret,
+                    );
+                });
+            }
+            Operator::I32Load16U { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 2, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movzx,
+                        Size::S16, Location::Memory(addr, 0), Size::S32, ret,
+                    );
+                });
+            }
+            Operator::I32Load16S { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 2, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movsx,
+                        Size::S16, Location::Memory(addr, 0), Size::S32, ret,
+                    );
+                });
+            }
+            Operator::I32Store { memarg } => {
+                let target_value = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target_addr = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target_addr, memarg.offset as usize, 4, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S32, target_value, Location::Memory(addr, 0),
+                    );
+                });
             }
             Operator::Unreachable => {
                 a.emit_ud2();
