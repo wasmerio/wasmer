@@ -30,9 +30,10 @@ wasmer-runtime-abi = { path = "lib/runtime-abi", optional = true }
 wasmer-runtime-core = { path = "lib/runtime-core" }
 wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
+wasmer-wasi = { path = "lib/wasi", optional = true }
 
 [workspace]
-members = ["lib/clif-backend", "lib/dynasm-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend"]
+members = ["lib/clif-backend", "lib/dynasm-backend", "lib/runtime", "lib/runtime-abi", "lib/runtime-core", "lib/emscripten", "lib/spectests", "lib/win-exception-handler", "lib/runtime-c-api", "lib/llvm-backend", "lib/wasi"]
 
 [build-dependencies]
 wabt = "0.7.2"
@@ -45,4 +46,5 @@ debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 fast-tests = []
 llvm = ["wasmer-llvm-backend"]
 dynasm = ["wasmer-dynasm-backend"]
+wasi = ["wasmer-wasi"]
 vfs = ["wasmer-runtime-abi"]

@@ -7,7 +7,7 @@ use wasmer_runtime::{
 use wasmer_runtime_core::backend::CompilerConfig;
 use wasmer_runtime_core::types::Value;
 
-use wasmer_emscripten::{is_emscripten_module, run_emscripten_instance};
+use wasmer_emscripten::run_emscripten_instance;
 
 pub struct ResultObject {
     /// A webassembly::Module object representing the compiled WebAssembly module.
@@ -21,6 +21,7 @@ pub struct ResultObject {
 #[derive(PartialEq)]
 pub enum InstanceABI {
     Emscripten,
+    WASI,
     None,
 }
 
@@ -92,18 +93,24 @@ pub fn compile_with_config(
 pub fn run_instance(
     module: &Module,
     instance: &mut Instance,
+    abi: InstanceABI,
     path: &str,
     args: Vec<&str>,
 ) -> CallResult<()> {
-    if is_emscripten_module(module) {
-        run_emscripten_instance(module, instance, path, args)?;
-    } else {
-        let args: Vec<Value> = args
-            .into_iter()
-            .map(|x| Value::I32(x.parse().unwrap()))
-            .collect();
-        instance.call("main", &args)?;
-    };
-
+    match abi {
+        InstanceABI::Emscripten => {
+            run_emscripten_instance(module, instance, path, args)?;
+        }
+        InstanceABI::WASI => {
+            instance.call("_start", &[])?;
+        }
+        InstanceABI::None => {
+            let args: Vec<Value> = args
+                .into_iter()
+                .map(|x| Value::I32(x.parse().unwrap()))
+                .collect();
+            instance.call("main", &args)?;
+        }
+    }
     Ok(())
 }

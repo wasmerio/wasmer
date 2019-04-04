@@ -119,7 +119,6 @@ impl std::error::Error for LinkError {}
 /// The main way to do this is `Instance.call`.
 ///
 /// Comparing two `RuntimeError`s always evaluates to false.
-#[derive(Debug)]
 pub enum RuntimeError {
     Trap { msg: Box<str> },
     Exception { data: Box<[Value]> },
@@ -141,8 +140,24 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::Exception { ref data } => {
                 write!(f, "Uncaught WebAssembly exception: {:?}", data)
             }
-            RuntimeError::Panic { data: _ } => write!(f, "User-defined \"panic\""),
+            RuntimeError::Panic { data } => {
+                let msg = if let Some(s) = data.downcast_ref::<String>() {
+                    s
+                } else if let Some(s) = data.downcast_ref::<&str>() {
+                    s
+                } else {
+                    "user-defined, opaque"
+                };
+
+                write!(f, "{}", msg)
+            }
         }
+    }
+}
+
+impl std::fmt::Debug for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -197,7 +212,6 @@ impl std::error::Error for ResolveError {}
 /// be the `CallError::Runtime(RuntimeError)` variant.
 ///
 /// Comparing two `CallError`s always evaluates to false.
-#[derive(Debug)]
 pub enum CallError {
     Resolve(ResolveError),
     Runtime(RuntimeError),
@@ -214,6 +228,15 @@ impl std::fmt::Display for CallError {
         match self {
             CallError::Resolve(resolve_error) => write!(f, "Call error: {}", resolve_error),
             CallError::Runtime(runtime_error) => write!(f, "Call error: {}", runtime_error),
+        }
+    }
+}
+
+impl std::fmt::Debug for CallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CallError::Resolve(resolve_err) => write!(f, "ResolveError: {:?}", resolve_err),
+            CallError::Runtime(runtime_err) => write!(f, "RuntimeError: {:?}", runtime_err),
         }
     }
 }
