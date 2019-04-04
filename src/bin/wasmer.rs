@@ -12,9 +12,10 @@ use structopt::StructOpt;
 
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
-use wasmer_emscripten;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
 use wasmer_runtime_core::backend::CompilerConfig;
+#[cfg(feature = "wasi")]
+use wasmer_wasi;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -200,7 +201,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
 
-    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
+    // TODO: refactor this
+    #[cfg(not(feature = "wasi"))]
+    let (abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
             InstanceABI::Emscripten,
@@ -215,6 +218,29 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
     };
 
+    #[cfg(feature = "wasi")]
+    let (abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
+        (
+            InstanceABI::WASI,
+            wasmer_wasi::generate_import_object(
+                [options.path.to_str().unwrap().to_owned()]
+                    .iter()
+                    .chain(options.args.iter())
+                    .cloned()
+                    .map(|arg| arg.into_bytes())
+                    .collect(),
+                env::vars()
+                    .map(|(k, v)| format!("{}={}", k, v).into_bytes())
+                    .collect(),
+            ),
+        )
+    } else {
+        (
+            InstanceABI::None,
+            wasmer_runtime_core::import::ImportObject::new(),
+        )
+    };
+
     let mut instance = module
         .instantiate(&import_object)
         .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
@@ -222,6 +248,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     webassembly::run_instance(
         &module,
         &mut instance,
+        abi,
         options.path.to_str().unwrap(),
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
