@@ -1,0 +1,22 @@
+[package]
+name = "wasmer-wasi"
+version = "0.2.1"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+edition = "2018"
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
+libc = "0.2.50"
+rand = "0.6.5"
+# wasmer-runtime-abi = { path = "../runtime-abi" }
+hashbrown = "0.1.8"
+generational-arena = "0.2.2"
+log = "0.4.6"
+byteorder = "1.3.1"
+
+[dependencies.zbox]
+git = "https://github.com/wasmerio/zbox"
+branch = "bundle-libsodium"
+features = ["libsodium-bundled"]

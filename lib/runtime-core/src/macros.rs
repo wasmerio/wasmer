@@ -38,6 +38,13 @@ macro_rules! func {
 ///     },
 /// };
 ///
+/// let imports_with_state = imports! {
+///     || (0 as _, |_a| {}),
+///     "env" => {
+///         "foo" => func!(foo),
+///     },
+/// };
+///
 /// fn foo(_: &mut Ctx, n: i32) -> i32 {
 ///     n
 /// }
@@ -50,6 +57,21 @@ macro_rules! imports {
         };
 
         let mut import_object = ImportObject::new();
+
+        $({
+            let ns = $crate::__imports_internal!($ns);
+
+            import_object.register($ns_name, ns);
+        })*
+
+        import_object
+    }};
+    ($state_gen:expr, $( $ns_name:expr => $ns:tt, )* ) => {{
+        use $crate::{
+            import::{ImportObject, Namespace},
+        };
+
+        let mut import_object = ImportObject::new_with_data($state_gen);
 
         $({
             let ns = $crate::__imports_internal!($ns);

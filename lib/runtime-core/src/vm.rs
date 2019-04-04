@@ -25,7 +25,7 @@ pub struct Ctx {
     module: *const ModuleInner,
 
     pub data: *mut c_void,
-    pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
+    pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
 
 /// The internal context of the currently running WebAssembly instance.
@@ -100,7 +100,7 @@ impl Ctx {
         import_backing: &mut ImportBacking,
         module: &ModuleInner,
         data: *mut c_void,
-        data_finalizer: extern "C" fn(*mut c_void),
+        data_finalizer: fn(*mut c_void),
     ) -> Self {
         Self {
             internal: InternalCtx {
@@ -481,7 +481,7 @@ mod vm_ctx_tests {
         str: String,
     }
 
-    extern "C" fn test_data_finalizer(data: *mut c_void) {
+    fn test_data_finalizer(data: *mut c_void) {
         let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
         assert_eq!(test_data.x, 10);
         assert_eq!(test_data.y, true);

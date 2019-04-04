@@ -12,9 +12,10 @@ use structopt::StructOpt;
 
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
-use wasmer_emscripten;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
-use wasmer_runtime_core::backend::CompilerConfig;
+use wasmer_runtime_core::{self, backend::CompilerConfig};
+#[cfg(feature = "wasi")]
+use wasmer_wasi;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -27,6 +28,10 @@ enum CLIOptions {
     /// Wasmer cache
     #[structopt(name = "cache")]
     Cache(Cache),
+
+    /// Validate a Web Assembly binary
+    #[structopt(name = "validate")]
+    Validate(Validate),
 
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
@@ -61,6 +66,13 @@ enum Cache {
     /// Display the location of the cache
     #[structopt(name = "dir")]
     Dir,
+}
+
+#[derive(Debug, StructOpt)]
+struct Validate {
+    /// Input file
+    #[structopt(parse(from_os_str))]
+    path: PathBuf,
 }
 
 /// Read the contents of a file
@@ -200,7 +212,9 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
 
-    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
+    // TODO: refactor this
+    #[cfg(not(feature = "wasi"))]
+    let (abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
             InstanceABI::Emscripten,
@@ -215,6 +229,29 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
     };
 
+    #[cfg(feature = "wasi")]
+    let (abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
+        (
+            InstanceABI::WASI,
+            wasmer_wasi::generate_import_object(
+                [options.path.to_str().unwrap().to_owned()]
+                    .iter()
+                    .chain(options.args.iter())
+                    .cloned()
+                    .map(|arg| arg.into_bytes())
+                    .collect(),
+                env::vars()
+                    .map(|(k, v)| format!("{}={}", k, v).into_bytes())
+                    .collect(),
+            ),
+        )
+    } else {
+        (
+            InstanceABI::None,
+            wasmer_runtime_core::import::ImportObject::new(),
+        )
+    };
+
     let mut instance = module
         .instantiate(&import_object)
         .map_err(|e| format!("Can't instantiate module: {:?}", e))?;
@@ -222,6 +259,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     webassembly::run_instance(
         &module,
         &mut instance,
+        abi,
         options.path.to_str().unwrap(),
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
@@ -237,6 +275,42 @@ fn run(options: Run) {
             eprintln!("{:?}", message);
             exit(1);
         }
+    }
+}
+
+fn validate_wasm(validate: Validate) -> Result<(), String> {
+    let wasm_path = validate.path;
+    let wasm_path_as_str = wasm_path.to_str().unwrap();
+
+    let wasm_binary: Vec<u8> = read_file_contents(&wasm_path).map_err(|err| {
+        format!(
+            "Can't read the file {}: {}",
+            wasm_path.as_os_str().to_string_lossy(),
+            err
+        )
+    })?;
+
+    if !utils::is_wasm_binary(&wasm_binary) {
+        return Err(format!(
+            "Cannot recognize \"{}\" as a WASM binary",
+            wasm_path_as_str,
+        ));
+    }
+
+    wasmer_runtime_core::validate_and_report_errors(&wasm_binary)
+        .map_err(|err| format!("Validation failed: {}", err))?;
+
+    Ok(())
+}
+
+/// Runs logic for the `validate` subcommand
+fn validate(validate: Validate) {
+    match validate_wasm(validate) {
+        Err(message) => {
+            eprintln!("Error: {}", message);
+            exit(-1);
+        }
+        _ => (),
     }
 }
 
@@ -264,6 +338,9 @@ fn main() {
                 println!("{}", get_cache_dir().to_string_lossy());
             }
         },
+        CLIOptions::Validate(validate_options) => {
+            validate(validate_options);
+        }
         #[cfg(target_os = "windows")]
         CLIOptions::Cache(_) => {
             println!("Caching is disabled for Windows.");
