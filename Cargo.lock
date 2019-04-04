@@ -2349,7 +2349,7 @@ dependencies = [
  "serde-bench 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_bytes 0.10.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmparser 0.29.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2403,6 +2403,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "wasmparser"
 version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "wasmparser"
+version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -2779,6 +2784,7 @@ dependencies = [
 "checksum wasmparser 0.22.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f46e666ecb4a406483a59a49f9d0c17f327e70da53a128eccddae2eadb95865c"
 "checksum wasmparser 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b5e01c420bc7d36e778bd242e1167b079562ba8b34087122cc9057187026d060"
 "checksum wasmparser 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)" = "40f426b1929bd26517fb10702e2a8e520d1845c49567aa4d244f426f10b206c1"
+"checksum wasmparser 0.29.2 (registry+https://github.com/rust-lang/crates.io-index)" = "981a8797cf89762e0233ec45fae731cb79a4dfaee12d9f0fe6cee01e4ac58d00"
 "checksum which 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b57acb10231b9493c8472b20cb57317d0679a49e0bdbee44b3b803a6473af164"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "f10e386af2b13e47c89e7236a7a14a086791a2b88ebad6df9bf42040195cf770"

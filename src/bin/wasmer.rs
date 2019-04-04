@@ -13,7 +13,7 @@ use structopt::StructOpt;
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
-use wasmer_runtime_core::backend::CompilerConfig;
+use wasmer_runtime_core::{self, backend::CompilerConfig};
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
 
@@ -28,6 +28,10 @@ enum CLIOptions {
     /// Wasmer cache
     #[structopt(name = "cache")]
     Cache(Cache),
+
+    /// Validate a Web Assembly binary
+    #[structopt(name = "validate")]
+    Validate(Validate),
 
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
@@ -62,6 +66,13 @@ enum Cache {
     /// Display the location of the cache
     #[structopt(name = "dir")]
     Dir,
+}
+
+#[derive(Debug, StructOpt)]
+struct Validate {
+    /// Input file
+    #[structopt(parse(from_os_str))]
+    path: PathBuf,
 }
 
 /// Read the contents of a file
@@ -267,6 +278,42 @@ fn run(options: Run) {
     }
 }
 
+fn validate_wasm(validate: Validate) -> Result<(), String> {
+    let wasm_path = validate.path;
+    let wasm_path_as_str = wasm_path.to_str().unwrap();
+
+    let wasm_binary: Vec<u8> = read_file_contents(&wasm_path).map_err(|err| {
+        format!(
+            "Can't read the file {}: {}",
+            wasm_path.as_os_str().to_string_lossy(),
+            err
+        )
+    })?;
+
+    if !utils::is_wasm_binary(&wasm_binary) {
+        return Err(format!(
+            "Cannot recognize \"{}\" as a WASM binary",
+            wasm_path_as_str,
+        ));
+    }
+
+    wasmer_runtime_core::validate_and_report_errors(&wasm_binary)
+        .map_err(|err| format!("Validation failed: {}", err))?;
+
+    Ok(())
+}
+
+/// Runs logic for the `validate` subcommand
+fn validate(validate: Validate) {
+    match validate_wasm(validate) {
+        Err(message) => {
+            eprintln!("Error: {}", message);
+            exit(-1);
+        }
+        _ => (),
+    }
+}
+
 fn main() {
     let options = CLIOptions::from_args();
     match options {
@@ -291,6 +338,9 @@ fn main() {
                 println!("{}", get_cache_dir().to_string_lossy());
             }
         },
+        CLIOptions::Validate(validate_options) => {
+            validate(validate_options);
+        }
         #[cfg(target_os = "windows")]
         CLIOptions::Cache(_) => {
             println!("Caching is disabled for Windows.");

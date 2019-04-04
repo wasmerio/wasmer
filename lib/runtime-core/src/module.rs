@@ -73,7 +73,7 @@ impl ModuleInfo {
                 let len = reader.bytes_remaining();
                 let bytes = reader.read_bytes(len)?;
                 let data = bytes.to_vec();
-                let name = String::from_utf8_lossy(name).to_string();
+                let name = name.to_string();
                 self.custom_sections.insert(name, data);
             }
         }

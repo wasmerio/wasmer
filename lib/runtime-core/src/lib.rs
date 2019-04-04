@@ -93,13 +93,18 @@ pub fn compile_with_config(
 /// WebAssembly specification. Returns `true` if validation
 /// succeeded, `false` if validation failed.
 pub fn validate(wasm: &[u8]) -> bool {
+    validate_and_report_errors(wasm).is_ok()
+}
+
+/// The same as `validate` but with an Error message on failure
+pub fn validate_and_report_errors(wasm: &[u8]) -> ::std::result::Result<(), String> {
     use wasmparser::WasmDecoder;
     let mut parser = wasmparser::ValidatingParser::new(wasm, None);
     loop {
         let state = parser.read();
         match *state {
-            wasmparser::ParserState::EndWasm => break true,
-            wasmparser::ParserState::Error(_) => break false,
+            wasmparser::ParserState::EndWasm => break Ok(()),
+            wasmparser::ParserState::Error(e) => break Err(format!("{}", e)),
             _ => {}
         }
     }
