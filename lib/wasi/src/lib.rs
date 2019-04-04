@@ -19,7 +19,7 @@ use wasmer_runtime_core::{func, import::ImportObject, imports};
 
 pub fn generate_import_object(args: Vec<Vec<u8>>, envs: Vec<Vec<u8>>) -> ImportObject {
     let state_gen = move || {
-        fn state_dtor(data: *mut c_void) {
+        fn state_destructor(data: *mut c_void) {
             unsafe {
                 drop(Box::from_raw(data as *mut WasiState));
             }
@@ -33,7 +33,7 @@ pub fn generate_import_object(args: Vec<Vec<u8>>, envs: Vec<Vec<u8>>) -> ImportO
 
         (
             Box::leak(state) as *mut WasiState as *mut c_void,
-            state_dtor as fn(*mut c_void),
+            state_destructor as fn(*mut c_void),
         )
     };
     imports! {
