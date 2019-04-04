@@ -8,7 +8,7 @@ pub mod windows;
 use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
-    state::{Kind, WasiState, MAX_SYMLINKS},
+    state::{Fd, Kind, WasiState, MAX_SYMLINKS},
 };
 use rand::{thread_rng, Rng};
 use std::cell::Cell;
@@ -768,7 +768,14 @@ pub fn fd_renumber(ctx: &mut Ctx, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_
     let state = get_wasi_state(ctx);
     let fd_entry = wasi_try!(state.fs.fd_map.get(&from).ok_or(__WASI_EBADF));
 
-    state.fs.fd_map.insert(to, fd_entry.clone());
+    state.fs.fd_map.insert(
+        to,
+        Fd {
+            // TODO: verify this is correct
+            rights: fd_entry.rights_inheriting,
+            ..*fd_entry
+        },
+    );
     __WASI_ESUCCESS
 }
 

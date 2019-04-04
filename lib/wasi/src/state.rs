@@ -63,7 +63,7 @@ impl WasiFs {
         Ok(Self {
             repo: RepoOpener::new()
                 .create(true)
-                .open("mem://foo", "")
+                .open("mem://wasmer-test-fs", "")
                 .map_err(|e| e.to_string())?,
             name_map: HashMap::new(),
             inodes: Arena::new(),
