@@ -759,25 +759,6 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     unsafe { uname(buf_addr) }
 }
 
-/// lstat64
-pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
-    debug!("emscripten::___syscall196 (lstat64) {}", _which);
-    let path_ptr: c_int = varargs.get(ctx);
-    let buf_ptr: c_int = varargs.get(ctx);
-    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const c_char;
-    let buf = emscripten_memory_pointer!(ctx.memory(0), buf_ptr) as *mut c_void;
-    let result = unsafe { lstat64(path, buf as _) };
-    debug!(
-        "=> path: {}, buf: {} = fd: {}\npath: {}\nlast os error: {}",
-        path_ptr,
-        buf_ptr,
-        result,
-        unsafe { std::ffi::CStr::from_ptr(path).to_str().unwrap() },
-        Error::last_os_error(),
-    );
-    result
-}
-
 /// fallocate
 pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall324 (fallocate) {}", _which);
