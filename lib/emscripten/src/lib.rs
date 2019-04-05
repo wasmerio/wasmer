@@ -247,6 +247,12 @@ pub fn run_emscripten_instance(
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
+    // ATINIT
+    // (used by C++)
+    if let Ok(_func) = instance.dyn_func("globalCtors") {
+        instance.call("globalCtors", &[])?;
+    }
+
     if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
         instance.call("___emscripten_environ_constructor", &[])?;
     }
@@ -269,7 +275,7 @@ pub fn run_emscripten_instance(
         ),
     };
 
-    // TODO atinit and atexit for emscripten
+    // TODO atexit for emscripten
     // println!("{:?}", data);
     Ok(())
 }
