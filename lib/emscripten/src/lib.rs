@@ -756,6 +756,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
         "asm2wasm" => {
             "f64-rem" => func!(crate::math::f64_rem),
+            "f64-to-int" => func!(crate::math::f64_to_int),
         },
     };
 
