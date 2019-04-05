@@ -194,8 +194,8 @@ pub fn ___syscall85(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 }
 
 pub fn ___syscall91(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
-    debug!("emscripten::___syscall91");
-    -1
+    debug!("emscripten::___syscall91 - stub");
+    0
 }
 
 pub fn ___syscall97(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
