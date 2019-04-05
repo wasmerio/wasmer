@@ -125,6 +125,8 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viidii: Option<Func<'a, (i32, i32, i32, f64, i32, i32)>>,
+    // REVIEW: is this okay?
+    pub temp_ret_0: i32,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -233,6 +235,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_vijiii,
             dyn_call_vijj,
             dyn_call_viidii,
+            temp_ret_0: 0,
         }
     }
 }

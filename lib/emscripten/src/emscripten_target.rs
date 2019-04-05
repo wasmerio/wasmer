@@ -5,13 +5,16 @@ use crate::env::get_emscripten_data;
 use libc::getdtablesize;
 use wasmer_runtime_core::vm::Ctx;
 
-pub fn setTempRet0(_ctx: &mut Ctx, _val: i32) {
-    debug!("emscripten::setTempRet0: {}", _val);
+pub fn setTempRet0(ctx: &mut Ctx, val: i32) {
+    debug!("emscripten::setTempRet0: {}", val);
+    get_emscripten_data(ctx).temp_ret_0 = val;
 }
-pub fn getTempRet0(_ctx: &mut Ctx) -> i32 {
+
+pub fn getTempRet0(ctx: &mut Ctx) -> i32 {
     debug!("emscripten::getTempRet0");
-    0
+    get_emscripten_data(ctx).temp_ret_0
 }
+
 pub fn invoke_i(ctx: &mut Ctx, index: i32) -> i32 {
     debug!("emscripten::invoke_i");
     if let Some(dyn_call_i) = &get_emscripten_data(ctx).dyn_call_i {
