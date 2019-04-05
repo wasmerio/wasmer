@@ -247,6 +247,12 @@ pub fn run_emscripten_instance(
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
+    // ATINIT
+    // (used by C++)
+    if let Ok(_func) = instance.dyn_func("globalCtors") {
+        instance.call("globalCtors", &[])?;
+    }
+
     if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
         instance.call("___emscripten_environ_constructor", &[])?;
     }
@@ -269,7 +275,7 @@ pub fn run_emscripten_instance(
         ),
     };
 
-    // TODO atinit and atexit for emscripten
+    // TODO atexit for emscripten
     // println!("{:?}", data);
     Ok(())
 }
@@ -607,6 +613,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___cxa_throw" => func!(crate::exception::___cxa_throw),
         "___cxa_begin_catch" => func!(crate::exception::___cxa_begin_catch),
         "___cxa_end_catch" => func!(crate::exception::___cxa_end_catch),
+        "___cxa_uncaught_exception" => func!(crate::exception::___cxa_uncaught_exception),
 
         // Time
         "_gettimeofday" => func!(crate::time::_gettimeofday),
@@ -619,6 +626,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_localtime" => func!(crate::time::_localtime),
         "_time" => func!(crate::time::_time),
         "_strftime" => func!(crate::time::_strftime),
+        "_strftime_l" => func!(crate::time::_strftime_l),
         "_localtime_r" => func!(crate::time::_localtime_r),
         "_gmtime_r" => func!(crate::time::_gmtime_r),
         "_mktime" => func!(crate::time::_mktime),
