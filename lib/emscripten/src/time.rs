@@ -306,7 +306,7 @@ pub fn _strftime(
 ) -> i32 {
     debug!(
         "emscripten::_strftime {} {} {} {}",
-        _s_ptr, _maxsize, _format_ptr, _tm_ptr
+        s_ptr, maxsize, format_ptr, tm_ptr
     );
 
     #[allow(clippy::cast_ptr_alignment)]
