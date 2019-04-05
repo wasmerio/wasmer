@@ -310,3 +310,20 @@ pub fn _strftime(
     );
     0
 }
+
+/// emscripten: _strftime_l
+pub fn _strftime_l(
+    ctx: &mut Ctx,
+    s_ptr: c_int,
+    maxsize: u32,
+    format_ptr: c_int,
+    tm_ptr: c_int,
+    _last: c_int,
+) -> i32 {
+    debug!(
+        "emscripten::_strftime_l {} {} {} {}",
+        s_ptr, maxsize, format_ptr, tm_ptr
+    );
+
+    _strftime(ctx, s_ptr, maxsize, format_ptr, tm_ptr)
+}

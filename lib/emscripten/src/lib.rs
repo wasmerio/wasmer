@@ -607,6 +607,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___cxa_throw" => func!(crate::exception::___cxa_throw),
         "___cxa_begin_catch" => func!(crate::exception::___cxa_begin_catch),
         "___cxa_end_catch" => func!(crate::exception::___cxa_end_catch),
+        "___cxa_uncaught_exception" => func!(crate::exception::___cxa_uncaught_exception),
 
         // Time
         "_gettimeofday" => func!(crate::time::_gettimeofday),
@@ -619,6 +620,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_localtime" => func!(crate::time::_localtime),
         "_time" => func!(crate::time::_time),
         "_strftime" => func!(crate::time::_strftime),
+        "_strftime_l" => func!(crate::time::_strftime_l),
         "_localtime_r" => func!(crate::time::_localtime_r),
         "_gmtime_r" => func!(crate::time::_gmtime_r),
         "_mktime" => func!(crate::time::_mktime),
