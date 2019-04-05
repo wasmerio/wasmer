@@ -1,4 +1,5 @@
 #[test]
+#[ignore]
 fn test_test_sscanf_5() {
     assert_emscripten_output!(
         "../../emtests/test_sscanf_5.wasm",

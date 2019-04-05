@@ -1,4 +1,5 @@
 #[test]
+#[ignore]
 fn test_test_zerodiv() {
     assert_emscripten_output!(
         "../../emtests/test_zerodiv.wasm",
