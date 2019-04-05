@@ -20,7 +20,7 @@ pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u
 pub fn _emscripten_get_heap_size(_ctx: &mut Ctx) -> u32 {
     debug!("emscripten::_emscripten_get_heap_size",);
     // TODO: Fix implementation
-    162_107_392
+    162_107_392 * 2
 }
 
 /// emscripten: _emscripten_resize_heap
