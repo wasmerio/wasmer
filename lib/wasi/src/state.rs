@@ -59,7 +59,6 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
-
     pub fn new() -> Result<Self, String> {
         debug!("wasi::fs::init");
         zbox_init_env();
