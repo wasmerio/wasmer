@@ -36,7 +36,7 @@ pub use self::error::Result;
 #[doc(inline)]
 pub use self::import::IsExport;
 #[doc(inline)]
-pub use self::instance::Instance;
+pub use self::instance::{Instance, DynFunc};
 #[doc(inline)]
 pub use self::module::Module;
 #[doc(inline)]
