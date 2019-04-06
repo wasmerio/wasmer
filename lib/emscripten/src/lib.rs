@@ -120,6 +120,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_viiji: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_vj: Option<Func<'a, (i32, i32, i32)>>,
     pub dyn_call_vij: Option<Func<'a, (i32, i32, i32, i32)>>,
     pub dyn_call_viji: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
@@ -178,6 +179,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_viiji = instance.func("dynCall_viiji").ok();
         let dyn_call_viijiii = instance.func("dynCall_viijiii").ok();
         let dyn_call_viijj = instance.func("dynCall_viijj").ok();
+        let dyn_call_vj = instance.func("dynCall_vj").ok();
         let dyn_call_vij = instance.func("dynCall_vij").ok();
         let dyn_call_viji = instance.func("dynCall_viji").ok();
         let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
@@ -229,6 +231,7 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_viiji,
             dyn_call_viijiii,
             dyn_call_viijj,
+            dyn_call_vj,
             dyn_call_vij,
             dyn_call_viji,
             dyn_call_vijiii,
@@ -667,6 +670,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_iiii" => func!(crate::emscripten_target::invoke_iiii),
         "invoke_v" => func!(crate::emscripten_target::invoke_v),
         "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
+        "invoke_vj" => func!(crate::emscripten_target::invoke_vj),
         "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
         "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
         "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),

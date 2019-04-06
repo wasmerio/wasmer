@@ -623,6 +623,14 @@ pub fn invoke_viijj(
         panic!("dyn_call_viijj is set to None");
     }
 }
+pub fn invoke_vj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) {
+    debug!("emscripten::invoke_vj");
+    if let Some(dyn_call_vj) = &get_emscripten_data(ctx).dyn_call_vj {
+        dyn_call_vj.call(index, a1, a2).unwrap();
+    } else {
+        panic!("dyn_call_vj is set to None");
+    }
+}
 pub fn invoke_vij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_vij");
     if let Some(dyn_call_vij) = &get_emscripten_data(ctx).dyn_call_vij {
