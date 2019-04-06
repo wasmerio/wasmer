@@ -51,6 +51,15 @@ test-emscripten:
 test-emscripten-nightly:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features dynasm -- --test-threads=1 $(runargs)
 
+dynasm-debug-release:
+	cargo +nightly build --features "dynasm debug" --release
+
+dynasm-release:
+	cargo +nightly build --features "dynasm" --release
+
+dynasm-build:
+	cargo +nightly build --features "dynasm debug"
+
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
