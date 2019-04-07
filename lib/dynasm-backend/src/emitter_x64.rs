@@ -91,6 +91,7 @@ pub trait Emitter {
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_sub(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_imul(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR);
     fn emit_div(&mut self, sz: Size, divisor: Location);
     fn emit_idiv(&mut self, sz: Size, divisor: Location);
     fn emit_shl(&mut self, sz: Size, src: Location, dst: Location);
@@ -461,6 +462,9 @@ impl Emitter for Assembler {
         binop_gpr_gpr!(imul, self, sz, src, dst, {
             binop_mem_gpr!(imul, self, sz, src, dst, {unreachable!()})
         });
+    }
+    fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR) {
+        dynasm!(self ; imul Rq(dst as u8), Rq(dst as u8), src as i32);
     }
     fn emit_div(&mut self, sz: Size, divisor: Location) {
         unop_gpr_or_mem!(div, self, sz, divisor, { unreachable!() });

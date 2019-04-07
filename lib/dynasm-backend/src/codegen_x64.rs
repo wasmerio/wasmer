@@ -17,7 +17,7 @@ use wasmer_runtime_core::{
     structures::{Map, TypedIndex},
     types::{
         FuncIndex, FuncSig, ImportedMemoryIndex, LocalFuncIndex, LocalGlobalIndex,
-        LocalMemoryIndex, LocalOrImport, MemoryIndex, SigIndex, Type, Value,
+        LocalMemoryIndex, LocalOrImport, MemoryIndex, SigIndex, Type, Value, TableIndex,
     },
     units::Pages,
     vm::{self, ImportBacking, LocalGlobal, LocalMemory, LocalTable},
@@ -840,6 +840,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    // This function must not use any temporary register before `cb` is called.
     fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Assembler)>(a: &mut Assembler, m: &mut Machine, cb: F, params: I) {
         let params: Vec<_> = params.collect();
 
@@ -1324,9 +1325,68 @@ impl FunctionCodeGenerator for X64FunctionCode {
 
                 self.machine.release_locations_only_stack(a, &released);
 
-                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
-                self.value_stack.push((ret, LocalOrTemp::Temp));
-                a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                if return_types.len() > 0 {
+                    let ret = self.machine.acquire_locations(a, &[return_types[0]], false)[0];
+                    self.value_stack.push((ret, LocalOrTemp::Temp));
+                    a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                }
+            }
+            Operator::CallIndirect { index, table_index } => {
+                assert_eq!(table_index, 0);
+                let sig = self.signatures.get(SigIndex::new(index as usize)).unwrap();
+                let param_types: Vec<WpType> =
+                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                let return_types: Vec<WpType> =
+                    sig.returns().iter().cloned().map(type_to_wp_type).collect();
+
+                let func_index = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                let params: Vec<_> = self.value_stack.drain(self.value_stack.len() - param_types.len()..).collect();
+                let released: Vec<Location> = params.iter()
+                    .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
+                    .map(|&(x, _)| x)
+                    .collect();
+                self.machine.release_locations_only_regs(&released);
+
+                let table_base = self.machine.acquire_temp_gpr().unwrap();
+                let table_count = self.machine.acquire_temp_gpr().unwrap();
+
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        match TableIndex::new(0).local_or_import(module_info) {
+                            LocalOrImport::Local(_) => vm::Ctx::offset_tables(),
+                            LocalOrImport::Import(_) => vm::Ctx::offset_imported_tables(),
+                        } as i32
+                    ),
+                    Location::GPR(table_base),
+                );
+                a.emit_mov(Size::S64, Location::Memory(table_base, 0), Location::GPR(table_base));
+                a.emit_mov(Size::S32, Location::Memory(table_base, LocalTable::offset_count() as i32), Location::GPR(table_count));
+                a.emit_mov(Size::S64, Location::Memory(table_base, LocalTable::offset_base() as i32), Location::GPR(table_base));
+                a.emit_cmp(Size::S32, func_index, Location::GPR(table_count));
+                a.emit_conditional_trap(Condition::BelowEqual);
+                a.emit_mov(Size::S64, func_index, Location::GPR(table_count));
+                a.emit_imul_imm32_gpr64(vm::Anyfunc::size() as u32, table_count);
+                a.emit_add(Size::S64, Location::GPR(table_base), Location::GPR(table_count));
+                a.emit_cmp(Size::S32, Location::Imm32(index), Location::Memory(table_count, (vm::Anyfunc::offset_sig_id() as usize) as i32));
+                a.emit_conditional_trap(Condition::NotEqual);
+
+                self.machine.release_temp_gpr(table_count);
+                self.machine.release_temp_gpr(table_base);
+
+                Self::emit_call_sysv(a, &mut self.machine, |a| {
+                    a.emit_call_location(Location::Memory(table_count, (vm::Anyfunc::offset_func() as usize) as i32));
+                }, params.iter().map(|&(x, _)| x));
+
+                self.machine.release_locations_only_stack(a, &released);
+
+                if return_types.len() > 0 {
+                    let ret = self.machine.acquire_locations(a, &[return_types[0]], false)[0];
+                    self.value_stack.push((ret, LocalOrTemp::Temp));
+                    a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                }
             }
             Operator::If { ty } => {
                 let label_end = a.get_label();
