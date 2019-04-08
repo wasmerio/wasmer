@@ -90,7 +90,7 @@ extern "C" {
 }
 
 #[cfg(not(target_os = "macos"))]
-use libc::{fallocate, fdatasync, ftruncate64, lstat64, madvise, stat64, wait4};
+use libc::{fallocate, fdatasync, ftruncate64, lstat, madvise, wait4};
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
@@ -768,16 +768,14 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     let buf_ptr: u32 = varargs.get(ctx);
     let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
     unsafe {
-        #[cfg(target_os = "macos")]
         let mut stat: stat = std::mem::zeroed();
-        #[cfg(not(target_os = "macos"))]
-        let mut stat: stat64 = std::mem::zeroed();
 
-        #[cfg(target_os = "macos")]
         let stat_ptr = &mut stat as *mut stat as *mut c_void;
-        #[cfg(not(target_os = "macos"))]
-        let stat_ptr = &mut stat64 as *mut stat64;
+        #[cfg(target_os = "macos")]
         let ret = lstat64(path, stat_ptr);
+        #[cfg(not(target_os = "macos"))]
+        let ret = lstat(path, stat_ptr);
+
         debug!("ret: {}", ret);
         if ret != 0 {
             return ret;
