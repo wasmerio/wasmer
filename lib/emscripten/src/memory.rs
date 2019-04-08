@@ -1,6 +1,9 @@
 use super::process::abort_with_message;
 use libc::{c_int, c_void, memcpy, size_t};
-use wasmer_runtime_core::vm::Ctx;
+use wasmer_runtime_core::{
+    units::{Pages, WASM_MAX_PAGES, WASM_PAGE_SIZE},
+    vm::Ctx,
+};
 
 /// emscripten: _emscripten_memcpy_big
 pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u32 {
@@ -23,9 +26,34 @@ pub fn _emscripten_get_heap_size(ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: _emscripten_resize_heap
-pub fn _emscripten_resize_heap(_ctx: &mut Ctx, _requested_size: u32) -> u32 {
-    debug!("emscripten::_emscripten_resize_heap {}", _requested_size);
-    // TODO: Fix implementation
+/// Note: this function only allows growing the size of heap
+pub fn _emscripten_resize_heap(ctx: &mut Ctx, requested_size: u32) -> u32 {
+    debug!("emscripten::_emscripten_resize_heap {}", requested_size);
+    let current_memory_pages = ctx.memory(0).size();
+    let current_memory = current_memory_pages.bytes().0 as u32;
+
+    if requested_size > current_memory {
+        let remainder = (requested_size - current_memory) as usize % WASM_PAGE_SIZE;
+        let delta = {
+            let delta = (requested_size - current_memory) as usize / WASM_PAGE_SIZE;
+
+            if remainder != 0 {
+                delta + 1
+            } else {
+                delta
+            }
+        };
+
+        if current_memory_pages.0 as usize + delta > WASM_MAX_PAGES {
+            // TODO: handle this?
+            debug!("Can't exceed max pages");
+            return 0;
+        }
+
+        if let Ok(v) = ctx.memory(0).grow(Pages(delta as u32)) {
+            return v.0;
+        }
+    }
     0
 }
 
