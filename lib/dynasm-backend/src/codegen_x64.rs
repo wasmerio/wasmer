@@ -525,6 +525,7 @@ impl X64FunctionCode {
             (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,
             (Location::Imm64(_), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
             (Location::Imm64(_), Location::GPR(_)) if (op as *const u8 != Assembler::emit_mov as *const u8) => RelaxMode::SrcToGPR,
+            (_, Location::XMM(_)) => RelaxMode::SrcToGPR,
             _ if (op as *const u8 == Assembler::emit_imul as *const u8) => RelaxMode::BothToGPR, // TODO: optimize this
             _ => RelaxMode::Direct,
         };
@@ -561,6 +562,75 @@ impl X64FunctionCode {
                 op(a, sz, src, dst);
             }
         }
+    }
+
+    fn emit_relaxed_avx(
+        a: &mut Assembler,
+        m: &mut Machine,
+        op: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) {
+        let tmp1 = m.acquire_temp_xmm().unwrap();
+        let tmp2 = m.acquire_temp_xmm().unwrap();
+        let tmp3 = m.acquire_temp_xmm().unwrap();
+        let tmpg = m.acquire_temp_gpr().unwrap();
+
+        let src1 = match src1 {
+            Location::XMM(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                a.emit_mov(Size::S64, src1, Location::XMM(tmp1));
+                tmp1
+            }
+            Location::Imm32(_) => {
+                a.emit_mov(Size::S32, src1, Location::GPR(tmpg));
+                a.emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp1));
+                tmp1
+            }
+            Location::Imm64(_) => {
+                a.emit_mov(Size::S64, src1, Location::GPR(tmpg));
+                a.emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp1));
+                tmp1
+            }
+            _ => unreachable!()
+        };
+
+        let src2 = match src2 {
+            Location::XMM(x) => XMMOrMemory::XMM(x),
+            Location::Memory(base, disp) => XMMOrMemory::Memory(base, disp),
+            Location::GPR(_) => {
+                a.emit_mov(Size::S64, src2, Location::XMM(tmp2));
+                XMMOrMemory::XMM(tmp2)
+            }
+            Location::Imm32(_) => {
+                a.emit_mov(Size::S32, src2, Location::GPR(tmpg));
+                a.emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp2));
+                XMMOrMemory::XMM(tmp2)
+            }
+            Location::Imm64(_) => {
+                a.emit_mov(Size::S64, src2, Location::GPR(tmpg));
+                a.emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp2));
+                XMMOrMemory::XMM(tmp2)
+            }
+            _ => unreachable!()
+        };
+
+        match dst {
+            Location::XMM(x) => {
+                op(a, src1, src2, x);
+            },
+            Location::Memory(_, _) => {
+                op(a, src1, src2, tmp3);
+                a.emit_mov(Size::S64, Location::XMM(tmp3), dst);
+            },
+            _ => unreachable!(),
+        }
+
+        m.release_temp_gpr(tmpg);
+        m.release_temp_xmm(tmp3);
+        m.release_temp_xmm(tmp2);
+        m.release_temp_xmm(tmp1);
     }
 
     fn emit_binop_i32(
@@ -849,6 +919,33 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    fn emit_fp_binop_avx(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
+    ) {
+        let loc_b = get_location_released(a, m, value_stack.pop().unwrap());
+        let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
+        let ret = m.acquire_locations(a, &[WpType::F64], false)[0];
+        value_stack.push((ret, LocalOrTemp::Temp));
+
+        Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret);
+    }
+
+    fn emit_fp_unop_avx(
+        a: &mut Assembler,
+        m: &mut Machine,
+        value_stack: &mut Vec<(Location, LocalOrTemp)>,
+        f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
+    ) {
+        let loc = get_location_released(a, m, value_stack.pop().unwrap());
+        let ret = m.acquire_locations(a, &[WpType::F64], false)[0];
+        value_stack.push((ret, LocalOrTemp::Temp));
+
+        Self::emit_relaxed_avx(a, m, f, loc, loc, ret);
+    }
+
     // This function must not use any temporary register before `cb` is called.
     fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Assembler)>(a: &mut Assembler, m: &mut Machine, cb: F, params: I) {
         let params: Vec<_> = params.collect();
@@ -857,6 +954,15 @@ impl X64FunctionCode {
         let used_gprs = m.get_used_gprs();
         for r in used_gprs.iter() {
             a.emit_push(Size::S64, Location::GPR(*r));
+        }
+
+        // Save used XMM registers.
+        let used_xmms = m.get_used_xmms();
+        if used_xmms.len() > 0 {
+            a.emit_sub(Size::S64, Location::Imm32((used_xmms.len() * 8) as u32), Location::GPR(GPR::RSP));
+            for (i, r) in used_xmms.iter().enumerate() {
+                a.emit_mov(Size::S64, Location::XMM(*r), Location::Memory(GPR::RSP, (i * 8) as i32));
+            }
         }
 
         let mut stack_offset: usize = 0;
@@ -912,6 +1018,14 @@ impl X64FunctionCode {
         // Restore stack.
         if stack_offset > 0 {
             a.emit_add(Size::S64, Location::Imm32(stack_offset as u32), Location::GPR(GPR::RSP));
+        }
+
+        // Restore XMMs.
+        if used_xmms.len() > 0 {
+            for (i, r) in used_xmms.iter().enumerate() {
+                a.emit_mov(Size::S64, Location::Memory(GPR::RSP, (i * 8) as i32), Location::XMM(*r));
+            }
+            a.emit_add(Size::S64, Location::Imm32((used_xmms.len() * 8) as u32), Location::GPR(GPR::RSP));
         }
 
         // Restore GPRs.
@@ -1155,7 +1269,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
                 a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
-                a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_cdq();
                 Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_idiv, Size::S32, loc_b);
                 a.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
                 self.value_stack.push((ret, LocalOrTemp::Temp));
@@ -1232,7 +1346,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
                 a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
-                a.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_cqo();
                 Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_idiv, Size::S64, loc_b);
                 a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
                 self.value_stack.push((ret, LocalOrTemp::Temp));
@@ -1308,6 +1422,45 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     Size::S32, loc, ret,
                 );
             }
+            
+            Operator::F32Const { value } => self.value_stack.push((Location::Imm32(value.bits()), LocalOrTemp::Temp)),
+            Operator::F32Add => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vaddss),
+            Operator::F32Sub => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vsubss),
+            Operator::F32Mul => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vmulss),
+            Operator::F32Div => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vdivss),
+            Operator::F32Max => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vmaxss),
+            Operator::F32Min => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vminss),
+            Operator::F32Eq => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpeqss),
+            Operator::F32Ne => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpneqss),
+            Operator::F32Lt => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpltss),
+            Operator::F32Le => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpless),
+            Operator::F32Gt => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpgtss),
+            Operator::F32Ge => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpgess),
+            Operator::F32Nearest => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vroundss_nearest),
+            Operator::F32Floor => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vroundss_floor),
+            Operator::F32Ceil => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vroundss_ceil),
+            Operator::F32Trunc => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vroundss_trunc),
+            Operator::F32Sqrt => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vsqrtss),
+
+            Operator::F64Const { value } => self.value_stack.push((Location::Imm64(value.bits()), LocalOrTemp::Temp)),
+            Operator::F64Add => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vaddsd),
+            Operator::F64Sub => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vsubsd),
+            Operator::F64Mul => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vmulsd),
+            Operator::F64Div => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vdivsd),
+            Operator::F64Max => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vmaxsd),
+            Operator::F64Min => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vminsd),
+            Operator::F64Eq => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpeqsd),
+            Operator::F64Ne => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpneqsd),
+            Operator::F64Lt => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpltsd),
+            Operator::F64Le => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmplesd),
+            Operator::F64Gt => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpgtsd),
+            Operator::F64Ge => Self::emit_fp_binop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vcmpgesd),
+            Operator::F64Nearest => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vroundsd_nearest),
+            Operator::F64Floor => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vroundsd_floor),
+            Operator::F64Ceil => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vroundsd_ceil),
+            Operator::F64Trunc => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vroundsd_trunc),
+            Operator::F64Sqrt => Self::emit_fp_unop_avx(a, &mut self.machine, &mut self.value_stack, Assembler::emit_vsqrtsd),
+
             Operator::Call { function_index } => {
                 let function_index = function_index as usize;
                 let label = self

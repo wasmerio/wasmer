@@ -186,9 +186,7 @@ impl Machine {
         for ty in tys {
             let loc = match *ty {
                 WpType::F32 | WpType::F64 => {
-                    self.pick_xmm().map(Location::XMM).or_else(
-                        || self.pick_gpr().map(Location::GPR)
-                    )
+                    self.pick_xmm().map(Location::XMM)
                 },
                 WpType::I32 | WpType::I64 => {
                     self.pick_gpr().map(Location::GPR)

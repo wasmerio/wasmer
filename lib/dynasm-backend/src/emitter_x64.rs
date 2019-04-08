@@ -69,6 +69,12 @@ pub enum Size {
     S64,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum XMMOrMemory {
+    XMM(XMM),
+    Memory(GPR, i32),
+}
+
 pub trait Emitter {
     type Label;
     type Offset;
@@ -81,6 +87,8 @@ pub trait Emitter {
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lea_label(&mut self, label: Self::Label, dst: Location);
+    fn emit_cdq(&mut self);
+    fn emit_cqo(&mut self);
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_jmp(&mut self, condition: Condition, label: Self::Label);
     fn emit_jmp_location(&mut self, loc: Location);
@@ -107,6 +115,49 @@ pub trait Emitter {
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
+
+    fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpeqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpeqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpneqss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpneqsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpltss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpltsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpless(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmplesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpgtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpgtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcmpgess(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcmpgesd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vroundss_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vroundss_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vroundss_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vroundss_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vroundsd_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
@@ -306,6 +357,28 @@ macro_rules! trap_op {
     }
 }
 
+macro_rules! avx_fn {
+    ($ins:ident, $name:ident) => {
+        fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+            match src2 {
+                XMMOrMemory::XMM(x) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rx((x as u8))),
+                XMMOrMemory::Memory(base, disp) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), [Rq((base as u8)) + disp]),
+            }
+        }
+    }
+}
+
+macro_rules! avx_round_fn {
+    ($ins:ident, $name:ident, $mode:expr) => {
+        fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+            match src2 {
+                XMMOrMemory::XMM(x) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rx((x as u8)), $mode),
+                XMMOrMemory::Memory(base, disp) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), [Rq((base as u8)) + disp], $mode),
+            }
+        }
+    }
+}
+
 impl Emitter for Assembler {
     type Label = DynamicLabel;
     type Offset = AssemblyOffset;
@@ -385,6 +458,12 @@ impl Emitter for Assembler {
             },
             _ => unreachable!(),
         }
+    }
+    fn emit_cdq(&mut self) {
+        dynasm!(self ; cdq);
+    }
+    fn emit_cqo(&mut self) {
+        dynasm!(self ; cqo);
     }
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(xor, self, sz, src, dst, {unreachable!()});
@@ -581,6 +660,54 @@ impl Emitter for Assembler {
             _ => unreachable!(),
         }
     }
+
+    avx_fn!(vaddss, emit_vaddss);
+    avx_fn!(vaddsd, emit_vaddsd);
+
+    avx_fn!(vsubss, emit_vsubss);
+    avx_fn!(vsubsd, emit_vsubsd);
+
+    avx_fn!(vmulss, emit_vmulss);
+    avx_fn!(vmulsd, emit_vmulsd);
+
+    avx_fn!(vdivss, emit_vdivss);
+    avx_fn!(vdivsd, emit_vdivsd);
+
+    avx_fn!(vmaxss, emit_vmaxss);
+    avx_fn!(vmaxsd, emit_vmaxsd);
+
+    avx_fn!(vminss, emit_vminss);
+    avx_fn!(vminsd, emit_vminsd);
+
+    avx_fn!(vcmpeqss, emit_vcmpeqss);
+    avx_fn!(vcmpeqsd, emit_vcmpeqsd);
+
+    avx_fn!(vcmpneqss, emit_vcmpneqss);
+    avx_fn!(vcmpneqsd, emit_vcmpneqsd);
+
+    avx_fn!(vcmpltss, emit_vcmpltss);
+    avx_fn!(vcmpltsd, emit_vcmpltsd);
+
+    avx_fn!(vcmpless, emit_vcmpless);
+    avx_fn!(vcmplesd, emit_vcmplesd);
+
+    avx_fn!(vcmpgtss, emit_vcmpgtss);
+    avx_fn!(vcmpgtsd, emit_vcmpgtsd);
+
+    avx_fn!(vcmpgess, emit_vcmpgess);
+    avx_fn!(vcmpgesd, emit_vcmpgesd);
+
+    avx_fn!(vsqrtss, emit_vsqrtss);
+    avx_fn!(vsqrtsd, emit_vsqrtsd);
+
+    avx_round_fn!(vroundss, emit_vroundss_nearest, 0);
+    avx_round_fn!(vroundss, emit_vroundss_floor, 1);
+    avx_round_fn!(vroundss, emit_vroundss_ceil, 2);
+    avx_round_fn!(vroundss, emit_vroundss_trunc, 3);
+    avx_round_fn!(vroundsd, emit_vroundsd_nearest, 0);
+    avx_round_fn!(vroundsd, emit_vroundsd_floor, 1);
+    avx_round_fn!(vroundsd, emit_vroundsd_ceil, 2);
+    avx_round_fn!(vroundsd, emit_vroundsd_trunc, 3);
 
     fn emit_ud2(&mut self) {
         dynasm!(self ; ud2);
