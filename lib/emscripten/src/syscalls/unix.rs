@@ -57,6 +57,7 @@ use libc::{
     sockaddr,
     socket,
     socklen_t,
+    stat,
     symlink,
     uid_t,
     uname,
@@ -73,6 +74,7 @@ use libc::{
 };
 use wasmer_runtime_core::vm::Ctx;
 
+use crate::utils;
 #[allow(unused_imports)]
 use std::io::Error;
 use std::mem;
@@ -774,4 +776,22 @@ pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     {
         unimplemented!()
     }
+}
+
+/// lstat64
+pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+    debug!("emscripten::___syscall196 (lstat64) {}", _which);
+    let path_ptr: c_int = varargs.get(ctx);
+    let buf_ptr: u32 = varargs.get(ctx);
+    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
+    unsafe {
+        let mut stat: stat = std::mem::zeroed();
+        let ret = lstat64(path, &mut stat as *mut stat as *mut c_void);
+        debug!("ret: {}", ret);
+        if ret != 0 {
+            return ret;
+        }
+        utils::copy_stat_into_wasm(ctx, buf_ptr, &stat);
+    }
+    0
 }

@@ -418,24 +418,6 @@ pub fn ___syscall197(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     0
 }
 
-/// lstat64
-pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
-    debug!("emscripten::___syscall196 (lstat64) {}", _which);
-    let path_ptr: c_int = varargs.get(ctx);
-    let buf_ptr: u32 = varargs.get(ctx);
-    let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
-    unsafe {
-        let mut stat: stat = std::mem::zeroed();
-        let ret = lstat64(path, &mut stat as *mut stat as *mut c_void);
-        debug!("ret: {}", ret);
-        if ret != 0 {
-            return ret;
-        }
-        copy_stat_into_wasm(ctx, buf_ptr, &stat);
-    }
-    0
-}
-
 pub fn ___syscall220(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall220");
     -1
