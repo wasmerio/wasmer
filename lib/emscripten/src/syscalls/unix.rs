@@ -770,7 +770,11 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     unsafe {
         let mut stat: stat = std::mem::zeroed();
 
+        #[cfg(target_os = "macos")]
         let stat_ptr = &mut stat as *mut stat as *mut c_void;
+        #[cfg(not(target_os = "macos"))]
+        let stat_ptr = &mut stat as *mut stat;
+
         #[cfg(target_os = "macos")]
         let ret = lstat64(path, stat_ptr);
         #[cfg(not(target_os = "macos"))]
