@@ -1,5 +1,5 @@
 use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
-use std::{borrow::Cow, mem};
+use std::borrow::Cow;
 
 /// Represents a WebAssembly type.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
