@@ -80,6 +80,7 @@ pub trait Emitter {
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_lea_label(&mut self, label: Self::Label, dst: Location);
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_jmp(&mut self, condition: Condition, label: Self::Label);
     fn emit_jmp_location(&mut self, loc: Location);
@@ -373,6 +374,14 @@ impl Emitter for Assembler {
             },
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!(self ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
+            },
+            _ => unreachable!(),
+        }
+    }
+    fn emit_lea_label(&mut self, label: Self::Label, dst: Location) {
+        match dst {
+            Location::GPR(x) => {
+                dynasm!(self ; lea Rq(x as u8), [=>label]);
             },
             _ => unreachable!(),
         }

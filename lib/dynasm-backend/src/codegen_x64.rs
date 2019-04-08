@@ -227,13 +227,15 @@ impl ProtectedCaller for X64ExecutionContext {
             }
         }).collect();
         let ret = unsafe {
-            CONSTRUCT_STACK_AND_CALL_WASM(
-                buffer.as_ptr() as *const u8,
-                buffer.as_ptr().offset(buffer.len() as isize) as *const u8,
-                _vmctx,
-                ptr as _,
-            )
-        };
+            protect_unix::call_protected(|| {
+                CONSTRUCT_STACK_AND_CALL_WASM(
+                    buffer.as_ptr() as *const u8,
+                    buffer.as_ptr().offset(buffer.len() as isize) as *const u8,
+                    _vmctx,
+                    ptr as _,
+                )
+            })
+        }?;
         Ok(if let Some(ty) = return_ty {
             vec![match ty {
                 WpType::I32 => Value::I32(ret as i32),
@@ -523,6 +525,7 @@ impl X64FunctionCode {
             (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,
             (Location::Imm64(_), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
             (Location::Imm64(_), Location::GPR(_)) if (op as *const u8 != Assembler::emit_mov as *const u8) => RelaxMode::SrcToGPR,
+            _ if (op as *const u8 == Assembler::emit_imul as *const u8) => RelaxMode::BothToGPR, // TODO: optimize this
             _ => RelaxMode::Direct,
         };
 
@@ -545,6 +548,12 @@ impl X64FunctionCode {
                 a.emit_mov(sz, src, Location::GPR(temp_src));
                 a.emit_mov(sz, dst, Location::GPR(temp_dst));
                 op(a, sz, Location::GPR(temp_src), Location::GPR(temp_dst));
+                match dst {
+                    Location::Memory(_, _) | Location::GPR(_) => {
+                        a.emit_mov(sz, Location::GPR(temp_dst), dst);
+                    }
+                    _ => {}
+                }
                 m.release_temp_gpr(temp_dst);
                 m.release_temp_gpr(temp_src);
             },
@@ -1017,6 +1026,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
     }
     
     fn feed_opcode(&mut self, op: Operator, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+        //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
 
         if self.unreachable_depth > 0 {
@@ -1658,6 +1668,140 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     );
                 });
             }
+            Operator::I64Load { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 8, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S64, Location::Memory(addr, 0), ret,
+                    );
+                });
+            }
+            Operator::I64Load8U { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 1, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movzx,
+                        Size::S8, Location::Memory(addr, 0), Size::S64, ret,
+                    );
+                });
+            }
+            Operator::I64Load8S { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 1, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movsx,
+                        Size::S8, Location::Memory(addr, 0), Size::S64, ret,
+                    );
+                });
+            }
+            Operator::I64Load16U { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 2, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movzx,
+                        Size::S16, Location::Memory(addr, 0), Size::S64, ret,
+                    );
+                });
+            }
+            Operator::I64Load16S { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 2, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movsx,
+                        Size::S16, Location::Memory(addr, 0), Size::S64, ret,
+                    );
+                });
+            }
+            Operator::I64Load32U { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 4, |a, m, addr| {
+                    match ret {
+                        Location::GPR(_) => {},
+                        _ => {
+                            a.emit_mov(Size::S64, Location::Imm64(0), ret);
+                        }
+                    }
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S32, Location::Memory(addr, 0), ret,
+                    );
+                });
+            }
+            Operator::I64Load32S { memarg } => {
+                let target = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target, memarg.offset as usize, 4, |a, m, addr| {
+                    Self::emit_relaxed_zx_sx(
+                        a, m, Assembler::emit_movsx,
+                        Size::S32, Location::Memory(addr, 0), Size::S64, ret,
+                    );
+                });
+            }
+            Operator::I64Store { memarg } => {
+                let target_value = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target_addr = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target_addr, memarg.offset as usize, 8, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S64, target_value, Location::Memory(addr, 0),
+                    );
+                });
+            }
+            Operator::I64Store8 { memarg } => {
+                let target_value = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target_addr = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target_addr, memarg.offset as usize, 1, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S8, target_value, Location::Memory(addr, 0),
+                    );
+                });
+            }
+            Operator::I64Store16 { memarg } => {
+                let target_value = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target_addr = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target_addr, memarg.offset as usize, 2, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S16, target_value, Location::Memory(addr, 0),
+                    );
+                });
+            }
+            Operator::I64Store32 { memarg } => {
+                let target_value = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let target_addr = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+
+                Self::emit_memory_op(module_info, a, &mut self.machine, target_addr, memarg.offset as usize, 4, |a, m, addr| {
+                    Self::emit_relaxed_binop(
+                        a, m, Assembler::emit_mov,
+                        Size::S32, target_value, Location::Memory(addr, 0),
+                    );
+                });
+            }
             Operator::Unreachable => {
                 a.emit_ud2();
                 self.unreachable_depth = 1;
@@ -1675,11 +1819,11 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 } else {
                     false
                 };
-                let released: Vec<Location> = self.value_stack.drain(frame.value_stack_depth..)
-                    .filter(|&(_, lot)| lot == LocalOrTemp::Temp)
-                    .map(|(x, _)| x)
+                let released: Vec<Location> = self.value_stack[frame.value_stack_depth..].iter()
+                    .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
+                    .map(|&(x, _)| x)
                     .collect();
-                self.machine.release_locations(a, &released);
+                self.machine.release_locations_keep_state(a, &released);
                 a.emit_jmp(Condition::None, frame.label);
                 self.unreachable_depth = 1;
             }
@@ -1707,7 +1851,10 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::BrIf { relative_depth }=> {
                 let after = a.get_label();
                 let cond = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
-                a.emit_cmp(Size::S32, Location::Imm32(0), cond);
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_cmp,
+                    Size::S32, Location::Imm32(0), cond,
+                );
                 a.emit_jmp(Condition::Equal, after);
 
                 let frame = &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
@@ -1730,6 +1877,49 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 a.emit_jmp(Condition::None, frame.label);
 
                 a.emit_label(after);
+            }
+            Operator::BrTable { table } => {
+                let (targets, default_target) = table.read_table().unwrap();
+                let cond = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let mut table = vec![0usize; targets.len()];
+                let default_br = a.get_label();
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_cmp,
+                    Size::S32, Location::Imm32(targets.len() as u32), cond,
+                );
+                a.emit_jmp(Condition::AboveEqual, default_br);
+
+                a.emit_mov(Size::S64, Location::Imm64(table.as_ptr() as usize as u64), Location::GPR(GPR::RCX));
+                a.emit_mov(Size::S32, cond, Location::GPR(GPR::RDX));
+                a.emit_shl(Size::S32, Location::Imm8(3), Location::GPR(GPR::RDX));
+                a.emit_add(Size::S64, Location::GPR(GPR::RCX), Location::GPR(GPR::RDX));
+                a.emit_jmp_location(Location::Memory(GPR::RDX, 0));
+
+                for (i, target) in targets.iter().enumerate() {
+                    let AssemblyOffset(offset) = a.offset();
+                    table[i] = offset;
+                    let frame = &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
+                    let released: Vec<Location> = self.value_stack[frame.value_stack_depth..].iter()
+                        .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
+                        .map(|&(x, _)| x)
+                        .collect();
+                    self.machine.release_locations_keep_state(a, &released);
+                    a.emit_jmp(Condition::None, frame.label);
+                }
+                a.emit_label(default_br);
+
+                {
+                    let frame = &self.control_stack[self.control_stack.len() - 1 - (default_target as usize)];
+                    let released: Vec<Location> = self.value_stack[frame.value_stack_depth..].iter()
+                        .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
+                        .map(|&(x, _)| x)
+                        .collect();
+                    self.machine.release_locations_keep_state(a, &released);
+                    a.emit_jmp(Condition::None, frame.label);
+                }
+                
+                self.br_table_data.as_mut().unwrap().push(table);
+                self.unreachable_depth = 1;
             }
             Operator::Drop => {
                 get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
