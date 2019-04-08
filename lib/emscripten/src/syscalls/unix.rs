@@ -761,23 +761,6 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     unsafe { uname(buf_addr) }
 }
 
-/// fallocate
-pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
-    debug!("emscripten::___syscall324 (fallocate) {}", _which);
-    let _fd: c_int = varargs.get(ctx);
-    let _mode: c_int = varargs.get(ctx);
-    let _offset: off_t = varargs.get(ctx);
-    let _len: off_t = varargs.get(ctx);
-    #[cfg(not(target_os = "macos"))]
-    unsafe {
-        fallocate(_fd, _mode, _offset, _len)
-    }
-    #[cfg(target_os = "macos")]
-    {
-        unimplemented!()
-    }
-}
-
 /// lstat64
 pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) {}", _which);
@@ -794,4 +777,21 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
         utils::copy_stat_into_wasm(ctx, buf_ptr, &stat);
     }
     0
+}
+
+/// fallocate
+pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+    debug!("emscripten::___syscall324 (fallocate) {}", _which);
+    let _fd: c_int = varargs.get(ctx);
+    let _mode: c_int = varargs.get(ctx);
+    let _offset: off_t = varargs.get(ctx);
+    let _len: off_t = varargs.get(ctx);
+    #[cfg(not(target_os = "macos"))]
+    unsafe {
+        fallocate(_fd, _mode, _offset, _len)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unimplemented!()
+    }
 }
