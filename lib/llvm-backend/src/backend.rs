@@ -11,7 +11,7 @@ use libc::{
 };
 use std::{
     any::Any,
-    ffi::CString,
+    ffi::{c_void, CString},
     mem,
     ptr::{self, NonNull},
     slice, str,
@@ -23,6 +23,7 @@ use wasmer_runtime_core::{
     export::Context,
     module::{ModuleInfo, ModuleInner},
     structures::TypedIndex,
+    typed_func::{Wasm, WasmTrapInfo},
     types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
     vmcalls,
@@ -54,17 +55,6 @@ enum LLVMResult {
     OBJECT_LOAD_FAILURE,
 }
 
-#[allow(dead_code)]
-#[repr(C)]
-enum WasmTrapType {
-    Unreachable = 0,
-    IncorrectCallIndirectSignature = 1,
-    MemoryOutOfBounds = 2,
-    CallIndirectOOB = 3,
-    IllegalArithmetic = 4,
-    Unknown,
-}
-
 #[repr(C)]
 struct Callbacks {
     alloc_memory: extern "C" fn(usize, MemProtect, &mut *mut u8, &mut usize) -> LLVMResult,
@@ -87,13 +77,15 @@ extern "C" {
 
     fn throw_trap(ty: i32);
 
+    #[allow(improper_ctypes)]
     fn invoke_trampoline(
-        trampoline: unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64),
+        trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
         vmctx_ptr: *mut vm::Ctx,
-        func_ptr: *const vm::Func,
+        func_ptr: NonNull<vm::Func>,
         params: *const u64,
         results: *mut u64,
-        trap_out: *mut WasmTrapType,
+        trap_out: *mut WasmTrapInfo,
+        invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
 
@@ -360,7 +352,12 @@ impl ProtectedCaller for LLVMProtectedCaller {
 
         let mut return_vec = vec![0; signature.returns().len()];
 
-        let trampoline: unsafe extern "C" fn(*mut vm::Ctx, *const vm::Func, *const u64, *mut u64) = unsafe {
+        let trampoline: unsafe extern "C" fn(
+            *mut vm::Ctx,
+            NonNull<vm::Func>,
+            *const u64,
+            *mut u64,
+        ) = unsafe {
             let name = if cfg!(target_os = "macos") {
                 format!("_trmp{}", sig_index.index())
             } else {
@@ -374,7 +371,7 @@ impl ProtectedCaller for LLVMProtectedCaller {
             mem::transmute(symbol)
         };
 
-        let mut trap_out = WasmTrapType::Unknown;
+        let mut trap_out = WasmTrapInfo::Unknown;
 
         // Here we go.
         let success = unsafe {
@@ -385,6 +382,7 @@ impl ProtectedCaller for LLVMProtectedCaller {
                 param_vec.as_ptr(),
                 return_vec.as_mut_ptr(),
                 &mut trap_out,
+                None,
             )
         };
 
@@ -400,27 +398,33 @@ impl ProtectedCaller for LLVMProtectedCaller {
                 })
                 .collect())
         } else {
-            Err(match trap_out {
-                WasmTrapType::Unreachable => RuntimeError::Trap {
-                    msg: "unreachable".into(),
-                },
-                WasmTrapType::IncorrectCallIndirectSignature => RuntimeError::Trap {
-                    msg: "uncorrect call_indirect signature".into(),
-                },
-                WasmTrapType::MemoryOutOfBounds => RuntimeError::Trap {
-                    msg: "memory out-of-bounds access".into(),
-                },
-                WasmTrapType::CallIndirectOOB => RuntimeError::Trap {
-                    msg: "call_indirect out-of-bounds".into(),
-                },
-                WasmTrapType::IllegalArithmetic => RuntimeError::Trap {
-                    msg: "illegal arithmetic operation".into(),
-                },
-                WasmTrapType::Unknown => RuntimeError::Trap {
-                    msg: "unknown trap".into(),
-                },
+            Err(RuntimeError::Trap {
+                msg: trap_out.to_string().into(),
             })
         }
+    }
+
+    fn get_wasm_trampoline(&self, _module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
+        let trampoline: unsafe extern "C" fn(
+            *mut vm::Ctx,
+            NonNull<vm::Func>,
+            *const u64,
+            *mut u64,
+        ) = unsafe {
+            let name = if cfg!(target_os = "macos") {
+                format!("_trmp{}", sig_index.index())
+            } else {
+                format!("trmp{}", sig_index.index())
+            };
+
+            let c_str = CString::new(name).unwrap();
+            let symbol = get_func_symbol(self.module, c_str.as_ptr());
+            assert!(!symbol.is_null());
+
+            mem::transmute(symbol)
+        };
+
+        Some(unsafe { Wasm::from_raw_parts(trampoline, invoke_trampoline, None) })
     }
 
     fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
@@ -438,7 +442,7 @@ fn get_func_from_index<'a>(
     module: &'a ModuleInner,
     import_backing: &ImportBacking,
     func_index: FuncIndex,
-) -> (*const vm::Func, Context, &'a FuncSig, SigIndex) {
+) -> (NonNull<vm::Func>, Context, &'a FuncSig, SigIndex) {
     let sig_index = *module
         .info
         .func_assoc
@@ -451,14 +455,13 @@ fn get_func_from_index<'a>(
                 .func_resolver
                 .get(&module, local_func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
-                .cast()
-                .as_ptr() as *const _,
+                .cast(),
             Context::Internal,
         ),
         LocalOrImport::Import(imported_func_index) => {
             let imported_func = import_backing.imported_func(imported_func_index);
             (
-                imported_func.func as *const _,
+                NonNull::new(imported_func.func as *mut _).unwrap(),
                 Context::External(imported_func.vmctx),
             )
         }

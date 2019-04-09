@@ -4,10 +4,17 @@ use crate::{
     export::{Context, Export, FuncPointer},
     import::IsExport,
     types::{FuncSig, Type, WasmExternType},
-    vm::Ctx,
+    vm::{self, Ctx},
 };
 use std::{
-    any::Any, cell::UnsafeCell, ffi::c_void, fmt, marker::PhantomData, mem, panic, ptr, sync::Arc,
+    any::Any,
+    cell::UnsafeCell,
+    ffi::c_void,
+    fmt,
+    marker::PhantomData,
+    mem, panic,
+    ptr::{self, NonNull},
+    sync::Arc,
 };
 
 thread_local! {
@@ -45,20 +52,36 @@ impl fmt::Display for WasmTrapInfo {
 
 pub trait Kind {}
 
-type Trampoline = extern "C" fn(*mut Ctx, *const c_void, *const u64, *mut u64);
-type Invoke = extern "C" fn(
+pub type Trampoline = unsafe extern "C" fn(*mut Ctx, NonNull<vm::Func>, *const u64, *mut u64);
+pub type Invoke = unsafe extern "C" fn(
     Trampoline,
     *mut Ctx,
-    *const c_void,
+    NonNull<vm::Func>,
     *const u64,
     *mut u64,
-    &mut WasmTrapInfo,
+    *mut WasmTrapInfo,
+    Option<NonNull<c_void>>,
 ) -> bool;
 
+#[derive(Copy, Clone)]
 pub struct Wasm {
     trampoline: Trampoline,
     invoke: Invoke,
-    invoke_env: *mut c_void,
+    invoke_env: Option<NonNull<c_void>>,
+}
+
+impl Wasm {
+    pub unsafe fn from_raw_parts(
+        trampoline: Trampoline,
+        invoke: Invoke,
+        invoke_env: Option<NonNull<c_void>>,
+    ) -> Self {
+        Self {
+            trampoline,
+            invoke,
+            invoke_env,
+        }
+    }
 }
 
 pub struct Host(());
@@ -75,7 +98,7 @@ pub trait WasmTypeList {
     fn types() -> &'static [Type];
     unsafe fn call<Rets>(
         self,
-        f: *const c_void,
+        f: NonNull<vm::Func>,
         wasm: Wasm,
         ctx: *mut Ctx,
     ) -> Result<Rets, WasmTrapInfo>
@@ -88,7 +111,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn to_raw(&self) -> *const c_void;
+    fn to_raw(&self) -> NonNull<vm::Func>;
 }
 
 pub trait TrapEarly<Rets>
@@ -128,7 +151,7 @@ where
 
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
-    f: *const c_void,
+    f: NonNull<vm::Func>,
     ctx: *mut Ctx,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
@@ -139,18 +162,12 @@ where
     Rets: WasmTypeList,
 {
     pub(crate) unsafe fn from_raw_parts(
-        trampoline: Trampoline,
-        invoke: Invoke,
-        f: *const c_void,
+        inner: Wasm,
+        f: NonNull<vm::Func>,
         ctx: *mut Ctx,
-        invoke_env: *mut c_void,
     ) -> Func<'a, Args, Rets, Wasm> {
         Func {
-            inner: Wasm {
-                trampoline,
-                invoke,
-                invoke_env,
-            },
+            inner,
             f,
             ctx,
             _phantom: PhantomData,
@@ -214,7 +231,7 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
     #[allow(non_snake_case)]
     unsafe fn call<Rets: WasmTypeList>(
         self,
-        f: *const c_void,
+        f: NonNull<vm::Func>,
         wasm: Wasm,
         ctx: *mut Ctx,
     ) -> Result<Rets, WasmTrapInfo> {
@@ -233,6 +250,7 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
             args.as_ptr(),
             rets.as_mut().as_mut_ptr(),
             &mut trap,
+            wasm.invoke_env,
         ) {
             Ok(Rets::from_ret_array(rets))
         } else {
@@ -263,6 +281,7 @@ macro_rules! impl_traits {
             type CStruct = $struct_name<$( $x ),*>;
             type RetArray = [u64; count_idents!( $( $x ),* )];
             fn from_ret_array(array: Self::RetArray) -> Self {
+                #[allow(non_snake_case)]
                 let [ $( $x ),* ] = array;
                 ( $( WasmExternType::from_bits($x) ),* )
             }
@@ -283,7 +302,7 @@ macro_rules! impl_traits {
                 &[$( $x::TYPE, )*]
             }
             #[allow(non_snake_case)]
-            unsafe fn call<Rets: WasmTypeList>(self, f: *const c_void, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, WasmTrapInfo> {
+            unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, WasmTrapInfo> {
                 // type Trampoline = extern "C" fn(*mut Ctx, *const c_void, *const u64, *mut u64);
                 // type Invoke = extern "C" fn(Trampoline, *mut Ctx, *const c_void, *const u64, *mut u64, &mut WasmTrapInfo) -> bool;
 
@@ -293,7 +312,7 @@ macro_rules! impl_traits {
                 let mut rets = Rets::empty_ret_array();
                 let mut trap = WasmTrapInfo::Unknown;
 
-                if (wasm.invoke)(wasm.trampoline, ctx, f, args.as_ptr(), rets.as_mut().as_mut_ptr(), &mut trap) {
+                if (wasm.invoke)(wasm.trampoline, ctx, f, args.as_ptr(), rets.as_mut().as_mut_ptr(), &mut trap, wasm.invoke_env) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
                     Err(trap)
@@ -309,7 +328,7 @@ macro_rules! impl_traits {
 
         impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
-            fn to_raw(&self) -> *const c_void {
+            fn to_raw(&self) -> NonNull<vm::Func> {
                 assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
 
                 extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
@@ -333,7 +352,7 @@ macro_rules! impl_traits {
                     }
                 }
 
-                wrap::<$( $x, )* Rets, Trap, Self> as *const c_void
+                NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap()
             }
         }
 
@@ -384,7 +403,7 @@ where
     Inner: Kind,
 {
     fn to_export(&self) -> Export {
-        let func = unsafe { FuncPointer::new(self.f as _) };
+        let func = unsafe { FuncPointer::new(self.f.as_ptr()) };
         let ctx = Context::Internal;
         let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));
 
