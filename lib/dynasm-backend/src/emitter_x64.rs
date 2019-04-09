@@ -116,6 +116,9 @@ pub trait Emitter {
     fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location);
 
+    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR);
+    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR);
+
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
@@ -158,6 +161,9 @@ pub trait Emitter {
     fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+    fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
 
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
@@ -661,6 +667,14 @@ impl Emitter for Assembler {
         }
     }
 
+    fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
+        dynasm!(self ; btc Rd(dst as u8), BYTE (src as i8));
+    }
+
+    fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
+        dynasm!(self ; btc Rq(dst as u8), BYTE (src as i8));
+    }
+
     avx_fn!(vaddss, emit_vaddss);
     avx_fn!(vaddsd, emit_vaddsd);
 
@@ -699,6 +713,9 @@ impl Emitter for Assembler {
 
     avx_fn!(vsqrtss, emit_vsqrtss);
     avx_fn!(vsqrtsd, emit_vsqrtsd);
+
+    avx_fn!(vcvtss2sd, emit_vcvtss2sd);
+    avx_fn!(vcvtsd2ss, emit_vcvtsd2ss);
 
     avx_round_fn!(vroundss, emit_vroundss_nearest, 0);
     avx_round_fn!(vroundss, emit_vroundss_floor, 1);
