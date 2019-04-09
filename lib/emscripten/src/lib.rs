@@ -120,11 +120,13 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_viiji: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
+    pub dyn_call_vj: Option<Func<'a, (i32, i32, i32)>>,
     pub dyn_call_vij: Option<Func<'a, (i32, i32, i32, i32)>>,
     pub dyn_call_viji: Option<Func<'a, (i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijiii: Option<Func<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viidii: Option<Func<'a, (i32, i32, i32, f64, i32, i32)>>,
+    pub temp_ret_0: i32,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -177,6 +179,7 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_viiji = instance.func("dynCall_viiji").ok();
         let dyn_call_viijiii = instance.func("dynCall_viijiii").ok();
         let dyn_call_viijj = instance.func("dynCall_viijj").ok();
+        let dyn_call_vj = instance.func("dynCall_vj").ok();
         let dyn_call_vij = instance.func("dynCall_vij").ok();
         let dyn_call_viji = instance.func("dynCall_viji").ok();
         let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
@@ -228,11 +231,13 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_viiji,
             dyn_call_viijiii,
             dyn_call_viijj,
+            dyn_call_vj,
             dyn_call_vij,
             dyn_call_viji,
             dyn_call_vijiii,
             dyn_call_vijj,
             dyn_call_viidii,
+            temp_ret_0: 0,
         }
     }
 }
@@ -246,6 +251,12 @@ pub fn run_emscripten_instance(
     let mut data = EmscriptenData::new(instance);
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
+
+    // ATINIT
+    // (used by C++)
+    if let Ok(_func) = instance.dyn_func("globalCtors") {
+        instance.call("globalCtors", &[])?;
+    }
 
     if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
         instance.call("___emscripten_environ_constructor", &[])?;
@@ -269,7 +280,7 @@ pub fn run_emscripten_instance(
         ),
     };
 
-    // TODO atinit and atexit for emscripten
+    // TODO atexit for emscripten
     // println!("{:?}", data);
     Ok(())
 }
@@ -512,8 +523,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall77" => func!(crate::syscalls::___syscall77),
         "___syscall83" => func!(crate::syscalls::___syscall83),
         "___syscall85" => func!(crate::syscalls::___syscall85),
-        "___syscall91" => func!(crate::syscalls::___syscall191),
-        "___syscall94" => func!(crate::syscalls::___syscall194),
+        "___syscall91" => func!(crate::syscalls::___syscall91),
+        "___syscall94" => func!(crate::syscalls::___syscall94),
         "___syscall97" => func!(crate::syscalls::___syscall97),
         "___syscall102" => func!(crate::syscalls::___syscall102),
         "___syscall110" => func!(crate::syscalls::___syscall110),
@@ -607,6 +618,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___cxa_throw" => func!(crate::exception::___cxa_throw),
         "___cxa_begin_catch" => func!(crate::exception::___cxa_begin_catch),
         "___cxa_end_catch" => func!(crate::exception::___cxa_end_catch),
+        "___cxa_uncaught_exception" => func!(crate::exception::___cxa_uncaught_exception),
 
         // Time
         "_gettimeofday" => func!(crate::time::_gettimeofday),
@@ -619,6 +631,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "_localtime" => func!(crate::time::_localtime),
         "_time" => func!(crate::time::_time),
         "_strftime" => func!(crate::time::_strftime),
+        "_strftime_l" => func!(crate::time::_strftime_l),
         "_localtime_r" => func!(crate::time::_localtime_r),
         "_gmtime_r" => func!(crate::time::_gmtime_r),
         "_mktime" => func!(crate::time::_mktime),
@@ -657,6 +670,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "invoke_iiii" => func!(crate::emscripten_target::invoke_iiii),
         "invoke_v" => func!(crate::emscripten_target::invoke_v),
         "invoke_vi" => func!(crate::emscripten_target::invoke_vi),
+        "invoke_vj" => func!(crate::emscripten_target::invoke_vj),
         "invoke_vii" => func!(crate::emscripten_target::invoke_vii),
         "invoke_viii" => func!(crate::emscripten_target::invoke_viii),
         "invoke_viiii" => func!(crate::emscripten_target::invoke_viiii),
@@ -746,6 +760,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         },
         "asm2wasm" => {
             "f64-rem" => func!(crate::math::f64_rem),
+            "f64-to-int" => func!(crate::math::f64_to_int),
         },
     };
 

@@ -1,8 +1,14 @@
 #[macro_export]
 #[cfg(feature = "debug")]
 macro_rules! debug {
-    ($fmt:expr) => (println!(concat!("wasmer-runtime(:{})::", $fmt), line!()));
-    ($fmt:expr, $($arg:tt)*) => (println!(concat!("wasmer-runtime(:{})::", $fmt, "\n"), line!(), $($arg)*));
+    ($fmt:expr) => (println!(concat!("[{}] wasmer-runtime(:{}) ", $fmt), {
+       let time = ::std::time::SystemTime::now().duration_since(::std::time::UNIX_EPOCH).expect("Can't get time");
+       format!("{}.{:03}", time.as_secs(), time.subsec_millis())
+    }, line!()));
+    ($fmt:expr, $($arg:tt)*) => (println!(concat!("[{}] wasmer-runtime(:{}) ", $fmt, "\n"), {
+       let time = ::std::time::SystemTime::now().duration_since(::std::time::UNIX_EPOCH).expect("Can't get time");
+       format!("{}.{:03}", time.as_secs(), time.subsec_millis())
+    }, line!(), $($arg)*));
 }
 
 #[macro_export]

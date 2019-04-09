@@ -1,4 +1,5 @@
 #[test]
+#[ignore]
 fn test_test_write_stdout_fileno() {
     assert_emscripten_output!(
         "../../emtests/test_write_stdout_fileno.wasm",

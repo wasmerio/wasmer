@@ -10,6 +10,7 @@ use std::{
     io::{self, Write},
     time::SystemTime,
 };
+use wasmer_runtime_core::debug;
 use zbox::{init_env as zbox_init_env, File, FileType, OpenOptions, Repo, RepoOpener};
 
 pub const MAX_SYMLINKS: usize = 100;
@@ -49,7 +50,7 @@ pub struct Fd {
 }
 
 pub struct WasiFs {
-    pub repo: Repo,
+    // pub repo: Repo,
     pub name_map: HashMap<String, Inode>,
     pub inodes: Arena<InodeVal>,
     pub fd_map: HashMap<u32, Fd>,
@@ -59,18 +60,25 @@ pub struct WasiFs {
 
 impl WasiFs {
     pub fn new() -> Result<Self, String> {
+        debug!("wasi::fs::init");
         zbox_init_env();
-        Ok(Self {
-            repo: RepoOpener::new()
-                .create(true)
-                .open("mem://wasmer-test-fs", "")
-                .map_err(|e| e.to_string())?,
+        debug!("wasi::fs::repo");
+        // let repo = RepoOpener::new()
+        //         .create(true)
+        //         .open("mem://wasmer-test-fs", "")
+        //         .map_err(|e| e.to_string())?;
+        debug!("wasi::fs::inodes");
+        let inodes = Arena::new();
+        let res = Ok(Self {
+            // repo: repo,
             name_map: HashMap::new(),
-            inodes: Arena::new(),
+            inodes: inodes,
             fd_map: HashMap::new(),
             next_fd: Cell::new(3),
             inode_counter: Cell::new(1000),
-        })
+        });
+        debug!("wasi::fs::end");
+        res
     }
 
     #[allow(dead_code)]
@@ -78,56 +86,57 @@ impl WasiFs {
         Some(match self.name_map.entry(path.to_string()) {
             Entry::Occupied(o) => *o.get(),
             Entry::Vacant(v) => {
-                let file = if let Ok(file) = OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .create(false)
-                    .open(&mut self.repo, path)
-                {
-                    file
-                } else {
-                    return None;
-                };
+                return None;
+                // let file = if let Ok(file) = OpenOptions::new()
+                //     .read(true)
+                //     .write(true)
+                //     .create(false)
+                //     .open(&mut self.repo, path)
+                // {
+                //     file
+                // } else {
+                //     return None;
+                // };
 
-                let metadata = file.metadata().unwrap();
-                let inode_index = {
-                    let index = self.inode_counter.get();
-                    self.inode_counter.replace(index + 1)
-                };
+                // let metadata = file.metadata().unwrap();
+                // let inode_index = {
+                //     let index = self.inode_counter.get();
+                //     self.inode_counter.replace(index + 1)
+                // };
 
-                let systime_to_nanos = |systime: SystemTime| {
-                    let duration = systime
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .expect("should always be after unix epoch");
-                    duration.as_nanos() as u64
-                };
+                // let systime_to_nanos = |systime: SystemTime| {
+                //     let duration = systime
+                //         .duration_since(SystemTime::UNIX_EPOCH)
+                //         .expect("should always be after unix epoch");
+                //     duration.as_nanos() as u64
+                // };
 
-                let inode = self.inodes.insert(InodeVal {
-                    stat: __wasi_filestat_t {
-                        st_dev: 0,
-                        st_ino: inode_index,
-                        st_filetype: match metadata.file_type() {
-                            FileType::File => __WASI_FILETYPE_REGULAR_FILE,
-                            FileType::Dir => __WASI_FILETYPE_DIRECTORY,
-                        },
-                        st_nlink: 0,
-                        st_size: metadata.content_len() as u64,
-                        st_atim: systime_to_nanos(SystemTime::now()),
-                        st_mtim: systime_to_nanos(metadata.modified_at()),
-                        st_ctim: systime_to_nanos(metadata.created_at()),
-                    },
-                    is_preopened: false,
-                    name: path.to_string(),
-                    kind: match metadata.file_type() {
-                        FileType::File => Kind::File { handle: file },
-                        FileType::Dir => Kind::Dir {
-                            handle: file,
-                            entries: HashMap::new(),
-                        },
-                    },
-                });
-                v.insert(inode);
-                inode
+                // let inode = self.inodes.insert(InodeVal {
+                //     stat: __wasi_filestat_t {
+                //         st_dev: 0,
+                //         st_ino: inode_index,
+                //         st_filetype: match metadata.file_type() {
+                //             FileType::File => __WASI_FILETYPE_REGULAR_FILE,
+                //             FileType::Dir => __WASI_FILETYPE_DIRECTORY,
+                //         },
+                //         st_nlink: 0,
+                //         st_size: metadata.content_len() as u64,
+                //         st_atim: systime_to_nanos(SystemTime::now()),
+                //         st_mtim: systime_to_nanos(metadata.modified_at()),
+                //         st_ctim: systime_to_nanos(metadata.created_at()),
+                //     },
+                //     is_preopened: false,
+                //     name: path.to_string(),
+                //     kind: match metadata.file_type() {
+                //         FileType::File => Kind::File { handle: file },
+                //         FileType::Dir => Kind::Dir {
+                //             handle: file,
+                //             entries: HashMap::new(),
+                //         },
+                //     },
+                // });
+                // v.insert(inode);
+                // inode
             }
         })
     }

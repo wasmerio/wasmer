@@ -5,13 +5,16 @@ use crate::env::get_emscripten_data;
 use libc::getdtablesize;
 use wasmer_runtime_core::vm::Ctx;
 
-pub fn setTempRet0(_ctx: &mut Ctx, _a: i32) {
-    debug!("emscripten::setTempRet0");
+pub fn setTempRet0(ctx: &mut Ctx, val: i32) {
+    debug!("emscripten::setTempRet0: {}", val);
+    get_emscripten_data(ctx).temp_ret_0 = val;
 }
-pub fn getTempRet0(_ctx: &mut Ctx) -> i32 {
+
+pub fn getTempRet0(ctx: &mut Ctx) -> i32 {
     debug!("emscripten::getTempRet0");
-    0
+    get_emscripten_data(ctx).temp_ret_0
 }
+
 pub fn invoke_i(ctx: &mut Ctx, index: i32) -> i32 {
     debug!("emscripten::invoke_i");
     if let Some(dyn_call_i) = &get_emscripten_data(ctx).dyn_call_i {
@@ -618,6 +621,14 @@ pub fn invoke_viijj(
         dyn_call_viijj.call(index, a1, a2, a3, a4, a5, a6).unwrap();
     } else {
         panic!("dyn_call_viijj is set to None");
+    }
+}
+pub fn invoke_vj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) {
+    debug!("emscripten::invoke_vj");
+    if let Some(dyn_call_vj) = &get_emscripten_data(ctx).dyn_call_vj {
+        dyn_call_vj.call(index, a1, a2).unwrap();
+    } else {
+        panic!("dyn_call_vj is set to None");
     }
 }
 pub fn invoke_vij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) {

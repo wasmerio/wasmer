@@ -39,7 +39,7 @@ pub fn _emscripten_random(_ctx: &mut Ctx) -> f64 {
     -1.0
 }
 
-// emscripten: f64-rem
+// emscripten: asm2wasm.f64-rem
 pub fn f64_rem(_ctx: &mut Ctx, x: f64, y: f64) -> f64 {
     debug!("emscripten::f64-rem");
     x % y
@@ -58,4 +58,10 @@ pub fn exp(_ctx: &mut Ctx, value: f64) -> f64 {
 // emscripten: global.Math log
 pub fn log(_ctx: &mut Ctx, value: f64) -> f64 {
     value.ln()
+}
+
+// emscripten: asm2wasm.f64-to-int
+pub fn f64_to_int(_ctx: &mut Ctx, value: f64) -> i32 {
+    debug!("emscripten::f64_to_int {}", value);
+    value as i32
 }

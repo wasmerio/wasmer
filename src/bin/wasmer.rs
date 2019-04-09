@@ -17,6 +17,20 @@ use wasmer_runtime_core::{self, backend::CompilerConfig};
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
 
+// stub module to make conditional compilation happy
+#[cfg(not(feature = "wasi"))]
+mod wasmer_wasi {
+    use wasmer_runtime_core::{import::ImportObject, module::Module};
+
+    pub fn is_wasi_module(_module: &Module) -> bool {
+        false
+    }
+
+    pub fn generate_import_object(_args: Vec<Vec<u8>>, _envs: Vec<Vec<u8>>) -> ImportObject {
+        unimplemented!()
+    }
+}
+
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
 /// The options for the wasmer Command Line Interface
@@ -213,7 +227,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     // TODO: refactor this
-    #[cfg(not(feature = "wasi"))]
     let (abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
@@ -222,34 +235,29 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
         )
     } else {
-        (
-            InstanceABI::None,
-            wasmer_runtime_core::import::ImportObject::new(),
-            None,
-        )
-    };
-
-    #[cfg(feature = "wasi")]
-    let (abi, import_object) = if wasmer_wasi::is_wasi_module(&module) {
-        (
-            InstanceABI::WASI,
-            wasmer_wasi::generate_import_object(
-                [options.path.to_str().unwrap().to_owned()]
-                    .iter()
-                    .chain(options.args.iter())
-                    .cloned()
-                    .map(|arg| arg.into_bytes())
-                    .collect(),
-                env::vars()
-                    .map(|(k, v)| format!("{}={}", k, v).into_bytes())
-                    .collect(),
-            ),
-        )
-    } else {
-        (
-            InstanceABI::None,
-            wasmer_runtime_core::import::ImportObject::new(),
-        )
+        if cfg!(feature = "wasi") && wasmer_wasi::is_wasi_module(&module) {
+            (
+                InstanceABI::WASI,
+                wasmer_wasi::generate_import_object(
+                    [options.path.to_str().unwrap().to_owned()]
+                        .iter()
+                        .chain(options.args.iter())
+                        .cloned()
+                        .map(|arg| arg.into_bytes())
+                        .collect(),
+                    env::vars()
+                        .map(|(k, v)| format!("{}={}", k, v).into_bytes())
+                        .collect(),
+                ),
+                None,
+            )
+        } else {
+            (
+                InstanceABI::None,
+                wasmer_runtime_core::import::ImportObject::new(),
+                None,
+            )
+        }
     };
 
     let mut instance = module
