@@ -59,6 +59,7 @@ pub enum Condition {
     LessEqual,
     Equal,
     NotEqual,
+    Signed,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -180,6 +181,8 @@ pub trait Emitter {
     fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
     fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
     fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
+
+    fn emit_test_gpr_64(&mut self, reg: GPR);
 
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
@@ -449,11 +452,17 @@ impl Emitter for Assembler {
                         (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
                             dynasm!(self ; mov [Rq(dst as u8) + disp], Rb(src as u8));
                         }
+                        (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) => {
+                            dynasm!(self ; mov Rb(dst as u8), [Rq(src as u8) + disp]);
+                        }
                         (Size::S8, Location::Imm32(src), Location::Memory(dst, disp)) => {
                             dynasm!(self ; mov BYTE [Rq(dst as u8) + disp], src as i8);
                         }
                         (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
                             dynasm!(self ; mov [Rq(dst as u8) + disp], Rw(src as u8));
+                        }
+                        (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) => {
+                            dynasm!(self ; mov Rw(dst as u8), [Rq(src as u8) + disp]);
                         }
                         (Size::S16, Location::Imm32(src), Location::Memory(dst, disp)) => {
                             dynasm!(self ; mov WORD [Rq(dst as u8) + disp], src as i16);
@@ -534,6 +543,7 @@ impl Emitter for Assembler {
             Condition::LessEqual => jmp_op!(jle, self, label),
             Condition::Equal => jmp_op!(je, self, label),
             Condition::NotEqual => jmp_op!(jne, self, label),
+            Condition::Signed => jmp_op!(js, self, label),
         }
     }
     fn emit_jmp_location(&mut self, loc: Location) {
@@ -556,6 +566,7 @@ impl Emitter for Assembler {
             Condition::LessEqual => trap_op!(jle, self),
             Condition::Equal => trap_op!(je, self),
             Condition::NotEqual => trap_op!(jne, self),
+            Condition::Signed => trap_op!(js, self),
         }
     }
     fn emit_set(&mut self, condition: Condition, dst: GPR) {
@@ -570,6 +581,7 @@ impl Emitter for Assembler {
             Condition::LessEqual => dynasm!(self ; setle Rb(dst as u8)),
             Condition::Equal => dynasm!(self ; sete Rb(dst as u8)),
             Condition::NotEqual => dynasm!(self ; setne Rb(dst as u8)),
+            Condition::Signed => dynasm!(self ; sets Rb(dst as u8)),
             _ => unreachable!()
         }
     }
@@ -804,6 +816,10 @@ impl Emitter for Assembler {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rq(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp]),
         }
+    }
+
+    fn emit_test_gpr_64(&mut self, reg: GPR) {
+        dynasm!(self ; test Rq(reg as u8), Rq(reg as u8));
     }
 
     fn emit_ud2(&mut self) {

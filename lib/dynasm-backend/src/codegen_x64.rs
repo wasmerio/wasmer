@@ -1172,7 +1172,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
     }
     
     fn feed_opcode(&mut self, op: Operator, module_info: &ModuleInfo) -> Result<(), CodegenError> {
-        println!("{:?} {}", op, self.value_stack.len());
+        //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
 
         if self.unreachable_depth > 0 {
@@ -1363,11 +1363,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::I32GeS => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::GreaterEqual),
             Operator::I64Const { value } => {
                 let value = value as u64;
-                if value <= ::std::u32::MAX as u64 {
-                    self.value_stack.push((Location::Imm32(value as u32), LocalOrTemp::Temp))
-                } else {
-                    self.value_stack.push((Location::Imm64(value), LocalOrTemp::Temp))
-                }
+                self.value_stack.push((Location::Imm64(value), LocalOrTemp::Temp));
             },
             Operator::I64Add => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_add),
             Operator::I64Sub => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_sub),
@@ -1770,7 +1766,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 self.machine.release_temp_gpr(tmp_in);
                 self.machine.release_temp_xmm(tmp_out);
             }
-            Operator::F32ConvertSI64 | Operator::F32ConvertUI64 /* FIXME: INCORRECT */ => {
+            Operator::F32ConvertSI64 => {
                 let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
                 self.value_stack.push((ret, LocalOrTemp::Temp));
@@ -1781,6 +1777,36 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                 a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
 
+                self.machine.release_temp_gpr(tmp_in);
+                self.machine.release_temp_xmm(tmp_out);
+            }
+            Operator::F32ConvertUI64 => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                let do_convert = a.get_label();
+                let end_convert = a.get_label();
+
+                a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                a.emit_test_gpr_64(tmp_in);
+                a.emit_jmp(Condition::Signed, do_convert);
+                a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                a.emit_jmp(Condition::None, end_convert);
+                a.emit_label(do_convert);
+                a.emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
+                a.emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
+                a.emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
+                a.emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
+                a.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                a.emit_vaddss(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
+                a.emit_label(end_convert);
+                a.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+
+                self.machine.release_temp_gpr(tmp);
                 self.machine.release_temp_gpr(tmp_in);
                 self.machine.release_temp_xmm(tmp_out);
             }
@@ -1813,7 +1839,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 self.machine.release_temp_gpr(tmp_in);
                 self.machine.release_temp_xmm(tmp_out);
             }
-            Operator::F64ConvertSI64 | Operator::F64ConvertUI64 /* FIXME: INCORRECT */  => {
+            Operator::F64ConvertSI64 => {
                 let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
                 self.value_stack.push((ret, LocalOrTemp::Temp));
@@ -1824,6 +1850,36 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                 a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
 
+                self.machine.release_temp_gpr(tmp_in);
+                self.machine.release_temp_xmm(tmp_out);
+            }
+            Operator::F64ConvertUI64 => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let tmp_out = self.machine.acquire_temp_xmm().unwrap();
+                let tmp_in = self.machine.acquire_temp_gpr().unwrap();
+                let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                let do_convert = a.get_label();
+                let end_convert = a.get_label();
+
+                a.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                a.emit_test_gpr_64(tmp_in);
+                a.emit_jmp(Condition::Signed, do_convert);
+                a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                a.emit_jmp(Condition::None, end_convert);
+                a.emit_label(do_convert);
+                a.emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
+                a.emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
+                a.emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
+                a.emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
+                a.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                a.emit_vaddsd(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
+                a.emit_label(end_convert);
+                a.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+
+                self.machine.release_temp_gpr(tmp);
                 self.machine.release_temp_gpr(tmp_in);
                 self.machine.release_temp_xmm(tmp_out);
             }
