@@ -549,7 +549,8 @@ mod vm_ctx_tests {
         };
         use crate::cache::Error as CacheError;
         use crate::error::RuntimeResult;
-        use crate::types::{FuncIndex, LocalFuncIndex, Value};
+        use crate::typed_func::Wasm;
+        use crate::types::{FuncIndex, LocalFuncIndex, SigIndex, Value};
         use hashbrown::HashMap;
         use std::ptr::NonNull;
         struct Placeholder;
@@ -573,6 +574,13 @@ mod vm_ctx_tests {
                 _: Token,
             ) -> RuntimeResult<Vec<Value>> {
                 Ok(vec![])
+            }
+            fn get_wasm_trampoline(
+                &self,
+                _module: &ModuleInner,
+                _sig_index: SigIndex,
+            ) -> Option<Wasm> {
+                unimplemented!()
             }
             fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
                 unimplemented!()
