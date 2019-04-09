@@ -9,7 +9,7 @@ use crate::{
     module::{ExportIndex, Module, ModuleInner},
     sig_registry::SigRegistry,
     table::Table,
-    typed_func::{Func, Safe, WasmTypeList},
+    typed_func::{Func, Wasm, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vm,
 };
@@ -107,7 +107,7 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Safe>>
+    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -157,8 +157,8 @@ impl Instance {
                 }
             };
 
-            let typed_func: Func<Args, Rets, Safe> =
-                unsafe { Func::new_from_ptr(func_ptr as _, ctx) };
+            let typed_func: Func<Args, Rets, Wasm> =
+                unsafe { Func::from_raw_parts(trampoline, invoke, f as _, ctx, invoke_env) };
 
             Ok(typed_func)
         } else {

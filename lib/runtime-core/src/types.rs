@@ -76,37 +76,99 @@ where
     Self: Sized,
 {
     const TYPE: Type;
+    fn to_bits(self) -> u64;
+    fn from_bits(n: u64) -> Self;
 }
 
 unsafe impl WasmExternType for i8 {
     const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for u8 {
     const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for i16 {
     const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for u16 {
     const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for i32 {
     const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for u32 {
     const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for i64 {
     const TYPE: Type = Type::I64;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for u64 {
     const TYPE: Type = Type::I64;
+    fn to_bits(self) -> u64 {
+        self
+    }
+    fn from_bits(n: u64) -> Self {
+        n
+    }
 }
 unsafe impl WasmExternType for f32 {
     const TYPE: Type = Type::F32;
+    fn to_bits(self) -> u64 {
+        self.to_bits() as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        f32::from_bits(n as u32)
+    }
 }
 unsafe impl WasmExternType for f64 {
     const TYPE: Type = Type::F64;
+    fn to_bits(self) -> u64 {
+        self.to_bits()
+    }
+    fn from_bits(n: u64) -> Self {
+        f64::from_bits(n)
+    }
 }
 
 // pub trait IntegerAtomic
