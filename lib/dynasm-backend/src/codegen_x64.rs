@@ -16,7 +16,7 @@ use wasmer_runtime_core::{
     module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, ImportedMemoryIndex, LocalFuncIndex, LocalGlobalIndex,
+        FuncIndex, FuncSig, ImportedMemoryIndex, LocalFuncIndex, LocalGlobalIndex, GlobalIndex,
         LocalMemoryIndex, LocalOrImport, MemoryIndex, SigIndex, Type, Value, TableIndex,
     },
     units::Pages,
@@ -956,6 +956,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
 
         Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret);
+        a.emit_and(Size::S32, Location::Imm32(1), ret); // FIXME: Why?
     }
 
     fn emit_fp_unop_avx(
@@ -1208,27 +1209,38 @@ impl FunctionCodeGenerator for X64FunctionCode {
         match op {
             Operator::GetGlobal { global_index } => {
                 let mut global_index = global_index as usize;
-                let loc = self.machine.acquire_locations(
-                    a,
-                    &[type_to_wp_type(
-                        module_info.globals[LocalGlobalIndex::new(global_index)]
-                            .desc
-                            .ty,
-                    )],
-                    false
-                )[0];
-                self.value_stack.push((loc, LocalOrTemp::Temp));
 
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
 
-                if global_index < module_info.imported_globals.len() {
-                    a.emit_mov(Size::S64, Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_imported_globals() as i32), Location::GPR(tmp));
-                } else {
-                    global_index -= module_info.imported_globals.len();
-                    assert!(global_index < module_info.globals.len());
-                    a.emit_mov(Size::S64, Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_globals() as i32), Location::GPR(tmp));
-                }
-                a.emit_mov(Size::S64, Location::Memory(tmp, (global_index as i32) * 8), Location::GPR(tmp));
+                let loc = match GlobalIndex::new(global_index).local_or_import(module_info) {
+                    LocalOrImport::Local(local_index) => {
+                        a.emit_mov(Size::S64, Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_globals() as i32), Location::GPR(tmp));
+                        a.emit_mov(Size::S64, Location::Memory(tmp, (local_index.index() as i32) * 8), Location::GPR(tmp));
+                        self.machine.acquire_locations(
+                            a,
+                            &[type_to_wp_type(
+                                module_info.globals[local_index]
+                                    .desc
+                                    .ty,
+                            )],
+                            false
+                        )[0]
+                    },
+                    LocalOrImport::Import(import_index) => {
+                        a.emit_mov(Size::S64, Location::Memory(Machine::get_vmctx_reg(), vm::Ctx::offset_imported_globals() as i32), Location::GPR(tmp));
+                        a.emit_mov(Size::S64, Location::Memory(tmp, (import_index.index() as i32) * 8), Location::GPR(tmp));
+                        self.machine.acquire_locations(
+                            a,
+                            &[type_to_wp_type(
+                                module_info.imported_globals[import_index].1
+                                    .ty,
+                            )],
+                            false
+                        )[0]
+                    },
+                };
+                self.value_stack.push((loc, LocalOrTemp::Temp));
+
                 Self::emit_relaxed_binop(
                     a, &mut self.machine, Assembler::emit_mov,
                     Size::S64, Location::Memory(tmp, LocalGlobal::offset_data() as i32), loc
@@ -1322,7 +1334,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
                 a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
-                a.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_cdq();
                 Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_idiv, Size::S32, loc_b);
                 a.emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
                 self.value_stack.push((ret, LocalOrTemp::Temp));
@@ -1399,7 +1411,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
                 a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
-                a.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+                a.emit_cqo();
                 Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_idiv, Size::S64, loc_b);
                 a.emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
                 self.value_stack.push((ret, LocalOrTemp::Temp));
