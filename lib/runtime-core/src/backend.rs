@@ -3,7 +3,8 @@ use crate::{
     error::CompileResult,
     error::RuntimeResult,
     module::ModuleInner,
-    types::{FuncIndex, LocalFuncIndex, Value},
+    typed_func::Wasm,
+    types::{FuncIndex, LocalFuncIndex, SigIndex, Value},
     vm,
 };
 
@@ -94,6 +95,8 @@ pub trait ProtectedCaller: Send + Sync {
         vmctx: *mut vm::Ctx,
         _: Token,
     ) -> RuntimeResult<Vec<Value>>;
+
+    fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm>;
 
     fn get_early_trapper(&self) -> Box<dyn UserTrapper>;
 }

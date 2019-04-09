@@ -13,7 +13,7 @@ use crate::{
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vm,
 };
-use std::{mem, sync::Arc};
+use std::{mem, ptr::NonNull, sync::Arc};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -145,20 +145,26 @@ impl Instance {
                 }
             };
 
+            let func_wasm_inner = self
+                .module
+                .protected_caller
+                .get_wasm_trampoline(&self.module, sig_index)
+                .unwrap();
+
             let func_ptr = match func_index.local_or_import(&self.module.info) {
                 LocalOrImport::Local(local_func_index) => self
                     .module
                     .func_resolver
                     .get(&self.module, local_func_index)
-                    .unwrap()
-                    .as_ptr(),
-                LocalOrImport::Import(import_func_index) => {
-                    self.inner.import_backing.vm_functions[import_func_index].func
-                }
+                    .unwrap(),
+                LocalOrImport::Import(import_func_index) => NonNull::new(
+                    self.inner.import_backing.vm_functions[import_func_index].func as *mut _,
+                )
+                .unwrap(),
             };
 
             let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(trampoline, invoke, f as _, ctx, invoke_env) };
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, ctx) };
 
             Ok(typed_func)
         } else {
