@@ -20,4 +20,11 @@ impl VarArgs {
 
 unsafe impl WasmExternType for VarArgs {
     const TYPE: Type = Type::I32;
+
+    fn to_bits(self) -> u64 {
+        self.pointer as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        Self { pointer: n as u32 }
+    }
 }

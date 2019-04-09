@@ -72,6 +72,16 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
 
 unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
     const TYPE: Type = Type::I32;
+
+    fn to_bits(self) -> u64 {
+        self.offset as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        Self {
+            offset: n as u32,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 unsafe impl<T: Copy, Ty> ValueType for WasmPtr<T, Ty> {}
