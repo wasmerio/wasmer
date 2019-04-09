@@ -75,6 +75,12 @@ pub enum XMMOrMemory {
     Memory(GPR, i32),
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum GPROrMemory {
+    GPR(GPR),
+    Memory(GPR, i32),
+}
+
 pub trait Emitter {
     type Label;
     type Offset;
@@ -164,6 +170,16 @@ pub trait Emitter {
 
     fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR);
+    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR);
+    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR);
+    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR);
+
+    fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
+    fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
+    fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
+    fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM);
 
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
@@ -374,6 +390,28 @@ macro_rules! avx_fn {
     }
 }
 
+macro_rules! avx_i2f_64_fn {
+    ($ins:ident, $name:ident) => {
+        fn $name(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+            match src2 {
+                GPROrMemory::GPR(x) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rq((x as u8))),
+                GPROrMemory::Memory(base, disp) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), QWORD [Rq((base as u8)) + disp]),
+            }
+        }
+    }
+}
+
+macro_rules! avx_i2f_32_fn {
+    ($ins:ident, $name:ident) => {
+        fn $name(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
+            match src2 {
+                GPROrMemory::GPR(x) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rd((x as u8))),
+                GPROrMemory::Memory(base, disp) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), DWORD [Rq((base as u8)) + disp]),
+            }
+        }
+    }
+}
+
 macro_rules! avx_round_fn {
     ($ins:ident, $name:ident, $mode:expr) => {
         fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
@@ -411,8 +449,14 @@ impl Emitter for Assembler {
                         (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
                             dynasm!(self ; mov [Rq(dst as u8) + disp], Rb(src as u8));
                         }
+                        (Size::S8, Location::Imm32(src), Location::Memory(dst, disp)) => {
+                            dynasm!(self ; mov BYTE [Rq(dst as u8) + disp], src as i8);
+                        }
                         (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
                             dynasm!(self ; mov [Rq(dst as u8) + disp], Rw(src as u8));
+                        }
+                        (Size::S16, Location::Imm32(src), Location::Memory(dst, disp)) => {
+                            dynasm!(self ; mov WORD [Rq(dst as u8) + disp], src as i16);
                         }
                         (Size::S32, Location::GPR(src), Location::XMM(dst)) => {
                             dynasm!(self ; movd Rx(dst as u8), Rd(src as u8));
@@ -439,8 +483,11 @@ impl Emitter for Assembler {
                         (Size::S64, Location::XMM(src), Location::Memory(dst, disp)) => {
                             dynasm!(self ; movq [Rq(dst as u8) + disp], Rx(src as u8));
                         },
+                        (_, Location::XMM(src), Location::XMM(dst)) => {
+                            dynasm!(self ; movq Rx(dst as u8), Rx(src as u8));
+                        },
 
-                        _ => unreachable!()
+                        _ => panic!("MOV {:?} {:?} {:?}", sz, src, dst),
                     }
                 }
             )}
@@ -725,6 +772,39 @@ impl Emitter for Assembler {
     avx_round_fn!(vroundsd, emit_vroundsd_floor, 1);
     avx_round_fn!(vroundsd, emit_vroundsd_ceil, 2);
     avx_round_fn!(vroundsd, emit_vroundsd_trunc, 3);
+
+    avx_i2f_32_fn!(vcvtsi2ss, emit_vcvtsi2ss_32);
+    avx_i2f_32_fn!(vcvtsi2sd, emit_vcvtsi2sd_32);
+    avx_i2f_64_fn!(vcvtsi2ss, emit_vcvtsi2ss_64);
+    avx_i2f_64_fn!(vcvtsi2sd, emit_vcvtsi2sd_64);
+
+    fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
+        match src {
+            XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rd(dst as u8), Rx(x as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp]),
+        }
+    }
+
+    fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
+        match src {
+            XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rq(dst as u8), Rx(x as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp]),
+        }
+    }
+
+    fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
+        match src {
+            XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rd(dst as u8), Rx(x as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp]),
+        }
+    }
+
+    fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
+        match src {
+            XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rq(dst as u8), Rx(x as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp]),
+        }
+    }
 
     fn emit_ud2(&mut self) {
         dynasm!(self ; ud2);
