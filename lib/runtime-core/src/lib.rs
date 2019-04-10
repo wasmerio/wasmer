@@ -23,7 +23,7 @@ mod sig_registry;
 pub mod structures;
 mod sys;
 pub mod table;
-mod typed_func;
+pub mod typed_func;
 pub mod types;
 pub mod units;
 pub mod vm;
