@@ -31,9 +31,7 @@ test_i64_7z
 test_i64_varargs
 test_llvm_intrinsics
 test_longjmp2
-test_longjmp3
 test_longjmp4
-test_longjmp
 test_longjmp_exc
 test_longjmp_funcptr
 test_longjmp_repeat

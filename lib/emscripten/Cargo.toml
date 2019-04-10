@@ -31,3 +31,4 @@ glob = "0.2.11"
 clif = []
 llvm = ["wasmer-llvm-backend"]
 dynasm = ["wasmer-dynasm-backend"]
+debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
