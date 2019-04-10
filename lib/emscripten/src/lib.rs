@@ -249,7 +249,7 @@ impl<'a> EmscriptenData<'a> {
 
             stack_save,
             stack_restore,
-            set_threw
+            set_threw,
         }
     }
 }

@@ -39,15 +39,15 @@ pub fn __longjmp(ctx: &mut Ctx, env_addr: u32, val: c_int) {
 
 /// _longjmp
 pub fn _longjmp(ctx: &mut Ctx, env_addr: i32, val: c_int) {
-    let val = if val == 0 {
-        1
-    } else {
-        val
-    };
-    get_emscripten_data(ctx).set_threw.as_ref().expect("set_threw is None").call(env_addr, val).expect("set_threw failed to call");
+    let val = if val == 0 { 1 } else { val };
+    get_emscripten_data(ctx)
+        .set_threw
+        .as_ref()
+        .expect("set_threw is None")
+        .call(env_addr, val)
+        .expect("set_threw failed to call");
     panic!("longjmp");
 }
-
 
 extern "C" {
     fn setjmp(env: *mut c_void) -> c_int;
