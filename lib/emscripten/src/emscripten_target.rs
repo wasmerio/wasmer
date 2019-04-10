@@ -185,6 +185,8 @@ macro_rules! invoke {
             Ok(v) => v,
             Err(_e) => {
                 get_emscripten_data($ctx).stack_restore.as_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
+                // TODO: We should check if _e != "longjmp" and if that's the case, re-throw the error
+                // JS version is: if (e !== e+0 && e !== 'longjmp') throw e;
                 get_emscripten_data($ctx).set_threw.as_ref().expect("set_threw is None").call(1, 0).expect("set_threw call failed");
                 0 as _
             }
@@ -199,6 +201,8 @@ macro_rules! invoke_no_return {
             Ok(v) => v,
             Err(_e) => {
                 get_emscripten_data($ctx).stack_restore.as_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
+                // TODO: We should check if _e != "longjmp" and if that's the case, re-throw the error
+                // JS version is: if (e !== e+0 && e !== 'longjmp') throw e;
                 get_emscripten_data($ctx).set_threw.as_ref().expect("set_threw is None").call(1, 0).expect("set_threw call failed");
             }
         }

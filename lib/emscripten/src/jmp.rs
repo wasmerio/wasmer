@@ -1,6 +1,6 @@
-use super::process::abort_with_message;
 use super::env::get_emscripten_data;
-use libc::{c_int};
+use super::process::abort_with_message;
+use libc::c_int;
 // use std::cell::UnsafeCell;
 use wasmer_runtime_core::vm::Ctx;
 
@@ -42,7 +42,8 @@ pub fn __longjmp(ctx: &mut Ctx, _env_addr: u32, _val: c_int) {
 }
 
 /// _longjmp
-pub fn _longjmp(ctx: &mut Ctx, env_addr: i32, val: c_int) {
+// This function differs from the js implementation, it should return Result<(), &'static str>
+pub fn _longjmp(ctx: &mut Ctx, env_addr: i32, val: c_int) -> Result<(), ()> {
     let val = if val == 0 { 1 } else { val };
     get_emscripten_data(ctx)
         .set_threw
@@ -50,7 +51,8 @@ pub fn _longjmp(ctx: &mut Ctx, env_addr: i32, val: c_int) {
         .expect("set_threw is None")
         .call(env_addr, val)
         .expect("set_threw failed to call");
-    panic!("longjmp")
+    // TODO: return Err("longjmp")
+    Err(())
 }
 
 // extern "C" {
