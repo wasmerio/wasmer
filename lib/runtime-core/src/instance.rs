@@ -279,8 +279,8 @@ impl Instance {
 
     /// Returns an iterator over all of the items
     /// exported from this instance.
-    pub fn exports(&mut self) -> ExportIter {
-        ExportIter::new(&self.module, &mut self.inner)
+    pub fn exports(&self) -> ExportIter {
+        ExportIter::new(&self.module, &self.inner)
     }
 
     /// The module used to instantiate this Instance.
