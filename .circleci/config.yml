@@ -275,7 +275,7 @@ jobs:
           make test
           make test-nightly
           make test-emscripten
-          make test-emscripten-nightly
+          # make test-emscripten-nightly
       - save_cache:
           paths:
             - /usr/local/cargo/registry
