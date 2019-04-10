@@ -385,9 +385,28 @@ macro_rules! trap_op {
 macro_rules! avx_fn {
     ($ins:ident, $name:ident) => {
         fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
+            // Dynasm bug: AVX instructions are not encoded correctly.
             match src2 {
-                XMMOrMemory::XMM(x) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rx((x as u8))),
-                XMMOrMemory::Memory(base, disp) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), [Rq((base as u8)) + disp]),
+                XMMOrMemory::XMM(x) => match src1 {
+                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, Rx((x as u8))),
+                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, Rx((x as u8))),
+                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, Rx((x as u8))),
+                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, Rx((x as u8))),
+                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, Rx((x as u8))),
+                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rx((x as u8))),
+                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rx((x as u8))),
+                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rx((x as u8))),
+                },
+                XMMOrMemory::Memory(base, disp) => match src1 {
+                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, [Rq((base as u8)) + disp]),
+                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, [Rq((base as u8)) + disp]),
+                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, [Rq((base as u8)) + disp]),
+                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, [Rq((base as u8)) + disp]),
+                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, [Rq((base as u8)) + disp]),
+                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, [Rq((base as u8)) + disp]),
+                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, [Rq((base as u8)) + disp]),
+                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, [Rq((base as u8)) + disp]),
+                },
             }
         }
     }
@@ -397,8 +416,26 @@ macro_rules! avx_i2f_64_fn {
     ($ins:ident, $name:ident) => {
         fn $name(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
             match src2 {
-                GPROrMemory::GPR(x) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rq((x as u8))),
-                GPROrMemory::Memory(base, disp) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), QWORD [Rq((base as u8)) + disp]),
+                GPROrMemory::GPR(x) => match src1 {
+                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, Rq((x as u8))),
+                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, Rq((x as u8))),
+                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, Rq((x as u8))),
+                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, Rq((x as u8))),
+                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, Rq((x as u8))),
+                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rq((x as u8))),
+                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rq((x as u8))),
+                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rq((x as u8))),
+                },
+                GPROrMemory::Memory(base, disp) => match src1 {
+                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, QWORD [Rq((base as u8)) + disp]),
+                },
             }
         }
     }
@@ -408,8 +445,26 @@ macro_rules! avx_i2f_32_fn {
     ($ins:ident, $name:ident) => {
         fn $name(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
             match src2 {
-                GPROrMemory::GPR(x) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rd((x as u8))),
-                GPROrMemory::Memory(base, disp) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), DWORD [Rq((base as u8)) + disp]),
+                GPROrMemory::GPR(x) => match src1 {
+                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, Rd((x as u8))),
+                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, Rd((x as u8))),
+                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, Rd((x as u8))),
+                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, Rd((x as u8))),
+                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, Rd((x as u8))),
+                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rd((x as u8))),
+                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rd((x as u8))),
+                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rd((x as u8))),
+                },
+                GPROrMemory::Memory(base, disp) => match src1 {
+                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, DWORD [Rq((base as u8)) + disp]),
+                },
             }
         }
     }
@@ -590,14 +645,14 @@ impl Emitter for Assembler {
             (Size::S64, Location::Imm32(src)) => dynasm!(self ; push src as i32),
             (Size::S64, Location::GPR(src)) => dynasm!(self ; push Rq(src as u8)),
             (Size::S64, Location::Memory(src, disp)) => dynasm!(self ; push QWORD [Rq(src as u8) + disp]),
-            _ => unreachable!()
+            _ => panic!("push {:?} {:?}", sz, src)
         }
     }
     fn emit_pop(&mut self, sz: Size, dst: Location) {
         match (sz, dst) {
             (Size::S64, Location::GPR(dst)) => dynasm!(self ; pop Rq(dst as u8)),
             (Size::S64, Location::Memory(dst, disp)) => dynasm!(self ; pop QWORD [Rq(dst as u8) + disp]),
-            _ => unreachable!()
+            _ => panic!("pop {:?} {:?}", sz, dst)
         }
     }
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {

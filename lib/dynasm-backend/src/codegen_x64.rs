@@ -917,7 +917,7 @@ impl X64FunctionCode {
         let loc_a = get_location_released(a, m, value_stack.pop().unwrap());
         let ret = m.acquire_locations(a, &[WpType::I64], false)[0];
 
-        a.emit_mov(Size::S32, loc_b, Location::GPR(GPR::RCX));
+        a.emit_mov(Size::S64, loc_b, Location::GPR(GPR::RCX));
 
         if loc_a != ret {
             Self::emit_relaxed_binop(
@@ -1024,7 +1024,20 @@ impl X64FunctionCode {
                     call_movs.push((*param, x));
                 }
                 Location::Memory(_, _) => {
-                    a.emit_push(Size::S64, *param);
+                    match *param {
+                        // Dynasm bug: RSP in memory operand does not work
+                        Location::Imm64(_) | Location::XMM(_) => {
+                            a.emit_mov(Size::S64, Location::GPR(GPR::RAX), Location::XMM(XMM::XMM0));
+                            a.emit_mov(Size::S64, Location::GPR(GPR::RCX), Location::XMM(XMM::XMM1));
+                            a.emit_sub(Size::S64, Location::Imm32(8), Location::GPR(GPR::RSP));
+                            a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RCX));
+                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::RAX));
+                            a.emit_mov(Size::S64, Location::GPR(GPR::RAX), Location::Memory(GPR::RCX, 0));
+                            a.emit_mov(Size::S64, Location::XMM(XMM::XMM0), Location::GPR(GPR::RAX));
+                            a.emit_mov(Size::S64, Location::XMM(XMM::XMM1), Location::GPR(GPR::RCX));
+                        },
+                        _ => a.emit_push(Size::S64, *param)
+                    }
                 }
                 _ => unreachable!()
             }
