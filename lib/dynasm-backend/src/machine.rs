@@ -47,6 +47,8 @@ impl Machine {
             RDI,
             R8,
             R9,
+            R10,
+            R11,
         ];
         for r in REGS {
             if !self.used_gprs.contains(r) {
@@ -334,12 +336,11 @@ impl Machine {
         // Use callee-saved registers for locals.
         fn get_local_location(idx: usize) -> Location {
             match idx {
-                0 => Location::GPR(GPR::R10),
-                1 => Location::GPR(GPR::R11),
-                2 => Location::GPR(GPR::R12),
-                3 => Location::GPR(GPR::R13),
-                4 => Location::GPR(GPR::R14),
-                _ => Location::Memory(GPR::RBP, -(((idx - 4) * 8) as i32)),
+                0 => Location::GPR(GPR::R12),
+                1 => Location::GPR(GPR::R13),
+                2 => Location::GPR(GPR::R14),
+                3 => Location::GPR(GPR::RBX),
+                _ => Location::Memory(GPR::RBP, -(((idx - 3) * 8) as i32)),
             }
         }
 
