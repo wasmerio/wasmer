@@ -11,7 +11,7 @@ use crate::{
 use std::{
     cell::{Cell, RefCell},
     fmt, mem, ptr,
-    rc::Rc,
+    sync::Arc,
 };
 
 pub use self::atomic::Atomic;
@@ -210,7 +210,7 @@ enum UnsharedMemoryStorage {
 }
 
 pub struct UnsharedMemory {
-    internal: Rc<UnsharedMemoryInternal>,
+    internal: Arc<UnsharedMemoryInternal>,
 }
 
 struct UnsharedMemoryInternal {
@@ -237,7 +237,7 @@ impl UnsharedMemory {
         };
 
         Ok(UnsharedMemory {
-            internal: Rc::new(UnsharedMemoryInternal {
+            internal: Arc::new(UnsharedMemoryInternal {
                 storage: RefCell::new(storage),
                 local: Cell::new(local),
             }),
@@ -278,7 +278,7 @@ impl UnsharedMemory {
 impl Clone for UnsharedMemory {
     fn clone(&self) -> Self {
         UnsharedMemory {
-            internal: Rc::clone(&self.internal),
+            internal: Arc::clone(&self.internal),
         }
     }
 }
