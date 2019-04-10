@@ -126,6 +126,9 @@ pub trait Emitter {
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR);
     fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR);
 
+    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR);
+    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR);
+
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
@@ -171,6 +174,9 @@ pub trait Emitter {
 
     fn emit_vcvtss2sd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vcvtsd2ss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
+
+    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM);
+    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM);
 
     fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR);
     fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR);
@@ -789,6 +795,14 @@ impl Emitter for Assembler {
         dynasm!(self ; btc Rq(dst as u8), BYTE (src as i8));
     }
 
+    fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {
+        dynasm!(self ; cmovae Rd(dst as u8), Rd(src as u8));
+    }
+
+    fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) {
+        dynasm!(self ; cmovae Rq(dst as u8), Rq(src as u8));
+    }
+
     avx_fn!(vaddss, emit_vaddss);
     avx_fn!(vaddsd, emit_vaddsd);
 
@@ -844,6 +858,20 @@ impl Emitter for Assembler {
     avx_i2f_32_fn!(vcvtsi2sd, emit_vcvtsi2sd_32);
     avx_i2f_64_fn!(vcvtsi2ss, emit_vcvtsi2ss_64);
     avx_i2f_64_fn!(vcvtsi2sd, emit_vcvtsi2sd_64);
+
+    fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
+        match src {
+            XMMOrMemory::XMM(x) => dynasm!(self ; ucomiss Rx(dst as u8), Rx(x as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp]),
+        }
+    }
+
+    fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
+        match src {
+            XMMOrMemory::XMM(x) => dynasm!(self ; ucomisd Rx(dst as u8), Rx(x as u8)),
+            XMMOrMemory::Memory(base, disp) => dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp]),
+        }
+    }
 
     fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {

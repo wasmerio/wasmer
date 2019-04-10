@@ -1346,11 +1346,31 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
+
+                let normal_path = a.get_label();
+                let end = a.get_label();
+
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_cmp,
+                    Size::S32, Location::Imm32(0x80000000), loc_a,
+                );
+                a.emit_jmp(Condition::NotEqual, normal_path);
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_cmp,
+                    Size::S32, Location::Imm32(0xffffffff), loc_b,
+                );
+                a.emit_jmp(Condition::NotEqual, normal_path);
+                a.emit_mov(Size::S32, Location::Imm32(0), ret);
+                a.emit_jmp(Condition::None, end);
+
+                a.emit_label(normal_path);
                 a.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 a.emit_cdq();
                 Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_idiv, Size::S32, loc_b);
                 a.emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
                 self.value_stack.push((ret, LocalOrTemp::Temp));
+
+                a.emit_label(end);
             }
             Operator::I32And => Self::emit_binop_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_and),
             Operator::I32Or => Self::emit_binop_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_or),
@@ -1362,8 +1382,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::I32Ctz => Self::emit_xcnt_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_tzcnt),
             Operator::I32Popcnt => Self::emit_xcnt_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_popcnt),
             Operator::I32Shl => Self::emit_shift_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_shl),
-            Operator::I32ShrU => Self::emit_shift_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_sar),
-            Operator::I32ShrS => Self::emit_shift_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_shr),
+            Operator::I32ShrU => Self::emit_shift_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_shr),
+            Operator::I32ShrS => Self::emit_shift_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_sar),
             Operator::I32Rotl => Self::emit_shift_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_rol),
             Operator::I32Rotr => Self::emit_shift_i32(a, &mut self.machine, &mut self.value_stack, Assembler::emit_ror),
             Operator::I32LtU => Self::emit_cmpop_i32(a, &mut self.machine, &mut self.value_stack, Condition::Below),
@@ -1419,11 +1439,31 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let loc_b = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let loc_a = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+
+                let normal_path = a.get_label();
+                let end = a.get_label();
+
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_cmp,
+                    Size::S64, Location::Imm64(0x8000000000000000u64), loc_a,
+                );
+                a.emit_jmp(Condition::NotEqual, normal_path);
+                Self::emit_relaxed_binop(
+                    a, &mut self.machine, Assembler::emit_cmp,
+                    Size::S64, Location::Imm64(0xffffffffffffffffu64), loc_b,
+                );
+                a.emit_jmp(Condition::NotEqual, normal_path);
+                a.emit_mov(Size::S64, Location::Imm64(0), ret);
+                a.emit_jmp(Condition::None, end);
+
+                a.emit_label(normal_path);
+
                 a.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 a.emit_cqo();
                 Self::emit_relaxed_xdiv(a, &mut self.machine, Assembler::emit_idiv, Size::S64, loc_b);
                 a.emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
                 self.value_stack.push((ret, LocalOrTemp::Temp));
+                a.emit_label(end);
             }
             Operator::I64And => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_and),
             Operator::I64Or => Self::emit_binop_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_or),
@@ -1435,8 +1475,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::I64Ctz => Self::emit_xcnt_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_tzcnt),
             Operator::I64Popcnt => Self::emit_xcnt_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_popcnt),
             Operator::I64Shl => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_shl),
-            Operator::I64ShrU => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_sar),
-            Operator::I64ShrS => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_shr),
+            Operator::I64ShrU => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_shr),
+            Operator::I64ShrS => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_sar),
             Operator::I64Rotl => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_rol),
             Operator::I64Rotr => Self::emit_shift_i64(a, &mut self.machine, &mut self.value_stack, Assembler::emit_ror),
             Operator::I64LtU => Self::emit_cmpop_i64(a, &mut self.machine, &mut self.value_stack, Condition::Below),
@@ -1691,7 +1731,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 self.machine.release_temp_gpr(tmp_out);
             }
 
-            Operator::I64TruncSF32 | Operator::I64TruncUF32 /* FIXME: INCORRECT */ => {
+            Operator::I64TruncSF32 => {
                 let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
                 self.value_stack.push((ret, LocalOrTemp::Temp));
@@ -1702,6 +1742,51 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
                 
+                self.machine.release_temp_xmm(tmp_in);
+                self.machine.release_temp_gpr(tmp_out);
+            }
+
+            Operator::I64TruncUF32 => {
+                /*
+                    ; movq xmm5, r15
+                    ; mov r15d, 1593835520u32 as i32 //float 9.22337203E+18
+                    ; movd xmm1, r15d
+                    ; movd xmm2, Rd(reg as u8)
+                    ; movd xmm3, Rd(reg as u8)
+                    ; subss xmm2, xmm1
+                    ; cvttss2si Rq(reg as u8), xmm2
+                    ; mov r15, QWORD 0x8000000000000000u64 as i64
+                    ; xor r15, Rq(reg as u8)
+                    ; cvttss2si Rq(reg as u8), xmm3
+                    ; ucomiss xmm3, xmm1
+                    ; cmovae Rq(reg as u8), r15
+                    ; movq r15, xmm5
+                */
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
+                let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
+                let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
+                let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
+
+                a.emit_mov(Size::S32, Location::Imm32(1593835520u32), Location::GPR(tmp)); //float 9.22337203E+18
+                a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
+                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                a.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
+                a.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                a.emit_mov(Size::S64, Location::Imm64(0x8000000000000000u64), Location::GPR(tmp));
+                a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                a.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                a.emit_cmovae_gpr_64(tmp, tmp_out);
+                a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                
+                self.machine.release_temp_xmm(tmp_x2);
+                self.machine.release_temp_xmm(tmp_x1);
+                self.machine.release_temp_gpr(tmp);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
@@ -1736,7 +1821,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 self.machine.release_temp_gpr(tmp_out);
             }
 
-            Operator::I64TruncSF64 | Operator::I64TruncUF64 /* FIXME: INCORRECT */ => {
+            Operator::I64TruncSF64 => {
                 let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
                 self.value_stack.push((ret, LocalOrTemp::Temp));
@@ -1747,6 +1832,36 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
 
+                self.machine.release_temp_xmm(tmp_in);
+                self.machine.release_temp_gpr(tmp_out);
+            }
+
+            Operator::I64TruncUF64 => {
+                let loc = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
+                self.value_stack.push((ret, LocalOrTemp::Temp));
+                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
+                let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
+                let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
+                let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
+                let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
+
+                a.emit_mov(Size::S64, Location::Imm64(4890909195324358656u64), Location::GPR(tmp)); //double 9.2233720368547758E+18
+                a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
+                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                a.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
+                a.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                a.emit_mov(Size::S64, Location::Imm64(0x8000000000000000u64), Location::GPR(tmp));
+                a.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                a.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                a.emit_cmovae_gpr_64(tmp, tmp_out);
+                a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                
+                self.machine.release_temp_xmm(tmp_x2);
+                self.machine.release_temp_xmm(tmp_x1);
+                self.machine.release_temp_gpr(tmp);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
