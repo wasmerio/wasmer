@@ -66,7 +66,6 @@ pub type Invoke = unsafe extern "C" fn(
     Option<NonNull<c_void>>,
 ) -> bool;
 
-
 /// TODO(lachlan): Naming TBD.
 /// This contains the trampoline and invoke functions for a specific signature,
 /// as well as the environment that the invoke function may or may not require.
