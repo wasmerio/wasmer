@@ -33,21 +33,21 @@ pub fn invoke_ii(ctx: &mut Ctx, index: i32, a1: i32) -> i32 {
 }
 pub fn invoke_iii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) -> i32 {
     debug!("emscripten::invoke_iii");
-    if let Some(dyn_call_iii) = &get_emscripten_data(ctx).dyn_call_iii {
-        dyn_call_iii.call(index, a1, a2).unwrap()
-    } else {
-        panic!("dyn_call_iii is set to None");
-    }
-    // let sp = get_emscripten_data(ctx).stack_save.as_ref().expect("stack_save is None").call().expect("stack_save call failed");
-    // let result = get_emscripten_data(ctx).dyn_call_iii.as_ref().expect("dyn_call_iii is None").call(index, a1, a2);
-    // match result {
-    //     Ok(v) => v,
-    //     Err(e) => {
-    //         get_emscripten_data(ctx).stack_restore.as_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
-    //         get_emscripten_data(ctx).set_threw.as_ref().expect("set_threw is None").call(1, 0).expect("set_threw call failed");
-    //         0
-    //     }
+    // if let Some(dyn_call_iii) = &get_emscripten_data(ctx).dyn_call_iii {
+    //     dyn_call_iii.call(index, a1, a2).unwrap()
+    // } else {
+    //     panic!("dyn_call_iii is set to None");
     // }
+    let sp = get_emscripten_data(ctx).stack_save.as_ref().expect("stack_save is None").call().expect("stack_save call failed");
+    let result = get_emscripten_data(ctx).dyn_call_iii.as_ref().expect("dyn_call_iii is None").call(index, a1, a2);
+    match result {
+        Ok(v) => v,
+        Err(e) => {
+            get_emscripten_data(ctx).stack_restore.as_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
+            get_emscripten_data(ctx).set_threw.as_ref().expect("set_threw is None").call(1, 0).expect("set_threw call failed");
+            0
+        }
+    }
 }
 pub fn invoke_iiii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     debug!("emscripten::invoke_iiii");
@@ -59,25 +59,25 @@ pub fn invoke_iiii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 
 }
 pub fn invoke_v(ctx: &mut Ctx, index: i32) {
     debug!("emscripten::invoke_v");
-    if let Some(dyn_call_v) = &get_emscripten_data(ctx).dyn_call_v {
-        dyn_call_v.call(index).unwrap();
-    } else {
-        panic!("dyn_call_v is set to None");
-    }
-    // let sp = get_emscripten_data(ctx).stack_save.as_ref().expect("stack_save is None").call().expect("stack_save call failed");
-    // debug!("emscripten::invoke_v pre call");
-    // let func = get_emscripten_data(ctx).dyn_call_v.as_ref().expect("dyn_call_v is None");
-    // let result = func.call(index);
-    // debug!("emscripten::invoke_v post2 call");
-
-    // match result {
-    //     Ok(v) => {
-    //     },
-    //     Err(e) => {
-    //         get_emscripten_data(ctx).stack_restore.as_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
-    //         get_emscripten_data(ctx).set_threw.as_ref().expect("set_threw is None").call(1, 0).expect("set_threw call failed");
-    //     }
+    // if let Some(dyn_call_v) = &get_emscripten_data(ctx).dyn_call_v {
+    //     dyn_call_v.call(index).unwrap();
+    // } else {
+    //     panic!("dyn_call_v is set to None");
     // }
+    let sp = get_emscripten_data(ctx).stack_save.as_ref().expect("stack_save is None").call().expect("stack_save call failed");
+    debug!("emscripten::invoke_v pre call");
+    let func = get_emscripten_data(ctx).dyn_call_v.as_ref().expect("dyn_call_v is None");
+    let result = func.call(index);
+    debug!("emscripten::invoke_v post2 call");
+
+    match result {
+        Ok(v) => {
+        },
+        Err(e) => {
+            get_emscripten_data(ctx).stack_restore.as_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
+            get_emscripten_data(ctx).set_threw.as_ref().expect("set_threw is None").call(1, 0).expect("set_threw call failed");
+        }
+    }
 }
 pub fn invoke_vi(ctx: &mut Ctx, index: i32, a1: i32) {
     debug!("emscripten::invoke_vi");
@@ -89,12 +89,23 @@ pub fn invoke_vi(ctx: &mut Ctx, index: i32, a1: i32) {
 }
 pub fn invoke_vii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32) {
     debug!("emscripten::invoke_vii");
-    if let Some(dyn_call_vii) = &get_emscripten_data(ctx).dyn_call_vii {
-        dyn_call_vii.call(index, a1, a2).unwrap();
-    } else {
-        panic!("dyn_call_vii is set to None");
+
+    let sp = get_emscripten_data(ctx).stack_save.as_ref().expect("stack_save is None").call().expect("stack_save call failed");
+    debug!("emscripten::invoke_vii pre call");
+    let func = get_emscripten_data(ctx).dyn_call_vii.as_ref().expect("dyn_call_vii is None");
+    let result = func.call(index, a1, a2);
+    debug!("emscripten::invoke_vii post2 call");
+
+    match result {
+        Ok(v) => {
+        },
+        Err(e) => {
+            get_emscripten_data(ctx).stack_restore.as_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
+            get_emscripten_data(ctx).set_threw.as_ref().expect("set_threw is None").call(1, 0).expect("set_threw call failed");
+        }
     }
 }
+
 pub fn invoke_viii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_viii");
     if let Some(dyn_call_viii) = &get_emscripten_data(ctx).dyn_call_viii {
