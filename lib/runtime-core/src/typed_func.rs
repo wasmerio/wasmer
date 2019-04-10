@@ -50,6 +50,9 @@ impl fmt::Display for WasmTrapInfo {
     }
 }
 
+/// This is just an empty trait to constrict that types that
+/// can be put into the third/fourth (depending if you include lifetimes)
+/// of the `Func` struct.
 pub trait Kind {}
 
 pub type Trampoline = unsafe extern "C" fn(*mut Ctx, NonNull<vm::Func>, *const u64, *mut u64);
@@ -63,6 +66,10 @@ pub type Invoke = unsafe extern "C" fn(
     Option<NonNull<c_void>>,
 ) -> bool;
 
+
+/// TODO(lachlan): Naming TBD.
+/// This contains the trampoline and invoke functions for a specific signature,
+/// as well as the environment that the invoke function may or may not require.
 #[derive(Copy, Clone)]
 pub struct Wasm {
     trampoline: Trampoline,
@@ -84,6 +91,8 @@ impl Wasm {
     }
 }
 
+/// This type, as part of the `Func` type signature, represents a function that is created
+/// by the host.
 pub struct Host(());
 impl Kind for Wasm {}
 impl Kind for Host {}

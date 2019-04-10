@@ -86,6 +86,10 @@ pub trait ProtectedCaller: Send + Sync {
     ///
     /// The existance of the Token parameter ensures that this can only be called from
     /// within the runtime crate.
+    ///
+    /// TODO(lachlan): Now that `get_wasm_trampoline` exists, `ProtectedCaller::call`
+    /// can be removed. That should speed up calls a little bit, since sanity checks
+    /// would only occur once.
     fn call(
         &self,
         module: &ModuleInner,
@@ -96,6 +100,9 @@ pub trait ProtectedCaller: Send + Sync {
         _: Token,
     ) -> RuntimeResult<Vec<Value>>;
 
+    /// A wasm trampoline contains the necesarry data to dynamically call an exported wasm function.
+    /// Given a particular signature index, we are returned a trampoline that is matched with that
+    /// signature and an invoke function that can call the trampoline.
     fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm>;
 
     fn get_early_trapper(&self) -> Box<dyn UserTrapper>;
