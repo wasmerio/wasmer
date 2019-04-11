@@ -64,7 +64,7 @@ struct Run {
     path: PathBuf,
 
     // Disable the cache
-    #[structopt(long = "backend", default_value="cranelift")]
+    #[structopt(long = "backend", default_value = "cranelift")]
     backend: Backend,
 
     /// Emscripten symbol map
@@ -90,7 +90,7 @@ impl FromStr for Backend {
             "singlepass" => Ok(Backend::Singlepass),
             "cranelift" => Ok(Backend::Cranelift),
             "llvm" => Ok(Backend::LLVM),
-            _ => Err(format!("The backend {} doesn't exist", s))
+            _ => Err(format!("The backend {} doesn't exist", s)),
         }
     }
 }
