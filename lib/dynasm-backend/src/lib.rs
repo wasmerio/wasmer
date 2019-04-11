@@ -15,6 +15,8 @@ extern crate dynasm;
 extern crate lazy_static;
 
 extern crate byteorder;
+#[macro_use]
+extern crate smallvec;
 
 mod codegen;
 mod codegen_x64;

@@ -26,6 +26,7 @@ use wasmer_runtime_core::{
 use wasmparser::{Operator, Type as WpType};
 use crate::machine::*;
 use crate::emitter_x64::*;
+use smallvec::SmallVec;
 
 lazy_static! {
     static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u8, stack_base: *const u8, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
@@ -137,7 +138,7 @@ pub struct X64FunctionCode {
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     br_table_data: Option<Vec<Vec<usize>>>,
-    returns: Vec<WpType>,
+    returns: SmallVec<[WpType; 1]>,
     locals: Vec<Location>,
     num_params: usize,
     num_locals: usize,
@@ -173,7 +174,7 @@ pub struct ControlFrame {
     pub label: DynamicLabel,
     pub loop_like: bool,
     pub if_else: IfElseState,
-    pub returns: Vec<WpType>,
+    pub returns: SmallVec<[WpType; 1]>,
     pub value_stack_depth: usize,
 }
 
@@ -318,7 +319,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             assembler: Some(assembler),
             function_labels: Some(function_labels),
             br_table_data: Some(br_table_data),
-            returns: vec![],
+            returns: smallvec![],
             locals: vec![],
             num_params: 0,
             num_locals: 0,
@@ -2134,13 +2135,13 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     .0;
                 let sig_index = *self.function_signatures.get(FuncIndex::new(function_index)).unwrap();
                 let sig = self.signatures.get(sig_index).unwrap();
-                let param_types: Vec<WpType> =
+                let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().cloned().map(type_to_wp_type).collect();
-                let return_types: Vec<WpType> =
+                let return_types: SmallVec<[WpType; 1]> =
                     sig.returns().iter().cloned().map(type_to_wp_type).collect();
 
-                let params: Vec<_> = self.value_stack.drain(self.value_stack.len() - param_types.len()..).collect();
-                let released: Vec<Location> = params.iter()
+                let params: SmallVec<[_; 8]> = self.value_stack.drain(self.value_stack.len() - param_types.len()..).collect();
+                let released: SmallVec<[Location; 8]> = params.iter()
                     .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
                     .map(|&(x, _)| x)
                     .collect();
@@ -2159,15 +2160,15 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::CallIndirect { index, table_index } => {
                 assert_eq!(table_index, 0);
                 let sig = self.signatures.get(SigIndex::new(index as usize)).unwrap();
-                let param_types: Vec<WpType> =
+                let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().cloned().map(type_to_wp_type).collect();
-                let return_types: Vec<WpType> =
+                let return_types: SmallVec<[WpType; 1]> =
                     sig.returns().iter().cloned().map(type_to_wp_type).collect();
 
                 let func_index = get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
 
-                let params: Vec<_> = self.value_stack.drain(self.value_stack.len() - param_types.len()..).collect();
-                let released: Vec<Location> = params.iter()
+                let params: SmallVec<[_; 8]> = self.value_stack.drain(self.value_stack.len() - param_types.len()..).collect();
+                let released: SmallVec<[Location; 8]> = params.iter()
                     .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
                     .map(|&(x, _)| x)
                     .collect();
@@ -2233,8 +2234,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         loop_like: false,
                         if_else: IfElseState::If(label_else),
                         returns: match ty {
-                            WpType::EmptyBlockType => vec![],
-                            _ => vec![ty],
+                            WpType::EmptyBlockType => smallvec![],
+                            _ => smallvec![ty],
                         },
                         value_stack_depth: self.value_stack.len(),
                     });
@@ -2308,8 +2309,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         loop_like: false,
                         if_else: IfElseState::None,
                         returns: match ty {
-                            WpType::EmptyBlockType => vec![],
-                            _ => vec![ty],
+                            WpType::EmptyBlockType => smallvec![],
+                            _ => smallvec![ty],
                         },
                         value_stack_depth: self.value_stack.len(),
                     });
@@ -2322,8 +2323,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                         loop_like: true,
                         if_else: IfElseState::None,
                         returns: match ty {
-                            WpType::EmptyBlockType => vec![],
-                            _ => vec![ty],
+                            WpType::EmptyBlockType => smallvec![],
+                            _ => smallvec![ty],
                         },
                         value_stack_depth: self.value_stack.len(),
                     });
