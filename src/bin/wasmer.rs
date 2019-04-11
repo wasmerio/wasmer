@@ -6,6 +6,7 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
+use std::str::FromStr;
 
 use hashbrown::HashMap;
 use structopt::StructOpt;
@@ -62,13 +63,36 @@ struct Run {
     #[structopt(parse(from_os_str))]
     path: PathBuf,
 
-    /// Application arguments
-    #[structopt(name = "--", raw(multiple = "true"))]
-    args: Vec<String>,
+    // Disable the cache
+    #[structopt(long = "backend", default_value="cranelift")]
+    backend: Backend,
 
     /// Emscripten symbol map
     #[structopt(long = "em-symbol-map", parse(from_os_str))]
     em_symbol_map: Option<PathBuf>,
+
+    /// Application arguments
+    #[structopt(name = "--", raw(multiple = "true"))]
+    args: Vec<String>,
+}
+
+#[derive(Debug)]
+enum Backend {
+    Cranelift,
+    Singlepass,
+    LLVM,
+}
+
+impl FromStr for Backend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Backend, String> {
+        match s {
+            "singlepass" => Ok(Backend::Singlepass),
+            "cranelift" => Ok(Backend::Cranelift),
+            "llvm" => Ok(Backend::LLVM),
+            _ => Err(format!("The backend {} doesn't exist", s))
+        }
+    }
 }
 
 #[derive(Debug, StructOpt)]

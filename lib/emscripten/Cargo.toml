@@ -15,7 +15,7 @@ libc = "0.2.49"
 byteorder = "1"
 time = "0.1.41"
 wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
-wasmer-dynasm-backend = { path = "../dynasm-backend", version = "0.1.0", optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.1.0", optional = true }
 wasmer-llvm-backend = { path = "../llvm-backend", version = "0.1.0", optional = true }
 
 [target.'cfg(windows)'.dependencies]
@@ -30,5 +30,5 @@ glob = "0.2.11"
 [features]
 clif = []
 llvm = ["wasmer-llvm-backend"]
-dynasm = ["wasmer-dynasm-backend"]
+singlepass = ["wasmer-singlepass-backend"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]

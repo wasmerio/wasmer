@@ -34,15 +34,15 @@ precommit: lint test
 
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-dynasm-backend -- $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
 	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
 
-test-dynasm:
-	cargo test --manifest-path lib/spectests/Cargo.toml --features dynasm
+test-singlepass:
+	cargo test --manifest-path lib/spectests/Cargo.toml --features singlepass
 
 test-emscripten-llvm:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
@@ -50,17 +50,17 @@ test-emscripten-llvm:
 test-emscripten-clif:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
 
-test-emscripten-dynasm:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --features dynasm -- --test-threads=1 $(runargs)
+test-emscripten-singlepass:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
 
-dynasm-debug-release:
-	cargo +nightly build --features "dynasm debug" --release
+singlepass-debug-release:
+	cargo +nightly build --features "singlepass debug" --release
 
-dynasm-release:
-	cargo +nightly build --features "dynasm" --release
+singlepass-release:
+	cargo +nightly build --features "singlepass" --release
 
-dynasm-build:
-	cargo +nightly build --features "dynasm debug"
+singlepass-build:
+	cargo +nightly build --features "singlepass debug"
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows

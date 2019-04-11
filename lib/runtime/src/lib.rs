@@ -171,10 +171,10 @@ pub fn default_compiler() -> &'static dyn Compiler {
     #[cfg(feature = "llvm")]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(feature = "dynasm")]
-    use wasmer_dynasm_backend::SinglePassCompiler as DefaultCompiler;
+    #[cfg(feature = "singlepass")]
+    use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
-    #[cfg(not(any(feature = "llvm", feature = "dynasm")))]
+    #[cfg(not(any(feature = "llvm", feature = "singlepass")))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     lazy_static! {

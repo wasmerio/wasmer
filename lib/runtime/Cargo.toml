@@ -9,7 +9,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-dynasm-backend = { path = "../dynasm-backend", optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", optional = true }
 lazy_static = "1.2.0"
 memmap = "0.7.0"
 
@@ -37,7 +37,7 @@ default-compiler = ["wasmer-clif-backend"]
 cache = ["default-compiler"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 llvm = ["wasmer-llvm-backend"]
-dynasm = ["wasmer-dynasm-backend"]
+singlepass = ["wasmer-singlepass-backend"]
 
 [[bench]]
 name = "nginx"

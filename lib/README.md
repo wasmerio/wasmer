@@ -34,6 +34,6 @@ to tune the codegen properties (compile speed, performance, etc) to best fit the
 
 Currently, we support multiple backends for compiling WebAssembly to machine code:
 
-- [dynasm-backend](./dynasm-backend/): Dynasm backend - super fast compilation, slower runtime speed
+- [singlepass-backend](./singlepass-backend/): Single pass backend - super fast compilation, slower runtime speed
 - [clif-backend](./clif-backend/): Cranelift backend - slower compilation, normal runtime speed
 - [llvm-backend](./llvm-backend/): LLVM backend - slow compilation, native runtime speed

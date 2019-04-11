@@ -152,7 +152,7 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      # Use rust nightly (for dynasm, for now)
+      # Use rust nightly (for singlepass, for now)
       - run: rustup default nightly-2019-04-11
       - run:
           name: Tests
@@ -220,7 +220,7 @@ jobs:
             curl https://sh.rustup.rs -sSf | sh -s -- -y
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
-      # Use rust nightly (for dynasm, for now)
+      # Use rust nightly (for singlepass, for now)
       - run: rustup default nightly-2019-04-11
       - run:
           name: Tests
@@ -242,7 +242,7 @@ jobs:
             ulimit -n 8000
             sudo sysctl -w kern.maxfiles=655360 kern.maxfilesperproc=327680
             make test-emscripten-clif
-            make test-emscripten-dynasm
+            make test-emscripten-singlepass
       - run:
           name: Release Build
           command: |
@@ -288,9 +288,9 @@ jobs:
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make test
-          make test-dynasm
+          make test-singlepass
           make test-emscripten-clif
-          make test-emscripten-dynasm
+          make test-emscripten-singlepass
       - save_cache:
           paths:
             - /usr/local/cargo/registry
