@@ -23,4 +23,9 @@ fn main() {
     f_out
         .write_all(hash_string.as_bytes())
         .expect("Could not write to file for wasmer hash value");
+
+    // Enable "nightly" cfg if the current compiler is nightly.
+    if rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly {
+        println!("cargo:rustc-cfg=nightly");
+    }
 }
