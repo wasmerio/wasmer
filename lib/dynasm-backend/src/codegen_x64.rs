@@ -1142,6 +1142,100 @@ impl X64FunctionCode {
 
         m.release_temp_gpr(tmp_addr);
     }
+
+    fn emit_f32_int_conv_check(
+        a: &mut Assembler,
+        m: &mut Machine,
+        reg: XMM,
+        lower_bound: f32,
+        upper_bound: f32,
+    ) {
+        let lower_bound = f32::to_bits(lower_bound);
+        let upper_bound = f32::to_bits(upper_bound);
+
+        let trap = a.get_label();
+        let end = a.get_label();
+
+        let tmp = m.acquire_temp_gpr().unwrap();
+        let tmp_x = m.acquire_temp_xmm().unwrap();
+
+        // Underflow.
+        a.emit_mov(Size::S32, Location::Imm32(lower_bound), Location::GPR(tmp));
+        a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
+        a.emit_vcmpltss(tmp_x, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        a.emit_cmp(Size::S32, Location::Imm32(1), Location::GPR(tmp));
+        a.emit_jmp(Condition::Equal, trap);
+
+        // Overflow.
+        a.emit_mov(Size::S32, Location::Imm32(upper_bound), Location::GPR(tmp));
+        a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
+        a.emit_vcmpgtss(tmp_x, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        a.emit_cmp(Size::S32, Location::Imm32(1), Location::GPR(tmp));
+        a.emit_jmp(Condition::Equal, trap);
+
+        // NaN.
+        a.emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        a.emit_jmp(Condition::Equal, trap);
+
+        a.emit_jmp(Condition::None, end);
+        a.emit_label(trap);
+        a.emit_ud2();
+        a.emit_label(end);
+
+        m.release_temp_xmm(tmp_x);
+        m.release_temp_gpr(tmp);
+    }
+
+    fn emit_f64_int_conv_check(
+        a: &mut Assembler,
+        m: &mut Machine,
+        reg: XMM,
+        lower_bound: f64,
+        upper_bound: f64,
+    ) {
+        let lower_bound = f64::to_bits(lower_bound);
+        let upper_bound = f64::to_bits(upper_bound);
+
+        let trap = a.get_label();
+        let end = a.get_label();
+
+        let tmp = m.acquire_temp_gpr().unwrap();
+        let tmp_x = m.acquire_temp_xmm().unwrap();
+
+        // Underflow.
+        a.emit_mov(Size::S64, Location::Imm64(lower_bound), Location::GPR(tmp));
+        a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
+        a.emit_vcmpltsd(tmp_x, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        a.emit_cmp(Size::S32, Location::Imm32(1), Location::GPR(tmp));
+        a.emit_jmp(Condition::Equal, trap);
+
+        // Overflow.
+        a.emit_mov(Size::S64, Location::Imm64(upper_bound), Location::GPR(tmp));
+        a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
+        a.emit_vcmpgtsd(tmp_x, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        a.emit_cmp(Size::S32, Location::Imm32(1), Location::GPR(tmp));
+        a.emit_jmp(Condition::Equal, trap);
+
+        // NaN.
+        a.emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        a.emit_jmp(Condition::Equal, trap);
+
+        a.emit_jmp(Condition::None, end);
+        a.emit_label(trap);
+        a.emit_ud2();
+        a.emit_label(end);
+
+        m.release_temp_xmm(tmp_x);
+        m.release_temp_gpr(tmp);
+    }
 }
 
 impl FunctionCodeGenerator for X64FunctionCode {
@@ -1709,6 +1803,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
                 a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_f32_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
+
                 a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
@@ -1724,6 +1820,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
                 a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_f32_int_conv_check(a, &mut self.machine, tmp_in, -2147483904.0, 2147483648.0);
+
                 a.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
@@ -1739,6 +1837,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
                 a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_f32_int_conv_check(a, &mut self.machine, tmp_in, -9223373136366403584.0, 9223372036854775808.0);
                 a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
                 
@@ -1767,13 +1866,16 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 self.value_stack.push((ret, LocalOrTemp::Temp));
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
+
+                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
+                Self::emit_f32_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 18446744073709551616.0);
+
                 let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
                 let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
                 let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
 
                 a.emit_mov(Size::S32, Location::Imm32(1593835520u32), Location::GPR(tmp)); //float 9.22337203E+18
                 a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
-                a.emit_mov(Size::S32, loc, Location::XMM(tmp_in));
                 a.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
                 a.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
                 a.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
@@ -1799,6 +1901,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
                 a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_f64_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 4294967296.0);
+
                 a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
@@ -1814,6 +1918,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
                 a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_f64_int_conv_check(a, &mut self.machine, tmp_in, -2147483649.0, 2147483648.0);
+
                 a.emit_cvttsd2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
@@ -1829,6 +1935,8 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
                 a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_f64_int_conv_check(a, &mut self.machine, tmp_in, -9223372036854777856.0, 9223372036854775808.0);
+
                 a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                 a.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
 
@@ -1842,13 +1950,16 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 self.value_stack.push((ret, LocalOrTemp::Temp));
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
+
+                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                Self::emit_f64_int_conv_check(a, &mut self.machine, tmp_in, -1.0, 18446744073709551616.0);
+
                 let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
                 let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
                 let tmp_x2 = self.machine.acquire_temp_xmm().unwrap(); // xmm3
 
                 a.emit_mov(Size::S64, Location::Imm64(4890909195324358656u64), Location::GPR(tmp)); //double 9.2233720368547758E+18
                 a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
-                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
                 a.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
                 a.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
                 a.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
