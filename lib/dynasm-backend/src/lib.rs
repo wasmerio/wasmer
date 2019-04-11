@@ -20,10 +20,10 @@ extern crate smallvec;
 
 mod codegen;
 mod codegen_x64;
-mod parse;
-mod protect_unix;
 mod emitter_x64;
 mod machine;
+mod parse;
+mod protect_unix;
 
 use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;

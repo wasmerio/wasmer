@@ -1,6 +1,4 @@
-use dynasmrt::{
-    x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
-};
+use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -43,7 +41,7 @@ pub enum Location {
     Imm64(u64),
     GPR(GPR),
     XMM(XMM),
-    Memory(GPR, i32)
+    Memory(GPR, i32),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -228,13 +226,9 @@ macro_rules! unop_mem {
 
 macro_rules! unop_gpr_or_mem {
     ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
-        unop_gpr!(
-            $ins, $assembler, $sz, $loc,
-            {unop_mem!(
-                $ins, $assembler, $sz, $loc,
-                $otherwise
-            )}
-        )
+        unop_gpr!($ins, $assembler, $sz, $loc, {
+            unop_mem!($ins, $assembler, $sz, $loc, $otherwise)
+        })
     };
 }
 
@@ -321,22 +315,15 @@ macro_rules! binop_mem_gpr {
 
 macro_rules! binop_all_nofp {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
-        binop_imm32_gpr!(
-            $ins, $assembler, $sz, $src, $dst,
-            {binop_imm32_mem!(
-                $ins, $assembler, $sz, $src, $dst,
-                {binop_gpr_gpr!(
-                    $ins, $assembler, $sz, $src, $dst,
-                    {binop_gpr_mem!(
-                        $ins, $assembler, $sz, $src, $dst,
-                        {binop_mem_gpr!(
-                            $ins, $assembler, $sz, $src, $dst,
-                            $otherwise
-                        )}
-                    )}
-                )}
-            )}
-        )
+        binop_imm32_gpr!($ins, $assembler, $sz, $src, $dst, {
+            binop_imm32_mem!($ins, $assembler, $sz, $src, $dst, {
+                binop_gpr_gpr!($ins, $assembler, $sz, $src, $dst, {
+                    binop_gpr_mem!($ins, $assembler, $sz, $src, $dst, {
+                        binop_mem_gpr!($ins, $assembler, $sz, $src, $dst, $otherwise)
+                    })
+                })
+            })
+        })
     };
 }
 
@@ -506,73 +493,69 @@ impl Emitter for Assembler {
     }
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {
-        binop_all_nofp!(
-            mov, self, sz, src, dst,
-            {binop_imm64_gpr!(
-                mov, self, sz, src, dst,
-                {
-                    match (sz, src, dst) {
-                        (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
-                            dynasm!(self ; mov [Rq(dst as u8) + disp], Rb(src as u8));
-                        }
-                        (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) => {
-                            dynasm!(self ; mov Rb(dst as u8), [Rq(src as u8) + disp]);
-                        }
-                        (Size::S8, Location::Imm32(src), Location::Memory(dst, disp)) => {
-                            dynasm!(self ; mov BYTE [Rq(dst as u8) + disp], src as i8);
-                        }
-                        (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
-                            dynasm!(self ; mov [Rq(dst as u8) + disp], Rw(src as u8));
-                        }
-                        (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) => {
-                            dynasm!(self ; mov Rw(dst as u8), [Rq(src as u8) + disp]);
-                        }
-                        (Size::S16, Location::Imm32(src), Location::Memory(dst, disp)) => {
-                            dynasm!(self ; mov WORD [Rq(dst as u8) + disp], src as i16);
-                        }
-                        (Size::S32, Location::GPR(src), Location::XMM(dst)) => {
-                            dynasm!(self ; movd Rx(dst as u8), Rd(src as u8));
-                        },
-                        (Size::S32, Location::XMM(src), Location::GPR(dst)) => {
-                            dynasm!(self ; movd Rd(dst as u8), Rx(src as u8));
-                        },
-                        (Size::S32, Location::Memory(src, disp), Location::XMM(dst)) => {
-                            dynasm!(self ; movd Rx(dst as u8), [Rq(src as u8) + disp]);
-                        },
-                        (Size::S32, Location::XMM(src), Location::Memory(dst, disp)) => {
-                            dynasm!(self ; movd [Rq(dst as u8) + disp], Rx(src as u8));
-                        },
-
-                        (Size::S64, Location::GPR(src), Location::XMM(dst)) => {
-                            dynasm!(self ; movq Rx(dst as u8), Rq(src as u8));
-                        },
-                        (Size::S64, Location::XMM(src), Location::GPR(dst)) => {
-                            dynasm!(self ; movq Rq(dst as u8), Rx(src as u8));
-                        },
-                        (Size::S64, Location::Memory(src, disp), Location::XMM(dst)) => {
-                            dynasm!(self ; movq Rx(dst as u8), [Rq(src as u8) + disp]);
-                        },
-                        (Size::S64, Location::XMM(src), Location::Memory(dst, disp)) => {
-                            dynasm!(self ; movq [Rq(dst as u8) + disp], Rx(src as u8));
-                        },
-                        (_, Location::XMM(src), Location::XMM(dst)) => {
-                            dynasm!(self ; movq Rx(dst as u8), Rx(src as u8));
-                        },
-
-                        _ => panic!("MOV {:?} {:?} {:?}", sz, src, dst),
+        binop_all_nofp!(mov, self, sz, src, dst, {
+            binop_imm64_gpr!(mov, self, sz, src, dst, {
+                match (sz, src, dst) {
+                    (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; mov [Rq(dst as u8) + disp], Rb(src as u8));
                     }
+                    (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rb(dst as u8), [Rq(src as u8) + disp]);
+                    }
+                    (Size::S8, Location::Imm32(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; mov BYTE [Rq(dst as u8) + disp], src as i8);
+                    }
+                    (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; mov [Rq(dst as u8) + disp], Rw(src as u8));
+                    }
+                    (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rw(dst as u8), [Rq(src as u8) + disp]);
+                    }
+                    (Size::S16, Location::Imm32(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; mov WORD [Rq(dst as u8) + disp], src as i16);
+                    }
+                    (Size::S32, Location::GPR(src), Location::XMM(dst)) => {
+                        dynasm!(self ; movd Rx(dst as u8), Rd(src as u8));
+                    }
+                    (Size::S32, Location::XMM(src), Location::GPR(dst)) => {
+                        dynasm!(self ; movd Rd(dst as u8), Rx(src as u8));
+                    }
+                    (Size::S32, Location::Memory(src, disp), Location::XMM(dst)) => {
+                        dynasm!(self ; movd Rx(dst as u8), [Rq(src as u8) + disp]);
+                    }
+                    (Size::S32, Location::XMM(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; movd [Rq(dst as u8) + disp], Rx(src as u8));
+                    }
+
+                    (Size::S64, Location::GPR(src), Location::XMM(dst)) => {
+                        dynasm!(self ; movq Rx(dst as u8), Rq(src as u8));
+                    }
+                    (Size::S64, Location::XMM(src), Location::GPR(dst)) => {
+                        dynasm!(self ; movq Rq(dst as u8), Rx(src as u8));
+                    }
+                    (Size::S64, Location::Memory(src, disp), Location::XMM(dst)) => {
+                        dynasm!(self ; movq Rx(dst as u8), [Rq(src as u8) + disp]);
+                    }
+                    (Size::S64, Location::XMM(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; movq [Rq(dst as u8) + disp], Rx(src as u8));
+                    }
+                    (_, Location::XMM(src), Location::XMM(dst)) => {
+                        dynasm!(self ; movq Rx(dst as u8), Rx(src as u8));
+                    }
+
+                    _ => panic!("MOV {:?} {:?} {:?}", sz, src, dst),
                 }
-            )}
-        );
+            })
+        });
     }
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!(self ; lea Rd(dst as u8), [Rq(src as u8) + disp]);
-            },
+            }
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!(self ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -580,7 +563,7 @@ impl Emitter for Assembler {
         match dst {
             Location::GPR(x) => {
                 dynasm!(self ; lea Rq(x as u8), [=>label]);
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -591,7 +574,7 @@ impl Emitter for Assembler {
         dynasm!(self ; cqo);
     }
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) {
-        binop_all_nofp!(xor, self, sz, src, dst, {unreachable!()});
+        binop_all_nofp!(xor, self, sz, src, dst, { unreachable!() });
     }
     fn emit_jmp(&mut self, condition: Condition, label: Self::Label) {
         match condition {
@@ -645,22 +628,26 @@ impl Emitter for Assembler {
             Condition::Equal => dynasm!(self ; sete Rb(dst as u8)),
             Condition::NotEqual => dynasm!(self ; setne Rb(dst as u8)),
             Condition::Signed => dynasm!(self ; sets Rb(dst as u8)),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
     fn emit_push(&mut self, sz: Size, src: Location) {
         match (sz, src) {
             (Size::S64, Location::Imm32(src)) => dynasm!(self ; push src as i32),
             (Size::S64, Location::GPR(src)) => dynasm!(self ; push Rq(src as u8)),
-            (Size::S64, Location::Memory(src, disp)) => dynasm!(self ; push QWORD [Rq(src as u8) + disp]),
-            _ => panic!("push {:?} {:?}", sz, src)
+            (Size::S64, Location::Memory(src, disp)) => {
+                dynasm!(self ; push QWORD [Rq(src as u8) + disp])
+            }
+            _ => panic!("push {:?} {:?}", sz, src),
         }
     }
     fn emit_pop(&mut self, sz: Size, dst: Location) {
         match (sz, dst) {
             (Size::S64, Location::GPR(dst)) => dynasm!(self ; pop Rq(dst as u8)),
-            (Size::S64, Location::Memory(dst, disp)) => dynasm!(self ; pop QWORD [Rq(dst as u8) + disp]),
-            _ => panic!("pop {:?} {:?}", sz, dst)
+            (Size::S64, Location::Memory(dst, disp)) => {
+                dynasm!(self ; pop QWORD [Rq(dst as u8) + disp])
+            }
+            _ => panic!("pop {:?} {:?}", sz, dst),
         }
     }
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {
@@ -669,14 +656,14 @@ impl Emitter for Assembler {
         });
     }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
-        binop_all_nofp!(add, self, sz, src, dst, {unreachable!()});
+        binop_all_nofp!(add, self, sz, src, dst, { unreachable!() });
     }
     fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) {
-        binop_all_nofp!(sub, self, sz, src, dst, {unreachable!()});
+        binop_all_nofp!(sub, self, sz, src, dst, { unreachable!() });
     }
     fn emit_imul(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(imul, self, sz, src, dst, {
-            binop_mem_gpr!(imul, self, sz, src, dst, {unreachable!()})
+            binop_mem_gpr!(imul, self, sz, src, dst, { unreachable!() })
         });
     }
     fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR) {
@@ -704,87 +691,87 @@ impl Emitter for Assembler {
         binop_shift!(ror, self, sz, src, dst, { unreachable!() });
     }
     fn emit_and(&mut self, sz: Size, src: Location, dst: Location) {
-        binop_all_nofp!(and, self, sz, src, dst, {unreachable!()});
+        binop_all_nofp!(and, self, sz, src, dst, { unreachable!() });
     }
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
-        binop_all_nofp!(or, self, sz, src, dst, {unreachable!()});
+        binop_all_nofp!(or, self, sz, src, dst, { unreachable!() });
     }
     fn emit_lzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(lzcnt, self, sz, src, dst, {
-            binop_mem_gpr!(lzcnt, self, sz, src, dst, {unreachable!()})
+            binop_mem_gpr!(lzcnt, self, sz, src, dst, { unreachable!() })
         });
     }
     fn emit_tzcnt(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(tzcnt, self, sz, src, dst, {
-            binop_mem_gpr!(tzcnt, self, sz, src, dst, {unreachable!()})
+            binop_mem_gpr!(tzcnt, self, sz, src, dst, { unreachable!() })
         });
     }
     fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) {
         binop_gpr_gpr!(popcnt, self, sz, src, dst, {
-            binop_mem_gpr!(popcnt, self, sz, src, dst, {unreachable!()})
+            binop_mem_gpr!(popcnt, self, sz, src, dst, { unreachable!() })
         });
     }
     fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
         match (sz_src, src, sz_dst, dst) {
             (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rd(dst as u8), Rb(src as u8)); 
-            },
+                dynasm!(self ; movzx Rd(dst as u8), Rb(src as u8));
+            }
             (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rd(dst as u8), Rw(src as u8)); 
-            },
+                dynasm!(self ; movzx Rd(dst as u8), Rw(src as u8));
+            }
             (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rd(dst as u8), BYTE [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movzx Rd(dst as u8), BYTE [Rq(src as u8) + disp]);
+            }
             (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rd(dst as u8), WORD [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movzx Rd(dst as u8), WORD [Rq(src as u8) + disp]);
+            }
             (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rq(dst as u8), Rb(src as u8)); 
-            },
+                dynasm!(self ; movzx Rq(dst as u8), Rb(src as u8));
+            }
             (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rq(dst as u8), Rw(src as u8)); 
-            },
+                dynasm!(self ; movzx Rq(dst as u8), Rw(src as u8));
+            }
             (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rq(dst as u8), BYTE [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movzx Rq(dst as u8), BYTE [Rq(src as u8) + disp]);
+            }
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
+            }
             _ => unreachable!(),
         }
     }
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
         match (sz_src, src, sz_dst, dst) {
             (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rd(dst as u8), Rb(src as u8)); 
-            },
+                dynasm!(self ; movsx Rd(dst as u8), Rb(src as u8));
+            }
             (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rd(dst as u8), Rw(src as u8)); 
-            },
+                dynasm!(self ; movsx Rd(dst as u8), Rw(src as u8));
+            }
             (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rd(dst as u8), BYTE [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movsx Rd(dst as u8), BYTE [Rq(src as u8) + disp]);
+            }
             (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rd(dst as u8), WORD [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movsx Rd(dst as u8), WORD [Rq(src as u8) + disp]);
+            }
             (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), Rb(src as u8)); 
-            },
+                dynasm!(self ; movsx Rq(dst as u8), Rb(src as u8));
+            }
             (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), Rw(src as u8)); 
-            },
+                dynasm!(self ; movsx Rq(dst as u8), Rw(src as u8));
+            }
             (Size::S32, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), Rd(src as u8)); 
-            },
+                dynasm!(self ; movsx Rq(dst as u8), Rd(src as u8));
+            }
             (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), BYTE [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movsx Rq(dst as u8), BYTE [Rq(src as u8) + disp]);
+            }
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), WORD [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movsx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
+            }
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]); 
-            },
+                dynasm!(self ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]);
+            }
             _ => unreachable!(),
         }
     }
@@ -864,42 +851,54 @@ impl Emitter for Assembler {
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; ucomiss Rx(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp]),
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp])
+            }
         }
     }
 
     fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; ucomisd Rx(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp]),
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp])
+            }
         }
     }
 
     fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rd(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp]),
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp])
+            }
         }
     }
 
     fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rq(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp]),
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp])
+            }
         }
     }
 
     fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rd(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp]),
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp])
+            }
         }
     }
 
     fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
             XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rq(dst as u8), Rx(x as u8)),
-            XMMOrMemory::Memory(base, disp) => dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp]),
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp])
+            }
         }
     }
 
