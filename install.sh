@@ -32,6 +32,7 @@ white="\033[37m"
 bold="\e[1m"
 dim="\e[2m"
 
+# Warning: Remove this on the public repo
 RELEASES_URL="https://github.com/wasmerio/wasmer/releases"
 
 wasmer_download_json() {
@@ -369,12 +370,12 @@ wasmer_download() {
   WASMER=INSTALL_DIRECTORY
 
   # assemble expected release artifact name
-  BINARY="wasmer-${OS}-${ARCH}"
+  BINARY="wasmer-${OS}-${ARCH}.tar.gz"
 
   # add .exe if on windows
-  if [ "$OS" = "windows" ]; then
-      BINARY="$BINARY.exe"
-  fi
+  # if [ "$OS" = "windows" ]; then
+  #     BINARY="$BINARY.exe"
+  # fi
 
   # if WASMER_RELEASE_TAG was not provided, assume latest
   if [ -z "$WASMER_RELEASE_TAG" ]; then
@@ -417,9 +418,6 @@ wasmer_download() {
   printf "\033[K\n\033[1A"
   # printf "\033[1A$cyan> Downloaded$reset\033[K\n"
   # echo "Setting executable permissions."
-  chmod +x "$DOWNLOAD_FILE"
-
-  INSTALL_NAME="wasmer"
 
   # windows not supported yet
   # if [ "$OS" = "windows" ]; then
@@ -428,8 +426,9 @@ wasmer_download() {
 
   # echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
 
-  mkdir -p $INSTALL_DIRECTORY/bin
-  mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/bin/$INSTALL_NAME"
+  mkdir -p $INSTALL_DIRECTORY
+  # Untar the wasmer contents in the install directory
+  tar -C $INSTALL_DIRECTORY -zxvf $DOWNLOAD_FILE
 }
 
 wasmer_verify_or_quit() {

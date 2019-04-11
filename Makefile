@@ -32,6 +32,16 @@ lint:
 
 precommit: lint test
 
+build-install:
+	mkdir -p ./install/bin
+	# cp ./wapm-cli/target/release/wapm ./install/bin/
+	cp ./target/release/wasmer ./install/bin/
+	tar -C ./install -zcvf wasmer.tar.gz bin/wapm bin/wasmer
+
+# For installing the contents locally
+do-install:
+	tar -C ~/.wasmer -zxvf wasmer.tar.gz
+
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
 	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend -- $(runargs)
