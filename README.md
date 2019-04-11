@@ -33,11 +33,17 @@ _**NEW ✨**: You can now embed Wasmer in your Rust application, check our [exam
 Wasmer can execute both the standard binary format (`.wasm`) and the text
 format defined by the WebAssembly reference interpreter (`.wat`).
 
-Once installed, you will be able to run any WebAssembly files (_including nginx and Lua!_):
+Once installed, you will be able to run any WebAssembly files (_including Lua, PHP, SQLite and nginx!_):
 
 ```sh
 # Run Lua
 wasmer run examples/lua.wasm
+
+# Run PHP
+wasmer run examples/php.wasm
+
+# Run SQLite
+wasmer run examples/sqlite.wasm
 
 # Run nginx
 wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
