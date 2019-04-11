@@ -141,6 +141,16 @@ pub fn compile_with_config(
     wasmer_runtime_core::compile_with_config(&wasm[..], default_compiler(), compiler_config)
 }
 
+/// The same as `compile_with_config` but takes a `Compiler` for the purpose of
+/// changing the backend.
+pub fn compile_with_config_with(
+    wasm: &[u8],
+    compiler_config: CompilerConfig,
+    compiler: &dyn Compiler,
+) -> error::CompileResult<Module> {
+    wasmer_runtime_core::compile_with_config(&wasm[..], compiler, compiler_config)
+}
+
 /// Compile and instantiate WebAssembly code without
 /// creating a [`Module`].
 ///

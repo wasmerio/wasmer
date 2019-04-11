@@ -40,7 +40,7 @@ wabt = "0.7.2"
 glob = "0.2.11"
 
 [features]
-default = ["fast-tests", "wasi"]
+default = ["fast-tests", "wasi", "singlepass"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []

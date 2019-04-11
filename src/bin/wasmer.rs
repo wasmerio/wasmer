@@ -13,8 +13,13 @@ use structopt::StructOpt;
 
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
+use wasmer_clif_backend::CraneliftCompiler;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
-use wasmer_runtime_core::{self, backend::CompilerConfig};
+use wasmer_runtime_core::{
+    self,
+    backend::{Compiler, CompilerConfig},
+};
+use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
 
@@ -64,7 +69,11 @@ struct Run {
     path: PathBuf,
 
     // Disable the cache
-    #[structopt(long = "backend", default_value = "cranelift")]
+    #[structopt(
+        long = "backend",
+        default_value = "cranelift",
+        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+    )]
     backend: Backend,
 
     /// Emscripten symbol map
@@ -76,6 +85,7 @@ struct Run {
     args: Vec<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum Backend {
     Cranelift,
@@ -83,13 +93,23 @@ enum Backend {
     LLVM,
 }
 
+impl Backend {
+    pub fn variants() -> &'static [&'static str] {
+        &["singlepass", "cranelift", "llvm"]
+    }
+}
+
 impl FromStr for Backend {
     type Err = String;
     fn from_str(s: &str) -> Result<Backend, String> {
-        match s {
+        match s.to_lowercase().as_str() {
             "singlepass" => Ok(Backend::Singlepass),
             "cranelift" => Ok(Backend::Cranelift),
-            "llvm" => Ok(Backend::LLVM),
+            // "llvm" => Ok(Backend::LLVM),
+            "llvm" => Err(
+                "The LLVM backend option is not enabled by default due to binary size constraints"
+                    .to_string(),
+            ),
             _ => Err(format!("The backend {} doesn't exist", s)),
         }
     }
@@ -201,6 +221,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
+    let compiler: Box<dyn Compiler> = match options.backend {
+        Backend::Singlepass => Box::new(SinglePassCompiler::new()),
+        Backend::Cranelift => Box::new(CraneliftCompiler::new()),
+        Backend::LLVM => unimplemented!(),
+    };
+
     let module = if !disable_cache {
         // If we have cache enabled
 
@@ -226,11 +252,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 module
             }
             Err(_) => {
-                let module = webassembly::compile_with_config(
+                let module = webassembly::compile_with_config_with(
                     &wasm_binary[..],
                     CompilerConfig {
                         symbol_map: em_symbol_map,
                     },
+                    &*compiler,
                 )
                 .map_err(|e| format!("Can't compile module: {:?}", e))?;
                 // We try to save the module into a cache file
@@ -241,11 +268,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         };
         module
     } else {
-        webassembly::compile_with_config(
+        webassembly::compile_with_config_with(
             &wasm_binary[..],
             CompilerConfig {
                 symbol_map: em_symbol_map,
             },
+            &*compiler,
         )
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
