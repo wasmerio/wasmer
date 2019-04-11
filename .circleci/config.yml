@@ -218,15 +218,15 @@ jobs:
       - run:
           name: Install Rust
           command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-04-11
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       # Use rust nightly (for singlepass, for now)
-      - run:
-          name: Install Rust nightly
-          command: |
-            export PATH="$HOME/.rustup/bin:$PATH"
-            rustup default nightly-2019-04-11
+      # - run:
+      #     name: Install Rust nightly
+      #     command: |
+      #       export PATH="$HOME/.rustup/bin:$PATH"
+      #       rustup default nightly-2019-04-11
       - run:
           name: Tests
           command: |
