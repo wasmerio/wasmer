@@ -16,6 +16,7 @@ use nix::sys::signal::{
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
+use std::any::Any;
 use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
 
 extern "C" fn signal_trap_handler(
@@ -52,6 +53,13 @@ thread_local! {
     pub static SETJMP_BUFFER: UnsafeCell<[c_int; SETJMP_BUFFER_LEN]> = UnsafeCell::new([0; SETJMP_BUFFER_LEN]);
     pub static CAUGHT_ADDRESSES: Cell<(*const c_void, *const c_void)> = Cell::new((ptr::null(), ptr::null()));
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
+    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
+}
+
+pub unsafe fn trigger_trap() -> ! {
+    let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
+
+    longjmp(jmp_buf as *mut c_void, 0)
 }
 
 pub fn call_protected<T>(f: impl FnOnce() -> T) -> RuntimeResult<T> {
@@ -67,21 +75,25 @@ pub fn call_protected<T>(f: impl FnOnce() -> T) -> RuntimeResult<T> {
         if signum != 0 {
             *jmp_buf = prev_jmp_buf;
 
-            let (faulting_addr, _inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
+            if let Some(data) = TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
+                Err(RuntimeError::Panic { data })
+            } else {
+                let (faulting_addr, _inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
-            let signal = match Signal::from_c_int(signum) {
-                Ok(SIGFPE) => "floating-point exception",
-                Ok(SIGILL) => "illegal instruction",
-                Ok(SIGSEGV) => "segmentation violation",
-                Ok(SIGBUS) => "bus error",
-                Err(_) => "error while getting the Signal",
-                _ => "unkown trapped signal",
-            };
-            // When the trap-handler is fully implemented, this will return more information.
-            Err(RuntimeError::Trap {
-                msg: format!("unknown trap at {:p} - {}", faulting_addr, signal).into(),
+                let signal = match Signal::from_c_int(signum) {
+                    Ok(SIGFPE) => "floating-point exception",
+                    Ok(SIGILL) => "illegal instruction",
+                    Ok(SIGSEGV) => "segmentation violation",
+                    Ok(SIGBUS) => "bus error",
+                    Err(_) => "error while getting the Signal",
+                    _ => "unkown trapped signal",
+                };
+                // When the trap-handler is fully implemented, this will return more information.
+                Err(RuntimeError::Trap {
+                    msg: format!("unknown trap at {:p} - {}", faulting_addr, signal).into(),
+                }
+                .into())
             }
-            .into())
         } else {
             let ret = f(); // TODO: Switch stack?
             *jmp_buf = prev_jmp_buf;

@@ -297,8 +297,9 @@ impl ProtectedCaller for X64ExecutionContext {
         pub struct Trapper;
 
         impl UserTrapper for Trapper {
-            unsafe fn do_early_trap(&self, _data: Box<Any>) -> ! {
-                panic!("do_early_trap");
+            unsafe fn do_early_trap(&self, data: Box<Any>) -> ! {
+                protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
+                protect_unix::trigger_trap();
             }
         }
 
