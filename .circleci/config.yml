@@ -21,8 +21,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v7-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v7-lint-{{ arch }}
+            - v8-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v8-lint-{{ arch }}
       - <<: *run_install_dependencies
       - run:
           name: Install lint deps
@@ -41,7 +41,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v7-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test:
     docker:
@@ -51,8 +51,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v7-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v7-test-cargo-cache-linux-stable-{{ arch }}
+            - v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v8-test-cargo-cache-linux-stable-{{ arch }}
       - <<: *run_install_dependencies
       - run:
           name: Tests
@@ -71,7 +71,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v7-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-test-cargo-cache-linux-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-macos:
     macos:
@@ -80,8 +80,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v7-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v7-cargo-cache-darwin-stable-{{ arch }}
+            - v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v8-cargo-cache-darwin-stable-{{ arch }}
       - run:
           name: Install crate dependencies
           command: |
@@ -135,7 +135,7 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v7-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-cargo-cache-darwin-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build:
     docker:
@@ -144,8 +144,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v7-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v7-cargo-cache-linux-nightly-{{ arch }}
+            - v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v8-cargo-cache-linux-nightly-{{ arch }}
       - run:
           name: Install dependencies
           command: |
@@ -193,7 +193,7 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v7-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build-macos:
     macos:
@@ -202,8 +202,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v7-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v7-cargo-cache-darwin-nightly-{{ arch }}
+            - v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v8-cargo-cache-darwin-nightly-{{ arch }}
       - run:
           name: Install crate dependencies
           command: |
@@ -267,7 +267,7 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-          key: v7-cargo-cache-darwin-nightly-{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v8-cargo-cache-darwin-nightly-{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-rust-nightly:
     docker:
@@ -276,8 +276,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v7-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - v7-cargo-cache-linux-nightly-{{ arch }}
+            - v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - v8-cargo-cache-linux-nightly-{{ arch }}
       - run:
           name: Install dependencies
           command: |
@@ -297,7 +297,7 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v7-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
+          key: v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}-nightly
 
   publish-github-release:
     docker:
