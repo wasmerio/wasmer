@@ -1,3 +1,5 @@
+#![cfg_attr(nightly, feature(unwind_attributes))]
+
 #[cfg(test)]
 #[macro_use]
 extern crate field_offset;
