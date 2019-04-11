@@ -27,7 +27,7 @@ use wasmer_runtime_core::{
 use wasmparser::{Operator, Type as WpType};
 
 lazy_static! {
-    static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u8, stack_base: *const u8, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
+    static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u64, stack_base: *const u64, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
         let mut assembler = Assembler::new().unwrap();
         let offset = assembler.offset();
         dynasm!(
@@ -157,6 +157,7 @@ pub struct X64ExecutionContext {
     code: ExecutableBuffer,
     functions: Vec<X64FunctionCode>,
     function_pointers: Vec<FuncPtr>,
+    signatures: Arc<Map<SigIndex, FuncSig>>,
     _br_table_data: Vec<Vec<usize>>,
     func_import_count: usize,
 }
@@ -230,8 +231,8 @@ impl ProtectedCaller for X64ExecutionContext {
         let ret = unsafe {
             protect_unix::call_protected(|| {
                 CONSTRUCT_STACK_AND_CALL_WASM(
-                    buffer.as_ptr() as *const u8,
-                    buffer.as_ptr().offset(buffer.len() as isize) as *const u8,
+                    buffer.as_ptr(),
+                    buffer.as_ptr().offset(buffer.len() as isize),
                     _vmctx,
                     ptr as _,
                 )
@@ -250,8 +251,46 @@ impl ProtectedCaller for X64ExecutionContext {
         })
     }
 
-    fn get_wasm_trampoline(&self, _module: &ModuleInner, _sig_index: SigIndex) -> Option<Wasm> {
-        unimplemented!()
+   fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
+       use wasmer_runtime_core::typed_func::WasmTrapInfo;
+       use std::ffi::c_void;
+
+        unsafe extern "C" fn invoke(
+            trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
+            ctx: *mut vm::Ctx,
+            func: NonNull<vm::Func>,
+            args: *const u64,
+            rets: *mut u64,
+            trap_info: *mut WasmTrapInfo,
+            num_params_plus_one: Option<NonNull<c_void>>,
+        ) -> bool {
+            let args = ::std::slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
+            let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
+            match protect_unix::call_protected(|| {
+                CONSTRUCT_STACK_AND_CALL_WASM(
+                    args_reverse.as_ptr(),
+                    args_reverse.as_ptr().offset(args_reverse.len() as isize),
+                    ctx,
+                    func.as_ptr(),
+                )
+            }) {
+                Ok(x) => {
+                    *rets = x;
+                    true
+                },
+                Err(_) => false
+            }
+        }
+
+        unsafe extern "C" fn dummy_trampoline(_: *mut vm::Ctx, _: NonNull<vm::Func>, _: *const u64, _: *mut u64) { unreachable!() }
+
+        Some(unsafe {
+            Wasm::from_raw_parts(
+                dummy_trampoline,
+                invoke,
+                NonNull::new((self.signatures.get(sig_index).unwrap().params().len() + 1) as _), // +1 to keep it non-zero
+            )
+        })
     }
 
     fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
@@ -384,6 +423,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
         let ctx = X64ExecutionContext {
             code: output,
             functions: self.functions,
+            signatures: self.signatures.as_ref().unwrap().clone(),
             _br_table_data: br_table_data,
             func_import_count: self.func_import_count,
             function_pointers: out_labels,
