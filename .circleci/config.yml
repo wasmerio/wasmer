@@ -175,7 +175,8 @@ jobs:
             # GIT_VERSION=$(git describe --exact-match --tags)
             echo "${VERSION}" >> artifacts/version
             echo "${CIRCLE_TAG}" >> artifacts/git_version
-            cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
+            make build-install
+            cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
       - run:
           name: Debug flag checked
           command: |
@@ -221,7 +222,11 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             cargo --version
       # Use rust nightly (for singlepass, for now)
-      - run: rustup default nightly-2019-04-11
+      - run:
+          name: Install Rust nightly
+          command: |
+            export PATH="$HOME/.rustup/bin:$PATH"
+            rustup default nightly-2019-04-11
       - run:
           name: Tests
           command: |
@@ -251,9 +256,10 @@ jobs:
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make production-release
             mkdir -p artifacts
+            make build-install
+            cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
             # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # echo "${VERSION}" >> artifacts/version
-            cp ./target/release/wasmer ./artifacts/$(./binary-name.sh)
       - persist_to_workspace:
           root: .
           paths:
