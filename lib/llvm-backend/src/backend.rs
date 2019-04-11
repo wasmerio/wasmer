@@ -440,7 +440,7 @@ impl ProtectedCaller for LLVMProtectedCaller {
 
 impl UserTrapper for Placeholder {
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
-        throw_any(Box::leak(data));
+        throw_any(Box::leak(data))
     }
 }
 
