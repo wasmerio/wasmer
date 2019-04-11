@@ -40,13 +40,13 @@ impl FuncPointer {
 }
 
 pub struct ExportIter<'a> {
-    inner: &'a mut InstanceInner,
+    inner: &'a InstanceInner,
     iter: hash_map::Iter<'a, String, ExportIndex>,
     module: &'a ModuleInner,
 }
 
 impl<'a> ExportIter<'a> {
-    pub(crate) fn new(module: &'a ModuleInner, inner: &'a mut InstanceInner) -> Self {
+    pub(crate) fn new(module: &'a ModuleInner, inner: &'a InstanceInner) -> Self {
         Self {
             inner,
             iter: module.info.exports.iter(),

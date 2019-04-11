@@ -15,12 +15,15 @@ extern crate dynasm;
 extern crate lazy_static;
 
 extern crate byteorder;
+#[macro_use]
+extern crate smallvec;
 
 mod codegen;
 mod codegen_x64;
+mod emitter_x64;
+mod machine;
 mod parse;
 mod protect_unix;
-mod stack;
 
 use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;

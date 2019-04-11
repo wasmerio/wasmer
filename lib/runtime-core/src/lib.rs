@@ -23,7 +23,7 @@ mod sig_registry;
 pub mod structures;
 mod sys;
 pub mod table;
-mod typed_func;
+pub mod typed_func;
 pub mod types;
 pub mod units;
 pub mod vm;
@@ -36,7 +36,7 @@ pub use self::error::Result;
 #[doc(inline)]
 pub use self::import::IsExport;
 #[doc(inline)]
-pub use self::instance::Instance;
+pub use self::instance::{DynFunc, Instance};
 #[doc(inline)]
 pub use self::module::Module;
 #[doc(inline)]

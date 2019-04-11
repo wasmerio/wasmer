@@ -3,7 +3,7 @@ use crate::signal::HandlerData;
 use crate::trampoline::Trampoline;
 use std::cell::Cell;
 use std::ffi::c_void;
-use std::ptr;
+use std::ptr::{self, NonNull};
 use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::vm::Func;
@@ -25,7 +25,7 @@ pub fn call_protected(
     handler_data: &HandlerData,
     trampoline: Trampoline,
     ctx: *mut Ctx,
-    func: *const Func,
+    func: NonNull<Func>,
     param_vec: *const u64,
     return_vec: *mut u64,
 ) -> RuntimeResult<()> {
