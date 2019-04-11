@@ -3127,7 +3127,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
             Operator::Else => {
                 let mut frame = self.control_stack.last_mut().unwrap();
 
-                if frame.returns.len() > 0 {
+                if !was_unreachable && frame.returns.len() > 0 {
                     let (loc, _) = *self.value_stack.last().unwrap();
                     Self::emit_relaxed_binop(
                         a,
