@@ -165,7 +165,7 @@ pub struct X64ExecutionContext {
 }
 
 pub struct X64RuntimeResolver {
-    function_pointers: Vec<FuncPtr>,
+    local_function_pointers: Vec<FuncPtr>,
 }
 
 #[derive(Debug)]
@@ -190,7 +190,7 @@ impl X64ExecutionContext {
         module_info: &ModuleInfo,
     ) -> Result<X64RuntimeResolver, CodegenError> {
         Ok(X64RuntimeResolver {
-            function_pointers: self.function_pointers.clone(),
+            local_function_pointers: self.function_pointers[self.func_import_count..].to_vec(),
         })
     }
 }
@@ -201,7 +201,7 @@ impl FuncResolver for X64RuntimeResolver {
         _module: &ModuleInner,
         _local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
-        NonNull::new(self.function_pointers[_local_func_index.index() as usize].0 as *mut vm::Func)
+        NonNull::new(self.local_function_pointers[_local_func_index.index() as usize].0 as *mut vm::Func)
     }
 }
 
