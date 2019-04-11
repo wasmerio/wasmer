@@ -13,10 +13,10 @@ use libc::{c_int, c_void, siginfo_t};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
 };
+use std::any::Any;
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
-use std::any::Any;
 use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
 
 extern "C" fn signal_trap_handler(

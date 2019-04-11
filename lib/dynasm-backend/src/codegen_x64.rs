@@ -251,9 +251,9 @@ impl ProtectedCaller for X64ExecutionContext {
         })
     }
 
-   fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
-       use wasmer_runtime_core::typed_func::WasmTrapInfo;
-       use std::ffi::c_void;
+    fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
+        use std::ffi::c_void;
+        use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
         unsafe extern "C" fn invoke(
             trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
@@ -264,7 +264,10 @@ impl ProtectedCaller for X64ExecutionContext {
             trap_info: *mut WasmTrapInfo,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
-            let args = ::std::slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
+            let args = ::std::slice::from_raw_parts(
+                args,
+                num_params_plus_one.unwrap().as_ptr() as usize - 1,
+            );
             let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
             match protect_unix::call_protected(|| {
                 CONSTRUCT_STACK_AND_CALL_WASM(
@@ -277,12 +280,19 @@ impl ProtectedCaller for X64ExecutionContext {
                 Ok(x) => {
                     *rets = x;
                     true
-                },
-                Err(_) => false
+                }
+                Err(_) => false,
             }
         }
 
-        unsafe extern "C" fn dummy_trampoline(_: *mut vm::Ctx, _: NonNull<vm::Func>, _: *const u64, _: *mut u64) { unreachable!() }
+        unsafe extern "C" fn dummy_trampoline(
+            _: *mut vm::Ctx,
+            _: NonNull<vm::Func>,
+            _: *const u64,
+            _: *mut u64,
+        ) {
+            unreachable!()
+        }
 
         Some(unsafe {
             Wasm::from_raw_parts(
