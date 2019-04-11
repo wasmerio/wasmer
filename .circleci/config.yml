@@ -142,10 +142,10 @@ jobs:
       - image: circleci/rust:latest
     steps:
       - checkout
-      # - run:
-      #     name: "Pull dependencies"
-      #     command: |
-      #       git clone git@github.com:wasmerio/wapm-cli.git
+      - run:
+          name: "Pull dependencies"
+          command: |
+            git clone git@github.com:wasmerio/wapm-cli.git
       - restore_cache:
           keys:
             - v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -174,7 +174,7 @@ jobs:
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make release
-            # cargo build --release --manifest-path wapm-cli/Cargo.toml
+            cargo build --release --manifest-path wapm-cli/Cargo.toml
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # GIT_VERSION=$(git describe --exact-match --tags)
@@ -199,9 +199,9 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-            # - wapm-cli/target/release/.fingerprint
-            # - wapm-cli/target/release/build
-            # - wapm-cli/target/release/deps
+            - wapm-cli/target/release/.fingerprint
+            - wapm-cli/target/release/build
+            - wapm-cli/target/release/deps
           key: v8-cargo-cache-linux-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-and-build-macos:
@@ -209,10 +209,10 @@ jobs:
       xcode: "9.0"
     steps:
       - checkout
-      # - run:
-      #     name: "Pull dependencies"
-      #     command: |
-      #       git clone git@github.com:wasmerio/wapm-cli.git
+      - run:
+          name: "Pull dependencies"
+          command: |
+            git clone git@github.com:wasmerio/wapm-cli.git
       - restore_cache:
           keys:
             - v8-cargo-cache-darwin-nightly-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -263,7 +263,7 @@ jobs:
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
             make release
-            # cargo build --release --manifest-path wapm-cli/Cargo.toml
+            cargo build --release --manifest-path wapm-cli/Cargo.toml
             mkdir -p artifacts
             make build-install
             cp ./wasmer.tar.gz ./artifacts/$(./binary-name.sh)
@@ -282,9 +282,9 @@ jobs:
             - target/release/.fingerprint
             - target/release/build
             - target/release/deps
-            # - wapm-cli/target/release/.fingerprint
-            # - wapm-cli/target/release/build
-            # - wapm-cli/target/release/deps
+            - wapm-cli/target/release/.fingerprint
+            - wapm-cli/target/release/build
+            - wapm-cli/target/release/deps
           key: v8-cargo-cache-darwin-nightly-{ arch }}-{{ checksum "Cargo.lock" }}
 
   test-rust-nightly:
@@ -337,7 +337,7 @@ jobs:
             # VERSION_TAG=$(git describe --exact-match --tags)
             #if [ "$VERSION" == "$VERSION_TAG" ]; then
             # echo "Versions match, publishing to Github"
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -soft ${VERSION} ./artifacts/
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -replace ${VERSION} ./artifacts/
             #else
             #    echo "Versions don't match. Wasmer output version (wasmer --version) is ${VERSION} while Git tag is ${VERSION_TAG}"
             #    exit 1
@@ -400,10 +400,10 @@ workflows:
           filters:
             branches:
               only: master
-      - trigger-benchmark-build:
-          requires:
-            - test-and-build
-            - lint
-          filters:
-            branches:
-              only: master
+      # - trigger-benchmark-build:
+      #     requires:
+      #       - test-and-build
+      #       - lint
+      #     filters:
+      #       branches:
+      #         only: master

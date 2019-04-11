@@ -33,7 +33,7 @@ bold="\e[1m"
 dim="\e[2m"
 
 # Warning: Remove this on the public repo
-RELEASES_URL="https://github.com/wasmerio/wasmer/releases"
+RELEASES_URL="https://github.com/oimpaw/wasmer/releases"
 
 wasmer_download_json() {
     url="$2"
