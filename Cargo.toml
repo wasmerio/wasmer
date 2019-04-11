@@ -38,13 +38,14 @@ members = ["lib/clif-backend", "lib/singlepass-backend", "lib/runtime", "lib/run
 [build-dependencies]
 wabt = "0.7.2"
 glob = "0.2.11"
+rustc_version = "0.2.3"
 
 [features]
-default = ["fast-tests", "wasi", "singlepass", "llvm"]
+default = ["fast-tests", "wasi"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
-llvm = ["wasmer-llvm-backend"]
-singlepass = ["wasmer-singlepass-backend"]
+"backend:llvm" = ["wasmer-llvm-backend"]
+"backend:singlepass" = ["wasmer-singlepass-backend"]
 wasi = ["wasmer-wasi"]
 vfs = ["wasmer-runtime-abi"]

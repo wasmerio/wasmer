@@ -34,9 +34,8 @@ precommit: lint test
 
 build-install:
 	mkdir -p ./install/bin
-	# cp ./wapm-cli/target/release/wapm ./install/bin/
 	cp ./target/release/wasmer ./install/bin/
-	tar -C ./install -zcvf wasmer.tar.gz bin/wapm bin/wasmer
+	tar -C ./install -zcvf wasmer.tar.gz bin/wasmer
 
 # For installing the contents locally
 do-install:
@@ -76,6 +75,9 @@ release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
+
+production-release:
+	cargo build --release --features backend:singlepass,backend:llvm
 
 debug-release:
 	cargo build --release --features "debug"
