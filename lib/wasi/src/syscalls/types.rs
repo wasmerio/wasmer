@@ -264,7 +264,7 @@ pub type __wasi_filedelta_t = i64;
 
 pub type __wasi_filesize_t = u64;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,

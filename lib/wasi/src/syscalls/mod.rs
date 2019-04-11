@@ -8,11 +8,11 @@ pub mod windows;
 use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
-    state::{Fd, Kind, WasiState, MAX_SYMLINKS},
+    state::{Fd, InodeVal, Kind, WasiFile, WasiState, MAX_SYMLINKS},
 };
 use rand::{thread_rng, Rng};
 use std::cell::Cell;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, Write};
 use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -335,7 +335,7 @@ pub fn fd_fdstat_get(
     let buf = wasi_try!(buf.deref(memory));
     buf.set(stat);
 
-    __WASI_EFAULT
+    __WASI_ESUCCESS
 }
 
 /// ### `fd_fdstat_set_flags()`
@@ -532,27 +532,26 @@ pub fn fd_prestat_dir_name(
         fd, path_len
     );
     let memory = ctx.memory(0);
+    let path_chars = wasi_try!(path.deref(memory, 0, path_len));
 
-    if let Ok(path_chars) = path.deref(memory, 0, path_len) {
-        debug!(
-            "=> path: {}",
-            path_chars
-                .iter()
-                .map(|c| c.get() as char)
-                .collect::<String>()
-        );
-        if true
-        /* check if dir */
-        {
-            // get name
-            // write name
-            // if overflow __WASI_EOVERFLOW
+    let state = get_wasi_state(ctx);
+    let real_fd = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
+    let inode_val = &state.fs.inodes[real_fd.inode];
+
+    // check inode-val.is_preopened?
+
+    if let Kind::Dir { .. } = inode_val.kind {
+        // TODO: verify this: null termination, etc
+        if inode_val.name.len() <= path_len as usize {
+            for (i, c) in inode_val.name.bytes().enumerate() {
+                path_chars[i].set(c);
+            }
             __WASI_ESUCCESS
         } else {
-            __WASI_ENOTDIR
+            __WASI_EOVERFLOW
         }
     } else {
-        __WASI_EFAULT
+        __WASI_ENOTDIR
     }
 }
 
@@ -612,7 +611,7 @@ pub fn fd_pwrite(
 
             let bytes_written = match &mut inode.kind {
                 Kind::File { handle } => {
-                    // TODO: adjust by offset
+                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
                     wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
                 }
                 Kind::Dir { .. } => {
@@ -670,14 +669,18 @@ pub fn fd_read(
 
         for iov in iovs_arr_cell {
             let iov_inner = iov.get();
-            let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
+            let bytes = iov_inner.buf.deref(memory, 0, dbg!(iov_inner.buf_len))?;
             let mut raw_bytes: &mut [u8] =
                 unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
-            bytes_read += reader.read(raw_bytes).map_err(|_| __WASI_EIO)? as u32;
+            bytes_read += dbg!(reader.read(raw_bytes).map_err(|e| {
+                dbg!(e);
+                __WASI_EIO
+            })? as u32);
         }
         Ok(bytes_read)
     }
 
+    debug!("think-fish");
     let bytes_read = match fd {
         0 => {
             let stdin = io::stdin();
@@ -699,7 +702,10 @@ pub fn fd_read(
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
             let bytes_read = match &mut inode.kind {
-                Kind::File { handle } => wasi_try!(read_bytes(handle, memory, iovs_arr_cell)),
+                Kind::File { handle } => {
+                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
+                    wasi_try!(read_bytes(handle, memory, iovs_arr_cell))
+                }
                 Kind::Dir { .. } => {
                     // TODO: verify
                     return __WASI_EISDIR;
@@ -716,7 +722,7 @@ pub fn fd_read(
         }
     };
 
-    nread_cell.set(bytes_read);
+    nread_cell.set(dbg!(bytes_read));
 
     __WASI_ESUCCESS
 }
@@ -798,7 +804,7 @@ pub fn fd_seek(
     whence: __wasi_whence_t,
     newoffset: WasmPtr<__wasi_filesize_t>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_seek: fd={}", fd);
+    debug!("wasi::fd_seek: fd={}, offset={}", fd, offset);
     let memory = ctx.memory(0);
     let state = get_wasi_state(ctx);
     let new_offset_cell = wasi_try!(newoffset.deref(memory));
@@ -809,9 +815,11 @@ pub fn fd_seek(
         return __WASI_EACCES;
     }
 
+    debug!("Hmml");
+
     // TODO: handle case if fd is a dir?
     match whence {
-        __WASI_WHENCE_CUR => fd_entry.offset = (fd_entry.offset as i64 + offset) as u64,
+        __WASI_WHENCE_CUR => fd_entry.offset = (dbg!(fd_entry.offset) as i64 + offset) as u64,
         __WASI_WHENCE_END => unimplemented!(),
         __WASI_WHENCE_SET => fd_entry.offset = offset as u64,
         _ => return __WASI_EINVAL,
@@ -920,7 +928,11 @@ pub fn fd_write(
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
             let bytes_written = match &mut inode.kind {
-                Kind::File { handle } => wasi_try!(write_bytes(handle, memory, iovs_arr_cell)),
+                Kind::File { handle } => {
+                    handle.seek(::std::io::SeekFrom::Start(offset as u64));
+
+                    wasi_try!(write_bytes(handle, memory, iovs_arr_cell))
+                }
                 Kind::Dir { .. } => {
                     // TODO: verify
                     return __WASI_EISDIR;
@@ -937,7 +949,7 @@ pub fn fd_write(
         }
     };
 
-    nwritten_cell.set(bytes_written);
+    nwritten_cell.set(dbg!(bytes_written));
 
     __WASI_ESUCCESS
 }
@@ -1209,12 +1221,77 @@ pub fn path_open(
                 // entry does not exist in parent directory
                 // check to see if we should create it
                 if o_flags & __WASI_O_CREAT != 0 {
+                    // REVIEW: the code in this branch was written while very tired
                     // insert in to directory and set values
                     //entries.insert(path_segment[0], )
-                    unimplemented!()
+
+                    let real_opened_file = wasi_try!(::std::fs::OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .open(&path_vec[0])
+                        .map_err(|_| __WASI_EIO));
+                    debug!("Creating host file {}", &path_vec[0]);
+                    let new_inode = state.fs.inodes.insert(InodeVal {
+                        stat: __wasi_filestat_t::default(),
+                        is_preopened: false,
+                        name: path_vec[0].clone(),
+                        kind: Kind::File {
+                            handle: WasiFile::HostFile(real_opened_file),
+                        },
+                    });
+                    // reborrow
+                    if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind
+                    {
+                        entries.insert(path_vec[0].clone(), new_inode);
+                    }
+                    let new_fd = wasi_try!(state.fs.create_fd(
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                        fs_flags,
+                        new_inode,
+                    ));
+
+                    new_fd
+
+                // TODO: technically this could just not be lazily loaded...
+                /*wasi_try!(state.fs.create_file_at_fd(
+                    dirfd,
+                    path_vec[0],
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags
+                ));*/
                 } else {
-                    // no entry and can't create it
-                    return __WASI_ENOENT;
+                    // attempt to load it
+                    let real_opened_file = wasi_try!(::std::fs::OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .open(&path_vec[0])
+                        .map_err(|_| __WASI_ENOENT));
+
+                    debug!("Opening host file {}", &path_vec[0]);
+                    let new_inode = state.fs.inodes.insert(InodeVal {
+                        stat: __wasi_filestat_t::default(),
+                        is_preopened: false,
+                        name: path_vec[0].clone(),
+                        kind: Kind::File {
+                            handle: WasiFile::HostFile(real_opened_file),
+                        },
+                    });
+                    // reborrow
+                    if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind
+                    {
+                        entries.insert(path_vec[0].clone(), new_inode);
+                    }
+                    let new_fd = wasi_try!(state.fs.create_fd(
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                        fs_flags,
+                        new_inode,
+                    ));
+
+                    new_fd
                 }
             }
         } else {

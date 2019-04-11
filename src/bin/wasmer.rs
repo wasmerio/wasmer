@@ -66,9 +66,13 @@ struct Run {
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
 
-    /// Emscripten symbol map
-    #[structopt(long = "em-symbol-map", parse(from_os_str))]
+    /// Emscripten symbol ma>p
+    #[structopt(long = "em-symbol-map", parse(from_os_str), group = "emscripten")]
     em_symbol_map: Option<PathBuf>,
+
+    /// WASI pre-opened file
+    #[structopt(long = "pre-open", group = "wasi")]
+    pre_opened_files: Vec<String>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -248,6 +252,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     env::vars()
                         .map(|(k, v)| format!("{}={}", k, v).into_bytes())
                         .collect(),
+                    options.pre_opened_files.clone(),
                 ),
                 None,
             )
