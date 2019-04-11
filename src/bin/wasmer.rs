@@ -14,6 +14,7 @@ use structopt::StructOpt;
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
+use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
 use wasmer_runtime_core::{
     self,
@@ -105,11 +106,11 @@ impl FromStr for Backend {
         match s.to_lowercase().as_str() {
             "singlepass" => Ok(Backend::Singlepass),
             "cranelift" => Ok(Backend::Cranelift),
-            // "llvm" => Ok(Backend::LLVM),
-            "llvm" => Err(
-                "The LLVM backend option is not enabled by default due to binary size constraints"
-                    .to_string(),
-            ),
+            "llvm" => Ok(Backend::LLVM),
+            // "llvm" => Err(
+            //     "The LLVM backend option is not enabled by default due to binary size constraints"
+            //         .to_string(),
+            // ),
             _ => Err(format!("The backend {} doesn't exist", s)),
         }
     }
@@ -224,7 +225,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let compiler: Box<dyn Compiler> = match options.backend {
         Backend::Singlepass => Box::new(SinglePassCompiler::new()),
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        Backend::LLVM => unimplemented!(),
+        Backend::LLVM => Box::new(LLVMCompiler::new()),
     };
 
     let module = if !disable_cache {

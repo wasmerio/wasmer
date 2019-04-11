@@ -40,11 +40,11 @@ wabt = "0.7.2"
 glob = "0.2.11"
 
 [features]
-default = ["fast-tests", "wasi", "singlepass"]
+default = ["fast-tests", "wasi", "singlepass", "llvm"]
 debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
-llvm = ["wasmer-llvm-backend", "wasmer-runtime/llvm"]
-singlepass = ["wasmer-singlepass-backend", "wasmer-runtime/singlepass"]
+llvm = ["wasmer-llvm-backend"]
+singlepass = ["wasmer-singlepass-backend"]
 wasi = ["wasmer-wasi"]
 vfs = ["wasmer-runtime-abi"]
