@@ -48,6 +48,9 @@ test-emscripten:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
 
+test-emscripten-clif:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
+
 test-emscripten-nightly:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features dynasm -- --test-threads=1 $(runargs)
 
