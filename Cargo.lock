@@ -2274,6 +2274,7 @@ dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.51 (registry+https://github.com/rust-lang/crates.io-index)",
  "nix 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smallvec 0.6.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-runtime-core 0.2.1",
  "wasmparser 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
