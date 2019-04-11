@@ -41,17 +41,16 @@ test:
 	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
 
-test-nightly:
+test-dynasm:
 	cargo test --manifest-path lib/spectests/Cargo.toml --features dynasm
 
-test-emscripten:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
+test-emscripten-llvm:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
 
 test-emscripten-clif:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
 
-test-emscripten-nightly:
+test-emscripten-dynasm:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features dynasm -- --test-threads=1 $(runargs)
 
 dynasm-debug-release:
