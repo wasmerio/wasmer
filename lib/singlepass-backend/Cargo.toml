@@ -1,8 +1,8 @@
 [package]
-name = "wasmer-dynasm-backend"
+name = "wasmer-singlepass-backend"
 version = "0.1.0"
 repository = "https://github.com/wasmerio/wasmer"
-description = "Wasmer runtime Dynasm compiler backend"
+description = "Wasmer runtime single pass compiler backend"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"

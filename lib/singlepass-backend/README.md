@@ -14,18 +14,18 @@
   <a href="https://spectrum.chat/wasmer">
     <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
   </a>
-  <a href="https://crates.io/crates/wasmer-dynasm-backend">
-    <img src="https://img.shields.io/crates/d/wasmer-dynasm-backend.svg" alt="Number of downloads from crates.io">
+  <a href="https://crates.io/crates/wasmer-singlepass-backend">
+    <img src="https://img.shields.io/crates/d/wasmer-singlepass-backend.svg" alt="Number of downloads from crates.io">
   </a>
-  <a href="https://docs.rs/wasmer-dynasm-backend">
-    <img src="https://docs.rs/wasmer-dynasm-backend/badge.svg" alt="Read our API documentation">
+  <a href="https://docs.rs/wasmer-singlepass-backend">
+    <img src="https://docs.rs/wasmer-singlepass-backend/badge.svg" alt="Read our API documentation">
   </a>
 </p>
 
-# Wasmer dynasm backend
+# Wasmer singlepass backend
 
 Wasmer is a standalone JIT WebAssembly runtime, aiming to be fully
 compatible with Emscripten, Rust and Go. [Learn
 more](https://github.com/wasmerio/wasmer).
 
-This crate represents the dynasm backend.
+This crate represents the singlepass backend.

@@ -141,6 +141,16 @@ pub fn compile_with_config(
     wasmer_runtime_core::compile_with_config(&wasm[..], default_compiler(), compiler_config)
 }
 
+/// The same as `compile_with_config` but takes a `Compiler` for the purpose of
+/// changing the backend.
+pub fn compile_with_config_with(
+    wasm: &[u8],
+    compiler_config: CompilerConfig,
+    compiler: &dyn Compiler,
+) -> error::CompileResult<Module> {
+    wasmer_runtime_core::compile_with_config(&wasm[..], compiler, compiler_config)
+}
+
 /// Compile and instantiate WebAssembly code without
 /// creating a [`Module`].
 ///
@@ -171,10 +181,10 @@ pub fn default_compiler() -> &'static dyn Compiler {
     #[cfg(feature = "llvm")]
     use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
 
-    #[cfg(feature = "dynasm")]
-    use wasmer_dynasm_backend::SinglePassCompiler as DefaultCompiler;
+    #[cfg(feature = "singlepass")]
+    use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
 
-    #[cfg(not(any(feature = "llvm", feature = "dynasm")))]
+    #[cfg(not(any(feature = "llvm", feature = "singlepass")))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
     lazy_static! {

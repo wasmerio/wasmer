@@ -22,13 +22,13 @@ fn get_compiler() -> impl Compiler {
     LLVMCompiler::new()
 }
 
-#[cfg(feature = "dynasm")]
+#[cfg(feature = "singlepass")]
 fn get_compiler() -> impl Compiler {
-    use wasmer_dynasm_backend::SinglePassCompiler;
+    use wasmer_singlepass_backend::SinglePassCompiler;
     SinglePassCompiler::new()
 }
 
-#[cfg(not(any(feature = "llvm", feature = "clif", feature = "dynasm")))]
+#[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
 fn get_compiler() -> impl Compiler {
     panic!("compiler not specified, activate a compiler via features");
     use wasmer_clif_backend::CraneliftCompiler;

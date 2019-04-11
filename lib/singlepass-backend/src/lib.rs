@@ -41,7 +41,7 @@ impl CacheGen for Placeholder {
         _module: &ModuleInner,
     ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
         Err(CacheError::Unknown(
-            "the dynasm backend doesn't support caching yet".to_string(),
+            "the singlepass backend doesn't support caching yet".to_string(),
         ))
     }
 }
@@ -61,7 +61,7 @@ impl Compiler for SinglePassCompiler {
         _: Token,
     ) -> CompileResult<ModuleInner> {
         let mut mcg = codegen_x64::X64ModuleCodeGenerator::new();
-        let info = parse::read_module(wasm, Backend::Dynasm, &mut mcg, &compiler_config)?;
+        let info = parse::read_module(wasm, Backend::Singlepass, &mut mcg, &compiler_config)?;
         let (ec, resolver) = mcg.finalize(&info)?;
         Ok(ModuleInner {
             cache_gen: Box::new(Placeholder),
@@ -73,7 +73,7 @@ impl Compiler for SinglePassCompiler {
 
     unsafe fn from_cache(&self, _artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         Err(CacheError::Unknown(
-            "the dynasm backend doesn't support caching yet".to_string(),
+            "the singlepass backend doesn't support caching yet".to_string(),
         ))
     }
 }
