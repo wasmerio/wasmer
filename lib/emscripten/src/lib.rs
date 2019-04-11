@@ -127,6 +127,10 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_vijj: Option<Func<'a, (i32, i32, i32, i32, i32, i32)>>,
     pub dyn_call_viidii: Option<Func<'a, (i32, i32, i32, f64, i32, i32)>>,
     pub temp_ret_0: i32,
+
+    pub stack_save: Option<Func<'a, (), i32>>,
+    pub stack_restore: Option<Func<'a, (i32)>>,
+    pub set_threw: Option<Func<'a, (i32, i32)>>,
 }
 
 impl<'a> EmscriptenData<'a> {
@@ -186,6 +190,10 @@ impl<'a> EmscriptenData<'a> {
         let dyn_call_vijj = instance.func("dynCall_vijj").ok();
         let dyn_call_viidii = instance.func("dynCall_viidii").ok();
 
+        let stack_save = instance.func("stackSave").ok();
+        let stack_restore = instance.func("stackRestore").ok();
+        let set_threw = instance.func("_setThrew").ok();
+
         EmscriptenData {
             malloc,
             free,
@@ -238,6 +246,10 @@ impl<'a> EmscriptenData<'a> {
             dyn_call_vijj,
             dyn_call_viidii,
             temp_ret_0: 0,
+
+            stack_save,
+            stack_restore,
+            set_threw,
         }
     }
 }
@@ -650,7 +662,8 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         // Jump
         "__setjmp" => func!(crate::jmp::__setjmp),
         "__longjmp" => func!(crate::jmp::__longjmp),
-        "_longjmp" => func!(crate::jmp::__longjmp),
+        "_longjmp" => func!(crate::jmp::_longjmp),
+        "_emscripten_longjmp" => func!(crate::jmp::_longjmp),
 
         // Bitwise
         "_llvm_bswap_i64" => func!(crate::bitwise::_llvm_bswap_i64),

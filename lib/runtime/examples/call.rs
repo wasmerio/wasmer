@@ -32,11 +32,11 @@ fn get_wasm() -> Vec<u8> {
     wat2wasm(WAT).unwrap()
 }
 
-fn foobar(ctx: &mut Ctx) -> i32 {
+fn foobar(_ctx: &mut Ctx) -> i32 {
     42
 }
 
-fn do_panic(ctx: &mut Ctx) -> Result<i32, String> {
+fn do_panic(_ctx: &mut Ctx) -> Result<i32, String> {
     Err("error".to_string())
 }
 

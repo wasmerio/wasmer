@@ -61,15 +61,15 @@ struct UncatchableException : WasmException
 struct UserException : UncatchableException
 {
   public:
-    UserException(std::string msg) : msg(msg) {}
+    UserException(size_t data, size_t vtable) : data(data), vtable(vtable) {}
 
     virtual std::string description() const noexcept override
     {
-        return std::string("user exception: ") + msg;
+        return "user exception";
     }
 
-  private:
-    std::string msg;
+    // The parts of a `Box<dyn Any>`.
+    size_t data, vtable;
 };
 
 struct WasmTrap : UncatchableException
@@ -174,6 +174,12 @@ extern "C"
     void module_delete(WasmModule *module)
     {
         delete module;
+    }
+
+    // Throw a fat pointer that's assumed to be `*mut dyn Any` on the rust
+    // side.
+    [[noreturn]] void throw_any(size_t data, size_t vtable) {
+        throw UserException(data, vtable);
     }
 
     bool invoke_trampoline(
