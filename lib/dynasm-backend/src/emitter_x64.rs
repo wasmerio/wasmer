@@ -71,12 +71,14 @@ pub enum Size {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub enum XMMOrMemory {
     XMM(XMM),
     Memory(GPR, i32),
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub enum GPROrMemory {
     GPR(GPR),
     Memory(GPR, i32),
@@ -788,11 +790,11 @@ impl Emitter for Assembler {
     }
 
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
-        dynasm!(self ; btc Rd(dst as u8), BYTE (src as i8));
+        dynasm!(self ; btc Rd(dst as u8), BYTE src as i8);
     }
 
     fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
-        dynasm!(self ; btc Rq(dst as u8), BYTE (src as i8));
+        dynasm!(self ; btc Rq(dst as u8), BYTE src as i8);
     }
 
     fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {

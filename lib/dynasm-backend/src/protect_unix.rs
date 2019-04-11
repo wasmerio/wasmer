@@ -54,12 +54,6 @@ thread_local! {
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
 }
 
-pub unsafe fn trigger_trap() -> ! {
-    let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
-
-    longjmp(jmp_buf as *mut c_void, 0)
-}
-
 pub fn call_protected<T>(f: impl FnOnce() -> T) -> RuntimeResult<T> {
     unsafe {
         let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());

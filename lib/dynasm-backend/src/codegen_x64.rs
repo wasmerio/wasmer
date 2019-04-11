@@ -2,24 +2,21 @@
 
 use super::codegen::*;
 use crate::protect_unix;
-use byteorder::{ByteOrder, LittleEndian};
 use dynasmrt::{
     x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, ExecutableBuffer,
 };
-use std::cell::RefCell;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
     backend::{FuncResolver, ProtectedCaller, Token, UserTrapper},
-    error::{RuntimeError, RuntimeResult},
+    error::RuntimeResult,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, ImportedMemoryIndex, LocalFuncIndex, LocalGlobalIndex, GlobalIndex,
-        LocalMemoryIndex, LocalOrImport, MemoryIndex, SigIndex, Type, Value, TableIndex,
+        FuncIndex, FuncSig, LocalFuncIndex, GlobalIndex,
+        LocalOrImport, MemoryIndex, SigIndex, Type, Value, TableIndex,
     },
-    units::Pages,
     vm::{self, ImportBacking, LocalGlobal, LocalMemory, LocalTable},
     vmcalls,
 };
@@ -158,8 +155,6 @@ unsafe impl Sync for FuncPtr {}
 pub struct X64ExecutionContext {
     code: ExecutableBuffer,
     functions: Vec<X64FunctionCode>,
-    signatures: Arc<Map<SigIndex, FuncSig>>,
-    function_signatures: Arc<Map<FuncIndex, SigIndex>>,
     function_pointers: Vec<FuncPtr>,
     _br_table_data: Vec<Vec<usize>>,
     func_import_count: usize,
@@ -188,7 +183,7 @@ pub enum IfElseState {
 impl X64ExecutionContext {
     fn get_runtime_resolver(
         &self,
-        module_info: &ModuleInfo,
+        _module_info: &ModuleInfo,
     ) -> Result<X64RuntimeResolver, CodegenError> {
         Ok(X64RuntimeResolver {
             local_function_pointers: self.function_pointers[self.func_import_count..].to_vec(),
@@ -265,14 +260,12 @@ impl ProtectedCaller for X64ExecutionContext {
 
 impl X64ModuleCodeGenerator {
     pub fn new() -> X64ModuleCodeGenerator {
-        let mut assembler = Assembler::new().unwrap();
-
         X64ModuleCodeGenerator {
             functions: vec![],
             signatures: None,
             function_signatures: None,
             function_labels: Some(HashMap::new()),
-            assembler: Some(assembler),
+            assembler: Some(Assembler::new().unwrap()),
             func_import_count: 0,
         }
     }
@@ -384,23 +377,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             functions: self.functions,
             _br_table_data: br_table_data,
             func_import_count: self.func_import_count,
-            signatures: match self.signatures {
-                Some(x) => x,
-                None => {
-                    return Err(CodegenError {
-                        message: "no signatures",
-                    });
-                }
-            },
             function_pointers: out_labels,
-            function_signatures: match self.function_signatures {
-                Some(x) => x,
-                None => {
-                    return Err(CodegenError {
-                        message: "no function signatures",
-                    });
-                }
-            },
         };
         let resolver = ctx.get_runtime_resolver(module_info)?;
 
@@ -453,7 +430,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
 impl X64FunctionCode {
     fn emit_relaxed_xdiv(
         a: &mut Assembler,
-        m: &mut Machine,
+        _m: &mut Machine,
         op: fn(&mut Assembler, Size, Location),
         sz: Size,
         loc: Location,
@@ -999,7 +976,7 @@ impl X64FunctionCode {
         let mut stack_offset: usize = 0;
 
         // Calculate stack offset.
-        for (i, param) in params.iter().enumerate() {
+        for (i, _param) in params.iter().enumerate() {
             let loc = Machine::get_param_location(1 + i);
             match loc {
                 Location::Memory(_, _) => {
@@ -1245,13 +1222,13 @@ impl FunctionCodeGenerator for X64FunctionCode {
         Ok(())
     }
 
-    fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError> {
+    fn feed_param(&mut self, _ty: WpType) -> Result<(), CodegenError> {
         self.num_params += 1;
         self.num_locals += 1;
         Ok(())
     }
 
-    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
+    fn feed_local(&mut self, _ty: WpType, n: usize) -> Result<(), CodegenError> {
         self.num_locals += n;
         Ok(())
     }
@@ -1316,7 +1293,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
         let a = self.assembler.as_mut().unwrap();
         match op {
             Operator::GetGlobal { global_index } => {
-                let mut global_index = global_index as usize;
+                let global_index = global_index as usize;
 
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
 
@@ -2678,17 +2655,14 @@ impl FunctionCodeGenerator for X64FunctionCode {
             }
             Operator::Return => {
                 let frame = &self.control_stack[0];
-                let has_return = if frame.returns.len() > 0 {
+                if frame.returns.len() > 0 {
                     assert_eq!(frame.returns.len(), 1);
                     let (loc, _) = *self.value_stack.last().unwrap();
                     Self::emit_relaxed_binop(
                         a, &mut self.machine, Assembler::emit_mov,
                         Size::S64, loc, Location::GPR(GPR::RAX),
                     );
-                    true
-                } else {
-                    false
-                };
+                }
                 let released: Vec<Location> = self.value_stack[frame.value_stack_depth..].iter()
                     .filter(|&&(_, lot)| lot == LocalOrTemp::Temp)
                     .map(|&(x, _)| x)

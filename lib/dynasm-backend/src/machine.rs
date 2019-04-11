@@ -1,6 +1,7 @@
 use crate::emitter_x64::*;
 use std::collections::HashSet;
 use wasmparser::Type as WpType;
+use smallvec::SmallVec;
 
 struct MachineStackOffset(usize);
 
@@ -142,36 +143,6 @@ impl Machine {
         assert_eq!(self.used_xmms.remove(&xmm), true);
     }
 
-    /// Acquires stack locations from the machine state.
-    pub fn acquire_stack_locations<E: Emitter>(
-        &mut self,
-        assembler: &mut E,
-        n: usize,
-        zeroed: bool,
-    ) -> Vec<Location> {
-        let mut ret = vec![];
-        let mut delta_stack_offset: usize = 0;
-
-        for _ in 0..n {
-            let loc = {
-                self.stack_offset.0 += 8;
-                delta_stack_offset += 8;
-                Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32))
-            };
-            ret.push(loc);
-        }
-
-        if delta_stack_offset != 0 {
-            assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP));
-        }
-        if zeroed {
-            for i in 0..n {
-                assembler.emit_mov(Size::S64, Location::Imm32(0), ret[i]);
-            }
-        }
-        ret
-    }
-
     /// Acquires locations from the machine state.
     /// 
     /// If the returned locations are used for stack value, `release_location` needs to be called on them;
@@ -181,8 +152,8 @@ impl Machine {
         assembler: &mut E,
         tys: &[WpType],
         zeroed: bool,
-    ) -> Vec<Location> {
-        let mut ret = vec![];
+    ) -> SmallVec<[Location; 1]> {
+        let mut ret = smallvec![];
         let mut delta_stack_offset: usize = 0;
 
         for ty in tys {
@@ -351,7 +322,7 @@ impl Machine {
         for i in 0..n_params {
             let loc = Self::get_param_location(i + 1);
             locations.push(match loc {
-                Location::GPR(x) => {
+                Location::GPR(_) => {
                     let old_idx = allocated;
                     allocated += 1;
                     get_local_location(old_idx)
@@ -362,7 +333,7 @@ impl Machine {
         }
 
         // Determine locations for normal locals.
-        for i in n_params..n {
+        for _ in n_params..n {
             locations.push(get_local_location(allocated));
             allocated += 1;
         }
@@ -383,7 +354,7 @@ impl Machine {
 
         // Save callee-saved registers.
         for loc in locations.iter() {
-            if let Location::GPR(x) = *loc {
+            if let Location::GPR(_) = *loc {
                 a.emit_push(Size::S64, *loc);
                 self.stack_offset.0 += 8;
             }
@@ -400,7 +371,7 @@ impl Machine {
         for i in 0..n_params {
             let loc = Self::get_param_location(i + 1);
             match loc {
-                Location::GPR(x) => {
+                Location::GPR(_) => {
                     a.emit_mov(Size::S64, loc, locations[i]);
                 },
                 _ => break
@@ -427,7 +398,7 @@ impl Machine {
 
         // Restore callee-saved registers.
         for loc in locations.iter().rev() {
-            if let Location::GPR(x) = *loc {
+            if let Location::GPR(_) = *loc {
                 a.emit_pop(Size::S64, *loc);
             }
         }
