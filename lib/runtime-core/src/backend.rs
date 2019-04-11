@@ -3,7 +3,8 @@ use crate::{
     error::CompileResult,
     error::RuntimeResult,
     module::ModuleInner,
-    types::{FuncIndex, LocalFuncIndex, Value},
+    typed_func::Wasm,
+    types::{FuncIndex, LocalFuncIndex, SigIndex, Value},
     vm,
 };
 
@@ -13,6 +14,8 @@ use crate::{
     sys::Memory,
 };
 use std::{any::Any, ptr::NonNull};
+
+use hashbrown::HashMap;
 
 pub mod sys {
     pub use crate::sys::*;
@@ -38,11 +41,28 @@ impl Token {
     }
 }
 
+/// Configuration data for the compiler
+pub struct CompilerConfig {
+    /// Symbol information generated from emscripten; used for more detailed debug messages
+    pub symbol_map: Option<HashMap<u32, String>>,
+}
+
+impl Default for CompilerConfig {
+    fn default() -> CompilerConfig {
+        CompilerConfig { symbol_map: None }
+    }
+}
+
 pub trait Compiler {
     /// Compiles a `Module` from WebAssembly binary format.
     /// The `CompileToken` parameter ensures that this can only
     /// be called from inside the runtime.
-    fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner>;
+    fn compile(
+        &self,
+        wasm: &[u8],
+        comp_conf: CompilerConfig,
+        _: Token,
+    ) -> CompileResult<ModuleInner>;
 
     unsafe fn from_cache(&self, cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
@@ -66,6 +86,10 @@ pub trait ProtectedCaller: Send + Sync {
     ///
     /// The existance of the Token parameter ensures that this can only be called from
     /// within the runtime crate.
+    ///
+    /// TODO(lachlan): Now that `get_wasm_trampoline` exists, `ProtectedCaller::call`
+    /// can be removed. That should speed up calls a little bit, since sanity checks
+    /// would only occur once.
     fn call(
         &self,
         module: &ModuleInner,
@@ -75,6 +99,11 @@ pub trait ProtectedCaller: Send + Sync {
         vmctx: *mut vm::Ctx,
         _: Token,
     ) -> RuntimeResult<Vec<Value>>;
+
+    /// A wasm trampoline contains the necesarry data to dynamically call an exported wasm function.
+    /// Given a particular signature index, we are returned a trampoline that is matched with that
+    /// signature and an invoke function that can call the trampoline.
+    fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm>;
 
     fn get_early_trapper(&self) -> Box<dyn UserTrapper>;
 }

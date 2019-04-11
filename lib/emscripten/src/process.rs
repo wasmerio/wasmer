@@ -121,6 +121,11 @@ pub fn _usleep(_ctx: &mut Ctx, _one: i32) -> i32 {
     -1
 }
 
+pub fn _nanosleep(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+    debug!("emscripten::_nanosleep");
+    -1
+}
+
 pub fn _utimes(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::_utimes");
     -1
@@ -143,6 +148,11 @@ pub fn abort_stack_overflow(ctx: &mut Ctx, _what: c_int) {
 pub fn _llvm_trap(ctx: &mut Ctx) {
     debug!("emscripten::_llvm_trap");
     abort_with_message(ctx, "abort!");
+}
+
+pub fn _llvm_eh_typeid_for(_ctx: &mut Ctx, _type_info_addr: u32) -> i32 {
+    debug!("emscripten::_llvm_eh_typeid_for");
+    -1
 }
 
 pub fn _system(_ctx: &mut Ctx, _one: i32) -> c_int {

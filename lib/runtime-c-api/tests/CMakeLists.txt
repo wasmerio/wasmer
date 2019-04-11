@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 project (WasmerRuntimeCApiTests)
 
+add_executable(test-exported-memory test-exported-memory.c)
 add_executable(test-exports test-exports.c)
 add_executable(test-globals test-globals.c)
 add_executable(test-import-function test-import-function.c)
@@ -34,6 +35,10 @@ set(
     $<$<CXX_COMPILER_ID:MSVC>:
         "/WX" >
 )
+
+target_link_libraries(test-exported-memory general ${WASMER_LIB})
+target_compile_options(test-exported-memory PRIVATE ${COMPILER_OPTIONS})
+add_test(test-exported-memory test-exported-memory)
 
 target_link_libraries(test-exports general ${WASMER_LIB})
 target_compile_options(test-exports PRIVATE ${COMPILER_OPTIONS})

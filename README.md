@@ -18,7 +18,7 @@
 
 ## Introduction
 
-[Wasmer](https://wasmer.io/) is a standalone JIT WebAssembly runtime, aiming to be fully compatible with Emscripten, Rust and Go.
+[Wasmer](https://wasmer.io/) is a standalone JIT WebAssembly runtime, aiming to be fully compatible with [WASI](https://hacks.mozilla.org/2019/03/standardizing-wasi-a-webassembly-system-interface/) and [Emscripten](https://emscripten.org/).
 
 Install Wasmer with:
 
@@ -26,18 +26,28 @@ Install Wasmer with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
-_**NEW ✨**: You can now embed Wasmer in your Rust application, check our [example repo](https://github.com/wasmerio/wasmer-rust-example) to see how!_
+Wasmer runtime can also be embedded in different languages, so you can use WebAssembly anywhere ✨:
+* [**Rust**](https://github.com/wasmerio/wasmer-rust-example)
+* [**C/C++**](https://github.com/wasmerio/wasmer-c-api)
+* [**PHP**](https://github.com/wasmerio/php-ext-wasm)
+* [**Python**](https://github.com/wasmerio/python-ext-wasm)
 
 ### Usage
 
 Wasmer can execute both the standard binary format (`.wasm`) and the text
 format defined by the WebAssembly reference interpreter (`.wat`).
 
-Once installed, you will be able to run any WebAssembly files (_including nginx and Lua!_):
+Once installed, you will be able to run any WebAssembly files (_including Lua, PHP, SQLite and nginx!_):
 
 ```sh
 # Run Lua
 wasmer run examples/lua.wasm
+
+# Run PHP
+wasmer run examples/php.wasm
+
+# Run SQLite
+wasmer run examples/sqlite.wasm
 
 # Run nginx
 wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf
@@ -70,6 +80,7 @@ Please select your operating system:
 
 - [macOS](#macos)
 - [Debian-based Linuxes](#debian-based-linuxes)
+- [FreeBSD](#freebsd)
 - [Microsoft Windows](#windows-msvc)
 
 #### macOS
@@ -90,6 +101,12 @@ sudo port install cmake
 
 ```sh
 sudo apt install cmake
+```
+
+#### FreeBSD
+
+```sh
+pkg install cmake
 ```
 
 #### Windows (MSVC)
@@ -164,6 +181,7 @@ Below are some of the goals of this project (in order of priority):
 
 - [x] It should be 100% compatible with the [WebAssembly spec tests](https://github.com/wasmerio/wasmer/tree/master/lib/spectests/spectests)
 - [x] It should be fast _(partially achieved)_
+- [ ] Support WASI _(in the works)_
 - [ ] Support Emscripten calls _(in the works)_
 - [ ] Support Rust ABI calls
 - [ ] Support Go ABI calls

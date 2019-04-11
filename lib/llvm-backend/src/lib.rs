@@ -1,12 +1,7 @@
 #![cfg_attr(nightly, feature(unwind_attributes))]
 
-use inkwell::{
-    execution_engine::JitFunction,
-    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
-    OptimizationLevel,
-};
 use wasmer_runtime_core::{
-    backend::{Compiler, Token},
+    backend::{Compiler, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     error::CompileError,
     module::ModuleInner,
@@ -32,29 +27,31 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
-    fn compile(&self, wasm: &[u8], _: Token) -> Result<ModuleInner, CompileError> {
+    fn compile(
+        &self,
+        wasm: &[u8],
+        compiler_config: CompilerConfig,
+        _: Token,
+    ) -> Result<ModuleInner, CompileError> {
         validate(wasm)?;
 
-        let (info, code_reader) = read_info::read_module(wasm).unwrap();
+        let (info, code_reader) = read_info::read_module(wasm, compiler_config).unwrap();
         let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 
         let (backend, protected_caller) = backend::LLVMBackend::new(module, intrinsics);
 
         // Create placeholder values here.
         let cache_gen = {
-            use wasmer_runtime_core::backend::{
-                sys::Memory, CacheGen, ProtectedCaller, UserTrapper,
-            };
+            use wasmer_runtime_core::backend::{sys::Memory, CacheGen};
             use wasmer_runtime_core::cache::Error as CacheError;
-            use wasmer_runtime_core::error::RuntimeResult;
             use wasmer_runtime_core::module::ModuleInfo;
-            use wasmer_runtime_core::types::{FuncIndex, Value};
-            use wasmer_runtime_core::vm;
+
             struct Placeholder;
+
             impl CacheGen for Placeholder {
                 fn generate_cache(
                     &self,
-                    module: &ModuleInner,
+                    _module: &ModuleInner,
                 ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
                     unimplemented!()
                 }
@@ -121,7 +118,7 @@ fn test_read_module() {
     "#;
     let wasm = wat2wasm(wat).unwrap();
 
-    let (info, code_reader) = read_info::read_module(&wasm).unwrap();
+    let (info, code_reader) = read_info::read_module(&wasm, Default::default()).unwrap();
 
     let (module, intrinsics) = code::parse_function_bodies(&info, code_reader).unwrap();
 

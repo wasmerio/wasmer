@@ -1,31 +1,38 @@
+run_with_build_env_vars: &run_with_build_env_vars
+  environment:
+    LLVM_SYS_70_PREFIX: /home/circleci/project/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/
+
+run_install_dependencies: &run_install_dependencies
+  run:
+    name: install dependencies
+    command: |
+      sudo apt-get install -y cmake
+      curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+
 version: 2
 jobs:
   # Job used for testing
   lint:
     docker:
       - image: circleci/rust:latest
+    <<: *run_with_build_env_vars
     steps:
       - checkout
       - restore_cache:
           keys:
             - v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Install dependencies
-          command: |
-            sudo apt-get install -y cmake
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      - <<: *run_install_dependencies
       - run:
           name: Install lint deps
           command: |
             git config --global --unset url."ssh://git@github.com".insteadOf || true
-            rustup toolchain install nightly
+            rustup toolchain install nightly-2019-02-27
             rustup component add rustfmt
-            rustup component add clippy --toolchain=nightly || cargo +nightly install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+            rustup component add clippy --toolchain=nightly-2019-02-27 || cargo +nightly-2019-02-27 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
       - run:
           name: Execute lints
           command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
             make lint
       - save_cache:
           paths:
@@ -33,37 +40,27 @@ jobs:
             - target/debug/.fingerprint
             - target/debug/build
             - target/debug/deps
-          key: v6-lint-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
 
   test:
     docker:
       - image: circleci/rust:latest
+    <<: *run_with_build_env_vars
     steps:
       - checkout
       - restore_cache:
           keys:
             - v6-test-cargo-cache-linux-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Install dependencies
-          command: |
-            sudo apt-get install -y cmake
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      - <<: *run_install_dependencies
       - run:
           name: Tests
-          command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make test
+          command: make test
       - run:
           name: Emscripten Tests
-          command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make test-emscripten
+          command: make test-emscripten
       - run:
           name: Integration Tests
-          command: |
-            export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make integration-tests
+          command: make integration-tests
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -272,13 +269,13 @@ jobs:
             sudo apt-get install -y cmake
             curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
             tar xf clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      - run: rustup default nightly
+      - run: rustup default nightly-2019-02-27
       - run: |
           export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
           make test
           make test-nightly
-          make test-emscripten
-          make test-emscripten-nightly
+          make test-emscripten-clif
+          # make test-emscripten-nightly
       - save_cache:
           paths:
             - /usr/local/cargo/registry

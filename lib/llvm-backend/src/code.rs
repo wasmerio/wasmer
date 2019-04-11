@@ -3,14 +3,14 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    types::{BasicType, BasicTypeEnum, FunctionType, IntType, PointerType},
+    types::{BasicType, BasicTypeEnum, FunctionType, PointerType},
     values::{BasicValue, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue},
     AddressSpace, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 use wasmer_runtime_core::{
     memory::MemoryType,
-    module::{ExportIndex, ModuleInfo},
+    module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
@@ -102,7 +102,6 @@ pub fn parse_function_bodies(
 
         parse_function(
             &context,
-            &module,
             &builder,
             &intrinsics,
             info,
@@ -143,7 +142,6 @@ pub fn parse_function_bodies(
 
 fn parse_function(
     context: &Context,
-    module: &Module,
     builder: &Builder,
     intrinsics: &Intrinsics,
     info: &ModuleInfo,
@@ -155,7 +153,6 @@ fn parse_function(
 ) -> Result<(), BinaryReaderError> {
     let sig_index = info.func_assoc[func_index.convert_up(info)];
     let func_sig = &info.signatures[sig_index];
-    let llvm_sig = &signatures[sig_index];
 
     let function = functions[func_index];
     let mut state = State::new();
@@ -193,7 +190,7 @@ fn parse_function(
     let param_len = locals.len();
 
     let mut local_idx = 0;
-    for (index, local) in locals_reader.into_iter().enumerate() {
+    for local in locals_reader.into_iter() {
         let (count, ty) = local?;
         let wasmer_ty = type_to_type(ty)?;
         let ty = type_to_llvm(intrinsics, wasmer_ty);
@@ -490,7 +487,6 @@ fn parse_function(
                 if let ControlFrame::IfElse {
                     if_else,
                     next,
-                    phis,
                     if_else_state,
                     ..
                 } = &frame
@@ -866,7 +862,7 @@ fn parse_function(
                         let value = call_site.try_as_basic_value().left().unwrap();
                         state.push1(value);
                     }
-                    returns @ _ => unimplemented!("multi-value returns"),
+                    _ => unimplemented!("multi-value returns"),
                 }
             }
 
@@ -2158,7 +2154,7 @@ fn parse_function(
         [one_value] => {
             builder.build_return(Some(one_value));
         }
-        returns @ _ => {
+        _ => {
             // let struct_ty = llvm_sig.get_return_type().as_struct_type();
             // let ret_struct = struct_ty.const_zero();
             unimplemented!("multi-value returns not yet implemented")
@@ -2211,7 +2207,7 @@ fn trap_if_not_representatable_as_int(
             ),
         };
 
-        let masked = builder.build_and(
+        builder.build_and(
             float_bits,
             int_ty.const_int(exponent_mask, false),
             "masked_bits",

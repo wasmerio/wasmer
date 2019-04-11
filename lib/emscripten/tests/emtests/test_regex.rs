@@ -1,4 +1,5 @@
 #[test]
+#[ignore]
 fn test_test_regex() {
     assert_emscripten_output!(
         "../../emtests/test_regex.wasm",

@@ -9,11 +9,11 @@ use crate::{
     module::{ExportIndex, Module, ModuleInner},
     sig_registry::SigRegistry,
     table::Table,
-    typed_func::{Func, Safe, WasmTypeList},
+    typed_func::{Func, Wasm, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vm,
 };
-use std::{mem, sync::Arc};
+use std::{mem, ptr::NonNull, sync::Arc};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -63,7 +63,16 @@ impl Instance {
         // Initialize the vm::Ctx in-place after the backing
         // has been boxed.
         unsafe {
-            *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module)
+            *inner.vmctx = match imports.call_state_creator() {
+                Some((data, dtor)) => vm::Ctx::new_with_data(
+                    &mut inner.backing,
+                    &mut inner.import_backing,
+                    &module,
+                    data,
+                    dtor,
+                ),
+                None => vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module),
+            };
         };
 
         let instance = Instance {
@@ -98,7 +107,7 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Safe>>
+    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -136,20 +145,26 @@ impl Instance {
                 }
             };
 
+            let func_wasm_inner = self
+                .module
+                .protected_caller
+                .get_wasm_trampoline(&self.module, sig_index)
+                .unwrap();
+
             let func_ptr = match func_index.local_or_import(&self.module.info) {
                 LocalOrImport::Local(local_func_index) => self
                     .module
                     .func_resolver
                     .get(&self.module, local_func_index)
-                    .unwrap()
-                    .as_ptr(),
-                LocalOrImport::Import(import_func_index) => {
-                    self.inner.import_backing.vm_functions[import_func_index].func
-                }
+                    .unwrap(),
+                LocalOrImport::Import(import_func_index) => NonNull::new(
+                    self.inner.import_backing.vm_functions[import_func_index].func as *mut _,
+                )
+                .unwrap(),
             };
 
-            let typed_func: Func<Args, Rets, Safe> =
-                unsafe { Func::new_from_ptr(func_ptr as _, ctx) };
+            let typed_func: Func<Args, Rets, Wasm> =
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, ctx) };
 
             Ok(typed_func)
         } else {
@@ -270,8 +285,8 @@ impl Instance {
 
     /// Returns an iterator over all of the items
     /// exported from this instance.
-    pub fn exports(&mut self) -> ExportIter {
-        ExportIter::new(&self.module, &mut self.inner)
+    pub fn exports(&self) -> ExportIter {
+        ExportIter::new(&self.module, &self.inner)
     }
 
     /// The module used to instantiate this Instance.
@@ -426,6 +441,14 @@ impl LikeNamespace for Instance {
         let export_index = self.module.info.exports.get(name)?;
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
+    }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        unimplemented!("Use the exports method instead");
+    }
+
+    fn maybe_insert(&mut self, _name: &str, _export: Export) -> Option<()> {
+        None
     }
 }
 

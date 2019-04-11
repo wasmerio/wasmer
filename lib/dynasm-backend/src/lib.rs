@@ -28,7 +28,7 @@ mod protect_unix;
 use crate::codegen::{CodegenError, ModuleCodeGenerator};
 use crate::parse::LoadError;
 use wasmer_runtime_core::{
-    backend::{sys::Memory, Backend, CacheGen, Compiler, Token},
+    backend::{sys::Memory, Backend, CacheGen, Compiler, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
@@ -54,9 +54,14 @@ impl SinglePassCompiler {
 }
 
 impl Compiler for SinglePassCompiler {
-    fn compile(&self, wasm: &[u8], _: Token) -> CompileResult<ModuleInner> {
+    fn compile(
+        &self,
+        wasm: &[u8],
+        compiler_config: CompilerConfig,
+        _: Token,
+    ) -> CompileResult<ModuleInner> {
         let mut mcg = codegen_x64::X64ModuleCodeGenerator::new();
-        let info = parse::read_module(wasm, Backend::Dynasm, &mut mcg)?;
+        let info = parse::read_module(wasm, Backend::Dynasm, &mut mcg, &compiler_config)?;
         let (ec, resolver) = mcg.finalize(&info)?;
         Ok(ModuleInner {
             cache_gen: Box::new(Placeholder),

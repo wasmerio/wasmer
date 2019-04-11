@@ -8,13 +8,13 @@ repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.2.0" }
-cranelift-native = "0.26.0"
-cranelift-codegen = "0.26.0"
-cranelift-entity = "0.26.0"
-cranelift-wasm = "0.26.0"
+wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
+cranelift-native = "0.30.0"
+cranelift-codegen = "0.30.0"
+cranelift-entity = "0.30.0"
+cranelift-wasm = "0.30.0"
 hashbrown = "0.1"
-target-lexicon = "0.2.0"
+target-lexicon = "0.3.0"
 wasmparser = "0.23.0"
 byteorder = "1"
 nix = "0.13.0"

@@ -1,8 +1,8 @@
 #[test]
-fn test_getcwd() {
+fn test_test_getcwd() {
     assert_emscripten_output!(
         "../../emtests/test_getcwd.wasm",
-        "getcwd",
+        "test_getcwd",
         vec![],
         "../../emtests/test_getcwd.out"
     );

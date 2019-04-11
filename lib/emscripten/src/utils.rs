@@ -125,7 +125,7 @@ pub struct GuestStat {
     st_atime: u64,
     st_mtime: u64,
     st_ctime: u64,
-    st_ino: u64,
+    st_ino: u32,
 }
 
 #[allow(clippy::cast_ptr_alignment)]

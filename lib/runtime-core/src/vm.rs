@@ -7,6 +7,8 @@ use crate::{
 };
 use std::{ffi::c_void, mem, ptr};
 
+use hashbrown::HashMap;
+
 /// The context of the currently running WebAssembly instance.
 ///
 ///
@@ -23,7 +25,7 @@ pub struct Ctx {
     module: *const ModuleInner,
 
     pub data: *mut c_void,
-    pub data_finalizer: Option<extern "C" fn(data: *mut c_void)>,
+    pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
 
 /// The internal context of the currently running WebAssembly instance.
@@ -98,7 +100,7 @@ impl Ctx {
         import_backing: &mut ImportBacking,
         module: &ModuleInner,
         data: *mut c_void,
-        data_finalizer: extern "C" fn(*mut c_void),
+        data_finalizer: fn(*mut c_void),
     ) -> Self {
         Self {
             internal: InternalCtx {
@@ -155,6 +157,11 @@ impl Ctx {
                 &import_backing.memories[import_mem_index]
             },
         }
+    }
+
+    /// Gives access to the emscripten symbol map, used for debugging
+    pub unsafe fn borrow_symbol_map(&self) -> &Option<HashMap<u32, String>> {
+        &(*self.module).info.em_symbol_map
     }
 }
 
@@ -474,7 +481,7 @@ mod vm_ctx_tests {
         str: String,
     }
 
-    extern "C" fn test_data_finalizer(data: *mut c_void) {
+    fn test_data_finalizer(data: *mut c_void) {
         let test_data: &mut TestData = unsafe { &mut *(data as *mut TestData) };
         assert_eq!(test_data.x, 10);
         assert_eq!(test_data.y, true);
@@ -540,9 +547,10 @@ mod vm_ctx_tests {
         use crate::backend::{
             sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
         };
-        use crate::cache::{Error as CacheError, WasmHash};
+        use crate::cache::Error as CacheError;
         use crate::error::RuntimeResult;
-        use crate::types::{FuncIndex, LocalFuncIndex, Value};
+        use crate::typed_func::Wasm;
+        use crate::types::{FuncIndex, LocalFuncIndex, SigIndex, Value};
         use hashbrown::HashMap;
         use std::ptr::NonNull;
         struct Placeholder;
@@ -566,6 +574,13 @@ mod vm_ctx_tests {
                 _: Token,
             ) -> RuntimeResult<Vec<Value>> {
                 Ok(vec![])
+            }
+            fn get_wasm_trampoline(
+                &self,
+                _module: &ModuleInner,
+                _sig_index: SigIndex,
+            ) -> Option<Wasm> {
+                unimplemented!()
             }
             fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
                 unimplemented!()
@@ -608,6 +623,10 @@ mod vm_ctx_tests {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
+
+                em_symbol_map: None,
+
+                custom_sections: HashMap::new(),
             },
         }
     }

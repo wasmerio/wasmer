@@ -28,7 +28,7 @@ integration-tests: release
 
 lint:
 	cargo fmt --all -- --check
-	cargo +nightly clippy --all
+	cargo +nightly-2019-02-27 clippy --all
 
 precommit: lint test
 
@@ -48,8 +48,20 @@ test-emscripten:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
 
+test-emscripten-clif:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
+
 test-emscripten-nightly:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features dynasm -- --test-threads=1 $(runargs)
+
+dynasm-debug-release:
+	cargo +nightly build --features "dynasm debug" --release
+
+dynasm-release:
+	cargo +nightly build --features "dynasm" --release
+
+dynasm-build:
+	cargo +nightly build --features "dynasm debug"
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows

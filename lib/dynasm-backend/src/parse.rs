@@ -1,6 +1,7 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
+use hashbrown::HashMap;
 use wasmer_runtime_core::{
-    backend::{Backend, FuncResolver, ProtectedCaller},
+    backend::{Backend, CompilerConfig, FuncResolver, ProtectedCaller},
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -70,6 +71,7 @@ pub fn read_module<
     wasm: &[u8],
     backend: Backend,
     mcg: &mut MCG,
+    compiler_config: &CompilerConfig,
 ) -> Result<ModuleInfo, LoadError> {
     validate(wasm)?;
     let mut info = ModuleInfo {
@@ -95,6 +97,10 @@ pub fn read_module<
 
         namespace_table: StringTable::new(),
         name_table: StringTable::new(),
+
+        em_symbol_map: compiler_config.symbol_map.clone(),
+
+        custom_sections: HashMap::new(),
     };
 
     let mut reader = ModuleReader::new(wasm)?;

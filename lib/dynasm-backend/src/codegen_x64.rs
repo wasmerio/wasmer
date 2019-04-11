@@ -16,6 +16,7 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
+    typed_func::Wasm,
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type, Value,
@@ -247,6 +248,10 @@ impl ProtectedCaller for X64ExecutionContext {
         } else {
             vec![]
         })
+    }
+
+    fn get_wasm_trampoline(&self, _module: &ModuleInner, _sig_index: SigIndex) -> Option<Wasm> {
+        unimplemented!()
     }
 
     fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
