@@ -169,7 +169,7 @@ jobs:
           name: Release Build
           command: |
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-linux-gnu-ubuntu-16.04/"
-            make release
+            make production-release
             mkdir -p artifacts
             VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # GIT_VERSION=$(git describe --exact-match --tags)
@@ -249,7 +249,7 @@ jobs:
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
             export PATH="$HOME/.cargo/bin:$PATH"
             export LLVM_SYS_70_PREFIX="`pwd`/clang+llvm-7.0.0-x86_64-apple-darwin/"
-            make release
+            make production-release
             mkdir -p artifacts
             # VERSION=$(cargo pkgid | cut -d# -f2 | cut -d: -f2)
             # echo "${VERSION}" >> artifacts/version

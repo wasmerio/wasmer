@@ -67,6 +67,9 @@ release:
 	# brew install mingw-w64
 	cargo build --release
 
+production-release:
+	cargo build --release --features backend:singlepass,backend:llvm
+
 debug-release:
 	cargo build --release --features "debug"
 
