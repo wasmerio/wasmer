@@ -231,7 +231,7 @@ fn install_llvm() {
 
     std::env::set_var(
         "LLVM_SYS_70_PREFIX",
-        format!("{}/{}", llvm_path, get_llvm_target_name()),
+        format!("{}/{}", llvm_path.display(), get_llvm_target_name()),
     );
 
     if llvm_path.exists() {
