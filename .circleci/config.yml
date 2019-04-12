@@ -12,6 +12,14 @@ run_install_dependencies: &run_install_dependencies
 
 version: 2
 jobs:
+  changelog:
+    docker:
+      - image: docker:stable-git
+    steps:
+      - checkout
+      - run:
+          command: ! git diff --exit-code CHANGELOG.md
+
   # Job used for testing
   lint:
     docker:
@@ -351,6 +359,7 @@ workflows:
   version: 2
   main:
     jobs:
+      - changelog
       - lint
       - test:
           filters:
