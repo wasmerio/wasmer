@@ -18,7 +18,7 @@ jobs:
     steps:
       - checkout
       - run:
-        command: ! git diff --exit-code CHANGELOG.md
+          command: ! git diff --exit-code CHANGELOG.md
 
   # Job used for testing
   lint:
