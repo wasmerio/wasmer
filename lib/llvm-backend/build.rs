@@ -7,7 +7,7 @@ use semver::Version;
 use std::env;
 use std::ffi::OsStr;
 use std::io::{self, ErrorKind};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 lazy_static! {
@@ -227,22 +227,26 @@ fn install_llvm() {
     use lzma::LzmaReader;
     use tar::Archive;
 
+    let llvm_path: PathBuf = format!("{}/llvm", std::env::var("OUT_DIR").unwrap()).into();
+
+    std::env::set_var(
+        "LLVM_SYS_70_PREFIX",
+        format!("{}/{}", llvm_path, get_llvm_target_name()),
+    );
+
+    if llvm_path.exists() {
+        return;
+    }
+
     let url = find_llvm_url();
 
     let resp = reqwest::get(&url).expect("failed to connect to the llvm server");
     let resp = LzmaReader::new_decompressor(resp).expect("failed to initialize decompressor");
     let mut archive = Archive::new(resp);
 
-    let llvm_path = format!("{}/llvm", std::env::var("OUT_DIR").unwrap());
-
     archive
         .unpack(&llvm_path)
         .expect("failed to unpack the tar file");
-
-    std::env::set_var(
-        "LLVM_SYS_70_PREFIX",
-        format!("{}/{}", llvm_path, get_llvm_target_name()),
-    );
 }
 
 fn main() {
