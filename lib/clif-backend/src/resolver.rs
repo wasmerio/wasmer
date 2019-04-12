@@ -21,7 +21,6 @@ use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
     backend::{
-        self,
         sys::{Memory, Protect},
         SigRegistry,
     },

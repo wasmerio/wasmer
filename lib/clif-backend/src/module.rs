@@ -78,7 +78,7 @@ impl Module {
             Arc::clone(&func_resolver.memory),
         ));
 
-        let runnable_module = Caller::new(&self.info, handler_data, trampolines, func_resolver);
+        let runnable_module = Caller::new(handler_data, trampolines, func_resolver);
 
         Ok(ModuleInner {
             runnable_module: Box::new(runnable_module),
@@ -107,7 +107,7 @@ impl Module {
             Arc::clone(&func_resolver.memory),
         ));
 
-        let runnable_module = Caller::new(&info, handler_data, trampolines, func_resolver);
+        let runnable_module = Caller::new(handler_data, trampolines, func_resolver);
 
         Ok(ModuleInner {
             runnable_module: Box::new(runnable_module),

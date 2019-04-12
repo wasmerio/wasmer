@@ -1,16 +1,14 @@
 use crate::relocation::{TrapData, TrapSink};
 use crate::resolver::FuncResolver;
 use crate::trampoline::Trampolines;
-use hashbrown::HashSet;
 use libc::c_void;
 use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
     backend::{RunnableModule, UserTrapper},
-    export::Context,
-    module::{ExportIndex, ModuleInfo, ModuleInner},
+    module::ModuleInfo,
     typed_func::{Wasm, WasmTrapInfo},
-    types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, Value},
-    vm::{self, ImportBacking},
+    types::{LocalFuncIndex, SigIndex},
+    vm,
 };
 
 #[cfg(unix)]
@@ -39,7 +37,6 @@ impl UserTrapper for Trapper {
 }
 
 pub struct Caller {
-    func_export_set: HashSet<FuncIndex>,
     handler_data: HandlerData,
     trampolines: Arc<Trampolines>,
     resolver: FuncResolver,
@@ -47,23 +44,11 @@ pub struct Caller {
 
 impl Caller {
     pub fn new(
-        module: &ModuleInfo,
         handler_data: HandlerData,
         trampolines: Arc<Trampolines>,
         resolver: FuncResolver,
     ) -> Self {
-        let mut func_export_set = HashSet::new();
-        for export_index in module.exports.values() {
-            if let ExportIndex::Func(func_index) = export_index {
-                func_export_set.insert(*func_index);
-            }
-        }
-        if let Some(start_func_index) = module.start_func {
-            func_export_set.insert(start_func_index);
-        }
-
         Self {
-            func_export_set,
             handler_data,
             trampolines,
             resolver,
@@ -83,13 +68,13 @@ impl RunnableModule for Caller {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            trap_info: *mut WasmTrapInfo,
+            _trap_info: *mut WasmTrapInfo,
             invoke_env: Option<NonNull<c_void>>,
         ) -> bool {
             let handler_data = &*invoke_env.unwrap().cast().as_ptr();
 
             #[cfg(not(target_os = "windows"))]
-            let res = call_protected(handler_data, || unsafe {
+            let res = call_protected(handler_data, || {
                 // Leap of faith.
                 trampoline(ctx, func, args, rets);
             })
@@ -119,40 +104,6 @@ impl RunnableModule for Caller {
     fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
         Box::new(Trapper)
     }
-}
-
-fn get_func_from_index<'a>(
-    module: &'a ModuleInner,
-    import_backing: &ImportBacking,
-    func_index: FuncIndex,
-) -> (NonNull<vm::Func>, Context, &'a FuncSig, SigIndex) {
-    let sig_index = *module
-        .info
-        .func_assoc
-        .get(func_index)
-        .expect("broken invariant, incorrect func index");
-
-    let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
-        LocalOrImport::Local(local_func_index) => (
-            module
-                .runnable_module
-                .get_func(&module.info, local_func_index)
-                .expect("broken invariant, func resolver not synced with module.exports")
-                .cast(),
-            Context::Internal,
-        ),
-        LocalOrImport::Import(imported_func_index) => {
-            let imported_func = import_backing.imported_func(imported_func_index);
-            (
-                NonNull::new(imported_func.func as *mut _).unwrap(),
-                Context::External(imported_func.vmctx),
-            )
-        }
-    };
-
-    let signature = &module.info.signatures[sig_index];
-
-    (func_ptr, ctx, signature, sig_index)
 }
 
 unsafe impl Send for HandlerData {}

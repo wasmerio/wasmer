@@ -1,5 +1,5 @@
 use crate::{
-    backend::{RunnableModule, Token},
+    backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
     error::{CallError, CallResult, ResolveError, ResolveResult, Result, RuntimeError},
     export::{Context, Export, ExportIter, FuncPointer},
