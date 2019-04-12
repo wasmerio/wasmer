@@ -14,12 +14,14 @@ use structopt::StructOpt;
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
 use wasmer_clif_backend::CraneliftCompiler;
+#[cfg(feature = "backend:llvm")]
 use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig},
 };
+#[cfg(feature = "backend:singlepass")]
 use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
@@ -223,9 +225,15 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     }
 
     let compiler: Box<dyn Compiler> = match options.backend {
+        #[cfg(feature = "backend:singlepass")]
         Backend::Singlepass => Box::new(SinglePassCompiler::new()),
+        #[cfg(not(feature = "backend:singlepass"))]
+        Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
+        #[cfg(feature = "backend:llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
+        #[cfg(not(feature = "backend:llvm"))]
+        Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
     };
 
     let module = if !disable_cache {

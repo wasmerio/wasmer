@@ -5,7 +5,6 @@ use wasmer_runtime::{
     error::{CallResult, Result},
     ImportObject, Instance, Module,
 };
-use wasmer_runtime_core::backend::CompilerConfig;
 use wasmer_runtime_core::types::Value;
 
 use wasmer_emscripten::run_emscripten_instance;
