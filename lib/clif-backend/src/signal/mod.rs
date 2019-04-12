@@ -1,15 +1,15 @@
 use crate::relocation::{TrapData, TrapSink};
+use crate::resolver::FuncResolver;
 use crate::trampoline::Trampolines;
 use hashbrown::HashSet;
 use libc::c_void;
 use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{ProtectedCaller, Token, UserTrapper},
-    error::RuntimeResult,
+    backend::{RunnableModule, UserTrapper},
     export::Context,
     module::{ExportIndex, ModuleInfo, ModuleInner},
     typed_func::{Wasm, WasmTrapInfo},
-    types::{FuncIndex, FuncSig, LocalOrImport, SigIndex, Type, Value},
+    types::{FuncIndex, FuncSig, LocalFuncIndex, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
 };
 
@@ -42,6 +42,7 @@ pub struct Caller {
     func_export_set: HashSet<FuncIndex>,
     handler_data: HandlerData,
     trampolines: Arc<Trampolines>,
+    resolver: FuncResolver,
 }
 
 impl Caller {
@@ -49,6 +50,7 @@ impl Caller {
         module: &ModuleInfo,
         handler_data: HandlerData,
         trampolines: Arc<Trampolines>,
+        resolver: FuncResolver,
     ) -> Self {
         let mut func_export_set = HashSet::new();
         for export_index in module.exports.values() {
@@ -64,92 +66,17 @@ impl Caller {
             func_export_set,
             handler_data,
             trampolines,
+            resolver,
         }
     }
 }
 
-impl ProtectedCaller for Caller {
-    fn call(
-        &self,
-        module: &ModuleInner,
-        func_index: FuncIndex,
-        params: &[Value],
-        import_backing: &ImportBacking,
-        vmctx: *mut vm::Ctx,
-        _: Token,
-    ) -> RuntimeResult<Vec<Value>> {
-        let (func_ptr, ctx, signature, sig_index) =
-            get_func_from_index(&module, import_backing, func_index);
-
-        let vmctx_ptr = match ctx {
-            Context::External(external_vmctx) => external_vmctx,
-            Context::Internal => vmctx,
-        };
-
-        assert!(self.func_export_set.contains(&func_index));
-
-        assert!(
-            signature.returns().len() <= 1,
-            "multi-value returns not yet supported"
-        );
-
-        assert!(
-            signature.check_param_value_types(params),
-            "incorrect signature"
-        );
-
-        let param_vec: Vec<u64> = params
-            .iter()
-            .map(|val| match val {
-                Value::I32(x) => *x as u64,
-                Value::I64(x) => *x as u64,
-                Value::F32(x) => x.to_bits() as u64,
-                Value::F64(x) => x.to_bits(),
-            })
-            .collect();
-
-        let mut return_vec = vec![0; signature.returns().len()];
-
-        let trampoline = self
-            .trampolines
-            .lookup(sig_index)
-            .expect("that trampoline doesn't exist");
-
-        #[cfg(not(target_os = "windows"))]
-        call_protected(&self.handler_data, || unsafe {
-            // Leap of faith.
-            trampoline(
-                vmctx_ptr,
-                func_ptr,
-                param_vec.as_ptr(),
-                return_vec.as_mut_ptr(),
-            );
-        })?;
-
-        // the trampoline is called from C on windows
-        #[cfg(target_os = "windows")]
-        call_protected(
-            &self.handler_data,
-            trampoline,
-            vmctx_ptr,
-            func_ptr,
-            param_vec.as_ptr(),
-            return_vec.as_mut_ptr(),
-        )?;
-
-        Ok(return_vec
-            .iter()
-            .zip(signature.returns().iter())
-            .map(|(&x, ty)| match ty {
-                Type::I32 => Value::I32(x as i32),
-                Type::I64 => Value::I64(x as i64),
-                Type::F32 => Value::F32(f32::from_bits(x as u32)),
-                Type::F64 => Value::F64(f64::from_bits(x as u64)),
-            })
-            .collect())
+impl RunnableModule for Caller {
+    fn get_func(&self, _: &ModuleInfo, func_index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
+        self.resolver.lookup(func_index)
     }
 
-    fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
+    fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         unsafe extern "C" fn invoke(
             trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
             ctx: *mut vm::Ctx,
@@ -208,8 +135,8 @@ fn get_func_from_index<'a>(
     let (func_ptr, ctx) = match func_index.local_or_import(&module.info) {
         LocalOrImport::Local(local_func_index) => (
             module
-                .func_resolver
-                .get(&module, local_func_index)
+                .runnable_module
+                .get_func(&module.info, local_func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
                 .cast(),
             Context::Internal,
