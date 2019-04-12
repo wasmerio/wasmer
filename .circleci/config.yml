@@ -97,9 +97,7 @@ jobs:
             curl -O https://cmake.org/files/v3.4/cmake-3.4.1-Darwin-x86_64.tar.gz
             tar xf cmake-3.4.1-Darwin-x86_64.tar.gz
             export PATH="`pwd`/cmake-3.4.1-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
-            # Installing LLVM outside of brew
-            curl -O https://releases.llvm.org/7.0.0/clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
-            tar xf clang+llvm-7.0.0-x86_64-apple-darwin.tar.xz
+            brew install pkg-config
       - run:
           name: Install Rust
           command: |
