@@ -359,6 +359,7 @@ workflows:
   version: 2
   main:
     jobs:
+      - changelog
       - lint
       - test:
           filters:
