@@ -1,5 +1,5 @@
 use crate::{
-    backend::{Backend, FuncResolver, ProtectedCaller},
+    backend::{Backend, RunnableModule},
     cache::{Artifact, Error as CacheError},
     error,
     import::ImportObject,
@@ -22,9 +22,7 @@ use std::sync::Arc;
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
 pub struct ModuleInner {
-    pub func_resolver: Box<dyn FuncResolver>,
-    pub protected_caller: Box<dyn ProtectedCaller>,
-
+    pub runnable_module: Box<dyn RunnableModule>,
     pub cache_gen: Box<dyn CacheGen>,
 
     pub info: ModuleInfo,
@@ -96,7 +94,7 @@ impl Module {
     pub(crate) fn new(inner: Arc<ModuleInner>) -> Self {
         unsafe {
             EARLY_TRAPPER
-                .with(|ucell| *ucell.get() = Some(inner.protected_caller.get_early_trapper()));
+                .with(|ucell| *ucell.get() = Some(inner.runnable_module.get_early_trapper()));
         }
         Module { inner }
     }
