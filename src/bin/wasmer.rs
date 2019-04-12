@@ -83,6 +83,9 @@ struct Run {
     #[structopt(long = "em-symbol-map", parse(from_os_str))]
     em_symbol_map: Option<PathBuf>,
 
+    #[structopt(long = "command-name", hidden = true)]
+    command_name: Option<String>,
+
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
@@ -300,12 +303,16 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             (
                 InstanceABI::WASI,
                 wasmer_wasi::generate_import_object(
-                    [options.path.to_str().unwrap().to_owned()]
-                        .iter()
-                        .chain(options.args.iter())
-                        .cloned()
-                        .map(|arg| arg.into_bytes())
-                        .collect(),
+                    if let Some(cn) = &options.command_name {
+                        [cn.clone()]
+                    } else {
+                        [options.path.to_str().unwrap().to_owned()]
+                    }
+                    .iter()
+                    .chain(options.args.iter())
+                    .cloned()
+                    .map(|arg| arg.into_bytes())
+                    .collect(),
                     env::vars()
                         .map(|(k, v)| format!("{}={}", k, v).into_bytes())
                         .collect(),
@@ -329,7 +336,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         &module,
         &mut instance,
         abi,
-        options.path.to_str().unwrap(),
+        if let Some(cn) = &options.command_name {
+            cn
+        } else {
+            options.path.to_str().unwrap()
+        },
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
     .map_err(|e| format!("{:?}", e))?;
