@@ -204,7 +204,50 @@ fn get_llvm_cxxflags() -> String {
         .join(" ")
 }
 
+fn get_llvm_target_name() -> String {
+    let name = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        "x86_64-apple-darwin"
+    } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        "x86_64-linux-gnu-ubuntu-16.04"
+    } else if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        "win64"
+    } else {
+        panic!("unsupport host for installing llvm")
+    };
+
+    format!("clang+llvm-7.0.0-{}", name)
+}
+
+fn find_llvm_url() -> String {
+    let name = get_llvm_target_name();
+    format!("https://releases.llvm.org/7.0.0/{}.tar.xz", name)
+}
+
+fn install_llvm() {
+    use lzma::LzmaReader;
+    use tar::Archive;
+
+    let url = find_llvm_url();
+
+    let resp = reqwest::get(&url).expect("failed to connect to the llvm server");
+    let resp = LzmaReader::new_decompressor(resp).expect("failed to initialize decompressor");
+    let mut archive = Archive::new(resp);
+
+    let llvm_path = format!("{}/llvm", std::env::var("OUT_DIR").unwrap());
+
+    archive
+        .unpack(&llvm_path)
+        .expect("failed to unpack the tar file");
+
+    std::env::set_var(
+        "LLVM_SYS_70_PREFIX",
+        format!("{}/{}", llvm_path, get_llvm_target_name()),
+    );
+}
+
 fn main() {
+    install_llvm();
+
     std::env::set_var("CXXFLAGS", get_llvm_cxxflags());
     cc::Build::new()
         .cpp(true)

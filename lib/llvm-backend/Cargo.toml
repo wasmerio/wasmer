@@ -21,6 +21,9 @@ lazy_static = "1.2.0"
 regex = "1.1.0"
 semver = "0.9"
 rustc_version = "0.2.3"
+reqwest = "0.9.14"
+rust-lzma = "0.4.0"
+tar = "0.4.22"
 
 [dev-dependencies]
 wabt = "0.7.4"
