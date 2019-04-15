@@ -85,8 +85,13 @@ extern "C" {
 
     #[allow(improper_ctypes)]
     fn invoke_trampoline(
-        trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
-        vmctx_ptr: *mut vm::Ctx,
+        trampoline: unsafe extern "C" fn(
+            Option<NonNull<vm::Env>>,
+            NonNull<vm::Func>,
+            *const u64,
+            *mut u64,
+        ),
+        vmctx_ptr: Option<NonNull<vm::Env>>,
         func_ptr: NonNull<vm::Func>,
         params: *const u64,
         results: *mut u64,
@@ -359,7 +364,7 @@ impl ProtectedCaller for LLVMProtectedCaller {
         let mut return_vec = vec![0; signature.returns().len()];
 
         let trampoline: unsafe extern "C" fn(
-            *mut vm::Ctx,
+            Option<NonNull<vm::Env>>,
             NonNull<vm::Func>,
             *const u64,
             *mut u64,
@@ -383,7 +388,7 @@ impl ProtectedCaller for LLVMProtectedCaller {
         let success = unsafe {
             invoke_trampoline(
                 trampoline,
-                vmctx_ptr,
+                mem::transmute(vmctx_ptr),
                 func_ptr,
                 param_vec.as_ptr(),
                 return_vec.as_mut_ptr(),
@@ -412,7 +417,7 @@ impl ProtectedCaller for LLVMProtectedCaller {
 
     fn get_wasm_trampoline(&self, _module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
         let trampoline: unsafe extern "C" fn(
-            *mut vm::Ctx,
+            Option<NonNull<vm::Env>>,
             NonNull<vm::Func>,
             *const u64,
             *mut u64,
@@ -468,7 +473,7 @@ fn get_func_from_index<'a>(
             let imported_func = import_backing.imported_func(imported_func_index);
             (
                 NonNull::new(imported_func.func as *mut _).unwrap(),
-                Context::External(imported_func.vmctx),
+                Context::External(imported_func.env as _),
             )
         }
     };

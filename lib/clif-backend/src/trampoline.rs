@@ -23,7 +23,8 @@ impl RelocSink for NullRelocSink {
     fn reloc_jt(&mut self, _: u32, _: Reloc, _: ir::JumpTable) {}
 }
 
-pub type Trampoline = unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64);
+pub type Trampoline =
+    unsafe extern "C" fn(Option<NonNull<vm::Env>>, NonNull<vm::Func>, *const u64, *mut u64);
 
 pub struct Trampolines {
     memory: Memory,

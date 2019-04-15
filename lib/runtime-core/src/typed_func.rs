@@ -55,10 +55,11 @@ impl fmt::Display for WasmTrapInfo {
 /// of the `Func` struct.
 pub trait Kind {}
 
-pub type Trampoline = unsafe extern "C" fn(*mut Ctx, NonNull<vm::Func>, *const u64, *mut u64);
+pub type Trampoline =
+    unsafe extern "C" fn(Option<NonNull<vm::Env>>, NonNull<vm::Func>, *const u64, *mut u64);
 pub type Invoke = unsafe extern "C" fn(
     Trampoline,
-    *mut Ctx,
+    Option<NonNull<vm::Env>>,
     NonNull<vm::Func>,
     *const u64,
     *mut u64,
@@ -108,7 +109,7 @@ pub trait WasmTypeList {
         self,
         f: NonNull<vm::Func>,
         wasm: Wasm,
-        ctx: *mut Ctx,
+        env: Option<NonNull<vm::Env>>,
     ) -> Result<Rets, WasmTrapInfo>
     where
         Rets: WasmTypeList;
@@ -119,7 +120,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn to_raw(&self) -> (NonNull<vm::Func>, Option<NonNull<Env>>);
+    fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<Env>>);
 }
 
 pub trait TrapEarly<Rets>
@@ -171,12 +172,12 @@ where
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
         f: NonNull<vm::Func>,
-        ctx: *mut Ctx,
+        env: Option<NonNull<vm::Env>>,
     ) -> Func<'a, Args, Rets, Wasm> {
         Func {
             inner,
             f,
-            env: NonNull::new(ctx).map(|p| p.cast()),
+            env,
             _phantom: PhantomData,
         }
     }
@@ -241,7 +242,7 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
         self,
         f: NonNull<vm::Func>,
         wasm: Wasm,
-        ctx: *mut Ctx,
+        env: Option<NonNull<vm::Env>>,
     ) -> Result<Rets, WasmTrapInfo> {
         // type Trampoline = extern "C" fn(*mut Ctx, *const c_void, *const u64, *mut u64);
         // type Invoke = extern "C" fn(Trampoline, *mut Ctx, *const c_void, *const u64, *mut u64, &mut WasmTrapInfo) -> bool;
@@ -253,7 +254,7 @@ impl<A: WasmExternType> WasmTypeList for (A,) {
 
         if (wasm.invoke)(
             wasm.trampoline,
-            ctx,
+            env,
             f,
             args.as_ptr(),
             rets.as_mut().as_mut_ptr(),
@@ -272,7 +273,7 @@ where
     Rets: WasmTypeList,
 {
     pub fn call(&self, a: A) -> Result<Rets, RuntimeError> {
-        unsafe { <A as WasmTypeList>::call(a, self.f, self.inner, self.ctx) }.map_err(|e| {
+        unsafe { <A as WasmTypeList>::call(a, self.f, self.inner, self.env) }.map_err(|e| {
             RuntimeError::Trap {
                 msg: e.to_string().into(),
             }
@@ -310,7 +311,7 @@ macro_rules! impl_traits {
                 &[$( $x::TYPE, )*]
             }
             #[allow(non_snake_case)]
-            unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, ctx: *mut Ctx) -> Result<Rets, WasmTrapInfo> {
+            unsafe fn call<Rets: WasmTypeList>(self, f: NonNull<vm::Func>, wasm: Wasm, env: Option<NonNull<vm::Env>>) -> Result<Rets, WasmTrapInfo> {
                 // type Trampoline = extern "C" fn(*mut Ctx, *const c_void, *const u64, *mut u64);
                 // type Invoke = extern "C" fn(Trampoline, *mut Ctx, *const c_void, *const u64, *mut u64, &mut WasmTrapInfo) -> bool;
 
@@ -320,7 +321,7 @@ macro_rules! impl_traits {
                 let mut rets = Rets::empty_ret_array();
                 let mut trap = WasmTrapInfo::Unknown;
 
-                if (wasm.invoke)(wasm.trampoline, ctx, f, args.as_ptr(), rets.as_mut().as_mut_ptr(), &mut trap, wasm.invoke_env) {
+                if (wasm.invoke)(wasm.trampoline, env, f, args.as_ptr(), rets.as_mut().as_mut_ptr(), &mut trap, wasm.invoke_env) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
                     Err(trap)
@@ -334,26 +335,27 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* ) -> Trap> ExternalFunction<($( $x ),*), Rets> for FN {
+        impl< $( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x, )* ) -> Trap + 'static> ExternalFunction<($( $x ),*), Rets> for FN {
             #[allow(non_snake_case)]
-            fn to_raw(&self) -> (NonNull<vm::Func>, Option<NonNull<Env>>) {
+            fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<Env>>) {
                 let env: Option<NonNull<Env>> = if mem::size_of::<Self>() != 0 {
                     NonNull::new(Box::leak(Box::new(self))).map(|p| p.cast())
                 } else {
-                    None  
+                    None
                 };
 
                 /// This is required for the llvm backend to be able to unwind through this function.
                 #[cfg_attr(nightly, unwind(allowed))]
-                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
-                    let f: &FN = if let Some(ptr) = env {
-                        unsafe { &*env.cast::<FN>().as_ptr() }  
+                extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( $( $x ),* ) -> Trap + 'static>( env: *mut Env $( ,$x: $x )* ) -> Rets::CStruct {
+                    let f: &FN = if mem::size_of::<FN>() != 0 {
+                        println!("capturing closure: {:p}", env);
+                        unsafe { &*(env as *const FN) }
                     } else {
                         unsafe { mem::transmute(&()) }
                     };
 
                     let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        let res = f( ctx $( ,$x )* ).report();
+                        let res = f( $( $x ),* ).report();
                         res
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
@@ -372,7 +374,7 @@ macro_rules! impl_traits {
                 }
 
                 (
-                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap()
+                    NonNull::new(wrap::<$( $x, )* Rets, Trap, Self> as *mut vm::Func).unwrap(),
                     env,
                 )
             }
@@ -385,7 +387,7 @@ macro_rules! impl_traits {
             #[allow(non_snake_case)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
-                unsafe { <( $( $x ),* ) as WasmTypeList>::call(( $($x),* ), self.f, self.inner, self.ctx) }.map_err(|e| {
+                unsafe { <( $( $x ),* ) as WasmTypeList>::call(( $($x),* ), self.f, self.inner, self.env) }.map_err(|e| {
                     RuntimeError::Trap {
                         msg: e.to_string().into(),
                     }
@@ -427,11 +429,11 @@ where
     fn to_export(&self) -> Export {
         let func = unsafe { FuncPointer::new(self.f.as_ptr()) };
         let ctx = if let Some(ptr) = self.env {
-            Context::External(ptr as _)
+            Context::External(ptr.cast().as_ptr())
         } else {
-            Context::Internal    
+            Context::Internal
         };
-      
+
         let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));
 
         Export::Function {

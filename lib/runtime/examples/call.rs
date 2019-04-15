@@ -52,10 +52,19 @@ fn main() -> Result<(), error::Error> {
     //   "spectest" => import_instance,
     // };
 
+    let s = "abcd".to_string();
+    let b = 42i32;
+
     println!("instantiating");
     let instance = module.instantiate(&imports! {
       "env" => {
-          "do_panic" => Func::new(do_panic),
+          "do_panic" => Func::new(move || -> i32 {
+              println!("ptr: {:p}", &b as *const i32);
+              println!("i32: {}", b);
+              println!("foo");
+              println!("{}", s);
+              0
+          }),
       },
     })?;
 

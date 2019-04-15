@@ -9,7 +9,7 @@ use dynasmrt::{
 };
 use smallvec::SmallVec;
 use std::ptr::NonNull;
-use std::{any::Any, collections::HashMap, sync::Arc};
+use std::{any::Any, collections::HashMap, mem, sync::Arc};
 use wasmer_runtime_core::{
     backend::{FuncResolver, ProtectedCaller, Token, UserTrapper},
     error::RuntimeResult,
@@ -256,8 +256,13 @@ impl ProtectedCaller for X64ExecutionContext {
         use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
         unsafe extern "C" fn invoke(
-            trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
-            ctx: *mut vm::Ctx,
+            trampoline: unsafe extern "C" fn(
+                Option<NonNull<vm::Env>>,
+                NonNull<vm::Func>,
+                *const u64,
+                *mut u64,
+            ),
+            env: Option<NonNull<vm::Env>>,
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
@@ -273,7 +278,7 @@ impl ProtectedCaller for X64ExecutionContext {
                 CONSTRUCT_STACK_AND_CALL_WASM(
                     args_reverse.as_ptr(),
                     args_reverse.as_ptr().offset(args_reverse.len() as isize),
-                    ctx,
+                    mem::transmute(env),
                     func.as_ptr(),
                 )
             }) {
@@ -286,7 +291,7 @@ impl ProtectedCaller for X64ExecutionContext {
         }
 
         unsafe extern "C" fn dummy_trampoline(
-            _: *mut vm::Ctx,
+            _: Option<NonNull<vm::Env>>,
             _: NonNull<vm::Func>,
             _: *const u64,
             _: *mut u64,

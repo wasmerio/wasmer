@@ -119,7 +119,7 @@ impl ProtectedCaller for Caller {
         call_protected(&self.handler_data, || unsafe {
             // Leap of faith.
             trampoline(
-                vmctx_ptr,
+                NonNull::new(vmctx_ptr).map(|p| p.cast()),
                 func_ptr,
                 param_vec.as_ptr(),
                 return_vec.as_mut_ptr(),
@@ -151,8 +151,13 @@ impl ProtectedCaller for Caller {
 
     fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
         unsafe extern "C" fn invoke(
-            trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
-            ctx: *mut vm::Ctx,
+            trampoline: unsafe extern "C" fn(
+                Option<NonNull<vm::Env>>,
+                NonNull<vm::Func>,
+                *const u64,
+                *mut u64,
+            ),
+            env: Option<NonNull<vm::Env>>,
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
@@ -164,13 +169,13 @@ impl ProtectedCaller for Caller {
             #[cfg(not(target_os = "windows"))]
             let res = call_protected(handler_data, || unsafe {
                 // Leap of faith.
-                trampoline(ctx, func, args, rets);
+                trampoline(env, func, args, rets);
             })
             .is_ok();
 
             // the trampoline is called from C on windows
             #[cfg(target_os = "windows")]
-            let res = call_protected(handler_data, trampoline, ctx, func, args, rets).is_ok();
+            let res = call_protected(handler_data, trampoline, env, func, args, rets).is_ok();
 
             res
         }

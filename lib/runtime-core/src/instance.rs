@@ -139,9 +139,9 @@ impl Instance {
             }
 
             let env = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(_) => self.inner.vmctx as *mut vm::Env,
+                LocalOrImport::Local(_) => NonNull::new(self.inner.vmctx).map(|p| p.cast()),
                 LocalOrImport::Import(imported_func_index) => {
-                    self.inner.import_backing.vm_functions[imported_func_index].env
+                    NonNull::new(self.inner.import_backing.vm_functions[imported_func_index].env)
                 }
             };
 
@@ -164,7 +164,7 @@ impl Instance {
             };
 
             let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, env as _) };
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, env) };
 
             Ok(typed_func)
         } else {

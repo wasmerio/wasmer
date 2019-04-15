@@ -1,8 +1,8 @@
 use std::ffi::c_void;
 use std::ptr::NonNull;
-use wasmer_runtime_core::vm::{Ctx, Func};
+use wasmer_runtime_core::vm::{Ctx, Env, Func};
 
-type Trampoline = unsafe extern "C" fn(*mut Ctx, NonNull<Func>, *const u64, *mut u64);
+type Trampoline = unsafe extern "C" fn(Option<NonNull<Env>>, NonNull<Func>, *const u64, *mut u64);
 type CallProtectedResult = Result<(), CallProtectedData>;
 
 #[repr(C)]
@@ -16,7 +16,7 @@ extern "C" {
     #[link_name = "callProtected"]
     pub fn __call_protected(
         trampoline: Trampoline,
-        ctx: *mut Ctx,
+        env: Option<NonNull<Env>>,
         func: NonNull<Func>,
         param_vec: *const u64,
         return_vec: *mut u64,
@@ -26,7 +26,7 @@ extern "C" {
 
 pub fn _call_protected(
     trampoline: Trampoline,
-    ctx: *mut Ctx,
+    env: Option<NonNull<Env>>,
     func: NonNull<Func>,
     param_vec: *const u64,
     return_vec: *mut u64,
