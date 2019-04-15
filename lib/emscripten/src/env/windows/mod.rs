@@ -7,7 +7,6 @@ use std::os::raw::c_char;
 
 use crate::env::call_malloc;
 use crate::utils::{copy_cstr_into_wasm, read_string_from_wasm};
-use std::ffi::CStr;
 use wasmer_runtime_core::vm::Ctx;
 
 extern "C" {
@@ -29,10 +28,8 @@ pub fn _getenv(ctx: &mut Ctx, name: u32) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(ctx: &mut Ctx, name: u32, value: u32, overwrite: u32) -> c_int {
+pub fn _setenv(ctx: &mut Ctx, name: u32, value: u32, _overwrite: u32) -> c_int {
     debug!("emscripten::_setenv");
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
-    let value_addr = emscripten_memory_pointer!(ctx.memory(0), value);
     // setenv does not exist on windows, so we hack it with _putenv
     let name = read_string_from_wasm(ctx.memory(0), name);
     let value = read_string_from_wasm(ctx.memory(0), value);
@@ -47,17 +44,16 @@ pub fn _setenv(ctx: &mut Ctx, name: u32, value: u32, overwrite: u32) -> c_int {
 /// emscripten: _putenv // (name: *const char);
 pub fn _putenv(ctx: &mut Ctx, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
-
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
-
-    debug!("=> name({:?})", unsafe { CStr::from_ptr(name_addr) });
+    debug!("=> name({:?})", unsafe {
+        std::ffi::CStr::from_ptr(name_addr)
+    });
     unsafe { putenv(name_addr) }
 }
 
 /// emscripten: _unsetenv // (name: *const char);
 pub fn _unsetenv(ctx: &mut Ctx, name: u32) -> c_int {
     debug!("emscripten::_unsetenv");
-    let name_addr = emscripten_memory_pointer!(ctx.memory(0), name);
     let name = read_string_from_wasm(ctx.memory(0), name);
     // no unsetenv on windows, so use putenv with an empty value
     let unsetenv_string = format!("{}=", name);
@@ -70,6 +66,8 @@ pub fn _unsetenv(ctx: &mut Ctx, name: u32) -> c_int {
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
+    #[cfg(not(feature = "debug"))]
+    let _ = name_ptr;
 
     #[repr(C)]
     struct GuestPasswd {
@@ -102,6 +100,8 @@ pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
 #[allow(clippy::cast_ptr_alignment)]
 pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
+    #[cfg(not(feature = "debug"))]
+    let _ = name_ptr;
 
     #[repr(C)]
     struct GuestGroup {
@@ -126,6 +126,8 @@ pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
 
 pub fn _sysconf(_ctx: &mut Ctx, name: c_int) -> c_long {
     debug!("emscripten::_sysconf {}", name);
+    #[cfg(not(feature = "debug"))]
+    let _ = name;
     // stub because sysconf is not valid on windows
     0
 }

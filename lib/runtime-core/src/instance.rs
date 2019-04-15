@@ -7,12 +7,13 @@ use crate::{
     import::{ImportObject, LikeNamespace},
     memory::Memory,
     module::{ExportIndex, Module, ModuleInner},
+    sig_registry::SigRegistry,
     table::Table,
-    typed_func::{Func, Safe, WasmTypeList},
+    typed_func::{Func, Wasm, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vm,
 };
-use std::{mem, sync::Arc};
+use std::{mem, ptr::NonNull, sync::Arc};
 
 pub(crate) struct InstanceInner {
     #[allow(dead_code)]
@@ -38,6 +39,8 @@ impl Drop for InstanceInner {
 pub struct Instance {
     module: Arc<ModuleInner>,
     inner: Box<InstanceInner>,
+    #[allow(dead_code)]
+    import_object: ImportObject,
 }
 
 impl Instance {
@@ -60,10 +63,23 @@ impl Instance {
         // Initialize the vm::Ctx in-place after the backing
         // has been boxed.
         unsafe {
-            *inner.vmctx = vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module)
+            *inner.vmctx = match imports.call_state_creator() {
+                Some((data, dtor)) => vm::Ctx::new_with_data(
+                    &mut inner.backing,
+                    &mut inner.import_backing,
+                    &module,
+                    data,
+                    dtor,
+                ),
+                None => vm::Ctx::new(&mut inner.backing, &mut inner.import_backing, &module),
+            };
         };
 
-        let instance = Instance { module, inner };
+        let instance = Instance {
+            module,
+            inner,
+            import_object: imports.clone_ref(),
+        };
 
         if let Some(start_index) = instance.module.info.start_func {
             instance.call_with_index(start_index, &[])?;
@@ -91,7 +107,7 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Safe>>
+    pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -112,11 +128,12 @@ impl Instance {
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = &self.module.info.signatures[sig_index];
+            let signature =
+                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
 
             if signature.params() != Args::types() || signature.returns() != Rets::types() {
                 Err(ResolveError::Signature {
-                    expected: Arc::clone(&signature),
+                    expected: (*signature).clone(),
                     found: Args::types().to_vec(),
                 })?;
             }
@@ -128,20 +145,26 @@ impl Instance {
                 }
             };
 
+            let func_wasm_inner = self
+                .module
+                .protected_caller
+                .get_wasm_trampoline(&self.module, sig_index)
+                .unwrap();
+
             let func_ptr = match func_index.local_or_import(&self.module.info) {
                 LocalOrImport::Local(local_func_index) => self
                     .module
                     .func_resolver
                     .get(&self.module, local_func_index)
-                    .unwrap()
-                    .as_ptr(),
-                LocalOrImport::Import(import_func_index) => {
-                    self.inner.import_backing.vm_functions[import_func_index].func
-                }
+                    .unwrap(),
+                LocalOrImport::Import(import_func_index) => NonNull::new(
+                    self.inner.import_backing.vm_functions[import_func_index].func as *mut _,
+                )
+                .unwrap(),
             };
 
-            let typed_func: Func<Args, Rets, Safe> =
-                unsafe { Func::new_from_ptr(func_ptr as _, env) };
+            let typed_func: Func<Args, Rets, Wasm> =
+                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, env as _) };
 
             Ok(typed_func)
         } else {
@@ -183,7 +206,8 @@ impl Instance {
                 .func_assoc
                 .get(*func_index)
                 .expect("broken invariant, incorrect func index");
-            let signature = Arc::clone(&self.module.info.signatures[sig_index]);
+            let signature =
+                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
 
             Ok(DynFunc {
                 signature,
@@ -261,8 +285,8 @@ impl Instance {
 
     /// Returns an iterator over all of the items
     /// exported from this instance.
-    pub fn exports(&mut self) -> ExportIter {
-        ExportIter::new(&self.module, &mut self.inner)
+    pub fn exports(&self) -> ExportIter {
+        ExportIter::new(&self.module, &self.inner)
     }
 
     /// The module used to instantiate this Instance.
@@ -374,13 +398,10 @@ impl InstanceInner {
             }
         };
 
-        let signature = &module.info.signatures[sig_index];
+        let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
+        // let signature = &module.info.signatures[sig_index];
 
-        (
-            unsafe { FuncPointer::new(func_ptr) },
-            ctx,
-            Arc::clone(signature),
-        )
+        (unsafe { FuncPointer::new(func_ptr) }, ctx, signature)
     }
 
     fn get_memory_from_index(&self, module: &ModuleInner, mem_index: MemoryIndex) -> Memory {
@@ -421,6 +442,14 @@ impl LikeNamespace for Instance {
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
     }
+
+    fn get_exports(&self) -> Vec<(String, Export)> {
+        unimplemented!("Use the exports method instead");
+    }
+
+    fn maybe_insert(&mut self, _name: &str, _export: Export) -> Option<()> {
+        None
+    }
 }
 
 /// A representation of an exported WebAssembly function.
@@ -454,10 +483,10 @@ impl<'a> DynFunc<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn call(&mut self, params: &[Value]) -> CallResult<Vec<Value>> {
+    pub fn call(&self, params: &[Value]) -> CallResult<Vec<Value>> {
         if !self.signature.check_param_value_types(params) {
             Err(ResolveError::Signature {
-                expected: self.signature.clone(),
+                expected: (*self.signature).clone(),
                 found: params.iter().map(|val| val.ty()).collect(),
             })?
         }

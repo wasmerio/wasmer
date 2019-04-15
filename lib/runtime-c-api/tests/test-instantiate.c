@@ -2,11 +2,12 @@
 #include "../wasmer.h"
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 
 int main()
 {
     // Read the wasm file bytes
-    FILE *file = fopen("sum.wasm", "r");
+    FILE *file = fopen("assets/sum.wasm", "r");
     fseek(file, 0, SEEK_END);
     long len = ftell(file);
     uint8_t *bytes = malloc(len);

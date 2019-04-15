@@ -27,15 +27,13 @@ enum wasmer_value_tag {
 };
 typedef uint32_t wasmer_value_tag;
 
-typedef struct wasmer_instance_context_t wasmer_instance_context_t;
+typedef struct {
 
-typedef struct wasmer_instance_t wasmer_instance_t;
-
-typedef struct wasmer_module_t wasmer_module_t;
+} wasmer_module_t;
 
 typedef struct {
 
-} wasmer_export_t;
+} wasmer_export_descriptor_t;
 
 typedef struct {
   const uint8_t *bytes;
@@ -44,11 +42,11 @@ typedef struct {
 
 typedef struct {
 
-} wasmer_func_t;
+} wasmer_export_descriptors_t;
 
 typedef struct {
 
-} wasmer_exports_t;
+} wasmer_export_func_t;
 
 typedef union {
   int32_t I32;
@@ -64,6 +62,18 @@ typedef struct {
 
 typedef struct {
 
+} wasmer_export_t;
+
+typedef struct {
+
+} wasmer_memory_t;
+
+typedef struct {
+
+} wasmer_exports_t;
+
+typedef struct {
+
 } wasmer_global_t;
 
 typedef struct {
@@ -73,14 +83,30 @@ typedef struct {
 
 typedef struct {
 
-} wasmer_memory_t;
+} wasmer_import_descriptor_t;
+
+typedef struct {
+
+} wasmer_import_descriptors_t;
+
+typedef struct {
+
+} wasmer_import_func_t;
+
+typedef struct {
+
+} wasmer_instance_t;
+
+typedef struct {
+
+} wasmer_instance_context_t;
 
 typedef struct {
 
 } wasmer_table_t;
 
 typedef union {
-  const wasmer_func_t *func;
+  const wasmer_import_func_t *func;
   const wasmer_table_t *table;
   const wasmer_memory_t *memory;
   const wasmer_global_t *global;
@@ -103,6 +129,10 @@ typedef struct {
   wasmer_limit_option_t max;
 } wasmer_limits_t;
 
+typedef struct {
+
+} wasmer_serialized_module_t;
+
 /**
  * Creates a new Module from the given wasm bytes.
  * Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -112,6 +142,89 @@ typedef struct {
 wasmer_result_t wasmer_compile(wasmer_module_t **module,
                                uint8_t *wasm_bytes,
                                uint32_t wasm_bytes_len);
+
+/**
+ * Gets export descriptor kind
+ */
+wasmer_import_export_kind wasmer_export_descriptor_kind(wasmer_export_descriptor_t *export_);
+
+/**
+ * Gets name for the export descriptor
+ */
+wasmer_byte_array wasmer_export_descriptor_name(wasmer_export_descriptor_t *export_descriptor);
+
+/**
+ * Gets export descriptors for the given module
+ * The caller owns the object and should call `wasmer_export_descriptors_destroy` to free it.
+ */
+void wasmer_export_descriptors(const wasmer_module_t *module,
+                               wasmer_export_descriptors_t **export_descriptors);
+
+/**
+ * Frees the memory for the given export descriptors
+ */
+void wasmer_export_descriptors_destroy(wasmer_export_descriptors_t *export_descriptors);
+
+/**
+ * Gets export descriptor by index
+ */
+wasmer_export_descriptor_t *wasmer_export_descriptors_get(wasmer_export_descriptors_t *export_descriptors,
+                                                          int idx);
+
+/**
+ * Gets the length of the export descriptors
+ */
+int wasmer_export_descriptors_len(wasmer_export_descriptors_t *exports);
+
+/**
+ * Calls a `func` with the provided parameters.
+ * Results are set using the provided `results` pointer.
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_export_func_call(const wasmer_export_func_t *func,
+                                        const wasmer_value_t *params,
+                                        int params_len,
+                                        wasmer_value_t *results,
+                                        int results_len);
+
+/**
+ * Sets the params buffer to the parameter types of the given wasmer_export_func_t
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_export_func_params(const wasmer_export_func_t *func,
+                                          wasmer_value_tag *params,
+                                          int params_len);
+
+/**
+ * Sets the result parameter to the arity of the params of the wasmer_export_func_t
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_export_func_params_arity(const wasmer_export_func_t *func, uint32_t *result);
+
+/**
+ * Sets the returns buffer to the parameter types of the given wasmer_export_func_t
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_export_func_returns(const wasmer_export_func_t *func,
+                                           wasmer_value_tag *returns,
+                                           int returns_len);
+
+/**
+ * Sets the result parameter to the arity of the returns of the wasmer_export_func_t
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_export_func_returns_arity(const wasmer_export_func_t *func,
+                                                 uint32_t *result);
 
 /**
  * Gets wasmer_export kind
@@ -124,9 +237,17 @@ wasmer_import_export_kind wasmer_export_kind(wasmer_export_t *export_);
 wasmer_byte_array wasmer_export_name(wasmer_export_t *export_);
 
 /**
- * Gets func from wasm_export
+ * Gets export func from export
  */
-const wasmer_func_t *wasmer_export_to_func(wasmer_export_t *export_);
+const wasmer_export_func_t *wasmer_export_to_func(const wasmer_export_t *export_);
+
+/**
+ * Gets a memory pointer from an export pointer.
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_export_to_memory(const wasmer_export_t *export_, wasmer_memory_t **memory);
 
 /**
  * Frees the memory for the given exports
@@ -142,68 +263,6 @@ wasmer_export_t *wasmer_exports_get(wasmer_exports_t *exports, int idx);
  * Gets the length of the exports
  */
 int wasmer_exports_len(wasmer_exports_t *exports);
-
-/**
- * Calls a `func` with the provided parameters.
- * Results are set using the provided `results` pointer.
- * Returns `wasmer_result_t::WASMER_OK` upon success.
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
- */
-wasmer_result_t wasmer_func_call(wasmer_func_t *func,
-                                 const wasmer_value_t *params,
-                                 int params_len,
-                                 wasmer_value_t *results,
-                                 int results_len);
-
-/**
- * Frees memory for the given Func
- */
-void wasmer_func_destroy(wasmer_func_t *func);
-
-/**
- * Creates new func
- * The caller owns the object and should call `wasmer_func_destroy` to free it.
- */
-const wasmer_func_t *wasmer_func_new(void (*func)(void *data),
-                                     const wasmer_value_tag *params,
-                                     int params_len,
-                                     const wasmer_value_tag *returns,
-                                     int returns_len);
-
-/**
- * Sets the params buffer to the parameter types of the given wasmer_func_t
- * Returns `wasmer_result_t::WASMER_OK` upon success.
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
- */
-wasmer_result_t wasmer_func_params(wasmer_func_t *func, wasmer_value_tag *params, int params_len);
-
-/**
- * Sets the result parameter to the arity of the params of the wasmer_func_t
- * Returns `wasmer_result_t::WASMER_OK` upon success.
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
- */
-wasmer_result_t wasmer_func_params_arity(wasmer_func_t *func, uint32_t *result);
-
-/**
- * Sets the returns buffer to the parameter types of the given wasmer_func_t
- * Returns `wasmer_result_t::WASMER_OK` upon success.
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
- */
-wasmer_result_t wasmer_func_returns(wasmer_func_t *func,
-                                    wasmer_value_tag *returns,
-                                    int returns_len);
-
-/**
- * Sets the result parameter to the arity of the returns of the wasmer_func_t
- * Returns `wasmer_result_t::WASMER_OK` upon success.
- * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
- * and `wasmer_last_error_message` to get an error message.
- */
-wasmer_result_t wasmer_func_returns_arity(wasmer_func_t *func, uint32_t *result);
 
 /**
  * Frees memory for the given Global
@@ -232,6 +291,96 @@ wasmer_global_t *wasmer_global_new(wasmer_value_t value, bool mutable_);
 void wasmer_global_set(wasmer_global_t *global, wasmer_value_t value);
 
 /**
+ * Gets export descriptor kind
+ */
+wasmer_import_export_kind wasmer_import_descriptor_kind(wasmer_import_descriptor_t *export_);
+
+/**
+ * Gets module name for the import descriptor
+ */
+wasmer_byte_array wasmer_import_descriptor_module_name(wasmer_import_descriptor_t *import_descriptor);
+
+/**
+ * Gets name for the import descriptor
+ */
+wasmer_byte_array wasmer_import_descriptor_name(wasmer_import_descriptor_t *import_descriptor);
+
+/**
+ * Gets import descriptors for the given module
+ * The caller owns the object and should call `wasmer_import_descriptors_destroy` to free it.
+ */
+void wasmer_import_descriptors(const wasmer_module_t *module,
+                               wasmer_import_descriptors_t **import_descriptors);
+
+/**
+ * Frees the memory for the given import descriptors
+ */
+void wasmer_import_descriptors_destroy(wasmer_import_descriptors_t *import_descriptors);
+
+/**
+ * Gets import descriptor by index
+ */
+wasmer_import_descriptor_t *wasmer_import_descriptors_get(wasmer_import_descriptors_t *import_descriptors,
+                                                          int idx);
+
+/**
+ * Gets the length of the import descriptors
+ */
+int wasmer_import_descriptors_len(wasmer_import_descriptors_t *exports);
+
+/**
+ * Frees memory for the given Func
+ */
+void wasmer_import_func_destroy(wasmer_import_func_t *func);
+
+/**
+ * Creates new func
+ * The caller owns the object and should call `wasmer_import_func_destroy` to free it.
+ */
+wasmer_import_func_t *wasmer_import_func_new(void (*func)(void *data),
+                                             const wasmer_value_tag *params,
+                                             int params_len,
+                                             const wasmer_value_tag *returns,
+                                             int returns_len);
+
+/**
+ * Sets the params buffer to the parameter types of the given wasmer_import_func_t
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_import_func_params(const wasmer_import_func_t *func,
+                                          wasmer_value_tag *params,
+                                          int params_len);
+
+/**
+ * Sets the result parameter to the arity of the params of the wasmer_import_func_t
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_import_func_params_arity(const wasmer_import_func_t *func, uint32_t *result);
+
+/**
+ * Sets the returns buffer to the parameter types of the given wasmer_import_func_t
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_import_func_returns(const wasmer_import_func_t *func,
+                                           wasmer_value_tag *returns,
+                                           int returns_len);
+
+/**
+ * Sets the result parameter to the arity of the returns of the wasmer_import_func_t
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_import_func_returns_arity(const wasmer_import_func_t *func,
+                                                 uint32_t *result);
+
+/**
  * Calls an instances exported function by `name` with the provided parameters.
  * Results are set using the provided `results` pointer.
  * Returns `wasmer_result_t::WASMER_OK` upon success.
@@ -246,11 +395,22 @@ wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance,
                                      int results_len);
 
 /**
+ * Gets the `data` field within the context.
+ */
+void *wasmer_instance_context_data_get(const wasmer_instance_context_t *ctx);
+
+/**
+ * Sets the `data` field of the instance context. This context will be
+ * passed to all imported function for instance.
+ */
+void wasmer_instance_context_data_set(wasmer_instance_t *instance, void *data_ptr);
+
+/**
  * Gets the memory within the context at the index `memory_idx`.
  * The index is always 0 until multiple memories are supported.
  */
-const wasmer_memory_t *wasmer_instance_context_memory(wasmer_instance_context_t *ctx,
-                                                      uint32_t memory_idx);
+const wasmer_memory_t *wasmer_instance_context_memory(const wasmer_instance_context_t *ctx,
+                                                      uint32_t _memory_idx);
 
 /**
  * Frees memory for the given Instance
@@ -280,7 +440,7 @@ wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance,
  * This can be used to dynamically allocate a buffer with the correct number of
  * bytes needed to store a message.
  * # Example
- * ```
+ * ```c
  * int error_len = wasmer_last_error_length();
  * char *error_str = malloc(error_len);
  * ```
@@ -293,7 +453,7 @@ int wasmer_last_error_length(void);
  * Returns the length of the string in bytes.
  * Returns `-1` if an error occurs.
  * # Example
- * ```
+ * ```c
  * int error_len = wasmer_last_error_length();
  * char *error_str = malloc(error_len);
  * wasmer_last_error_message(error_str, error_len);
@@ -305,7 +465,7 @@ int wasmer_last_error_message(char *buffer, int length);
 /**
  * Gets the start pointer to the bytes within a Memory
  */
-uint8_t *wasmer_memory_data(wasmer_memory_t *mem);
+uint8_t *wasmer_memory_data(const wasmer_memory_t *mem);
 
 /**
  * Gets the size in bytes of a Memory
@@ -328,7 +488,7 @@ wasmer_result_t wasmer_memory_grow(wasmer_memory_t *memory, uint32_t delta);
 /**
  * Returns the current length in pages of the given memory
  */
-uint32_t wasmer_memory_length(wasmer_memory_t *memory);
+uint32_t wasmer_memory_length(const wasmer_memory_t *memory);
 
 /**
  * Creates a new Memory for the given descriptor and initializes the given
@@ -341,6 +501,15 @@ uint32_t wasmer_memory_length(wasmer_memory_t *memory);
 wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
 
 /**
+ * Deserialize the given serialized module.
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_module_deserialize(wasmer_module_t **module,
+                                          const wasmer_serialized_module_t *serialized_module);
+
+/**
  * Frees memory for the given Module
  */
 void wasmer_module_destroy(wasmer_module_t *module);
@@ -351,10 +520,41 @@ void wasmer_module_destroy(wasmer_module_t *module);
  * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
  * and `wasmer_last_error_message` to get an error message.
  */
-wasmer_result_t wasmer_module_instantiate(wasmer_module_t *module,
+wasmer_result_t wasmer_module_instantiate(const wasmer_module_t *module,
                                           wasmer_instance_t **instance,
                                           wasmer_import_t *imports,
                                           int imports_len);
+
+/**
+ * Serialize the given Module.
+ * The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_module_serialize(wasmer_serialized_module_t **serialized_module,
+                                        const wasmer_module_t *module);
+
+/**
+ * Get bytes of the serialized module.
+ */
+wasmer_byte_array wasmer_serialized_module_bytes(const wasmer_serialized_module_t *serialized_module);
+
+/**
+ * Frees memory for the given serialized Module.
+ */
+void wasmer_serialized_module_destroy(wasmer_serialized_module_t *serialized_module);
+
+/**
+ * Transform a sequence of bytes into a serialized module.
+ * The caller owns the object and should call `wasmer_serialized_module_destroy` to free it.
+ * Returns `wasmer_result_t::WASMER_OK` upon success.
+ * Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
+ * and `wasmer_last_error_message` to get an error message.
+ */
+wasmer_result_t wasmer_serialized_module_from_bytes(wasmer_serialized_module_t **serialized_module,
+                                                    const uint8_t *serialized_module_bytes,
+                                                    uint32_t serialized_module_bytes_length);
 
 /**
  * Frees memory for the given Table
@@ -387,6 +587,6 @@ wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits)
 /**
  * Returns true for valid wasm bytes and false for invalid bytes
  */
-bool wasmer_validate(uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
+bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 
 #endif /* WASMER_H */

@@ -1,3 +1,5 @@
+#![cfg_attr(nightly, feature(unwind_attributes))]
+
 #[cfg(test)]
 #[macro_use]
 extern crate field_offset;
@@ -23,7 +25,7 @@ mod sig_registry;
 pub mod structures;
 mod sys;
 pub mod table;
-mod typed_func;
+pub mod typed_func;
 pub mod types;
 pub mod units;
 pub mod vm;
@@ -36,7 +38,7 @@ pub use self::error::Result;
 #[doc(inline)]
 pub use self::import::IsExport;
 #[doc(inline)]
-pub use self::instance::Instance;
+pub use self::instance::{DynFunc, Instance};
 #[doc(inline)]
 pub use self::module::Module;
 #[doc(inline)]
@@ -68,7 +70,24 @@ pub fn compile_with(
 ) -> CompileResult<module::Module> {
     let token = backend::Token::generate();
     compiler
-        .compile(wasm, token)
+        .compile(wasm, Default::default(), token)
+        .map(|mut inner| {
+            let inner_info: &mut crate::module::ModuleInfo = &mut inner.info;
+            inner_info.import_custom_sections(wasm).unwrap();
+            module::Module::new(Arc::new(inner))
+        })
+}
+
+/// The same as `compile_with` but changes the compiler behavior
+/// with the values in the `CompilerConfig`
+pub fn compile_with_config(
+    wasm: &[u8],
+    compiler: &dyn backend::Compiler,
+    compiler_config: backend::CompilerConfig,
+) -> CompileResult<module::Module> {
+    let token = backend::Token::generate();
+    compiler
+        .compile(wasm, compiler_config, token)
         .map(|inner| module::Module::new(Arc::new(inner)))
 }
 
@@ -76,13 +95,18 @@ pub fn compile_with(
 /// WebAssembly specification. Returns `true` if validation
 /// succeeded, `false` if validation failed.
 pub fn validate(wasm: &[u8]) -> bool {
+    validate_and_report_errors(wasm).is_ok()
+}
+
+/// The same as `validate` but with an Error message on failure
+pub fn validate_and_report_errors(wasm: &[u8]) -> ::std::result::Result<(), String> {
     use wasmparser::WasmDecoder;
     let mut parser = wasmparser::ValidatingParser::new(wasm, None);
     loop {
         let state = parser.read();
         match *state {
-            wasmparser::ParserState::EndWasm => break true,
-            wasmparser::ParserState::Error(_) => break false,
+            wasmparser::ParserState::EndWasm => break Ok(()),
+            wasmparser::ParserState::Error(e) => break Err(format!("{}", e)),
             _ => {}
         }
     }

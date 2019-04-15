@@ -10,7 +10,7 @@ use std::sync::Arc;
 use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 
 use wasmer_runtime_core::{
-    backend::Backend,
+    backend::{Backend, CompilerConfig},
     error::CompileResult,
     module::{ModuleInfo, ModuleInner, StringTable},
     structures::{Map, TypedIndex},
@@ -25,7 +25,7 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn new(wasm: &[u8]) -> Self {
+    pub fn new(compiler_config: &CompilerConfig) -> Self {
         Self {
             info: ModuleInfo {
                 memories: Map::new(),
@@ -50,6 +50,9 @@ impl Module {
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
+                em_symbol_map: compiler_config.symbol_map.clone(),
+
+                custom_sections: HashMap::new(),
             },
         }
     }
@@ -148,8 +151,8 @@ convert_clif_to_runtime_index![
     (SignatureIndex: SigIndex),
 ];
 
-impl<'a> From<Converter<&'a ir::Signature>> for FuncSig {
-    fn from(signature: Converter<&'a ir::Signature>) -> Self {
+impl From<Converter<ir::Signature>> for FuncSig {
+    fn from(signature: Converter<ir::Signature>) -> Self {
         FuncSig::new(
             signature
                 .0

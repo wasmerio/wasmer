@@ -1,3 +1,5 @@
+use crate::error::MemoryCreationError;
+use crate::error::MemoryProtectionError;
 use errno;
 use nix::libc;
 use page_size;
@@ -16,13 +18,13 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn from_file_path<P>(path: P, protection: Protect) -> Result<Self, String>
+    pub fn from_file_path<P>(path: P, protection: Protect) -> Result<Self, MemoryCreationError>
     where
         P: AsRef<Path>,
     {
-        let file = File::open(path).map_err(|e| e.to_string())?;
+        let file = File::open(path)?;
 
-        let file_len = file.metadata().map_err(|e| e.to_string())?.len();
+        let file_len = file.metadata()?.len();
 
         let raw_fd = RawFd::from_file(file);
 
@@ -38,7 +40,10 @@ impl Memory {
         };
 
         if ptr == -1 as _ {
-            Err(errno::errno().to_string())
+            Err(MemoryCreationError::VirtualMemoryAllocationFailed(
+                file_len as usize,
+                errno::errno().to_string(),
+            ))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
@@ -84,7 +89,7 @@ impl Memory {
         }
     }
 
-    pub fn with_size(size: usize) -> Result<Self, String> {
+    pub fn with_size(size: usize) -> Result<Self, MemoryCreationError> {
         if size == 0 {
             return Ok(Self {
                 ptr: ptr::null_mut(),
@@ -108,7 +113,10 @@ impl Memory {
         };
 
         if ptr == -1 as _ {
-            Err(errno::errno().to_string())
+            Err(MemoryCreationError::VirtualMemoryAllocationFailed(
+                size,
+                errno::errno().to_string(),
+            ))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
@@ -123,7 +131,7 @@ impl Memory {
         &mut self,
         range: impl RangeBounds<usize>,
         protection: Protect,
-    ) -> Result<(), String> {
+    ) -> Result<(), MemoryProtectionError> {
         let protect = protection.to_protect_const();
 
         let range_start = match range.start_bound() {
@@ -147,7 +155,11 @@ impl Memory {
 
         let success = libc::mprotect(start as _, size, protect as i32);
         if success == -1 {
-            Err(errno::errno().to_string())
+            Err(MemoryProtectionError::ProtectionFailed(
+                start as usize,
+                size,
+                errno::errno().to_string(),
+            ))
         } else {
             self.protection = protection;
             Ok(())
@@ -233,6 +245,7 @@ pub enum Protect {
     Read,
     ReadWrite,
     ReadExec,
+    ReadWriteExec,
 }
 
 impl Protect {
@@ -242,6 +255,7 @@ impl Protect {
             Protect::Read => 1,
             Protect::ReadWrite => 1 | 2,
             Protect::ReadExec => 1 | 4,
+            Protect::ReadWriteExec => 1 | 2 | 4,
         }
     }
 

@@ -1,0 +1,9 @@
+status = [
+    "ci/circleci: lint",
+    "ci/circleci: test",
+    "ci/circleci: test-macos",
+    "continuous-integration/appveyor/branch"
+]
+required_approvals = 1
+timeout_sec = 900
+delete_merged_branches = true 

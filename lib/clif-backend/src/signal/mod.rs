@@ -2,12 +2,13 @@ use crate::relocation::{TrapData, TrapSink};
 use crate::trampoline::Trampolines;
 use hashbrown::HashSet;
 use libc::c_void;
-use std::{cell::Cell, sync::Arc};
+use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
     backend::{ProtectedCaller, Token, UserTrapper},
     error::RuntimeResult,
     export::Context,
     module::{ExportIndex, ModuleInfo, ModuleInner},
+    typed_func::{Wasm, WasmTrapInfo},
     types::{FuncIndex, FuncSig, LocalOrImport, SigIndex, Type, Value},
     vm::{self, ImportBacking},
 };
@@ -25,14 +26,14 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 thread_local! {
-    pub static TRAP_EARLY_DATA: Cell<Option<String>> = Cell::new(None);
+    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
 }
 
 pub struct Trapper;
 
 impl UserTrapper for Trapper {
-    unsafe fn do_early_trap(&self, msg: String) -> ! {
-        TRAP_EARLY_DATA.with(|cell| cell.set(Some(msg)));
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+        TRAP_EARLY_DATA.with(|cell| cell.set(Some(data)));
         trigger_trap()
     }
 }
@@ -148,16 +149,56 @@ impl ProtectedCaller for Caller {
             .collect())
     }
 
+    fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
+        unsafe extern "C" fn invoke(
+            trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
+            ctx: *mut vm::Ctx,
+            func: NonNull<vm::Func>,
+            args: *const u64,
+            rets: *mut u64,
+            trap_info: *mut WasmTrapInfo,
+            invoke_env: Option<NonNull<c_void>>,
+        ) -> bool {
+            let handler_data = &*invoke_env.unwrap().cast().as_ptr();
+
+            #[cfg(not(target_os = "windows"))]
+            let res = call_protected(handler_data, || unsafe {
+                // Leap of faith.
+                trampoline(ctx, func, args, rets);
+            })
+            .is_ok();
+
+            // the trampoline is called from C on windows
+            #[cfg(target_os = "windows")]
+            let res = call_protected(handler_data, trampoline, ctx, func, args, rets).is_ok();
+
+            res
+        }
+
+        let trampoline = self
+            .trampolines
+            .lookup(sig_index)
+            .expect("that trampoline doesn't exist");
+
+        Some(unsafe {
+            Wasm::from_raw_parts(
+                trampoline,
+                invoke,
+                Some(NonNull::from(&self.handler_data).cast()),
+            )
+        })
+    }
+
     fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
         Box::new(Trapper)
     }
 }
 
-fn get_func_from_index(
-    module: &ModuleInner,
+fn get_func_from_index<'a>(
+    module: &'a ModuleInner,
     import_backing: &ImportBacking,
     func_index: FuncIndex,
-) -> (*const vm::Func, Context, Arc<FuncSig>, SigIndex) {
+) -> (NonNull<vm::Func>, Context, &'a FuncSig, SigIndex) {
     let sig_index = *module
         .info
         .func_assoc
@@ -170,20 +211,19 @@ fn get_func_from_index(
                 .func_resolver
                 .get(&module, local_func_index)
                 .expect("broken invariant, func resolver not synced with module.exports")
-                .cast()
-                .as_ptr() as *const _,
+                .cast(),
             Context::Internal,
         ),
         LocalOrImport::Import(imported_func_index) => {
             let imported_func = import_backing.imported_func(imported_func_index);
             (
-                imported_func.func as *const _,
+                NonNull::new(imported_func.func as *mut _).unwrap(),
                 Context::External(imported_func.env as _),
             )
         }
     };
 
-    let signature = Arc::clone(&module.info.signatures[sig_index]);
+    let signature = &module.info.signatures[sig_index];
 
     (func_ptr, ctx, signature, sig_index)
 }

@@ -3,14 +3,10 @@ use crate::signal::HandlerData;
 use crate::trampoline::Trampoline;
 use std::cell::Cell;
 use std::ffi::c_void;
-use std::ptr;
+use std::ptr::{self, NonNull};
+use wasmer_runtime_core::error::{RuntimeError, RuntimeResult};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::vm::Func;
-use wasmer_runtime_core::{
-    error::{RuntimeError, RuntimeResult},
-    structures::TypedIndex,
-    types::{MemoryIndex, TableIndex},
-};
 use wasmer_win_exception_handler::CallProtectedData;
 pub use wasmer_win_exception_handler::_call_protected;
 use winapi::shared::minwindef::DWORD;
@@ -29,7 +25,7 @@ pub fn call_protected(
     handler_data: &HandlerData,
     trampoline: Trampoline,
     ctx: *mut Ctx,
-    func: *const Func,
+    func: NonNull<Func>,
     param_vec: *const u64,
     return_vec: *mut u64,
 ) -> RuntimeResult<()> {
@@ -47,8 +43,8 @@ pub fn call_protected(
 
     let CallProtectedData {
         code: signum,
-        exceptionAddress: exception_address,
-        instructionPointer: instruction_pointer,
+        exception_address,
+        instruction_pointer,
     } = result.unwrap_err();
 
     if let Some(TrapData {
@@ -57,35 +53,34 @@ pub fn call_protected(
     }) = handler_data.lookup(instruction_pointer as _)
     {
         Err(match signum as DWORD {
-            EXCEPTION_ACCESS_VIOLATION => RuntimeError::OutOfBoundsAccess {
-                memory: MemoryIndex::new(0),
-                addr: None,
+            EXCEPTION_ACCESS_VIOLATION => RuntimeError::Trap {
+                msg: "memory out-of-bounds access".into(),
             },
             EXCEPTION_ILLEGAL_INSTRUCTION => match trapcode {
-                TrapCode::BadSignature => RuntimeError::IndirectCallSignature {
-                    table: TableIndex::new(0),
+                TrapCode::BadSignature => RuntimeError::Trap {
+                    msg: "incorrect call_indirect signature".into(),
                 },
-                TrapCode::IndirectCallToNull => RuntimeError::IndirectCallToNull {
-                    table: TableIndex::new(0),
+                TrapCode::IndirectCallToNull => RuntimeError::Trap {
+                    msg: "indirect call to null".into(),
                 },
-                TrapCode::HeapOutOfBounds => RuntimeError::OutOfBoundsAccess {
-                    memory: MemoryIndex::new(0),
-                    addr: None,
+                TrapCode::HeapOutOfBounds => RuntimeError::Trap {
+                    msg: "memory out-of-bounds access".into(),
                 },
-                TrapCode::TableOutOfBounds => RuntimeError::TableOutOfBounds {
-                    table: TableIndex::new(0),
+                TrapCode::TableOutOfBounds => RuntimeError::Trap {
+                    msg: "table out-of-bounds access".into(),
                 },
-                _ => RuntimeError::Unknown {
-                    msg: "unknown trap".to_string(),
+                _ => RuntimeError::Trap {
+                    msg: "unknown trap".into(),
                 },
             },
-            EXCEPTION_STACK_OVERFLOW => RuntimeError::Unknown {
-                msg: "unknown trap".to_string(),
+            EXCEPTION_STACK_OVERFLOW => RuntimeError::Trap {
+                msg: "stack overflow trap".into(),
             },
-            EXCEPTION_INT_DIVIDE_BY_ZERO => RuntimeError::IllegalArithmeticOperation,
-            EXCEPTION_INT_OVERFLOW => RuntimeError::IllegalArithmeticOperation,
-            _ => RuntimeError::Unknown {
-                msg: "unknown trap".to_string(),
+            EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => RuntimeError::Trap {
+                msg: "illegal arithmetic operation".into(),
+            },
+            _ => RuntimeError::Trap {
+                msg: "unknown trap".into(),
             },
         }
         .into())
@@ -103,8 +98,8 @@ pub fn call_protected(
             _ => "unkown trapped signal",
         };
 
-        Err(RuntimeError::Unknown {
-            msg: format!("trap at {} - {}", exception_address, signal),
+        Err(RuntimeError::Trap {
+            msg: format!("unknown trap at {} - {}", exception_address, signal).into(),
         }
         .into())
     }

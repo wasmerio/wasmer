@@ -1,5 +1,5 @@
 use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
-use std::{borrow::Cow, mem};
+use std::borrow::Cow;
 
 /// Represents a WebAssembly type.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -76,24 +76,99 @@ where
     Self: Sized,
 {
     const TYPE: Type;
+    fn to_bits(self) -> u64;
+    fn from_bits(n: u64) -> Self;
+}
+
+unsafe impl WasmExternType for i8 {
+    const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
+}
+unsafe impl WasmExternType for u8 {
+    const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
+}
+unsafe impl WasmExternType for i16 {
+    const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
+}
+unsafe impl WasmExternType for u16 {
+    const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for i32 {
     const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for u32 {
     const TYPE: Type = Type::I32;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for i64 {
     const TYPE: Type = Type::I64;
+    fn to_bits(self) -> u64 {
+        self as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        n as _
+    }
 }
 unsafe impl WasmExternType for u64 {
     const TYPE: Type = Type::I64;
+    fn to_bits(self) -> u64 {
+        self
+    }
+    fn from_bits(n: u64) -> Self {
+        n
+    }
 }
 unsafe impl WasmExternType for f32 {
     const TYPE: Type = Type::F32;
+    fn to_bits(self) -> u64 {
+        self.to_bits() as u64
+    }
+    fn from_bits(n: u64) -> Self {
+        f32::from_bits(n as u32)
+    }
 }
 unsafe impl WasmExternType for f64 {
     const TYPE: Type = Type::F64;
+    fn to_bits(self) -> u64 {
+        self.to_bits()
+    }
+    fn from_bits(n: u64) -> Self {
+        f64::from_bits(n)
+    }
 }
 
 // pub trait IntegerAtomic
@@ -113,34 +188,15 @@ unsafe impl WasmExternType for f64 {
 //     fn swap(&self, other: Self::Primitive) -> Self::Primitive;
 // }
 
-pub enum ValueError {
-    BufferTooSmall,
-}
-
-pub trait ValueType: Copy
+pub unsafe trait ValueType: Copy
 where
     Self: Sized,
 {
-    fn into_le(self, buffer: &mut [u8]);
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError>;
 }
 
 macro_rules! convert_value_impl {
     ($t:ty) => {
-        impl ValueType for $t {
-            fn into_le(self, buffer: &mut [u8]) {
-                buffer[..mem::size_of::<Self>()].copy_from_slice(&self.to_le_bytes());
-            }
-            fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-                if buffer.len() >= mem::size_of::<Self>() {
-                    let mut array = [0u8; mem::size_of::<Self>()];
-                    array.copy_from_slice(&buffer[..mem::size_of::<Self>()]);
-                    Ok(Self::from_le_bytes(array))
-                } else {
-                    Err(ValueError::BufferTooSmall)
-                }
-            }
-        }
+        unsafe impl ValueType for $t {}
     };
     ( $($t:ty),* ) => {
         $(
@@ -149,25 +205,7 @@ macro_rules! convert_value_impl {
     };
 }
 
-convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64);
-
-impl ValueType for f32 {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.to_bits().into_le(buffer);
-    }
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        Ok(f32::from_bits(<u32 as ValueType>::from_le(buffer)?))
-    }
-}
-
-impl ValueType for f64 {
-    fn into_le(self, buffer: &mut [u8]) {
-        self.to_bits().into_le(buffer);
-    }
-    fn from_le(buffer: &[u8]) -> Result<Self, ValueError> {
-        Ok(f64::from_bits(<u64 as ValueType>::from_le(buffer)?))
-    }
-}
+convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElementType {
@@ -207,6 +245,7 @@ pub enum Initializer {
     GetGlobal(ImportedGlobalIndex),
 }
 
+/// Describes the mutability and type of a Global
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlobalDescriptor {
     pub mutable: bool,

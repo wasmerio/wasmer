@@ -2,8 +2,7 @@ use crate::{
     module::{Module, ModuleInfo},
     sys::Memory,
 };
-use digest::Digest;
-use meowhash::MeowHasher;
+use blake2b_simd::blake2bp;
 use std::{fmt, io, mem, slice};
 
 #[derive(Debug)]
@@ -45,7 +44,12 @@ impl WasmHash {
     pub fn generate(wasm: &[u8]) -> Self {
         let mut first_part = [0u8; 32];
         let mut second_part = [0u8; 32];
-        let generic_array = MeowHasher::digest(wasm);
+
+        let mut state = blake2bp::State::new();
+        state.update(wasm);
+
+        let hasher = state.finalize();
+        let generic_array = hasher.as_bytes();
 
         first_part.copy_from_slice(&generic_array[0..32]);
         second_part.copy_from_slice(&generic_array[32..64]);
@@ -203,3 +207,7 @@ pub trait Cache {
     fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
+
+/// A unique ID generated from the version of Wasmer for use with cache versioning
+pub const WASMER_VERSION_HASH: &'static str =
+    include_str!(concat!(env!("OUT_DIR"), "/wasmer_version_hash.txt"));

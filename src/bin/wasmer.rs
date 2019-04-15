@@ -1,20 +1,44 @@
 extern crate structopt;
 
 use std::env;
-use std::fs;
-use std::fs::File;
+use std::fs::{read_to_string, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
+use std::str::FromStr;
 
+use hashbrown::HashMap;
 use structopt::StructOpt;
 
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
-use wasmer_emscripten;
-use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash};
-use wasmer_runtime::error::CacheError;
+use wasmer_clif_backend::CraneliftCompiler;
+#[cfg(feature = "backend:llvm")]
+use wasmer_llvm_backend::LLVMCompiler;
+use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
+use wasmer_runtime_core::{
+    self,
+    backend::{Compiler, CompilerConfig},
+};
+#[cfg(feature = "backend:singlepass")]
+use wasmer_singlepass_backend::SinglePassCompiler;
+#[cfg(feature = "wasi")]
+use wasmer_wasi;
+
+// stub module to make conditional compilation happy
+#[cfg(not(feature = "wasi"))]
+mod wasmer_wasi {
+    use wasmer_runtime_core::{import::ImportObject, module::Module};
+
+    pub fn is_wasi_module(_module: &Module) -> bool {
+        false
+    }
+
+    pub fn generate_import_object(_args: Vec<Vec<u8>>, _envs: Vec<Vec<u8>>) -> ImportObject {
+        unimplemented!()
+    }
+}
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "wasmer", about = "Wasm execution runtime.")]
@@ -28,6 +52,10 @@ enum CLIOptions {
     #[structopt(name = "cache")]
     Cache(Cache),
 
+    /// Validate a Web Assembly binary
+    #[structopt(name = "validate")]
+    Validate(Validate),
+
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
     SelfUpdate,
@@ -35,9 +63,6 @@ enum CLIOptions {
 
 #[derive(Debug, StructOpt)]
 struct Run {
-    #[structopt(short = "d", long = "debug")]
-    debug: bool,
-
     // Disable the cache
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
@@ -46,18 +71,72 @@ struct Run {
     #[structopt(parse(from_os_str))]
     path: PathBuf,
 
+    // Disable the cache
+    #[structopt(
+        long = "backend",
+        default_value = "cranelift",
+        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+    )]
+    backend: Backend,
+
+    /// Emscripten symbol map
+    #[structopt(long = "em-symbol-map", parse(from_os_str))]
+    em_symbol_map: Option<PathBuf>,
+
+    #[structopt(long = "command-name", hidden = true)]
+    command_name: Option<String>,
+
     /// Application arguments
     #[structopt(name = "--", raw(multiple = "true"))]
     args: Vec<String>,
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
+enum Backend {
+    Cranelift,
+    Singlepass,
+    LLVM,
+}
+
+impl Backend {
+    pub fn variants() -> &'static [&'static str] {
+        &["singlepass", "cranelift", "llvm"]
+    }
+}
+
+impl FromStr for Backend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Backend, String> {
+        match s.to_lowercase().as_str() {
+            "singlepass" => Ok(Backend::Singlepass),
+            "cranelift" => Ok(Backend::Cranelift),
+            "llvm" => Ok(Backend::LLVM),
+            // "llvm" => Err(
+            //     "The LLVM backend option is not enabled by default due to binary size constraints"
+            //         .to_string(),
+            // ),
+            _ => Err(format!("The backend {} doesn't exist", s)),
+        }
+    }
+}
+
 #[derive(Debug, StructOpt)]
 enum Cache {
+    /// Clear the cache
     #[structopt(name = "clean")]
     Clean,
 
+    /// Display the location of the cache
     #[structopt(name = "dir")]
     Dir,
+}
+
+#[derive(Debug, StructOpt)]
+struct Validate {
+    /// Input file
+    #[structopt(parse(from_os_str))]
+    path: PathBuf,
 }
 
 /// Read the contents of a file
@@ -77,6 +156,7 @@ fn get_cache_dir() -> PathBuf {
             // We use a temporal directory for saving cache files
             let mut temp_dir = env::temp_dir();
             temp_dir.push("wasmer");
+            temp_dir.push(WASMER_VERSION_HASH);
             temp_dir
         }
     }
@@ -84,6 +164,12 @@ fn get_cache_dir() -> PathBuf {
 
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
+    // force disable caching on windows
+    #[cfg(target_os = "windows")]
+    let disable_cache = true;
+    #[cfg(not(target_os = "windows"))]
+    let disable_cache = options.disable_cache;
+
     let wasm_path = &options.path;
 
     let mut wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
@@ -94,12 +180,66 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         )
     })?;
 
+    let em_symbol_map = if let Some(em_symbol_map_path) = options.em_symbol_map.clone() {
+        let em_symbol_map_content: String = read_to_string(&em_symbol_map_path)
+            .map_err(|err| {
+                format!(
+                    "Can't read symbol map file {}: {}",
+                    em_symbol_map_path.as_os_str().to_string_lossy(),
+                    err,
+                )
+            })?
+            .to_owned();
+        let mut em_symbol_map = HashMap::new();
+        for line in em_symbol_map_content.lines() {
+            let mut split = line.split(':');
+            let num_str = if let Some(ns) = split.next() {
+                ns
+            } else {
+                return Err(format!(
+                    "Can't parse symbol map (expected each entry to be of the form: `0:func_name`)"
+                ));
+            };
+            let num: u32 = num_str.parse::<u32>().map_err(|err| {
+                format!(
+                    "Failed to parse {} as a number in symbol map: {}",
+                    num_str, err
+                )
+            })?;
+            let name_str: String = if let Some(name_str) = split.next() {
+                name_str
+            } else {
+                return Err(format!(
+                    "Can't parse symbol map (expected each entry to be of the form: `0:func_name`)"
+                ));
+            }
+            .to_owned();
+
+            em_symbol_map.insert(num, name_str);
+        }
+        Some(em_symbol_map)
+    } else {
+        None
+    };
+
     if !utils::is_wasm_binary(&wasm_binary) {
         wasm_binary = wabt::wat2wasm(wasm_binary)
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
-    let module = if !options.disable_cache {
+    let compiler: Box<dyn Compiler> = match options.backend {
+        #[cfg(feature = "backend:singlepass")]
+        Backend::Singlepass => Box::new(SinglePassCompiler::new()),
+        #[cfg(not(feature = "backend:singlepass"))]
+        Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
+        Backend::Cranelift => Box::new(CraneliftCompiler::new()),
+        #[cfg(feature = "backend:llvm")]
+        Backend::LLVM => Box::new(LLVMCompiler::new()),
+        #[cfg(not(feature = "backend:llvm"))]
+        Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
+    };
+
+    let module = if !disable_cache {
         // If we have cache enabled
 
         // We generate a hash for the given binary, so we can use it as key
@@ -124,21 +264,34 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 module
             }
             Err(_) => {
-                let module = webassembly::compile(&wasm_binary[..])
-                    .map_err(|e| format!("Can't compile module: {:?}", e))?;
+                let module = webassembly::compile_with_config_with(
+                    &wasm_binary[..],
+                    CompilerConfig {
+                        symbol_map: em_symbol_map,
+                    },
+                    &*compiler,
+                )
+                .map_err(|e| format!("Can't compile module: {:?}", e))?;
+                // We try to save the module into a cache file
+                cache.store(hash, module.clone()).unwrap_or_default();
 
-                // We save the module into a cache file
-                cache.store(hash, module.clone()).unwrap();
                 module
             }
         };
         module
     } else {
-        webassembly::compile(&wasm_binary[..])
-            .map_err(|e| format!("Can't compile module: {:?}", e))?
+        webassembly::compile_with_config_with(
+            &wasm_binary[..],
+            CompilerConfig {
+                symbol_map: em_symbol_map,
+            },
+            &*compiler,
+        )
+        .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
 
-    let (_abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
+    // TODO: refactor this
+    let (abi, import_object, _em_globals) = if wasmer_emscripten::is_emscripten_module(&module) {
         let mut emscripten_globals = wasmer_emscripten::EmscriptenGlobals::new(&module);
         (
             InstanceABI::Emscripten,
@@ -146,11 +299,33 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             Some(emscripten_globals), // TODO Em Globals is here to extend, lifetime, find better solution
         )
     } else {
-        (
-            InstanceABI::None,
-            wasmer_runtime_core::import::ImportObject::new(),
-            None,
-        )
+        if cfg!(feature = "wasi") && wasmer_wasi::is_wasi_module(&module) {
+            (
+                InstanceABI::WASI,
+                wasmer_wasi::generate_import_object(
+                    if let Some(cn) = &options.command_name {
+                        [cn.clone()]
+                    } else {
+                        [options.path.to_str().unwrap().to_owned()]
+                    }
+                    .iter()
+                    .chain(options.args.iter())
+                    .cloned()
+                    .map(|arg| arg.into_bytes())
+                    .collect(),
+                    env::vars()
+                        .map(|(k, v)| format!("{}={}", k, v).into_bytes())
+                        .collect(),
+                ),
+                None,
+            )
+        } else {
+            (
+                InstanceABI::None,
+                wasmer_runtime_core::import::ImportObject::new(),
+                None,
+            )
+        }
     };
 
     let mut instance = module
@@ -160,7 +335,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     webassembly::run_instance(
         &module,
         &mut instance,
-        options.path.to_str().unwrap(),
+        abi,
+        if let Some(cn) = &options.command_name {
+            cn
+        } else {
+            options.path.to_str().unwrap()
+        },
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
     .map_err(|e| format!("{:?}", e))?;
@@ -178,6 +358,42 @@ fn run(options: Run) {
     }
 }
 
+fn validate_wasm(validate: Validate) -> Result<(), String> {
+    let wasm_path = validate.path;
+    let wasm_path_as_str = wasm_path.to_str().unwrap();
+
+    let wasm_binary: Vec<u8> = read_file_contents(&wasm_path).map_err(|err| {
+        format!(
+            "Can't read the file {}: {}",
+            wasm_path.as_os_str().to_string_lossy(),
+            err
+        )
+    })?;
+
+    if !utils::is_wasm_binary(&wasm_binary) {
+        return Err(format!(
+            "Cannot recognize \"{}\" as a WASM binary",
+            wasm_path_as_str,
+        ));
+    }
+
+    wasmer_runtime_core::validate_and_report_errors(&wasm_binary)
+        .map_err(|err| format!("Validation failed: {}", err))?;
+
+    Ok(())
+}
+
+/// Runs logic for the `validate` subcommand
+fn validate(validate: Validate) {
+    match validate_wasm(validate) {
+        Err(message) => {
+            eprintln!("Error: {}", message);
+            exit(-1);
+        }
+        _ => (),
+    }
+}
+
 fn main() {
     let options = CLIOptions::from_args();
     match options {
@@ -188,15 +404,26 @@ fn main() {
         CLIOptions::SelfUpdate => {
             println!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
         }
+        #[cfg(not(target_os = "windows"))]
         CLIOptions::Cache(cache) => match cache {
             Cache::Clean => {
+                use std::fs;
                 let cache_dir = get_cache_dir();
-                fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
-                fs::create_dir(cache_dir.clone()).expect("Can't create cache dir");
+                if cache_dir.exists() {
+                    fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
+                }
+                fs::create_dir_all(cache_dir.clone()).expect("Can't create cache dir");
             }
             Cache::Dir => {
                 println!("{}", get_cache_dir().to_string_lossy());
             }
         },
+        CLIOptions::Validate(validate_options) => {
+            validate(validate_options);
+        }
+        #[cfg(target_os = "windows")]
+        CLIOptions::Cache(_) => {
+            println!("Caching is disabled for Windows.");
+        }
     }
 }

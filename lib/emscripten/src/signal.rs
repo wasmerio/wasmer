@@ -11,8 +11,8 @@ pub fn _sigemptyset(ctx: &mut Ctx, set: u32) -> i32 {
     0
 }
 
-pub fn _sigaction(_ctx: &mut Ctx, signum: u32, act: u32, oldact: u32) -> i32 {
-    debug!("emscripten::_sigaction {}, {}, {}", signum, act, oldact);
+pub fn _sigaction(_ctx: &mut Ctx, _signum: u32, _act: u32, _oldact: u32) -> i32 {
+    debug!("emscripten::_sigaction {}, {}, {}", _signum, _act, _oldact);
     0
 }
 
@@ -36,7 +36,7 @@ pub fn _sigprocmask(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32) -> i32 {
     0
 }
 
-pub fn _signal(_ctx: &mut Ctx, sig: u32, _two: i32) -> i32 {
-    debug!("emscripten::_signal ({})", sig);
+pub fn _signal(_ctx: &mut Ctx, _sig: u32, _two: i32) -> i32 {
+    debug!("emscripten::_signal ({})", _sig);
     0
 }

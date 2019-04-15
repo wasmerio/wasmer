@@ -1,4 +1,3 @@
-use libc::{c_char, c_int};
 use wasmer_runtime_core::vm::Ctx;
 
 // This may be problematic for msvc which uses inline functions for the printf family
@@ -15,16 +14,33 @@ use wasmer_runtime_core::vm::Ctx;
 //}
 
 /// putchar
-pub fn putchar(ctx: &mut Ctx, chr: i32) {
+pub fn putchar(_ctx: &mut Ctx, chr: i32) {
     unsafe { libc::putchar(chr) };
 }
 
 /// printf
-pub fn printf(ctx: &mut Ctx, memory_offset: i32, extra: i32) -> i32 {
+pub fn printf(_ctx: &mut Ctx, memory_offset: i32, extra: i32) -> i32 {
     debug!("emscripten::printf {}, {}", memory_offset, extra);
+    #[cfg(not(feature = "debug"))]
+    {
+        let _ = memory_offset;
+        let _ = extra;
+    }
     //    unsafe {
     //        let addr = emscripten_memory_pointer!(ctx.memory(0), memory_offset) as _;
     //        _printf(addr, extra)
     //    }
     -1
+}
+
+/// chroot
+pub fn chroot(_ctx: &mut Ctx, _name_ptr: i32) -> i32 {
+    debug!("emscripten::chroot");
+    unimplemented!()
+}
+
+/// getpwuid
+pub fn getpwuid(_ctx: &mut Ctx, _uid: i32) -> i32 {
+    debug!("emscripten::getpwuid");
+    unimplemented!()
 }

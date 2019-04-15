@@ -4,14 +4,19 @@
 #include <stdint.h>
 #include <string.h>
 
-static print_str_called = false;
-static memory_len = 0;
-static ptr_len = 0;
+static bool print_str_called = false;
+static int memory_len = 0;
+static int ptr_len = 0;
 static char actual_str[14] = {};
+static int actual_context_data_value = 0;
+
+typedef struct {
+  int value;
+} context_data;
 
 void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
 {
-    wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
+    const wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
     uint32_t mem_len = wasmer_memory_length(memory);
     uint8_t *mem_bytes = wasmer_memory_data(memory);
     for (int32_t idx = 0; idx < len; idx++)
@@ -23,6 +28,8 @@ void print_str(wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
     print_str_called = true;
     memory_len = mem_len;
     ptr_len = len;
+
+    actual_context_data_value = ((context_data *) wasmer_instance_context_data_get(ctx))->value;
 }
 
 int main()
@@ -31,16 +38,16 @@ int main()
     wasmer_value_tag returns_sig[] = {};
 
     printf("Creating new func\n");
-    wasmer_func_t *func = wasmer_func_new(print_str, params_sig, 2, returns_sig, 0);
+    wasmer_import_func_t *func = wasmer_import_func_new((void (*)(void *)) print_str, params_sig, 2, returns_sig, 0);
     wasmer_import_t import;
 
     char *module_name = "env";
     wasmer_byte_array module_name_bytes;
-    module_name_bytes.bytes = module_name;
+    module_name_bytes.bytes = (const uint8_t *) module_name;
     module_name_bytes.bytes_len = strlen(module_name);
     char *import_name = "print_str";
     wasmer_byte_array import_name_bytes;
-    import_name_bytes.bytes = import_name;
+    import_name_bytes.bytes = (const uint8_t *) import_name;
     import_name_bytes.bytes_len = strlen(import_name);
 
     import.module_name = module_name_bytes;
@@ -50,7 +57,7 @@ int main()
     wasmer_import_t imports[] = {import};
 
     // Read the wasm file bytes
-    FILE *file = fopen("wasm_sample_app.wasm", "r");
+    FILE *file = fopen("assets/wasm_sample_app.wasm", "r");
     fseek(file, 0, SEEK_END);
     long len = ftell(file);
     uint8_t *bytes = malloc(len);
@@ -64,6 +71,11 @@ int main()
     printf("Compile result:  %d\n", compile_result);
 
     assert(compile_result == WASMER_OK);
+
+    context_data* context_data = malloc(sizeof(context_data));
+    int context_data_value = 42;
+    context_data->value = context_data_value;
+    wasmer_instance_context_data_set(instance, context_data);
 
     wasmer_value_t params[] = {};
     wasmer_value_t results[] = {};
@@ -82,10 +94,12 @@ int main()
     assert(memory_len == 17);
     assert(ptr_len == 13);
     assert(0 == strcmp(actual_str, "Hello, World!"));
+    assert(context_data_value == actual_context_data_value);
 
     printf("Destroying func\n");
-    wasmer_func_destroy(func);
+    wasmer_import_func_destroy(func);
     printf("Destroy instance\n");
     wasmer_instance_destroy(instance);
+    free(context_data);
     return 0;
 }

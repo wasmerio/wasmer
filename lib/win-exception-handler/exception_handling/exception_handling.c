@@ -10,6 +10,7 @@ __declspec(thread) DWORD64 caughtInstructionPointer;
 __declspec(thread) PVOID savedStackPointer;
 __declspec(thread) BOOL exceptionHandlerInstalled = FALSE;
 __declspec(thread) BOOL alreadyHandlingException = FALSE;
+__declspec(thread) PVOID handle;
 
 void longjmpOutOfHere() {
     longjmp(jmpBuf, 1);
@@ -38,6 +39,14 @@ exceptionHandler(struct _EXCEPTION_POINTERS *ExceptionInfo) {
     return EXCEPTION_CONTINUE_EXECUTION;
 }
 
+static void removeExceptionHandler() {
+    if (exceptionHandlerInstalled == FALSE) {
+        return;
+    }
+    RemoveVectoredExceptionHandler(handle);
+    exceptionHandlerInstalled = FALSE;
+}
+
 uint8_t callProtected(trampoline_t trampoline,
         const struct wasmer_instance_context_t* ctx,
         const struct func_t* func,
@@ -48,7 +57,7 @@ uint8_t callProtected(trampoline_t trampoline,
     // install exception handler
     if (exceptionHandlerInstalled == FALSE) {
         exceptionHandlerInstalled = TRUE;
-        AddVectoredExceptionHandler(CALL_FIRST, exceptionHandler);
+        handle = AddVectoredExceptionHandler(CALL_FIRST, exceptionHandler);
     }
 
     // jmp jmp jmp!
@@ -58,17 +67,20 @@ uint8_t callProtected(trampoline_t trampoline,
         savedStackPointer = get_callee_frame_address();
         trampoline(ctx, func, param_vec, return_vec);
         out_result->code = 0;
-        out_result->exceptionAddress = 0;
-        out_result->instructionPointer = 0;
+        out_result->exception_address = 0;
+        out_result->instruction_pointer = 0;
+
+        removeExceptionHandler();
         return TRUE;
     }
 
     out_result->code = (uint64_t)signum;
-    out_result->exceptionAddress = (uint64_t)caughtExceptionAddress;
-    out_result->instructionPointer = caughtInstructionPointer;
+    out_result->exception_address = (uint64_t)caughtExceptionAddress;
+    out_result->instruction_pointer = caughtInstructionPointer;
 
     caughtExceptionAddress = 0;
     caughtInstructionPointer = 0;
 
+    removeExceptionHandler();
     return FALSE;
 }
