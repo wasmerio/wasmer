@@ -23,7 +23,7 @@ pub trait FunctionCodeGenerator {
     fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError>;
     fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError>;
     fn begin_body(&mut self) -> Result<(), CodegenError>;
-    fn feed_opcode(&mut self, op: Operator, module_info: &ModuleInfo) -> Result<(), CodegenError>;
+    fn feed_opcode(&mut self, op: &Operator, module_info: &ModuleInfo) -> Result<(), CodegenError>;
     fn finalize(&mut self) -> Result<(), CodegenError>;
 }
 

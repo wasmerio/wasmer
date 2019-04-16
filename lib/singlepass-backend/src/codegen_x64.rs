@@ -1232,11 +1232,7 @@ impl X64FunctionCode {
             a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
             match (offset as u32).checked_add(value_size as u32) {
                 Some(x) => {
-                    a.emit_add(
-                        Size::S64,
-                        Location::Imm32(x),
-                        Location::GPR(tmp_addr),
-                    );
+                    a.emit_add(Size::S64, Location::Imm32(x), Location::GPR(tmp_addr));
                 }
                 None => {
                     a.emit_add(
@@ -1409,13 +1405,13 @@ impl FunctionCodeGenerator for X64FunctionCode {
         Ok(())
     }
 
-    fn feed_opcode(&mut self, op: Operator, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn feed_opcode(&mut self, op: &Operator, module_info: &ModuleInfo) -> Result<(), CodegenError> {
         //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
 
         if self.unreachable_depth > 0 {
             was_unreachable = true;
-            match op {
+            match *op {
                 Operator::Block { .. } | Operator::Loop { .. } | Operator::If { .. } => {
                     self.unreachable_depth += 1;
                 }
@@ -1442,7 +1438,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
         }
 
         let a = self.assembler.as_mut().unwrap();
-        match op {
+        match *op {
             Operator::GetGlobal { global_index } => {
                 let global_index = global_index as usize;
 
@@ -3344,7 +3340,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 self.value_stack.push((ret, LocalOrTemp::Temp));
                 a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
-            Operator::I32Load { memarg } => {
+            Operator::I32Load { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
@@ -3369,7 +3365,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::F32Load { memarg } => {
+            Operator::F32Load { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::F32], false)[0];
@@ -3394,7 +3390,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I32Load8U { memarg } => {
+            Operator::I32Load8U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
@@ -3420,7 +3416,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I32Load8S { memarg } => {
+            Operator::I32Load8S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
@@ -3446,7 +3442,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I32Load16U { memarg } => {
+            Operator::I32Load16U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
@@ -3472,7 +3468,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I32Load16S { memarg } => {
+            Operator::I32Load16S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I32], false)[0];
@@ -3498,7 +3494,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I32Store { memarg } => {
+            Operator::I32Store { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -3523,7 +3519,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::F32Store { memarg } => {
+            Operator::F32Store { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -3548,7 +3544,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I32Store8 { memarg } => {
+            Operator::I32Store8 { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -3573,7 +3569,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I32Store16 { memarg } => {
+            Operator::I32Store16 { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -3598,7 +3594,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Load { memarg } => {
+            Operator::I64Load { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
@@ -3623,7 +3619,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::F64Load { memarg } => {
+            Operator::F64Load { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::F64], false)[0];
@@ -3648,7 +3644,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Load8U { memarg } => {
+            Operator::I64Load8U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
@@ -3674,7 +3670,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Load8S { memarg } => {
+            Operator::I64Load8S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
@@ -3700,7 +3696,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Load16U { memarg } => {
+            Operator::I64Load16U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
@@ -3726,7 +3722,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Load16S { memarg } => {
+            Operator::I64Load16S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
@@ -3752,7 +3748,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Load32U { memarg } => {
+            Operator::I64Load32U { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
@@ -3783,7 +3779,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Load32S { memarg } => {
+            Operator::I64Load32S { ref memarg } => {
                 let target =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(a, &[WpType::I64], false)[0];
@@ -3809,7 +3805,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Store { memarg } => {
+            Operator::I64Store { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -3834,7 +3830,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::F64Store { memarg } => {
+            Operator::F64Store { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -3859,7 +3855,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Store8 { memarg } => {
+            Operator::I64Store8 { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -3884,7 +3880,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Store16 { memarg } => {
+            Operator::I64Store16 { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -3909,7 +3905,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
                     },
                 );
             }
-            Operator::I64Store32 { memarg } => {
+            Operator::I64Store32 { ref memarg } => {
                 let target_value =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
@@ -4009,7 +4005,7 @@ impl FunctionCodeGenerator for X64FunctionCode {
 
                 a.emit_label(after);
             }
-            Operator::BrTable { table } => {
+            Operator::BrTable { ref table } => {
                 let (targets, default_target) = table.read_table().unwrap();
                 let cond =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
