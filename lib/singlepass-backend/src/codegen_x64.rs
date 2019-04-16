@@ -1230,11 +1230,27 @@ impl X64FunctionCode {
 
         if need_check {
             a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
-            a.emit_add(
-                Size::S64,
-                Location::Imm32((offset + value_size) as u32),
-                Location::GPR(tmp_addr),
-            );
+            match (offset as u32).checked_add(value_size as u32) {
+                Some(x) => {
+                    a.emit_add(
+                        Size::S64,
+                        Location::Imm32(x),
+                        Location::GPR(tmp_addr),
+                    );
+                }
+                None => {
+                    a.emit_add(
+                        Size::S64,
+                        Location::Imm32(offset as u32),
+                        Location::GPR(tmp_addr),
+                    );
+                    a.emit_add(
+                        Size::S64,
+                        Location::Imm32(value_size as u32),
+                        Location::GPR(tmp_addr),
+                    );
+                }
+            }
             a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
             a.emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
             a.emit_conditional_trap(Condition::Above);
@@ -1275,18 +1291,18 @@ impl X64FunctionCode {
         // Underflow.
         a.emit_mov(Size::S32, Location::Imm32(lower_bound), Location::GPR(tmp));
         a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
-        a.emit_vcmpltss(tmp_x, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_vcmpless(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        a.emit_cmp(Size::S32, Location::Imm32(1), Location::GPR(tmp));
-        a.emit_jmp(Condition::Equal, trap);
+        a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        a.emit_jmp(Condition::NotEqual, trap);
 
         // Overflow.
         a.emit_mov(Size::S32, Location::Imm32(upper_bound), Location::GPR(tmp));
         a.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
-        a.emit_vcmpgtss(tmp_x, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_vcmpgess(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        a.emit_cmp(Size::S32, Location::Imm32(1), Location::GPR(tmp));
-        a.emit_jmp(Condition::Equal, trap);
+        a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        a.emit_jmp(Condition::NotEqual, trap);
 
         // NaN.
         a.emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x);
@@ -1322,18 +1338,18 @@ impl X64FunctionCode {
         // Underflow.
         a.emit_mov(Size::S64, Location::Imm64(lower_bound), Location::GPR(tmp));
         a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
-        a.emit_vcmpltsd(tmp_x, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_vcmplesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        a.emit_cmp(Size::S32, Location::Imm32(1), Location::GPR(tmp));
-        a.emit_jmp(Condition::Equal, trap);
+        a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        a.emit_jmp(Condition::NotEqual, trap);
 
         // Overflow.
         a.emit_mov(Size::S64, Location::Imm64(upper_bound), Location::GPR(tmp));
         a.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
-        a.emit_vcmpgtsd(tmp_x, XMMOrMemory::XMM(reg), tmp_x);
+        a.emit_vcmpgesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         a.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        a.emit_cmp(Size::S32, Location::Imm32(1), Location::GPR(tmp));
-        a.emit_jmp(Condition::Equal, trap);
+        a.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        a.emit_jmp(Condition::NotEqual, trap);
 
         // NaN.
         a.emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x);
@@ -2697,16 +2713,28 @@ impl FunctionCodeGenerator for X64FunctionCode {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                let real_in = match loc {
+                    Location::Imm32(_) | Location::Imm64(_) => {
+                        a.emit_mov(Size::S64, loc, Location::GPR(tmp_out));
+                        a.emit_mov(Size::S64, Location::GPR(tmp_out), Location::XMM(tmp_in));
+                        tmp_in
+                    }
+                    Location::XMM(x) => x,
+                    _ => {
+                        a.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                        tmp_in
+                    }
+                };
+
                 Self::emit_f64_int_conv_check(
                     a,
                     &mut self.machine,
-                    tmp_in,
+                    real_in,
                     -2147483649.0,
                     2147483648.0,
                 );
 
-                a.emit_cvttsd2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+                a.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
                 a.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
                 self.machine.release_temp_xmm(tmp_in);
