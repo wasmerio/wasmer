@@ -71,9 +71,9 @@ pub type Invoke = unsafe extern "C" fn(
 /// as well as the environment that the invoke function may or may not require.
 #[derive(Copy, Clone)]
 pub struct Wasm {
-    trampoline: Trampoline,
-    invoke: Invoke,
-    invoke_env: Option<NonNull<c_void>>,
+    pub(crate) trampoline: Trampoline,
+    pub(crate) invoke: Invoke,
+    pub(crate) invoke_env: Option<NonNull<c_void>>,
 }
 
 impl Wasm {

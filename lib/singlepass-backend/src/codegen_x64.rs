@@ -11,17 +11,16 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{FuncResolver, ProtectedCaller, Token, UserTrapper},
-    error::RuntimeResult,
+    backend::{RunnableModule, UserTrapper},
     memory::MemoryType,
-    module::{ModuleInfo, ModuleInner},
+    module::ModuleInfo,
     structures::{Map, TypedIndex},
     typed_func::Wasm,
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
-        TableIndex, Type, Value,
+        TableIndex, Type,
     },
-    vm::{self, ImportBacking, LocalGlobal, LocalMemory, LocalTable},
+    vm::{self, LocalGlobal, LocalMemory, LocalTable},
     vmcalls,
 };
 use wasmparser::{Operator, Type as WpType};
@@ -132,7 +131,6 @@ pub struct X64FunctionCode {
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
 
-    begin_offset: AssemblyOffset,
     assembler: Option<Assembler>,
     function_labels: Option<HashMap<usize, (DynamicLabel, Option<AssemblyOffset>)>>,
     br_table_data: Option<Vec<Vec<usize>>>,
@@ -154,16 +152,14 @@ unsafe impl Send for FuncPtr {}
 unsafe impl Sync for FuncPtr {}
 
 pub struct X64ExecutionContext {
+    #[allow(dead_code)]
     code: ExecutableBuffer,
+    #[allow(dead_code)]
     functions: Vec<X64FunctionCode>,
     function_pointers: Vec<FuncPtr>,
     signatures: Arc<Map<SigIndex, FuncSig>>,
     _br_table_data: Vec<Vec<usize>>,
     func_import_count: usize,
-}
-
-pub struct X64RuntimeResolver {
-    local_function_pointers: Vec<FuncPtr>,
 }
 
 #[derive(Debug)]
@@ -182,86 +178,33 @@ pub enum IfElseState {
     Else,
 }
 
-impl X64ExecutionContext {
-    fn get_runtime_resolver(
+impl RunnableModule for X64ExecutionContext {
+    fn get_func(
         &self,
-        _module_info: &ModuleInfo,
-    ) -> Result<X64RuntimeResolver, CodegenError> {
-        Ok(X64RuntimeResolver {
-            local_function_pointers: self.function_pointers[self.func_import_count..].to_vec(),
-        })
-    }
-}
-
-impl FuncResolver for X64RuntimeResolver {
-    fn get(
-        &self,
-        _module: &ModuleInner,
-        _local_func_index: LocalFuncIndex,
+        _: &ModuleInfo,
+        local_func_index: LocalFuncIndex,
     ) -> Option<NonNull<vm::Func>> {
-        NonNull::new(
-            self.local_function_pointers[_local_func_index.index() as usize].0 as *mut vm::Func,
-        )
-    }
-}
-
-impl ProtectedCaller for X64ExecutionContext {
-    fn call(
-        &self,
-        _module: &ModuleInner,
-        _func_index: FuncIndex,
-        _params: &[Value],
-        _import_backing: &ImportBacking,
-        _vmctx: *mut vm::Ctx,
-        _: Token,
-    ) -> RuntimeResult<Vec<Value>> {
-        let index = _func_index.index() - self.func_import_count;
-        let ptr = self.code.ptr(self.functions[index].begin_offset);
-        let return_ty = self.functions[index].returns.last().cloned();
-        let buffer: Vec<u64> = _params
-            .iter()
-            .rev()
-            .map(|x| match *x {
-                Value::I32(x) => x as u32 as u64,
-                Value::I64(x) => x as u64,
-                Value::F32(x) => f32::to_bits(x) as u64,
-                Value::F64(x) => f64::to_bits(x),
-            })
-            .collect();
-        let ret = unsafe {
-            protect_unix::call_protected(|| {
-                CONSTRUCT_STACK_AND_CALL_WASM(
-                    buffer.as_ptr(),
-                    buffer.as_ptr().offset(buffer.len() as isize),
-                    _vmctx,
-                    ptr as _,
-                )
-            })
-        }?;
-        Ok(if let Some(ty) = return_ty {
-            vec![match ty {
-                WpType::I32 => Value::I32(ret as i32),
-                WpType::I64 => Value::I64(ret as i64),
-                WpType::F32 => Value::F32(f32::from_bits(ret as u32)),
-                WpType::F64 => Value::F64(f64::from_bits(ret as u64)),
-                _ => unreachable!(),
-            }]
-        } else {
-            vec![]
-        })
+        self.function_pointers[self.func_import_count..]
+            .get(local_func_index.index())
+            .and_then(|ptr| NonNull::new(ptr.0 as *mut vm::Func))
     }
 
-    fn get_wasm_trampoline(&self, module: &ModuleInner, sig_index: SigIndex) -> Option<Wasm> {
+    fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
         use std::ffi::c_void;
         use wasmer_runtime_core::typed_func::WasmTrapInfo;
 
         unsafe extern "C" fn invoke(
-            trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
+            _trampoline: unsafe extern "C" fn(
+                *mut vm::Ctx,
+                NonNull<vm::Func>,
+                *const u64,
+                *mut u64,
+            ),
             ctx: *mut vm::Ctx,
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            trap_info: *mut WasmTrapInfo,
+            _trap_info: *mut WasmTrapInfo,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let args = ::std::slice::from_raw_parts(
@@ -278,7 +221,9 @@ impl ProtectedCaller for X64ExecutionContext {
                 )
             }) {
                 Ok(x) => {
-                    *rets = x;
+                    if !rets.is_null() {
+                        *rets = x;
+                    }
                     true
                 }
                 Err(_) => false,
@@ -330,9 +275,7 @@ impl X64ModuleCodeGenerator {
     }
 }
 
-impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolver>
-    for X64ModuleCodeGenerator
-{
+impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext> for X64ModuleCodeGenerator {
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
         Ok(())
     }
@@ -367,7 +310,6 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             signatures: self.signatures.as_ref().unwrap().clone(),
             function_signatures: self.function_signatures.as_ref().unwrap().clone(),
 
-            begin_offset: begin_offset,
             assembler: Some(assembler),
             function_labels: Some(function_labels),
             br_table_data: Some(br_table_data),
@@ -384,10 +326,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
         Ok(self.functions.last_mut().unwrap())
     }
 
-    fn finalize(
-        mut self,
-        module_info: &ModuleInfo,
-    ) -> Result<(X64ExecutionContext, X64RuntimeResolver), CodegenError> {
+    fn finalize(mut self, _: &ModuleInfo) -> Result<X64ExecutionContext, CodegenError> {
         let (assembler, mut br_table_data) = match self.functions.last_mut() {
             Some(x) => (x.assembler.take().unwrap(), x.br_table_data.take().unwrap()),
             None => {
@@ -431,17 +370,14 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
             out_labels.push(FuncPtr(output.ptr(*offset) as _));
         }
 
-        let ctx = X64ExecutionContext {
+        Ok(X64ExecutionContext {
             code: output,
             functions: self.functions,
             signatures: self.signatures.as_ref().unwrap().clone(),
             _br_table_data: br_table_data,
             func_import_count: self.func_import_count,
             function_pointers: out_labels,
-        };
-        let resolver = ctx.get_runtime_resolver(module_info)?;
-
-        Ok((ctx, resolver))
+        })
     }
 
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {

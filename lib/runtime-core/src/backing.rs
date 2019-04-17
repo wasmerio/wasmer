@@ -72,8 +72,8 @@ impl LocalBacking {
         (0..module.info.func_assoc.len() - module.info.imported_functions.len())
             .map(|index| {
                 module
-                    .func_resolver
-                    .get(module, LocalFuncIndex::new(index))
+                    .runnable_module
+                    .get_func(&module.info, LocalFuncIndex::new(index))
                     .unwrap()
                     .as_ptr() as *const _
             })
@@ -216,8 +216,8 @@ impl LocalBacking {
                             let (func, ctx) = match func_index.local_or_import(&module.info) {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
-                                        .func_resolver
-                                        .get(module, local_func_index)
+                                        .runnable_module
+                                        .get_func(&module.info, local_func_index)
                                         .unwrap()
                                         .as_ptr()
                                         as *const vm::Func,
@@ -255,8 +255,8 @@ impl LocalBacking {
                             let (func, ctx) = match func_index.local_or_import(&module.info) {
                                 LocalOrImport::Local(local_func_index) => (
                                     module
-                                        .func_resolver
-                                        .get(module, local_func_index)
+                                        .runnable_module
+                                        .get_func(&module.info, local_func_index)
                                         .unwrap()
                                         .as_ptr()
                                         as *const vm::Func,
