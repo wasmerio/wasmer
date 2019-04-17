@@ -1034,7 +1034,7 @@ impl X64FunctionCode {
     }
 
     /// Emits a System V call sequence.
-    /// 
+    ///
     /// This function must not use RAX before `cb` is called.
     fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Assembler)>(
         a: &mut Assembler,

@@ -14,7 +14,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, PC: ProtectedCaller, F
 
     /// Creates a new function and returns the function-scope code generator for it.
     fn next_function(&mut self) -> Result<&mut FCG, CodegenError>;
-    
+
     /// Finalizes code generation, returning runtime structures.
     fn finalize(self, module_info: &ModuleInfo) -> Result<(PC, FR), CodegenError>;
 
