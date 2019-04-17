@@ -221,7 +221,9 @@ impl RunnableModule for X64ExecutionContext {
                 )
             }) {
                 Ok(x) => {
-                    *rets = x;
+                    if !rets.is_null() {
+                        *rets = x;
+                    }
                     true
                 }
                 Err(_) => false,
