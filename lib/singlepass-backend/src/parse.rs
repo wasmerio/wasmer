@@ -1,7 +1,7 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
 use hashbrown::HashMap;
 use wasmer_runtime_core::{
-    backend::{Backend, CompilerConfig, FuncResolver, ProtectedCaller},
+    backend::{Backend, CompilerConfig, RunnableModule},
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -39,10 +39,9 @@ impl From<CodegenError> for LoadError {
 }
 
 pub fn read_module<
-    MCG: ModuleCodeGenerator<FCG, PC, FR>,
+    MCG: ModuleCodeGenerator<FCG, RM>,
     FCG: FunctionCodeGenerator,
-    PC: ProtectedCaller,
-    FR: FuncResolver,
+    RM: RunnableModule,
 >(
     wasm: &[u8],
     backend: Backend,

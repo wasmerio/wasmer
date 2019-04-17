@@ -1,24 +1,17 @@
 use wasmer_runtime_core::{
-    backend::{FuncResolver, ProtectedCaller},
+    backend::RunnableModule,
     module::ModuleInfo,
     structures::Map,
     types::{FuncIndex, FuncSig, SigIndex},
 };
 use wasmparser::{Operator, Type as WpType};
 
-/// The module-scope code generator trait.
-pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, PC: ProtectedCaller, FR: FuncResolver> {
-    /// Verifies that the module satisfies a precondition before generating code for it.
-    /// This method is called just before the first call to `next_function`.
+pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator, RM: RunnableModule> {
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), CodegenError>;
 
     /// Creates a new function and returns the function-scope code generator for it.
     fn next_function(&mut self) -> Result<&mut FCG, CodegenError>;
-
-    /// Finalizes code generation, returning runtime structures.
-    fn finalize(self, module_info: &ModuleInfo) -> Result<(PC, FR), CodegenError>;
-
-    /// Sets signatures.
+    fn finalize(self, module_info: &ModuleInfo) -> Result<RM, CodegenError>;
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError>;
 
     /// Sets function signatures.
