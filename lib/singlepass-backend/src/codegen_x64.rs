@@ -27,6 +27,7 @@ use wasmer_runtime_core::{
 use wasmparser::{Operator, Type as WpType};
 
 lazy_static! {
+    /// Performs a System V call to `target` with [stack_top..stack_base] as the argument list, from right to left.
     static ref CONSTRUCT_STACK_AND_CALL_WASM: unsafe extern "C" fn (stack_top: *const u64, stack_base: *const u64, ctx: *mut vm::Ctx, target: *const vm::Func) -> u64 = {
         let mut assembler = Assembler::new().unwrap();
         let offset = assembler.offset();
@@ -467,6 +468,9 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
         a.emit_label(label);
         labels.insert(id, (label, Some(offset)));
 
+        // Emits a tail call trampoline that loads the address of the target import function
+        // from Ctx and jumps to it.
+
         a.emit_mov(
             Size::S64,
             Location::Memory(GPR::RDI, vm::Ctx::offset_imported_funcs() as i32),
@@ -490,6 +494,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, X64RuntimeResolve
 }
 
 impl X64FunctionCode {
+    /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
         a: &mut Assembler,
         _m: &mut Machine,
@@ -508,6 +513,7 @@ impl X64FunctionCode {
         }
     }
 
+    /// Moves `src` and `dst` to valid locations for `movzx`/`movsx`.
     fn emit_relaxed_zx_sx(
         a: &mut Assembler,
         m: &mut Machine,
@@ -545,6 +551,7 @@ impl X64FunctionCode {
         m.release_temp_gpr(tmp_src);
     }
 
+    /// Moves `src` and `dst` to valid locations for generic instructions.
     fn emit_relaxed_binop(
         a: &mut Assembler,
         m: &mut Machine,
@@ -610,6 +617,7 @@ impl X64FunctionCode {
         }
     }
 
+    /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
     fn emit_relaxed_avx(
         a: &mut Assembler,
         m: &mut Machine,
@@ -628,6 +636,7 @@ impl X64FunctionCode {
         )
     }
 
+    /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
     fn emit_relaxed_avx_base<F: FnOnce(&mut Assembler, &mut Machine, XMM, XMMOrMemory, XMM)>(
         a: &mut Assembler,
         m: &mut Machine,
@@ -697,6 +706,7 @@ impl X64FunctionCode {
         m.release_temp_xmm(tmp1);
     }
 
+    /// I32 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i32(
         a: &mut Assembler,
         m: &mut Machine,
@@ -735,6 +745,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    /// I64 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i64(
         a: &mut Assembler,
         m: &mut Machine,
@@ -773,6 +784,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    /// I32 comparison with `loc_b` from input.
     fn emit_cmpop_i32_dynamic_b(
         a: &mut Assembler,
         m: &mut Machine,
@@ -803,6 +815,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    /// I32 comparison with both operands popped from the virtual stack.
     fn emit_cmpop_i32(
         a: &mut Assembler,
         m: &mut Machine,
@@ -813,6 +826,7 @@ impl X64FunctionCode {
         Self::emit_cmpop_i32_dynamic_b(a, m, value_stack, c, loc_b);
     }
 
+    /// I64 comparison with `loc_b` from input.
     fn emit_cmpop_i64_dynamic_b(
         a: &mut Assembler,
         m: &mut Machine,
@@ -843,6 +857,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    /// I64 comparison with both operands popped from the virtual stack.
     fn emit_cmpop_i64(
         a: &mut Assembler,
         m: &mut Machine,
@@ -853,6 +868,7 @@ impl X64FunctionCode {
         Self::emit_cmpop_i64_dynamic_b(a, m, value_stack, c, loc_b);
     }
 
+    /// I32 `lzcnt`/`tzcnt`/`popcnt` with operand popped from the virtual stack.
     fn emit_xcnt_i32(
         a: &mut Assembler,
         m: &mut Machine,
@@ -891,6 +907,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    /// I64 `lzcnt`/`tzcnt`/`popcnt` with operand popped from the virtual stack.
     fn emit_xcnt_i64(
         a: &mut Assembler,
         m: &mut Machine,
@@ -929,6 +946,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    /// I32 shift with both operands popped from the virtual stack.
     fn emit_shift_i32(
         a: &mut Assembler,
         m: &mut Machine,
@@ -949,6 +967,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    /// I64 shift with both operands popped from the virtual stack.
     fn emit_shift_i64(
         a: &mut Assembler,
         m: &mut Machine,
@@ -969,6 +988,7 @@ impl X64FunctionCode {
         value_stack.push((ret, LocalOrTemp::Temp));
     }
 
+    /// Floating point (AVX) binary operation with both operands popped from the virtual stack.
     fn emit_fp_binop_avx(
         a: &mut Assembler,
         m: &mut Machine,
@@ -983,6 +1003,7 @@ impl X64FunctionCode {
         Self::emit_relaxed_avx(a, m, f, loc_a, loc_b, ret);
     }
 
+    /// Floating point (AVX) comparison with both operands popped from the virtual stack.
     fn emit_fp_cmpop_avx(
         a: &mut Assembler,
         m: &mut Machine,
@@ -998,6 +1019,7 @@ impl X64FunctionCode {
         a.emit_and(Size::S32, Location::Imm32(1), ret); // FIXME: Why?
     }
 
+    /// Floating point (AVX) binary operation with both operands popped from the virtual stack.
     fn emit_fp_unop_avx(
         a: &mut Assembler,
         m: &mut Machine,
@@ -1011,7 +1033,9 @@ impl X64FunctionCode {
         Self::emit_relaxed_avx(a, m, f, loc, loc, ret);
     }
 
-    // This function must not use RAX before `cb` is called.
+    /// Emits a System V call sequence.
+    /// 
+    /// This function must not use RAX before `cb` is called.
     fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Assembler)>(
         a: &mut Assembler,
         m: &mut Machine,
@@ -1167,6 +1191,7 @@ impl X64FunctionCode {
         }
     }
 
+    /// Emits a System V call sequence, specialized for labels as the call target.
     fn emit_call_sysv_label<I: Iterator<Item = Location>>(
         a: &mut Assembler,
         m: &mut Machine,
@@ -1176,6 +1201,7 @@ impl X64FunctionCode {
         Self::emit_call_sysv(a, m, |a| a.emit_call_label(label), params)
     }
 
+    /// Emits a memory operation.
     fn emit_memory_op<F: FnOnce(&mut Assembler, &mut Machine, GPR)>(
         module_info: &ModuleInfo,
         a: &mut Assembler,
@@ -1189,6 +1215,7 @@ impl X64FunctionCode {
         let tmp_base = m.acquire_temp_gpr().unwrap();
         let tmp_bound = m.acquire_temp_gpr().unwrap();
 
+        // Loads both base and bound into temporary registers.
         a.emit_mov(
             Size::S64,
             Location::Memory(
@@ -1215,8 +1242,11 @@ impl X64FunctionCode {
             Location::Memory(tmp_base, LocalMemory::offset_base() as i32),
             Location::GPR(tmp_base),
         );
+
+        // Adds base to bound so `tmp_bound` now holds the end of linear memory.
         a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
 
+        // If the memory is dynamic, we need to do bound checking at runtime.
         let mem_desc = match MemoryIndex::new(0).local_or_import(module_info) {
             LocalOrImport::Local(local_mem_index) => &module_info.memories[local_mem_index],
             LocalOrImport::Import(import_mem_index) => {
@@ -1230,6 +1260,8 @@ impl X64FunctionCode {
 
         if need_check {
             a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
+
+            // This branch is used for emitting "faster" code for the special case of (offset + value_size) not exceeding u32 range.
             match (offset as u32).checked_add(value_size as u32) {
                 Some(x) => {
                     a.emit_add(Size::S64, Location::Imm32(x), Location::GPR(tmp_addr));
@@ -1247,6 +1279,8 @@ impl X64FunctionCode {
                     );
                 }
             }
+
+            // Trap if the end address of the requested area is above that of the linear memory.
             a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
             a.emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
             a.emit_conditional_trap(Condition::Above);
@@ -1254,6 +1288,7 @@ impl X64FunctionCode {
 
         m.release_temp_gpr(tmp_bound);
 
+        // Calculates the real address, and loads from it.
         a.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
         a.emit_add(
             Size::S64,
@@ -1268,6 +1303,7 @@ impl X64FunctionCode {
         m.release_temp_gpr(tmp_addr);
     }
 
+    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
     fn emit_f32_int_conv_check(
         a: &mut Assembler,
         m: &mut Machine,
@@ -1315,6 +1351,7 @@ impl X64FunctionCode {
         m.release_temp_gpr(tmp);
     }
 
+    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.
     fn emit_f64_int_conv_check(
         a: &mut Assembler,
         m: &mut Machine,
