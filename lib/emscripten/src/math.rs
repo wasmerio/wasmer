@@ -34,6 +34,16 @@ pub fn _llvm_log2_f32(_ctx: &mut Ctx, _value: f64) -> f64 {
     -1.0
 }
 
+pub fn _llvm_exp2_f32(_ctx: &mut Ctx, value: f32) -> f32 {
+    debug!("emscripten::_llvm_exp2_f32");
+    2f32.powf(value)
+}
+
+pub fn _llvm_exp2_f64(_ctx: &mut Ctx, value: f64) -> f64 {
+    debug!("emscripten::_llvm_exp2_f64");
+    2f64.powf(value)
+}
+
 pub fn _emscripten_random(_ctx: &mut Ctx) -> f64 {
     debug!("emscripten::_emscripten_random");
     -1.0

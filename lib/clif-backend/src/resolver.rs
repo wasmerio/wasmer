@@ -21,7 +21,6 @@ use wasmer_runtime_core::cache::Error as CacheError;
 use wasmer_runtime_core::{
     self,
     backend::{
-        self,
         sys::{Memory, Protect},
         SigRegistry,
     },
@@ -357,13 +356,8 @@ pub struct FuncResolver {
     pub(crate) memory: Arc<Memory>,
 }
 
-// Implements FuncResolver trait.
-impl backend::FuncResolver for FuncResolver {
-    fn get(
-        &self,
-        _module: &wasmer_runtime_core::module::ModuleInner,
-        index: LocalFuncIndex,
-    ) -> Option<NonNull<vm::Func>> {
+impl FuncResolver {
+    pub fn lookup(&self, index: LocalFuncIndex) -> Option<NonNull<vm::Func>> {
         lookup_func(&self.map, &self.memory, index)
     }
 }
