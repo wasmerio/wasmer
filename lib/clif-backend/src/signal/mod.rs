@@ -4,7 +4,7 @@ use crate::trampoline::Trampolines;
 use libc::c_void;
 use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{RunnableModule, UserTrapper},
+    backend::RunnableModule,
     module::ModuleInfo,
     typed_func::{Wasm, WasmTrapInfo},
     types::{LocalFuncIndex, SigIndex},
@@ -25,15 +25,6 @@ pub use self::windows::*;
 
 thread_local! {
     pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
-}
-
-pub struct Trapper;
-
-impl UserTrapper for Trapper {
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
-        TRAP_EARLY_DATA.with(|cell| cell.set(Some(data)));
-        trigger_trap()
-    }
 }
 
 pub struct Caller {
@@ -101,8 +92,9 @@ impl RunnableModule for Caller {
         })
     }
 
-    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
-        Box::new(Trapper)
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+        TRAP_EARLY_DATA.with(|cell| cell.set(Some(data)));
+        trigger_trap()
     }
 }
 

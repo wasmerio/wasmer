@@ -22,7 +22,7 @@ pub struct Ctx {
 
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
-    module: *const ModuleInner,
+    pub(crate) module: *const ModuleInner,
 
     pub data: *mut c_void,
     pub data_finalizer: Option<fn(data: *mut c_void)>,
@@ -544,11 +544,12 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{sys::Memory, Backend, CacheGen, RunnableModule, UserTrapper};
+        use crate::backend::{sys::Memory, Backend, CacheGen, RunnableModule};
         use crate::cache::Error as CacheError;
         use crate::typed_func::Wasm;
         use crate::types::{LocalFuncIndex, SigIndex};
         use hashbrown::HashMap;
+        use std::any::Any;
         use std::ptr::NonNull;
         struct Placeholder;
         impl RunnableModule for Placeholder {
@@ -563,7 +564,7 @@ mod vm_ctx_tests {
             fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
                 unimplemented!()
             }
-            fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+            unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
                 unimplemented!()
             }
         }
