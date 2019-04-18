@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.2.1"
+version = "0.3.0"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -45,6 +45,7 @@ field-offset = "0.1.1"
 
 [build-dependencies]
 blake2b_simd = "0.4.1"
+rustc_version = "0.2.3"
 
 [features]
 debug = []

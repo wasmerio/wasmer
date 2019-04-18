@@ -26,18 +26,28 @@ Install Wasmer with:
 curl https://get.wasmer.io -sSfL | sh
 ```
 
-_**NEW ✨**: You can now embed Wasmer in your Rust application, check our [example repo](https://github.com/wasmerio/wasmer-rust-example) to see how!_
+Wasmer runtime can also be embedded in different languages, so you can use WebAssembly anywhere ✨:
+* [**Rust**](https://github.com/wasmerio/wasmer-rust-example)
+* [**C/C++**](https://github.com/wasmerio/wasmer-c-api)
+* [**PHP**](https://github.com/wasmerio/php-ext-wasm)
+* [**Python**](https://github.com/wasmerio/python-ext-wasm)
 
 ### Usage
 
 Wasmer can execute both the standard binary format (`.wasm`) and the text
 format defined by the WebAssembly reference interpreter (`.wat`).
 
-Once installed, you will be able to run any WebAssembly files (_including nginx and Lua!_):
+Once installed, you will be able to run any WebAssembly files (_including Lua, PHP, SQLite and nginx!_):
 
 ```sh
 # Run Lua
 wasmer run examples/lua.wasm
+
+# Run PHP
+wasmer run examples/php.wasm
+
+# Run SQLite
+wasmer run examples/sqlite.wasm
 
 # Run nginx
 wasmer run examples/nginx/nginx.wasm -- -p examples/nginx -c nginx.conf

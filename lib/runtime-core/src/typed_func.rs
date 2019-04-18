@@ -339,11 +339,14 @@ macro_rules! impl_traits {
             fn to_raw(&self) -> NonNull<vm::Func> {
                 assert_eq!(mem::size_of::<Self>(), 0, "you cannot use a closure that captures state for `Func`.");
 
+                /// This is required for the llvm backend to be able to unwind through this function.
+                #[cfg_attr(nightly, unwind(allowed))]
                 extern fn wrap<$( $x: WasmExternType, )* Rets: WasmTypeList, Trap: TrapEarly<Rets>, FN: Fn( &mut Ctx $( ,$x )* ) -> Trap>( ctx: &mut Ctx $( ,$x: $x )* ) -> Rets::CStruct {
                     let f: FN = unsafe { mem::transmute_copy(&()) };
 
                     let err = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                        f( ctx $( ,$x )* ).report()
+                        let res = f( ctx $( ,$x )* ).report();
+                        res
                     })) {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => err,

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-emscripten"
-version = "0.2.1"
+version = "0.3.0"
 description = "Wasmer runtime emscripten implementation library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -9,14 +9,14 @@ edition = "2018"
 build = "build/mod.rs"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.2.1" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.3.0" }
 lazy_static = "1.2.0"
 libc = "0.2.49"
 byteorder = "1"
 time = "0.1.41"
-wasmer-clif-backend = { path = "../clif-backend", version = "0.2.0" }
-wasmer-dynasm-backend = { path = "../dynasm-backend", version = "0.1.0", optional = true }
-wasmer-llvm-backend = { path = "../llvm-backend", version = "0.1.0", optional = true }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.3.0" }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.3.0", optional = true }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.3.0", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 rand = "0.6"
@@ -30,4 +30,5 @@ glob = "0.2.11"
 [features]
 clif = []
 llvm = ["wasmer-llvm-backend"]
-dynasm = ["wasmer-dynasm-backend"]
+singlepass = ["wasmer-singlepass-backend"]
+debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]

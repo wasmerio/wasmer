@@ -1,10 +1,10 @@
 use std::panic;
+pub use wasmer_runtime::compile_with_config_with;
 use wasmer_runtime::{
     self as runtime,
     error::{CallResult, Result},
     ImportObject, Instance, Module,
 };
-use wasmer_runtime_core::backend::CompilerConfig;
 use wasmer_runtime_core::types::Value;
 
 use wasmer_emscripten::run_emscripten_instance;
@@ -78,15 +78,15 @@ pub fn compile(buffer_source: &[u8]) -> Result<Module> {
     Ok(module)
 }
 
-/// The same as `compile` but takes a `CompilerConfig` for the purpose of
-/// changing the compiler's behavior
-pub fn compile_with_config(
-    buffer_source: &[u8],
-    compiler_config: CompilerConfig,
-) -> Result<Module> {
-    let module = runtime::compile_with_config(buffer_source, compiler_config)?;
-    Ok(module)
-}
+// /// The same as `compile` but takes a `CompilerConfig` for the purpose of
+// /// changing the compiler's behavior
+// pub fn compile_with_config_with(
+//     buffer_source: &[u8],
+//     compiler_config: CompilerConfig,
+// ) -> Result<Module> {
+//     let module = runtime::compile_with_config(buffer_source, compiler_config)?;
+//     Ok(module)
+// }
 
 /// Performs common instance operations needed when an instance is first run
 /// including data setup, handling arguments and calling a main function

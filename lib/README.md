@@ -22,7 +22,8 @@ The integration builds on the Wasmer runtime and allow us to run WebAssembly fil
 
 Wasmer intends to support different integrations:
 
-- [emscripten](./emscripten): run Emscripten-generated WebAssembly files, such as [Lua](../examples/lua.wasm) or [nginx](../examples/nginx/nginx.wasm).
+- [WASI](./wasi): run WebAssembly files with the [WASI ABI](https://hacks.mozilla.org/2019/03/standardizing-wasi-a-webassembly-system-interface/).
+- [Emscripten](./emscripten): run Emscripten-generated WebAssembly files, such as [Lua](../examples/lua.wasm) or [nginx](../examples/nginx/nginx.wasm).
 - Go ABI: _we will work on this soon! Want to give us a hand? ✋_
 - Blazor: _research period, see [tracking issue](https://github.com/wasmerio/wasmer/issues/97)_
 
@@ -33,6 +34,6 @@ to tune the codegen properties (compile speed, performance, etc) to best fit the
 
 Currently, we support multiple backends for compiling WebAssembly to machine code:
 
-- [dynasm-backend](./dynasm-backend/): Dynasm backend - super fast compilation, slower runtime speed
+- [singlepass-backend](./singlepass-backend/): Single pass backend - super fast compilation, slower runtime speed
 - [clif-backend](./clif-backend/): Cranelift backend - slower compilation, normal runtime speed
 - [llvm-backend](./llvm-backend/): LLVM backend - slow compilation, native runtime speed

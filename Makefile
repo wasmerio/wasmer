@@ -32,38 +32,52 @@ lint:
 
 precommit: lint test
 
+build-install:
+	mkdir -p ./install/bin
+	cp ./target/release/wasmer ./install/bin/
+	tar -C ./install -zcvf wasmer.tar.gz bin/wasmer
+
+# For installing the contents locally
+do-install:
+	tar -C ~/.wasmer -zxvf wasmer.tar.gz
+
 test:
 	# We use one thread so the emscripten stdouts doesn't collide
-	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-dynasm-backend -- $(runargs)
+	cargo test --all --exclude wasmer-runtime-c-api --exclude wasmer-emscripten --exclude wasmer-spectests --exclude wasmer-singlepass-backend -- $(runargs)
 	# cargo test --all --exclude wasmer-emscripten -- --test-threads=1 $(runargs)
 	cargo test --manifest-path lib/spectests/Cargo.toml --features clif
 	cargo test --manifest-path lib/spectests/Cargo.toml --features llvm
 	cargo build -p wasmer-runtime-c-api
 	cargo test -p wasmer-runtime-c-api -- --nocapture
 
-test-nightly:
-	cargo test --manifest-path lib/spectests/Cargo.toml --features dynasm
+test-singlepass:
+	cargo test --manifest-path lib/spectests/Cargo.toml --features singlepass
 
-test-emscripten:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
+test-emscripten-llvm:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features llvm -- --test-threads=1 $(runargs)
 
-test-emscripten-nightly:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --features dynasm -- --test-threads=1 $(runargs)
+test-emscripten-clif:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features clif -- --test-threads=1 $(runargs)
 
-dynasm-debug-release:
-	cargo +nightly build --features "dynasm debug" --release
+test-emscripten-singlepass:
+	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
 
-dynasm-release:
-	cargo +nightly build --features "dynasm" --release
+singlepass-debug-release:
+	cargo +nightly build --features "singlepass debug" --release
 
-dynasm-build:
-	cargo +nightly build --features "dynasm debug"
+singlepass-release:
+	cargo +nightly build --features "singlepass" --release
+
+singlepass-build:
+	cargo +nightly build --features "singlepass debug"
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
 	# brew install mingw-w64
 	cargo build --release
+
+production-release:
+	cargo build --release --features backend:singlepass,backend:llvm
 
 debug-release:
 	cargo build --release --features "debug"

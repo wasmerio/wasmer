@@ -23,8 +23,8 @@ initOS() {
         darwin) OS='darwin';;
         linux) OS='linux';;
         freebsd) OS='freebsd';;
-        mingw*) OS='windows';;
-        msys*) OS='windows';;
+        # mingw*) OS='windows';;
+        # msys*) OS='windows';;
         *) echo "OS ${OS} is not supported by this installation script"; exit 1;;
     esac
 }
@@ -34,11 +34,11 @@ initArch
 initOS
 
 # determine install directory if required
-BINARY="wasmer-${OS}-${ARCH}"
-    
+BINARY="wasmer-${OS}-${ARCH}.tar.gz"
+
 # add .exe if on windows
-if [ "$OS" = "windows" ]; then
-    BINARY="$BINARY.exe"
-fi
+# if [ "$OS" = "windows" ]; then
+#     BINARY="$BINARY.exe"
+# fi
 
 echo "${BINARY}"

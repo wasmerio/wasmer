@@ -77,6 +77,12 @@ extern "C" {
 
     fn throw_trap(ty: i32);
 
+    /// This should be the same as spliting up the fat pointer into two arguments,
+    /// but this is cleaner, I think?
+    #[cfg_attr(nightly, unwind(allowed))]
+    #[allow(improper_ctypes)]
+    fn throw_any(data: *mut dyn Any) -> !;
+
     #[allow(improper_ctypes)]
     fn invoke_trampoline(
         trampoline: unsafe extern "C" fn(*mut vm::Ctx, NonNull<vm::Func>, *const u64, *mut u64),
@@ -433,8 +439,8 @@ impl ProtectedCaller for LLVMProtectedCaller {
 }
 
 impl UserTrapper for Placeholder {
-    unsafe fn do_early_trap(&self, _data: Box<dyn Any>) -> ! {
-        unimplemented!("do early trap")
+    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+        throw_any(Box::leak(data))
     }
 }
 

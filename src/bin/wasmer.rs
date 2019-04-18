@@ -6,14 +6,23 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
+use std::str::FromStr;
 
 use hashbrown::HashMap;
 use structopt::StructOpt;
 
 use wasmer::webassembly::InstanceABI;
 use wasmer::*;
+use wasmer_clif_backend::CraneliftCompiler;
+#[cfg(feature = "backend:llvm")]
+use wasmer_llvm_backend::LLVMCompiler;
 use wasmer_runtime::cache::{Cache as BaseCache, FileSystemCache, WasmHash, WASMER_VERSION_HASH};
-use wasmer_runtime_core::{self, backend::CompilerConfig};
+use wasmer_runtime_core::{
+    self,
+    backend::{Compiler, CompilerConfig},
+};
+#[cfg(feature = "backend:singlepass")]
+use wasmer_singlepass_backend::SinglePassCompiler;
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
 
@@ -62,9 +71,13 @@ struct Run {
     #[structopt(parse(from_os_str))]
     path: PathBuf,
 
-    /// Application arguments
-    #[structopt(name = "--", raw(multiple = "true"))]
-    args: Vec<String>,
+    // Disable the cache
+    #[structopt(
+        long = "backend",
+        default_value = "cranelift",
+        raw(possible_values = "Backend::variants()", case_insensitive = "true")
+    )]
+    backend: Backend,
 
     /// Emscripten symbol ma>p
     #[structopt(long = "em-symbol-map", parse(from_os_str), group = "emscripten")]
@@ -73,6 +86,44 @@ struct Run {
     /// WASI pre-opened file
     #[structopt(long = "pre-open", group = "wasi")]
     pre_opened_files: Vec<String>,
+
+    #[structopt(long = "command-name", hidden = true)]
+    command_name: Option<String>,
+
+    /// Application arguments
+    #[structopt(name = "--", raw(multiple = "true"))]
+    args: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+enum Backend {
+    Cranelift,
+    Singlepass,
+    LLVM,
+}
+
+impl Backend {
+    pub fn variants() -> &'static [&'static str] {
+        &["singlepass", "cranelift", "llvm"]
+    }
+}
+
+impl FromStr for Backend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Backend, String> {
+        match s.to_lowercase().as_str() {
+            "singlepass" => Ok(Backend::Singlepass),
+            "cranelift" => Ok(Backend::Cranelift),
+            "llvm" => Ok(Backend::LLVM),
+            // "llvm" => Err(
+            //     "The LLVM backend option is not enabled by default due to binary size constraints"
+            //         .to_string(),
+            // ),
+            _ => Err(format!("The backend {} doesn't exist", s)),
+        }
+    }
+>>>>>>> origin/master
 }
 
 #[derive(Debug, StructOpt)]
@@ -181,6 +232,18 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
     }
 
+    let compiler: Box<dyn Compiler> = match options.backend {
+        #[cfg(feature = "backend:singlepass")]
+        Backend::Singlepass => Box::new(SinglePassCompiler::new()),
+        #[cfg(not(feature = "backend:singlepass"))]
+        Backend::Singlepass => return Err("The singlepass backend is not enabled".to_string()),
+        Backend::Cranelift => Box::new(CraneliftCompiler::new()),
+        #[cfg(feature = "backend:llvm")]
+        Backend::LLVM => Box::new(LLVMCompiler::new()),
+        #[cfg(not(feature = "backend:llvm"))]
+        Backend::LLVM => return Err("the llvm backend is not enabled".to_string()),
+    };
+
     let module = if !disable_cache {
         // If we have cache enabled
 
@@ -206,11 +269,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 module
             }
             Err(_) => {
-                let module = webassembly::compile_with_config(
+                let module = webassembly::compile_with_config_with(
                     &wasm_binary[..],
                     CompilerConfig {
                         symbol_map: em_symbol_map,
                     },
+                    &*compiler,
                 )
                 .map_err(|e| format!("Can't compile module: {:?}", e))?;
                 // We try to save the module into a cache file
@@ -221,11 +285,12 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         };
         module
     } else {
-        webassembly::compile_with_config(
+        webassembly::compile_with_config_with(
             &wasm_binary[..],
             CompilerConfig {
                 symbol_map: em_symbol_map,
             },
+            &*compiler,
         )
         .map_err(|e| format!("Can't compile module: {:?}", e))?
     };
@@ -243,12 +308,16 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             (
                 InstanceABI::WASI,
                 wasmer_wasi::generate_import_object(
-                    [options.path.to_str().unwrap().to_owned()]
-                        .iter()
-                        .chain(options.args.iter())
-                        .cloned()
-                        .map(|arg| arg.into_bytes())
-                        .collect(),
+                    if let Some(cn) = &options.command_name {
+                        [cn.clone()]
+                    } else {
+                        [options.path.to_str().unwrap().to_owned()]
+                    }
+                    .iter()
+                    .chain(options.args.iter())
+                    .cloned()
+                    .map(|arg| arg.into_bytes())
+                    .collect(),
                     env::vars()
                         .map(|(k, v)| format!("{}={}", k, v).into_bytes())
                         .collect(),
@@ -273,7 +342,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
         &module,
         &mut instance,
         abi,
-        options.path.to_str().unwrap(),
+        if let Some(cn) = &options.command_name {
+            cn
+        } else {
+            options.path.to_str().unwrap()
+        },
         options.args.iter().map(|arg| arg.as_str()).collect(),
     )
     .map_err(|e| format!("{:?}", e))?;
