@@ -18,7 +18,7 @@ use std::{
     sync::Once,
 };
 use wasmer_runtime_core::{
-    backend::{RunnableModule, UserTrapper},
+    backend::RunnableModule,
     module::ModuleInfo,
     structures::TypedIndex,
     typed_func::{Wasm, WasmTrapInfo},
@@ -317,14 +317,6 @@ impl RunnableModule for LLVMBackend {
         Some(unsafe { Wasm::from_raw_parts(trampoline, invoke_trampoline, None) })
     }
 
-    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
-        Box::new(Placeholder)
-    }
-}
-
-struct Placeholder;
-
-impl UserTrapper for Placeholder {
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
         throw_any(Box::leak(data))
     }

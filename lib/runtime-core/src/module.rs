@@ -4,7 +4,6 @@ use crate::{
     error,
     import::ImportObject,
     structures::{Map, TypedIndex},
-    typed_func::EARLY_TRAPPER,
     types::{
         FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
         ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
@@ -92,10 +91,6 @@ pub struct Module {
 
 impl Module {
     pub(crate) fn new(inner: Arc<ModuleInner>) -> Self {
-        unsafe {
-            EARLY_TRAPPER
-                .with(|ucell| *ucell.get() = Some(inner.runnable_module.get_early_trapper()));
-        }
         Module { inner }
     }
 
