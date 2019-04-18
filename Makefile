@@ -63,13 +63,13 @@ test-emscripten-singlepass:
 	cargo test --manifest-path lib/emscripten/Cargo.toml --features singlepass -- --test-threads=1 $(runargs)
 
 singlepass-debug-release:
-	cargo +nightly build --features "singlepass debug" --release
+	cargo +nightly build --features "backend:singlepass debug" --release
 
 singlepass-release:
-	cargo +nightly build --features "singlepass" --release
+	cargo +nightly build --features "backend:singlepass" --release
 
 singlepass-build:
-	cargo +nightly build --features "singlepass debug"
+	cargo +nightly build --features "backend:singlepass debug"
 
 release:
 	# If you are in OS-X, you will need mingw-w64 for cross compiling to windows
