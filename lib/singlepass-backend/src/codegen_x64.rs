@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 use std::ptr::NonNull;
 use std::{any::Any, collections::HashMap, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{RunnableModule, UserTrapper},
+    backend::RunnableModule,
     memory::MemoryType,
     module::ModuleInfo,
     structures::{Map, TypedIndex},
@@ -249,17 +249,9 @@ impl RunnableModule for X64ExecutionContext {
         })
     }
 
-    fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
-        pub struct Trapper;
-
-        impl UserTrapper for Trapper {
-            unsafe fn do_early_trap(&self, data: Box<Any>) -> ! {
-                protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
-                protect_unix::trigger_trap();
-            }
-        }
-
-        Box::new(Trapper)
+    unsafe fn do_early_trap(&self, data: Box<Any>) -> ! {
+        protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
+        protect_unix::trigger_trap();
     }
 }
 

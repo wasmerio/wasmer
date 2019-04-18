@@ -1,5 +1,4 @@
 use crate::{
-    backend::UserTrapper,
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
@@ -8,7 +7,6 @@ use crate::{
 };
 use std::{
     any::Any,
-    cell::UnsafeCell,
     ffi::c_void,
     fmt,
     marker::PhantomData,
@@ -16,10 +14,6 @@ use std::{
     ptr::{self, NonNull},
     sync::Arc,
 };
-
-thread_local! {
-    pub static EARLY_TRAPPER: UnsafeCell<Option<Box<dyn UserTrapper>>> = UnsafeCell::new(None);
-}
 
 #[repr(C)]
 pub enum WasmTrapInfo {
@@ -354,12 +348,7 @@ macro_rules! impl_traits {
                     };
 
                     unsafe {
-                        if let Some(early_trapper) = &*EARLY_TRAPPER.with(|ucell| ucell.get()) {
-                            early_trapper.do_early_trap(err)
-                        } else {
-                            eprintln!("panic handling not setup");
-                            std::process::exit(1)
-                        }
+                        (&*ctx.module).runnable_module.do_early_trap(err)
                     }
                 }
 
