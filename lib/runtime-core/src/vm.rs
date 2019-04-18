@@ -563,7 +563,7 @@ mod vm_ctx_tests {
             fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
                 unimplemented!()
             }
-            fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+            unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
                 unimplemented!()
             }
         }
