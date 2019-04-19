@@ -6,7 +6,6 @@ use cranelift_codegen::{
     isa, Context,
 };
 use hashbrown::HashMap;
-use std::ffi::c_void;
 use std::{iter, mem, ptr::NonNull};
 use wasmer_runtime_core::{
     backend::sys::{Memory, Protect},

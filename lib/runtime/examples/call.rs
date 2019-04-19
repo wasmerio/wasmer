@@ -59,9 +59,9 @@ fn main() -> Result<(), error::Error> {
       },
     })?;
 
-    let foo = instance.dyn_func("dbz")?;
+    let foo: Func<(), i32> = instance.func("dbz")?;
 
-    let result = foo.call(&[]);
+    let result = foo.call();
 
     println!("result: {:?}", result);
 

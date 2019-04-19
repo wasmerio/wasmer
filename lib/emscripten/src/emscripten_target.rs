@@ -226,6 +226,10 @@ pub fn invoke_iiii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 
     debug!("emscripten::invoke_iiii");
     invoke!(ctx, dyn_call_iiii, index, a1, a2, a3)
 }
+pub fn invoke_iifi(ctx: &mut Ctx, index: i32, a1: i32, a2: f64, a3: i32) -> i32 {
+    debug!("emscripten::invoke_iifi");
+    invoke!(ctx, dyn_call_iifi, index, a1, a2, a3)
+}
 pub fn invoke_v(ctx: &mut Ctx, index: i32) {
     debug!("emscripten::invoke_v");
     invoke_no_return!(ctx, dyn_call_v, index);
@@ -298,6 +302,33 @@ pub fn invoke_iiiiiiii(
     debug!("emscripten::invoke_iiiiiiii");
     invoke!(ctx, dyn_call_iiiiiiii, index, a1, a2, a3, a4, a5, a6, a7)
 }
+pub fn invoke_iiiiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiiiiiiii");
+    invoke!(
+        ctx,
+        dyn_call_iiiiiiiii,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8
+    )
+}
 pub fn invoke_iiiiiiiiii(
     ctx: &mut Ctx,
     index: i32,
@@ -325,6 +356,37 @@ pub fn invoke_iiiiiiiiii(
         a7,
         a8,
         a9
+    )
+}
+pub fn invoke_iiiiiiiiiii(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
+    a10: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiiiiiiiiii");
+    invoke!(
+        ctx,
+        dyn_call_iiiiiiiiiii,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9,
+        a10
     )
 }
 pub fn invoke_vd(ctx: &mut Ctx, index: i32, a1: f64) {
@@ -450,13 +512,28 @@ pub fn invoke_viiiiiiiiii(
     )
 }
 
+pub fn invoke_iij(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
+    debug!("emscripten::invoke_iij");
+    invoke!(ctx, dyn_call_iij, index, a1, a2, a3)
+}
+
 pub fn invoke_iiji(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
     debug!("emscripten::invoke_iiji");
-    if let Some(dyn_call_iiji) = &get_emscripten_data(ctx).dyn_call_iiji {
-        dyn_call_iiji.call(index, a1, a2, a3, a4).unwrap()
-    } else {
-        panic!("dyn_call_iiji is set to None");
-    }
+    invoke!(ctx, dyn_call_iiji, index, a1, a2, a3, a4)
+}
+
+pub fn invoke_iiijj(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+) -> i32 {
+    debug!("emscripten::invoke_iiijj");
+    invoke!(ctx, dyn_call_iiijj, index, a1, a2, a3, a4, a5, a6)
 }
 pub fn invoke_j(ctx: &mut Ctx, index: i32) -> i32 {
     debug!("emscripten::invoke_j");
@@ -655,11 +732,42 @@ pub fn invoke_vijj(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: i32, a4: i32
         panic!("dyn_call_vijj is set to None");
     }
 }
+pub fn invoke_viid(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: f64) {
+    debug!("emscripten::invoke_viid");
+    invoke_no_return!(ctx, dyn_call_viid, index, a1, a2, a3);
+}
 pub fn invoke_viidii(ctx: &mut Ctx, index: i32, a1: i32, a2: i32, a3: f64, a4: i32, a5: i32) {
     debug!("emscripten::invoke_viidii");
-    if let Some(dyn_call_viidii) = &get_emscripten_data(ctx).dyn_call_viidii {
-        dyn_call_viidii.call(index, a1, a2, a3, a4, a5).unwrap();
-    } else {
-        panic!("dyn_call_viidii is set to None");
-    }
+    invoke_no_return!(ctx, dyn_call_viidii, index, a1, a2, a3, a4, a5);
+}
+pub fn invoke_viidddddddd(
+    ctx: &mut Ctx,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: f64,
+    a4: f64,
+    a5: f64,
+    a6: f64,
+    a7: f64,
+    a8: f64,
+    a9: f64,
+    a10: f64,
+) {
+    debug!("emscripten::invoke_viidddddddd");
+    invoke_no_return!(
+        ctx,
+        dyn_call_viidddddddd,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9,
+        a10
+    );
 }

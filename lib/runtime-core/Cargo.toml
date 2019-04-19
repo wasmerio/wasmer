@@ -17,6 +17,7 @@ indexmap = "1.0.2"
 errno = "0.2.4"
 libc = "0.2.49"
 hex = "0.3.2"
+smallvec = "0.6.9"
 
 # Dependencies for caching.
 [dependencies.serde]

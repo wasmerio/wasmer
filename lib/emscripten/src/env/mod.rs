@@ -47,6 +47,13 @@ pub fn _getpagesize(_ctx: &mut Ctx) -> u32 {
     16384
 }
 
+pub fn _times(ctx: &mut Ctx, buffer: u32) -> u32 {
+    if buffer != 0 {
+        call_memset(ctx, buffer, 0, 16);
+    }
+    0
+}
+
 #[allow(clippy::cast_ptr_alignment)]
 pub fn ___build_environment(ctx: &mut Ctx, environ: c_int) {
     debug!("emscripten::___build_environment {}", environ);

@@ -502,7 +502,16 @@ impl Emitter for Assembler {
                     (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) => {
                         dynasm!(self ; mov Rb(dst as u8), [Rq(src as u8) + disp]);
                     }
+                    (Size::S8, Location::Imm32(src), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rb(dst as u8), src as i8);
+                    }
+                    (Size::S8, Location::Imm64(src), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rb(dst as u8), src as i8);
+                    }
                     (Size::S8, Location::Imm32(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; mov BYTE [Rq(dst as u8) + disp], src as i8);
+                    }
+                    (Size::S8, Location::Imm64(src), Location::Memory(dst, disp)) => {
                         dynasm!(self ; mov BYTE [Rq(dst as u8) + disp], src as i8);
                     }
                     (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
@@ -511,8 +520,23 @@ impl Emitter for Assembler {
                     (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) => {
                         dynasm!(self ; mov Rw(dst as u8), [Rq(src as u8) + disp]);
                     }
+                    (Size::S16, Location::Imm32(src), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rw(dst as u8), src as i16);
+                    }
+                    (Size::S16, Location::Imm64(src), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rw(dst as u8), src as i16);
+                    }
                     (Size::S16, Location::Imm32(src), Location::Memory(dst, disp)) => {
                         dynasm!(self ; mov WORD [Rq(dst as u8) + disp], src as i16);
+                    }
+                    (Size::S16, Location::Imm64(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; mov WORD [Rq(dst as u8) + disp], src as i16);
+                    }
+                    (Size::S32, Location::Imm64(src), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rd(dst as u8), src as i32);
+                    }
+                    (Size::S32, Location::Imm64(src), Location::Memory(dst, disp)) => {
+                        dynasm!(self ; mov DWORD [Rq(dst as u8) + disp], src as i32);
                     }
                     (Size::S32, Location::GPR(src), Location::XMM(dst)) => {
                         dynasm!(self ; movd Rx(dst as u8), Rd(src as u8));

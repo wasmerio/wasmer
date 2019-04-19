@@ -1,7 +1,7 @@
 use crate::codegen::{CodegenError, FunctionCodeGenerator, ModuleCodeGenerator};
 use hashbrown::HashMap;
 use wasmer_runtime_core::{
-    backend::{Backend, CompilerConfig, FuncResolver, ProtectedCaller},
+    backend::{Backend, CompilerConfig, RunnableModule},
     module::{
         DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
         TableInitializer,
@@ -38,42 +38,16 @@ impl From<CodegenError> for LoadError {
     }
 }
 
-fn validate(bytes: &[u8]) -> Result<(), LoadError> {
-    let mut parser = wasmparser::ValidatingParser::new(
-        bytes,
-        Some(wasmparser::ValidatingParserConfig {
-            operator_config: wasmparser::OperatorValidatorConfig {
-                enable_threads: false,
-                enable_reference_types: false,
-                enable_simd: false,
-                enable_bulk_memory: false,
-            },
-            mutable_global_imports: false,
-        }),
-    );
-
-    loop {
-        let state = parser.read();
-        match *state {
-            wasmparser::ParserState::EndWasm => break Ok(()),
-            wasmparser::ParserState::Error(err) => Err(LoadError::Parse(err))?,
-            _ => {}
-        }
-    }
-}
-
 pub fn read_module<
-    MCG: ModuleCodeGenerator<FCG, PC, FR>,
+    MCG: ModuleCodeGenerator<FCG, RM>,
     FCG: FunctionCodeGenerator,
-    PC: ProtectedCaller,
-    FR: FuncResolver,
+    RM: RunnableModule,
 >(
     wasm: &[u8],
     backend: Backend,
     mcg: &mut MCG,
     compiler_config: &CompilerConfig,
 ) -> Result<ModuleInfo, LoadError> {
-    validate(wasm)?;
     let mut info = ModuleInfo {
         memories: Map::new(),
         globals: Map::new(),
@@ -103,277 +77,251 @@ pub fn read_module<
         custom_sections: HashMap::new(),
     };
 
-    let mut reader = ModuleReader::new(wasm)?;
+    let mut parser = wasmparser::ValidatingParser::new(
+        wasm,
+        Some(wasmparser::ValidatingParserConfig {
+            operator_config: wasmparser::OperatorValidatorConfig {
+                enable_threads: false,
+                enable_reference_types: false,
+                enable_simd: false,
+                enable_bulk_memory: false,
+            },
+            mutable_global_imports: false,
+        }),
+    );
+
+    let mut namespace_builder = Some(StringTableBuilder::new());
+    let mut name_builder = Some(StringTableBuilder::new());
+    let mut func_count: usize = ::std::usize::MAX;
 
     loop {
-        if reader.eof() {
-            return Ok(info);
-        }
-
-        let section = reader.read()?;
-
-        match section.code {
-            SectionCode::Type => {
-                let type_reader = section.get_type_section_reader()?;
-
-                for ty in type_reader {
-                    let ty = ty?;
-                    info.signatures.push(func_type_to_func_sig(ty)?);
-                }
-
-                mcg.feed_signatures(info.signatures.clone())?;
+        use wasmparser::ParserState;
+        let state = parser.read();
+        match *state {
+            ParserState::EndWasm => break Ok(info),
+            ParserState::Error(err) => Err(LoadError::Parse(err))?,
+            ParserState::TypeSectionEntry(ref ty) => {
+                info.signatures.push(func_type_to_func_sig(ty)?);
             }
-            SectionCode::Import => {
-                let import_reader = section.get_import_section_reader()?;
-                let mut namespace_builder = StringTableBuilder::new();
-                let mut name_builder = StringTableBuilder::new();
+            ParserState::ImportSectionEntry { module, field, ty } => {
+                let namespace_index = namespace_builder.as_mut().unwrap().register(module);
+                let name_index = name_builder.as_mut().unwrap().register(field);
+                let import_name = ImportName {
+                    namespace_index,
+                    name_index,
+                };
 
-                for import in import_reader {
-                    let Import { module, field, ty } = import?;
+                match ty {
+                    ImportSectionEntryType::Function(sigindex) => {
+                        let sigindex = SigIndex::new(sigindex as usize);
+                        info.imported_functions.push(import_name);
+                        info.func_assoc.push(sigindex);
+                        mcg.feed_import_function()?;
+                    }
+                    ImportSectionEntryType::Table(table_ty) => {
+                        assert_eq!(table_ty.element_type, WpType::AnyFunc);
+                        let table_desc = TableDescriptor {
+                            element: ElementType::Anyfunc,
+                            minimum: table_ty.limits.initial,
+                            maximum: table_ty.limits.maximum,
+                        };
 
-                    let namespace_index = namespace_builder.register(module);
-                    let name_index = name_builder.register(field);
-                    let import_name = ImportName {
-                        namespace_index,
-                        name_index,
-                    };
-
-                    match ty {
-                        ImportSectionEntryType::Function(sigindex) => {
-                            let sigindex = SigIndex::new(sigindex as usize);
-                            info.imported_functions.push(import_name);
-                            info.func_assoc.push(sigindex);
-                            mcg.feed_import_function()?;
-                        }
-                        ImportSectionEntryType::Table(table_ty) => {
-                            assert_eq!(table_ty.element_type, WpType::AnyFunc);
-                            let table_desc = TableDescriptor {
-                                element: ElementType::Anyfunc,
-                                minimum: table_ty.limits.initial,
-                                maximum: table_ty.limits.maximum,
-                            };
-
-                            info.imported_tables.push((import_name, table_desc));
-                        }
-                        ImportSectionEntryType::Memory(memory_ty) => {
-                            let mem_desc = MemoryDescriptor {
-                                minimum: Pages(memory_ty.limits.initial),
-                                maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
-                                shared: memory_ty.shared,
-                            };
-                            info.imported_memories.push((import_name, mem_desc));
-                        }
-                        ImportSectionEntryType::Global(global_ty) => {
-                            let global_desc = GlobalDescriptor {
-                                mutable: global_ty.mutable,
-                                ty: wp_type_to_type(global_ty.content_type)?,
-                            };
-                            info.imported_globals.push((import_name, global_desc));
-                        }
+                        info.imported_tables.push((import_name, table_desc));
+                    }
+                    ImportSectionEntryType::Memory(memory_ty) => {
+                        let mem_desc = MemoryDescriptor {
+                            minimum: Pages(memory_ty.limits.initial),
+                            maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
+                            shared: memory_ty.shared,
+                        };
+                        info.imported_memories.push((import_name, mem_desc));
+                    }
+                    ImportSectionEntryType::Global(global_ty) => {
+                        let global_desc = GlobalDescriptor {
+                            mutable: global_ty.mutable,
+                            ty: wp_type_to_type(global_ty.content_type)?,
+                        };
+                        info.imported_globals.push((import_name, global_desc));
                     }
                 }
-
-                info.namespace_table = namespace_builder.finish();
-                info.name_table = name_builder.finish();
             }
-            SectionCode::Function => {
-                let func_decl_reader = section.get_function_section_reader()?;
-
-                for sigindex in func_decl_reader {
-                    let sigindex = sigindex?;
-
-                    let sigindex = SigIndex::new(sigindex as usize);
-                    info.func_assoc.push(sigindex);
-                }
-
-                mcg.feed_function_signatures(info.func_assoc.clone())?;
+            ParserState::FunctionSectionEntry(sigindex) => {
+                let sigindex = SigIndex::new(sigindex as usize);
+                info.func_assoc.push(sigindex);
             }
-            SectionCode::Table => {
-                let table_decl_reader = section.get_table_section_reader()?;
+            ParserState::TableSectionEntry(table_ty) => {
+                let table_desc = TableDescriptor {
+                    element: ElementType::Anyfunc,
+                    minimum: table_ty.limits.initial,
+                    maximum: table_ty.limits.maximum,
+                };
 
-                for table_ty in table_decl_reader {
-                    let table_ty = table_ty?;
-
-                    let table_desc = TableDescriptor {
-                        element: ElementType::Anyfunc,
-                        minimum: table_ty.limits.initial,
-                        maximum: table_ty.limits.maximum,
-                    };
-
-                    info.tables.push(table_desc);
-                }
+                info.tables.push(table_desc);
             }
-            SectionCode::Memory => {
-                let mem_decl_reader = section.get_memory_section_reader()?;
+            ParserState::MemorySectionEntry(memory_ty) => {
+                let mem_desc = MemoryDescriptor {
+                    minimum: Pages(memory_ty.limits.initial),
+                    maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
+                    shared: memory_ty.shared,
+                };
 
-                for memory_ty in mem_decl_reader {
-                    let memory_ty = memory_ty?;
-
-                    let mem_desc = MemoryDescriptor {
-                        minimum: Pages(memory_ty.limits.initial),
-                        maximum: memory_ty.limits.maximum.map(|max| Pages(max)),
-                        shared: memory_ty.shared,
-                    };
-
-                    info.memories.push(mem_desc);
-                }
+                info.memories.push(mem_desc);
             }
-            SectionCode::Global => {
-                let global_decl_reader = section.get_global_section_reader()?;
+            ParserState::ExportSectionEntry { field, kind, index } => {
+                let export_index = match kind {
+                    ExternalKind::Function => ExportIndex::Func(FuncIndex::new(index as usize)),
+                    ExternalKind::Table => ExportIndex::Table(TableIndex::new(index as usize)),
+                    ExternalKind::Memory => ExportIndex::Memory(MemoryIndex::new(index as usize)),
+                    ExternalKind::Global => ExportIndex::Global(GlobalIndex::new(index as usize)),
+                };
 
-                for global in global_decl_reader {
-                    let global = global?;
-
-                    let desc = GlobalDescriptor {
-                        mutable: global.ty.mutable,
-                        ty: wp_type_to_type(global.ty.content_type)?,
-                    };
-
-                    let global_init = GlobalInit {
-                        desc,
-                        init: eval_init_expr(&global.init_expr)?,
-                    };
-
-                    info.globals.push(global_init);
-                }
+                info.exports.insert(field.to_string(), export_index);
             }
-            SectionCode::Export => {
-                let export_reader = section.get_export_section_reader()?;
-
-                for export in export_reader {
-                    let Export { field, kind, index } = export?;
-
-                    let export_index = match kind {
-                        ExternalKind::Function => ExportIndex::Func(FuncIndex::new(index as usize)),
-                        ExternalKind::Table => ExportIndex::Table(TableIndex::new(index as usize)),
-                        ExternalKind::Memory => {
-                            ExportIndex::Memory(MemoryIndex::new(index as usize))
-                        }
-                        ExternalKind::Global => {
-                            ExportIndex::Global(GlobalIndex::new(index as usize))
-                        }
-                    };
-
-                    info.exports.insert(field.to_string(), export_index);
-                }
-            }
-            SectionCode::Start => {
-                let start_index = section.get_start_section_content()?;
-
+            ParserState::StartSectionEntry(start_index) => {
                 info.start_func = Some(FuncIndex::new(start_index as usize));
             }
-            SectionCode::Element => {
-                let element_reader = section.get_element_section_reader()?;
+            ParserState::BeginFunctionBody { .. } => {
+                let id = func_count.wrapping_add(1);
+                func_count = id;
+                if func_count == 0 {
+                    info.namespace_table = namespace_builder.take().unwrap().finish();
+                    info.name_table = name_builder.take().unwrap().finish();
+                    mcg.feed_signatures(info.signatures.clone())?;
+                    mcg.feed_function_signatures(info.func_assoc.clone())?;
+                    mcg.check_precondition(&info)?;
+                }
 
-                for element in element_reader {
-                    let Element { kind, items } = element?;
+                let fcg = mcg.next_function()?;
+                let sig = info
+                    .signatures
+                    .get(
+                        *info
+                            .func_assoc
+                            .get(FuncIndex::new(id as usize + info.imported_functions.len()))
+                            .unwrap(),
+                    )
+                    .unwrap();
+                for ret in sig.returns() {
+                    fcg.feed_return(type_to_wp_type(*ret))?;
+                }
+                for param in sig.params() {
+                    fcg.feed_param(type_to_wp_type(*param))?;
+                }
 
-                    match kind {
-                        ElementKind::Active {
-                            table_index,
-                            init_expr,
-                        } => {
-                            let table_index = TableIndex::new(table_index as usize);
-                            let base = eval_init_expr(&init_expr)?;
-                            let items_reader = items.get_items_reader()?;
+                let mut body_begun = false;
 
-                            let elements: Vec<_> = items_reader
-                                .into_iter()
-                                .map(|res| res.map(|index| FuncIndex::new(index as usize)))
-                                .collect::<Result<_, _>>()?;
-
-                            let table_init = TableInitializer {
-                                table_index,
-                                base,
-                                elements,
-                            };
-
-                            info.elem_initializers.push(table_init);
-                        }
-                        ElementKind::Passive(_ty) => {
-                            return Err(BinaryReaderError {
-                                message: "passive tables are not yet supported",
-                                offset: -1isize as usize,
+                loop {
+                    let state = parser.read();
+                    match *state {
+                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::FunctionBodyLocals { ref locals } => {
+                            for &(count, ty) in locals.iter() {
+                                fcg.feed_local(ty, count as usize)?;
                             }
-                            .into());
                         }
-                    }
-                }
-            }
-            SectionCode::Code => {
-                let mut code_reader = section.get_code_section_reader()?;
-                if code_reader.get_count() as usize > info.func_assoc.len() {
-                    return Err(BinaryReaderError {
-                        message: "code_reader.get_count() > info.func_assoc.len()",
-                        offset: ::std::usize::MAX,
-                    }
-                    .into());
-                }
-                mcg.check_precondition(&info)?;
-                for i in 0..code_reader.get_count() {
-                    let item = code_reader.read()?;
-                    let fcg = mcg.next_function()?;
-                    let sig = info
-                        .signatures
-                        .get(
-                            *info
-                                .func_assoc
-                                .get(FuncIndex::new(i as usize + info.imported_functions.len()))
-                                .unwrap(),
-                        )
-                        .unwrap();
-                    for ret in sig.returns() {
-                        fcg.feed_return(type_to_wp_type(*ret))?;
-                    }
-                    for param in sig.params() {
-                        fcg.feed_param(type_to_wp_type(*param))?;
-                    }
-                    for local in item.get_locals_reader()? {
-                        let (count, ty) = local?;
-                        fcg.feed_local(ty, count as usize)?;
-                    }
-                    fcg.begin_body()?;
-                    for op in item.get_operators_reader()? {
-                        let op = op?;
-                        fcg.feed_opcode(op, &info)?;
-                    }
-                    fcg.finalize()?;
-                }
-            }
-            SectionCode::Data => {
-                let data_reader = section.get_data_section_reader()?;
-
-                for data in data_reader {
-                    let Data { kind, data } = data?;
-
-                    match kind {
-                        DataKind::Active {
-                            memory_index,
-                            init_expr,
-                        } => {
-                            let memory_index = MemoryIndex::new(memory_index as usize);
-                            let base = eval_init_expr(&init_expr)?;
-
-                            let data_init = DataInitializer {
-                                memory_index,
-                                base,
-                                data: data.to_vec(),
-                            };
-
-                            info.data_initializers.push(data_init);
-                        }
-                        DataKind::Passive => {
-                            return Err(BinaryReaderError {
-                                message: "passive memories are not yet supported",
-                                offset: -1isize as usize,
+                        ParserState::CodeOperator(ref op) => {
+                            if !body_begun {
+                                body_begun = true;
+                                fcg.begin_body()?;
                             }
-                            .into());
+                            fcg.feed_opcode(op, &info)?;
                         }
+                        ParserState::EndFunctionBody => break,
+                        _ => unreachable!(),
                     }
                 }
+                fcg.finalize()?;
             }
-            SectionCode::DataCount => {}
-            SectionCode::Custom { .. } => {}
+            ParserState::BeginActiveElementSectionEntry(table_index) => {
+                let table_index = TableIndex::new(table_index as usize);
+                let mut elements: Option<Vec<FuncIndex>> = None;
+                let mut base: Option<Initializer> = None;
+
+                loop {
+                    let state = parser.read();
+                    match *state {
+                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::InitExpressionOperator(ref op) => {
+                            base = Some(eval_init_expr(op)?)
+                        }
+                        ParserState::ElementSectionEntryBody(ref _elements) => {
+                            elements = Some(
+                                _elements
+                                    .iter()
+                                    .cloned()
+                                    .map(|index| FuncIndex::new(index as usize))
+                                    .collect(),
+                            );
+                        }
+                        ParserState::BeginInitExpressionBody
+                        | ParserState::EndInitExpressionBody => {}
+                        ParserState::EndElementSectionEntry => break,
+                        _ => unreachable!(),
+                    }
+                }
+
+                let table_init = TableInitializer {
+                    table_index,
+                    base: base.unwrap(),
+                    elements: elements.unwrap(),
+                };
+
+                info.elem_initializers.push(table_init);
+            }
+            ParserState::BeginActiveDataSectionEntry(memory_index) => {
+                let memory_index = MemoryIndex::new(memory_index as usize);
+                let mut base: Option<Initializer> = None;
+                let mut data: Vec<u8> = vec![];
+
+                loop {
+                    let state = parser.read();
+                    match *state {
+                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::InitExpressionOperator(ref op) => {
+                            base = Some(eval_init_expr(op)?)
+                        }
+                        ParserState::DataSectionEntryBodyChunk(chunk) => {
+                            data = chunk.to_vec();
+                        }
+                        ParserState::BeginInitExpressionBody
+                        | ParserState::EndInitExpressionBody => {}
+                        ParserState::BeginDataSectionEntryBody(_)
+                        | ParserState::EndDataSectionEntryBody => {}
+                        ParserState::EndDataSectionEntry => break,
+                        _ => unreachable!(),
+                    }
+                }
+
+                let data_init = DataInitializer {
+                    memory_index,
+                    base: base.unwrap(),
+                    data,
+                };
+                info.data_initializers.push(data_init);
+            }
+            ParserState::BeginGlobalSectionEntry(ty) => {
+                let init = loop {
+                    let state = parser.read();
+                    match *state {
+                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::InitExpressionOperator(ref op) => {
+                            break eval_init_expr(op)?;
+                        }
+                        ParserState::BeginInitExpressionBody => {}
+                        _ => unreachable!(),
+                    }
+                };
+                let desc = GlobalDescriptor {
+                    mutable: ty.mutable,
+                    ty: wp_type_to_type(ty.content_type)?,
+                };
+
+                let global_init = GlobalInit { desc, init };
+
+                info.globals.push(global_init);
+            }
+
+            _ => {}
         }
     }
 }
@@ -403,7 +351,7 @@ pub fn type_to_wp_type(ty: Type) -> WpType {
     }
 }
 
-fn func_type_to_func_sig(func_ty: FuncType) -> Result<FuncSig, BinaryReaderError> {
+fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, BinaryReaderError> {
     assert_eq!(func_ty.form, WpType::Func);
 
     Ok(FuncSig::new(
@@ -422,10 +370,8 @@ fn func_type_to_func_sig(func_ty: FuncType) -> Result<FuncSig, BinaryReaderError
     ))
 }
 
-fn eval_init_expr(expr: &InitExpr) -> Result<Initializer, BinaryReaderError> {
-    let mut reader = expr.get_operators_reader();
-    let (op, offset) = reader.read_with_offset()?;
-    Ok(match op {
+fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
+    Ok(match *op {
         Operator::GetGlobal { global_index } => {
             Initializer::GetGlobal(ImportedGlobalIndex::new(global_index as usize))
         }
@@ -440,7 +386,7 @@ fn eval_init_expr(expr: &InitExpr) -> Result<Initializer, BinaryReaderError> {
         _ => {
             return Err(BinaryReaderError {
                 message: "init expr evaluation failed: unsupported opcode",
-                offset,
+                offset: -1isize as usize,
             });
         }
     })

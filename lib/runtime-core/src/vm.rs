@@ -22,7 +22,7 @@ pub struct Ctx {
 
     local_backing: *mut LocalBacking,
     import_backing: *mut ImportBacking,
-    module: *const ModuleInner,
+    pub(crate) module: *const ModuleInner,
 
     pub data: *mut c_void,
     pub data_finalizer: Option<fn(data: *mut c_void)>,
@@ -544,45 +544,27 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{
-            sys::Memory, Backend, CacheGen, FuncResolver, ProtectedCaller, Token, UserTrapper,
-        };
+        use crate::backend::{sys::Memory, Backend, CacheGen, RunnableModule};
         use crate::cache::Error as CacheError;
-        use crate::error::RuntimeResult;
         use crate::typed_func::Wasm;
-        use crate::types::{FuncIndex, LocalFuncIndex, SigIndex, Value};
+        use crate::types::{LocalFuncIndex, SigIndex};
         use hashbrown::HashMap;
+        use std::any::Any;
         use std::ptr::NonNull;
         struct Placeholder;
-        impl FuncResolver for Placeholder {
-            fn get(
+        impl RunnableModule for Placeholder {
+            fn get_func(
                 &self,
-                _module: &ModuleInner,
+                _module: &ModuleInfo,
                 _local_func_index: LocalFuncIndex,
             ) -> Option<NonNull<Func>> {
                 None
             }
-        }
-        impl ProtectedCaller for Placeholder {
-            fn call(
-                &self,
-                _module: &ModuleInner,
-                _func_index: FuncIndex,
-                _params: &[Value],
-                _import_backing: &ImportBacking,
-                _vmctx: *mut Ctx,
-                _: Token,
-            ) -> RuntimeResult<Vec<Value>> {
-                Ok(vec![])
-            }
-            fn get_wasm_trampoline(
-                &self,
-                _module: &ModuleInner,
-                _sig_index: SigIndex,
-            ) -> Option<Wasm> {
+
+            fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
                 unimplemented!()
             }
-            fn get_early_trapper(&self) -> Box<dyn UserTrapper> {
+            unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
                 unimplemented!()
             }
         }
@@ -596,8 +578,7 @@ mod vm_ctx_tests {
         }
 
         ModuleInner {
-            func_resolver: Box::new(Placeholder),
-            protected_caller: Box::new(Placeholder),
+            runnable_module: Box::new(Placeholder),
             cache_gen: Box::new(Placeholder),
             info: ModuleInfo {
                 memories: Map::new(),
