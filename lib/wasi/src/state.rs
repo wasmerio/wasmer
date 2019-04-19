@@ -128,7 +128,7 @@ pub struct Fd {
 }
 
 pub struct WasiFs {
-    pub repo: Repo,
+    //pub repo: Repo,
     pub name_map: HashMap<String, Inode>,
     pub inodes: Arena<InodeVal>,
     pub fd_map: HashMap<u32, Fd>,
@@ -141,14 +141,14 @@ impl WasiFs {
         debug!("wasi::fs::init");
         zbox_init_env();
         debug!("wasi::fs::repo");
-        let repo = RepoOpener::new()
-            .create(true)
-            .open("mem://wasmer-test-fs", "")
-            .map_err(|e| e.to_string())?;
+        /*let repo = RepoOpener::new()
+        .create(true)
+        .open("mem://wasmer-test-fs", "")
+        .map_err(|e| e.to_string())?;*/
         debug!("wasi::fs::inodes");
         let inodes = Arena::new();
         let mut wasi_fs = Self {
-            repo: repo,
+            //repo: repo,
             name_map: HashMap::new(),
             inodes: inodes,
             fd_map: HashMap::new(),
@@ -165,15 +165,11 @@ impl WasiFs {
                 .expect("Could not find file");
             let cur_file_metadata = cur_file.metadata().unwrap();
             let kind = if cur_file_metadata.is_dir() {
-                // it seems bad to open every file recursively; can do it lazily though
                 Kind::Dir {
                     handle: WasiFile::HostFile(cur_file),
                     entries: Default::default(),
                 }
             } else {
-                /*Kind::File {
-                    handle: WasiFile::HostFile(cur_file),
-                }*/
                 return Err(format!(
                     "WASI only supports pre-opened directories right now; found \"{}\"",
                     file
@@ -204,7 +200,7 @@ impl WasiFs {
                     ..__wasi_filestat_t::default()
                 },
                 is_preopened: true,
-                // this is incorrect
+                // TODO: handle nested paths
                 name: file.clone(),
                 kind,
             };

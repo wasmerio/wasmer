@@ -1166,13 +1166,11 @@ pub fn path_open(
 ) -> __wasi_errno_t {
     debug!("wasi::path_open");
     let memory = ctx.memory(0);
-    if path_len > 1024
     /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
-    {
+    if path_len > 1024 * 1024 {
         return __WASI_ENAMETOOLONG;
     }
 
-    // check for __WASI_RIGHT_PATH_OPEN somewhere, probably via dirfd
     let fd_cell = wasi_try!(fd.deref(memory));
     let path_cells = wasi_try!(path.deref(memory, 0, path_len));
     let state = get_wasi_state(ctx);
@@ -1185,26 +1183,27 @@ pub fn path_open(
 
     let working_dir = wasi_try!(state.fs.fd_map.get(&dirfd).ok_or(__WASI_EBADF));
 
-    // ASSUMPTION: open rights cascade down
+    // ASSUMPTION: open rights apply recursively
     if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_OPEN) {
         return __WASI_EACCES;
     }
 
-    let path_vec =
+    let path_string =
         wasi_try!(
             ::std::str::from_utf8(unsafe { &*(path_cells as *const [_] as *const [u8]) })
                 .map_err(|_| __WASI_EINVAL)
-        )
+        );
+    let path_vec = path_string
         .split('/')
         .map(|str| str.to_string())
         .collect::<Vec<String>>();
+    debug!("Path vec: {:#?}", path_vec);
 
     if path_vec.is_empty() {
         return __WASI_EINVAL;
     }
 
     let working_dir_inode = &mut state.fs.inodes[working_dir.inode];
-
     let mut cur_dir = working_dir;
 
     // TODO: refactor single path segment logic out and do traversing before
@@ -1221,7 +1220,9 @@ pub fn path_open(
                 if o_flags & __WASI_O_DIRECTORY != 0 {
                     match &child_inode_val.kind {
                         Kind::Dir { .. } => (),
-                        Kind::Symlink { .. } => unimplemented!(),
+                        Kind::Symlink { .. } => {
+                            unimplemented!("Symlinks not yet supported in path_open")
+                        }
                         _ => return __WASI_ENOTDIR,
                     }
                 }
@@ -1230,87 +1231,60 @@ pub fn path_open(
                     .fs
                     .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
             } else {
-                // entry does not exist in parent directory
-                // check to see if we should create it
-                if o_flags & __WASI_O_CREAT != 0 {
-                    // REVIEW: the code in this branch was written while very tired
-                    // insert in to directory and set values
-                    //entries.insert(path_segment[0], )
+                // if entry does not exist in parent directory, try to lazily
+                // load it; possibly creating or truncating it if flags set
+                let real_opened_file = {
+                    let mut open_options = std::fs::OpenOptions::new();
+                    let open_options = open_options.read(true).write(true);
+                    let open_options = if o_flags & __WASI_O_CREAT != 0 {
+                        debug!(
+                            "File {} may be created when opened if it does not exist",
+                            &path_string
+                        );
+                        open_options.create(true)
+                    } else {
+                        open_options
+                    };
+                    let open_options = if o_flags & __WASI_O_TRUNC != 0 {
+                        debug!("File {} will be truncated when opened", &path_string);
+                        open_options.truncate(true)
+                    } else {
+                        open_options
+                    };
+                    let real_open_file =
+                        wasi_try!(open_options.open(&path_vec[0]).map_err(|_| __WASI_EIO));
+                    debug!("Opening host file {}", &path_string);
 
-                    let real_opened_file = wasi_try!(::std::fs::OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .create(true)
-                        .open(&path_vec[0])
-                        .map_err(|_| __WASI_EIO));
-                    debug!("Creating host file {}", &path_vec[0]);
-                    let new_inode = state.fs.inodes.insert(InodeVal {
-                        stat: __wasi_filestat_t::default(),
-                        is_preopened: false,
-                        name: path_vec[0].clone(),
-                        kind: Kind::File {
-                            handle: WasiFile::HostFile(real_opened_file),
-                        },
-                    });
-                    // reborrow
-                    if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind
-                    {
-                        entries.insert(path_vec[0].clone(), new_inode);
-                    }
-                    let new_fd = wasi_try!(state.fs.create_fd(
-                        fs_rights_base,
-                        fs_rights_inheriting,
-                        fs_flags,
-                        new_inode,
-                    ));
-
-                    new_fd
-
-                // TODO: technically this could just not be lazily loaded...
-                /*wasi_try!(state.fs.create_file_at_fd(
-                    dirfd,
-                    path_vec[0],
+                    real_open_file
+                };
+                // record lazily loaded or newly created fd
+                let new_inode = state.fs.inodes.insert(InodeVal {
+                    stat: __wasi_filestat_t::default(),
+                    is_preopened: false,
+                    name: path_vec[0].clone(),
+                    kind: Kind::File {
+                        handle: WasiFile::HostFile(real_opened_file),
+                    },
+                });
+                // reborrow to insert entry
+                if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
+                    entries.insert(path_vec[0].clone(), new_inode);
+                }
+                let new_fd = wasi_try!(state.fs.create_fd(
                     fs_rights_base,
                     fs_rights_inheriting,
-                    fs_flags
-                ));*/
-                } else {
-                    // attempt to load it
-                    let real_opened_file = wasi_try!(::std::fs::OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .open(&path_vec[0])
-                        .map_err(|_| __WASI_ENOENT));
+                    fs_flags,
+                    new_inode,
+                ));
 
-                    debug!("Opening host file {}", &path_vec[0]);
-                    let new_inode = state.fs.inodes.insert(InodeVal {
-                        stat: __wasi_filestat_t::default(),
-                        is_preopened: false,
-                        name: path_vec[0].clone(),
-                        kind: Kind::File {
-                            handle: WasiFile::HostFile(real_opened_file),
-                        },
-                    });
-                    // reborrow
-                    if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind
-                    {
-                        entries.insert(path_vec[0].clone(), new_inode);
-                    }
-                    let new_fd = wasi_try!(state.fs.create_fd(
-                        fs_rights_base,
-                        fs_rights_inheriting,
-                        fs_flags,
-                        new_inode,
-                    ));
-
-                    new_fd
-                }
+                new_fd
             }
         } else {
-            // working_dir is not a directory
+            // working_dir did not match on Kind::Dir
             return __WASI_ENOTDIR;
         }
     } else {
+        unimplemented!("Path_open is not implemented for anything other simple paths (i.e. file, not /path/to/file); this will be fixed soon -- if you're seeing this error message and it's not 2019/04/19 in America, pull from master and try again");
         // traverse the pieces of the path
         // TODO: lots of testing on this
         for path_segment in &path_vec[..(path_vec.len() - 1)] {
