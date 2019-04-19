@@ -40,26 +40,6 @@ impl Compiler for LLVMCompiler {
 
         let (backend, cache_gen) = backend::LLVMBackend::new(module, intrinsics);
 
-        // Create placeholder values here.
-        // let cache_gen = {
-        //     use wasmer_runtime_core::backend::{sys::Memory, CacheGen};
-        //     use wasmer_runtime_core::cache::Error as CacheError;
-        //     use wasmer_runtime_core::module::ModuleInfo;
-
-        //     struct Placeholder;
-
-        //     impl CacheGen for Placeholder {
-        //         fn generate_cache(
-        //             &self,
-        //             _module: &ModuleInner,
-        //         ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
-        //             unimplemented!()
-        //         }
-        //     }
-
-        //     Box::new(Placeholder)
-        // };
-
         Ok(ModuleInner {
             runnable_module: Box::new(backend),
             cache_gen: Box::new(cache_gen),
