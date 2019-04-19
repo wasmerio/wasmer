@@ -121,8 +121,12 @@ impl Module {
     }
 
     pub fn cache(&self) -> Result<Artifact, CacheError> {
-        let (info, backend_metadata, code) = self.inner.cache_gen.generate_cache(&self.inner)?;
-        Ok(Artifact::from_parts(info, backend_metadata, code))
+        let (backend_metadata, code) = self.inner.cache_gen.generate_cache()?;
+        Ok(Artifact::from_parts(
+            Box::new(self.inner.info.clone()),
+            backend_metadata,
+            code,
+        ))
     }
 
     pub fn info(&self) -> &ModuleInfo {

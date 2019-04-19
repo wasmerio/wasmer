@@ -83,8 +83,5 @@ pub trait RunnableModule: Send + Sync {
 }
 
 pub trait CacheGen: Send + Sync {
-    fn generate_cache(
-        &self,
-        module: &ModuleInner,
-    ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError>;
+    fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError>;
 }
