@@ -218,35 +218,10 @@ impl WasiFs {
                     file
                 ));
             };
-            let inode_val = InodeVal {
-                stat: __wasi_filestat_t {
-                    st_filetype: __WASI_FILETYPE_DIRECTORY,
-                    st_size: cur_file_metadata.len(),
-                    st_atim: cur_file_metadata
-                        .accessed()
-                        .ok()
-                        .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
-                        .map(|duration| duration.as_nanos() as u64)
-                        .unwrap_or(0),
-                    st_ctim: cur_file_metadata
-                        .created()
-                        .ok()
-                        .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
-                        .map(|duration| duration.as_nanos() as u64)
-                        .unwrap_or(0),
-                    st_mtim: cur_file_metadata
-                        .modified()
-                        .ok()
-                        .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
-                        .map(|duration| duration.as_nanos() as u64)
-                        .unwrap_or(0),
-                    ..__wasi_filestat_t::default()
-                },
-                is_preopened: true,
-                // TODO: handle nested paths
-                name: file.clone(),
-                kind,
-            };
+            // TODO: handle nested pats in `file`
+            let inode_val =
+                InodeVal::from_file_metadata(cur_file_metadata, file.clone(), true, kind);
+
             let inode = wasi_fs.inodes.insert(inode_val);
             wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
             wasi_fs

@@ -36,6 +36,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
             return Err(__WASI_EFAULT);
         }
         unsafe {
+            // clears bits below aligment amount (assumes power of 2) to align pointer
             let aligner = |ptr: usize, align: usize| ptr & !(align - 1);
             let cell_ptr = aligner(
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
