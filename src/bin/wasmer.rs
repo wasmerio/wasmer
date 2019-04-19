@@ -79,7 +79,7 @@ struct Run {
     )]
     backend: Backend,
 
-    /// Emscripten symbol ma>p
+    /// Emscripten symbol map
     #[structopt(long = "em-symbol-map", parse(from_os_str), group = "emscripten")]
     em_symbol_map: Option<PathBuf>,
 
