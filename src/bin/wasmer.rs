@@ -83,9 +83,9 @@ struct Run {
     #[structopt(long = "em-symbol-map", parse(from_os_str), group = "emscripten")]
     em_symbol_map: Option<PathBuf>,
 
-    /// WASI pre-opened file
-    #[structopt(long = "pre-open", group = "wasi")]
-    pre_opened_files: Vec<String>,
+    /// WASI pre-opened directory
+    #[structopt(long = "dir", multiple = true, group = "wasi")]
+    pre_opened_directories: Vec<String>,
 
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
@@ -320,7 +320,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                     env::vars()
                         .map(|(k, v)| format!("{}={}", k, v).into_bytes())
                         .collect(),
-                    options.pre_opened_files.clone(),
+                    options.pre_opened_directories.clone(),
                 ),
                 None,
             )

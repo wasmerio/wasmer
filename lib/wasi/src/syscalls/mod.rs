@@ -685,12 +685,11 @@ pub fn fd_read(
             let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
             let mut raw_bytes: &mut [u8] =
                 unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
-            bytes_read += reader.read(raw_bytes).map_err(|e| __WASI_EIO)? as u32;
+            bytes_read += reader.read(raw_bytes).map_err(|_| __WASI_EIO)? as u32;
         }
         Ok(bytes_read)
     }
 
-    debug!("think-fish");
     let bytes_read = match fd {
         0 => {
             let stdin = io::stdin();
@@ -824,8 +823,6 @@ pub fn fd_seek(
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_SEEK) {
         return __WASI_EACCES;
     }
-
-    debug!("Hmml");
 
     // TODO: handle case if fd is a dir?
     match whence {
@@ -1190,119 +1187,175 @@ pub fn path_open(
 
     let path_string =
         wasi_try!(
-            ::std::str::from_utf8(unsafe { &*(path_cells as *const [_] as *const [u8]) })
+            std::str::from_utf8(unsafe { &*(path_cells as *const [_] as *const [u8]) })
                 .map_err(|_| __WASI_EINVAL)
         );
-    let path_vec = path_string
-        .split('/')
-        .map(|str| str.to_string())
-        .collect::<Vec<String>>();
+    let path = std::path::PathBuf::from(path_string);
+    let path_vec = wasi_try!(path
+        .components()
+        .map(|comp| {
+            comp.as_os_str()
+                .to_str()
+                .map(|inner_str| inner_str.to_string())
+                .ok_or(__WASI_EINVAL)
+        })
+        .collect::<Result<Vec<String>, __wasi_errno_t>>());
     debug!("Path vec: {:#?}", path_vec);
 
     if path_vec.is_empty() {
         return __WASI_EINVAL;
     }
 
-    let working_dir_inode = &mut state.fs.inodes[working_dir.inode];
-    let mut cur_dir = working_dir;
+    let mut cur_dir_inode = working_dir.inode;
+    let mut cumulative_path = std::path::PathBuf::from(".");
 
-    // TODO: refactor single path segment logic out and do traversing before
-    // as necessary
-    let out_fd = if path_vec.len() == 1 {
-        // just the file or dir
-        if let Kind::Dir { entries, .. } = &mut working_dir_inode.kind {
-            if let Some(child) = entries.get(&path_vec[0]).cloned() {
-                let child_inode_val = &state.fs.inodes[child];
-                // early return based on flags
-                if o_flags & __WASI_O_EXCL != 0 {
-                    return __WASI_EEXIST;
-                }
-                if o_flags & __WASI_O_DIRECTORY != 0 {
-                    match &child_inode_val.kind {
-                        Kind::Dir { .. } => (),
-                        Kind::Symlink { .. } => {
-                            unimplemented!("Symlinks not yet supported in path_open")
-                        }
-                        _ => return __WASI_ENOTDIR,
-                    }
-                }
-                // do logic on child
-                wasi_try!(state
-                    .fs
-                    .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
-            } else {
-                // if entry does not exist in parent directory, try to lazily
-                // load it; possibly creating or truncating it if flags set
-                let real_opened_file = {
-                    let mut open_options = std::fs::OpenOptions::new();
-                    let open_options = open_options.read(true).write(true);
-                    let open_options = if o_flags & __WASI_O_CREAT != 0 {
-                        debug!(
-                            "File {} may be created when opened if it does not exist",
-                            &path_string
-                        );
-                        open_options.create(true)
-                    } else {
-                        open_options
-                    };
-                    let open_options = if o_flags & __WASI_O_TRUNC != 0 {
-                        debug!("File {} will be truncated when opened", &path_string);
-                        open_options.truncate(true)
-                    } else {
-                        open_options
-                    };
-                    let real_open_file =
-                        wasi_try!(open_options.open(&path_vec[0]).map_err(|_| __WASI_EIO));
-                    debug!("Opening host file {}", &path_string);
-
-                    real_open_file
-                };
-                // record lazily loaded or newly created fd
-                let new_inode = state.fs.inodes.insert(InodeVal {
-                    stat: __wasi_filestat_t::default(),
-                    is_preopened: false,
-                    name: path_vec[0].clone(),
-                    kind: Kind::File {
-                        handle: WasiFile::HostFile(real_opened_file),
-                    },
-                });
-                // reborrow to insert entry
-                if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
-                    entries.insert(path_vec[0].clone(), new_inode);
-                }
-                let new_fd = wasi_try!(state.fs.create_fd(
-                    fs_rights_base,
-                    fs_rights_inheriting,
-                    fs_flags,
-                    new_inode,
-                ));
-
-                new_fd
-            }
-        } else {
-            // working_dir did not match on Kind::Dir
-            return __WASI_ENOTDIR;
-        }
-    } else {
-        unimplemented!("Path_open is not implemented for anything other simple paths (i.e. file, not /path/to/file); this will be fixed soon -- if you're seeing this error message and it's not 2019/04/19 in America, pull from master and try again");
-        // traverse the pieces of the path
-        // TODO: lots of testing on this
+    // traverse path
+    if path_vec.len() > 1 {
         for path_segment in &path_vec[..(path_vec.len() - 1)] {
-            match &working_dir_inode.kind {
+            match &state.fs.inodes[cur_dir_inode].kind {
                 Kind::Dir { entries, .. } => {
                     if let Some(child) = entries.get(path_segment) {
-                        unimplemented!();
+                        let inode_val = *child;
+                        cur_dir_inode = inode_val;
                     } else {
-                        // Is __WASI_O_FLAG_CREAT recursive?
-                        // ASSUMPTION: it's not
-                        return __WASI_EINVAL;
+                        // attempt to lazily load or create
+                        if path_segment == ".." {
+                            unimplemented!(
+                                "\"..\" in paths in `path_open` has not been implemented yet"
+                            );
+                        }
+                        // lazily load
+                        cumulative_path.push(path_segment);
+                        let mut open_options = std::fs::OpenOptions::new();
+                        let open_options = open_options.read(true);
+                        // ASSUMPTION: __WASI_O_CREAT applies recursively
+                        let open_options = if o_flags & __WASI_O_CREAT != 0 {
+                            open_options.create(true)
+                        } else {
+                            open_options
+                        };
+                        // TODO: handle __WASI_O_TRUNC on directories
+
+                        let cur_dir = wasi_try!(open_options
+                            .open(&cumulative_path)
+                            .map_err(|_| __WASI_EINVAL));
+
+                        // TODO: refactor and reuse
+                        let cur_file_metadata = cur_dir.metadata().unwrap();
+                        let kind = if cur_file_metadata.is_dir() {
+                            Kind::Dir {
+                                handle: WasiFile::HostFile(cur_dir),
+                                entries: Default::default(),
+                            }
+                        } else {
+                            return __WASI_ENOTDIR;
+                        };
+                        let inode_val = InodeVal::from_file_metadata(
+                            &cur_file_metadata,
+                            path_segment.clone(),
+                            false,
+                            kind,
+                        );
+
+                        let new_inode = state.fs.inodes.insert(inode_val);
+                        let inode_idx = state.fs.inode_counter.get();
+                        state.fs.inode_counter.replace(inode_idx + 1);
+                        // reborrow to insert entry
+                        if let Kind::Dir { entries, .. } = &mut state.fs.inodes[cur_dir_inode].kind
+                        {
+                            assert!(entries.insert(path_segment.clone(), new_inode).is_none());
+                            state.fs.inodes[new_inode].stat.st_ino = state.fs.inode_counter.get();
+                            cur_dir_inode = new_inode;
+                        }
                     }
                 }
-                Kind::Symlink { .. } => unimplemented!(),
+                Kind::Symlink { .. } => unimplemented!("Symlinks not yet supported in `path_open`"),
                 _ => return __WASI_ENOTDIR,
             }
         }
-        unimplemented!()
+    }
+
+    let file_name = path_vec.last().unwrap();
+
+    debug!(
+        "Looking for file {} in directory {:#?}",
+        file_name, cumulative_path
+    );
+    cumulative_path.push(file_name);
+    let file_path = cumulative_path;
+
+    let out_fd = if let Kind::Dir { entries, .. } = &mut state.fs.inodes[cur_dir_inode].kind {
+        if let Some(child) = entries.get(file_name).cloned() {
+            let child_inode_val = &state.fs.inodes[child];
+            // early return based on flags
+            if o_flags & __WASI_O_EXCL != 0 {
+                return __WASI_EEXIST;
+            }
+            if o_flags & __WASI_O_DIRECTORY != 0 {
+                match &child_inode_val.kind {
+                    Kind::Dir { .. } => (),
+                    Kind::Symlink { .. } => {
+                        unimplemented!("Symlinks not yet supported in path_open")
+                    }
+                    _ => return __WASI_ENOTDIR,
+                }
+            }
+            // do logic on child
+            wasi_try!(state
+                .fs
+                .create_fd(fs_rights_base, fs_rights_inheriting, fs_flags, child))
+        } else {
+            // if entry does not exist in parent directory, try to lazily
+            // load it; possibly creating or truncating it if flags set
+            let real_opened_file = {
+                let mut open_options = std::fs::OpenOptions::new();
+                let open_options = open_options.read(true).write(true);
+                let open_options = if o_flags & __WASI_O_CREAT != 0 {
+                    debug!(
+                        "File {} may be created when opened if it does not exist",
+                        &path_string
+                    );
+                    open_options.create(true)
+                } else {
+                    open_options
+                };
+                let open_options = if o_flags & __WASI_O_TRUNC != 0 {
+                    debug!("File {} will be truncated when opened", &path_string);
+                    open_options.truncate(true)
+                } else {
+                    open_options
+                };
+                let real_open_file =
+                    wasi_try!(open_options.open(&file_path).map_err(|_| __WASI_EIO));
+                debug!("Opening host file {}", &path_string);
+
+                real_open_file
+            };
+            // record lazily loaded or newly created fd
+            let new_inode = state.fs.inodes.insert(InodeVal {
+                stat: __wasi_filestat_t::default(),
+                is_preopened: false,
+                name: file_name.clone(),
+                kind: Kind::File {
+                    handle: WasiFile::HostFile(real_opened_file),
+                },
+            });
+            // reborrow to insert entry
+            if let Kind::Dir { entries, .. } = &mut state.fs.inodes[working_dir.inode].kind {
+                entries.insert(file_name.clone(), new_inode);
+            }
+            let new_fd = wasi_try!(state.fs.create_fd(
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+                new_inode,
+            ));
+
+            new_fd
+        }
+    } else {
+        // working_dir did not match on Kind::Dir
+        return __WASI_ENOTDIR;
     };
 
     fd_cell.set(out_fd);

@@ -99,6 +99,49 @@ pub struct InodeVal {
     pub kind: Kind,
 }
 
+impl InodeVal {
+    // TODO: clean this up
+    pub fn from_file_metadata(
+        metadata: &std::fs::Metadata,
+        name: String,
+        is_preopened: bool,
+        kind: Kind,
+    ) -> Self {
+        InodeVal {
+            stat: __wasi_filestat_t {
+                st_filetype: if metadata.is_dir() {
+                    __WASI_FILETYPE_DIRECTORY
+                } else {
+                    __WASI_FILETYPE_REGULAR_FILE
+                },
+                st_size: metadata.len(),
+                st_atim: metadata
+                    .accessed()
+                    .ok()
+                    .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_nanos() as u64)
+                    .unwrap_or(0),
+                st_ctim: metadata
+                    .created()
+                    .ok()
+                    .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_nanos() as u64)
+                    .unwrap_or(0),
+                st_mtim: metadata
+                    .modified()
+                    .ok()
+                    .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_nanos() as u64)
+                    .unwrap_or(0),
+                ..__wasi_filestat_t::default()
+            },
+            is_preopened,
+            name,
+            kind,
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum Kind {
@@ -409,19 +452,6 @@ impl WasiFs {
         );
         Ok(idx)
     }
-
-    /*pub fn create_file_at_fd(
-        &mut self,
-        parent: __wasi_fd_t,
-        path: String,
-        fs_rights_base: __wasi_rights_t,
-        fs_rights_inheriting: __wasi_rights_t,
-        fs_flags: fs_flags,
-    ) -> Result<__wasi_fd_t, __wasi_errno_t> {
-
-        let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
-        Ok()
-    }*/
 }
 
 pub struct WasiState<'a> {
