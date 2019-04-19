@@ -36,10 +36,11 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
             return Err(__WASI_EFAULT);
         }
         unsafe {
-            let cell_ptr = memory
-                .view::<T>()
-                .get_unchecked((self.offset() as usize) / mem::size_of::<T>())
-                as *const _;
+            let aligner = |ptr: usize, align: usize| ptr & !(align - 1);
+            let cell_ptr = aligner(
+                memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
+                mem::align_of::<T>(),
+            ) as *const Cell<T>;
             Ok(&*cell_ptr)
         }
     }

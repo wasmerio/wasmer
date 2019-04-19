@@ -123,7 +123,6 @@ impl FromStr for Backend {
             _ => Err(format!("The backend {} doesn't exist", s)),
         }
     }
->>>>>>> origin/master
 }
 
 #[derive(Debug, StructOpt)]

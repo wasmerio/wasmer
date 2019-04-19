@@ -324,15 +324,18 @@ pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 pub fn fd_fdstat_get(
     ctx: &mut Ctx,
     fd: __wasi_fd_t,
-    buf: WasmPtr<__wasi_fdstat_t>,
+    buf_ptr: WasmPtr<__wasi_fdstat_t>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_fdstat_get: fd={}", fd);
+    debug!(
+        "wasi::fd_fdstat_get: fd={}, buf_ptr={}",
+        fd,
+        buf_ptr.offset()
+    );
     let mut state = get_wasi_state(ctx);
     let memory = ctx.memory(0);
-
     let stat = wasi_try!(state.fs.fdstat(fd));
+    let buf = wasi_try!(buf_ptr.deref(memory));
 
-    let buf = wasi_try!(buf.deref(memory));
     buf.set(stat);
 
     __WASI_ESUCCESS
@@ -543,9 +546,19 @@ pub fn fd_prestat_dir_name(
     if let Kind::Dir { .. } = inode_val.kind {
         // TODO: verify this: null termination, etc
         if inode_val.name.len() <= path_len as usize {
-            for (i, c) in inode_val.name.bytes().enumerate() {
+            let mut i = 0;
+            for c in inode_val.name.bytes() {
                 path_chars[i].set(c);
+                i += 1
             }
+            path_chars[i].set(0);
+
+            debug!(
+                "=> result: \"{}\"",
+                ::std::str::from_utf8(unsafe { &*(&path_chars[..] as *const [_] as *const [u8]) })
+                    .unwrap()
+            );
+
             __WASI_ESUCCESS
         } else {
             __WASI_EOVERFLOW
@@ -669,13 +682,10 @@ pub fn fd_read(
 
         for iov in iovs_arr_cell {
             let iov_inner = iov.get();
-            let bytes = iov_inner.buf.deref(memory, 0, dbg!(iov_inner.buf_len))?;
+            let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
             let mut raw_bytes: &mut [u8] =
                 unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
-            bytes_read += dbg!(reader.read(raw_bytes).map_err(|e| {
-                dbg!(e);
-                __WASI_EIO
-            })? as u32);
+            bytes_read += reader.read(raw_bytes).map_err(|e| __WASI_EIO)? as u32;
         }
         Ok(bytes_read)
     }
@@ -722,7 +732,7 @@ pub fn fd_read(
         }
     };
 
-    nread_cell.set(dbg!(bytes_read));
+    nread_cell.set(bytes_read);
 
     __WASI_ESUCCESS
 }
@@ -819,7 +829,7 @@ pub fn fd_seek(
 
     // TODO: handle case if fd is a dir?
     match whence {
-        __WASI_WHENCE_CUR => fd_entry.offset = (dbg!(fd_entry.offset) as i64 + offset) as u64,
+        __WASI_WHENCE_CUR => fd_entry.offset = (fd_entry.offset as i64 + offset) as u64,
         __WASI_WHENCE_END => unimplemented!(),
         __WASI_WHENCE_SET => fd_entry.offset = offset as u64,
         _ => return __WASI_EINVAL,
@@ -838,7 +848,7 @@ pub fn fd_seek(
 /// Errors:
 /// TODO: figure out which errors this should return
 /// - `__WASI_EPERM`
-/// - `__WAIS_ENOTCAPABLE`
+/// - `__WASI_ENOTCAPABLE`
 pub fn fd_sync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_sync");
     // TODO: check __WASI_RIGHT_FD_SYNC
@@ -949,7 +959,7 @@ pub fn fd_write(
         }
     };
 
-    nwritten_cell.set(dbg!(bytes_written));
+    nwritten_cell.set(bytes_written);
 
     __WASI_ESUCCESS
 }
@@ -1042,7 +1052,9 @@ pub fn path_filestat_get(
                         return __WASI_ELOOP;
                     }
                 }
-                _ => return __WASI_ENOTDIR,
+                _ => {
+                    return __WASI_ENOTDIR;
+                }
             }
         }
     }

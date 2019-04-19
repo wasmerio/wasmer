@@ -16,6 +16,7 @@ use zbox::{init_env as zbox_init_env, FileType, OpenOptions, Repo, RepoOpener};
 
 pub const MAX_SYMLINKS: usize = 100;
 
+#[derive(Debug)]
 pub enum WasiFile {
     ZboxFile(zbox::File),
     HostFile(fs::File),
@@ -90,6 +91,7 @@ impl Seek for WasiFile {
     }
 }
 
+#[derive(Debug)]
 pub struct InodeVal {
     pub stat: __wasi_filestat_t,
     pub is_preopened: bool,
@@ -98,6 +100,7 @@ pub struct InodeVal {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum Kind {
     File {
         handle: WasiFile,
@@ -155,9 +158,13 @@ impl WasiFs {
         for file in preopened_files {
             debug!("Attempting to preopen {}", &file);
             // TODO: think about this
-            let default_rights = 0x1FFFFFFF;
-            let cur_file: fs::File = fs::File::open(file).expect("Could not find file");
-            let kind = if cur_file.metadata().unwrap().is_dir() {
+            let default_rights = 0x1FFFFFFF; // all rights
+            let cur_file: fs::File = fs::OpenOptions::new()
+                .read(true)
+                .open(file)
+                .expect("Could not find file");
+            let cur_file_metadata = cur_file.metadata().unwrap();
+            let kind = if cur_file_metadata.is_dir() {
                 // it seems bad to open every file recursively; can do it lazily though
                 Kind::Dir {
                     handle: WasiFile::HostFile(cur_file),
@@ -173,13 +180,36 @@ impl WasiFs {
                 ));
             };
             let inode_val = InodeVal {
-                stat: __wasi_filestat_t::default(),
+                stat: __wasi_filestat_t {
+                    st_filetype: __WASI_FILETYPE_DIRECTORY,
+                    st_size: cur_file_metadata.len(),
+                    st_atim: cur_file_metadata
+                        .accessed()
+                        .ok()
+                        .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                        .map(|duration| duration.as_nanos() as u64)
+                        .unwrap_or(0),
+                    st_ctim: cur_file_metadata
+                        .created()
+                        .ok()
+                        .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                        .map(|duration| duration.as_nanos() as u64)
+                        .unwrap_or(0),
+                    st_mtim: cur_file_metadata
+                        .modified()
+                        .ok()
+                        .and_then(|sys_time| sys_time.duration_since(SystemTime::UNIX_EPOCH).ok())
+                        .map(|duration| duration.as_nanos() as u64)
+                        .unwrap_or(0),
+                    ..__wasi_filestat_t::default()
+                },
                 is_preopened: true,
                 // this is incorrect
                 name: file.clone(),
                 kind,
             };
             let inode = wasi_fs.inodes.insert(inode_val);
+            wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
             wasi_fs
                 .create_fd(default_rights, default_rights, 0, inode)
                 .expect("Could not open fd");
@@ -304,7 +334,7 @@ impl WasiFs {
 
         debug!("fdstat: {:?}", fd);
 
-        dbg!(Ok(__wasi_fdstat_t {
+        Ok(__wasi_fdstat_t {
             fs_filetype: match self.inodes[fd.inode].kind {
                 Kind::File { .. } => __WASI_FILETYPE_REGULAR_FILE,
                 Kind::Dir { .. } => __WASI_FILETYPE_DIRECTORY,
@@ -313,8 +343,8 @@ impl WasiFs {
             },
             fs_flags: fd.flags,
             fs_rights_base: fd.rights,
-            fs_rights_inheriting: fd.rights, // TODO(lachlan): Is this right?
-        }))
+            fs_rights_inheriting: fd.rights_inheriting, // TODO(lachlan): Is this right?
+        })
     }
 
     pub fn prestat_fd(&self, fd: __wasi_fd_t) -> Result<__wasi_prestat_t, __wasi_errno_t> {
@@ -327,7 +357,8 @@ impl WasiFs {
             Ok(__wasi_prestat_t {
                 pr_type: __WASI_PREOPENTYPE_DIR,
                 u: PrestatEnum::Dir {
-                    pr_name_len: inode_val.name.len() as u32,
+                    // REVIEW:
+                    pr_name_len: inode_val.name.len() as u32 + 1,
                 }
                 .untagged(),
             })
