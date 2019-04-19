@@ -13,12 +13,17 @@ use std::{
     any::Any,
     ffi::{c_void, CString},
     mem,
+    ops::Deref,
     ptr::{self, NonNull},
     slice, str,
-    sync::Once,
+    sync::{Arc, Once},
 };
 use wasmer_runtime_core::{
-    backend::RunnableModule,
+    backend::{
+        sys::{Memory, Protect},
+        CacheGen, RunnableModule,
+    },
+    cache::Error as CacheError,
     module::ModuleInfo,
     structures::TypedIndex,
     typed_func::{Wasm, WasmTrapInfo},
@@ -203,17 +208,32 @@ fn get_callbacks() -> Callbacks {
     }
 }
 
+pub enum Buffer {
+    LlvmMemory(MemoryBuffer),
+    Memory(Memory),
+}
+
+impl Deref for Buffer {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        match self {
+            Buffer::LlvmMemory(mem_buffer) => mem_buffer.as_slice(),
+            Buffer::Memory(memory) => unsafe { memory.as_slice() },
+        }
+    }
+}
+
 unsafe impl Send for LLVMBackend {}
 unsafe impl Sync for LLVMBackend {}
 
 pub struct LLVMBackend {
     module: *mut LLVMModule,
     #[allow(dead_code)]
-    memory_buffer: MemoryBuffer,
+    buffer: Arc<Buffer>,
 }
 
 impl LLVMBackend {
-    pub fn new(module: Module, _intrinsics: Intrinsics) -> Self {
+    pub fn new(module: Module, _intrinsics: Intrinsics) -> (Self, LLVMCache) {
         Target::initialize_x86(&InitializationConfig {
             asm_parser: true,
             asm_printer: true,
@@ -262,10 +282,44 @@ impl LLVMBackend {
             panic!("failed to load object")
         }
 
-        Self {
-            module,
-            memory_buffer,
+        let buffer = Arc::new(Buffer::LlvmMemory(memory_buffer));
+
+        (
+            Self {
+                module,
+                buffer: Arc::clone(&buffer),
+            },
+            LLVMCache { buffer },
+        )
+    }
+
+    pub unsafe fn from_buffer(memory: Memory) -> Result<(Self, LLVMCache), String> {
+        let callbacks = get_callbacks();
+        let mut module: *mut LLVMModule = ptr::null_mut();
+
+        let slice = unsafe { memory.as_slice() };
+
+        let res = module_load(slice.as_ptr(), slice.len(), callbacks, &mut module);
+
+        if res != LLVMResult::OK {
+            return Err("failed to load object".to_string());
         }
+
+        static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
+
+        SIGNAL_HANDLER_INSTALLED.call_once(|| unsafe {
+            crate::platform::install_signal_handler();
+        });
+
+        let buffer = Arc::new(Buffer::Memory(memory));
+
+        Ok((
+            Self {
+                module,
+                buffer: Arc::clone(&buffer),
+            },
+            LLVMCache { buffer },
+        ))
     }
 }
 
@@ -319,6 +373,28 @@ impl RunnableModule for LLVMBackend {
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
         throw_any(Box::leak(data))
+    }
+}
+
+unsafe impl Send for LLVMCache {}
+unsafe impl Sync for LLVMCache {}
+
+pub struct LLVMCache {
+    buffer: Arc<Buffer>,
+}
+
+impl CacheGen for LLVMCache {
+    fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
+        let mut memory = Memory::with_size_protect(self.buffer.len(), Protect::ReadWrite)
+            .map_err(CacheError::SerializeError)?;
+
+        let buffer = self.buffer.deref();
+
+        unsafe {
+            memory.as_slice_mut()[..buffer.len()].copy_from_slice(buffer);
+        }
+
+        Ok(([].as_ref().into(), memory))
     }
 }
 

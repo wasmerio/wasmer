@@ -36,10 +36,7 @@ use wasmer_runtime_core::{
 
 struct Placeholder;
 impl CacheGen for Placeholder {
-    fn generate_cache(
-        &self,
-        _module: &ModuleInner,
-    ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+    fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
         Err(CacheError::Unknown(
             "the singlepass backend doesn't support caching yet".to_string(),
         ))

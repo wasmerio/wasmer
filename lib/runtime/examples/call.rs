@@ -7,8 +7,6 @@ static WAT: &'static str = r#"
       (type (;0;) (func (result i32)))
       (import "env" "do_panic" (func $do_panic (type 0)))
       (func $dbz (result i32)
-        call $do_panic
-        drop
         i32.const 42
         i32.const 0
         i32.div_u
