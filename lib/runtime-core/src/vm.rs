@@ -569,10 +569,7 @@ mod vm_ctx_tests {
             }
         }
         impl CacheGen for Placeholder {
-            fn generate_cache(
-                &self,
-                module: &ModuleInner,
-            ) -> Result<(Box<ModuleInfo>, Box<[u8]>, Memory), CacheError> {
+            fn generate_cache(&self) -> Result<(Box<[u8]>, Memory), CacheError> {
                 unimplemented!()
             }
         }

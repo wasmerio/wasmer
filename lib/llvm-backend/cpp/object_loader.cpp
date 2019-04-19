@@ -175,21 +175,26 @@ WasmModule::WasmModule(
         callbacks_t callbacks
 ) : memory_manager(std::unique_ptr<MemoryManager>(new MemoryManager(callbacks)))
 {
-    object_file = llvm::cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
+    
+
+    if (auto created_object_file = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
         llvm::StringRef((const char *)object_start, object_size), "object"
-    )));
+    ))) {
+        object_file = cantFail(std::move(created_object_file));
+        SymbolLookup symbol_resolver(callbacks);
+        runtime_dyld = std::unique_ptr<llvm::RuntimeDyld>(new llvm::RuntimeDyld(*memory_manager, symbol_resolver));
 
-    SymbolLookup symbol_resolver(callbacks);
-    runtime_dyld = std::unique_ptr<llvm::RuntimeDyld>(new llvm::RuntimeDyld(*memory_manager, symbol_resolver));
+        runtime_dyld->setProcessAllSections(true);
 
-    runtime_dyld->setProcessAllSections(true);
+        runtime_dyld->loadObject(*object_file);
+        runtime_dyld->finalizeWithMemoryManagerLocking();
 
-    runtime_dyld->loadObject(*object_file);
-    runtime_dyld->finalizeWithMemoryManagerLocking();
-
-    if (runtime_dyld->hasError()) {
-        std::cout << "RuntimeDyld error: " << (std::string)runtime_dyld->getErrorString() << std::endl;
-        abort();
+        if (runtime_dyld->hasError()) {
+            _init_failed = true;
+            return;
+        }
+    } else {
+        _init_failed = true;
     }
 }
 

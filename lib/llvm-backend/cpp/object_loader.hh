@@ -152,6 +152,7 @@ struct WasmModule
 
     void *get_func(llvm::StringRef name) const;
 
+    bool _init_failed = false;
   private:
     std::unique_ptr<llvm::RuntimeDyld::MemoryManager> memory_manager;
     std::unique_ptr<llvm::object::ObjectFile> object_file;
@@ -163,6 +164,10 @@ extern "C"
     result_t module_load(const uint8_t *mem_ptr, size_t mem_size, callbacks_t callbacks, WasmModule **module_out)
     {
         *module_out = new WasmModule(mem_ptr, mem_size, callbacks);
+
+        if ((*module_out)->_init_failed) {
+            return RESULT_OBJECT_LOAD_FAILURE;
+        }
 
         return RESULT_OK;
     }

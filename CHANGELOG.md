@@ -6,6 +6,7 @@ Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
 - [#343](https://github.com/wasmerio/wasmer/pull/343) Implement preopened files for WASI and fix aligment issue when accessing WASI memory
+- [#367](https://github.com/wasmerio/wasmer/pull/367) Add caching support to the LLVM backend.
 - [#366](https://github.com/wasmerio/wasmer/pull/366) Remove `UserTrapper` trait to fix [#365](https://github.com/wasmerio/wasmer/issues/365).
 - [#348](https://github.com/wasmerio/wasmer/pull/348) Refactor internal runtime ↔️ backend abstraction.
 - [#355](https://github.com/wasmerio/wasmer/pull/355) Misc changes to `Cargo.toml`s for publishing
