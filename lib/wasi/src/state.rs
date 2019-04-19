@@ -220,7 +220,7 @@ impl WasiFs {
             };
             // TODO: handle nested pats in `file`
             let inode_val =
-                InodeVal::from_file_metadata(cur_file_metadata, file.clone(), true, kind);
+                InodeVal::from_file_metadata(&cur_file_metadata, file.clone(), true, kind);
 
             let inode = wasi_fs.inodes.insert(inode_val);
             wasi_fs.inodes[inode].stat.st_ino = wasi_fs.inode_counter.get();
