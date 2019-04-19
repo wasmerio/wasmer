@@ -12,12 +12,13 @@ use std::{
     time::SystemTime,
 };
 use wasmer_runtime_core::debug;
-use zbox::{init_env as zbox_init_env, FileType, OpenOptions, Repo, RepoOpener};
+use zbox::init_env as zbox_init_env;
 
 pub const MAX_SYMLINKS: usize = 100;
 
 #[derive(Debug)]
 pub enum WasiFile {
+    #[allow(dead_code)]
     ZboxFile(zbox::File),
     HostFile(fs::File),
 }
@@ -236,7 +237,7 @@ impl WasiFs {
     fn get_inode(&mut self, path: &str) -> Option<Inode> {
         Some(match self.name_map.entry(path.to_string()) {
             Entry::Occupied(o) => *o.get(),
-            Entry::Vacant(v) => {
+            Entry::Vacant(_v) => {
                 return None;
                 // let file = if let Ok(file) = OpenOptions::new()
                 //     .read(true)

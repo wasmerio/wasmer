@@ -37,11 +37,15 @@ fn write_bytes<T: Write>(
         let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
         write_loc
             .write(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
-            .map_err(|_| __WASI_EIO)?;
+            .map_err(|_| {
+                write_loc.flush();
+                __WASI_EIO
+            })?;
 
         // TODO: handle failure more accurately
         bytes_written += iov_inner.buf_len;
     }
+    write_loc.flush();
     Ok(bytes_written)
 }
 
