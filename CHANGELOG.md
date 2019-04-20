@@ -5,6 +5,7 @@ All PRs to the Wasmer repository must add to this file.
 Blocks of changes will separated by version increments.
 
 ## **[Unreleased]**
+- [#371](https://github.com/wasmerio/wasmer/pull/371) Add more Debug impl for WASI types
 - [#368](https://github.com/wasmerio/wasmer/pull/368) Fix issue with write buffering
 - [#343](https://github.com/wasmerio/wasmer/pull/343) Implement preopened files for WASI and fix aligment issue when accessing WASI memory
 - [#367](https://github.com/wasmerio/wasmer/pull/367) Add caching support to the LLVM backend.

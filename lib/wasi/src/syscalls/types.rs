@@ -2,6 +2,7 @@
 
 use crate::ptr::{Array, WasmPtr};
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use std::fmt;
 use std::mem;
 use wasmer_runtime_core::types::ValueType;
 
@@ -212,9 +213,15 @@ pub union __wasi_prestat_u {
     dir: __wasi_prestat_u_dir_t,
 }
 
+impl fmt::Debug for __wasi_prestat_u {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "__wasi_prestat_u")
+    }
+}
+
 unsafe impl ValueType for __wasi_prestat_u {}
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct __wasi_prestat_t {
     pub pr_type: __wasi_preopentype_t,
